@@ -39,10 +39,54 @@ Research only (Tier-1); no live-path touch.
 from __future__ import annotations
 
 import json
+import logging
+import os
+import sys
 
 import pandas as pd
 
-__all__ = ["load_candles", "resample_ohlcv", "norm_rule"]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from candle_variance import (  # noqa: F401  (re-exported for callers)
+    DegenerateSeriesError,
+    VarianceGrade,
+    grade_close_variance,
+)
+
+__all__ = [
+    "load_candles",
+    "resample_ohlcv",
+    "norm_rule",
+    "assert_non_degenerate",
+    "grade_close_variance",
+    "DegenerateSeriesError",
+    "VarianceGrade",
+]
+
+
+def assert_non_degenerate(df: pd.DataFrame, path: str) -> VarianceGrade:
+    """Refuse a FLAT candle frame at the read. Returns the grade regardless.
+
+    MI-157. The rule itself lives in :mod:`candle_variance` — this is only
+    the policy: raise on ``degenerate``, WARN on ``not_gradeable`` (a frame
+    too short to have a return series is "we could not look", which is a
+    different decision from a flat one and is not this reader's to make),
+    pass on ``non_degenerate``. All three states are branched on here, which
+    is what stops the grade collapsing back into a boolean.
+    """
+    closes = df["close"] if "close" in getattr(df, "columns", []) else []
+    grade = grade_close_variance(closes)
+    if grade.state == "degenerate":
+        raise DegenerateSeriesError(
+            f"{path}: candle series is DEGENERATE — {grade.detail} "
+            "Fetch real candle history first "
+            "(scripts/ops/fetch_backtest_candles.py). See MI-157."
+        )
+    if grade.state == "not_gradeable":
+        logging.getLogger(__name__).warning(
+            "%s: candle variance NOT GRADEABLE — %s", path, grade.detail
+        )
+    return grade
 
 
 def load_candles(path: str) -> pd.DataFrame:
@@ -75,8 +119,12 @@ def load_candles(path: str) -> pd.DataFrame:
     df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
     for col in ('open', 'high', 'low', 'close'):
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    return (df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close'])
-              .sort_values('timestamp').reset_index(drop=True))
+    out = (df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close'])
+             .sort_values('timestamp').reset_index(drop=True))
+    # MI-157: refuse a flat series at the READ, not at the eyeball. A silent
+    # fallback to a constant-price series is the defect being fixed here.
+    assert_non_degenerate(out, path)
+    return out
 
 
 def norm_rule(rule: str) -> str:

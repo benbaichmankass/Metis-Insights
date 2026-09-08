@@ -1,5 +1,7 @@
 # Pullback-2h directional walk-forward — long-drag REFUTED out-of-sample (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Tracking:** closes `PB-20260729-CRYPTO-PULLBACK-2H-LONG-DRAG`
 (performance-review-backlog).
 **Predecessor:** `docs/research/regime-debt-matrix-results-2026-07-29.md` §3 — the

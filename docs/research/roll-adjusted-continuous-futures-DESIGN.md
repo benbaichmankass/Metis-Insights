@@ -1,5 +1,7 @@
 # Roll-adjusted continuous native-futures data — DESIGN + plan
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** increments 1 + 2 BUILT & MERGED (#5870). Increment 3 (re-backtest)
 RAN 2026-07-07 — result below and in `ib-metals-native-backtest-2026-07-07.md`:
 the roll-artifact hypothesis for `mgc_trend_1h` is **refuted** (spliced +221.6R

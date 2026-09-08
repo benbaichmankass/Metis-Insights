@@ -1,5 +1,7 @@
 # Live exit-monitor cadence and intrabar evaluation — DESIGN
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** design, nothing shipped. Tier-2 (a new runtime loop) to build,
 Tier-3 to let any of it change an exit.
 **Operator directive (2026-08-10):** *"once a trade is open, the trade monitor

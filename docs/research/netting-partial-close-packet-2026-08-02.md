@@ -1,5 +1,7 @@
 # One-look packet — netting partial-close rows never reduced (BL-20260801)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-2 order-path decision. Operator picks (a) / (b) / (c); I implement the pick.**
 > Root-cause item: `BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED`.
 > Parent (resolved): `BL-20260731-W1-JOURNAL-EXCHANGE-DIVERGENCE-MAP`.

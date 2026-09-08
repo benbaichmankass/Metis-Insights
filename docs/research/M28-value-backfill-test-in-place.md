@@ -1,5 +1,7 @@
 # M28 — historical backfill & the "test-in-place" pattern
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Problem.** A live soak accrues data one tick at a time, so a new signal (or the
 M28 P4 value-thesis gate) can't be validated for weeks. The ML side already solved
 this with `backfill-shadow-predictions` — replay a model over history instead of

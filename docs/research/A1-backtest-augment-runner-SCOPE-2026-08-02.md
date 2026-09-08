@@ -1,5 +1,7 @@
 # A1 research-backtest-augment runner — build scope (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Purpose.** Pin the design for the **new free-runner workflow** the WORK-PLAN
 (`WORK-PLAN-2026-08-02.md` W1.2) requires *before* dispatching A1 (`MB-20260530-001`).
 Written as the "scope that before dispatching A1" deliverable so the build is mechanical

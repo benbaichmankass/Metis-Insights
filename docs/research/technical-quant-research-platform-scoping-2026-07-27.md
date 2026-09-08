@@ -1,5 +1,7 @@
 # M30 — Technical-side deep quant-research platform (scoping)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** SCOPING — for operator review (operator-directed 2026-07-26 night).
 **Anchor:** `MB-20260726-M30-QUANT-RESEARCH-PLATFORM`.
 **Tier:** Tier-1 throughout (offline research tooling, observe-only; no order path,

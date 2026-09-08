@@ -1,5 +1,7 @@
 # AI Model Platform — Architecture
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical (AI scope). Adopted **S-AI-WS1**
 > (2026-05-10). Refreshed through **S-AI-WS5-C**.
 >

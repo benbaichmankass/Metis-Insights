@@ -1,0 +1,30 @@
+id: WO-20260906-IS-SOAKING-ONLY-MECHANICALLY-VERIFYING-WHAT-BACKTESTING
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Is soaking only mechanically verifying what backtesting already proved, or are we soaking things nothing tested
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A written audit of the backtest -> soak -> live chain with the population stated at each hop. (1) For every leg with execution: live, was its CURRENT bracket geometry ever swept -- name the run or say PENDING. (2) Where a soak is accruing, name the backtested claim it is mechanically verifying; a soak with no such claim is the inversion and should be listed. (3) Explain why results are not matching expectation -- candidates to TEST not assume: the harness cannot detect a positive (see the positive-control object), the soak population differs from the backtest population, the live geometry differs from what was swept, or the metric being compared is the contaminated R. (4) State what the 36 blocked cells actually need. !! This audit must NOT rest on expectancyR -- it is sign-inverted. !! Propose, do not re-tune anything.
+
+why: >-
+  OPERATOR, 2026-09-06: 'we have and are correctly utilizing all of the backtesting infrastructure, which is supposed to mean that soaking is only for mechanical verification of what we already have tested to be verifiably true in backtesting ... we also need to understand why that doesn't seem to be producing the results that we're expecting.' MEASURED, and the chain looks inverted at least once: bracket_geometry reads PENDING -- never swept -- on the ENTIRE 8-leg ict_scalp family, every one of which has execution: live. So those brackets are live on real and paper money having never been backtested, which is the opposite of the stated contract. 20 cells are pending fleet-wide and 36 are blocked, mostly for want of a candle feed on equities/futures.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

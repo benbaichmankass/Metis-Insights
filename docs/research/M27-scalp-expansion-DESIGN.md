@@ -1,5 +1,7 @@
 # M27 — Scalp Expansion (design + phased plan)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator-directed 2026-07-20** (same session as the ict_scalp_5m Phase-0→4
 arc, PR #7115): *"take the basis of what we worked on today and see if we can
 expand that to lots of other strategies, pairs, symbols"* — test the existing

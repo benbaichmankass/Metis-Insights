@@ -89,7 +89,30 @@ decision_requests:
       answered_by: operator
       answered_on: '2026-09-02'
       channel: telegram (ClaudeBot inline prompt), answered in free text to the manager
-      chosen: null
+      chosen: none_of_the_above
+      free_text: >-
+        2026-09-02: "for this, i want us to keep researching better models or better ways
+        to build models". RE-AFFIRMED 2026-09-04 after the operator was asked AGAIN:
+        "I have already answered this question repeatedly. It needs to be logged
+        correctly. We're not using either arm because neither of them have proven that
+        they're production ready. But we still have a... we are not shelving the idea
+        completely. We still need to have a milestone for finding and building and tuning
+        an actual functional LLM that is production ready."
+        ⚠️ NEITHER ARM IS ADOPTED AND THE PATH IS NOT SHELVED — those are the two things
+        the three declared options could not express between them.
+      ⚠️_why_this_was_re_asked: >-
+        ⚠️ THE ANSWER WAS ALWAYS HERE AND THE GRADER COULD NOT SEE IT. This block was
+        written 2026-09-02 with `chosen: null` and no `free_text`, and
+        `work_decisions.normalise_answer()` returns None unless one of those two is a
+        non-empty string — so `grade_answer_state()` graded the request
+        `not_submitted`, the inbox kept listing it, and the sweep kept re-prompting it.
+        The operator answered repeatedly and was re-asked every time. MEASURED
+        2026-09-04 by running the real normaliser over this file, not by inspection.
+        Adding `chosen` + `free_text` is what makes the existing answer READABLE; the
+        prose fields below are kept because they carry the reasoning the schema cannot.
+        This is the SECOND instance of the class in one day — the same defect was found
+        and fixed on DEC-20260903-SUNSET-DISPOSITION-POLICY the same morning — which is
+        why it is now a CI guard (`check_decision_answers.py`) rather than a third fix.
       verdict: ALL_THREE_DECLARED_OPTIONS_REFUSED
       operator_words: >-
         "for this, i want us to keep researching better models or better ways to build
@@ -124,9 +147,71 @@ decision_requests:
         both size arms are measured, and a throughput comparison was never what was
         owed. A session picking this up should design a DIFFERENT experiment, not
         re-run the old one on a 1-core box under the heavy lock.
+      the_MILESTONE_the_operator_asked_for: >-
+        ⚠️ OPERATOR DIRECTIVE 2026-09-04, AND IT IS THE ACTIONABLE HALF OF THIS ANSWER:
+        "We still need to have a milestone for finding and building and tuning an actual
+        functional LLM that is production ready." So this object does NOT close on the
+        refusal — the refusal redirects the work, and a decision that redirects without
+        anything carrying the new direction is how the direction is lost. What is owed is
+        a MILESTONE in ROADMAP.md (the centralized record of every milestone, its status
+        and dates), not another benchmark and not another decision request. Its done
+        condition is a model that is PRODUCTION READY — the operator's words and the bar
+        both arms failed — which on this repo's own rules means measured against a stated
+        task, not asserted. ✅ FILED 2026-09-04 as ROADMAP.md M41 (⚠️ M41, not M40 —
+        M40 was already taken by the research-workflow milestone; the number was checked
+        against the table rather than assumed from M39 being the visible tail). It is
+        filed at 📋 BACKLOG and NOT STARTED, and the row says so in its own status —
+        filing the milestone is not progress on it. It inherits M38's surviving findings
+        rather than rediscovering them: M38 was closed with "we should still build it,
+        just not for the screenshots", and its public-repo and trainer-VM constraints
+        are the expensive part of the work.
 
 evidence:
   - docs/claude/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM
 verdict: >-
   ANSWERED 2026-09-02 -- all three declared options refused; the path stays OPEN as a
   research line and no arm is adopted. See decision_requests[0].answer.
+
+answer:
+  answered_by: operator
+  answered_on: '2026-09-03'
+  answered_via: >-
+    Asked directly in the Claude Code session. The Telegram prompt for this one
+    HAD been delivered (2026-09-02T13:40:53Z, and the operator's own /decisions
+    screenshot shows it rendering); it simply had not been answered until now.
+  verdict: none_of_the_above
+  verbatim: >-
+    "We need to backlog this for further research - there's no point in wasting
+    resources on a bad model, but we have to continue finding/building a
+    production worthy llm"
+  reading: >-
+    ⚠️ THIS IS NOT `carries_no_weight`, AND THE DIFFERENCE MATTERS. My third
+    option said "shelve the path" — stop the work. The operator is splitting
+    that in two: STOP SPENDING ON THESE TWO ARMS (neither is production-worthy,
+    so further trainer-VM time on them is waste), and KEEP THE GOAL ALIVE as
+    research. Recording it as `carries_no_weight` would have closed a direction
+    the operator explicitly wants continued, which is the more expensive error.
+  what_this_means_concretely: >-
+    NEITHER the 1.5B NOR the 3B carries weight. Nothing is adopted, nothing
+    influences any decision path, and no further benchmarking of these two arms
+    is scheduled. The 1.5B stays disqualified on the measured defect that
+    disqualified it (it FABRICATED a causal claim, joining two unrelated facts
+    with an invented "indicating", and misattributed a fault to venue liquidity
+    when the defect was our own sizer reading an empty account-level field).
+    The 3B is better on exactly those two defects and still never names the
+    mechanism, so it is an improvement in truthfulness rather than in
+    usefulness — not a reason to adopt it.
+  and_the_half_that_stays_open: >-
+    The QUESTION "can a local LLM do useful work here" is NOT closed. What is
+    closed is "do either of these two arms carry weight" — no. A successor must
+    not read this row as the local-LLM path being abandoned.
+  followup: >-
+    Filed as MI-108 and routed to the ml-review backlog, which is where AI
+    experiment follow-ups and new-manifest ideas live — not the health backlog.
+    ⚠️ THE OPEN QUESTION IS NOT "WHICH SIZE" — both size arms have now been
+    measured and both failed on ANSWER QUALITY, not on throughput, so a third
+    size is the obvious wrong next experiment. What has never been varied is
+    the TASK FRAMING and the RETRIEVAL: both arms were asked an open repo
+    question with no grounded context, which is the setup most likely to
+    produce invention. The next experiment should change that variable, not the
+    parameter count.

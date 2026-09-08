@@ -1,5 +1,7 @@
 # Alpaca MCP server (read-only diagnostic resource)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** documented 2026-07-02 (Track F of the `RPT-20260702-061700-since-last`
 > system-review follow-up plan), at the operator's request. Not yet connected to
 > any session as of this writing — this doc is the reference for when it is.

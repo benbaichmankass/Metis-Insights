@@ -1,0 +1,2 @@
+Hand-reconcile OPEN-PRS.json: 5 settled rows moved, 2 open rows added,
+4 stale auto-reconcile PRs closed.

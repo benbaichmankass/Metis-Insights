@@ -1,5 +1,7 @@
 # Design A — ML regime head as the regime-router **vol-axis** verdict (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Operator-approved (2026-06-27, all-three go). Tier-3 order-path program, built
 in observe → use → enforce phases; each live phase is a separate operator-gated
 draft PR. This doc is the spec.

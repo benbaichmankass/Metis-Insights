@@ -1,5 +1,7 @@
 # ML buildout strategy — where the AI goes next (2026-06-30)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Source: a 29-agent grounded+adversarial analysis (map the decision pipeline →
 > ideate across 5 lenses → adversarially verify each idea against the actual repo
 > + prior research). Companion to the deep-review P1–P16 plan in

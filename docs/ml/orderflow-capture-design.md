@@ -1,5 +1,7 @@
 # Order-flow / microstructure capture — design proposal (S-MLOPT-S10, M14 Phase 2.2)
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** PROPOSAL, opened 2026-06-04. The Tier-1 estimator core
 > ([`ml/datasets/orderflow_features.py`](../../ml/datasets/orderflow_features.py))
 > + tests are shipped; **the live-capture path + storage + runtime wiring

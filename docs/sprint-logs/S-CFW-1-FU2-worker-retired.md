@@ -1,5 +1,7 @@
 # Sprint Log: S-CFW-1-FU2 — cf-worker retired (IP restriction)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-05-10
 - End: 2026-05-10 (PARTIAL — code + docs done; operator-side

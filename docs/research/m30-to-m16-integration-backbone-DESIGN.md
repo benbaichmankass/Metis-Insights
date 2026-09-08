@@ -1,5 +1,7 @@
 # M30 → M16 Integration Backbone — design of record
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** design of record (2026-07-27). **Milestone:** M36 Track D. **Anchor:**
 `MB-20260727-M36-CONSOLIDATION-INTEGRATION`. **Tier:** Tier-1 research +
 observe-only training-data integration. A discovered edge influences a live

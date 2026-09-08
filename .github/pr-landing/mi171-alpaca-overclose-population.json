@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-only measurement answering the 'We did not look.' population note on BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. One new doc under docs/research/, its one-line docs/DOCUMENT-INDEX.md registration, one read-only script under scripts/research/, and two committed input artifacts so every figure re-derives with no live access. NOTHING on the close path: AlpacaClient.close and execute.close_open_position are untouched and unread except to quote them — that repair is Tier-3 and belongs to MI-168's PR #11279, which is blocked on two operator decisions. No src/, no config/, no deploy/, no workflows, no VM mutation. The live reads were GETs against /api/diag (journal + exchange_positions), which mutate nothing."
+}

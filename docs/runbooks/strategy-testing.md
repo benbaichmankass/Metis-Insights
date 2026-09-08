@@ -1,3 +1,5 @@
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > # 🗑️ RETIRED 2026-08-20 — THE FLOW THIS DOCUMENTS NO LONGER EXISTS
 >
 > **Do not follow this runbook.** The M5 `/test <strategy>` consumer was

@@ -1,5 +1,7 @@
 # Strategy Improvement Program — Milestone Plan (2026-05-23)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Active program plan. Created in **S-STRAT-IMPROVE-S0**.
 > **Authority order:** `docs/CLAUDE-RULES-CANONICAL.md` →
 > `docs/ARCHITECTURE-CANONICAL.md` → `ROADMAP.md` → this plan →

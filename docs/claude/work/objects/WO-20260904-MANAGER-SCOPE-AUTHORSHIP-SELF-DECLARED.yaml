@@ -1,0 +1,98 @@
+id: WO-20260904-MANAGER-SCOPE-AUTHORSHIP-SELF-DECLARED
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  manager-scope-guard derives authorship from a trailer the author writes themselves, so a MIS-stamped commit is a false violation and a MIS-stamped commit is also an open evasion
+stage: DEPLOYMENT
+lifecycle: done
+owner: null
+opened_at: 2026-09-04
+closed_at: 2026-09-04
+
+why: >-
+  MEASURED 2026-09-03T14:0xZ while trying to land #10895. check_manager_scope
+  grades it a VIOLATION: commit 5504200c touches scripts/notify_on_pull.py and
+  tests/test_notify_merge_pings.py under a `Claude-Session:` trailer naming
+  session_011JWFxuYAaEQKCFCmG6gnHJ -- the PREVIOUS DAY'S MANAGER -- so the guard
+  reads it as a manager doing an item.
+  ⚠️ THE EVIDENCE SAYS THE TRAILER IS WRONG, AND THAT IS A READING RATHER THAN A
+  PROVEN FACT: the commit body is written in the MI-83 WORKER's voice ("a defect
+  in what I shipped", "The reason it could not be read is MINE") about #10857,
+  which is MI-83's own PR; the PR body's footer names
+  session_018ruZdgEkPZ1XceWzLwuYUU (MI-83); and that session was alive at
+  06:13:07Z when the commit was authored. So the guard produced a TRUE finding
+  about what it can SEE and a FALSE one about what HAPPENED.
+  ⚠️ THE INVERSE IS THE DANGEROUS HALF AND IT IS UNGUARDED: authorship is taken
+  from a trailer the author writes themselves, so a manager wanting to do an item
+  can simply stamp a worker's session id and the guard vouches for it. The guard
+  already discloses that UNTRAILERED commits are "a gap in coverage, not evidence
+  of compliance" -- a MIS-trailered one is not covered by that caveat and reads
+  as a graded verdict. A guard cheaper to lie to than to satisfy is worse than no
+  guard, which is the lesson its own siblings cite new-table-wiring-guard for.
+
+cost_of_not_doing_it: >-
+  #10895 stays OPEN, and it is the PR that makes OI-20260902-PER-MERGE-PING
+  verifiable at all. The 2026-09-03 manager did NOT force it, did NOT write an
+  exception, and did NOT rewrite another session's commit -- all three were
+  correctly refused -- so the block is real and only this object clears it.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-04 by the manager. Nothing blocks the work: the guard is
+  scripts/ci/check_manager_scope.py, the diagnosis is already measured against a
+  live instance, and no operator decision is required to make a guard state the
+  limits of its own evidence.
+
+done_condition: >-
+  EITHER authorship is established from something the author does not solely
+  control, OR the trailer's limits are stated in the guard's own output so a
+  mis-stamp reads as `unattributed` rather than as a graded verdict -- with BOTH
+  a plant AND a control in --self-test, so the check is shown to catch the thing
+  and shown not to fire on the clean case.
+  ⚠️ A THIRD STATE IS THE POINT: `attributed` / `unattributed` / `violation` must
+  not collapse. "We cannot establish who wrote this" is not the same fact as
+  "a manager did an item", and today they render identically.
+
+do_not: >-
+  ⚠️ DO NOT resolve this by excepting #10895. manager-scope-exception.yaml is for
+  live INCIDENTS by its own header, not for excusing a mis-stamp.
+  ⚠️ DO NOT rewrite commit 5504200c. It is on another session's branch and
+  rewriting another session's history is forbidden.
+  ⚠️ DO NOT merge #10895 past a failing required check to get the result you
+  want -- that is the thing the whole landing discipline exists to stop.
+  ⚠️ DO NOT weaken the guard into silence on untrailered commits; the disclosure
+  it already makes is correct and load-bearing.
+  Resolving #10895 specifically may just need its author session
+  (session_018ruZdgEkPZ1XceWzLwuYUU) to re-commit with the right trailer, which
+  is a different and cheaper move than changing the guard -- if you take it, say
+  so explicitly and note that it fixes the INSTANCE and not the CLASS.
+
+review_trigger: >-
+  If a second PR is blocked by a mis-stamped trailer before this lands, the
+  false-positive half stops being theoretical and the priority rises.
+
+lifecycle_note: >-
+  CLOSED by the manager 2026-09-04T22:4xZ on the owning session's own observation,
+  not on the merge. #10977 is merged and commit 5504200c now grades `unattributed`
+  rather than an R2 violation -- the three-state fix this object was opened for,
+  read back rather than asserted. That is MERGED AND OBSERVED, which is what `done`
+  means here.
+  ⚠️ IT DID NOT UNBLOCK #10895, AND THIS ROW MUST NOT BE READ AS IF IT HAD.
+  `cost_of_not_doing_it` above says "only this object clears it" and that sentence
+  is now FALSE -- kept rather than edited, because the correction is the finding.
+  The owning session re-measured after its own fix landed and found a SECOND,
+  INDEPENDENT defect in the same guard: R7 reads the previous heartbeat from
+  `sha~1`, which on a MERGE commit is the worker branch's stale lease blob, so the
+  manager's merge 5244dafb reads as a lapse when the true same-holder gap is 49min,
+  inside the 90min TTL. It FILED that rather than folding it into its own PR --
+  the correct disposition -- as
+  BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE.
+  #10895 is blocked on THAT row now, and MERGE-QUEUE.json records the same edge.
+  ⚠️ AND THE R7 DEFECT HAS A SECOND FACE THE MANAGER MET DIRECTLY TONIGHT: R7 also
+  grades a CLAIM over an EXPIRED lease as a late heartbeat. Its own selection rule
+  already exempts a HANDOVER, reasoning that "grading one would fail the incoming
+  manager for the outgoing one's silence" -- the identical argument applies to a
+  lease that DIED and was re-claimed. Left as-is it makes the cheapest route to a
+  green PR "do not push the lease at all", i.e. do not record the lapse. Operator
+  decision 2026-09-04: fix R7, routed to its own session (MI-122), and do NOT
+  write a scope exception for it.

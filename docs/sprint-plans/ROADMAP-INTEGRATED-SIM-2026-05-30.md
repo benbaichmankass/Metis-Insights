@@ -1,5 +1,7 @@
 # ROADMAP — Integrated Strategy+ML Simulation Harness (SIM)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** DESIGN — operator-requested 2026-05-30. Not yet built.
 > **Author:** Claude (session_0176Luj9yVhn39gz4WhfKbmJ).
 > **Tier:** building the harness is Tier-1 (new tooling, no live-order-path

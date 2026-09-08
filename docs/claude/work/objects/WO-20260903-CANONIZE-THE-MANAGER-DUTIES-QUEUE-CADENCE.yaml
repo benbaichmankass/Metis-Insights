@@ -1,0 +1,102 @@
+id: WO-20260903-CANONIZE-THE-MANAGER-DUTIES-QUEUE-CADENCE
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Canonize the manager's BASE DUTIES -- running the merge queue and holding a check-in cadence -- as mechanisms, plus the meta-rule that turns operator feedback into canon
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  Operator directive 2026-09-03, verbatim: "that's one of the base functions of what a
+  manager session is supposed to do. That needs to be canonized. It's not something you
+  take upon yourself in the session... certainly in this session where we're still ironing
+  out the workflow. We need to make sure that these types of feedbacks are turning into
+  actual rules when applicable. Some comments are obviously one-offs, but in general here,
+  this is a deeper problem that other sessions need to be prevented from getting to."
+  ⚠️ THE POINT IS NOT THIS SESSION'S BEHAVIOUR. The 2026-09-03 manager did eventually build
+  a queue and did tighten its cadence, but only after the operator said so twice -- and a
+  fix that lives in one session's context dies with that session. The NEXT manager starts
+  from the same blank slate and re-derives the same jam.
+
+measured_harm: >-
+  On 2026-09-03, with no queue and a ~20-25 minute check-in cadence: 26 merges to main, 19
+  of them (73%) touching a shared register, at least 5 authored by the manager and 2 of
+  those bare lease heartbeats -- merges whose entire content is a timestamp. Every such
+  merge re-conflicted every open PR touching a register. #10918 was conflicted THREE times;
+  #10923 conflicted the instant it went green; 20 PRs sat open with 12 of them machine
+  authored and stacked three deep per family. Multiple sessions each burned a ~16-minute
+  pytest-run whose result was void before it finished, because all of them rebased at once
+  against a moving target.
+
+three_things_to_canonize:
+  duty_1_the_manager_RUNS_the_merge_queue: >-
+    Not "resolves conflicts when they appear" -- SCHEDULES. The manager decides the order,
+    names ONE PR as position 1, tells that owner to rebase and let CI run, merges it, then
+    PROMOTES the next and POKES its owner. ⚠️ THE LOAD-BEARING HALF IS THE HOLD: only
+    position 1 rebases. A session rebasing from position 3 burns CI on a target about to
+    move AND adds the churn that makes position 1 harder to land. ⚠️ AND A SESSION DOES NOT
+    POLL THE QUEUE -- an unpoked session is an idle session, so promotion without a poke is
+    not promotion. State of record is docs/claude/work/MERGE-QUEUE.json (created 2026-09-03).
+  duty_2_a_check_in_CADENCE_the_manager_cannot_silently_drop: >-
+    Operator: "It can't be that the manager session is idle for thirty minutes. That just
+    should basically never happen because there should always be more updates -- that's
+    reflective of the fact that there's a problem here and that you're not actively
+    managing." The 2026-09-03 manager ran 20-25 minute sweeps and treated the interval as a
+    cost question rather than a supervision one. ⚠️ THE CADENCE IS A DUTY, NOT A TUNING
+    KNOB, and the gap is MEASURABLE without any new instrument: MANAGER-LEASE.json's git
+    history already records every heartbeat (59 revisions across 3 sessions as of
+    2026-09-03; measured gaps median 18 min, p90 66, max 480).
+  duty_3_the_META_rule_feedback_becomes_canon: >-
+    The operator's broader point, and the one with the longest reach: operator feedback must
+    be TRIAGED into one-off vs. rule, and anything graded a rule must land as canon with a
+    mechanism -- not as a habit inside the session that received it. ⚠️ THIS IS THE RULE
+    THAT WOULD HAVE PREVENTED THE OTHER TWO from being learned twice. A session that fixes
+    its own behaviour and does not canonize it has converted a systemic finding into a
+    private one.
+
+done_condition: >-
+  All three are enforced by a CHECK, not by a paragraph -- the standard MI-95 set and the
+  operator restated ("hard mechanisms that bite", not "suggestions in context"). AND the
+  check is observed FAILING on a real violation or PASSING on a real compliance, on a PR
+  other than the one that introduces it. ⚠️ A PASSING SELF-TEST IS NOT THE DONE-CONDITION:
+  a harness cannot reach a manager that stopped checking in.
+
+design_constraints: >-
+  ⚠️ HOME IS scripts/ci/check_manager_scope.py, WHICH ALREADY EXISTS (MI-95, PR #10918) and
+  already derives "who is the manager" from the LEASE rather than from branch names. Do NOT
+  build a second manager-identity notion -- that is the two-taxonomies drift this repo keeps
+  paying for.
+  ⚠️ EACH DUTY NEEDS AN HONEST NEGATIVE. Ask of every check whether it can distinguish "the
+  manager did not do this" from "we could not look", and if not, that is the bug. A queue
+  file that is absent is NOT evidence the queue was run badly; it is evidence nobody looked.
+  ⚠️ THE CADENCE CHECK MEASURES THE RECORD, NEVER THE SUPERVISION -- the same caveat R6
+  carries. A manager who unblocked three sessions over Telegram and heartbeated nothing
+  grades absent. That is deliberate (a cold successor can only read what was written) and
+  must be STATED rather than allowed to imply that a green cadence means good management.
+  ⚠️ THE THRESHOLD MUST BE MEASURED, NOT CHOSEN BY FEEL, and stated with its population --
+  the 25% field-retention floor in check_register_ids.py is the worked example. Read
+  MANAGER-LEASE.json's history for the real distribution before picking a number, and say
+  what fraction of past heartbeats the threshold would have failed. A threshold that fails
+  most of history gets deleted rather than fixed.
+  ⚠️ DUTY 3 IS THE HARDEST TO MECHANIZE AND MUST NOT BE FAKED. CI cannot read a conversation,
+  so it cannot know feedback was given. Do NOT ship a marker a session sets to assert "I
+  triaged the feedback" -- that is a guard cheaper to lie to than to satisfy, the
+  new-table-wiring-guard failure. If the honest answer is that duty 3 can only be a
+  session-end discipline (the doc-freshness skill's shape) rather than a check, SAY SO and
+  put it there instead of inventing a check that grades nothing.
+
+blocked_on:
+  - kind: pr
+    ref: "10918"
+    since: 2026-09-03
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by the manager. check_manager_scope.py does not exist on main yet --
+  it lands with #10918, which is position 2 in the merge queue. Building against it before
+  it lands would create a third concurrent PR on the same file, which is the collision this
+  whole object is about.
+
+review_trigger: >-
+  Re-read when #10918 merges.

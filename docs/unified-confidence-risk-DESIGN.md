@@ -1,5 +1,7 @@
 # Unified Confidence Risk Architecture — DESIGN / RESEARCH PLAN
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: PROPOSAL (research phase).** Nothing in here ships until the plan
 > is approved. Implementation is Tier-3 (touches the live order path + sizing)
 > and stays gated behind operator approval, phased rollout, and a shadow soak.

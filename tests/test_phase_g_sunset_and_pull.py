@@ -142,3 +142,69 @@ def test_the_live_pass_states_its_population():
               "machinery_probe", "packet_dates_read"):
         assert k in p, f"the pass must publish `{k}` beside its verdict"
     assert p["machinery_probe"]["control"] in {"passed", "failed", "not_run"}
+
+
+def test_sunset_pass_never_proposes_a_leg_absent_from_the_lifetime_capture():
+    """MI-126 — an absent leg was being recorded as a measured ZERO.
+
+    `sunset_pass.py` defaulted `lifetime.get(name, 0)` under a `read` capture,
+    defended by a comment claiming `/api/bot/performance` "lists every strategy
+    with any closed trade". It does not: `src/web/api/routers/performance.py`
+    filters `AND t.pnl IS NOT NULL`, so it lists every strategy with a
+    *pnl-bearing* close. A leg whose every close landed `pnl NULL` is simply
+    ABSENT — and the default turned that absence into `never_closed_lifetime`
+    and the note "has never closed a single trade in its life".
+
+    Population, measured 2026-09-05 against `/api/bot/performance?window=all`:
+    52 enabled legs, 46 present, **11 absent and silently defaulted to 0**;
+    nine of the ten proposed retirements were among them, and five of the ten
+    had closed trades in `trade_journal.db::trades` before the packet was
+    written. See `docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md`.
+
+    ⚠️ This test FAILS on the old default — that is the point of it. `absent`
+    and `measured_zero` below are identical in routing and in gate history and
+    differ ONLY in whether the capture carries them, so the assertion cannot
+    pass by accident.
+    """
+    idx = [("2026-09-01", {"rows": [
+        {"strategy": "absent", "n_closed": 0,
+         "reasons": ["no closed trades in window — insufficient evidence."]},
+        {"strategy": "measured_zero", "n_closed": 0,
+         "reasons": ["no closed trades in window — insufficient evidence."]},
+    ]})]
+    routing = {"absent": [("alpaca_paper", "paper")],
+               "measured_zero": [("alpaca_paper", "paper")]}
+
+    rows = {r["name"]: r for r in sp.grade_strategies(
+        idx, lifetime_state="read", lifetime={"measured_zero": 0}, routing=routing)}
+
+    absent = rows["absent"]
+    assert absent["verdict"] != "retire_candidate", (
+        "a leg ABSENT from the capture was proposed for retirement on that absence; "
+        f"got verdict={absent['verdict']} basis={absent['basis']}")
+    assert absent["basis"] == "lifetime_not_observed"
+    assert absent["evidence"]["leg_lifetime_state"] == "not_observed"
+    assert absent["evidence"]["lifetime_closed_trades"] is None, (
+        "an absence must stay None — writing 0 asserts a measurement nobody made")
+
+    # The POSITIVE CONTROL: the branch is not simply disabled. A leg that IS in
+    # the capture and reads zero is still a candidate, on a real measurement.
+    measured = rows["measured_zero"]
+    assert measured["verdict"] == "retire_candidate"
+    assert measured["basis"] == "never_closed_lifetime"
+    assert measured["evidence"]["leg_lifetime_state"] == "observed"
+
+
+def test_sunset_pass_states_how_many_legs_it_could_not_measure():
+    """"Always state the population" — applied to the absence itself.
+
+    A reader who cannot see how many legs were graded with NO lifetime
+    measurement cannot tell how much of the pass rests on silence.
+    """
+    idx = [("2026-09-01", {"rows": [
+        {"strategy": "absent", "n_closed": 0,
+         "reasons": ["no closed trades in window — insufficient evidence."]}]})]
+    rows = sp.grade_strategies(idx, lifetime_state="read", lifetime={},
+                               routing={"absent": [("alpaca_paper", "paper")]})
+    assert sum(1 for r in rows
+               if r["evidence"]["leg_lifetime_state"] == "not_observed") == 1

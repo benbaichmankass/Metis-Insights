@@ -1,5 +1,7 @@
 # WS-A S3b — Fee/Commission Headroom (2026-06-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Meantime Expansion Program, WS-A S3b. Quantifies the last autonomous
 > unknown: how much real round-trip commission the two S3 passers can
 > absorb before the edge dies. Driver:

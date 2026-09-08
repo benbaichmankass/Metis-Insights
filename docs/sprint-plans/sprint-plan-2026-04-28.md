@@ -1,5 +1,7 @@
 # ICT Bot Sprint Plan — Live Trading Hardening + Repo Cleanup
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Sprint start:** 2026-04-28
 **Owner:** Ben Baichman-Kass
 **Project:** [the-lizardking/ict-trading-bot](https://github.com/the-lizardking/ict-trading-bot)

@@ -1,5 +1,7 @@
 # § 7 — Risk-cap enforcement audit
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Trace from `config/accounts.yaml` → `RiskManager` → `place_order`, then test
 gap analysis.
 

@@ -1,5 +1,7 @@
 # Why we have so little real data — the acquisition-side root cause
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** problem statement + verified evidence, written 2026-07-30 as a **handoff for a
 fresh session**. Nothing here is fixed yet.
 

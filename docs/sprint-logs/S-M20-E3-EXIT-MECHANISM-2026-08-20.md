@@ -1,5 +1,7 @@
 # S-M20-E3-EXIT-MECHANISM — the E2 gate resolved, and E3 answered with a negative that names its own cause
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint ID:** S-M20-E3-EXIT-MECHANISM-2026-08-20 · **Date:** 2026-08-20
 **Milestone:** M20 (exit mechanism) · **Tier:** 1 throughout
 **Branch:** `claude/m20-e3-exit-mechanism-r6r266`

@@ -1851,8 +1851,29 @@ def apply_intent_reduce_partial_close(
         else:
             # Partially consumed → shrink the row, leave it open. Status is
             # NOT passed so update_trade fires no close ping.
+            #
+            # ROUND the residual before persisting (MI-139,
+            # WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED). A raw IEEE-754
+            # subtraction of two step-aligned quantities yields values like
+            # 33.299999999999955 (= 289.4 - 256.1), which `close_open_position`
+            # later puts on the wire verbatim as `str(qty)`; Bybit refuses it
+            # ("Qty invalid", ErrCode 10001) and THE POSITION CANNOT BE
+            # FLATTENED by the normal path. Measured: 3 consecutive rejections
+            # on bybit_1/SOLUSDT, 2026-09-06T03:37:22Z.
+            #
+            # This was the ONLY unrounded `position_size` writer — the two
+            # siblings that also subtract already round (order_monitor's
+            # partial-close at 8dp, order_monitor.py:9345 at 10dp), which is the
+            # elimination proof that every observed artifact came from here.
+            #
+            # `round(x, 8)` is the IDENTITY on any legal quantity: the finest
+            # Bybit step in play is 0.001, so every legal qty on every wired
+            # symbol has at most 3 decimals. It is NOT step alignment — a
+            # genuine 33.35 on a 0.1 step survives it untouched; that is
+            # `qty_legalize.snap_artifact_qty`'s job at the wire. This only
+            # stops us MANUFACTURING an illegal value in the first place.
             db.update_trade(parent_id, {
-                "position_size": parent_qty - consumed,
+                "position_size": round(parent_qty - consumed, 8),
             })
         allocations.append({"parent_id": parent_id, "consumed": consumed})
         remaining -= consumed
@@ -2797,13 +2818,38 @@ def close_open_position(
 
     if exchange == "bybit":
         try:
+            # Function-local import, deliberately: qty_legalize resolves the
+            # live lot rule via `from src.units.accounts.execute import
+            # _bybit_category`, so a module-level import here would close a
+            # circular import at load time.
+            from src.units.accounts.qty_legalize import snap_artifact_qty
+
             category = _bybit_category(account_cfg)
+            # Repair a float ARTIFACT before it reaches the wire (MI-139,
+            # WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED). `str(qty)` on a
+            # raw journal residual sends e.g. "33.299999999999955", which Bybit
+            # refuses ("Qty invalid", ErrCode 10001) — and a close that cannot be
+            # placed is how a position drifts away from its journal row.
+            #
+            # NEAREST, never floor — see snap_artifact_qty's docstring. Flooring
+            # would under-close by a full step and orphan the residue with no
+            # journal row, turning a loud failure into a silent one.
+            #
+            # The wire string changes ONLY when the value is off-grid, i.e. only
+            # for orders the venue rejects today; `unchanged` and `not_graded`
+            # both return `str(float(qty))`, byte-for-byte the previous line.
+            _snap_qty, snap_qty_str, snap_state = snap_artifact_qty(
+                qty,
+                account_cfg=account_cfg,
+                symbol=symbol,
+                client=exchange_client,
+            )
             kwargs = {
                 "category": category,
                 "symbol": symbol,
                 "side": close_side,
                 "orderType": "Market",
-                "qty": str(qty),
+                "qty": snap_qty_str,
             }
             if category == "spot":
                 # Spot has no reduceOnly (derivatives-only); the close is a
@@ -2823,9 +2869,9 @@ def close_open_position(
                 order_id = (resp.get("result") or {}).get("orderId")
                 logger.info(
                     "close_open_position: account=%s symbol=%s side=%s qty=%s "
-                    "→ orderId=%s",
+                    "(sent=%s, qty_state=%s) → orderId=%s",
                     account_cfg.get("account_id"), symbol, close_side, qty,
-                    order_id,
+                    snap_qty_str, snap_state, order_id,
                 )
                 # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: this trade's tracked
                 # Partial-tpsl leg(s) no longer protect anything once the

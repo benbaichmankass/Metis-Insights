@@ -1,0 +1,30 @@
+id: WO-20260907-ONE-LIVE-WORK-PLAN-A-ROADMAP-THAT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  One live work plan, a roadmap that matches reality, and priority assigned by TASK rather than by milestone
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  THREE things, and the third is the one the operator actually asked for. (1) EXACTLY ONE work-plan document is live. Every other one carries an explicit terminal status in its own header - superseded, or closed-unfinished with what was left - and a CI guard refuses a second live plan, so this cannot silently regress. The census is stated: how many plan documents exist, which one is live, and what each closed one was closed as. (2) ROADMAP.md reflects reality: every milestone row's status is checked against what actually shipped, and the ones that are wrong are corrected. Its 'Next' section points at the LIVE plan, not a stale one. Where a row cannot be verified, it says so rather than being left as an unchecked claim. (3) A TASK-LEVEL priority order that CROSSES milestones. Not a ranking of milestones - a ranking of the specific tasks that serve the current cycle priority, including tasks that live inside milestones we are deliberately NOT pushing. The operator's exact framing: a milestone we do not generally want to push may contain a subtask that unlocks something we do. Each ranked task names its parent milestone, what it unblocks, and why it sits where it does.
+
+why: >-
+  Operator-directed 2026-09-07. Measured: TWELVE work-plan documents exist; docs/research/WORKPLAN-2026-08-14.md still declares itself ACTIVE while being three generations stale (08-14 -> 08-21 -> 08-26 -> 08-29, which declares itself the live plan); ROADMAP.md's Next section points readers at the stale 08-14; and docs/claude/CYCLE-PRIORITY.json - newer than all of them - is what actually drives sessions. Three surfaces, three different answers, and the manager gave the operator a stale roadmap read directly because of it. The roadmap half is already filed as BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES and has not been driven. NOTE the operator explicitly REJECTED the framing that many open milestones is a problem: they are TRACKS, deliberately unfunded right now, and that is fine. The defect is not the count - it is that nothing says which TASK matters.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, operator direction 2026-09-07
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

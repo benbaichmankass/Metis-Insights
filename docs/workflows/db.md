@@ -1,5 +1,7 @@
 # Unit 8 — DB workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Responsibility
 Unified storage for trades, signals, and backtest results across all units.
 All units write through the Coordinator or their own module — never raw SQL from UI layers.

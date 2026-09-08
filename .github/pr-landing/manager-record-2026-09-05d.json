@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — two files under docs/claude/work/: MANAGER-CHECKLIST.json (MI-128's pre-deploy baseline for the five rows, with the after-check grading fixed in advance) and MANAGER-LEASE.json (the heartbeat). Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file. Both files were taken BY VALUE from the previous manager branch after checking per file that this side is NEWER than main (checklist 07:26:41Z vs 07:20:30Z; lease 07:26:42Z vs 07:20:30Z) — not copied wholesale, which is the defect BL-20260905-A-WHOLESALE-DIRECTORY-COPY-REWOUND-FIVE-GENERATED-REGISTERS-AND-DROPPED-THREE-FILED-ROWS records. It self-lands because holding manager state on a branch is the defect MI-130 records."
+}

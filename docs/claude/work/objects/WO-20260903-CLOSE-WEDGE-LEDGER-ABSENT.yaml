@@ -1,0 +1,96 @@
+id: WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The standing close-wedge ledger does not exist, and the digest that replaced the pager reads a non-canonical path for it -- so a downgraded wedge is in NEITHER channel
+stage: DEPLOYMENT
+lifecycle: waiting
+owner: null
+opened_at: 2026-09-03
+closed_at: null
+
+why: >-
+  On 2026-09-02 (MI-34) the operator DELIBERATELY downgraded close failures whose
+  `share_hold` reads `broker_cancel_wedged` OUT of the paging channel and INTO the
+  work digest, on the sound reasoning that a wedge no bot-side lever can clear
+  should not page repeatedly. ⚠️ THAT DOWNGRADE IS ONLY SAFE IF THE DIGEST
+  ACTUALLY CARRIES THEM, AND IT DOES NOT. Measured 2026-09-03 via
+  `/api/diag/log_file?name=close_wedge_standing`:
+  `{"path": "/data/bot-data/runtime_logs/close_wedge_standing.json", "present": false, "lines": []}`.
+  So a `broker_cancel_wedged` close failure is currently carried by NEITHER
+  channel, on a REAL-MONEY close path. The 2026-09-03 work digest says so in its
+  own words -- "an un-fetched ledger means such an item is currently in NEITHER
+  channel" -- and that warning is what surfaced this.
+
+two_defects_do_not_collapse_them: >-
+  (1) THE READER USES THE WRONG PATH. The digest reported the ledger absent at
+  `/home/ubuntu/ict-trading-bot/runtime_logs/close_wedge_standing.json` -- a
+  repo-relative path -- while diag resolves it under `$DATA_DIR` at
+  `/data/bot-data/runtime_logs/`. That is the CWD-relative-fallback class
+  `canonical-db-resolver` exists to forbid for the journal DB, reappearing for a
+  runtime_logs artifact. Even a working writer would keep reporting NOT EXAMINED.
+  (2) THE LEDGER IS ABSENT AT THE CANONICAL PATH TOO, so the writer has never
+  written it. These are different failures with different fixes and fixing one
+  does not fix the other.
+
+done_condition: >-
+  BOTH halves, and say which you cleared. (a) The digest and every other reader
+  resolve this artifact through the canonical `$DATA_DIR`-based resolver -- verified
+  by the digest NAMING `/data/bot-data/...` in its own output, not by reading the
+  code. (b) The absence is DISAMBIGUATED: the writer emits an empty-but-present
+  ledger with a timestamp, so `wedges: []` means WE LOOKED AND FOUND NONE, distinct
+  from a missing file meaning WE DID NOT LOOK. ⚠️ NOT SUFFICIENT: creating the file
+  by hand -- the WRITER must produce it.
+
+also_required: >-
+  ⚠️ ESTABLISH WHETHER THIS HAS ALREADY COST SOMETHING. While (b) is unresolved,
+  determine whether ANY `broker_cancel_wedged` close failure has occurred since
+  MI-34 shipped on 2026-09-02. If one has, it was silently in neither channel and
+  that is an INCIDENT, not a gap -- report it as such rather than folding it into
+  the fix. Related standing item: the alpaca_paper GLD wedge in
+  `OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED`, whose OCO
+  parent has sat at `pending_cancel` since 2026-08-27.
+
+scope_limits: >-
+  Ops / live-system observability ONLY. Do NOT touch the order path, strategy
+  config, risk caps, or any Tier-3 surface. The classifier and the close paths are
+  NOT in scope -- only whether their output reaches a channel a human reads.
+  ⚠️ DO NOT "fix" this by re-arming the pager: the operator chose the downgrade
+  deliberately and it is recorded; the job is to make the channel they chose work.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-03 by the manager. Nothing blocks it: the diag read that
+  measures it is available, both defects are in reader/writer code, and the
+  operator has confirmed live-system work is not gated by the workflow-build
+  sequencing.
+
+review_trigger: >-
+  Re-read at the next Ops pass if not closed.
+
+refs:
+  - BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL
+
+lifecycle_note: >-
+  CORRECTED in_flight -> waiting 2026-09-04 by the manager, on an explicit operator decision.
+  THE HONEST BASIS FIRST, because the timing invites a less honest one: MI-101's PR #10944 is
+  MERGED (717f00eb), its owning session is IDLE, and the row is `landed_unproven` awaiting a
+  fleet observation -- a fresh `present: true` from /api/diag/log_file?name=close_wedge_standing
+  plus a digest naming a /data/bot-data/ path. Nobody is working it; it is waiting on an
+  observation. `waiting` is what that state is called, and `in_flight` was stale from the moment
+  the PR merged.
+  ⚠️ AND THE THING THAT IS NOT INCIDENTAL, STATED RATHER THAN BURIED: this edit also takes
+  in_flight from 8 to 7, which unblocks a repo-wide CI failure the manager itself caused.
+  tests/test_work_digest.py builds a digest from the LIVE work store and asserts the not-hit
+  case stays quiet, so at 8/8 -- a state check_wip_ceiling.py explicitly grades OK -- three
+  tests go red on every PR that runs the suite. The manager put the choice to the operator
+  rather than making it, precisely because changing production state to turn a test green is
+  the wrong direction even when the change is independently defensible.
+  ⚠️ THE OPERATOR REFUSED THE ALTERNATIVE ON PRINCIPLE, and that reason is the durable part:
+  a wip-ceiling-exception was available and was declined -- 'we are not going to lean towards
+  making an exception like this ever like we have. We're trying to stick to a set of rules that
+  will keep us focused.' So this is not a precedent for re-lifecycling objects to clear CI; it
+  is a correction that was owed anyway.
+  ⚠️ THE TEST DEFECT IS UNFIXED AND WILL RE-FIRE the next time in_flight legitimately reaches
+  the ceiling. Filed as MI-120. It is NOT fixed here: tests/ is a worker path, and the operator
+  was explicit that the manager delegates rather than doing items.

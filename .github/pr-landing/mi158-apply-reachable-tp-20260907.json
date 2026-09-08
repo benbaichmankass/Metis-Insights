@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "operator approved the CONTENT on 2026-09-07: 'ok on the gld tp4 and the 24 declarations' (PR #11225, merged d50543a1); the manager merges once CI is green",
+  "why": "config/strategies.yaml is Tier-3 by path, and this moves a resting order on a live leg: gld_pullback_1h tp_r 50.0 -> 4.0, the only value change in the PR. The other 24 legs get declaration-only tp_intent blocks and 9 get their inherited sentinel written out, both verified runtime-identical, but a Tier-3 file does not become Tier-1 because most of the diff is inert. The operator approved the content, not the application, so a human still lands it. No pr-automerge-requests file exists on this branch by design."
+}

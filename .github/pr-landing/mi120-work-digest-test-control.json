@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tests only. The diff touches tests/test_work_digest.py and docs/claude/health-review-backlog.json and nothing else: no src/, no config/, no deploy/, no order path, no strategy config, no risk caps, no live-VM runtime file, and the WIP ceiling value is unchanged. Tier-1 by the canonical doc's own list. MI-120: the work object's defect (the not-hit control drawn from the live work store) was already remediated on 2026-09-04, verified here against a constructed store at 8 of 8 in flight; what remained was that the ceiling boundary was never computed under test, only injected, so the off-by-one that silences the ceiling at exactly 8 of 8 passed all 35 tests. Both added tests build a real store on a real ref and let standing_state count it, so neither reads the live store."
+}

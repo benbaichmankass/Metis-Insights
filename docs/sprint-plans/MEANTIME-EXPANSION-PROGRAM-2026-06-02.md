@@ -1,5 +1,7 @@
 # Meantime Expansion Program — Milestone Plan (2026-06-02)
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Active program plan. Created this session (strategy + ML
 > review).
 > **Authority order:** `docs/CLAUDE-RULES-CANONICAL.md` →

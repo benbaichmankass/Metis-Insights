@@ -1,5 +1,7 @@
 # M15 Phase 4 — Practice-Fleet Soak Report (2026-06-11)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Workstream A of the M15 soak session (S-M15-PHASE4-SOAK part 2).
 > Verifies the practice fleet that went live 2026-06-11 —
 > `xauusd_trend_1h` on `oanda_practice` and

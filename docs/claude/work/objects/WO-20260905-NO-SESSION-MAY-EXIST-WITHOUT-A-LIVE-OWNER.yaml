@@ -1,0 +1,59 @@
+id: WO-20260905-NO-SESSION-MAY-EXIST-WITHOUT-A-LIVE-OWNER
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  OPERATOR DIRECTIVE 2026-09-05: no session works on its own without ownership, in any case.
+  Measured the same day: of 79 idle sessions, ZERO have a live owner and 76 are orphaned.
+stage: DESIGN
+lifecycle: ready
+owner: null
+opened_at: 2026-09-05
+
+operator_directive: >-
+  Verbatim, 2026-09-05, after the manager reported 79 idle sessions carried over from previous
+  managers: "no sessions working on their own without ownership. That should not happen in any
+  case." Recorded as given. The manager did NOT build the mechanism -- that is a worker item --
+  and did NOT sweep-archive the 79, which would destroy the evidence this row rests on.
+
+why: >-
+  MEASURED 2026-09-05T14:35Z against platform truth (list_sessions(mine=true, limit=100)) joined
+  to docs/claude/work/SESSIONS.json. POPULATION: the 79 sessions the platform reports IDLE.
+  RESULT, and every number is a count not an estimate:
+    - ZERO have an owner session that is currently RUNNING. Not one.
+    - 76 are ORPHANED -- their spawned_by session is itself idle, archived or dead.
+    - 1 records no spawned_by at all.
+    - 2 are NOT IN THE REGISTRY AT ALL, so no record of them exists to own.
+    - 32 are registered but name NEITHER a checklist_item NOR an owns_object, so even on finding
+      one you cannot tell what it was for.
+  THE ONLY RUNNING SESSION ACCOUNT-WIDE IS THE MANAGER ITSELF.
+  ⚠️ WHY THIS IS NOT MERELY UNTIDY. Ownership is what makes work recoverable. An orphaned
+  session's deliverable either reached main or did not, and with no owner and, for 32 of them, no
+  named item, NOBODY IS ACCOUNTABLE FOR FINDING OUT. That is the exact shape of the loss the
+  session registry was built to prevent, at a scale nobody had measured.
+  ⚠️ AND THE REGISTER HID IT: before this measurement 65 of 94 rows carried a state the platform
+  contradicts and 58 had never been observed once, so the register reported 41 sessions
+  working/idle/running when one was running. A rule about ownership cannot be enforced on top of
+  a register that is 69% wrong about state -- fix the derivation, or the enforcement inherits the
+  lie (BL-20260905-THE-SESSION-REGISTRY-WAS-WRONG-ON-69-PERCENT-OF-STATES-AND-58-ROWS-HAD-NEVER-BEEN-OBSERVED-ONCE).
+
+done_condition: >-
+  A session cannot reach a working state without a named, LIVE owner, and the absence is
+  DETECTED rather than remembered. Concretely, all three:
+    (a) a mechanism grades every non-terminal session against a live observation and reports any
+        whose owner is not a running session -- demonstrated by a planted orphan being caught
+        alongside a positive control that stays quiet;
+    (b) ownership is DERIVED at read time (from a live list_sessions join), never stored at spawn
+        time, so it cannot silently go stale the way `state` did;
+    (c) the 79 existing orphans are DISPOSITIONED -- each either claimed by a live owner or
+        recorded as closed with its deliverable's fate stated.
+  ⚠️ NOT SUFFICIENT: archiving the 79. That resolves the LIFECYCLE and says nothing about whether
+  their work reached main, which is the half that carries the loss -- an idle session is not a
+  finished one.
+  ⚠️ NOT SUFFICIENT: a documented rule that a manager must register and check ownership. That is
+  the reminder-is-not-a-mechanism non-fix this repo has already paid for three times on MI-15,
+  whose recorded remedy was "remember to register" and which recurred again on 2026-09-05.
+  ⚠️ NOT SUFFICIENT: a one-off re-grade like the manager's own 2026-09-05 pass. It was stale the
+  moment it was written.
+
+blocked_on: []
+blocked_on_basis: NOT_ASSESSED

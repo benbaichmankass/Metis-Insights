@@ -1,5 +1,7 @@
 # Deriving a real `target_r` — crypto pullback legs (2026-08-23)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Operator decision this serves:** *"Declare real target_r per leg"*, taken
 2026-08-23 after the live soak showed 13 of 14 open positions carrying a
 take-profit whose level Bybit's ~9.9% cap chose rather than any strategy

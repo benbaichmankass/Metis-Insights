@@ -1,5 +1,7 @@
 # Does pooling rescue the 1d fleet's exit-head cells? Measured: no.
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-13 · **Tier:** 1 (research; changes no live lever) ·
 **Evidence:** trainer-diag [#8923](https://github.com/benbaichmankass/Metis-Insights/issues/8923)
 (+ [#8924](https://github.com/benbaichmankass/Metis-Insights/issues/8924), the symmetric arm)

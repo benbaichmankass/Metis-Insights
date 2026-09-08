@@ -1,0 +1,161 @@
+{
+ "alpaca_live": {
+  "captured_at": "2026-09-07T21:57:01.073949+00:00",
+  "requested_account_id": "alpaca_live",
+  "accounts": [
+   {
+    "account_id": "alpaca_live",
+    "exchange": "alpaca",
+    "positions": [],
+    "count": 0,
+    "error": null
+   }
+  ]
+ },
+ "alpaca_paper": {
+  "captured_at": "2026-09-07T21:57:02.186927+00:00",
+  "requested_account_id": "alpaca_paper",
+  "accounts": [
+   {
+    "account_id": "alpaca_paper",
+    "exchange": "alpaca",
+    "positions": [
+     {
+      "symbol": "GDX",
+      "side": "long",
+      "size": 162.0,
+      "entry_price": 97.639444,
+      "unrealised_pnl": 262.530072
+     },
+     {
+      "symbol": "GLD",
+      "side": "long",
+      "size": 39.0,
+      "entry_price": 419.508462,
+      "unrealised_pnl": -496.800018
+     },
+     {
+      "symbol": "IAUM",
+      "side": "long",
+      "size": 613.0,
+      "entry_price": 43.497618,
+      "unrealised_pnl": 430.560166
+     },
+     {
+      "symbol": "IEF",
+      "side": "short",
+      "size": 141.0,
+      "entry_price": 93.51,
+      "unrealised_pnl": 177.66
+     },
+     {
+      "symbol": "QQQ",
+      "side": "long",
+      "size": 9.0,
+      "entry_price": 717.576667,
+      "unrealised_pnl": 12.449997
+     },
+     {
+      "symbol": "SLV",
+      "side": "long",
+      "size": 345.0,
+      "entry_price": 60.07,
+      "unrealised_pnl": -86.25
+     },
+     {
+      "symbol": "SPY",
+      "side": "long",
+      "size": 11.0,
+      "entry_price": 755.659091,
+      "unrealised_pnl": 159.839999
+     },
+     {
+      "symbol": "TLT",
+      "side": "short",
+      "size": 707.0,
+      "entry_price": 82.365205,
+      "unrealised_pnl": 109.729935
+     }
+    ],
+    "count": 8,
+    "error": null
+   }
+  ]
+ },
+ "alpaca_portfolio": {
+  "captured_at": "2026-09-07T21:57:02.979208+00:00",
+  "requested_account_id": "alpaca_portfolio",
+  "accounts": [
+   {
+    "account_id": "alpaca_portfolio",
+    "exchange": "alpaca",
+    "positions": [
+     {
+      "symbol": "GDX",
+      "side": "long",
+      "size": 252.0,
+      "entry_price": 97.6575,
+      "unrealised_pnl": 403.83
+     },
+     {
+      "symbol": "GLD",
+      "side": "long",
+      "size": 123.0,
+      "entry_price": 400.469919,
+      "unrealised_pnl": 774.909963
+     },
+     {
+      "symbol": "IEF",
+      "side": "short",
+      "size": 152.0,
+      "entry_price": 93.51,
+      "unrealised_pnl": 191.52
+     },
+     {
+      "symbol": "QQQ",
+      "side": "long",
+      "size": 9.0,
+      "entry_price": 717.55,
+      "unrealised_pnl": 12.69
+     },
+     {
+      "symbol": "SLV",
+      "side": "long",
+      "size": 422.0,
+      "entry_price": 60.088934,
+      "unrealised_pnl": -113.490148
+     },
+     {
+      "symbol": "SPY",
+      "side": "long",
+      "size": 84.0,
+      "entry_price": 769.54,
+      "unrealised_pnl": 54.6
+     },
+     {
+      "symbol": "TLT",
+      "side": "short",
+      "size": 72.0,
+      "entry_price": 82.309028,
+      "unrealised_pnl": 7.130016
+     }
+    ],
+    "count": 7,
+    "error": null
+   }
+  ]
+ },
+ "alpaca_options_paper": {
+  "captured_at": "2026-09-07T21:57:04.113744+00:00",
+  "requested_account_id": "alpaca_options_paper",
+  "accounts": [
+   {
+    "account_id": "alpaca_options_paper",
+    "exchange": "alpaca",
+    "positions": [],
+    "count": 0,
+    "error": null
+   }
+  ]
+ }
+}

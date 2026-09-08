@@ -1,5 +1,7 @@
 # bybit_2 broker reconciliation — journal vs Bybit UM export (2026-07-13)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Trigger.** Operator asked to verify that the `bybit_2` real-money trade log is
 correctly recorded against the broker's own data — with the wrinkle that the
 account was traded through **two Bybit sub-accounts** over its life (switched to

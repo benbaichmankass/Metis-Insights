@@ -1,5 +1,7 @@
 # R-metric contamination — the measurement record (2026-09-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > ## ⚠️ CORRECTION to this PR's own `FOR THE MANAGER` section
 >
 > The PR body's **Tests** bullet reads *"I could not run the full suite … **I

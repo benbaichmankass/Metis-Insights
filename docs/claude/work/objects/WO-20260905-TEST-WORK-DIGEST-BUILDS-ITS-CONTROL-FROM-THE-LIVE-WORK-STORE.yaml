@@ -1,0 +1,57 @@
+id: WO-20260905-TEST-WORK-DIGEST-BUILDS-ITS-CONTROL-FROM-THE-LIVE-WORK-STORE
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  tests/test_work_digest.py builds its NOT-HIT control from the LIVE work store, so the whole
+  suite goes red whenever in_flight legitimately reaches the WIP ceiling — a correct production
+  state fails CI and blocks the merge queue
+stage: DEPLOYMENT
+lifecycle: done
+closed_at: 2026-09-05
+owner: null
+opened_at: 2026-09-05
+
+why: >-
+  MEASURED 2026-09-04, and it blocked the ENTIRE merge queue for ~90 minutes.
+  tests/test_work_digest.py::test_ceiling_hit_is_loud_and_under_ceiling_is_not calls
+  wd.build_digest('HEAD','HEAD') — the REAL work store at the git ref — and uses that as the
+  NOT-HIT control, asserting `'WIP CEILING HIT' not in quiet`. So the control is valid ONLY
+  while production happens to be under the ceiling. The manager took in_flight to the ceiling
+  in the ordinary course of managing, and a correct production state turned the suite red.
+  ⚠️ THIS IS NOT A FLAKE AND MUST NOT BE RE-RUN. The test fails deterministically whenever the
+  work store is at 8/8. Re-running it is treating a real failure as a flake, which this repo's
+  own drive-to-green rules forbid in terms.
+  ⚠️ IT IS ARMED AGAIN RIGHT NOW. in_flight reached 8 of 8 on 2026-09-05T03:30Z during ordinary
+  routing and was brought to 7 of 8 only by closing a STALE object whose work was already on
+  main. Nothing prevents the next legitimate spawn from re-arming it, so this recurs by
+  construction rather than by bad luck.
+  ⚠️ THE DEEPER CLASS, which is why this is worth fixing properly rather than pinning a number:
+  a test whose CONTROL is drawn from live production state is not a control at all — it asserts
+  that production is currently in a particular condition, and reports the violation as a code
+  defect. The same shape would make any future assertion over the work store silently
+  production-dependent.
+
+done_condition: >-
+  test_ceiling_hit_is_loud_and_under_ceiling_is_not passes with the work store BOTH under the
+  ceiling AND at the ceiling — demonstrated by constructing a fixture store at 8/8 in_flight and
+  running the test against it, not by waiting for production to be in a convenient state.
+  BOTH halves must still be asserted after the fix: the digest must be LOUD at the ceiling and
+  QUIET under it. A fix that makes the test pass by no longer checking one of those has removed
+  the test rather than repaired it — say which assertion survives.
+  ⚠️ NOT SUFFICIENT: (a) the suite going green today, since it is green at 7/8 by construction
+  and that is the state the defect hides in; (b) skipping, xfailing or quarantining the test —
+  explicitly forbidden by CLAUDE.md; (c) raising the WIP ceiling, which moves the number the
+  defect triggers at and leaves the coupling intact.
+  ⚠️ ALSO IN SCOPE, and cheap while you are there: check whether any OTHER assertion in that
+  file (or in the work-store tests generally) draws its expected value from the live store, and
+  report the denominator — how many assertions you read — so a clean result has one. If others
+  exist, FILE them rather than widening this object.
+
+blocked_on: []
+blocked_on_basis: ASSESSED
+
+closing_evidence: >-
+  CLOSED 2026-09-05 against the MERGE, not a session claim: PR #11025 is on main. The ceiling boundary is
+  computed under test rather than drawn from the live work store, and the session answered the denominator
+  question asked of it -- 339 assertions audited for the same live-store coupling, 2 further instances FILED
+  rather than widened into.

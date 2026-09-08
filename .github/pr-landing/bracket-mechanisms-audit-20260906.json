@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs-only audit (MI-146). Three paths: a NEW memo under docs/research/, the lifecycle+answer fields of one docs/claude/work/objects/*.yaml, two appended rows in docs/claude/health-review-backlog.json, and this declaration. Tier-1 by the canonical doc's own list — no src/, no tests/, no scripts/, no .github/workflows/, no config/, no deploy/, no order path, no strategy config, no risk caps, and no canonical prose outside the generated SESSION-BRIEF block. It also does NOT touch docs/research/exit-refinement-coverage.json: the memo PROPOSES re-statusing 33 cells and does not apply any of it. Every recommendation past #1 changes a live exit and is explicitly marked Tier-3 propose-only, so merging this memo applies nothing and arms nothing on either VM — it puts the reading on main where concurrent sessions can act on it, which is the point (one has already been pointed at it on board #6927). R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}

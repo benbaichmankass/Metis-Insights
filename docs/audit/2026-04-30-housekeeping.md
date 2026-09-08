@@ -1,5 +1,7 @@
 # S-016 H0 — Housekeeping audit, 2026-04-30
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Scope:** read-only inventory of the Telegram bot surface, systemd unit
 graph, requirements pinning, and known carry-over items. No code
 changes in this PR; downstream H1..H7 PRs fix what's listed here.

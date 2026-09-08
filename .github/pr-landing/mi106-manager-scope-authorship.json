@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI guard logic and its self-test only: scripts/ci/check_manager_scope.py plus the MI-106 backlog row and register notes. No src/, no order path, no strategy config, no risk caps, no deploy/, no live-VM runtime file, no workflow YAML. Tier-1 by the canonical doc's own list, and the brief for MI-106 says so explicitly ('Tier-1 (a CI guard, no order path) — land it yourself on green CI'). The change is verified by the guard's own --self-test, which goes 19 cases -> 23: the new pair is a PLANT (a mis-stamped trailer must read `unattributed`, not `violation`) and a CONTROL (the same diff and trailer authored inside the manager's office window must still be a `violation`), so the plant cannot be satisfied by a guard that has merely stopped enforcing R2."
+}

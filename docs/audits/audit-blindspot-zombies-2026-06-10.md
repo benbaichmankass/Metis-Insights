@@ -1,5 +1,7 @@
 # Why the full-system audit missed the Cloudflare + Tradovate zombies
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-06-10
 **Trigger:** The full-system audit (PR #3233 bot / #88 dashboard / #43 android)
 reconciled the canonical docs against the code and reported the spine sound —

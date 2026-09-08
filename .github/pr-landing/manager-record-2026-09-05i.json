@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surfaces only: docs/claude/work/MERGE-QUEUE.json (refreshed from 07:21Z to reality -- the lane was jammed all morning and the queue did not say so) and docs/claude/work/HANDOFF-20260905-DAY.md (the successor brief), plus the two landing-declaration files themselves. Content re-landed after PR #11062 squash-merged on an earlier head and stranded this commit -- the third instance today of auto-merge firing on the first green commit, which is itself documented in the brief being landed here. No src/, no config/, no deploy/, no .github/workflows/, no tests, no order path, no strategy config, no risk caps, no live-VM runtime file: Tier-1 by the canonical doc's own surface list. Verified before pushing: R8 ok (8 entries, 0 rebasing), and every BL- id cited across the registers and the brief resolves to a filed backlog row (0 unresolved)."
+}

@@ -1,5 +1,7 @@
 # Regime router — design proposal (2026-06-01)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Initiative step 2** of regime-aware routing (`PERF-20260601-002`). The
 > evidence (step 1) is `docs/research/regime-roster-matrix-2026-06-01.md`. This
 > proposes the mechanism that turns that evidence into a live policy. **Tier-3

@@ -1,5 +1,7 @@
 # Training Center
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Canonical (training-center scope). Adopted in **S-AI-WS4**
 > (2026-05-10). Updated in **S-AI-WS4-FU** (2026-05-10):
 > Predictor abstraction + split strategies + `compare` subcommand.

@@ -1,5 +1,7 @@
 # GitHub Actions budget — scope + management (the automation is Claude's to run)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The operator does **not** touch GitHub Actions — Claude is the only driver, so
 keeping Actions **storage** and **minutes** within budget is Claude's
 responsibility. This doc is the management contract. (Adopted 2026-06-10 after

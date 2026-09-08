@@ -10494,7 +10494,10 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
         broker retention window (``_BROKER_PNL_RECOVERY_MS``).
 
     Other guards: only ``position_size > 0`` rows (a ``rejected`` / never-filled
-    row has no result and correctly stays NULL); 14-day window, ≤100 rows/tick.
+    row has no result and correctly stays NULL); 14-day window keyed on the
+    CLOSE (``COALESCE(closed_at, created_at)``, MI-128 — keying it on the OPEN
+    made a position held longer than the window unpriceable *and* undeclarable),
+    ≤100 rows/tick.
 
     Runs every monitor tick alongside the Bybit sweep. Best-effort — never
     raises. Returns ``{"scanned", "filled", "relinked", "still_pending",
@@ -10530,8 +10533,36 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
                 # src.web.api._clean_trades.exclude_reduce_leg_predicate.
                 "   AND COALESCE(setup_type, '') != 'intent_reduce' "
                 "   AND COALESCE(notes, '') NOT LIKE '%\"intent_reduce\": true%' "
-                "   AND datetime(created_at) >= datetime('now', '-14 days') "
-                " ORDER BY datetime(created_at) DESC "
+                # MI-128: the window keys on the CLOSE, not the OPEN.
+                # `created_at` is when the position was OPENED; the value this
+                # sweep exists to recover is a property of the CLOSE. Keyed on
+                # the open, a position held longer than the window is ALREADY
+                # outside it at the moment it closes and stays outside forever
+                # — so the row was never selected, never offered to the anchor,
+                # and never reached the `no_anchor` branch below that stamps
+                # `pnl_source: unmeasured`. The result was a SILENT null with no
+                # provenance key at all, which is precisely the state
+                # src/runtime/provenance.py exists to prevent ("absence of a
+                # provenance record is not evidence of measurement"). Measured
+                # 2026-09-05 over the full live journal (5,494 rows; closed,
+                # non-backtest, intent_reduce excluded, hold computable =
+                # 1,373): pnl-NULL share was 2.0% at <1d and 90.9% at >14d, and
+                # 0 of 20 rows held >14d had EVER been declared, against 16 of
+                # 37 held <=14d.
+                #
+                # COALESCE falls back to the open for the `orphaned` rows this
+                # sweep also selects, which have no closed_at. It cannot
+                # silently drop a row: measured over that same population,
+                # every non-null created_at (5,494) and closed_at (1,625)
+                # parses under sqlite datetime() — 0 unparseable — and the
+                # re-key is strictly additive (9 rows gained, 0 lost).
+                "   AND datetime(COALESCE(closed_at, created_at)) "
+                "       >= datetime('now', '-14 days') "
+                # ORDER BY is re-keyed with it, deliberately: it feeds LIMIT
+                # 100, so ordering by the OPEN would leave the same defect one
+                # level down — a long-held row that has just closed sorts last
+                # and would be starved by 100 more-recently-OPENED rows.
+                " ORDER BY datetime(COALESCE(closed_at, created_at)) DESC "
                 " LIMIT 100"
             )
             rows = [dict(r) for r in cursor.fetchall()]

@@ -1,5 +1,7 @@
 # IB metals sleeve — native-instrument backtest (2026-07-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Author:** Claude. **Context:** the IB metals sleeve (`mgc_pullback_1d`,
 `mhg_pullback_1d` — LIVE on `ib_paper`; `mgc_trend_1h` — shadow) was only ever
 validated on **proxy** series (Dukascopy XAUUSD spot, GC=F, HG=F, GLD). This is

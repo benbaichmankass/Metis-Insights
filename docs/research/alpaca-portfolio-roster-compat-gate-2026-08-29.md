@@ -1,5 +1,7 @@
 # The `alpaca_portfolio` roster against its own ruleset — all 14 legs
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **2026-08-29 · Tier-1 research. Nothing wired, no config edit proposed.**
 
 This is the widened evidence the operator asked for rather than deciding the

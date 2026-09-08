@@ -530,65 +530,25 @@ def _exit_head_verdict(
     cfg_dict: Dict[str, Any],
     current_price: float,
 ) -> Optional[Dict[str, Any]]:
-    """M20 E3 apply path — full close when the ADVISORY-stage exit head
-    fires AND the strategy YAML declares it. Fail-closed on anything
-    missing or malformed (returns ``None``); **never raises**.
+    """Moved to `src/runtime/exit_head_apply.py` — see that module for the
+    contract (every gate, and why each one is required).
 
-    Gates, all required:
-    - ``rec`` — a fresh score from ``maybe_score_exit_head`` (None on any
-      scoring skip, incl. the once-per-closed-bar dedup — so the decision
-      is evaluated once per bar, matching the trained policy's cadence).
-    - ``exit_head_action: close`` declared in meta (new packages) or cfg
-      (live YAML — covers already-open packages via the monitor's
-      live-cfg default).
-    - artifact ``stage == "advisory"`` — the operator promotion gate; a
-      shadow-stage artifact NEVER closes anything.
-    - optional ``exit_head_model`` pin must match the artifact's model_id.
-    - the conditional policy fires: score < τ AND open_r < below_r, where
-      τ is ``exit_head_threshold`` (meta/cfg override) or the artifact's
-      own shape default.
+    Kept as a thin delegation rather than deleted, exactly as
+    `_stale_stop_verdict` / `_giveback_verdict` were when their bodies moved to
+    `exit_levers.py`: the body is now SHARED with the `ict_scalp` family
+    (MI-150), and a shim makes the move reviewable **as a move** — this
+    module's behaviour is unchanged — instead of as a rewrite.
+
+    ⚠️ Do NOT re-inline this. A second copy of the exit-head firing rule is how
+    the two consumers drift, and the peak-vs-below_half_r branch is precisely
+    the kind of detail that gets copied once and then fixed in only one place
+    (MB-20260716 / M20 P4.2 is that bug, already paid for once).
+    `tests/test_exit_head_apply_parity.py` runs this call site and the
+    `ict_scalp` one over the SAME case table.
     """
-    try:
-        if not rec:
-            return None
-        action = str(meta.get("exit_head_action")
-                     or cfg_dict.get("exit_head_action") or "").lower()
-        if action != "close":
-            return None
-        if str(rec.get("stage") or "") != "advisory":
-            return None
-        pin = meta.get("exit_head_model") or cfg_dict.get("exit_head_model")
-        if pin and str(pin) != str(rec.get("model_id")):
-            return None
-        tau = _coerce_float(meta.get("exit_head_threshold")
-                            or cfg_dict.get("exit_head_threshold"))
-        if tau is None:
-            tau = _coerce_float(rec.get("tau"))
-        below_r = _coerce_float(rec.get("below_r"))
-        score = _coerce_float(rec.get("score"))
-        open_r = _coerce_float((rec.get("feature_row") or {}).get("open_r"))
-        if None in (tau, below_r, score) or open_r is None:
-            return None
-        # The firing rule follows the artifact's declared SHAPE (mirrors
-        # exit_head_shadow.py's would_exit): the below_half_r head fires LOW
-        # scores on losers (score < tau AND open_r < below_r); the peak_*
-        # heads fire HIGH scores when the peak is in (score > tau [AND
-        # open_r >= below_r for peak_winner]). Hardcoding the below_half_r
-        # rule would fire a peak head on exactly the wrong condition
-        # (MB-20260716 / M20 P4.2 graduation). `exit_head_threshold` still
-        # overrides tau on either branch.
-        policy = str(rec.get("policy") or "below_half_r")
-        if policy.startswith("peak"):
-            fires = score > tau and (
-                policy != "peak_winner" or open_r >= below_r)
-        else:
-            fires = score < tau and open_r < below_r
-        if not fires:
-            return None
-        return {"action": "close", "reason": "exit_head",
-                "exit_price": current_price}
-    except Exception:  # noqa: BLE001 — fail-closed, never a spurious close
-        return None
+    from src.runtime.exit_head_apply import exit_head_verdict
+
+    return exit_head_verdict(rec, meta, cfg_dict, current_price)
 
 
 def _stale_stop_verdict(meta, cfg_dict, open_pkg, candles_df,

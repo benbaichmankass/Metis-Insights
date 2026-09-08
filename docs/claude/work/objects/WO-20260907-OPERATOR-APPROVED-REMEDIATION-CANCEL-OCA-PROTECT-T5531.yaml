@@ -1,0 +1,30 @@
+id: WO-20260907-OPERATOR-APPROVED-REMEDIATION-CANCEL-OCA-PROTECT-T5531
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  OPERATOR-APPROVED remediation - cancel oca-protect-t5531 then repair trade 5531
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Orders 548 and 551 of oca-protect-t5531 are cancelled with the venue state verified before and after (read_state orders_read), oca-protect-t5353 untouched, and trade 5531 journalled closed at 4392.9 / -17024.28 with provenance stamped honestly so a repaired row stays distinguishable from one the pipeline booked. Root cause remains open under MI-168.
+
+why: >-
+  Operator approved option 3 on 2026-09-07 with all three options and consequences stated: cancel the legs THEN repair the row, in that order, because a repair alone leaves 43 resting sell lots and a cancel alone leaves a phantom row for the next protection sweep to re-arm.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

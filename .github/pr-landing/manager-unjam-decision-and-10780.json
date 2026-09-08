@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two register edits and one new work-object YAML. No runtime, no order path, no strategy config, no risk caps, no workflow, no live-VM file, no test. Tier-1 by the canonical doc's own examples. It is armed to SELF-LAND deliberately, unlike the manager's main branch: this branch is cut fresh from main, carries exactly two changes, and both are time-sensitive — holding it behind a hand-merge is the delay it exists to remove."
+}

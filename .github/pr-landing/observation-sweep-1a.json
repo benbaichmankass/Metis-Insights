@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Follow-up to the merged #11101. ONE appended row in docs/claude/health-review-backlog.json, written through scripts/ops/backlog_append.py (10 insertions, no reformat). It records a defect I caused in .github/workflows/board-post.yml's idempotency while reporting that sweep. No src/, no config/, no workflows, no deploy/, no order path, no strategy config, no risk caps, no VM mutation. #11101 auto-merged on the green from an earlier commit, so this commit missed the squash; per the merged-PR rule this branch was restarted from the new main rather than stacked on merged history."
+}

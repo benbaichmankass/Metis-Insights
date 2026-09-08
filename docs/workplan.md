@@ -1,5 +1,16 @@
 # AI Trader — Project Structure & Workplan
 
+> **Doc status:** `historical` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+
+> ## **PLAN STATUS: `historical`**
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. Pre-canonical: this file already declared itself superseded on
+> **2026-05-10** by the S-CANON-1 canonical doc set. It is a **different file** from
+> [`docs/claude/workplan.md`](claude/workplan.md) — both exist, both are historical,
+> and a census that sees only one of them undercounts (the 2026-09-07 dispatch brief
+> counted 12 plan documents where there are 13, for exactly this reason).
+
+
 > **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
 > doc set. Authority order is now:
 > 1. docs/CLAUDE-RULES-CANONICAL.md

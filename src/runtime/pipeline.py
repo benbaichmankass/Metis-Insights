@@ -56,7 +56,9 @@ from src.runtime.strategy_monocle import (  # noqa: E402
     _has_open_package_for_strategy,
     _recent_refusal_for_strategy,
     _same_bar_entry_for_strategy,
+    _empty_sizing_refusal_for_signal,
 )
+from src.runtime.order_bridge import signal_key_for_signal  # noqa: E402
 
 def _fanout_apply_rounds(signal):
     """The per-account dispatch rounds, or ``[]`` when the fan-out is not armed.
@@ -944,6 +946,66 @@ def run_pipeline(
                         "strategy": _gate_strategy,
                         "last_refused_package_id": _recent_refusal["order_package_id"],
                         "cooldown_age_seconds": _recent_refusal["age_seconds"],
+                        "signal": signal,
+                    }
+                    _report_pipeline_outcome(result, signal)
+                    return result
+                # Empty-sizing brake — the LAST gate before dispatch
+                # (BL-20260905). The three gates above are each bounded by
+                # something other than "did the last attempt size anything":
+                # the open-package gate frees when the package terminalises,
+                # the refusal cooldown needs status='rejected' inside 300 s,
+                # and the bar debounce needs a resolvable timeframe. So an
+                # EMPTY ``sized_qty_by_account`` — no account reached the
+                # sizer at all — had no ceiling of its own: on 2026-06-01
+                # ``mes_trend_long_1d`` minted SEVEN packages in 49 minutes
+                # from ONE daily signal (one entry_time, one donchian_hi),
+                # each carrying ``{}`` and each orphaned unexecuted. Nothing
+                # reached a venue, but seven phantom packages per occurrence
+                # pollute the order-package data the M7 review packets grade
+                # strategies on.
+                #
+                # Refuse the SAME signal once, keyed on its identity rather
+                # than on a clock, and SAY WHY — the recorded cause is logged
+                # and journaled on every block. Suppressing the re-emission
+                # without naming the cause would trade a noisy failure for a
+                # silent one.
+                _signal_key = signal_key_for_signal(signal, settings)
+                _empty_sizing = _empty_sizing_refusal_for_signal(
+                    _gate_strategy, _signal_key, symbol=signal.get("symbol"),
+                )
+                if _empty_sizing is not None:
+                    logger.warning(
+                        "strategy_monocle: skipping dispatch — strategy=%s "
+                        "already refused this signal for an empty sizing map "
+                        "(pkg=%s, refused_at=%s): %s",
+                        _gate_strategy,
+                        _empty_sizing["order_package_id"],
+                        _empty_sizing["refused_at"],
+                        _empty_sizing["cause"],
+                    )
+                    try:
+                        log_signal({
+                            "event": "empty_sizing_refused",
+                            "strategy": _gate_strategy,
+                            "symbol": signal.get("symbol"),
+                            "side": signal.get("side"),
+                            "cause": _empty_sizing["cause"],
+                            "signal_key": _empty_sizing["signal_key"],
+                            "refused_package_id": _empty_sizing["order_package_id"],
+                            "refused_at": _empty_sizing["refused_at"],
+                        })
+                    except Exception:  # noqa: BLE001
+                        logger.exception(
+                            "strategy_monocle: empty-sizing audit emit failed",
+                        )
+                    result = {
+                        "status": "skipped",
+                        "reason": "empty_sizing_refused",
+                        "strategy": _gate_strategy,
+                        "cause": _empty_sizing["cause"],
+                        "signal_key": _empty_sizing["signal_key"],
+                        "refused_package_id": _empty_sizing["order_package_id"],
                         "signal": signal,
                     }
                     _report_pipeline_outcome(result, signal)

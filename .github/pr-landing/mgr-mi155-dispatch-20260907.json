@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only: the sub-session registry row and one captured work object under docs/claude/work/. Registering a spawn and capturing an idea are management acts under CLAUDE.md, not items. No src/, tests/, scripts/, config/, deploy/, or workflow. No matrix status edited, no tp_r value proposed."
+}

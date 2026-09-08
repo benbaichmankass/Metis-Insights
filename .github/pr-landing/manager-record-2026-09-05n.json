@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Clean-stop record, manager surfaces only: MANAGER-CHECKLIST.json (MI-103 corrected from `in_flight` to `queued`, because nothing was working it), HANDOFF-20260905-DAY.md (the clean-stop section naming the four queued unowned items and the final state), MANAGER-LEASE.json (released), plus the two landing-declaration files. A NEW slug is used because this branch's earlier content already merged as #11071, which left the previous automerge-request file unchanged from main and so unarmed — the pr-landing guard caught exactly that. No src/, no tests/, no scripts/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file: Tier-1 by the canonical doc's own surface list. Nothing is routed and no session is spawned."
+}

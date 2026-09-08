@@ -1,5 +1,7 @@
 # Regime-conditional performance map — Step 1 results (2026-06-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 First probe of the regime-conditional strategy-weighting initiative
 ([DESIGN](regime-conditional-strategy-weighting-DESIGN.md)). Run on the trainer
 via `vm-driver`; tool: `scripts/ops/regime_performance_map.py` (per-trade edge

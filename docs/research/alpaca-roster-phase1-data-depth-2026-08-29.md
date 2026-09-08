@@ -1,5 +1,7 @@
 # Phase 1 — what bounds `base_oos`, measured
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **2026-08-29 · operator-directed** ("we shouldn't need the paper soak to make the live
 decision in this case. We should be able to backtest, walk forward on the data").
 **Tier-1: two dispatches of `yfinance-lane-proof`, nothing built, no config touched.**

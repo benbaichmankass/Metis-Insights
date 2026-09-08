@@ -190,7 +190,7 @@ def test_closed_trades_rows_carry_the_per_row_verdict(tmp_path, monkeypatch):
     from src.web.api.routers import trades_closed as tc
 
     db = _db_with(tmp_path, ["bybit_2", "bybit_1"])
-    rows = tc._query_closed_trades(db, limit=10, since=None)
+    rows, _total = tc._query_closed_trades(db, limit=10, since=None)   # (rows, total) since MI-144
     by_account = {r["account"]: r["journalTrust"] for r in rows}
 
     assert by_account["bybit_2"] == TRUST_KNOWN_DIVERGENT
@@ -215,7 +215,7 @@ def test_closed_trades_grades_every_row_from_one_ledger_read(tmp_path, monkeypat
 
     monkeypatch.setattr(tc, "journal_trust_map", _counting)
     db = _db_with(tmp_path, ["bybit_2"] * 8)
-    rows = tc._query_closed_trades(db, limit=10, since=None)
+    rows, _total = tc._query_closed_trades(db, limit=10, since=None)   # (rows, total) since MI-144
 
     assert len(rows) == 8
     assert calls["n"] == 1, f"ledger read {calls['n']}x for 8 rows"

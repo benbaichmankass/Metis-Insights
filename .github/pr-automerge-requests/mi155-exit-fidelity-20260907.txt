@@ -1,0 +1,4 @@
+MI-155 per-leg backtest<->live exit-location fidelity. Tier-1: a manual-only
+research instrument, 23 tests, a committed transcription of an already-published
+backtest measurement, and a findings memo. No config, no order path, no lever
+armed, no per-leg tp_r value proposed.

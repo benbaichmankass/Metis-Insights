@@ -1,0 +1,1 @@
+manager wind-down final 2026-09-03: settle #10944, record MI-109's blocker, file MI-112.

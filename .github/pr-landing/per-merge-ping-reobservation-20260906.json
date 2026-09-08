@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One field-level edit to docs/claude/OPEN-ITEMS.json (observation + verified_at + last_checked on a single monitoring row) plus this declaration. Tier-1 by the canonical doc's own list — no src/, no tests/, no scripts/, no .github/workflows/, no config/, no deploy/, no order path, no strategy config, no risk caps. It RE-AFFIRMS a monitoring row on its cadence and deliberately does NOT clear it: the evidence is VM-side only and 'queued' is not 'delivered', which is that row's own distinction. Recorded now rather than left for the duty pass because the evidence is perishable — the journal window reachable through the relay spanned 43 minutes."
+}

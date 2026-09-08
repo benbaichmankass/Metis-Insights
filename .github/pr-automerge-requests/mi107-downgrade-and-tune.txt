@@ -1,0 +1,1 @@
+mi107: docs-only design of the demote-to-shadow-and-tune flow; no leg is moved (Tier-3 stays with the operator).

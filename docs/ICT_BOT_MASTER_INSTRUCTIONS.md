@@ -1,4 +1,7 @@
 # ICT Bot — Master Instructions
+
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **For:** Perplexity Space AI assistant (Tech Lead)
 > **Owner:** Ben Baichman-Kass
 > **Last updated:** 2026-04-28 (CP-16)

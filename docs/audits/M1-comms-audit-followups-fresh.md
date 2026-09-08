@@ -1,5 +1,7 @@
 # M1 Comms Audit — Follow-up Sprint Backlog (2026-05-07, fresh)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Source:** `docs/audits/M1-comms-audit-2026-05-07-fresh.md` (D1 of S-048).
 > **Supersedes:** `docs/audits/M1-comms-audit-followups.md` (PR #463) —
 > the post-write redlines are now baked directly into the body below.

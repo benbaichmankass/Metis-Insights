@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat plus #11297's disposition, recorded in the same turn as its close. #11297 was closed rather than merged because re-measuring showed it would have dropped four settled rows and re-created the deadlock it was generated to clear. Register only — no src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched."
+}

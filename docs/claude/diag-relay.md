@@ -1,5 +1,7 @@
 # PM-side VM diag relay
 
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ## ⚠️ START HERE IF YOUR GitHub MCP IS READ-ONLY (a 403 on `issue_write`)
 >
 > *Added 2026-09-02. Everything below this box assumes you can open a labelled

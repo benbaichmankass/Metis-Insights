@@ -7,7 +7,15 @@ stage: CAPABILITY
 # blocker was answered (see lease_design); `in_flight` came when the manager
 # session STARTED the first slice, so it now consumes a WIP slot -- correctly,
 # because it is being worked rather than merely available.
-lifecycle: in_flight
+lifecycle: ready
+adjudicated_2026_09_06: >-
+  BOOKKEEPING CORRECTION by the manager, not a verdict on the work. lifecycle read `in_flight`,
+  which asserts the object is being actively worked. A LIVE list_sessions read on 2026-09-06
+  (population: 180 sessions enumerated back to 2026-08-02) found EXACTLY ONE session RUNNING and
+  it was the manager itself, so no worker existed for this object. Moved in_flight -> ready.
+  ⚠️ `ready` claims only that the object is AVAILABLE TO PICK UP. It is NOT a claim that the work
+  is done, and NOT a claim that it is undone — nobody read the artifact. Establishing that is the
+  2026-09-06 Phase-1 observation sweep's job. The done_condition above is unchanged and still binds.
 owner: claude
 opened_at: 2026-09-01
 closed_at: null

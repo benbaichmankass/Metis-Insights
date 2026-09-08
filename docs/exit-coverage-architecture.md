@@ -1,5 +1,7 @@
 # Exit-Coverage Architecture — every open trade always has a live exit
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** design / audit (2026-06-15). Drives a phased rebuild; not yet
 > fully implemented. Tracks `BL-20260615-MGCNAKED` and its follow-ups.
 > **Scope:** the guarantee that every open trade is, at all times, governed by

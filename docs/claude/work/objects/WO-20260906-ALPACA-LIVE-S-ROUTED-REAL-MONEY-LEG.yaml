@@ -1,0 +1,30 @@
+id: WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  alpaca_live's routed real-money leg cannot place an order: both gates read live, every signal journals dry_run_no_order_placed
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The reason the order is refused is NAMED and traced to the code path that refuses it, with the population stated (how many signals, over what window, all with the same reason or not). Then EITHER a fix is proposed at its correct tier, OR it is established that the refusal is CORRECT and something else is mis-declared -- ALPACA_CASH_SETTLEMENT_MODE=apply is armed on this exact account and is a live candidate, as is the side filter and the whole-share clamp. !! Do not assume it is a bug: 'declared live and correctly refusing' is a real outcome and would move the defect to the declaration.
+
+why: >-
+  Found by the 2026-09-06 observation sweep (session_01UaZ9bo) while re-observing OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED. tlt_pullback_1h was routed to alpaca_live as its first real-money leg since 2026-07-15 (Tier-3, operator-approved 2026-08-31), and EVERY signal since journals dry_run_no_order_placed while BOTH declared execution gates read live. A leg that is declared live and structurally cannot trade is its own class (MI-38). It also means that OPEN-ITEMS row can never clear until this is fixed.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

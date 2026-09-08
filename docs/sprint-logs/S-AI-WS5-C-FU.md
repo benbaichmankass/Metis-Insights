@@ -1,5 +1,7 @@
 # S-AI-WS5-C-FU — Setup-quality scorer V2 (audit-joined source)
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS5-C.md`](S-AI-WS5-C.md), [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md), [`docs/data/dataset-taxonomy.md`](../data/dataset-taxonomy.md), [`docs/ml/training-center.md`](../ml/training-center.md)
 **Status:** ✅ COMPLETE

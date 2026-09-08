@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A measurement, a report and a proposed check. Adds a read-only stdlib-only probe (scripts/ops/uncarried_specs.py) that writes nothing and mutates no register, its tests, one docs/research report, and findings on the work object plus one OPEN-ITEMS row it was dispatched to update. No src/, no config/, no .github/workflows/, no order path, no strategy or risk surface. The probe is a measurement instrument, not a guard: it is not registered in run_guards.py and gates nothing."
+}

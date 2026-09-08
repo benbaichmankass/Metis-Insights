@@ -1,5 +1,7 @@
 # Implementation Plan — Account-level 1.5% sizing + RiskManager confidence modulation
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status:** Tier-3 PROPOSE-ONLY. **No code/config changed by the research pass.** The lead
 > implements on a branch and opens a **draft PR**; **no merge without operator approval of §3 +
 > the §5 backtests.** Origin: the 2026-06-29 optimization investigation (delegated research),

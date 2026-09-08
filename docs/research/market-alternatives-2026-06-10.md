@@ -1,5 +1,7 @@
 # Market & Platform Alternatives — Reducing Futures Dependence (2026-06-10)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Research memo, Tier-1 (analysis only — no config, no live-path change).
 > Operator request 2026-06-10: futures integration pain (IB Gateway) is high;
 > evaluate simpler markets reachable through easier APIs and propose a

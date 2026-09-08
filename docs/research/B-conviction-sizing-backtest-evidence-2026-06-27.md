@@ -1,5 +1,7 @@
 # B — conviction-sizing backtest evidence (2026-06-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 First evidence run for Design B's apply path, via the new `--conviction-sizing`
 A/B in `scripts/backtest_system.py`. Run on the trainer over BTCUSDT
 2021-01-01 → 2026-06-01, roster `trend_donchian + squeeze_breakout_4h`

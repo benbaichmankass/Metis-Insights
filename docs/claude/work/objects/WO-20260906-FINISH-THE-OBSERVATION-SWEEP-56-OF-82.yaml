@@ -1,0 +1,30 @@
+id: WO-20260906-FINISH-THE-OBSERVATION-SWEEP-56-OF-82
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Finish the observation sweep: 56 of 82 rows have still never been looked at on the fleet
+stage: OBSERVATION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The REMAINING rows -- the 9 still at verified_at=never first, then the 28 landed_unproven checklist items -- each reach one of the same three written outcomes: CLOSED with a fleet observation naming what was seen and where, RE-AFFIRMED with verified_at advanced and a fresh observation, or NOT OBSERVABLE with the reason and what would make it so. A green test, a merged PR and a deploy are NONE of these. !! Read #11101's diff first so you do not re-observe what it already did. !! OPEN-ITEMS.json round-trips at NO json.dumps setting -- patch it surgically or you reformat the file onto your PR.
+
+why: >-
+  The 2026-09-06 sweep (session_01UaZ9bo, landed as #11101) drove 26 of 54 OPEN-ITEMS rows to a written outcome and took verified_at=never from 17 to 9. It then went idle at 487k/1M context with 56 of the 82 items (54 OPEN-ITEMS + 28 landed_unproven checklist rows) still untouched, and it CANNOT BE MESSAGED to continue -- a manager has no send path to a cloud sub-session. So continuing needs a fresh session, not a nudge.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

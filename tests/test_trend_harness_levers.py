@@ -60,6 +60,9 @@ ALL_LEVERS_AT_DEFAULT = dict(
     # M31 P5 candidate. Registered here so the per-lever no-op guard below
     # COVERS it — a lever absent from this dict is a lever nothing pins.
     rr_floor=0.0,
+    # MI-165 break-even floor. Registered here for the same stated reason as
+    # rr_floor above — a lever absent from this dict is a lever nothing pins.
+    be_floor_r=0.0,
     confirm_bars=0, skip_hours="",
     vol_skip_above_pctl=0.0, vol_skip_below_pctl=0.0, vol_pctl_window=200,
     trail_vol_above_pctl=0.0, trail_vol_below_pctl=0.0, trail_vol_tight_mult=0.0,

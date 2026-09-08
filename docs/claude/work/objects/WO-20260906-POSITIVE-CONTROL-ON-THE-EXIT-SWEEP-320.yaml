@@ -1,0 +1,60 @@
+id: WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Positive control on the exit sweep: 320 of 468 lever cells say honest_negative and nothing has shown the harness can detect a positive
+stage: EVIDENCE
+lifecycle: done
+owner: MI-145 (session_01SKvbp9rm3fiyD9uHxpeFKM)
+opened_at: 2026-09-06
+closed_at: 2026-09-06
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A lever that MUST help is planted and the sweep is shown to DETECT it -- e.g. a giveback stop on a leg whose trades demonstrably gave back R, or a stop so wide it cannot fire. Report the verdict the sweep returns on the planted case. THREE OUTCOMES, all valuable and none of them a failure to report: the harness detects it (the 320 negatives are real, say so and the matrix is trustworthy); it does NOT (every negative is unfalsifiable, and 39 shipped cells rest on the same instrument -- that is a P1 finding); or it cannot be tested for a stated reason (say which, and what would make it testable). !! DO NOT tune the planted lever until it passes -- that fits the control to the answer and destroys it.
+
+why: >-
+  OPERATOR DECISION 2026-09-06 via pop-up: 'Yes -- positive control first'. MEASURED in docs/research/exit-refinement-coverage.json (52 legs x 9 levers = 468 cells, updated_at 2026-08-30): 39 shipped (8.3%), 320 honest_negative (68.4%), 20 pending, 36 blocked. Either almost no exit lever helps anywhere, or the harness cannot see one. NOBODY HAS RUN A POSITIVE CONTROL ON THE SWEEP ITSELF, so every one of those 320 negatives is currently unfalsifiable -- and 39 cells were SHIPPED on the same instrument. This is the repo's own 'a negative needs a denominator' rule applied to the research harness rather than to a probe.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-06 by MI-145: nothing blocked it. The control was runnable
+  with the access this repo already has — the trainer-vm-diag relay for fleet
+  candle data, and the sweep's own functions for the detector. It is answered
+  and closed.
+
+outcome: >-
+  OUTCOME 1 OF THE THREE — THE HARNESS DETECTS IT. MEASURED on the trainer via
+  trainer-diag #11134 (workflow run 34032720336), 2026-09-06T12:19Z, leg
+  trend_donchian BTCUSDT 1h, lifetime n=366, IS 316 / OOS 49 at a resolve_split
+  boundary of 2025-11-23. A provably-dominant planted cell
+  (net_r' = max(net_r, 0)) graded by the sweep's OWN detector, imported
+  unmodified, returned PASS: beats() in both windows (IS d_net_r +236.0618,
+  OOS +39.7913, max_drawdown_r -> 0.0 in both) and walk-forward 6/6 with
+  inert_wins 0. Two null arms bound it — the wrapper reproduces the real
+  harness to -0.0005R, and an inert lever moves the book by EXACTLY 0.0 in both
+  windows, so the two arms differ only by the lever.
+  ⚠️ THIS IS A FLOOR ON THE INSTRUMENT, NEVER A CEILING. The planted effect is
+  +236R against real levers that move 1-8R, so it establishes plumbing and not
+  SENSITIVITY. Sensitivity is covered separately by the sweep's own record: over
+  all 1,376 kind=cell rows of docs/research/m20-sweep-corpus.jsonl its smallest
+  passing cell is +0.0010R OOS and 10 of 91 passes are under 0.5R.
+  ⚠️ AND THE OBJECT'S PREMISE WAS WRONG IN A WAY THAT MATTERS MORE THAN THE
+  CONTROL. The 320 honest_negative cells were never all unfalsifiable: the sweep
+  has emitted 91 passing verdicts across 50 of 225 distinct (leg,lever) pairs,
+  and 35 of those 50 read honest_negative in the matrix. That is not a guard
+  failure — check_matrix_corpus_agreement passes because each is acknowledged in
+  the cell's ref prose — but every AGGREGATE reads the status WORD, not the
+  prose, so honest_negative collapses 'measured and lost' with 'measured, won on
+  at least one cell across a walk-forward, disposition withheld pending Tier-3'.
+  A distinct status is PROPOSED, not applied; changing a live leg's disposition
+  is the operator's.
+  Full memo: docs/research/exit-sweep-positive-control-2026-09-06.md. PR #11136.
+  Control tooling: scripts/research/exit_sweep_positive_control.py +
+  scripts/research/_control_oracle_harness.py.
+
+captured_by: scripts/ops/capture_idea.py

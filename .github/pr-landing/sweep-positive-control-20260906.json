@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 research tooling + docs + a status-only edit to the coverage matrix. No src/, no config/, no deploy/, no workflow, no order path, no strategy parameter, no risk cap, no live-VM runtime file. The two new scripts are research controls that write nothing and are never invoked by CI or by any live path; the matrix edit changes 20 cell STATUSES and adds a `basis` field, both on the Tier-1 documentation surface, and was verified not to move the tp_geometry ratchet (unstamped 229/396 before and after, ceiling 229, validator clean both ways). Every relevant guard was run green before opening: check_matrix_corpus_agreement, check_matrix_config_agreement, check_matrix_bracket_values, check_lever_reachability, check_lever_wiring, m20_coverage_rollup, and the two matrix test modules. Tier-3 dispositions (shipping or declaring any lever) are PROPOSED in the memo and applied nowhere."
+}

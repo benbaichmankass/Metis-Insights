@@ -1,5 +1,7 @@
 # Design-A — ETH/SOL evidence-based `trend_vol` OFF-cell studies (2026-07-06)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Extends the BTC vol-gate money win (`A-vol-gating-OFFcell-design-2026-06-27.md`,
 live-enforced for BTC since 2026-06-28) to **ETHUSDT and SOLUSDT**, per
 `MB-20260628-VOLGATE-GOLIVE`. Method mirrors the BTC study **per symbol** —

@@ -1,0 +1,4 @@
+MI-126 — an absent leg is NOT_OBSERVED, not a measured zero.
+
+Tier-1 (scripts/ops + tests, both inside TIER1_SURFACE). Lands itself on green
+per .github/pr-landing/mi126-sunset-pass-absence-not-zero.json.

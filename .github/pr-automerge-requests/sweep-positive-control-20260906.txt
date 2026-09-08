@@ -1,0 +1,2 @@
+MI-145 positive control on the M20 exit sweep. Tier-1: research control tooling,
+a findings memo, and a verified status-only edit to the coverage matrix.

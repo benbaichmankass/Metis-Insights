@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One new markdown file under docs/claude/work/ — the day manager's handoff. No runtime, no order path, no config, no risk caps, no workflow, no test, no register mutation. Tier-1 by the canonical doc's own examples, and armed to self-land because a handoff that cannot reach `main` cannot be read by the cold successor it exists for."
+}

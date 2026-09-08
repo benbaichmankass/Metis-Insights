@@ -1,5 +1,7 @@
 # Janitor 2026-05-07 — Dead-file audit (S-046 T1)
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Sprint:** S-046 (M4 step 3) | **Date:** 2026-05-07 | **Scope:** `scripts/`, top-level `*.py`
 
 ## Method

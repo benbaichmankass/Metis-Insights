@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs, CI and tooling only. Changes scripts/ops/document_index.py (a git pathspec in the population builder), scripts/ci/check_document_index.py (a new planted-file control in --self-test), the generated docs/DOCUMENT-INDEX.md, the per-document status stamps the builder writes into document headers, and two health-review-backlog rows. No runtime, no order path, no strategy config, no risk caps, no service or timer, no live-VM file. Tier-1 by the canonical doc's own examples (docs, tests, CI, tooling, observability)."
+}

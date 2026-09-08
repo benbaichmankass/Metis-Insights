@@ -1,5 +1,7 @@
 # ROADMAP_MACRO M1 — econ-surprise → forward-price event study (2026-07-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **What this is:** the **join + measurement** half of M1's clean-joined-dataset
 gate. The calendar/consensus/surprise half is built (`econ_calendar_produce.py` →
 `comms/macro/econ_calendar_snapshots.jsonl`, PIT, append-only). This adds the

@@ -1,5 +1,7 @@
 # Sprint S-011 Summary — Text Milestones: Backtesting UI + Strategy Config
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 **Sprint date:** 2026-04-29
 **Checkpoint:** CP-2026-04-29-61
 **PRs:** #141 – #145 (+ roadmap mini-PR #140)

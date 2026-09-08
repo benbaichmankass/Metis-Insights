@@ -275,6 +275,13 @@ _TARGET_EXTENSION_SOAK_LOG = runtime_logs_dir() / "target_extension_soak.jsonl"
 # defect #8778 shipped with `exit_loop_health`.
 _PROTECTION_REASSERT_SOAK_LOG = runtime_logs_dir() / "protection_reassert_soak.jsonl"
 _STRAY_OCA_SOAK_LOG = runtime_logs_dir() / "stray_oca_soak.jsonl"
+# MI-150 — the ict_scalp exit-head consumer's staged soak. Allowlisted in the
+# SAME commit that ships the writer: an env-gated path whose only observation
+# surface cannot be read is BL-20260813-ENV-VARS-SHIP-WITHOUT-A-READ-SURFACE,
+# and the one thing a reader most needs from this file today is the
+# `decision_state: not_scored` rows that prove the tf guard is refusing.
+_ICT_SCALP_EXIT_HEAD_SOAK_LOG = (
+    runtime_logs_dir() / "ict_scalp_exit_head_soak.jsonl")
 #: The staged Bybit graded-book coverage basis (2026-09-02). Allowlisted in the
 #: SAME commit as its writer, deliberately: CLAUDE.md tells a Tier-2 reviewer to
 #: read `verdicts_differ` here before widening BYBIT_GRADED_COVERAGE_ACCOUNTS
@@ -338,6 +345,15 @@ _EXIT_INTERVAL_SOAK_LOG = runtime_logs_dir() / "exit_interval_soak.jsonl"
 _CASH_SETTLEMENT_SOAK_LOG = runtime_logs_dir() / "cash_settlement_soak.jsonl"
 _WORK_DECISION_TRANSIT_LOG = runtime_logs_dir() / "work_decision_transit.jsonl"
 _WORK_DECISION_PROMPTED_STATE = runtime_logs_dir() / "work_decision_prompted.json"
+# MI-109 (b). The decision sweep's PER-RUN stats, on a durable surface.
+# Written by telegram_decisions.write_sweep_receipt from the same process that
+# writes the prompted marker above (ict-telegram-bot.service, which carries the
+# data-dir drop-in), so it resolves through runtime_logs_dir() exactly as its
+# sibling does — the writer/reader path split of BL-20260611-M15-2 is avoided
+# by matching the writer, not by picking a helper.
+_WORK_DECISION_SWEEP_RECEIPT = (
+    runtime_logs_dir() / "work_decision_sweep_receipt.json"
+)
 _PROP_TICKET_RISK_SOAK_LOG = (
     runtime_logs_dir() / "prop_ticket_risk_soak.jsonl"
 )
@@ -469,6 +485,7 @@ _LOG_FILES: dict[str, Path] = {
     "target_extension_soak": _TARGET_EXTENSION_SOAK_LOG,
     "protection_reassert_soak": _PROTECTION_REASSERT_SOAK_LOG,
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
+    "ict_scalp_exit_head_soak": _ICT_SCALP_EXIT_HEAD_SOAK_LOG,
     "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
@@ -566,6 +583,30 @@ _LOG_FILES: dict[str, Path] = {
     # distinguished from an outage. An ABSENT file means the sweep has never
     # prompted anything on this VM -- never that nothing is waiting.
     "work_decision_prompted": _WORK_DECISION_PROMPTED_STATE,
+    # MI-109 (b), 2026-09-04 — the sweep's PER-RUN stats, durably.
+    #
+    # ⚠️ THIS EXISTS BECAUSE MORE JOURNAL LOGGING WAS NOT SUFFICIENT.
+    # `_sweep_work_decisions` already emitted the destination and the poll
+    # evidence via `logger.info`, and the journal is the surface that
+    # evaporated:
+    # measured 2026-09-03, a 1500-line pull spanned 14:23:34→14:53:46 — THIRTY
+    # MINUTES — so the 14:05:48 send was unreachable 45 minutes later, before
+    # anyone had been told there was a problem.
+    #
+    # ⚠️ IT IS A BOUNDED RING, NOT A ONE-SLOT RECEIPT, and that is deliberate.
+    # `work_digest_receipt` keeps only the last run because its carrier is
+    # HOURLY; this sweep fires every 300s, so one slot would retain five
+    # minutes — worse than the journal it replaces. Read `runs` for the
+    # history and `last` for the current state.
+    #
+    # ⚠️ A row is stamped on EVERY outcome, including `paused`, an unreadable
+    # inbox and an unreadable prompt-state — a receipt written only on a send
+    # cannot tell a DEAD sweep from a FAILING one (the `work_digest_receipt`
+    # lesson). An ABSENT file means the sweep has never run on this VM; it
+    # never means nothing is waiting.
+    #
+    # ⚠️ Rows name the token VARIABLE (`token_from`), never a token value.
+    "work_decision_sweep_receipt": _WORK_DECISION_SWEEP_RECEIPT,
     # 2026-09-02 — the POLL CLAIMS behind the decision channel's destination:
     # which token variable a live process says it polls, and which callback
     # prefixes it handles. One file per token VARIABLE (never a shared file, so

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Session close-out record, manager surfaces only: SESSIONS.json (three sessions archived, from a live list_sessions read plus the archive_session calls), OPEN-PRS.json (a disposition for #10993, which had no row at all), MANAGER-CHECKLIST.json (MI-113 closed out, all three of its asks verified resolved against main), health-review-backlog.json (one row filed through backlog_append.py), and the handoff brief, plus the two landing-declaration files. No src/, no config/, no deploy/, no .github/workflows/, no tests, no order path, no strategy config, no risk caps, no live-VM runtime file: Tier-1 by the canonical doc's own surface list. Verified before pushing: open_pr_record.py --strict grades settled_graded over 44 rows, and every BL- id introduced resolves to a filed row."
+}

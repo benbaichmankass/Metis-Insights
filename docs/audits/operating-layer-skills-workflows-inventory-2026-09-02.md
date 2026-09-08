@@ -1,5 +1,7 @@
 # Operating-Layer Inventory — the 32 skills and the 129 workflows, mapped onto the model
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: MEASURED 2026-09-02.** This is **Phase G's inventory**, which
 > [`operating-layer-build-plan-DESIGN.md`](../design/operating-layer-build-plan-DESIGN.md)
 > § "What this plan does not decide" explicitly defers: *"which of the 32 skills, 124

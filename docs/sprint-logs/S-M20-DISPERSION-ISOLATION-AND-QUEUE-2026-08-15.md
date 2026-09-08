@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-DISPERSION-ISOLATION-AND-QUEUE-2026-08-15
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > **WRITTEN MID-SESSION, DELIBERATELY** — recorded before the screen finished
 > because the session had already been through one context compaction and the
 > durable record must not depend on reaching the end.

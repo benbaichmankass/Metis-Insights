@@ -1,5 +1,7 @@
 # M15 Phase 0 — Generalization Sweep Results (2026-06-10)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Evidence artifact for the M15 market/platform migration
 > ([`market-alternatives-2026-06-10.md`](market-alternatives-2026-06-10.md) §6
 > Phase 0). Decides which platform gets wired first in Phase 2.

@@ -95,6 +95,22 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
     {
+        "name": "one-live-workplan",
+        # UNGATED, deliberately. The failure this catches is a plan document
+        # going stale while nothing touches it -- 08-14 sat reading `ACTIVE` for
+        # 24 days precisely because no PR went near it. A diff-scoped guard
+        # cannot see that, and a `when`-gated step does not run under `--all`
+        # anyway (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH). Costs one
+        # `git ls-files` plus a 40-line head read of 13 files.
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation: a guard whose failure path
+            # is never exercised is indistinguishable from one that always passes.
+            ["python3", "scripts/ci/check_one_live_workplan.py", "--self-test"],
+            ["python3", "scripts/ci/check_one_live_workplan.py"],
+        ],
+    },
+    {
         "name": "api-tier-policy-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan is not diff-relevant — because a guard whose failure path is
@@ -127,6 +143,71 @@ GUARDS: List[Dict[str, Any]] = [
             # pass over the doc. Cheap enough that gating it would be the more
             # expensive decision.
             ["python3", "scripts/check_api_tier_policy.py", "--all"],
+        ],
+    },
+    {
+        # An operator's WRITTEN answer must be READABLE by the grader.
+        # UNGATED (`when: None`) deliberately: the failure is a decision object
+        # going quiet, and a diff-scoped guard cannot see a row regress when an
+        # unrelated PR edits it. The tree was MEASURED clean in the change that
+        # added this (614 objects, 0 unparseable, 0 findings), so nothing is
+        # grandfathered and there is no separate standing audit to forget.
+        "name": "decision-answers-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation: on a clean tree this guard
+            # is only ever observed PASSING, which is the state a guard is least
+            # useful in. It exercises both rules AND the false-positive shape R2
+            # was tightened for (a request answered-and-nested beside a second
+            # that is genuinely open).
+            ["python3", "scripts/ci/check_decision_answers.py", "--self-test"],
+            ["python3", "scripts/ci/check_decision_answers.py"],
+        ],
+    },
+    {
+        # The document register must not silently stop being true.
+        #
+        # UNGATED (`when: None`) deliberately, for the reason the api-tier-policy
+        # guard above is: a diff-scoped run cannot see a row being DELETED from
+        # the index, and it cannot see a document's header regress when an
+        # unrelated PR edits that document. Both are the same hole the register
+        # exists to close, just from opposite directions. It also cannot rely on
+        # a `when`-gated step, which is skipped entirely under `--all` (push /
+        # workflow_dispatch) — BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH.
+        #
+        # Costs 0.086s measured: one `git ls-files`, one table parse, and a
+        # header read of 968 documents. Cheap enough that gating it would be the
+        # more expensive decision.
+        "name": "document-index-guard",
+        "when": None,
+        "steps": [
+            # The planted-positive control runs on EVERY invocation. On a clean
+            # tree this guard is only ever observed PASSING, which is the state
+            # a guard is least useful in — and this repo has already shipped a
+            # presence-only marker that was cheaper to lie to than to satisfy
+            # (`new-table-wiring-guard`). Each of R1–R5 is fed a known-bad input
+            # and the job fails unless the rule fires; clean inputs must stay
+            # silent, so a rule that always fires is caught too.
+            ["python3", "scripts/ci/check_document_index.py", "--self-test"],
+            ["python3", "scripts/ci/check_document_index.py"],
+        ],
+    },
+    {
+        # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
+        # stay demoted. UNGATED, like its sunset sibling: the failure is about a
+        # budget ACCRUING over time, which no diff is relevant to — a demotion
+        # carried past its budget becomes a failure on a PR that touched nothing
+        # near it, and that is the point.
+        "name": "demote-budget-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation because the interesting
+            # branches are unreachable in production today: no leg has been
+            # demoted under this flow yet, so without it the forcing function
+            # would be untested until the first demotion expired — two months
+            # after anyone could still remember writing it.
+            ["python3", "scripts/ops/demote_budget.py", "--self-test"],
+            ["python3", "scripts/ops/demote_budget.py"],
         ],
     },
     {
@@ -1342,6 +1423,24 @@ GUARDS: List[Dict[str, Any]] = [
                            "scripts/ops/exit_mechanism_coverage.py",
                            "scripts/ci/check_lever_wiring.py"]},
         "steps": [["python3", "scripts/ci/check_lever_wiring.py"]],
+    },
+    {
+        # MI-157. A committed candle file with no price variation makes every
+        # backtest over it confidently meaningless. This runs UNGATED (`when:
+        # None`) rather than on a data/ glob, because the class is defined by
+        # the file's CONTENT and not by its location: the five that motivated
+        # it sat under `data/ohlcv/`, but a flat corpus committed anywhere
+        # would read exactly the same to a harness.
+        "name": "candle-fixture-variance-guard",
+        "when": None,
+        "steps": [
+            # The self-test runs on EVERY invocation. On a clean tree this
+            # guard is silent, and silence from a detector nobody has seen
+            # fail is the "green that checked nothing" this repo has a rule
+            # about -- so it proves it can catch a flat series first.
+            ["python3", "scripts/ci/check_candle_fixture_variance.py", "--self-test"],
+            ["python3", "scripts/ci/check_candle_fixture_variance.py"],
+        ],
     },
     {
         "name": "json-extract-guard",

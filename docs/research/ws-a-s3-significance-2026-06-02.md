@@ -1,5 +1,7 @@
 # WS-A S3 — Significance & Robustness Verdict (2026-06-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Meantime Expansion Program, WS-A S3. Block bootstrap (B=10k, block=8) +
 > walk-forward-by-year on the S2-tuned survivors, **full history** (n now
 > 145–193, vs the ~20-trade OOS slice that limited S2). Driver:

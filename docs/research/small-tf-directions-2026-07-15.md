@@ -1,5 +1,7 @@
 # M22 — Reliable small-TF trading tool: research directions
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-15 · **Status:** IN PROGRESS — wave-1 (P1–P4) findings landed;
 wave-2 (D1–D4) running · **Tier:** 1 (research; Tier-3 items are operator-gated
 proposals) · **Predecessor:** the chop-scalp study

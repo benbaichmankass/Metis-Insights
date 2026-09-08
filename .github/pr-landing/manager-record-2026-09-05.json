@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surface only — every changed path is under docs/claude/work/**: the lease, the checklist, the merge queue, the sub-session registry and six work objects. Tier-1 by the canonical doc's own list: no src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM runtime file. It self-lands because holding it is the defect it fixes — main's MANAGER-LEASE.json currently reads a heartbeat from 00:49:40Z (expired by its own 90-min TTL) and its MANAGER-CHECKLIST.json is ~6h old, so a cold manager reading origin sees an empty seat that is not empty, and that hole stays open for exactly as long as this waits. GitHub still merges only on green and R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}

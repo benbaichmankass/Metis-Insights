@@ -1,5 +1,7 @@
 # API tier policy
 
+> **Doc status:** `unknown` · category `instruction` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Purpose:** single source of truth for which `ict-web-api.service` routes
 > are unauthenticated reads (Tier 1), session-gated reads / mutations
 > (Tier 2), token-gated diagnostics (Tier 2.5), and operator-controls / risk

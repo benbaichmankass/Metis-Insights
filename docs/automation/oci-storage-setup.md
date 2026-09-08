@@ -1,5 +1,7 @@
 # OCI Block Storage Setup — Operator Runbook
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Automated provisioning of the 100 GB `ict-bot-data-vol` block volume for the
 live trading VM (create → attach → format → mount → migrate runtime data
 → migrate `trade_journal.db` → systemd drop-ins → restart). The operator

@@ -1,5 +1,7 @@
 # Sprint S-012 — Deployment runbook
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Owner:** PM Ben (or Claude via Colab SSH).
 > **Target VM:** the live Oracle VM running `ict-trader-live.service`.
 > **Goal:** Pull S-012 changes, reload systemd units, restart services

@@ -1,5 +1,7 @@
 # GPU-burst training tier — runbook (M19 Tier-1)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Ledger-gated, teardown-guaranteed spot-GPU bursts. Train on a rented spot GPU in
 short bursts, **export inference to CPU/ONNX**, serve on the free VMs — no torch/CUDA
 ever on the money-box. Spec: [`docs/research/T1-gpu-burst-spend-SPEC.md`](../research/T1-gpu-burst-spend-SPEC.md).

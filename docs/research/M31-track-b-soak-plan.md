@@ -1,5 +1,7 @@
 # M31 Track B — option-chain IV-skew soak + grading plan
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status: credential-free pipeline BUILT; live soak + grading BLOCKED on the operator
 registering the Schwab developer app.** This note pins the exact turnkey plan so the
 moment the Schwab OAuth token exists, the soak → grade path is plug-and-play — no

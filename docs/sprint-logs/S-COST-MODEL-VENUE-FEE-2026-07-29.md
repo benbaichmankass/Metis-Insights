@@ -1,5 +1,7 @@
 # Sprint Log: S-COST-MODEL-VENUE-FEE-2026-07-29
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-07-29
 

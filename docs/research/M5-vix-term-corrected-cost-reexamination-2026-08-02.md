@@ -1,5 +1,7 @@
 # M5 — `vix_term` re-examination with corrected costs (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Closes the macro-program item **M5** (RESEARCH-PROGRAM-2026-07-30 § Track M): *"Re-examine
 the `vix_term` lead (the one robust M28 survivor) with corrected costs. It is
 ETF-expressed, so T1's fee fix applies to its Sharpe too."*

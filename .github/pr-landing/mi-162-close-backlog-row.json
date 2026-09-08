@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A single backlog record: flips one row in docs/claude/health-review-backlog.json from `open` to `resolved` and records the evidence, now that the fix it tracks is merged on main (#11255, f837977). Re-serialised through backlog_append.detect_format so the file is not reformatted. No runtime, no order path, no strategy config, no risk caps, no CI logic, no live-VM file. Tier-1 by the canonical doc's own examples."
+}

@@ -1,5 +1,7 @@
 # M28 D4/D5 — value-construction sweep through the P4 gate (2026-08-02)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Verdict: a clean NULL. No construction clears `edge_vs_baseline > 0` net-of-cost OOS.**
 The C4 conditioned-lifecycle gate (`thesis_c4_run.py`) is therefore **not** re-run —
 its precondition (a construction that clears the P4 gate) is unmet.

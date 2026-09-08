@@ -1,5 +1,7 @@
 # S-AUDIT-H — remaining-codebase sweep (M17 full-system audit, 2026-06-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Third wave of the M17 audit, completing line-by-line coverage of the
 production code S-AUDIT-F/G did not reach: the strategy/signal-generation
 logic, the rest of `src/runtime`, the rest of `src/core`/`src/units`/`src/utils`/`src/web`,

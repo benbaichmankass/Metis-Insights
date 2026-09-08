@@ -1,5 +1,7 @@
 # Sprint Log: S-M30-PLATFORM-BUILDOUT-20260727
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-07-27 (single extended session, driven under `research-driver` — the
 overnight de-soak + M24–M29 close-out workplan N-queue, then the N7 build phase,

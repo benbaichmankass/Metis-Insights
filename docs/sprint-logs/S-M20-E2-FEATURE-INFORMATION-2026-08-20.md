@@ -1,5 +1,7 @@
 # Sprint Log: S-M20-E2-FEATURE-INFORMATION-2026-08-20
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 - Start: 2026-08-20 (continuation of the exit-mechanism thread opened 2026-08-18)
 - End: 2026-08-20

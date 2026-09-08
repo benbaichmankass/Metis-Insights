@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager infrastructure only: two new stdlib-only scripts under scripts/ops/ (observability + tooling), one new tests/ file, two new docs/claude/work/ files (a committed Routine prompt and one backlog row), and the two landing-declaration files themselves. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM runtime file — Tier-1 by the canonical doc's own surface list. Nothing here executes on the fleet or holds money-at-risk state; manager_wake.py reads committed JSON and writes one committed JSON, and check_wake_liveness.py only reads. The Routine that drives it is created outside the repo and is not part of this diff."
+}

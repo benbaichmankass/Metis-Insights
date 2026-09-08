@@ -1,5 +1,7 @@
 # Dukascopy coverage — the adjudication for the 18 blocked symbols
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-24 · **Evidence:** probe run
 [`32748059443`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/32748059443)
 on `main` @ `dd5955d` (the **fixed** matcher, #10226), catalogue size **1388**.

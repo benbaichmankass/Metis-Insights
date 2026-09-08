@@ -1,5 +1,7 @@
 # Live VM IP — single source of truth
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 The live trader's address must live in **one** place, so a VM move (or any
 future IP change) is a single edit, not a sweep across ~100 files. This is the
 config-layer companion to the **reserved static IP**

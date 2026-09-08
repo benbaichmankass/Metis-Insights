@@ -1,0 +1,15 @@
+MI-139b close-out — registers only, Tier-1.
+
+Records the outcome of PR #11125 (merged 2026-09-06T18:43:22Z as 9604b8a5):
+  - work object        : lifecycle waiting -> done, blocked_on edge discharged
+                         to a REAL assessed [] (not the NOT_ASSESSED default).
+  - OPEN-ITEMS.json    : + OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET
+                         (merged is not observed — the fleet half is unproven).
+  - health-review      : + BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS
+
+NOT touched: docs/claude/work/OPEN-PRS.json. The reconcile-open-prs workflow
+(MI-57) owns the open_prs[] -> settled_prs[] move and already made it in PR
+#11171. Doing it by hand would be a divergent same-id ADD — the case
+merge_json_register.py refuses on — for no gain.
+
+No src/, no config/, no tests/, no workflows. Nothing here reaches a venue.

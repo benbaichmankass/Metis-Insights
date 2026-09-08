@@ -1,0 +1,29 @@
+Arms `claude-pr-automerge` for claude/decision-answers-guard.
+
+Tier-1 self-land per .github/pr-landing/decision-answers-guard.json: the diff is
+scripts/ci/**, docs/** and ROADMAP.md only. Auto-merge still lands nothing until
+every required check is green — branch protection is the safety net and CI is
+never bypassed.
+
+The pr-opener request/result pair that opened #10993 is REMOVED in this same
+commit: automation/** is outside TIER1_SURFACE, so leaving it here asked the
+guard to vouch for paths it cannot certify (R5). Both halves go together — the
+result file is pr-opener's idempotency key, and removing only the request would
+leave the pair inconsistent. #10993 already exists, so neither file has any work
+left to do.
+
+--- re-armed 2026-09-04 ---
+#10993 was opened by pr-opener and was therefore a DRAFT, which claude-pr-automerge
+refuses to un-draft (by design — a draft is this repo's "prepared, not approved"
+marker and Tier-2/Tier-3 PRs depend on that refusal). It was green on all four
+required checks and mergeable_state clean, and could not land. Closed via the
+pr-close relay at 10bda2d3.
+
+This push re-arms the route with NO open PR on the branch, so claude-pr-automerge
+takes its own create path (claude-pr-automerge.yml:188, `draft: false`) — born
+ready, which IS the request being fulfilled — and enables squash auto-merge.
+
+The lesson, filed as
+BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION:
+for a Tier-1 self-land PR the automerge relay opens it; pr-opener is for PRs that
+are meant to sit as drafts awaiting a human.

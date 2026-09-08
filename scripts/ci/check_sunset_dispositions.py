@@ -68,7 +68,15 @@ SUNSET_ROOT = REPO / "comms" / "sunset"
 #: that it cannot become furniture.
 CARRY_ESCALATION_PASSES = 3
 
-VALID = {"retired", "retire_proposed", "keep", "wire"}
+VALID = {"retired", "retire_proposed", "keep", "wire", "demote", "repair"}
+
+# `demote` and `repair` are the two dispositions the 2026-09-04 demote-and-tune
+# design added, on the operator's "Agree flow + fund REPAIR diagnosis". They are
+# the two answers that CREATE work rather than closing a row, which is exactly
+# why each carries a bound the guard enforces — an unbounded one becomes its own
+# backlog, which is the failure the whole sunset register exists to prevent.
+DEMOTE_REQUIRED = ("demoted_at", "hypothesis", "lever", "tuning_budget_passes")
+REPAIR_REQUIRED = ("cause_hypothesis", "review_by")
 OPERATOR_DECISIONS = {"pending", "approved", "refused", "not_required"}
 
 
@@ -177,6 +185,44 @@ def audit(register: Optional[dict], passes: List[dict], pass_state: str,
             else:
                 notes.append(f"verified retired: `{tgt}` is absent.")
 
+        # RULE 4 — a `demote` carries its four fields, and the budget is real.
+        # ⚠️ The hypothesis is required BEFORE the tuning, not after: a hypothesis
+        # written to fit the result is not a hypothesis, and the budget exists so
+        # a demotion cannot quietly become permanent.
+        if d == "demote":
+            miss = [f for f in DEMOTE_REQUIRED
+                    if r.get(f) is None
+                    or (isinstance(r.get(f), str) and not str(r.get(f)).strip())]
+            if miss:
+                fail.append(f"`{rid}` is `demote` without {', '.join(miss)}. A demotion "
+                            f"without a stated hypothesis, lever and budget cannot be "
+                            f"exited — it just parks a leg in shadow, which is what this "
+                            f"flow exists to prevent.")
+            b = r.get("tuning_budget_passes")
+            if b is not None and (isinstance(b, bool) or not isinstance(b, int) or b <= 0):
+                fail.append(f"`{rid}` declares tuning_budget_passes `{b}`, which is not a "
+                            f"positive integer of weekly sunset passes.")
+
+        # RULE 5 — a `repair` is diagnosis work, and it expires like a `keep`.
+        # It is NOT a soft `keep`: it asserts the leg is BROKEN rather than
+        # underperforming, so it owes a cause hypothesis someone can disprove.
+        if d == "repair":
+            miss = [f for f in REPAIR_REQUIRED
+                    if r.get(f) is None
+                    or (isinstance(r.get(f), str) and not str(r.get(f)).strip())]
+            if miss:
+                fail.append(f"`{rid}` is `repair` without {', '.join(miss)}. A repair lane "
+                            f"with no cause hypothesis and no expiry is a backlog with a "
+                            f"nicer name.")
+            rb = _as_date(r.get("review_by"))
+            if r.get("review_by") is not None and rb is None:
+                fail.append(f"`{rid}` is `repair` with an unreadable `review_by` "
+                            f"({r.get('review_by')!r}).")
+            elif rb is not None and rb < today:
+                fail.append(f"`{rid}` is `repair` whose `review_by` ({rb}) has passed. "
+                            f"Report what the diagnosis found — including 'nothing yet' — "
+                            f"or re-decide it. Do not extend it silently.")
+
         # RULE 2 — a `keep` expires.
         if d == "keep":
             rb = _as_date(r.get("review_by"))
@@ -244,6 +290,50 @@ def _self_test() -> int:
             {"id": "a", "disposition": "keep", "reason": "r", "review_by": "2026-08-01"}]},
             [], "no_passes", repo=root, today=T)
         checks.append(("an EXPIRED `keep` fails", any("has passed" in x for x in f)))
+
+        # ── RULE 4: `demote` ──────────────────────────────────────────────
+        _dem = {"id": "strategy:d", "disposition": "demote", "reason": "r",
+                "demoted_at": "2026-09-01", "hypothesis": "the stop is too tight",
+                "lever": "atr_stop_mult", "tuning_budget_passes": 8}
+        f, _ = audit({"dispositions": [_dem]}, [], "no_passes", repo=root, today=T)
+        checks.append(("a well-formed `demote` passes", not f))
+
+        for _f in ("demoted_at", "hypothesis", "lever", "tuning_budget_passes"):
+            _bad = {k: v for k, v in _dem.items() if k != _f}
+            f, _ = audit({"dispositions": [_bad]}, [], "no_passes", repo=root, today=T)
+            checks.append((f"a `demote` missing {_f} fails",
+                           any(_f in x for x in f)))
+
+        f, _ = audit({"dispositions": [{**_dem, "tuning_budget_passes": 0}]},
+                     [], "no_passes", repo=root, today=T)
+        checks.append(("a `demote` with a ZERO budget fails (it would expire on "
+                       "the day it was written)",
+                       any("not a positive integer" in x for x in f)))
+
+        # ── RULE 5: `repair` ──────────────────────────────────────────────
+        _rep = {"id": "strategy:r", "disposition": "repair", "reason": "r",
+                "cause_hypothesis": "the feed returns no history",
+                "review_by": "2026-12-01"}
+        f, _ = audit({"dispositions": [_rep]}, [], "no_passes", repo=root, today=T)
+        checks.append(("a well-formed `repair` passes", not f))
+
+        f, _ = audit({"dispositions": [{k: v for k, v in _rep.items()
+                                        if k != "cause_hypothesis"}]},
+                     [], "no_passes", repo=root, today=T)
+        checks.append(("a `repair` with no cause_hypothesis fails — otherwise it is "
+                       "a backlog with a nicer name",
+                       any("cause_hypothesis" in x for x in f)))
+
+        f, _ = audit({"dispositions": [{**_rep, "review_by": "2026-08-01"}]},
+                     [], "no_passes", repo=root, today=T)
+        checks.append(("an EXPIRED `repair` fails, exactly like a `keep`",
+                       any("has passed" in x for x in f)))
+
+        f, _ = audit({"dispositions": [{**_rep, "review_by": "whenever"}]},
+                     [], "no_passes", repo=root, today=T)
+        checks.append(("a `repair` with an unreadable review_by fails rather than "
+                       "being treated as un-expiring",
+                       any("unreadable" in x for x in f)))
 
         f, _ = audit({"dispositions": [
             {"id": "a", "disposition": "keep", "reason": "r", "review_by": "2026-12-01"}]},

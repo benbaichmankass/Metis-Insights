@@ -1,5 +1,7 @@
 # Research & testing workflow — the architecture, and what actually leaks value
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Operator directive, 2026-08-27:**
 > *"I don't care about utilizing the VM specifically, I care about value maximization
 > from all our tools together … we can transfer the entire trainer infra to the git

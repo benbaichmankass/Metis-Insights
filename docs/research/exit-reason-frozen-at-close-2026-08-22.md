@@ -1,5 +1,7 @@
 # `exit_reason` is frozen at the moment the price was unknown
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-08-22 · **Session:** `s4-pairs-control` · **Tier:** 1 (measurement + code trace; no write shipped)
 **Closes the item-1.1 residue** (trades 4928 / 4733 / 4180) and names the mechanism behind
 item 1.1's "substantially an ATTRIBUTION defect" conclusion.

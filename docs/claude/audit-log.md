@@ -1,5 +1,7 @@
 # Audit log
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Append-only log of recurring hardening session findings.
 One entry per session; newest on top.
 

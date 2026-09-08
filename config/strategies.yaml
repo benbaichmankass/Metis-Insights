@@ -178,6 +178,15 @@ strategies:
     # single-trade excursion in 3yr backtest was ~11R, so 50R is safely
     # beyond reach.
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     # Minimum-confidence entry gate (breakout depth / ATR). RE-TUNED 0.30 -> 0.60
     # 2026-06-10 (M8 S3, Tier-3, PROPOSED — operator-approved merge gates this).
     # The prior 0.30 came from a 2h / trail-3.5 sweep that PRE-DATES the
@@ -344,6 +353,15 @@ strategies:
     # No fixed TP — the Chandelier trail is the sole profit-exit; tp_r is a
     # far ~50R sentinel satisfying the pipeline's SL/TP dispatch gate.
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything): re-enabled ML shadow
     # auto-wiring (was `[]`). BTCUSDT → BTC shadow corpus is symbol-appropriate;
     # observe-only, zero order-path effect. Feeds the decision/meta models.
@@ -1087,6 +1105,15 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 5.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.80
     # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
@@ -1137,6 +1164,15 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 5.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.60
     # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
@@ -1314,6 +1350,15 @@ strategies:
     atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 6/6, d_net_r +28.7348); was 2.5
     trail_mult: 5.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.60
     # shadow_model_ids OMITTED (soak-everything, symbol-aware auto-wire): ETHUSDT
     # signals auto-wire the symbol-agnostic decision/meta models; the symbol
@@ -1334,6 +1379,15 @@ strategies:
     trail_decay_arm_r: 5.57   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.60
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -1408,6 +1462,15 @@ strategies:
     atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 5/6, d_net_r +11.2514); was 2.5
     trail_mult: 5.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.60
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -1446,6 +1509,15 @@ strategies:
     trail_decay_stall_bars: 6
     trail_decay_tight_mult: 2.5
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.70
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -1493,6 +1565,15 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 3.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: blocked_no_live_bar_count_exit
+      # ⚠️ NOT the same as the legs above. This leg's only gate-passing take-profit cell
+      # (mes: `tp1_sm2_to24`; tlt_1d: `tp2_sm1.5_to24`) prescribes a bar-count timeout
+      # that NO live unit implements, so no config change can deliver it. Giving live a
+      # bar-count exit is a separate Tier-3 order-path change
+      # (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES).
+      revisit_when: live_gains_a_bar_count_exit
     min_confidence: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # MES signals auto-wire the MES regime/setup heads + symbol-agnostic decision
@@ -1578,6 +1659,15 @@ strategies:
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.0
     shadow_model_ids: []      # opt out of ML shadow-prediction auto-wiring while
                               # this fresh data-collector builds a track record.
@@ -1761,6 +1851,13 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0
+    tp_intent:
+      mode: unexamined
+      # ⚠️ THIS IS NOT A DECISION AND MUST NOT BE READ AS ONE. These two legs are absent
+      # from BOTH e35-bracket-corpus.jsonl (41 legs) and -history.jsonl (27 legs) — their
+      # target question has never been asked. Matrix: blocked:no_free_lane_candle_feed.
+      reason: never_swept_no_free_lane_candle_feed
+      revisit_when: a_candle_substrate_exists_for_this_symbol
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1784,6 +1881,13 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0
+    tp_intent:
+      mode: unexamined
+      # ⚠️ THIS IS NOT A DECISION AND MUST NOT BE READ AS ONE. These two legs are absent
+      # from BOTH e35-bracket-corpus.jsonl (41 legs) and -history.jsonl (27 legs) — their
+      # target question has never been asked. Matrix: blocked:no_free_lane_candle_feed.
+      reason: never_swept_no_free_lane_candle_feed
+      revisit_when: a_candle_substrate_exists_for_this_symbol
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1840,6 +1944,15 @@ strategies:
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
     trail_decay_arm_r: 5.06     # M20 P4.4 p80 arm ADDED to stall10 (combo measured on the declared base, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1868,6 +1981,18 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: blocked_no_live_bar_count_exit
+      # ⚠️ NOT the same as the legs above. This leg's only gate-passing take-profit cell
+      # (mes: `tp1_sm2_to24`; tlt_1d: `tp2_sm1.5_to24`) prescribes a bar-count timeout
+      # that NO live unit implements, so no config change can deliver it. Giving live a
+      # bar-count exit is a separate Tier-3 order-path change
+      # (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES).
+      revisit_when: live_gains_a_bar_count_exit
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1896,6 +2021,15 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1922,6 +2056,21 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 4.0
+    # M20 e3.5 bracket geometry: cell `tp4` (wf_pass, wf_wins_effective 4/6, 0 inert,
+    # d_net_r +8.9997; sweep 2026-08-31, corpus docs/research/e35-bracket-corpus.jsonl).
+    # REACHABILITY (this is what the number rests on): measured cap_r on this leg is
+    # min 7.944 / median 8.243 over n=4 live rows (position_telemetry, 2026-09-07), so
+    # 4.0 < cap_r on 4 of 4 — the declaration BINDS instead of the 9.9% venue clamp.
+    # ⚠️ THIS DOES NOT ESTABLISH THAT 4.0R IS WHERE MOMENTUM RUNS OUT. MI-155 grades
+    # this leg `insufficient_n` (n_live 3 vs a floor of 30); the walk-forward is about
+    # net R, not exit LOCATION, and 2 of 6 folds lost. It is a reachable target, not a
+    # calibrated one. Selected for reachability over the matrix's d_net_r winner `sm1.5`,
+    # which carries no take-profit at all.
+    tp_r: 4.0
+    tp_intent:
+      mode: r_multiple
+      basis: e35_cell_tp4
+      calibrated: false          # reachable, NOT calibrated — see MI-156 § 6
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2000,6 +2149,15 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     skip_hours: "19,20"   # M21 E-2 round 3 skip_late (wf 5/6, 2026-07-14) — skip entries triggered in the 19-20 UTC late-US-session pocket (OOS flips -5.09R -> +0.37R, dd 18.9 -> 13.5)
     shadow_model_ids: []
@@ -2046,6 +2204,15 @@ strategies:
     # worse on both OOS axes; the other is trend_donchian_eth stale_stop.
     # Restore = re-add `trail_vol_above_pctl: 0.80`, `trail_vol_tight_mult: 2.5`,
     # `vol_pctl_window: 200`.
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2089,6 +2256,15 @@ strategies:
     trail_mult: 3.0
     trail_decay_stall_bars: 6   # M20 P4.1 decay cell (stall6 tight1.5 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 1.5
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2150,6 +2326,15 @@ strategies:
     trail_mult: 4.0
     trail_decay_stall_bars: 6   # M20 P4.1 decay cell (stall6 tight2 wf 5/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2174,6 +2359,15 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.0
     trail_mult: 4.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2216,6 +2410,15 @@ strategies:
     trail_decay_stall_bars: 6   # M20 P4.1 decay cell (stall6 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
     tp_r: 50.0
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2242,6 +2445,15 @@ strategies:
     trail_mult: 4.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
     trail_decay_tight_mult: 2.0
+    # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
+    # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
+    tp_r: 50.0
+    tp_intent:
+      mode: none
+      reason: trail_is_the_profit_exit
+      # MEASURED: this leg has NEVER carried a tp_r key, across all 110 revisions of this
+      # file (2026-04-29 -> 2026-09-06). Never declared — NOT intended-and-lost.
+      evidence: no_gate_passing_timeout_free_tp_cell
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -2333,6 +2545,15 @@ strategies:
                                  # ROLLBACK: delete these two lines — an absent key restores the prior
                                  # geometry exactly (the lever is undeclared-by-default).
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.0
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
@@ -2457,6 +2678,15 @@ strategies:
     # marginal of the five — re-visit first if the fleet wants decay back.
     # Restore = re-add `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5`.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
+    tp_intent:
+      mode: none
+      # DELIBERATE: the trail is the sole profit-exit. Stated in the unit docstring
+      # (trend_donchian.py:25 / htf_pullback_trend_2h.py "NOT a tight target"), never
+      # in config — which is why 50.0 read as an omission rather than as a decision.
+      # The 50R value is retained ONLY so the venue rests an exchange-valid order at
+      # 9.9%; it is NOT a prediction and must never be read as one.
+      reason: trail_is_the_profit_exit
+      evidence: no_gate_passing_timeout_free_tp_cell   # e35 corpus, leg's latest sweep
     min_confidence: 0.0
     adx_min: 30             # ADX>=30 regime gate (Tier-3, operator-approved 2026-07-20; raised from 25). CONFIG-EXACT walk-forward (matches this block: trail_mult 5.0 + decay stall10/tight2.5, NO vol_skip): grid IS-R 25->47.4 / 28->39.8 / 30->61.8 (win 45%, dd 15.0) / 32->36.8 — 30 is the peak. Per-year OOS 25 vs 30: 30 net 55.8R vs 43.4R, lower maxDD in 4/5 years. Filters SOL marginal-trend fakeouts. ROLLBACK: set back to 25.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.

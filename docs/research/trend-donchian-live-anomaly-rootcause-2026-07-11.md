@@ -1,5 +1,7 @@
 # trend_donchian live anomaly — root cause (PERF-20260601-001)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Date:** 2026-07-11
 **Session:** S-TREND-DONCHIAN-ROOTCAUSE (operator-directed #1 next-strategy triage)
 **Backlog:** `PERF-20260601-001` (was `in_progress` since 2026-06-01)

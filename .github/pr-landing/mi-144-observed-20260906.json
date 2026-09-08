@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers and a research doc ONLY — docs/claude/OPEN-ITEMS.json, docs/claude/health-review-backlog.json, docs/claude/work/objects/WO-20260906-*.yaml, docs/research/trade-record-integrity-2026-09-06.md. No src/, no tests, no runtime, no order path, no config, no deploy or unit file. It records an observation already made on the live fleet; it changes no behaviour anywhere. The two code PRs this closes out (#11131, #11155) were each held for a human merge because R5 cannot certify src/**; this one has no src/ to certify, so holding it would route a pure bookkeeping change through a human for no reason — the exact failure .github/pr-landing/README.md was written to end."
+}

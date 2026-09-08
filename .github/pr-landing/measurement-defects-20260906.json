@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One new manager artifact under docs/claude/work/ - the operator-requested prioritized list of measurement defects. Tier-1 by the canonical doc's own list: no src/, no tests/, no scripts/, no .github/workflows/, no config/, no deploy/, no order path, no strategy config, no risk caps, no canonical prose outside the generated SESSION-BRIEF. It is a written record of findings already measured; it changes no runtime behaviour and nothing on either VM. It missed #11116's squash because it was pushed after auto-merge fired, so this is the same Tier-1 content on a clean branch, not new scope."
+}

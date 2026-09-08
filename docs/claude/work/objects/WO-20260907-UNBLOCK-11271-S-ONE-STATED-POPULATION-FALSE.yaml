@@ -1,0 +1,30 @@
+id: WO-20260907-UNBLOCK-11271-S-ONE-STATED-POPULATION-FALSE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Unblock #11271's one stated-population false positive, then count the Alpaca over-close population MI-168 did not look at
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-07
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  #11271 is green with the annotation landed and its verdict content otherwise UNCHANGED; AND a measured count, with the population stated, of (a) how many of the 13 pairs are Alpaca accounts and (b) how many actual over-close events are visible in the journal -- a clean zero is a fine answer and must be reported as 'we looked and found none', never as 'we did not look'. Do NOT change AlpacaClient.close: that is Tier-3 and is MI-168's #11279, which is blocked on two operator decisions.
+
+why: >-
+  Two things a session must do because the manager may not. (1) #11271 (MI-140's verdict) is red on exactly one guard, stated-population-guard, firing on '| risk_pct | 2% |' in docs/research/alpaca-live-refusal-verdict-2026-09-07.md. It is a FALSE POSITIVE: risk_pct is a configured parameter out of config/accounts.yaml, not a statistic over a population, and the table already states its population one sentence above (row 5415's own numbers, n=1 by construction). The fix is a population-ok marker at the END of the table row -- an HTML comment on its own line inside a markdown table breaks the table. The manager tried this itself and manager-scope-guard R2 correctly refused it twice; docs/research is a worker surface. (2) BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS is now on main and says plainly 'MI-168 did NOT count how many of those were Alpaca, and did NOT count any actual over-close event. We did not look.' The precondition held for 13 (account,symbol) pairs in MI-167's 28-day window. Nobody has looked at whether this REAL-MONEY-capable defect has already fired.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

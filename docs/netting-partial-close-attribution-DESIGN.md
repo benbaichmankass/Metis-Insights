@@ -1,5 +1,7 @@
 # Netting partial-close attribution — DESIGN packet
 
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Status: PROPOSAL. Nothing here is implemented.** Written 2026-08-06 to close the
 > design half of `BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED`
 > (`WORKPLAN-2026-08-05.md` §3 P0 item 1). The design work is Tier-1; **every fix

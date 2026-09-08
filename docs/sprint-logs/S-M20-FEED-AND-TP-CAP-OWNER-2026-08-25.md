@@ -1,5 +1,7 @@
 # S-M20-FEED-AND-TP-CAP-OWNER-2026-08-25
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 - **Dates:** 2026-08-25 (continuation of the 2026-08-24 session on the same branch)
 - **Branch:** `claude/m20-bracket-candle-feed-0k5mb3`
 - **Milestone:** M20

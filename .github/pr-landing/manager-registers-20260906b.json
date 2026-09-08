@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: two new work objects for operator-decided work, one OPEN-ITEMS carrier row, one backlog row, and four object closures whose PRs are verified merged (#11101, #11111, #11113). Tier-1 by the canonical doc's own list - no src/, tests/, scripts/, .github/workflows/, config/, deploy/, no order path, no strategy config, no risk caps, no canonical prose outside the generated SESSION-BRIEF. It changes no runtime behaviour and nothing on either VM. It replaces the abandoned claude/exit-geometry-carrier-20260906, whose merge I resolved badly; this branch is re-cut from origin/main so the content lands without that history."
+}

@@ -1,0 +1,5 @@
+Arms the route this branch's landing declaration says it takes. The 2026-09-03
+M7 strategy-review index is a pure addition: 1700 lines, 0 deletions, and the
+comms/strategy_reviews/2026-09-03/ directory is absent from main.
+
+Auto-merge merges only on green.

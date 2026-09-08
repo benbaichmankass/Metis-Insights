@@ -1,5 +1,7 @@
 # Exchange-truth attribution
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 S-067 follow-up #6. Insulates performance reads from local
 schema/state bugs in `trade_journal.db` by mirroring Bybit's fill
 log into a separate read-only sqlite store and exposing aggregates

@@ -1,5 +1,7 @@
 # Sprint Log — S-M27-ALTCOIN-PROMOTION-2026-07-21
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 
 - Start / End: 2026-07-21 (single session, continuation of the M27 overnight arc)

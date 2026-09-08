@@ -130,7 +130,8 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                  vol_pctl_window: int = 200,
                  trail_vol_above_pctl: float = 0.0,
                  trail_vol_below_pctl: float = 0.0,
-                 trail_vol_tight_mult: float = 0.0) -> Dict[str, Any]:
+                 trail_vol_tight_mult: float = 0.0,
+                 be_floor_r: float = 0.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     basis = df["close"].rolling(bb_period).mean()
@@ -229,6 +230,12 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     vol_trail_on, atr_pctl, j, trail_vol_above_pctl,
                     trail_vol_below_pctl, trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
+                # MI-165 break-even FLOOR (0 = off, byte-identical). Semantics
+                # identical to `scripts/backtest_trend.py`, which carries the
+                # full rationale; the three ratchet units share one trail
+                # geometry, so the lever means the same thing in each harness.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = max(trail, entry)
             else:
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
@@ -244,6 +251,9 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     vol_trail_on, atr_pctl, j, trail_vol_above_pctl,
                     trail_vol_below_pctl, trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+                # MI-165 break-even FLOOR — short side; `min()` tightens here.
+                if be_floor_r > 0.0 and mfe >= be_floor_r:
+                    trail = min(trail, entry)
             # M20 exit levers (default 0 = off, byte-identical): checked at
             # bar close, never pre-empting the intrabar trail hit above —
             # same precedence as scripts/research/backtest_trend.py.
@@ -309,6 +319,7 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                       params={"bb_period": bb_period, "bb_std": bb_std,
                               "kc_mult": kc_mult, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult, "min_confidence": min_confidence,
+                              **({"be_floor_r": be_floor_r} if be_floor_r > 0.0 else {}),
                               "vol_pctl_window": vol_pctl_window,
                               "trail_vol_above_pctl": trail_vol_above_pctl,
                               "trail_vol_below_pctl": trail_vol_below_pctl,
@@ -542,6 +553,10 @@ def main(argv):
     p.add_argument("--atr-period", type=int, default=14)
     p.add_argument("--atr-stop-mult", type=float, default=2.5)
     p.add_argument("--trail-mult", type=float, default=3.5)
+    p.add_argument("--be-floor-r", type=float, default=0.0,
+                   help="MI-165 break-even FLOOR (0=off, byte-identical): once "
+                        "the trade has SEEN this many R, the trailing stop may "
+                        "never again sit below entry.")
     p.add_argument("--timeout-bars", type=int, default=48)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
@@ -622,7 +637,8 @@ def main(argv):
                      vol_pctl_window=a.vol_pctl_window,
                      trail_vol_above_pctl=a.trail_vol_above_pctl,
                      trail_vol_below_pctl=a.trail_vol_below_pctl,
-                     trail_vol_tight_mult=a.trail_vol_tight_mult)
+                     trail_vol_tight_mult=a.trail_vol_tight_mult,
+                     be_floor_r=a.be_floor_r)
     if a.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(a.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))

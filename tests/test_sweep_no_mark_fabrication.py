@@ -348,19 +348,30 @@ def test_the_scan_window_check_can_fail(db):
     """
     from datetime import datetime, timedelta, timezone  # local, as in _fixture_times
 
+    # MI-128: age out BOTH timestamps. The window keys on
+    # `COALESCE(closed_at, created_at)` — the CLOSE — so ageing only
+    # `created_at` no longer removes the row, and this control would go red
+    # while proving nothing about the window. Ageing only the close would be
+    # worse than useless: it would leave a row closing BEFORE it opened.
+    aged = datetime.now(timezone.utc) - timedelta(days=_ROW_AGE_DAYS + 13)
+    aged_created = aged.strftime("%Y-%m-%dT%H:%M:%SZ")
+    aged_closed = (aged + timedelta(seconds=_HOLD_SECONDS)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
     c = sqlite3.connect(db.path)
     c.execute(
-        "UPDATE trades SET created_at = ? WHERE id = 1",
-        ((datetime.now(timezone.utc) - timedelta(days=_ROW_AGE_DAYS + 13))
-         .strftime("%Y-%m-%dT%H:%M:%SZ"),),
+        "UPDATE trades SET created_at = ?, closed_at = ? WHERE id = 1",
+        (aged_created, aged_closed),
     )
     c.commit()
     c.close()
 
     summary = om._sweep_local_pnl_for_unpriced(db)
     assert summary["scanned"] == 0, (
-        "a row 15 days old was still scanned — the 14-day window is not being "
-        "applied, so the test above cannot detect a fixture that drifts out of it"
+        "a row that CLOSED 15 days ago was still scanned — the 14-day window is "
+        "not being applied, so the test above cannot detect a fixture that "
+        "drifts out of it"
     )
     # The silence that made this expensive: nothing distinguishes it from clean.
     assert summary["declared_unmeasured"] == 0

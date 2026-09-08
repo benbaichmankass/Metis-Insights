@@ -1,5 +1,7 @@
 # WS9 — Oracle / Hugging Face runtime split
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M10
 **Status:** 🔄 Continuous — enforced from WS3 onwards; this file is the

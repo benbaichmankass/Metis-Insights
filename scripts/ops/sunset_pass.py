@@ -104,9 +104,22 @@ THE LIFETIME READ IS THREE-STATE
 ================================
 ``lifetime_state`` ∈ ``read`` · ``not_read`` (**no capture was supplied — we
 did not look**) · ``unreadable`` (a capture was supplied and could not be
-parsed). A leg missing from a ``read`` capture genuinely has zero closes,
-because the route lists every strategy with any. A leg missing under
-``not_read`` is unknown. Collapsing those two is how a pass invents a corpse.
+parsed). That describes THE CAPTURE. It does not describe an individual leg,
+and conflating the two is how this pass invented a corpse.
+
+**So each leg carries its own ``leg_lifetime_state``** ∈ ``observed`` ·
+``not_observed`` · ``not_read`` / ``unreadable``. ⚠️ **A leg missing from a
+``read`` capture has NOT been measured at zero.** ``/api/bot/performance``
+filters ``AND t.pnl IS NOT NULL``, so it lists every strategy with a
+**pnl-bearing** close — not with *any* close. A leg whose every close landed
+``pnl NULL`` is simply absent. *"We did not observe a pnl-bearing close"* and
+*"the leg never closed a trade"* are different facts; this pass used to default
+the first to ``0`` and report the second, which manufactured
+``retire_candidate`` verdicts (11 of 52 enabled legs absent, 2026-09-05 —
+``docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md``). ``not_observed``
+never proposes a retirement on its own. To settle whether such a leg ever
+closed, count ``trade_journal.db::trades`` directly — the performance route is
+a performance view, not an "ever closed" oracle.
 
 USAGE
 -----
@@ -280,12 +293,41 @@ def grade_strategies(
     for name, st in sorted(seen.items()):
         routed = None if routing is None else routing.get(name, [])
         classes = {k for _, k in (routed or [])}
-        # ⚠️ `read` and `not_read` mean different things about an ABSENT leg.
-        # /api/bot/performance lists every strategy with any closed trade, so
-        # under `read` an absent leg genuinely closed ZERO — a real measurement.
-        # Under `not_read`/`unreadable` it stays None: *we did not look*. Writing
-        # 0 in that case would assert an observation nobody made.
-        life = lifetime.get(name, 0 if lifetime_state == "read" else None)
+        # ⚠️ THE PER-LEG LIFETIME READ IS ITSELF THREE-STATE, AND IT USED TO BE
+        # COLLAPSED HERE. The comment that stood here claimed
+        # `/api/bot/performance` "lists every strategy with any closed trade, so
+        # under `read` an absent leg genuinely closed ZERO — a real
+        # measurement." **That claim was false**, and it was the load-bearing
+        # part: it is what persuaded a reader the default was an observation.
+        # `src/web/api/routers/performance.py` filters `AND t.pnl IS NOT NULL`,
+        # so the capture lists every strategy with a **pnl-bearing** close, not
+        # with *any* close. A leg whose every close landed `pnl NULL` is simply
+        # ABSENT — and `lifetime.get(name, 0)` turned that absence into a
+        # measured zero, which carried basis `never_closed_lifetime` and the
+        # note "has never closed a single trade in its life".
+        #
+        # Measured 2026-09-05 against `/api/bot/performance?window=all`: of 52
+        # enabled legs, 46 were in the capture and **11 were absent and silently
+        # defaulted to 0**. Nine of the ten legs the 2026-09-01 packet proposed
+        # retiring were among them, and **five of those ten had closed trades in
+        # `trade_journal.db::trades` before the packet was written** — so the
+        # packet's stated basis was false for half of what it proposed retiring.
+        # See docs/claude/diagnoses/MI-124-never-firing-legs-diagnosis.md §2.
+        #
+        # So absence is carried as its own state and never as a number:
+        #   `observed`     — the leg is IN a `read` capture; its count is real.
+        #   `not_observed` — the capture was read and this leg is NOT in it. We
+        #                    did not observe a pnl-bearing close. That is NOT
+        #                    the same fact as "it never closed a trade", and it
+        #                    must never on its own propose a retirement.
+        #   `not_read` / `unreadable` — we did not look at all.
+        leg_lifetime_state = (
+            lifetime_state if lifetime_state != "read"
+            else "observed" if name in lifetime
+            else "not_observed"
+        )
+        # None whenever the leg was not measured — never a manufactured 0.
+        life = lifetime.get(name)
 
         verdict, basis, note = "watch", "none", ""
 
@@ -305,10 +347,14 @@ def grade_strategies(
             verdict, basis = "retire_candidate", "unrouted"
             note = ("declared in strategies.yaml and routed to NO account — it cannot "
                     "reach the order path at all, so it can never become gradeable.")
-        elif lifetime_state == "read" and (life or 0) == 0:
+        elif leg_lifetime_state == "observed" and (life or 0) == 0:
             verdict, basis = "retire_candidate", "never_closed_lifetime"
-            note = ("has never closed a single trade in its life, and the gate files it "
-                    "identically to a healthy young leg every day.")
+            # Stated as what was MEASURED. This leg is IN the capture and reads
+            # zero — it is not the absent case, which is `lifetime_not_observed`
+            # and is never a candidate.
+            note = ("is present in the lifetime capture and reads ZERO pnl-bearing closes "
+                    "across its life, and the gate files it identically to a healthy "
+                    "young leg every day.")
         elif (st["indices_seen"] >= MIN_PASSES_FOR_INDEX_BASIS
               and (st["max_n_closed_seen"] or 0) == 0):
             verdict, basis = "retire_candidate", "persistently_silent"
@@ -316,10 +362,28 @@ def grade_strategies(
                     f"dates; the gate has never had anything to grade.")
         else:
             verdict = "watch"
-            basis = ("lifetime_not_read" if lifetime_state != "read"
-                     else "still_producing" if (life or 0) > 0 else "too_few_passes")
-            note = ("the gate cannot grade it yet, but the evidence does not support a "
-                    "retirement proposal.")
+            if lifetime_state != "read":
+                basis = "lifetime_not_read"
+            elif leg_lifetime_state == "not_observed":
+                basis = "lifetime_not_observed"
+            elif (life or 0) > 0:
+                basis = "still_producing"
+            else:
+                basis = "too_few_passes"
+            if basis == "lifetime_not_observed":
+                # ⚠️ NOT a zero. This leg is absent from a capture that lists
+                # only pnl-BEARING closes, so its lifetime closes are UNKNOWN to
+                # this pass — which is exactly the fact the old default erased.
+                note = ("absent from the `/api/bot/performance` capture, which lists only "
+                        "strategies with a pnl-BEARING close (`t.pnl IS NOT NULL`). That "
+                        "means we did NOT OBSERVE a pnl-bearing close — it does NOT mean "
+                        "the leg never closed a trade, and it is not grounds for a "
+                        "retirement proposal. A leg whose every close landed `pnl NULL` "
+                        "looks identical here to one that never traded. To settle it, "
+                        "count closes directly in `trade_journal.db::trades`.")
+            else:
+                note = ("the gate cannot grade it yet, but the evidence does not support a "
+                        "retirement proposal.")
 
         rows.append({
             "id": f"strategy:{name}",
@@ -339,6 +403,10 @@ def grade_strategies(
                 "gate_reached_matrix_on": st["reached_matrix_on"],
                 "lifetime_closed_trades": life,
                 "lifetime_state": lifetime_state,
+                # The PER-LEG state. `lifetime_state` describes the capture;
+                # this describes whether THIS leg was in it. `None` closes
+                # under `not_observed` means unknown, never zero.
+                "leg_lifetime_state": leg_lifetime_state,
                 "routed_to": routed,
             },
         })
@@ -449,6 +517,12 @@ def build(*, lifetime_capture: Optional[Any] = None, repo: Path = REPO,
             "strategy_legs_graded": len(strat),
             "lifetime_state": lstate,
             "lifetime_strategies_in_capture": len(life),
+            # ⚠️ THE DENOMINATOR FOR THE ABSENCE. These legs were graded with
+            # NO lifetime measurement — they are not zeros. A reader who cannot
+            # see this count cannot tell how much of the pass rests on silence.
+            "legs_lifetime_not_observed": sum(
+                1 for r in strat
+                if r["evidence"].get("leg_lifetime_state") == "not_observed"),
             "routing_state": "read" if routing is not None else "unreadable",
             "machinery_probe": probe,
             "min_passes_for_index_basis": MIN_PASSES_FOR_INDEX_BASIS,
@@ -472,6 +546,10 @@ def render_markdown(doc: dict) -> str:
          f"- strategy legs graded: **{p['strategy_legs_graded']}**",
          f"- lifetime read: **`{p['lifetime_state']}`** "
          f"({p['lifetime_strategies_in_capture']} strategies in the capture)",
+         f"- legs absent from that capture (**`not_observed`, NOT zero**): "
+         f"**{p.get('legs_lifetime_not_observed', 0)}** — the capture lists only "
+         f"pnl-bearing closes, so these legs have no lifetime measurement and are "
+         f"never proposed on it",
          f"- account routing: **`{p['routing_state']}`**",
          f"- machinery probe: **`{p['machinery_probe']['probe_state']}`** "
          f"({p['machinery_probe']['scanned']} findings consumed)"]
@@ -494,7 +572,8 @@ def render_markdown(doc: dict) -> str:
         e = r["evidence"]
         L.append(f"- **`{r['name']}`** (Tier-{r['tier']}, basis `{r['basis']}`) — {r['note']}")
         L.append(f"  - lifetime closes `{e.get('lifetime_closed_trades')}` "
-                 f"(state `{e.get('lifetime_state')}`) · latest-window closes "
+                 f"(capture `{e.get('lifetime_state')}`, this leg "
+                 f"`{e.get('leg_lifetime_state')}`) · latest-window closes "
                  f"`{e.get('closes_in_latest_window')}` · best ever seen "
                  f"`{e.get('max_n_closed_ever_seen')}` against gate floor "
                  f"`{e.get('gate_floor')}` · routed to "
@@ -574,13 +653,18 @@ def _self_test() -> int:
     routing = {"silent": [("bybit_1", "paper")], "young": [("bybit_1", "paper")],
                "graded": [("bybit_1", "paper")], "propleg": [("breakout_1", "prop")]}
 
+    # `silent` is PRESENT in the capture reading 0 — the genuinely-measured
+    # zero. `absent` (below) is the leg that is missing from it entirely, which
+    # is a different fact and must NOT grade the same.
     r = {x["name"]: x for x in grade_strategies(
-        idx, lifetime_state="read", lifetime={"young": 3, "graded": 44}, routing=routing)}
+        idx, lifetime_state="read", lifetime={"silent": 0, "young": 3, "graded": 44},
+        routing=routing)}
     checks.append(("a leg the gate GRADED is governed_elsewhere, not re-graded here",
                    r["graded"]["verdict"] == "governed_elsewhere"))
-    checks.append(("a leg with zero lifetime closes is a retire_candidate",
+    checks.append(("a leg MEASURED at zero lifetime closes is a retire_candidate",
                    r["silent"]["verdict"] == "retire_candidate"
-                   and r["silent"]["basis"] == "never_closed_lifetime"))
+                   and r["silent"]["basis"] == "never_closed_lifetime"
+                   and r["silent"]["evidence"]["leg_lifetime_state"] == "observed"))
     checks.append(("a PROP-routed silent leg is not_assessed, NEVER a candidate",
                    r["propleg"]["verdict"] == "not_assessed"
                    and r["propleg"]["basis"] == "prop_routed"))
@@ -589,6 +673,19 @@ def _self_test() -> int:
                    and r["unrouted"]["basis"] == "unrouted"))
     checks.append(("a young leg that IS closing trades only reaches `watch`",
                    r["young"]["verdict"] == "watch"))
+
+    # ⚠️ THE ABSENCE. `silent` is routed and gate-short-circuited exactly like
+    # the measured-zero case above, but is NOT in the capture. Under the old
+    # `lifetime.get(name, 0)` default it read a manufactured 0 and graded
+    # `retire_candidate` / `never_closed_lifetime`. It must not.
+    r_abs = {x["name"]: x for x in grade_strategies(
+        idx, lifetime_state="read", lifetime={"young": 3, "graded": 44}, routing=routing)}
+    checks.append(("an ABSENT leg is never a retire_candidate on that absence",
+                   r_abs["silent"]["verdict"] != "retire_candidate"))
+    checks.append(("...it carries `not_observed` as its own state, not a zero",
+                   r_abs["silent"]["evidence"]["leg_lifetime_state"] == "not_observed"
+                   and r_abs["silent"]["evidence"]["lifetime_closed_trades"] is None
+                   and r_abs["silent"]["basis"] == "lifetime_not_observed"))
 
     # the lifetime read is three-state and `not_read` must not manufacture candidates
     r2 = {x["name"]: x for x in grade_strategies(

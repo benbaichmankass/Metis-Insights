@@ -1,5 +1,7 @@
 # Cross-asset feature probe — "do peer assets predict this asset?" (2026-06-18)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Tier-1 research.** Offline ML feature A/B on the trainer. Touches nothing
 > live (`src/`, `config/strategies.yaml`, `config/accounts.yaml`). Status:
 > **code shipped + trainer A/B dispatched** — results section filled on return.

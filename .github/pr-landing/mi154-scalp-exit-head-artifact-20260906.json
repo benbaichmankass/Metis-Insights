@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs, a research evidence file, a work object, and two register rows (OPEN-ITEMS + health-review backlog, the latter filed through scripts/ops/backlog_append.py). Every path is inside TIER1_SURFACE: docs/**, .github/**. No src/, no scripts/, no tests/, no config. Publishes no artifact, arms no env var, and deliberately does NOT edit any cell status in docs/research/exit-refinement-coverage.json (Tier-3). The trainer-tooling change this work motivated (scripts/ml/export_exit_head.py --family) is split into a companion PR because pr-landing-guard's TIER1_SURFACE does not list scripts/ml/**."
+}

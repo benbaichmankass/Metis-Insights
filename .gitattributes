@@ -37,3 +37,51 @@ docs/claude/OPEN-ITEMS.json                 merge=jsonregister
 docs/claude/work/MANAGER-CHECKLIST.json     merge=jsonregister
 docs/claude/work/SESSIONS.json              merge=jsonregister
 docs/claude/work/OPEN-PRS.json              merge=jsonregister
+
+# ── docs/claude/pending-pings.jsonl — merge=union, NOT merge=jsonregister ──
+#
+# This one is line-delimited JSON, not a JSON object, and the difference decides
+# the driver. MEASURED 2026-09-05 against current origin/main @5eb59917, over the
+# full population of five ping-carrying PRs whose conflict was observed
+# 2026-09-04 (#10888 #10902 #10908 #10914 #10926), test-merged in throwaway
+# worktrees with merge.jsonregister ARMED:
+#
+#     no mapping (today)   5/5 CONFLICT   both sides' text left in markers
+#     merge=jsonregister   5/5 CONFLICT   ⚠️ AND THE PR'S ROW IS NOT IN THE FILE
+#     merge=union          0/5 CONFLICT   both sides' rows present, read and verified
+#
+# ⚠️ jsonregister IS NOT MERELY INEFFECTIVE HERE, IT IS WORSE THAN NOTHING. It
+# parses the whole file as ONE JSON document, so appended LINES read to it as
+# disagreeing header scalars and it refuses — correct instinct, wrong file. On
+# the pre-rescue control (base b95ac61f, main before #10974) it left 74 rows and
+# NO conflict markers while the PR's ping row was absent from the file entirely:
+# a `git add` on that path drops the ping silently. Today's bare conflict at
+# least leaves both sides' text where a human can see it.
+#
+# ⚠️ THE UNION OBJECTION WAS TESTED, NOT ASSUMED. union resurrects deletions, and
+# a drained ping could in principle be deleted. It is not: notify_on_pull.py's
+# `_drain_pending_pings` LEAVES THE FILE IN PLACE and dedupes by line hash via
+# runtime_logs/pending_pings_delivered.txt (gitignored, per-clone) — its docstring
+# says this replaced the old truncate-in-a-follow-up-commit contract. Measured
+# over the file's whole history: 94 commits touch it; 4 show deletions; 3 predate
+# the dedupe contract (350cc391, 2026-05-06) and were that old contract; the only
+# post-dedupe one (39e6cbe0) is a pure reflow — 22 lines removed, all 22 re-added
+# byte-identical, 0 rows semantically gone. So in 90 post-contract commits,
+# nothing has ever removed a row, and union has nothing to resurrect.
+#
+# ⚠️ WHAT UNION DOES COST, STATED RATHER THAN GLOSSED. If a row was hand-rescued
+# onto main by value (as #10974 did for these five) and the PR carrying it later
+# merges, union keeps BOTH copies: merging #10888 into current main yields 91
+# lines / 90 unique, the night_shift_summary row duplicated byte-for-byte. That
+# is one duplicate operator page, because the hash ledger suppresses repeats
+# ACROSS drain passes but not WITHIN one — `_drain_pending_pings` never adds to
+# `delivered` as it iterates, so two identical lines return two pings (measured).
+# Filed as BL-20260905-PENDING-PINGS-WITHIN-PASS-DUPLICATE. A duplicate page is
+# noise and recoverable; a dropped ping is loss and is not. That is the trade
+# this line takes, deliberately.
+#
+# ⚠️ CLIENT-SIDE ONLY, same as the drivers above: this does not make a `dirty`
+# ping PR auto-mergeable on GitHub. It removes the hand-rescue cost for whoever
+# holds an armed clone. union is a git BUILT-IN, so unlike jsonregister it needs
+# no installer and works in a clone that never ran install_merge_driver.sh.
+docs/claude/pending-pings.jsonl             merge=union

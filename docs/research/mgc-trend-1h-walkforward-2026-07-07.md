@@ -1,5 +1,7 @@
 # mgc_trend_1h — window-aligned walk-forward (2026-07-07)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Author:** Claude. **Status:** research finding. **No config change** — this
 sharpens WHY `mgc_trend_1h` stays `shadow`; it is not a promotion.
 

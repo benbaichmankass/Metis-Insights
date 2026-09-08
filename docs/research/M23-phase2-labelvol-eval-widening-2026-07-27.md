@@ -1,5 +1,7 @@
 # M23 P2 — WS-3b eval-book widening: measured payoff (2026-07-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Anchor:** `MB-20260717-M23-META-LABEL` (label-volume) / workplan 1.1 steps 3a+3c.
 **Tier:** Tier-1, offline, trainer-side (read + a `--no-register` harness re-run).
 **Prior artifacts:** [`M23-phase2-labelvol-findings-2026-07-19.md`](M23-phase2-labelvol-findings-2026-07-19.md)

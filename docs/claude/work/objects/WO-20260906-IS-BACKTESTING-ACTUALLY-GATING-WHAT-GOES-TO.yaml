@@ -1,0 +1,30 @@
+id: WO-20260906-IS-BACKTESTING-ACTUALLY-GATING-WHAT-GOES-TO
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Is backtesting actually gating what goes to soak, or is soak doing the discovery
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-06
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  It is ESTABLISHED, with a stated population, for every enabled live leg: (a) whether a backtest exists that was RUN and READ before that leg went live, (b) whether its result was DISPOSITIONED anywhere, and (c) whether backtest exit locations and live exit locations agree. The answer names which legs are backed by pre-live evidence and which are not, as a COUNT over a denominator, not as an impression. A leg with no backtest is a finding to report, never a gap to quietly fill.
+
+why: >-
+  OPERATOR COMPANION QUESTION, asked 2026-09-06 and unanswered across three manager ticks: 'we have and are correctly utilizing all of the back testing infrastructure, which is supposed to mean that soaking is only for mechanical verification of what we already have tested to be verifiably true in back testing. So we also need to understand why that doesnt seem to be producing the results that we are expecting.' MI-151 handed this a concrete starting point: backtest_fidelity_calibrate.py, the instrument that would answer (c), HAS NEVER BEEN RUN and grades the wrong quantity for exit location anyway. So the premise that soak is mechanical verification currently has no instrument behind it.
+
+source: >-
+  operator, 2026-09-06; carried by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

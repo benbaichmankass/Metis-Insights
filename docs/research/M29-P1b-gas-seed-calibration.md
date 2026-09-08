@@ -1,5 +1,7 @@
 # M29 P1b — calibrating the `gas_storage_price_v1` seed on real data
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Status:** built 2026-07-23 · observe-only research · Tier-1 (no live influence).
 
 M29 P1a shipped the pure system-dynamics engine (`src/sysdyn/engine.py`), the

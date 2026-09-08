@@ -1,5 +1,15 @@
 # AI Trader — Original Workplan (HISTORICAL — superseded 2026-05-10)
 
+> **Doc status:** `historical` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
+> ## **PLAN STATUS: `historical`**
+>
+> Status assigned 2026-09-07 (MI-159), enforced by `scripts/ci/check_one_live_workplan.py`. Pre-canonical: this file already declared itself superseded on
+> **2026-05-10** by the S-CANON-1 canonical doc set, four months before the
+> `docs/claude/` plan-of-record lineage existed. It was never part of that lineage and
+> has no successor within it. Kept as the verbatim original operator capture.
+
+
 > **Status:** Superseded 2026-05-10 by the S-CANON-1 canonical
 > doc set. Authority order is now:
 > 1. docs/CLAUDE-RULES-CANONICAL.md

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: docs/claude/work/{SESSIONS.json, MANAGER-CHECKLIST.json, objects/*.yaml lifecycle+owner fields} plus this declaration. Tier-1 by the canonical doc's own list - no src/, no tests/, no scripts/, no .github/workflows/, no config/, no deploy/, no order path, no strategy config, no risk caps, and no canonical prose outside the generated SESSION-BRIEF block. It records four spawns and re-grades six checklist items against what actually landed on main; it changes no runtime behaviour and nothing on either VM. manager-scope grades it clean (2 manager commits, all inside the surface), and R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}

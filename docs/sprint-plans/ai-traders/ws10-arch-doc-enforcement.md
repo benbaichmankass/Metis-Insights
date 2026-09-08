@@ -1,5 +1,7 @@
 # WS10 — Architecture-doc enforcement
 
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Master plan:** [`docs/AI-TRADERS-ROADMAP.md`](../../AI-TRADERS-ROADMAP.md)
 **Milestone:** M9
 **Status:** ✅ DONE 2026-05-11 (S-AI-WS10 + S-AI-WS10-FU + S-AI-WS10-CLOSEOUT)

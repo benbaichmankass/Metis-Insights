@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One row in docs/claude/OPEN-ITEMS.json, docs-only. It records that clause (1) of OI-20260907-TELEMETRY-HOOK-... is now OBSERVED -- PR #11264 merged as 115b0c25 -- and flips the row from kind:pending_decision to kind:monitoring, which is the enforced kind now that the only open question is a live-fleet observation rather than a decision. The row's summary said 'THE PR IS NOT MERGED', which went false the moment it merged and is stale in the direction that wastes a session's time: a reader would go re-establish a merge that already happened. Clause (2) -- a real telemetry row for one of the 9 previously-invisible legs -- is NOT cleared and the row stays open on it, which the new observation says in terms. No src/, no config/, no test, no runtime path: the diff is 5 insertions and 2 deletions in one JSON register."
+}

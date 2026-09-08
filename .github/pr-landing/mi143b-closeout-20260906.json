@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers only: one field-level edit to docs/claude/OPEN-ITEMS.json recording the post-deploy OBSERVATION for the MI-143b demote (#11121, merged f2b871e9, deployed 116019ce). docs/** is on the guard's own TIER1_SURFACE. No src/, no config/, no scripts/, no deploy/, no order path, no live-VM runtime file, and no strategy or risk change — the Tier-3 diff it reports on already merged separately under an operator approval. The OPEN-PRS.json closeout was deliberately NOT included: the reconcile-open-prs automation (#11186) already moves that row with its typed decision intact, and duplicating it by hand would conflict with a queue that already has a recorded disposition deadlock (#11174)."
+}

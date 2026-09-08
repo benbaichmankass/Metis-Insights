@@ -1,5 +1,7 @@
 # Research & testing infra — audit phase 1: the measurement layer
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Operator directive, 2026-08-27:** *"why was it built that way, was it actually
 > built wrong, and why shouldn't we try to use it? ... We've been working for weeks
 > already on the infra to push active management forward and keep tripping over

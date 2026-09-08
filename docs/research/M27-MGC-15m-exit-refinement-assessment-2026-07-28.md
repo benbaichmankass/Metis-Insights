@@ -1,5 +1,7 @@
 # M27 — `ict_scalp_mgc_15m` exit-refinement assessment (2026-07-28)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Follow-up to the merged wiring PR
 [#7848](https://github.com/benbaichmankass/ict-trading-bot/pull/7848) ("Wire
 `ict_scalp_mgc_15m` (ungated) to `ib_paper`"). That PR filed a `pending`

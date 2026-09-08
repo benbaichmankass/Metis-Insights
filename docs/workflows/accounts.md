@@ -1,5 +1,7 @@
 # Unit 2 — Accounts workflow
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Responsibility
 Risk-size and execute `OrderPackage` objects on exchange accounts.
 Never generate signals, never modify strategy config.

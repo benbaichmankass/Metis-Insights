@@ -196,20 +196,65 @@ def test_a_row_with_no_declared_record_is_not_counted_in_the_denominator(tmp_pat
 
 
 # ───────────────────────── nothing is excluded ─────────────────────────────
-def test_totalR_and_rCoverage_are_UNCHANGED_by_the_detector(tmp_path):
-    """The rule this whole change is built around. Silently dropping the
-    contaminated rows would convert a visible-wrong number into an
-    invisible-wrong one over an unstated population."""
+def test_a_provably_impossible_risk_is_REFUSED_and_the_refusal_is_DECLARED(tmp_path):
+    """⚠️ THIS TEST ASSERTED THE OPPOSITE UNTIL 2026-09-06 (MI-144), AND THE
+    CHANGE IS DELIBERATE — do not "restore" it.
+
+    It used to require `totalR` / `rCoverage` to be UNCHANGED by the detector,
+    on the reasoning that *"silently dropping the contaminated rows would
+    convert a visible-wrong number into an invisible-wrong one over an unstated
+    population."* That reasoning is correct and is the reason this module
+    reports rather than filters — **while nothing states the population**. The
+    escape it leaves open is its own last clause, *"publish the count; let the
+    consumer decide"*: no consumer COULD decide, because `expectancyR` was
+    itself the number being consumed, by the promotion gates.
+
+    MEASURED 2026-09-06, and this is what the old contract cost: the 30d
+    real-money window published `expectancyR +0.9818` while the window LOST
+    money (`totalPnl −3.6266`, `profitFactor 0.9507`); 12 of its 39 rows
+    (30.8%) carried 117.1% of that R. Over the whole journal (n=1287) 104
+    contaminated rows — 8.1% — carried **96.6%** of `totalR`.
+
+    So the exclusion is now made, and it is DECLARED rather than silent:
+    `rBasis.refusedWrongSide` publishes exactly how many rows were refused and
+    `rCoverage` falls correspondingly, so the population is stated at the point
+    of reading. A refusal counts in NEITHER the R numerator nor its denominator
+    — the same discipline a missing stop has always had, never a raw-pnl
+    fallback.
+
+    ⚠️ A refusal is the LAST resort, not the first: a wrong-side row that
+    carries a declared `risk_per_unit` is COMPUTED, not refused — see
+    `test_a_wrong_side_row_with_a_declared_record_is_computed_not_refused`.
+    """
     rows = [
-        ("a", "long", 100.0, 101.0, 110.0, 5.0, None),   # contaminated, R = 5/1
-        ("a", "long", 100.0,  99.0, 110.0, 5.0, None),   # clean,        R = 5/1
+        ("a", "long", 100.0, 101.0, 110.0, 5.0, None),   # wrong-side, no record
+        ("a", "long", 100.0,  99.0, 110.0, 5.0, None),   # clean,      R = 5/1
     ]
     agg = _agg(tmp_path, rows)
     assert agg["totalTrades"] == 2
-    assert agg["rTradeCount"] == 2, "the contaminated row is STILL in the R count"
-    assert agg["rCoverage"] == 1.0
-    assert _eq(agg["totalR"], 10.0), "its R is STILL in the sum"
-    assert agg["rProvenance"]["contaminated"] == 1, "...and it is REPORTED"
+    assert agg["rTradeCount"] == 1, "the impossible row is refused, not abs()-ed"
+    assert agg["rCoverage"] == 0.5, "and the coverage SAYS SO"
+    assert _eq(agg["totalR"], 5.0), "only the clean row's R is in the sum"
+    assert agg["rProvenance"]["contaminated"] == 1, "...it is still REPORTED"
+    assert agg["rBasis"]["refusedWrongSide"] == 1, "...and the refusal is DECLARED"
+    assert agg["rBasis"]["storedStop"] == 1
+    # The four bases partition the population, checkable by arithmetic.
+    assert sum(agg["rBasis"].values()) == agg["totalTrades"]
+
+
+def test_a_wrong_side_row_with_a_declared_record_is_computed_not_refused(tmp_path):
+    """The declared `risk_per_unit` is an INDEPENDENT record of entry-time risk
+    that no trailing amend can reach, so where one exists we know the answer and
+    must publish it. Refusing here would throw away a good number."""
+    rows = [("a", "long", 100.0, 101.0, 110.0, 5.0, 2.5)]
+    agg = _agg(tmp_path, rows)
+    assert agg["rBasis"]["declaredInitial"] == 1
+    assert agg["rBasis"]["refusedWrongSide"] == 0
+    assert agg["rTradeCount"] == 1
+    assert _eq(agg["totalR"], 2.0), "5.0 pnl / (2.5 declared risk x 1 qty)"
+    # It is STILL graded contaminated — the stop really is on the wrong side.
+    # The grade and the basis answer different questions and must not collapse.
+    assert agg["rProvenance"]["contaminated"] == 1
 
 
 # ──────────────────────────── per-strategy ─────────────────────────────────
@@ -237,9 +282,18 @@ def test_a_wholly_contaminated_leg_is_visible_beside_its_inflated_expectancyR(tm
     computed from a stop the trade never risked."""
     rows = [("mgc_trend_1h", "long", 4318.872, 4319.97857143, 4400.0, -4437.76, None)]
     leg = _strat(_agg(tmp_path, rows), "mgc_trend_1h")
-    assert leg["expectancyR"] is not None, "the number is still published"
-    assert leg["rProvenance"]["contaminated"] == leg["rTradeCount"] == 1, (
-        "...and 100% of the R behind it is provably not initial-stop risk")
+    # ⚠️ CHANGED 2026-09-06 (MI-144). This used to assert `expectancyR is not
+    # None` — "the number is still published". On a leg whose R is 100%
+    # refused there IS no number, and publishing one would be the defect. What
+    # the leg publishes instead is the REASON there is none, which is strictly
+    # more information than an inflated figure beside a caveat nobody reads.
+    assert leg["trades"] == 1
+    assert leg["rTradeCount"] == 0, "nothing here was R-measurable"
+    assert leg["expectancyR"] is None, "and null is the honest value, never 0.0"
+    assert leg["rProvenance"]["contaminated"] == 1, (
+        "the stop is provably not initial-stop risk...")
+    assert leg["rBasis"]["refusedWrongSide"] == 1, (
+        "...so the R was refused, and the leg SAYS which basis it refused on")
 
 
 # ─────────────────── graceful degradation on a legacy schema ───────────────

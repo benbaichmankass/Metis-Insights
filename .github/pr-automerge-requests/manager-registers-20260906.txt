@@ -1,0 +1,1 @@
+manager registers must reach main -- sub-sessions clone main and cannot read the manager branch

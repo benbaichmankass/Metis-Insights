@@ -1,0 +1,122 @@
+id: WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  No 5m or 15m scalp exit-head artifact exists — and the CONSUMER is missing too,
+  so the artifact is the SECOND half, not the first
+stage: OBSERVATION
+lifecycle: waiting
+owner: session_01S7pASy78QiNViwhSadGdNb
+opened_at: 2026-09-06
+closed_at: null
+
+review_trigger: >-
+  Re-read when PR #11140 (or any successor that puts an exit-head consumer in the
+  ict_scalp unit) MERGES. Until then the artifact half cannot be observed doing
+  anything, and building it early adds a latent hazard for no observable benefit.
+
+done_condition: >-
+  A 5m and/or 15m scalp-family exit-head artifact is TRAINED, EXPORTED and PUBLISHED,
+  AND the in-distribution guard is OBSERVED admitting at least one real ict_scalp leg
+  (a `decision_state` other than `not_scored` on a live or soak row). A green unit
+  test is NOT this observation.
+  ⚠️ TWO CLAUSES OF THE ORIGINAL WORDING ARE CORRECTED BY MEASUREMENT — the
+  correction is recorded rather than the wording silently swapped.
+  (1) It said the artifact should be published "such that /api/diag/shadow_stats lists
+  it". THAT ROUTE CANNOT LIST IT. `/api/diag/shadow_stats` delegates to
+  `src/web/api/routers/shadow.py::stats`, which aggregates `shadow_predictions.jsonl`
+  via `iter_records(log)` — it enumerates models that have SCORED, not artifacts that
+  exist. An artifact with no call site produces no rows and never appears there. If it
+  DOES appear, that IS the observation.
+  (2) It said a scalp artifact in-distribution on tf and symbols "would today be
+  accepted by a donchian-family consumer". Measured, it would not: no leg reaching the
+  exit-head hook is on 5m or 15m, so the tf guard excludes it first. The family gap is
+  REAL but LATENT — see `blocked_on` and the backlog row.
+  ⚠️ `decision_state` EXISTS NOWHERE on main or on the live VM; it is introduced by
+  #11140. Do not write a done-condition against a field the deployed code lacks.
+
+why: >-
+  Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own
+  lane rather than a follow-up, precisely because arming without it is inert. The
+  manager measured, with a positive control against /api/diag/shadow_stats: 32 models
+  visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and
+  exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs
+  are 5m/15m. ⚠️ THAT READING IS CORRECT AND WAS REPRODUCED INDEPENDENTLY (MI-154,
+  2026-09-06): same 32-model population, same two artifacts, and the trainer mirror
+  itself holds exactly those two files, both declaring family=donchian tf=1h.
+  WHAT CHANGED IS THE ORDERING, NOT THE FINDING. The lane was briefed on the premise
+  that #11140 had SHIPPED the ict_scalp consumer. It has not: #11140 is OPEN and
+  UNMERGED (state open, merged false, tier 3, landing hold), and
+  ICT_SCALP_EXIT_HEAD_MODE and exit_head_apply each appear in 0 files at main
+  957fc81d — positive control, EXIT_LOOP_DECOUPLE_DISABLED appears in 18. Resolving
+  src.runtime.pipeline.monitor_unit_for over the FULL population of 55 strategies in
+  config/strategies.yaml: 23 legs reach maybe_score_exit_head (sole call site
+  trend_donchian.py:802) and ALL are 1h/4h/1d — on 5m/15m, NONE; all 8 ict_scalp legs
+  resolve to unit ict_scalp, which has no exit-head call site. So a published scalp
+  artifact would have no reader.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, from the operator's arming popup 2026-09-06;
+  re-measured and re-scoped by MI-154 (session_01S7pASy78QiNViwhSadGdNb) 2026-09-06
+
+blocked_on:
+  - kind: pr
+    ref: "11140"
+    since: 2026-09-06
+  - kind: backlog_row
+    ref: BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES
+    since: 2026-09-06
+blocked_on_basis: >-
+  RE-ASSESSED 2026-09-06 by MI-154, and this REPLACES an earlier ASSESSED basis that
+  said the opposite. That basis read: "The empty list is a real finding here, not an
+  unlooked-at default: NOTHING blocks this object ... needs no decision that has not
+  been made ... and no upstream work that is not already merged." It is quoted rather
+  than deleted because the correction matters more than the tidiness: it was written
+  in good faith on the brief's premise that #11140 had shipped, and it is REFUTED by
+  measurement — #11140 is open and unmerged, and it is exactly the upstream work the
+  basis says is already merged. A false NON-blocker is the more dangerous direction of
+  this repo's own "a false blocker is worse than a missing one" rule, because the
+  constraint computation reads the object as ready and a session picks it up expecting
+  to be able to finish it.
+  THE TWO EDGES ARE TRUE AND EACH WAS MEASURED, not inferred.
+  (1) PR #11140 — read from the API: state open, merged false, tier 3, landing hold.
+  Without it there is no call site a scalp artifact could be read by, so the artifact
+  half cannot be OBSERVED at all, which is what the done_condition requires.
+  (2) The family gate — maybe_score_exit_head gates on tf (exit_head_shadow.py:350) and
+  symbols (353) and never reads `family`, while the sibling entry-head guard gates on
+  family FIRST (entry_head_pwin.py:165) over an artifact from a near-identical exporter.
+  Publishing a family=ict_scalp artifact into that directory is safe ONLY while no
+  donchian-monitor leg shares its tf — true today (0 of 23 on 5m/15m) but a property of
+  the CONFIG, not of the code, and exit-head-donchian-1h-v1 is stage=advisory, i.e. a
+  live-money path. Building the artifact before the gate is the one ordering that
+  converts a latent hazard into a live one for zero observable benefit.
+  ⚠️ IT IS STILL NOT BLOCKED ON WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP —
+  the earlier basis was right about that, and the point stands: that object gates
+  ARMING (which legs the consumer may act on) and says nothing about whether an
+  artifact can exist. These two edges are different, and neither is a records question.
+
+notes: >-
+  WHAT MI-154 ESTABLISHED SO THE NEXT SESSION DOES NOT RE-DERIVE IT.
+  * NOT BLOCKED ON DATA. The E0 scalp datasets survive on the trainer, 100% harness
+    rows with bar_t coverage 1.0, spanning 2021 to 2026-06:
+    runtime_logs/m20_exit_head/scalp_5m_20260814T151003Z (avax 27513 / sol 22120 /
+    xrp 21258) and .../scalp_15m_20260814T135244Z (sol 10079 / xrp 9960 / eth 8644),
+    plus cand15m_20260815T042247Z at four fold offsets. No dataset_gc.jsonl exists, so
+    nothing has pruned them.
+  * THE CANONICAL PATH IS THE UNUSABLE ONE. datasets-out/exit_head/1h/ict_scalp_5m/rows.jsonl
+    — where export_exit_head.py's own usage example points a reader — holds 164 rows of
+    which ZERO are source=harness, so the export exits 1 there ("no harness rows").
+  * THE EXPORTED FAMILY TOKEN WOULD BE REFUSED. export_exit_head.py stamped
+    family=fam_dir.name and the round dirs are per-leg (ict_scalp_sol_5m), while
+    #11140's _ACCEPTED_FAMILIES["ict_scalp"] is {"ict_scalp","scalp"}. Fixed by adding
+    a --family override (PR #11169); when doing the export, PASS --family ict_scalp.
+  * THE LIVE ARTIFACTS' family VALUES ARE NOW READ — both literal "donchian", off the
+    trainer mirror via the push-triggered trainer-diag-relay (runs 34047425502 /
+    34047529006, state=ran, remote_exit=0). That is the fact #11140 says it lacked and
+    cited as its reason for leaving donchian opted out of its own family check.
+  * Trainer at the time of reading: root filesystem 39 G used of 45 G (86%), 6.8 G
+    free (POPULATION: the single /dev/sda1 mount); ict-trainer.service inactive. Both
+    recorded as observations, not findings.
+  * Both published exit-heads carry last_seen 2026-09-06T10:00:01Z while the regime
+    heads read 16:56:44Z — about 7h with no scored bar. Consistent with no open
+    donchian 1h position, NOT verified as such.

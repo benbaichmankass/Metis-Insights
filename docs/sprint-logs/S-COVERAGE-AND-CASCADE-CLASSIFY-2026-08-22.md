@@ -1,5 +1,7 @@
 # S-COVERAGE-AND-CASCADE-CLASSIFY-2026-08-22
 
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 ## Date Range
 2026-08-22 (session `s3-exitpath`, second unit of work), continuing from
 `S-EXIT-ATTRIBUTION-2026-08-22` (main at `e9dbd7b0`).

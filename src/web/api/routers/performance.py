@@ -75,19 +75,32 @@ from src.web.api._clean_trades import (
     exclude_superseded_predicate,
     not_paper_predicate,
     paper_predicate,
-    r_multiple,
 )
 from src.web.api._closed_at import close_time_sql
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
+from src.runtime.bracket_outcome import (  # did the close reach its DECLARED bracket?
+    BRACKET_MID,
+    BRACKET_REACHED_SL,
+    BRACKET_REACHED_TP,
+    GRADEABLE_STATES,
+    classify_bracket_outcome,
+    empty_bracket_counts,
+)
 from src.runtime.r_provenance import (  # R-DENOMINATOR provenance
     DISAGREEMENT_RATIO_BAR,
     R_CONFIRMED_INITIAL,
     R_CONTAMINATED,
     R_NO_BASIS,
     R_UNVERIFIED,
+    R_BASIS_DECLARED,
+    R_BASIS_NO_BASIS,
+    R_BASIS_REFUSED_WRONG_SIDE,
+    R_BASIS_STORED_STOP,
     classify_r,
     disagreement_ratio,
+    empty_basis_counts as r_empty_basis_counts,
     empty_counts as r_empty_counts,
+    r_multiple_provenanced,
 )
 from src.runtime.provenance import (
     # The "no value present" sentinel `classify_row` returns as its raw half.
@@ -170,9 +183,22 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "expectancyR": None,
         "rTradeCount": 0,
         "rCoverage": 0.0,
-        # R-denominator provenance — present on the empty/errored envelope too,
-        # with explicit zeros. A key that disappears makes a consumer branch on
-        # absence, and absence is not one of the states.
+        # Present on the empty/errored envelope too, with explicit zeros — a
+        # key that disappears makes a consumer branch on absence, and absence is
+        # not one of the states.
+        "rBasis": {
+            "declaredInitial": 0, "storedStop": 0,
+            "refusedWrongSide": 0, "noBasis": 0,
+        },
+        # Same rule: explicit zeros, and `reachedRatio` null (not 0.0) so
+        # "no rows" stays distinguishable from "rows, none reached a bracket".
+        "bracketOutcome": {
+            "reachedSl": 0, "reachedTp": 0, "midBracket": 0, "gradeable": 0,
+            "reachedRatio": None, "noExitPrice": 0, "priceNotMeasurable": 0,
+            "noBracketRecord": 0, "directionUnreadable": 0,
+            "excludedReduceLeg": 0,
+        },
+        # R-denominator provenance — same rule.
         "rProvenance": {
             "contaminated": 0, "confirmedInitial": 0, "unverified": 0,
             "noBasis": 0, "tightenedVsDeclared": 0, "declaredRiskRecords": 0,
@@ -269,6 +295,15 @@ def _query(
                 # ("we could not look"), never to a confirmation.
                 ("direction", "direction"),
                 ("take_profit_1", "take_profit_1"),
+                # BRACKET-OUTCOME inputs (src.runtime.bracket_outcome). The
+                # recorded exit price is what the verdict is re-derived FROM;
+                # `setup_type` is the reduce-leg exclusion (a reduce's bracket
+                # is inverted relative to its own direction, so grading it
+                # would mislabel a deliberate partial close as a bracket hit).
+                # Same optional-column guard: a legacy schema degrades the
+                # grade to "we could not look", never to a verdict.
+                ("exit_price", "exit_price"),
+                ("setup_type", "setup_type"),
             )
             if col in avail
         )
@@ -283,13 +318,96 @@ def _query(
         # order_package_id, so ~28% of the population is unreachable this way
         # and lands `unverified` — which is the honest grade, not a gap to
         # paper over.
+        # `opk.sl` / `opk.tp` are the DECLARED bracket the exit price is graded
+        # against — the same levels `order_monitor._classify_broker_exit` reads,
+        # off the same 1:1 primary-key join as `meta` above.
+        #
+        # ⚠️ THEY RIDE THEIR OWN `order_packages` SCHEMA GUARD, NOT `trades`'.
+        # `avail` describes the TRADES table, so gating these on
+        # `order_package_id in avail` would select `opk.sl` from a legacy
+        # `order_packages` that has no such column and raise `no such column:
+        # opk.sl` — erroring the WHOLE endpoint (every metric, every window
+        # blanked) to buy one derived figure. That is exactly the failure the
+        # `notes` guard above exists to prevent, and the pre-existing
+        # `test_performance_r_provenance` fixtures are built on precisely that
+        # minimal schema. A missing column degrades `bracketOutcome` to
+        # `no_bracket_record` — *we could not look* — and leaves the rest
+        # intact.
+        pkg_avail = {row[1] for row in conn.execute(
+            "PRAGMA table_info(order_packages)")}
+        # TWO keys reach a trade's package, and using only the first one
+        # published a ratio over a quarter of the book.
+        #
+        # MEASURED 2026-09-06 against the live journal, real-money closed
+        # non-backtest rows in THIS route's own population (n=428): only 99
+        # (23.1%) carry an `order_package_id` that resolves, so
+        # `bracketOutcome` graded 99 and filed 325 as `no_bracket_record`.
+        # Falling back to `order_packages.linked_trade_id` where
+        # `t.order_package_id` is NULL reaches 420 of 428 (98.1%), leaving 4
+        # genuinely unreachable. The published answer moves from 44/99 (44.4%)
+        # to 228/420 (54.3%) -- and the 44.4% was not wrong, it was computed
+        # over a denominator the reader could not see was 23% of the book.
+        # That is the exact defect class this block was added to fix, so
+        # leaving it would have been the instrument failing its own test.
+        #
+        # ⚠️ THE FALLBACK IS PRE-AGGREGATED TO 1 ROW PER TRADE and is NOT the
+        # bare `linked_trade_id` join the `op` subquery below is deliberately
+        # pre-aggregated to avoid. A bare join fans out when one trade owns
+        # several packages, double-counting that trade in every aggregate.
+        # Measured on the same pull, `linked_trade_id` is currently unique
+        # (1113 packages over 1113 distinct trades, zero fan-out), so the
+        # GROUP BY is defensive rather than load-bearing TODAY -- which is
+        # precisely why it is written now, while the data happens to be kind.
+        # `MIN(order_package_id)` makes the choice DETERMINISTIC rather than
+        # whichever row SQLite reaches first.
+        #
+        # ⚠️ `order_package_id` still WINS where it exists. It is the explicit
+        # pointer the writer set; `linked_trade_id` is the reverse edge and is
+        # only consulted when the forward one is absent, so this can never
+        # change the package a row already resolved.
+        pkg_bracket_ok = {"sl", "tp"} <= pkg_avail
+        pkg_meta_ok = "meta" in pkg_avail
+        opid_ok = ("order_package_id" in avail
+                   and "order_package_id" in pkg_avail)
+        # The fallback SELECTS `order_package_id` inside its pre-aggregation,
+        # so it needs BOTH columns — gating on `linked_trade_id` alone would
+        # raise `no such column: order_package_id` on a legacy package table
+        # and blank every metric, the exact failure the schema guards exist to
+        # prevent.
+        link_ok = {"linked_trade_id", "order_package_id"} <= pkg_avail
+
+        def _pkg_col(col: str) -> str:
+            """The package column, preferring the forward key."""
+            if opid_ok and link_ok:
+                return f"COALESCE(opk.{col}, opl.{col})"
+            if opid_ok:
+                return f"opk.{col}"
+            return f"opl.{col}"
+
+        _reachable = opid_ok or link_ok
+        bracket_select = (
+            f"\n                   {_pkg_col('sl')} AS package_sl,"
+            f"\n                   {_pkg_col('tp')} AS package_tp,"
+            if _reachable and pkg_bracket_ok else "")
         meta_select = (
-            "\n                   opk.meta AS package_meta,"
-            if "order_package_id" in avail else "")
+            f"\n                   {_pkg_col('meta')} AS package_meta,"
+            + bracket_select
+            if _reachable and pkg_meta_ok else bracket_select)
         meta_join = (
             "\n            LEFT JOIN order_packages opk"
             "\n              ON opk.order_package_id = t.order_package_id"
-            if "order_package_id" in avail else "")
+            if opid_ok else "")
+        if link_ok and _reachable:
+            meta_join += (
+                "\n            LEFT JOIN ("
+                "\n                SELECT linked_trade_id,"
+                "\n                       MIN(order_package_id) AS order_package_id"
+                "\n                FROM order_packages"
+                "\n                WHERE linked_trade_id IS NOT NULL"
+                "\n                GROUP BY linked_trade_id"
+                "\n            ) opl_pick ON opl_pick.linked_trade_id = t.id"
+                "\n            LEFT JOIN order_packages opl"
+                "\n              ON opl.order_package_id = opl_pick.order_package_id")
         # `notes` carries the provenance keys behind pnlCoverage, and is OPTIONAL
         # for exactly the same reason the R inputs above are: selecting it
         # unconditionally makes a schema without the column raise
@@ -387,6 +505,15 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # convert a visible-wrong number into an invisible-wrong one over an
     # unstated population.
     r_prov: Dict[str, int] = r_empty_counts()
+    # WHICH risk each published R was divided by. A different question from
+    # `r_prov` above (which grades the stored stop) and never a renaming of it:
+    # a row graded `unverified` can still be computed on the `declared_initial`
+    # basis, because the declared record is independent of the stored stop.
+    r_basis_counts: Dict[str, int] = r_empty_basis_counts()
+    # DID THE CLOSE REACH ITS DECLARED BRACKET? Re-derived from the recorded
+    # exit price, published BESIDE the stored `exit_reason` — never instead of
+    # it, and nothing is written back to the journal.
+    bracket_counts: Dict[str, int] = empty_bracket_counts()
     r_declared_records = 0     # denominator for the line below
     r_tightened = 0            # stored stop >= BAR x tighter than declared risk
     equity: List[Dict[str, Any]] = []
@@ -405,10 +532,62 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # trade and a futures contract compare on one axis. None when risk is
         # unknown (missing stop/size); then it counts in NEITHER R numerator nor
         # denominator — never a raw-pnl fallback (the blending bug).
-        rr = r_multiple(
-            r["pnl"], _rget(r, "entry_price"), _rget(r, "stop_loss"),
-            _rget(r, "qty"), contract_value_usd_for(r["symbol"]),
+        # ⚠️ THE DENOMINATOR IS THE TRADE'S *INITIAL* RISK, NOT ITS STORED STOP
+        # (2026-09-06, MI-144). `trades.stop_loss` holds the FINAL trailed stop
+        # — `order_monitor._apply_update` mirrors every confirmed amend onto the
+        # row — so `|entry - stop|` collapses on a trade trailed through
+        # breakeven, and the legacy `abs()` turned a stop on the WRONG SIDE of
+        # entry into a small positive risk instead of refusing it. That single
+        # mechanism made a LOSING window publish a POSITIVE expectancyR.
+        #
+        # MEASURED, live journal pulled 2026-09-06 via /api/bot/db/table/
+        # {trades,order_packages} (5518 + 4435 rows; reproduction of this
+        # endpoint's own totals asserted first as a positive control):
+        #   30d real-money window, n=39 — published totalR +38.2891 /
+        #   expectancyR +0.9818 against totalPnl -3.6266 and profitFactor
+        #   0.9507. 12 rows (30.8%) graded `contaminated` carried 117.1% of
+        #   that R.
+        #   WHOLE journal, n=1287 — 104 contaminated rows (8.1%) carried 96.6%
+        #   of totalR (+4232.03 of +4381.91). Max single-row R: +3672.3
+        #   (`ict_scalp_sol_15m`, bybit_1).
+        #
+        # `r_multiple_provenanced` prefers the signal-time `risk_per_unit` from
+        # `order_packages.meta` (which no trailing amend can reach), falls back
+        # to the stored stop when there is no declared record and the stop is
+        # not PROVEN wrong-side, and REFUSES the proven-wrong-side row rather
+        # than abs()-ing it. A refusal counts in NEITHER the R numerator nor its
+        # denominator — the same discipline a missing stop already gets, never a
+        # raw-pnl fallback. `rBasis` below publishes which basis every row used,
+        # so no published R is over an unstated population.
+        rr, r_basis = r_multiple_provenanced(
+            {
+                "pnl": r["pnl"],
+                "entry_price": _rget(r, "entry_price"),
+                "stop_loss": _rget(r, "stop_loss"),
+                "take_profit_1": _rget(r, "take_profit_1"),
+                "direction": _rget(r, "direction"),
+                "qty": _rget(r, "qty"),
+                "package_meta": _rget(r, "package_meta"),
+            },
+            contract_value_usd_for(r["symbol"]),
         )
+        r_basis_counts[r_basis] = r_basis_counts.get(r_basis, 0) + 1
+        # BRACKET OUTCOME — the operator's question ("are trades ending at
+        # their brackets?") answered from the PRICE, not from the label.
+        # `exit_reason` is written once, at close time, and for the largest
+        # close path that is the one moment the answer cannot be known
+        # (the no-record fallback hard-codes `reconciler_filled` with
+        # `exit_price` still NULL). #10262 re-runs the classifier when the
+        # price later arrives, but on ONE path and FORWARD only.
+        bracket_counts[classify_bracket_outcome(
+            {
+                "direction": _rget(r, "direction"),
+                "exit_price": _rget(r, "exit_price"),
+                "setup_type": _rget(r, "setup_type"),
+                "notes": _rget(r, "notes"),
+            },
+            _rget(r, "package_sl"), _rget(r, "package_tp"),
+        )[0]] += 1
         if rr is not None:
             total_r += rr
             r_count += 1
@@ -456,10 +635,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             name,
             {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
              "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0,
-             "r_prov": r_empty_counts()},
+             "r_prov": r_empty_counts(), "r_basis": r_empty_basis_counts()},
         )
         bucket["trades"] += 1
         bucket["r_prov"][r_state] += 1
+        bucket["r_basis"][r_basis] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
@@ -573,6 +753,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         equity.append({"t": r["closed_at"], "cum": round(cum, 4)})
 
     losses = total - wins
+    # The denominator for `bracketOutcome.reachedRatio`: only the states on
+    # which a bracket-vs-other ratio HAS a meaning. Summed from the imported
+    # tuple rather than re-listed, so adding a state cannot silently leave it
+    # out of the arithmetic.
+    _bracket_gradeable = sum(bracket_counts[st] for st in GRADEABLE_STATES)
     per_strategy = [
         {
             "name": name,
@@ -608,6 +793,18 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
                 "confirmedInitial": int(b["r_prov"][R_CONFIRMED_INITIAL]),
                 "unverified": int(b["r_prov"][R_UNVERIFIED]),
                 "noBasis": int(b["r_prov"][R_NO_BASIS]),
+            },
+            # WHICH risk this leg's R was divided by. `rTradeCount` is
+            # `declaredInitial + storedStop` by construction; `refusedWrongSide`
+            # + `noBasis` are the rows that count in NEITHER the R numerator nor
+            # its denominator, so the four sum to `trades` and the partition is
+            # checkable with arithmetic. A leg whose R rides mostly on
+            # `storedStop` has an R that a trailing amend can still move.
+            "rBasis": {
+                "declaredInitial": int(b["r_basis"][R_BASIS_DECLARED]),
+                "storedStop": int(b["r_basis"][R_BASIS_STORED_STOP]),
+                "refusedWrongSide": int(b["r_basis"][R_BASIS_REFUSED_WRONG_SIDE]),
+                "noBasis": int(b["r_basis"][R_BASIS_NO_BASIS]),
             },
             # Per-strategy PnL provenance. This is the field that must be read
             # BEFORE tuning a strategy: a bucket at pnlCoverage 0.0 is being
@@ -819,6 +1016,84 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # the LARGEST bucket (78.1% live). A stop trailed to just SHORT of
         # entry is side-plausible and just as wrong; it is simply not provable
         # from the stored row.
+        # --- DID THE CLOSE REACH ITS DECLARED BRACKET? (2026-09-06, MI-144) ---
+        # `perExitPath` above buckets on the STORED `exit_reason`. This
+        # RE-DERIVES the verdict from the recorded exit price against the
+        # package's own sl/tp — the same conservative inequality
+        # `order_monitor._classify_broker_exit` uses — so the operator's
+        # question is answered by the price rather than by a label written
+        # before any price existed.
+        #
+        # ⚠️ NOTHING IS WRITTEN BACK. The stored label stays exactly as it is:
+        # a producer-AUTHORED reason (`vwap_cross`, `pairs_stop`, `exit_head`)
+        # is a real record of a real decision, and overwriting it with a
+        # re-derivation would destroy a better record than the one being
+        # written. Journal-writer changes are Tier-2/3.
+        #
+        # MEASURED, live journal pulled 2026-09-06 via /api/bot/db/table/
+        # {trades,order_packages}. Population: closed, non-backtest, pnl NOT
+        # NULL, minus orphan_adopt/superseded/reset_flat — n=1287.
+        #   stored label reads sl|tp on 251 of 1287 (19.5%);
+        #   re-derived, of the 1125 gradeable rows, 430 (38.2%) reached a
+        #   declared bracket (345 sl · 85 tp) and 695 (61.8%) ended
+        #   mid-bracket. On the LAST 200 closes: stored 27 (13.5%) vs
+        #   re-derived 46 (23.0%).
+        #
+        # ⚠️ `reachedRatio`'s DENOMINATOR IS `gradeable`, NOT `totalTrades`.
+        # The other states are *we could not look* (`noExitPrice`,
+        # `directionUnreadable`), a REFUSAL (`priceNotMeasurable` — a
+        # FABRICATED exit price compared to a bracket manufactures a verdict
+        # out of unrelated price action), or NOT APPLICABLE (`noBracketRecord`,
+        # `excludedReduceLeg`). Folding any of them in would publish a rate
+        # over a population it does not describe. `reachedRatio` is `null` —
+        # never 0.0 — when nothing was gradeable.
+        #
+        # ⚠️ `midBracket` IS AN OUTCOME, NOT A DEFECT. Several legs
+        # (`vwap_cross`, `exit_head`, `time_decay`) exit deliberately before a
+        # bracket; reading this bucket as failure is as wrong as reading the
+        # stored label as truth.
+        "bracketOutcome": {
+            "reachedSl": int(bracket_counts[BRACKET_REACHED_SL]),
+            "reachedTp": int(bracket_counts[BRACKET_REACHED_TP]),
+            "midBracket": int(bracket_counts[BRACKET_MID]),
+            "gradeable": int(_bracket_gradeable),
+            "reachedRatio": (
+                round((bracket_counts[BRACKET_REACHED_SL]
+                       + bracket_counts[BRACKET_REACHED_TP]) / _bracket_gradeable, 4)
+                if _bracket_gradeable else None
+            ),
+            "noExitPrice": int(bracket_counts["no_exit_price"]),
+            "priceNotMeasurable": int(bracket_counts["price_not_measurable"]),
+            "noBracketRecord": int(bracket_counts["no_bracket_record"]),
+            "directionUnreadable": int(bracket_counts["direction_unreadable"]),
+            "excludedReduceLeg": int(bracket_counts["excluded_reduce_leg"]),
+        },
+        # --- WHICH RISK EACH PUBLISHED R WAS DIVIDED BY (2026-09-06, MI-144) ---
+        # `rProvenance` below GRADES the stored stop. This says which basis the
+        # number above was actually computed FROM, so `totalR` / `expectancyR`
+        # are never published over an unstated population.
+        #
+        # `rTradeCount` == `declaredInitial + storedStop` BY CONSTRUCTION;
+        # `refusedWrongSide` + `noBasis` are excluded from both the R numerator
+        # and its denominator. The four sum to `totalTrades`, so the partition
+        # is checkable with arithmetic rather than trusted.
+        #
+        # ⚠️ `refusedWrongSide` IS NOT A DATA-QUALITY FOOTNOTE — it is the
+        # count of rows whose R was, until 2026-09-06, a finite number produced
+        # by `abs()`-ing an impossible risk distance. A non-zero value here on a
+        # window whose `expectancyR` you are about to act on means the OLD
+        # number for that window was wrong, not merely noisy.
+        #
+        # ⚠️ A HIGH `storedStop` SHARE IS NOT CLEAN. It means no signal-time
+        # `risk_per_unit` record exists for those rows, so their denominator is
+        # still the CURRENT stop and a trailing amend can still move it — it is
+        # simply not PROVABLY wrong. Read it beside `rProvenance.unverified`.
+        "rBasis": {
+            "declaredInitial": int(r_basis_counts[R_BASIS_DECLARED]),
+            "storedStop": int(r_basis_counts[R_BASIS_STORED_STOP]),
+            "refusedWrongSide": int(r_basis_counts[R_BASIS_REFUSED_WRONG_SIDE]),
+            "noBasis": int(r_basis_counts[R_BASIS_NO_BASIS]),
+        },
         "rProvenance": {
             "contaminated": int(r_prov[R_CONTAMINATED]),
             "confirmedInitial": int(r_prov[R_CONFIRMED_INITIAL]),

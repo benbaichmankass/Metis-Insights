@@ -1,3 +1,5 @@
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+
 > ✅ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
 > Sprint **completed**. Closing checkpoint: CP-2026-05-04-04. Deliverables confirmed
 > on-disk: `tests/test_env_render_contract.py` (3 tests, 59 total pass),

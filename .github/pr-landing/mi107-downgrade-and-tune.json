@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs and governance records only: the DEMOTE-AND-TUNE flow design under docs/design/, the MI-107 work-object/checklist records under docs/claude/work/, and SUNSET-DISPOSITIONS.json as a disposition record. Enacting a demotion would edit config/strategies.yaml::execution and is Tier-3 — this PR PROPOSES the flow and enacts no leg move, so no runtime, order path, strategy config, risk cap or live-VM file is touched."
+}

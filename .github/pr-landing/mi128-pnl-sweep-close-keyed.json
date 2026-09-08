@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/runtime/order_monitor.py (the local-pnl sweep's scan query only) — Tier-2 by path, so this does NOT self-land. Two things need an operator decision before merge, and the second is the load-bearing one. (1) The Tier-2 OK on the change itself. (2) MERGING IS THE DEPLOY HERE — ict-git-sync pulls main every ~5 min — and the approved fix is FORWARD-ONLY. Measured against the live journal 2026-09-05, the re-keyed window makes 9 existing rows newly eligible; 4 already carry pnl_source: unmeasured and hit the already_unmeasured branch, leaving 5 historical rows (4169, 4170, 4422, 4423, 4484) the first post-deploy tick would actually write. Each would be filled by a sanctioned path — a recorded fill, a close-time anchor stamped ESTIMATED, or an explicit unmeasured declaration; the sweep has no mark-to-market fallback left, so none can be fabricated. It is nonetheless a back-fill of already-silent rows and is the operator's call, not this session's. No historical row was back-filled by this branch: it touches no database.",
+  "why": "Tier-2 order-path file (src/runtime/order_monitor.py). Operator-approved 2026-09-05 as approved_with_conditions with a FORWARD-ONLY condition; a session that self-landed it would be deciding the back-fill question the condition reserves to the operator."
+}

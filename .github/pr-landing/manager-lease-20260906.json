@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One manager register: the lease heartbeat, plus this declaration. Tier-1 by the canonical doc's own list - no src/, tests/, scripts/, .github/workflows/, config/, deploy/, no order path, no strategy config, no risk caps, no canonical prose. It exists because an unpushed lease protects nothing: another session reads origin, not a working tree, so a heartbeat that only ran locally leaves the lease looking frozen to anyone arriving cold."
+}

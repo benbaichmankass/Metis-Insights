@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Observe-only measurement: a pure grader under src/runtime/ (no writer, no order path, no config), a manual-only research script, tests, and docs. Tier-1 by content -- but pr-landing-guard R5 does not certify a src/** diff for self-landing, so this asks for a manager/operator merge rather than claiming a certification it cannot have. The per-leg TARGET GEOMETRY this memo proposes is Tier-3 and is deliberately NOT in this diff.",
+  "hold_text": "Waiting on a merge click, not on a decision. Nothing here changes a live order: src/runtime/bracket_calibration.py is pure (no I/O, never raises) and has NO caller in the runtime -- it is imported only by a manual-only script and by tests. The Tier-3 half (per-leg tp_r geometry in config/strategies.yaml, and the target_extension_soak annotate->act flip) is written up as a proposal in docs/research/bracket-calibration-2026-09-06.md and is NOT applied.",
+  "hold_reason": "tier_2_3_needs_approval"
+}

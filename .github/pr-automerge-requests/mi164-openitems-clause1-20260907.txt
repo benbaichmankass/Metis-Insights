@@ -1,0 +1,3 @@
+Tier-1 docs-only: record that PR #11264 merged (115b0c25), so clause (1) of the
+telemetry-hook OPEN-ITEMS row is observed and the row moves to kind:monitoring
+for its remaining clause. Lands itself on green per check_pr_landing.py R4/R5/R6.
