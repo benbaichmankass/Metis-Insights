@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2243-20260908",
+  "branch": "claude/mgr-heartbeat-2313-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T22:41:37Z",
-  "note": "Manager heartbeat 22:41:37Z, tool-stamped. Quiet pass: nothing of mine open, MI-205b re-observed RUNNING on the CORRECT repo 23 min after spawn — the repo re-checked rather than inferred, since that is the fault that killed MI-205. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T23:13:15Z",
+  "note": "Manager heartbeat 23:13:15Z, tool-stamped. Quiet pass: MI-205b re-observed RUNNING on the correct repo with its task_summary advancing, no PR and none owed yet. Register writes only, no worker path."
  },
  "active_sessions": [
   {
