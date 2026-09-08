@@ -52,16 +52,28 @@ source: >-
   on an explicit operator decision, 2026-09-07.
 
 blocked_on:
-  - kind: operator_decision
+  - kind: external_event
     ref: >-
-      Tier-3 approval of the held PR re-scoping IBClient.close's confirmation,
-      AND a stated choice on IB_CLOSE_CONFIRM_PARTIAL (strict | reduction)
-    since: 2026-09-07
+      a real IB close on a symbol holding a sibling trade's lots, OBSERVED
+      confirming on the fleet
+    since: 2026-09-08
     note: >-
-      Tier-3, order path. The diff is written and reviewable but is opened
-      `landing: hold` and must not merge without the operator. The partial
-      question is a RISK decision, not an implementation detail — MI-167 said so
-      and left it open on purpose.
+      ⚠️ THE OPERATOR-DECISION EDGE THAT SAT HERE IS DISCHARGED AND WAS REMOVED
+      RATHER THAN LEFT IN PLACE, because a satisfied edge is read by the
+      constraint computation as a live blocker and CLAUDE.md is explicit that a
+      false blocker is worse than a missing one. It read: "Tier-3 approval of the
+      held PR ... AND a stated choice on IB_CLOSE_CONFIRM_PARTIAL". Both were
+      given on 2026-09-08 — see `operator_decision` below.
+
+      WHAT ACTUALLY REMAINS is an OBSERVATION, and it is a different kind of
+      thing from the decision that preceded it. MERGED IS NOT DEPLOYED AND
+      DEPLOYED IS NOT OBSERVED. `ict-git-sync` auto-deploys from `main`, so the
+      change will reach the trader without anyone doing anything — that is a
+      deploy, not evidence the gate behaves. Nothing has yet been seen
+      CONFIRMING a close on a multi-row symbol: no `confirm_state` of
+      `confirmed_order_filled` or `confirmed_reduced` has been read from the
+      trader journal, and no venue state was read after the merge. ⚠️ A PASSING
+      HARNESS IS NOT THIS OBSERVATION — 12 green tests cannot reach a venue.
 
   - kind: object
     ref: WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG
@@ -97,6 +109,26 @@ blocked_on:
       honest fix is to make the OPERATION trade-scoped, which is a materially
       larger order-path change than a confirmation re-scope.
 
+      ⚠️ UPDATED 2026-09-08: THAT UNIT NOW EXISTS, AND IT IS TWO PRs, NOT ONE —
+      getting this wrong releases a real-money account against a fix that has
+      not shipped. MI-173 / #11312 is MEASUREMENT AND A PROPOSAL ONLY: it is
+      MERGED, and by its own merge commit it "implements nothing — the diff
+      touches no .py, no src/, no tests/, no scripts/, no config/, no deploy/
+      and no workflow. THE MERGE IS NOT THE FIX AND MUST NOT BE REPORTED AS
+      ONE." The FIX is MI-180 / #11337, which is SEPARATE AND STILL HELD.
+      MI-140 is held until #11337 LANDS.
+
+      ⚠️ THIS EDGE'S OWN NOTE SAID "MI-180 / #11312" FOR ONE COMMIT AND THAT WAS
+      WRONG IN THE DANGEROUS DIRECTION — it conflated the merged measurement PR
+      with the held fix, so a session checking "has #11312 landed?" would get
+      YES and release MI-140. The error came from trusting #11279's merge-commit
+      body, which says "#11312 -> MI-180"; #11312's own merged title says
+      MI-173. Field beats comment — read the PR, not the reference to it.
+
+      So this edge is NOT discharged by #11279 merging, and NOT by #11312
+      merging either. A session that reads "MI-168 landed" and concludes MI-140
+      is released has made exactly the error CONDITION 2 was written to prevent.
+
   - kind: backlog_row
     ref: >-
       bybit_2 is NOT exposed and must NOT be "fixed" by adding a confirmation
@@ -112,6 +144,33 @@ blocked_on:
       on a real-money account, is explicitly not what was approved, and — on
       this unit's own evidence — a gate whose scope is not thought through is
       how this defect was created.
+
+operator_decision:
+  verdict: approved_with_conditions
+  decided_on: 2026-09-08
+  scope: >-
+    The IB close path ONLY — IBClient.close / IB_CLOSE_CONFIRM_SCOPE /
+    IB_CLOSE_CONFIRM_PARTIAL. EXPLICITLY NOT Alpaca (the identical change there
+    would confirm a partial reduction against a venue that liquidated the whole
+    symbol, reinstating BL-20260707's false-SUCCESS on a real-money-capable
+    path) and EXPLICITLY NOT Bybit (no close-confirm gate exists there at all).
+  condition: >-
+    (1) The partial-fill default is `strict`, and it is a RECORDED CHOICE rather
+    than a default that drifted — the operator was asked to name it and did. A
+    40-of-43 fill REFUSES and the row stays open to retry. Flipping it to
+    `reduction` later is a NEW decision, not this one. (2) Scope as above. (3)
+    MI-140 STAYS HELD — now until MI-180's trade-scoped Alpaca write lands
+    (#11337, still HELD; NOT #11312, which is MI-173's already-merged
+    measurement-and-proposal and implements nothing) — because the Alpaca
+    defect is an OPERATION defect, not a
+    confirmation one, and this merge does not touch it.
+  text: >-
+    Recorded by the merging manager session (session_01HrmZ1RRNM4UnEUaFdrPEjj)
+    in the squash-merge commit body of 12b5b84 and, typed, on this PR's row in
+    docs/claude/work/OPEN-PRS.json. Read from the merge commit rather than
+    restated from memory. ⚠️ Merged as a SQUASH, so the branch tip 753a994 is
+    NOT an ancestor of main — `git merge-base --is-ancestor` answers NO and that
+    is not evidence the change is absent; grep the tree instead.
 
 blocked_on_basis: >-
   ASSESSED by MI-168 on 2026-09-07. The edges above were written deliberately by
