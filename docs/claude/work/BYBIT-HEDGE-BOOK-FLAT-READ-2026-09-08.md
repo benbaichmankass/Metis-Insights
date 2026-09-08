@@ -531,3 +531,148 @@ owner is not established. **A quantity check against the claimed strategy's own 
 the cheapest available discriminator** and would have refused both wrong attributions.
 
 Still Tier-2/3 — proposed, not applied.
+
+---
+
+# ADDENDUM 2 (15:40Z) — the real-money answer, the size of it, and a defect I called benign 20 minutes before it fired
+
+A manager check-in at 15:30Z asked the sizing question — *does the defect reach REAL MONEY?* —
+after its own probe's positive control failed (it read `bybit_2` as 0 orders, but `bybit_1`,
+which IS armed, also returned 0 orders, so the silence was worth nothing).
+
+## YES. Real money is armed, and it has a flat-read close on the record
+
+**The probe was reading the wrong collection.** `position_idx` rides on
+`result.positions[]`, not on `result.orders[]` — and orders are absent whenever nothing
+rests, which is why an empty book defeated the control. Read the positions instead.
+
+**MEASURED 2026-09-08T15:33Z, `/api/diag/bybit_open_orders`, `read_state: orders_read` on
+all three accounts:**
+
+| account | position | `position_idx` | verdict |
+|---|---|--:|---|
+| **`bybit_2`** (mode live, **real_money**) | XRPUSDT Buy 58.5 | **1** | **HEDGE ARMED** |
+| `bybit_portfolio` | XRPUSDT Buy 11903.8 | **1** | HEDGE ARMED |
+| `bybit_1` | ETHUSDT Buy 0.47 | 1 | hedge |
+| `bybit_1` | SOLUSDT Sell 11.7 | 2 | hedge |
+| `bybit_1` | XRPUSDT Buy 46020.4 | **0** | **one-way** |
+| `bybit_1` | ADAUSDT Buy 79855.0 | **0** | **one-way** |
+
+**THE POSITIVE CONTROL IS IN THE SAME PAYLOAD, which is what makes this trustworthy:**
+`bybit_1` returns `0` for XRPUSDT and ADAUSDT alongside `1`/`2` for ETH and SOL. The field
+genuinely discriminates, and a `1` is not a default or a fill-in.
+
+⚠️ **What this read CANNOT establish:** `position_idx` is only observable for a symbol that
+currently *holds* a position, so the armed state of every flat symbol is unmeasured. The
+declared set on `/proc/<MainPID>/environ` is the only authoritative source for that, and
+`BYBIT_HEDGE_MODE_SYMBOLS` **is** in `get_env.py::ALLOWED_KEYS` (verified — 70 keys, it is
+one of them), so it is readable. Dispatched as issue **#11413**. CLAUDE.md's own row must
+not be used: it states outright that its value went stale twice on 2026-08-30 alone.
+
+## The size of it, with bounds rather than an estimate
+
+**POPULATION: the 19 `netting_attributed` closes with `closed_at >= 2026-08-30`** (the
+arming date), from the newest-1000 trades window (ids 4570–5569, spanning 2026-08-11 →
+2026-09-08). Cross-joined to the applied `netting_attribution_soak` rows.
+
+| account | total | flat read | non-flat | armed | one-way | hedge unknown |
+|---|--:|--:|--:|--:|--:|--:|
+| `bybit_1` | 14 | **9** | 5 | 12 | 2 | 0 |
+| **`bybit_2`** (real money) | 1 | **1** | 0 | 1 | 0 | 0 |
+| `bybit_portfolio` | 4 | **2** | 2 | 1 | 0 | 3 |
+
+**The contingency is the finding, and it carries its own negative control:**
+
+| MEASURED hedge state | flat | non-flat | total | % flat |
+|---|--:|--:|--:|--:|
+| **armed** | **11** | 3 | 14 | **78.6%** |
+| **one-way** | **0** | 2 | 2 | **0.0%** |
+| unknown | 1 | 2 | 3 | 33.3% |
+
+A one-way symbol has **one** book, so `rows[0]` cannot pick the wrong one — the prediction
+is exactly 0% flat, and that is what the two closes on measured-one-way symbols (5488, 5527,
+both `bybit_1` XRPUSDT) show. ⚠️ **n = 2 on that control is SMALL and is stated as such**;
+it is the only control the data affords.
+
+**ESTIMATED PnL booked on the 12 flat-read closes since arming: `−$5,033.4356`** — every
+one `exit_price_source: candle_at_close`, i.e. not broker truth.
+`bybit_1` −$1,882.65 (n=9) · **`bybit_2` −$2.98 (n=1)** · `bybit_portfolio` −$3,147.81
+(n=2, of which trade 5451 alone is −$2,250.34).
+
+### The bounds, and what closes the gap
+
+| | n | basis |
+|---|--:|---|
+| **UPPER BOUND** | **12** | every flat read since arming. A flat read is **not automatically wrong** — a genuinely-flat venue with a stale open row is the case this reconciler exists for. |
+| **LOWER BOUND** | **3** | 5515, 5554, 5568 — a same-size `adopted_orphan` followed within 4 minutes, which is positive proof the position was live when declared closed. All `bybit_1`. |
+| **ungradeable** | **9** | neither provable nor refutable from any repo surface. |
+
+⚠️ **I am not estimating within that gap, and here is precisely why I cannot:** the soak
+carries no `position_idx` and no `source`, so *venue genuinely flat*, *we read the wrong
+book* and *the list came back empty* share the single value `exchange_qty: 0.0`. **Adding
+those two fields is what converts 9 ungradeable rows into a measurement** — which is
+exactly what `BL-20260908-NETTING-SOAK-EXCHANGE-QTY-ZERO-COLLAPSES-GENUINELY-FLAT-WRONG-BOOK-AND-COULD-NOT-LOOK`
+asks for, and it is now the cheapest high-value item in this whole set.
+
+**Real-money exposure, stated exactly:** `bybit_2` is armed and has **one** flat-read close
+on the record (trade 5461, XRPUSDT long 69.4, 2026-09-04T12:32:16Z, ESTIMATED −$2.98). It
+is in the ungradeable nine — no adopt followed it, so I cannot say it was false. The
+**precondition** for the defect was present. The dollar figure is trivial; **the
+contamination of the closed-trade population is not**, because that population is what
+per-strategy expectancy and every promote/demote verdict are computed from.
+
+## 🚩 A NEW defect, and I called it benign 20 minutes before it fired
+
+In my 15:22Z board comment I wrote that two journal rows sharing one hedge book was
+*"benign in this direction"*. **It was not, and it materialised on this very position
+within half an hour.** Recording the correction because a reader would otherwise inherit it.
+
+**The netting reconciler's comparison is ASYMMETRIC.** It excludes pairs-sleeve rows from
+`journal_qty` (`_is_pairs_sleeve_row`, by design — that executor owns its own state) but
+`backed` is the **whole netted venue position, which includes the pairs legs' quantity**.
+So it compares *non-pairs journal* against *all-venue*.
+
+**MEASURED, from the soak row at `2026-09-08T15:26:55.295832Z`:**
+
+```
+trade_id 5569  journal_qty 26.05  exchange_qty 0.47  excess 25.58
+attributed_qty 25.58  basis "fifo"     ->  residual left on the row = 0.47
+```
+
+`26.05 − 0.47 = 25.58` ✓. And **the 0.47 it left is the pairs leg's quantity** — trade
+**5571** (`pairs_sol_eth_b`, ETHUSDT long **0.47**, opened ~15:16Z) is the row that
+actually owns it. So after the pass:
+
+- journal open ETH long on `bybit_1` = **5569 (0.47) + 5571 (0.47) = 0.94**
+- venue = **0.47**
+- **the journal over-claims by 0.47, and 5569's residual is exactly 5571's size.**
+
+This is **systematic, not a rounding artifact**: the residual always equals the excluded
+pairs legs' total. It under-attributes by that amount every time a pairs leg is open on the
+same book. It scales with pairs leg size — `pairs_sol_eth_a` legs reach **57.5** on SOLUSDT,
+so the phantom residual can be 57.5 SOL rather than 0.47 ETH.
+
+⚠️ **The exclusion itself is right and must not be removed** — closing a pairs row behind
+the executor's back would desync it, which is why the exclusion exists. The fix is to make
+the two sides of the comparison agree: subtract the excluded rows' quantity from `backed`,
+or refuse to grade a book that carries an excluded row. Either is Tier-2.
+
+## Trade 5569's disposition, restated on current facts
+
+**It is `status: open`, `reconcile_status: reconciled`, `position_size: 0.47`** (reduced
+from 26.05 by the pass above), and its `notes` now carry `netting_attribution_basis: fifo`.
+
+The manager's observation is right: **"orphan" was never the correct label for it.** It was
+never an orphan — it was a live `ict_scalp_eth_15m` position whose journal row had been
+false-closed 4 minutes earlier. And its residual 0.47 is now a **phantom** that belongs to
+5571. So the honest disposition is:
+
+- the row is **`reconciled` to a genuine parent package** (`pkg-5c339e25d5144c32`, verified
+  three ways) — that clause of the done-condition stands;
+- its **`setup_type: adopted_orphan` is a misnomer**, and its **0.47 residual is not
+  backed by the venue** once 5571 is accounted for;
+- **neither is fixable from here** — both are `src/` behaviours and Tier-2, and hand-editing
+  a live open row's quantity is exactly the kind of remediation
+  `BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG` exists to forbid.
+
+Recorded rather than repaired.
