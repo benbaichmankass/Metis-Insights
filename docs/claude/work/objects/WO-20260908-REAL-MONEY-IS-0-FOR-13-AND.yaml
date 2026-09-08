@@ -1,0 +1,43 @@
+id: WO-20260908-REAL-MONEY-IS-0-FOR-13-AND
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: Real money is 0-for-13 and only 6 of 15 closes were a strategy exit at all
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes work only
+  when it is given an owner and moved out of `dormant`.
+done_condition: 'A written attribution of the 15 real-money closes that separates THREE things currently
+  pooled: (a) closes where the strategy''s own exit fired and the trade genuinely lost; (b) closes where
+  the reconciler or an ''other'' path booked the row, so the exit reason misdescribes WHY it closed; and
+  (c) rows whose pnl is null or ''estimated'' and therefore cannot carry a verdict at all. For each of
+  the 9 non-''sl'' closes, name the actual mechanism that closed it, read from the journal and the venue
+  rather than from exit_reason - which describes HOW a row closed and is known to misdescribe WHY (the
+  trade-4904 precedent in OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED, where a row
+  reading ''reconciler_filled'' was in fact an operator flatten). THEN, and only on the (a) subset, state
+  whether the remaining 4 legs show a real edge failure or an n too small to grade. [!] ''insufficient_n''
+  IS A LEGITIMATE AND LIKELY VERDICT and must be reported as the finding rather than avoided - do NOT
+  widen the window until something becomes gradeable, which is the low-n hazard MIN_CLOSED_FOR_ACTION
+  exists to prevent. [!] NOT SUFFICIENT: a per-leg PnL table (that is the input, not the answer), or a
+  promote/demote proposal computed off a population not yet shown to be clean. [!] NO Tier-3 action is
+  enacted from this object - retiring or demoting a leg is PROPOSED only.'
+why: 'MEASURED 2026-09-08T12:16Z off /api/bot/trades/closed?limit=200 (population: every accountClass=real_money
+  row on that page, n=15, all bybit_2; 13 carry a non-null pnl). 0 wins, 13 losses, -43.12. BY LEG: ict_scalp_5m
+  6 closes / -25.25 (58.6%), xrp_pullback_2h 3 / -9.90, trend_donchian_xrp_4h 1 / -4.82, trend_donchian_eth_4h
+  2 / -2.30, eth_pullback_2h 3 / -0.84. [!] ict_scalp_5m IS ALREADY OFF bybit_2 - verified against the
+  LIVE /api/bot/config roster, not the YAML - so the single biggest contributor is removed and 59% of
+  this loss cannot recur on that book. What remains is 9 closes, -17.86, still zero wins. [!] THE SHARPER
+  FINDING IS THE CLOSE REASONS: only 6 of 15 closed on ''sl''; 4 closed on ''reconciler'' and 5 on ''other''
+  - i.e. NINE OF FIFTEEN CLOSES WERE NOT A STRATEGY EXIT DECISION. Two rows carry pnl NULL. Three of thirteen
+  are ''estimated'' provenance, not measured. So ''the strategies are losing'' is NOT established by this
+  population: a book where 60% of exits are reconciler/other is reporting on its own plumbing as much
+  as on its edge, which is exactly what the cycle priority says to repair BEFORE acting on the verdict.'
+source: 'operator directive 2026-09-08: ''What are we doing about the losing streak? even on 16 trades,
+  we can''t just chalk this up to chance - something isn''t working, and we need to track it down'''
+blocked_on: []
+blocked_on_basis: NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this object —
+  nobody has looked. Write a TRUE edge before moving it out of `dormant`; an invented edge is read by
+  the constraint computation as a real blocker, and a false blocker is worse than a missing one.
+captured_by: scripts/ops/capture_idea.py
