@@ -80,6 +80,25 @@
       },
       "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
       "opened_at": "2026-09-08T02:00:33Z"
+    },
+    {
+      "pr": 11337,
+      "opened_at": "2026-09-08T05:36:34Z",
+      "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold — the venue CAN express it)",
+      "owner_session": "session_01GYsNAhP6SpKe1vyn2tBc94",
+      "checklist_item": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
+      "draft": false,
+      "tier": "3",
+      "state": "open_needs_merge_decision",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The OPERATION change is approved and the CONFIRMATION is not — they are different facts and a successor must not collapse them. What the operator approved on 2026-09-08 is trade-scoping the Alpaca close, chosen over ruling whole-symbol close intended. The approval EXPLICITLY DOES NOT FORCE the change if the venue cannot express it; that condition is SATISFIED and the evidence is in the PR — DELETE /v2/positions/{symbol} documents a `qty` parameter, read from the Alpaca API reference 2026-09-08. ⚠️ WHAT IS NOT APPROVED IS THE CLOSE-CONFIRMATION MEASUREMENT FOR ALPACA. #11279's own approval scope says 'EXPLICITLY NOT Alpaca — Alpaca's mirror defect is decided separately on #11312', and that decision has not been made. The PR declares its choice: the whole-symbol path KEEPS its strict flatness gate untouched, and only the NEW partial path measures the trade's own quantity delta. The partial-FILL rule is `strict`, which is the same answer the operator already gave for IB on #11279 rather than a new choice. ⚠️ MI-140 IS HELD UNTIL THIS LANDS and the operator confirmed that hold on 2026-09-08; the dependency runs THAT way, so do not read this PR as blocked on MI-140.",
+        "scope": "The Alpaca close OPERATION (AlpacaClient.close, _close_extended_hours) and AlpacaClient.modify_protective, plus their execute.py call sites. EXPLICITLY NOT the Alpaca close CONFIRMATION on the pre-existing whole-symbol path, which is untouched. EXPLICITLY NOT MI-140 — no change to account capability gating, config/accounts.yaml or side_filter, so alpaca_live's inability to place orders is exactly as it was. EXPLICITLY NOT `partial_close` in the Alpaca capability set, which gates the exit-ladder's scale-out and stays unwired. No live position was touched.",
+        "decided_on": "2026-09-08",
+        "text": "Operator was asked on 2026-09-08 whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to TRADE-SCOPE THE CLOSE, with the approval explicitly not forcing the change if the venue cannot express it, and with MI-140's remediation HELD until this lands. Recorded from the dispatch that carried it; the conversational original is not in this repo. ⚠️ NOT VERIFIED BY THIS SESSION AGAINST THE OPERATOR — read `owner_session` as the implementer, not the witness."
+      },
+      "blocker": "Needs a MERGE CLICK, not a re-approval. R4 bars `landing: self` for any Tier-3 diff whatever its approval state, so this PR cannot land itself and correctly declares `landing: hold` with `tier_2_3_needs_approval`. The substantive thing a reviewer is asked to settle is section 3(b) of the body: whether loosening the confirmation MEASUREMENT for the new partial path only — with the whole-symbol path's strict gate untouched, in the same commit that narrows the operation — is the right ordering. The PR argues it is and names that as the line to push on.",
+      "note": "Rebased onto main after #11315 (MI-176, Unit B) landed and also touched alpaca_client.py; alpaca_client.py auto-merged, and _leg_qty was then aligned with the NOT-abs() rule #11315 shipped. The health-review-backlog.json conflict was resolved by taking main's file and re-appending this session's two rows through backlog_append.py — `git checkout --theirs` during a rebase gives the REPLAYED side and would have silently deleted two other sessions' rows. Verified after resolution that no row on main is missing."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1713,6 +1732,6 @@
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
   "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
-  "updated_at": "2026-09-08T04:16:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "updated_at": "2026-09-08T05:55:00Z",
+  "updated_by": "session_01GYsNAhP6SpKe1vyn2tBc94"
 }
