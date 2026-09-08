@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-07T21:40:00Z",
+  "as_of": "2026-09-08T00:00:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -81,96 +81,6 @@
       "blocker": "Not blocked on a decision. Carried open across several manager ticks because the merge queue kept prioritising research deliverables; it is the record of the very deadlock the four auto-reconcile PRs closed at 08:32Z on 2026-09-07 are instances of."
     },
     {
-      "pr": 11260,
-      "opened_at": "2026-09-07T16:16:15Z",
-      "title": "close MI-162 — census verified on main",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 register maintenance."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
-      "pr": 11261,
-      "opened_at": "2026-09-07T16:39:01Z",
-      "title": "chore(ops): refresh the error-feed digest (auto)",
-      "owner_session": "automation",
-      "checklist_item": "MI-AUTO-DIGEST",
-      "draft": false,
-      "tier": "1",
-      "state": "auto_generated",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Machine-generated digest."
-      },
-      "blocker": "Not blocked. Auto-generated; carried here only so `completeness` is honest rather than silently short."
-    },
-    {
-      "pr": 11271,
-      "opened_at": "2026-09-07T18:19:51Z",
-      "title": "MI-140 (T-7): alpaca_live is not failing to place orders",
-      "owner_session": "session_01L4nzHTVNNdCxkpFxMqXB6V",
-      "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
-      "draft": false,
-      "tier": "1",
-      "state": "green_in_queue",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 — a verdict document, no code, no config."
-      },
-      "blocker": "Not blocked. Was blocked ~80 minutes on a GitHub App 403 for PR creation, cleared by the manager via the pr-opener relay. ⚠️ ITS VERDICT IS COUPLED TO MI-170 IN THE DANGEROUS DIRECTION: alpaca_live is immune to the close-confirmation defects only because it cannot place an order, so acting on this verdict ARMS them."
-    },
-    {
-      "pr": 11273,
-      "opened_at": "2026-09-07T18:53:51Z",
-      "title": "dispatch MI-167 — root-cause the 43 phantom MGC lots",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 dispatch record."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
-      "pr": 11277,
-      "opened_at": "2026-09-07T19:29:37Z",
-      "title": "record the operator's two MGC decisions + the MI-140 coupling",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-169-MGC-REMEDIATION",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 — it RECORDS two operator decisions (cancel-then-repair; dispatch the root cause coupled to MI-140) rather than taking one."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
       "pr": 11279,
       "opened_at": "2026-09-07T19:51:13Z",
       "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
@@ -189,29 +99,11 @@
       "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report."
     },
     {
-      "pr": 11280,
-      "opened_at": "2026-09-07T20:27:23Z",
-      "title": "manager-lease: RE-CLAIM after a LAPSE at 19:56:51Z + the operator's steer",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-MANAGER-LEASE",
-      "draft": false,
-      "tier": "1",
-      "state": "superseded_close_not_merge",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None recorded. Tier-1 lease + register."
-      },
-      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml."
-    },
-    {
-      "pr": 11281,
-      "opened_at": "2026-09-07T20:46:35Z",
-      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "pr": 11297,
+      "opened_at": "2026-09-07T23:32:24Z",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "owner_session": "automation",
-      "checklist_item": "MI-AUTO-DIGEST",
+      "checklist_item": "MI-QUEUE-HYGIENE",
       "draft": false,
       "tier": "1",
       "state": "auto_generated",
@@ -220,9 +112,27 @@
         "condition": null,
         "scope": null,
         "decided_on": null,
-        "text": "None recorded. Machine-generated digest."
+        "text": "None recorded. Machine-generated."
       },
-      "blocker": "Not blocked. Auto-generated; supersedes #11261 in content."
+      "blocker": "Not blocked. The newest of its kind; the older siblings are closed with a disposition."
+    },
+    {
+      "pr": 11299,
+      "opened_at": "2026-09-07T23:44:23Z",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-QUEUE-HYGIENE",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated."
+      },
+      "blocker": "Not blocked. The newest of its kind; the older siblings are closed with a disposition."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1429,10 +1339,208 @@
       "merge_sha": "fd63b4f2c95df61e9c7ea23dcfdac60021fb6bef",
       "observed_at": "2026-09-07T21:55:07Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11260,
+      "opened_at": "2026-09-07T16:16:15Z",
+      "title": "close MI-162 — census verified on main",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-162-DOCUMENT-LIBRARY-POPULATION",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 register maintenance."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "observed_at": "2026-09-07T23:27:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "SUPERSEDED — consolidated into #11283 (c71e610e) and closed with a comment on the PR saying what landed and where. Verified on main by FILE PRESENCE, not by ancestry: a squash merge makes a stranded commit read identical to a landed one in `git log origin/main..branch`. Closed deliberately rather than merged, because all four rewrite MANAGER-CHECKLIST.json and SESSIONS.json and merging them as well would duplicate register rows. NOT abandoned and NOT refused by the operator."
+    },
+    {
+      "pr": 11273,
+      "opened_at": "2026-09-07T18:53:51Z",
+      "title": "dispatch MI-167 — root-cause the 43 phantom MGC lots",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-167-PHANTOM-MGC-LOTS",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 dispatch record."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "observed_at": "2026-09-07T23:27:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "SUPERSEDED — consolidated into #11283 (c71e610e) and closed with a comment on the PR saying what landed and where. Verified on main by FILE PRESENCE, not by ancestry: a squash merge makes a stranded commit read identical to a landed one in `git log origin/main..branch`. Closed deliberately rather than merged, because all four rewrite MANAGER-CHECKLIST.json and SESSIONS.json and merging them as well would duplicate register rows. NOT abandoned and NOT refused by the operator. ⚠️ #11273 was the one that had to be CHECKED rather than assumed: WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml existed on this branch and no other, so closing it as 'obviously superseded by the newer manager branch' would have stranded the only copy."
+    },
+    {
+      "pr": 11277,
+      "opened_at": "2026-09-07T19:29:37Z",
+      "title": "record the operator's two MGC decisions + the MI-140 coupling",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-169-MGC-REMEDIATION",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — it RECORDS two operator decisions (cancel-then-repair; dispatch the root cause coupled to MI-140) rather than taking one."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "observed_at": "2026-09-07T23:27:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "SUPERSEDED — consolidated into #11283 (c71e610e) and closed with a comment on the PR saying what landed and where. Verified on main by FILE PRESENCE, not by ancestry: a squash merge makes a stranded commit read identical to a landed one in `git log origin/main..branch`. Closed deliberately rather than merged, because all four rewrite MANAGER-CHECKLIST.json and SESSIONS.json and merging them as well would duplicate register rows. NOT abandoned and NOT refused by the operator."
+    },
+    {
+      "pr": 11280,
+      "opened_at": "2026-09-07T20:27:23Z",
+      "title": "manager-lease: RE-CLAIM after a LAPSE at 19:56:51Z + the operator's steer",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-MANAGER-LEASE",
+      "draft": false,
+      "tier": "1",
+      "state": "superseded_close_not_merge",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 lease + register."
+      },
+      "blocker": "SUPERSEDED — consolidated into #11283 and TO BE CLOSED, not merged. Merging it as well would duplicate register rows. Its branch is deliberately kept until #11283 is on main so nothing is stranded; that matters because #11273 carries the ONLY copy of WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS.yaml.",
+      "terminal": "closed_unmerged",
+      "observed_at": "2026-09-07T23:27:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "disposition": "SUPERSEDED — consolidated into #11283 (c71e610e) and closed with a comment on the PR saying what landed and where. Verified on main by FILE PRESENCE, not by ancestry: a squash merge makes a stranded commit read identical to a landed one in `git log origin/main..branch`. Closed deliberately rather than merged, because all four rewrite MANAGER-CHECKLIST.json and SESSIONS.json and merging them as well would duplicate register rows. NOT abandoned and NOT refused by the operator."
+    },
+    {
+      "pr": 11271,
+      "opened_at": "2026-09-07T18:19:51Z",
+      "title": "MI-140 (T-7): alpaca_live is not failing to place orders",
+      "owner_session": "session_01L4nzHTVNNdCxkpFxMqXB6V",
+      "checklist_item": "MI-140-ALPACA-LIVE-CANNOT-PLACE",
+      "draft": false,
+      "tier": "1",
+      "state": "green_in_queue",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Tier-1 — a verdict document, no code, no config."
+      },
+      "blocker": "Not blocked. Was blocked ~80 minutes on a GitHub App 403 for PR creation, cleared by the manager via the pr-opener relay. ⚠️ ITS VERDICT IS COUPLED TO MI-170 IN THE DANGEROUS DIRECTION: alpaca_live is immune to the close-confirmation defects only because it cannot place an order, so acting on this verdict ARMS them.",
+      "terminal": "merged",
+      "observed_at": "2026-09-07T23:27:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "merge_sha": "0c74a9c2ab5030b5ba17738bc7458cd03f065128"
+    },
+    {
+      "pr": 11293,
+      "opened_at": "2026-09-07T22:48:37Z",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-QUEUE-HYGIENE",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated."
+      },
+      "blocker": "Was RED on guards, and the cause was the manager's own omission: four PRs closed as superseded carried no `disposition`, so open_pr_record --strict refused and every auto PR inherited that failure. Fixed in this change. #11293 supersedes #11287 in content.",
+      "terminal": "closed_unmerged",
+      "disposition": "SUPERSEDED by #11297 — the same reconcile against a later main, verified to regress nothing (settled rows on main that #11297 re-opens: none; settled rows it would drop: none). Closed, not merged.",
+      "observed_at": "2026-09-08T00:00:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+    },
+    {
+      "pr": 11287,
+      "opened_at": "2026-09-07T22:08:17Z",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-QUEUE-HYGIENE",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated."
+      },
+      "blocker": "Was RED on guards, and the cause was the manager's own omission: four PRs closed as superseded carried no `disposition`, so open_pr_record --strict refused and every auto PR inherited that failure. Fixed in this change. #11293 supersedes #11287 in content.",
+      "terminal": "closed_unmerged",
+      "disposition": "SUPERSEDED by #11297 — oldest of three stacked reconcile PRs. They stacked because open_pr_record.py --strict, a required check, refused on four closed-unmerged rows carrying no disposition, so every reconcile run inherited a failure it had no part in. Closed, not merged.",
+      "observed_at": "2026-09-08T00:00:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+    },
+    {
+      "pr": 11281,
+      "opened_at": "2026-09-07T20:46:35Z",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-AUTO-DIGEST",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated digest."
+      },
+      "blocker": "Not blocked. Auto-generated; supersedes #11261 in content.",
+      "terminal": "closed_unmerged",
+      "disposition": "SUPERSEDED by #11299 — a later error-feed digest. Digests are point-in-time snapshots; only the newest is worth landing. Closed, not merged.",
+      "observed_at": "2026-09-08T00:00:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+    },
+    {
+      "pr": 11261,
+      "opened_at": "2026-09-07T16:39:01Z",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "owner_session": "automation",
+      "checklist_item": "MI-AUTO-DIGEST",
+      "draft": false,
+      "tier": "1",
+      "state": "auto_generated",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded. Machine-generated digest."
+      },
+      "blocker": "Not blocked. Auto-generated; carried here only so `completeness` is honest rather than silently short.",
+      "terminal": "closed_unmerged",
+      "disposition": "SUPERSEDED by #11299 — oldest of three stacked digests (16:39Z). Closed, not merged.",
+      "observed_at": "2026-09-08T00:00:00Z",
+      "settled_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
     }
   ],
-  "last_reconciled_at": "2026-09-07T21:55:07Z",
+  "last_reconciled_at": "2026-09-08T00:00:00Z",
   "last_reconciled_sha": "115b0c25cda5447f7c696d346ff2fba65fe3dd59",
-  "updated_at": "2026-09-07T21:40:00Z",
+  "updated_at": "2026-09-08T00:00:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
