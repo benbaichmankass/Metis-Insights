@@ -143,3 +143,56 @@ def test_collect_pings_actually_calls_the_merge_source(monkeypatch):
     )
     out = nop.collect_pings("aaaa", "bbbb")
     assert len(out) == 1 and "#4242" in out[0][1]
+
+
+# --- the success path must be observable on the fleet ----------------------
+
+def test_the_success_path_logs_which_prs_it_reported(monkeypatch, caplog):
+    """The branch nobody logs is the branch nobody can verify.
+
+    Shipped without this, the journal said only `Queued N ping(s)` with no
+    source, so ZERO "merge-ping" lines was indistinguishable between *it found
+    merges every time* and *it never ran*. Measured on the live VM over 5h13m
+    of ict-git-sync journal: 5 notify runs, 5 queued pings, 0 merge-ping lines
+    in either direction — the mechanism had to be RECONSTRUCTED by replaying
+    the pulled ranges rather than read off the box, and a reconstruction is not
+    an observation.
+    """
+    monkeypatch.setattr(
+        nop, "_commit_subjects_or_none",
+        lambda a, b: [("s1", "feat: a (#111)"), ("s2", "feat: b (#222)")],
+    )
+    with caplog.at_level("INFO"):
+        out = nop._merge_pings("aaaaaaaa", "bbbbbbbb")
+    assert len(out) == 1
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "merge-ping" in logged, "a healthy run must announce itself"
+    assert "#111" in logged and "#222" in logged, (
+        "naming the PRs is what makes the journal line evidence rather than a "
+        "count that could have come from any source"
+    )
+
+
+def test_all_three_outcomes_are_distinguishable_in_the_journal(monkeypatch, caplog):
+    """merges / none / unreadable must never render alike to a reader."""
+    seen = {}
+    for label, subjects in (
+        ("merges", [("s", "feat: x (#7)")]),
+        ("none", [("s", "not a merge")]),
+        ("unreadable", None),
+    ):
+        caplog.clear()
+        monkeypatch.setattr(nop, "_commit_subjects_or_none", lambda a, b, _s=subjects: _s)
+        with caplog.at_level("INFO"):
+            nop._merge_pings("aaaaaaaa", "bbbbbbbb")
+        seen[label] = " ".join(r.getMessage() for r in caplog.records)
+    # Non-empty FIRST: three distinct values is satisfied trivially when one of
+    # them is "" (a branch that logs nothing), which is exactly the gap this
+    # file exists to close — so silence must not count as a distinguishing
+    # value. Verified by mutation: dropping the success-path log makes this
+    # fail on emptiness, not on the distinctness check.
+    for label, text in seen.items():
+        assert text.strip(), f"the {label!r} outcome logs NOTHING — unreadable on the fleet"
+    assert len({seen["merges"], seen["none"], seen["unreadable"]}) == 3, seen
+    assert "could not read" in seen["unreadable"]
+    assert "none landed a PR" in seen["none"]
