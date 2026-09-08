@@ -94,6 +94,39 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ⚠️ THIS STEP IS WHY THE CRON HAD NEVER SUCCEEDED. Measured 2026-09-08
+      # over the workflow's COMPLETE run history — all 6 runs, every one
+      # event=schedule, no dispatch run has ever existed — 6 of 6 concluded
+      # `failure`, each in ~14s, i.e. at the self-test gate below.
+      #
+      # `setup-python` installs a bare interpreter and this file installed
+      # NOTHING, so PyYAML was absent on the runner. constraint_readout.py
+      # tolerates that (`yaml = None`), but scripts/ci/check_wip_ceiling.py
+      # imports yaml at module scope, so the ceiling import raised, the
+      # `except Exception` set WIP_CEILING = None, and the self-test printed
+      #   FAIL — the WIP ceiling is imported from the enforcing guard (got None, want 8)
+      # Reproduced locally by blocking `import yaml`: same single failure,
+      # byte-for-byte; with yaml present the same command is ALL PASS.
+      #
+      # ⚠️ THE GATE WAS NOT THE BUG — IT WORKED. Without yaml the work store
+      # is unreadable, so a run that skipped the self-test would have
+      # committed a readout diagnosing nothing over the one surface the
+      # session brief inlines. Do not "fix" a future failure here by
+      # loosening the gate.
+      #
+      # ⚠️ AND A GREEN RUN OF THIS FILE IS NOT A CRON THAT FIRES. These 6 runs
+      # fired 4.4–6.2 HOURS after their declared `5 6 * * *` slot (observed
+      # 10:28Z, 10:47Z, 11:05Z, 11:07Z ×2, 12:18Z). Installing a dependency
+      # fixes the FAILURE, not the LATENESS, and neither is evidence the next
+      # slot fires at all — read the run history, never the cron expression.
+      #
+      # Only PyYAML, deliberately: nothing else this job runs leaves the
+      # stdlib (render_due_list.py and render_session_brief.py are stdlib-only,
+      # which is why due-list.yml needs no install step and succeeds). The
+      # pinned spelling matches the 10 sibling workflows that already use it.
+      - name: Install PyYAML — the work store is YAML and the runner has none
+        run: python3 -m pip install --quiet --upgrade pip "pyyaml>=6.0"
+
       - name: Self-test both generators before trusting their output
         run: |
           set -euo pipefail
