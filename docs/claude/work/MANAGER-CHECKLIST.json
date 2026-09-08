@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-07T20:27:00Z",
+  "updated_at": "2026-09-08T02:16:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2159,9 +2159,46 @@
       "tier": "3 — OPERATOR-APPROVED for this trade only",
       "title": "OPERATOR-APPROVED: cancel oca-protect-t5531, then repair trade 5531's journal row",
       "note": "OPERATOR APPROVED OPTION 3 on 2026-09-07 with all three options and their consequences put to them: cancel the legs THEN repair the row, both, IN THAT ORDER. ⚠️ THE ORDER IS PART OF THE APPROVAL — a repair alone leaves 43 resting sell lots, a cancel alone leaves a phantom open row for the next protection sweep to re-arm. Cancel orders 548 (STP 43 @ 4394.5) + 551 (LMT 43 @ 4485.0) of oca-protect-t5531 on ib_paper/MGC; ⚠️ DO NOT TOUCH oca-protect-t5353, whose 11 lots are trade 5353's real and correct protection — and note the alarm's own remedy text ('cancel the leg that does NOT match trades.stop_loss') is USELESS here because BOTH legs match. Then journal 5531 closed_at 2026-09-07T11:45:06Z / exit 4392.9 / pnl −17024.28, re-derived from the venue rather than copied, with provenance stamped so a repaired row stays distinguishable from one the pipeline booked. ⚠️ THE APPROVAL COVERS THIS TRADE ONLY — a second instance is filed and reported, never remediated. ⚠️ ROOT CAUSE REMAINS OPEN under MI-168; a repaired row with the defect live will simply recur."
+    },
+    {
+      "id": "MI-176-ALPACA-COVERAGE-QUANTITY",
+      "status": "in_flight",
+      "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
+      "opened": "2026-09-08T02:16:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": null,
+      "tier": "1 to measure; the DETECTION ship is Tier-2",
+      "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG)."
+    },
+    {
+      "id": "MI-173-ALPACA-SIBLING-MECHANISM",
+      "status": "in_flight",
+      "owner": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
+      "opened": "2026-09-08T01:38:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: #11312 is landing:hold by its AUTHOR'S choice — it asks three questions and its author did not want it read as approved by being merged",
+        "since": "2026-09-08T02:16:00Z"
+      },
+      "tier": "1 as measurement; the PROPOSAL is Tier-3",
+      "title": "The Alpaca sibling-liquidation MECHANISM (#11312) — measurement + Tier-3 proposal",
+      "note": "MECHANISM ESTABLISHED FROM CODE, and it is NOT the Bybit shape. AlpacaClient.close(self, symbol) has NO qty parameter at all; execute.close_open_position validates qty and then never passes it. So Bybit's defect is a RECONCILIATION failure (the venue did the right thing, the journal failed to follow) and Alpaca's is an OPERATION failure (the journal is right, we send the wrong instruction) — a Bybit-shaped attribution reconciler would not touch it. Blast radius is session-dependent: `closed` defers and cancels NOTHING (0 shares); `extended` and `regular` cancel EVERY resting order on the symbol and then flatten the WHOLE symbol. THREE THINGS THE BACKLOG ROW DID NOT NAME: the pre-cancel is a second destructive step (closing A strips B's protection BEFORE the flatten is attempted); modify_protective(symbol, sl, tp) has the IDENTICAL scope defect on a different verb and is filed nowhere; and the success log prints a per-trade qty on a whole-symbol flatten. ⚠️ AND THE RECORD WAS WRONG: the backlog row claims a test pins this, and that test DOES NOT EXIST ON MAIN — it is on the unmerged #11279 branch, so on main the over-close is UNPINNED."
+    },
+    {
+      "id": "MI-174-DIGEST-GENERATOR-HEADER",
+      "status": "in_flight",
+      "owner": "session_01V62BVG7Q9BHZeyTvkBWNPy",
+      "opened": "2026-09-08T01:38:00Z",
+      "updated": "2026-09-08T02:16:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "The error-feed digest is silently frozen: fix the generator, not the guard",
+      "note": "PR #11311 open, auto-merge armed, waiting on checks. Carries the manager addendum's two extra questions (sibling generator render_due_list.py, and the LANDED denominator since R3 — if that is zero, the operator's committed error feed has been frozen the whole time while the workflow reported success)."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-07T21:33:00Z"
 }
