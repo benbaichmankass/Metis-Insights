@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T04:05:00Z",
+  "updated_at": "2026-09-08T04:47:58Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2918,6 +2918,61 @@
       "confirmed_at": "2026-09-08T03:22:25Z",
       "manager_observation": "FINISHED — observed 2026-09-08T04:05Z via get_session: SESSION_STATUS_IDLE, status_category `completed`, needs_action EMPTY, status_detail 'audit complete: 24/25 symbol pairs exact, 1 known divergence; phantom-lot class clear'. State moved working -> idle. ⚠️ THE WORK IS NOT DONE BECAUSE THE SESSION IS: PR #11318 is still open (Tier-1 self-land, automerge armed, checks armed by the session itself at 03:58Z) and lands on green with no manager click. Session state describes the SESSION; the work's status lives in MANAGER-CHECKLIST.json. ⚠️ AND THIS ROW IS ITSELF THE EXHIBIT FOR MI-178: it was written `working` at 03:22 and became false at ~04:04, forty-two minutes later, with nothing in the repo decaying it — the same mechanism that made all 17 rows false in #11317. It is corrected here only because a manager happened to look again.",
       "observed_at": "2026-09-08T04:05:00Z"
+    },
+    {
+      "session_id": "session_01HwWNiwEGCGAAwKhfchMUs7",
+      "registry_key": "pending-20260908T044448Z",
+      "state": "working",
+      "title": "MI-179 — re-arm the 56 naked shares on trade 5414 (alpaca_portfolio/TLT), operator-approved",
+      "owns_object": "WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED",
+      "spawned_at": "2026-09-08T04:44:48Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-approved 2026-09-08 (Tier-2). 72-share short, stop resting for only 16; trade 5414's 56 shares naked since ~2026-09-03.",
+      "confirmed_at": "2026-09-08T04:45:19Z"
+    },
+    {
+      "session_id": "session_01AA7sxfCGwRtoed1CANsWwr",
+      "registry_key": "pending-20260908T044520Z",
+      "state": "working",
+      "title": "MI-181 — re-dispatch the MGC remediation against the CONFIRMED order ids 550/551",
+      "owns_object": "WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE",
+      "spawned_at": "2026-09-08T04:45:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator confirmed the corrected ids 2026-09-08, superseding the approval that named 548. ib_paper/MGC 43 phantom lots — MI-177 re-confirmed it as the fleet's only divergence.",
+      "confirmed_at": "2026-09-08T04:45:51Z"
+    },
+    {
+      "session_id": "session_01GYsNAhP6SpKe1vyn2tBc94",
+      "registry_key": "pending-20260908T044551Z",
+      "state": "working",
+      "title": "MI-180 — trade-scope the Alpaca close operation (and modify_protective)",
+      "owns_object": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
+      "spawned_at": "2026-09-08T04:45:51Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-approved 2026-09-08 (Tier-3). First step is establishing whether the Alpaca API supports a qty-scoped close at all.",
+      "confirmed_at": "2026-09-08T04:46:27Z"
+    },
+    {
+      "session_id": "session_0173g82hw2Rf3HjnfydGcnyX",
+      "registry_key": "pending-20260908T044628Z",
+      "state": "working",
+      "title": "MI-183 — pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
+      "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
+      "spawned_at": "2026-09-08T04:46:28Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator granted a spawn-priority exception 2026-09-08.",
+      "confirmed_at": "2026-09-08T04:47:58Z"
+    },
+    {
+      "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
+      "registry_key": "pending-20260908T044700Z",
+      "state": "working",
+      "title": "MI-182 — coordination board at the 2500-comment cap: successor + re-point its two readers",
+      "owns_object": "WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500",
+      "spawned_at": "2026-09-08T04:47:00Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator approved spawning this 2026-09-08 via decision pop-up.",
+      "confirmed_at": "2026-09-08T04:47:58Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
