@@ -6,9 +6,9 @@
  },
  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "automation/data-commit-34220943108-1",
-  "pr": 11380,
-  "claimed_at": "2026-09-08T13:50:00Z"
+  "branch": "claude/mgr-record-gld-ok-20260908",
+  "pr": null,
+  "claimed_at": "2026-09-08T14:02:00Z"
  },
  "active_sessions": [
   {
