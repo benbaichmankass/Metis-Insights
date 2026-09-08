@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat, #11299's disposition recorded in the same turn it was diagnosed, and one backlog filing for a generator defect on a worker path the manager must not fix. Register + backlog only — no src/, tests/, scripts/, workflows/, config/ or deploy/ path is touched."
+}
