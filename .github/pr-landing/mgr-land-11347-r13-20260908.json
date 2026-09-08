@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: docs/claude/OPEN-ITEMS.json, the health-review backlog, one work object, docs/claude/session-board.json (the R13 claim) and this branch's own landing files. No src/, tests/, scripts/, config/, deploy/ or workflow path, so R2 cannot fire. Cherry-picked from #11347 onto current main rather than merged, because main now carries #11344's scripts/ci change and a merge commit's first-parent diff would attribute it to the manager."
+}
