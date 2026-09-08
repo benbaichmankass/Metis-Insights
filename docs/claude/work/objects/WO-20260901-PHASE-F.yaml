@@ -56,17 +56,63 @@ scope_split:
     index plus two files per actionable row, NOT one per graded row. Verify by
     reading the committed file, never by the run's conclusion.
   c4_decision_recording: >-
-    DEFERRED, with a stated reason rather than silently dropped. C4 wants one
-    decision record instead of four forked surfaces, and the obvious first move —
-    a guard comparing the changelog's execution verdict against
-    config/strategies.yaml — CANNOT be built honestly today: the 53 changelog
-    entries carry only {date, ref, summary}, so the verdict exists solely as PROSE
-    ("DEMOTED execution: live -> shadow ..."). Extracting it by pattern-matching
-    English is sub-class A of the diagnostic-provenance defect this repo has a
-    guard family for, and a guard that matches prose would be confidently wrong
-    on the entries it misses. The honest path is a STRUCTURED field on new
-    entries plus a reported denominator of un-structured ones — which is a design
-    decision, not a wire, and belongs to its own change.
+    ⚠️ NO LONGER DEFERRED — the structured-field half SHIPPED 2026-09-08 (MI-194).
+    Do not re-quote the DEFERRED wording below as outstanding; it is preserved
+    because its REASONING is unchanged and still binds what may be built.
+    ORIGINAL, and still correct about the prose: C4 wants one decision record
+    instead of four forked surfaces, and the obvious first move — a guard
+    comparing the changelog's execution verdict against config/strategies.yaml —
+    CANNOT be built honestly today: the 53 changelog entries carry only
+    {date, ref, summary}, so the verdict exists solely as PROSE ("DEMOTED
+    execution: live -> shadow ..."). Extracting it by pattern-matching English is
+    sub-class A of the diagnostic-provenance defect this repo has a guard family
+    for, and a guard that matches prose would be confidently wrong on the entries
+    it misses. The honest path is a STRUCTURED field on new entries plus a
+    reported denominator of un-structured ones.
+    WHAT SHIPPED: scripts/ci/check_strategy_decision_record.py — the
+    `execution_verdict` field (closed vocabulary live|shadow|disabled|
+    no_execution_change), a five-grade comparison against config/strategies.yaml
+    (agrees | diverges | unrecorded | no_record | not_in_config, never collapsed),
+    a reported denominator, and registration in run_guards.py. 32 tests.
+    ⚠️ IT GRADES 0 OF 55 AND PASSES, WHICH IS THE ACCURATE READING, NOT A PASS
+    ON THE QUESTION. No entry carries the field yet. Failing on zero coverage
+    would red every PR in the repo on day one — the check_pr_queue_watch.py
+    `never_ran` precedent. It ARMS ITSELF: the first typed entry makes that leg
+    gradeable and a divergence on it fails; there is no flag to unset.
+    ⚠️ THE PROBE IS PROVEN TO FIND A POSITIVE, so its silence means something:
+    tests/test_strategy_decision_record.py types the REAL squeeze_breakout_4h
+    2026-06-01 demotion entry onto a copy of the REAL changelog and asserts the
+    guard fires with gate=live / recorded=shadow.
+  ⚠️_c4_what_is_still_owed: >-
+    THREE THINGS, and none of them is the guard.
+    (1) THE RECORD IS STILL STALE — no changelog entry was written. Writing a
+    Tier-3 verdict into the record is the OPERATOR's, and it touches config/.
+    (2) COVERAGE RISES ONLY IF THE FIELD IS USED. Nothing yet requires a new
+    entry to carry it; the guard cannot demand a field on entries that do not
+    exist. Whether to require it on NEW entries is a follow-up decision.
+    (3) NO REAL CONSUMER BRANCHES ON THE GRADE. It was NOT registered with
+    collapsed-state-guard, and that is a measured refusal rather than an
+    oversight: a trial registration PASSED with exactly ONE consumer — the test
+    file written for the contract itself. Crediting that would be the decorative
+    branch the guard exists to prevent (the bybit_position_mode precedent in
+    CLAUDE.md). Register it when a genuine consumer exists — surfacing the grade
+    on /api/bot/strategies would be one, and that is src/, hence its own
+    tier-gated change.
+  ⚠️_correction_to_the_squeeze_headline: >-
+    THE FRAMING IN `note:` ABOVE IS TRUE AND INVITES A WRONG READING — carry this.
+    "squeeze_breakout_4h runs live today against a written record saying it was
+    demoted for a 0% win rate over 60 closes" reads as an ungoverned live leg.
+    It is not one. MEASURED, config/strategies.yaml lines 305-340 read 2026-09-08
+    at a0ec22ce: the leg is `execution: live` and the YAML DOCUMENTS ITS OWN
+    AUTHORIZATION — "RE-PROMOTED shadow -> live 2026-06-23 (operator pre-approved
+    2026-06-01, gated on debounce verify now satisfied — PERF-20260601-005)" —
+    routed to bybit_1 (demo/PAPER) ONLY, explicitly removed from real-money
+    bybit_2 at the demotion. The changelog's newest squeeze_breakout_4h entry is
+    the 2026-06-01 demotion and stops there. So the divergence is a MISSING
+    RECORD, not an unapproved live leg, and there is NO real-money exposure in
+    it. Per field-beats-comment the gate is the truth and the RECORD is what gets
+    fixed — which is why the guard names strategies.yaml as authoritative in
+    every divergence message and warns against flipping the gate.
   ⚠️_do_not_read_this_object_as_c4_delivered: >-
     A concrete live instance is already filed as
     BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H,

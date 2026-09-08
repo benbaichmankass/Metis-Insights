@@ -1778,6 +1778,45 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
     },
     {
+        "name": "strategy-decision-record",
+        # C4 of the operating-layer build (Phase F). Compares the DECISION
+        # RECORD (config/strategy_changelog.json) against the GATE it is a
+        # record of (config/strategies.yaml). An execution flip is a Tier-3
+        # decision written in two places and nothing has ever compared them, so
+        # the record forked from the gate and nobody noticed for six weeks
+        # (BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H).
+        #
+        # ⚠️ IT GRADES 0 OF 55 TODAY AND PASSES, DELIBERATELY. No changelog
+        # entry carries the structured `execution_verdict` field yet, so there
+        # is nothing to compare and that is the ACCURATE reading, not a bug.
+        # Failing on zero coverage would red every PR in the repo on day one,
+        # which is how a guard gets disabled instead of fixed — the
+        # `check_pr_queue_watch.py` `never_ran` precedent. It ARMS ITSELF: the
+        # first typed entry makes that leg gradeable and a divergence on it
+        # fails. There is no flag to unset.
+        #
+        # It deliberately does NOT parse the 53 legacy entries' English —
+        # sub-class A of the diagnostic-provenance defect. They are counted and
+        # reported as ungradeable, never guessed at.
+        #
+        # Self-test FIRST, same posture as collapsed-state-guard: a guard that
+        # reports a clean tree needs an exercised failure path, or "0
+        # divergences" cannot be told from "stopped matching". The stronger
+        # control is the POSITIVE one in tests/test_strategy_decision_record.py,
+        # which types the real squeeze_breakout_4h demotion entry on a copy of
+        # the real changelog and asserts the guard fires.
+        "when": {"globs": [
+            "config/strategies.yaml",
+            "config/strategy_changelog.json",
+            "scripts/ci/check_strategy_decision_record.py",
+            "src/strategy_registry.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_strategy_decision_record.py", "--self-test"],
+            ["python3", "scripts/ci/check_strategy_decision_record.py"],
+        ],
+    },
+    {
         "name": "manifest-scope-constants",
         # The ML manifest<->dataset contract, at COMMIT time. It was previously
         # validated ONLY at train time, on the trainer, inside a cycle that

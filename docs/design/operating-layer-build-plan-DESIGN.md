@@ -230,7 +230,7 @@ an answer that does not commit leaves its question *unanswered*, never "answered
 
 **Builds:** C3 decision preparation · C4 decision recording.
 
-⚠️ **C3 and C4 are being delivered separately, and C4 is DEFERRED with a reason.** The obvious first move for C4 — a guard comparing the changelog's execution verdict against `config/strategies.yaml` — cannot be built honestly today: the 53 changelog entries carry only `{date, ref, summary}`, so the verdict exists **only as prose**. Pattern-matching English for it is sub-class **A** of the diagnostic-provenance defect (*the label names a quantity the accessor does not return*), and a guard that is confidently wrong on the entries it misses is worse than none. The honest path is a **structured field on new entries plus a reported denominator of un-structured ones** — a design decision, not a wire. A live instance is filed meanwhile (`BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`).
+⚠️ **THIS PARAGRAPH SAID C4 IS DEFERRED AND THAT IS NOW STALE IN THE DIRECTION THAT INVITES DUPLICATE WORK — do not re-quote it as outstanding.** The structured-field half shipped **2026-09-08** (PR #11358): `scripts/ci/check_strategy_decision_record.py` defines the typed `execution_verdict` field (closed vocabulary `live|shadow|disabled|no_execution_change`), grades the record against `config/strategies.yaml` on five never-collapsed grades, and reports its own denominator. **Verify before rebuilding it** — `git cat-file -e origin/main:scripts/ci/check_strategy_decision_record.py` and `grep -n strategy-decision-record scripts/ci/run_guards.py` — which is the same cheap existence check that produced the C3 correction two paragraphs down. ⚠️ **What shipped is the INSTRUMENT, not the reconciliation:** it grades **0 of 55** because no entry carries the field yet (that is the accurate reading and it passes deliberately, the `check_pr_queue_watch.py` `never_ran` precedent), it arms itself on the first typed entry, and **the record is still stale** — writing a Tier-3 verdict into it remains the operator's. The reasoning below is unchanged and still binds what may be built. ORIGINAL: The obvious first move for C4 — a guard comparing the changelog's execution verdict against `config/strategies.yaml` — cannot be built honestly today: the 53 changelog entries carry only `{date, ref, summary}`, so the verdict exists **only as prose**. Pattern-matching English for it is sub-class **A** of the diagnostic-provenance defect (*the label names a quantity the accessor does not return*), and a guard that is confidently wrong on the entries it misses is worse than none. The honest path is a **structured field on new entries plus a reported denominator of un-structured ones** — a design decision, not a wire. A live instance is filed meanwhile (`BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`).
 
 **C3 was 1,518 lines that had never produced a durable artifact.**
 `strategy_review_packet.py` emits a real action badge with reasons and an SLA, and wrote to
@@ -277,6 +277,21 @@ PR body and filed, not flipped.
 **C4 is one decision record instead of four forked surfaces.** `strategy_changelog.json` has
 been dead since **2026-07-28**. The cost is not tidiness: `squeeze_breakout_4h` runs live
 today against a written record saying it was demoted for a 0% win rate over 60 closes.
+
+⚠️ **THAT LAST SENTENCE IS TRUE AND IT INVITES THE WRONG READING — corrected 2026-09-08.** It
+reads as an ungoverned live leg. It is not one. MEASURED, `config/strategies.yaml` lines
+305-340 read at `a0ec22ce`: the leg is `execution: live` and **the YAML documents its own
+authorization** — *"RE-PROMOTED shadow -> live 2026-06-23 (operator pre-approved 2026-06-01,
+gated on debounce verify now satisfied — PERF-20260601-005)"* — routed to **`bybit_1`
+(demo/PAPER) only**, explicitly removed from real-money `bybit_2` at the demotion. The
+changelog's newest `squeeze_breakout_4h` entry is the `2026-06-01` demotion and stops there.
+**So the divergence is a MISSING RECORD, not an unapproved live leg, and there is no
+real-money exposure in it.** Per *field beats comment* the gate is the truth and the RECORD is
+what gets fixed — which is why the shipped guard names `strategies.yaml` as authoritative in
+every divergence message and warns against flipping the gate. A guard that merely reported
+*"these disagree"* would point the next session at the gate, and flipping it on inference is
+what `BL-20260901-DECISION-RECORD-SAYS-SHADOW-WHILE-CONFIG-SAYS-LIVE-SQUEEZE-BREAKOUT-4H`
+forbids in **both** directions.
 
 ## Phase G — the forcing function
 
