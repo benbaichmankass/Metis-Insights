@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T19:29:00Z",
+  "updated_at": "2026-09-08T23:26:51Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2258,14 +2258,14 @@
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
-      "status": "blocked",
+      "status": "review_ready",
       "owner": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T07:16:00Z",
-      "blocked_on": "register merge conflict on its own branch",
+      "updated": "2026-09-08T23:26:51Z",
+      "blocked_on": null,
       "tier": "3 — order path, operator-approved",
       "title": "Trade-scope the Alpaca close operation (and modify_protective)",
-      "note": "APPROVED AND CANNOT MERGE. Operator accepted the section-3(b) confirmation-ordering argument, so the diff is cleared; the 405 is a conflict in two append-only registers only. Poked 07:12Z with the union rule. ⚠️ THE MANAGER MUST NOT RESOLVE THIS ITSELF — merging main in would put main's src/ changes in the merge commit's first-parent diff, which R2 grades as a manager touching a worker path. That is MI-184, and it already cost a force-push today."
+      "note": "⚠️ CORRECTED 2026-09-08T23:26Z — THIS ROW READ 'blocked / register merge conflict on its own branch' AND HAD SAID SO SINCE 07:16Z, SIXTEEN HOURS. IT IS NO LONGER TRUE. The owning session resolved the conflict ITSELF and pushed merge commit 66e2b972 at 23:25:17Z; it is now IDLE / review_ready ('CI running on merge commit 66e2b972; awaiting green'). That is the right actor: MI-184 bars the MANAGER from resolving it, because merging main in puts main's src/ changes into the merge commit's first-parent diff and R2 grades that as the manager touching a worker path. || ⚠️ AND BEWARE THE READ THAT LOOKS LIKE GOOD NEWS: get_check_runs returned FIVE GREEN checks when I first looked, and they were for the PREVIOUS head d5232c9e (completed 18:49Z). The live head is 66e2b972 with three checks in_progress and mergeable_state `blocked` — NOT `dirty`, so not a conflict. A stale-head green is exactly the shape of a PR that looks ready and is not. || WHAT IS OWED: a MERGE CLICK from the manager once pytest-run completes (~23:42Z). It is NOT waiting on approval to be re-sought — OPEN-PRS.json carries verdict approved_with_conditions with both conditions SATISFIED (the `qty` parameter exists on DELETE /v2/positions/{symbol}; modify_protective is scoped in the same diff) and section 3(b), the confirmation-ordering argument, ACCEPTED by the operator as its own Tier-3 question. landing: hold + R4 bar the session from self-landing a Tier-3 diff, which is why the click is the manager's. ⚠️ THE LIMIT OF THAT APPROVAL, carried so it is not widened: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered. ⚠️ MI-140 STAYS HELD until this lands. ⚠️ `?qty=` acceptance is DOCUMENTED, never live-verified — no broker call was made."
     },
     {
       "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
@@ -2661,13 +2661,13 @@
       "id": "MI-206-ALPACA-SCOPED-WRITE",
       "title": "Build the trade/qty-scoped Alpaca protective attach and scoped modify (Tier-2, approved)",
       "owner": "unassigned",
-      "status": "ready",
+      "status": "duplicate_of_MI-180",
       "tier": "2 — order-path change; the operator APPROVED it 2026-09-08 and it is RECORDED, not applied",
       "opened": "2026-09-08",
-      "updated": "2026-09-08",
+      "updated": "2026-09-08T23:26:51Z",
       "blocked_on": [],
       "owns_object": "WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY",
-      "note": "OPERATOR-APPROVED 2026-09-08 via DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write), and SEQUENCED SECOND by the operator behind MI-205. ⚠️ SCOPE OF THE APPROVAL, which must not be widened: a TRADE/QTY-SCOPED protective attach PLUS a scoped modify. It is NOT approval to retry the re-arm through the existing symbol-wide path, whose blast radius is measured — place_protective calls _cancel_open_orders_for_symbol UNCONDITIONALLY and silently drops the oca_key that the IB implementation honours. It RELEASES PR #11337, which has sat at landing: hold since 05:36Z. ⚠️ URGENCY CORRECTED 2026-09-08T22:08Z, AND THE OPERATOR RE-SEQUENCED ON THE CORRECTION: the standing 56 uncovered shares on trade 5414 are on alpaca_portfolio, whose account_class is PAPER (paper_role: portfolio) — read live from /api/bot/config, not the YAML. alpaca_live (real_money) was FLAT at the time of measurement. My earlier framing called it 'a real position', which on a system where real_money is a defined account class invites the wrong reading; the operator approved the Tier-2 partly on that urgency and was told before anything was spawned. WHAT SURVIVES THE CORRECTION: the defect is real and the same code path serves alpaca_live, so the fix is PROSPECTIVE real-money protection rather than an active real-money cleanup."
+      "note": "⚠️ DO NOT SPAWN THIS. CORRECTED 2026-09-08T23:26Z — this row read 'ready / unassigned' as though the work needed a session, and it does not: it is ALREADY BUILT and in CI as #11337 under MI-180-ALPACA-CLOSE-TRADE-SCOPE, owned by session_01GYsNAhP6SpKe1vyn2tBc94 since 04:46Z — 22 commits, 1326 additions across 13 files, 18 tests. Spawning a session against this row would have duplicated all of it. || HOW THE DUPLICATE AROSE, because the mechanism matters more than the row: I opened MI-206 from the operator's DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write) answer, treating an approval as though it created new work. It did not — my own note on this row already said the decision 'RELEASES PR #11337', which is the correct reading and is incompatible with also listing it as unassigned work to dispatch. An approval that releases an existing PR is not a work item; conflating the two manufactures a second owner for one deliverable. || ⚠️ AND THE APPROVAL WAS PARTLY REDUNDANT: #11337's own landing declaration records that the operator had ALREADY approved the operation earlier on 2026-09-08 ('asked whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to trade-scope it'), and that what the hold was actually waiting on was the section-3(b) CONFIRMATION question — a different question from the one I put to them. OPEN-PRS.json shows 3(b) was also answered. Nothing is lost by the duplication, but a manager re-asking a question already answered is the cost, and it is recorded. || THE OPERATOR'S SEQUENCING IS UNAFFECTED: 'harness first, Alpaca next' governs what gets SPAWNED. #11337 needs no spawn — only the merge click tracked on MI-180."
     },
     {
       "id": "MI-207-REGISTRY-MUST-REFUSE-A-SPAWN-WITH-NO-SOURCE-URL",
