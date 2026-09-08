@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lease heartbeat, two supervision observations, one re-dispatch row and one new checklist item. docs/claude/work/** only — management surface. No src/, tests/, scripts/, workflows, config or deploy; no order path."
+}
