@@ -6,9 +6,9 @@
  },
  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1335-20260908",
-  "pr": 11400,
-  "claimed_at": "2026-09-08T13:33:00Z"
+  "branch": "claude/mgr-record-gld-ok-20260908",
+  "pr": null,
+  "claimed_at": "2026-09-08T14:02:00Z"
  },
  "active_sessions": [
   {

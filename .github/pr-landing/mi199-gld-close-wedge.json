@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/units/accounts/alpaca_client.py, which is Tier-2 by path (src/**). Needs one operator OK in chat. WHAT I AM ASKING THEM TO WEIGH, stated so the OK is cheap: this diff places, cancels, amends and defers exactly what it did before. `_cancel_open_orders_detailed` is the SAME method `_cancel_open_orders_for_symbol` already delegated to (`return self._cancel_open_orders_detailed(symbol).accepted`), so the DELETEs issued, their order, and every retry/settle/confirm gate are byte-identical; the change is that the close paths now READ its return value instead of dropping it. What moves is the CONCLUSION (`classify_share_hold`) and the CHANNEL the alert takes. The retry-suppression half — which does change when a close is attempted — is deliberately NOT in this PR.",
+  "why": "Order-path FILE, but not an order-path BEHAVIOUR change: classification + alert routing only. Declared Tier-2 on the path rule rather than on the diff's risk, because under-declaring a src/** file on a 'but it is only observability' argument is exactly how a path rule stops meaning anything."
+}
