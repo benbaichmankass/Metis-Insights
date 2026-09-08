@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260908-112000-since-last",
+      "window": "since-last",
+      "generated_at": "2026-09-08T11:20:00+00:00",
+      "window_start": "2026-08-29T16:30:00+00:00",
+      "window_end": "2026-09-08T11:20:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Real money is on a 16-close losing streak with zero wins since 2026-08-28, -$43.37 in the journal and -$38.15 on venue truth \u2014 and the losses are spread across five legs, so this is the book, not a leg. The single most actionable defect is elsewhere: ib_paper/MGC's journal holds 43 lots the broker does not, with a live 43-lot stop resting against the phantom, and the root cause is that the netting-attribution reconciler was only ever built for Bybit while IB nets identically. The measurement news is genuinely good: MI-144's R-contamination fix is live and removed 82% of the published R from a losing 30d window (expectancyR +0.9818 -> +0.1772 on the same 39 trades), and the 7-day real-money population is CLEAN (zero contaminated rows), so the losing streak can be acted on. The 30d window still cannot: 12 of 39 rows remain contaminated and it still publishes a POSITIVE expectancyR on a losing book. Two instruments are themselves broken and both are now filed \u2014 shadow drift is unmeasurable by arithmetic (so no drift-driven demote can fire), and the backlog burn-down under-counts opened rows by ~2.5x.",
+      "html_path": "comms/reports/since-last/20260908T112000Z/report.html",
+      "json_path": "comms/reports/since-last/20260908T112000Z/report.json",
+      "md_path": "comms/reports/since-last/20260908T112000Z/report.md"
+    },
+    {
       "id": "RPT-20260829-163000-since-last",
       "window": "since-last",
       "generated_at": "2026-08-29T16:30:00+00:00",
@@ -396,6 +408,18 @@
       "html_path": "comms/reports/since-last/20260627T120000Z/report.html",
       "json_path": "comms/reports/since-last/20260627T120000Z/report.json",
       "md_path": "comms/reports/since-last/20260627T120000Z/report.md"
+    },
+    {
+      "id": "RPT-20260626-073500-weekly",
+      "window": "weekly",
+      "generated_at": "2026-06-26T07:35:00Z",
+      "window_start": "2026-06-19T07:28:41Z",
+      "window_end": "2026-06-26T07:35:00Z",
+      "roll_up_grade": "caution",
+      "headline": "Trader healthy and ticking; ML training cycle ran clean today (00:28-01:16Z, rc=0) with shadow soaks accruing live across 29 model/stage heads (2 advisory). The one real flag: alpaca_live is STILL api_ok=false / balance null AFTER the 2026-06-26 key rotation (alpaca_paper is fine), so live ETF signals keep refusing zero_balance. Real-money 7d is -$8.82 over 7 trades (tiny ~$95 bybit_2 book; ict_scalp_5m -$7.38 the bleeder). The paper book's -$12,070 headline is ARTIFACT-INFLATED \u2014 the new bucketing tool scores 0/48 records gradeable in the recent window (the big trend_donchian -$7.4k / mhg_pullback -$5.2k 'losses' are orphan/reduce/MHG-flap artifacts, not genuine round-trips).",
+      "html_path": "comms/reports/weekly/20260626T073500Z/report.html",
+      "json_path": "comms/reports/weekly/20260626T073500Z/report.json",
+      "md_path": "comms/reports/weekly/20260626T073500Z/report.md"
     },
     {
       "id": "RPT-20260626-060200-since-last",
