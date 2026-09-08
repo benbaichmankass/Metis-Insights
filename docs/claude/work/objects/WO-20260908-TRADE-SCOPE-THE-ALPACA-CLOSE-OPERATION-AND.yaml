@@ -26,21 +26,29 @@ source: >-
 
 blocked_on:
   - kind: operator_decision
-    ref: "MI-173 operator question 3 — strict vs reduction for the follow-on close confirmation (#11312)"
+    ref: "The Alpaca close-confirmation MEASUREMENT — reserved to #11312 by #11279's own approval scope"
     since: 2026-09-08
 blocked_on_basis: >-
-  ASSESSED 2026-09-08 by the owning session, from the code and from the Alpaca
-  API reference. Exactly ONE edge, and it is a real one: the trade-scoped close
-  path had to choose a confirmation semantics, because a partial close can
-  never satisfy the existing "the symbol must disappear" gate. It confirms on a
-  REDUCTION. That is a defensible reading of the operator's 2026-09-07 steer
-  ("confirm on the TRADE'S OWN QUANTITY DELTA"), but question 3 was put and has
-  not been answered, so the choice is DECLARED on the PR rather than presented
-  as settled. ⚠️ The edge does NOT block the operation change itself, which is
-  approved and complete. ⚠️ And the MI-140 coupling is deliberately NOT written
-  as an edge here: MI-140 is HELD UNTIL THIS LANDS, so the dependency runs the
-  other way, and recording it backwards would make the constraint computation
-  read a deadlock that does not exist.
+  ASSESSED 2026-09-08 by the owning session, from the code, from the Alpaca API
+  reference, and from the recorded operator decision on #11279 in
+  `docs/claude/work/OPEN-PRS.json`. Exactly ONE edge. ⚠️ IT IS NARROWER THAN
+  MI-173'S QUESTION 3 AS PUT, and the narrowing is the finding: question 3
+  asked "strict vs reduction", and the strict/reduction half is ALREADY
+  ANSWERED. The operator answered it for IB on 2026-09-08 — a partial fill
+  REFUSES, "erring toward a phantom OPEN row that existing reconcilers clean up,
+  rather than a phantom CLOSED row that fabricates PnL on the remainder and
+  leaves lots naked" — and this change is `strict` in exactly that sense: a
+  reduction that lands only partly does not confirm, retCode 1, the row stays
+  open. So that is the same answer applied to the mirror venue, not a default
+  that drifted. What is genuinely undecided is the MEASUREMENT: #11279's
+  approval scope reads "EXPLICITLY NOT Alpaca — Alpaca's mirror defect is
+  decided separately on #11312", and that decision has not been made. Here the
+  whole-symbol path KEEPS its flatness gate untouched and only the new partial
+  path measures the trade's own quantity delta. ⚠️ The edge does NOT block the
+  operation change, which is approved and complete. ⚠️ And the MI-140 coupling
+  is deliberately NOT written as an edge: MI-140 is HELD UNTIL THIS LANDS, so
+  the dependency runs the other way, and recording it backwards would make the
+  constraint computation read a deadlock that does not exist.
 
 evidence: >-
   CAPABILITY QUESTION ANSWERED FIRST, which was the proposal's own first step:
