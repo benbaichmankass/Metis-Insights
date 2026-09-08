@@ -33826,6 +33826,7 @@
       "id": "BL-20260908-SESSION-BOARD-MERGE-SLOT-CAN-CARRY-A-DUPLICATE-KEY-AND-NOTHING-CHECKS-IT",
       "opened_at": "2026-09-08",
       "severity": "low",
+      "tier": "1 (CI guard / tooling — a session may write this itself)",
       "status": "open",
       "area": "coordination",
       "title": "session-board.json merge_slot carried held_by TWICE on main and no guard reads the file at all",
