@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2035-20260908",
+  "branch": "claude/mgr-heartbeat-2106-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T20:36:00Z",
-  "note": "Manager heartbeat 20:36:00Z. Records that #11450 answered MI-168's blocked ask and that #11347/#11355 are closed as superseded; corrects OI-20260907-BE-FLOOR-R-... whose own id and title assert its PR is 'a draft nobody can clear' when #11266 merged with draft=false (NOT cleared — its clause 2 is the operator's); files the board-declaration staleness row. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T21:06:34Z",
+  "note": "Manager heartbeat 21:06:34Z, stamped BY manager_lease.py rather than by hand — the previous stamp was +9.1 min in the future and this supersedes it. Also records that my last two blocked-ask counts were asserted rather than measured: tested per row, eleven of the twelve need nothing from a manager. Register writes only, no worker path."
  },
  "active_sessions": [
   {

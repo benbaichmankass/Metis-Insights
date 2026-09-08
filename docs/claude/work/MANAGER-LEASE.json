@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T20:36:00Z",
-  "expires_at": "2026-09-08T22:06:00Z",
+  "heartbeat_at": "2026-09-08T21:06:34Z",
+  "expires_at": "2026-09-08T22:36:34Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 20:36:00Z (previous 20:11:00Z — a 25-minute gap against a 90-minute TTL). This pass ANSWERED a sub-session rather than only recording one: #11450 landed MI-168's record correction, the one BLOCKED ask that was both live and mine, and #11347/#11355 are closed as superseded. It also corrects a canonical OPEN-ITEMS row that was asserting something false in its own title."
+  "note": "Heartbeat 21:06:34Z — STAMPED BY scripts/ops/manager_lease.py, not by hand, and that is the point of this beat. ⚠️ THE PREVIOUS STAMP WAS WRONG AND THIS ONE SUPERSEDES IT: I wrote heartbeat_at 20:36:00Z into my own script while the clock read 20:27Z, so it was +9.1 min in the FUTURE and expires_at read 22:06:00Z when the truth was ~21:57 — the direction that makes a successor WAIT TOO LONG before treating the lease as lapsed. `manager_lease.py status` printed the tell, 'last heartbeat -9 min ago', a NEGATIVE age. ⚠️ TWO HYPOTHESES WERE TESTED AND BOTH REFUTED, so do not over-correct from this. (1) NOT SYSTEMIC: across all 40 heartbeat revisions of this file, EXACTLY ONE is future-dated — that one; every other stamp precedes its own commit, which is the normal direction. (2) THE TOOL IS NOT AT FAULT: it stamps _iso(now) itself, and its self-test deliberately asserts that a FUTURE heartbeat grades `held_fresh` rather than expired — a fail-safe so clock skew cannot hand the lease away — so the negative age is cosmetic, not a missing guard. The defect was BYPASSING the tool the cadence tells me to run, and the fix is to run it. Nothing is filed against the tool."
 }
