@@ -1,8 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-08T05:10:04+00:00 · verdict **partial**_
-
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+_Generated 2026-09-08T10:06:14+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 8d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -102,8 +100,24 @@ _Generated 2026-09-08T05:10:04+00:00 · verdict **partial**_
   - MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and 
 - 🔔 **OI-20260907-BE-FLOOR-R-IS-MEASURED-AND-REFUTED-AND-ITS-PR-IS-A-DRAFT-NOBODY-CAN-CLEAR** (open_items · 1d) — loud row — must be reported on every session
   - MI-163's Proposal B (be_floor_r, a fleet-wide break-even floor) has now been MEASURED PATH-AWARE and REFUTED, and the refutation is the finding. POPULATION: 28 graded ratchet legs / 4090 control trade
+- 🔔 **OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT** (open_items · 1d) — loud row — must be reported on every session
+  - ⚠️ ORDERING CONSTRAINT ON REAL MONEY — READ THIS BEFORE PICKING UP MI-140. PR #11279 (Tier-3, landing: hold) re-scopes IBClient.close's confirmation from the SYMBOL to the TRADE. It is WRITTEN, GREEN 
 - 🔔 **OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING** (open_items · 1d) — loud row — must be reported on every session
   - MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's monitor(), and only tre
+- 🔔 **#11353** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11354** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11361** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 **#11362** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11363** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11366** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh probe results (auto)
+- 🔔 **#11367** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -118,6 +132,16 @@ _Generated 2026-09-08T05:10:04+00:00 · verdict **partial**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING** (open_items · 0d) — loud row — must be reported on every session
   - Two facts, and the SECOND is the urgent one. (1) SHIPPED, NOT PROVEN: AlpacaClient.protection_coverage plus the sweep's covered/partially_naked/coverage_ungradeable/coverage_read_failed counters and t
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
+  - constraint-readout
+- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - pr-queue-watch
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
+- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 **sunset-pass** (red_crons) — latest scheduled run concluded 'failure'
+  - sunset-pass
 - **ERRFEED-9fd2fc82** (error_feed · 14d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 49 rows 2026-08-25T05:13:10 → 2026-08-25T22:48:45 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
   - [error] x49 strategy_builder exception: RuntimeError: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
 - **ERRFEED-6eb9d669** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-01T20:12:41 → 2026-09-02T08:17:06 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
