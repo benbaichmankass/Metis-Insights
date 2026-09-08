@@ -168,20 +168,36 @@ def yf_serves_directly(symbol: str) -> bool:
     Loaded BY PATH rather than imported, mirroring
     `fetch_backtest_candles._load_yf_symbols`: `ml/datasets/__init__` pulls in
     fourteen dataset builders and a `yaml` dependency this planner must not
-    need. Returns False on any load failure — a planner that cannot read the
-    map must REFUSE the leg, never schedule it on an assumption.
+    need.
+
+    ⚠️ **AN UNREADABLE MAP RAISES; IT DOES NOT RETURN False.** Both outcomes
+    refuse the leg, so the difference looks cosmetic and is not: `False` means
+    *we read the map and this symbol is not in it*, while an unreadable map
+    means *we could not look*. Collapsing the two would report a missing
+    dependency as a settled fact about the symbol — `docs/CLAUDE-RULES-CANONICAL.md`
+    § "Collapsed states" — and would do it in the direction that hides a broken
+    planner behind a plausible refusal message naming the wrong cause
+    (`diagnostic-provenance-guard` sub-class A). The raise carries the real one.
     """
+    import importlib.util as _ilu
+    _path = REPO / "ml" / "datasets" / "adapters" / "yf_symbols.py"
     try:
-        import importlib.util as _ilu
-        _path = REPO / "ml" / "datasets" / "adapters" / "yf_symbols.py"
         _spec = _ilu.spec_from_file_location("_yf_symbols_plan", str(_path))
         if _spec is None or _spec.loader is None:
-            return False
+            raise NoFeedSource(
+                f"yf_map_unloadable:{symbol} — no import spec for {_path}. This is "
+                f"WE COULD NOT LOOK, not 'the symbol is unmapped'.")
         _mod = _ilu.module_from_spec(_spec)
         _spec.loader.exec_module(_mod)
-    except Exception:
-        return False
-    return _mod._DEFAULT_TICKER_MAP.get(str(symbol).upper()) == str(symbol).upper()
+        table = _mod._DEFAULT_TICKER_MAP
+    except NoFeedSource:
+        raise
+    except (OSError, ImportError, SyntaxError, AttributeError) as exc:
+        raise NoFeedSource(
+            f"yf_map_unloadable:{symbol} — {_path} could not be read "
+            f"({type(exc).__name__}: {exc}). This is WE COULD NOT LOOK, not "
+            f"'the symbol is unmapped'.") from exc
+    return table.get(str(symbol).upper()) == str(symbol).upper()
 
 
 def resolve_feed_source(symbol: str, interval: str) -> str:
@@ -559,6 +575,24 @@ def _selftest() -> int:
     chk("...nor is MGC", yf_serves_directly("MGC"), False)
     chk("an unmapped symbol is not a direct series",
         yf_serves_directly("NVDA"), False)
+    # ⚠️ "we could not look" must stay separable from "we looked and it is not
+    # there". Both refuse the leg, which is exactly why the distinction has to
+    # be ASSERTED rather than trusted: a False here would report a missing
+    # dependency as a settled fact about the symbol.
+    _saved_repo = globals()["REPO"]
+    try:
+        globals()["REPO"] = Path("/nonexistent-repo-root-for-selftest")
+        raises("an UNREADABLE yfinance map RAISES, never returns False",
+               lambda: yf_serves_directly("QLD"), NoFeedSource)
+        try:
+            yf_serves_directly("QLD")
+        except NoFeedSource as _e:
+            chk("...and the refusal names the real cause, not the symbol",
+                "yf_map_unloadable" in str(_e), True)
+    finally:
+        globals()["REPO"] = _saved_repo
+    chk("...and the map is readable again afterwards",
+        yf_serves_directly("QLD"), True)
     # THE LOAD-BEARING ONE: the rung must only ever ADD legs. Every symbol
     # dukascopy already maps keeps the feed it had, so the committed corpus
     # stays comparable and no existing verdict is re-based onto a new source.
