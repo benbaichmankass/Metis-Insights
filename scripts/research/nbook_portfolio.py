@@ -236,7 +236,10 @@ def run_nbook(base5m: pd.DataFrame, *, books: Sequence[Book], start, end,
     try:
         import src.runtime.intents as _im
         _im._REGIME_POLICY_CACHE = None
-    except Exception:  # noqa: BLE001
+    except (ImportError, AttributeError):
+        # NARROW deliberately: the only reachable failures are the module not
+        # importing or the cache attribute not existing. Anything else raising
+        # here is a real fault and must NOT be swallowed.
         pass
 
     try:
@@ -354,14 +357,18 @@ def run_nbook(base5m: pd.DataFrame, *, books: Sequence[Book], start, end,
                     if p is not None:
                         if p.side == "long":
                             if lo[i] <= p.sl:
-                                _close(st, p, p.sl, ts.iloc[i], "sl", i); st.pos = None
+                                _close(st, p, p.sl, ts.iloc[i], "sl", i)
+                                st.pos = None
                             elif hi[i] >= p.tp:
-                                _close(st, p, p.tp, ts.iloc[i], "tp", i); st.pos = None
+                                _close(st, p, p.tp, ts.iloc[i], "tp", i)
+                                st.pos = None
                         else:
                             if hi[i] >= p.sl:
-                                _close(st, p, p.sl, ts.iloc[i], "sl", i); st.pos = None
+                                _close(st, p, p.sl, ts.iloc[i], "sl", i)
+                                st.pos = None
                             elif lo[i] <= p.tp:
-                                _close(st, p, p.tp, ts.iloc[i], "tp", i); st.pos = None
+                                _close(st, p, p.tp, ts.iloc[i], "tp", i)
+                                st.pos = None
                     p = st.pos
                     if p is not None:
                         mon = monitors.get(p.owner)
@@ -372,7 +379,7 @@ def run_nbook(base5m: pd.DataFrame, *, books: Sequence[Book], start, end,
                                         "created_at": str(p.entry_ts)}
                             try:
                                 verdict = mon(cfgs.get(p.owner, {}), win, open_pkg)
-                            except Exception as exc:  # noqa: BLE001
+                            except Exception as exc:  # noqa: BLE001  # allow-silent: a strategy monitor may raise anything, and this failure is NOT silent — it is COUNTED per owner with one example message and surfaced as books[].monitor_errors, which is the honest denominator for the exit profile (a nonzero count means by_exit_reason under-reports monitor-driven exits by an unknown amount). Re-raising would abort a whole replay on one leg's bug.
                                 # A crashing monitor is a BROKEN exit path, not a
                                 # quiet one — counted so the run can never report
                                 # a clean exit profile over a monitor that never ran.
@@ -805,7 +812,7 @@ def main(argv: List[str]) -> int:
 
     try:
         base5m = bs._load_candles(args.data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent — the CLI prints the cause and returns 1, so the caller (and the workflow step) fails. A narrower type would let an unanticipated loader failure traceback instead of naming the file.
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
 

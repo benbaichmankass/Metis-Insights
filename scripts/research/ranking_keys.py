@@ -81,7 +81,7 @@ import contextlib
 import hashlib
 import sys
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -108,7 +108,11 @@ CONTROL_ARM = "random_tiebreak"
 try:  # pragma: no cover - trivial
     from src.runtime.election_track_record import _DEFAULT_WINDOW_DAYS as _W
     TRACK_RECORD_WINDOW_DAYS = float(_W)
-except Exception:  # noqa: BLE001
+except (ImportError, AttributeError, TypeError, ValueError):
+    # NARROW deliberately: the reachable failures are the module or the constant
+    # being absent, or the value not coercing. The fallback restates the live
+    # default rather than inventing one, and a window that silently differed
+    # from live would change what the tier-3 term measures.
     TRACK_RECORD_WINDOW_DAYS = 3.0
 
 MEASURED = "measured"
