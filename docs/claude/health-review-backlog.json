@@ -1791,8 +1791,8 @@
       "trigger_condition": "Next session touching ict-trader-android, or next /health-review.",
       "resolution_criteria": "Operator has done the on-device visual check on #56 (or its successor) and it is merged or closed; OR Claude has asked and is awaiting the operator's eyeball.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": "2026-07-22T18:20:00+00:00",
+      "status": "wont_fix",
+      "resolved_at": "2026-09-08T11:05:00+00:00",
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null,
@@ -1812,6 +1812,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
           "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. The Android repo is additionally ON ICE by operator directive (2026-08-13), so this should not be scheduled at all."
+        },
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "wont_fix",
+          "note": "CLOSED as wont_fix, same class disposition as BL-20260617-ANDROID-LINT-PROMOTE. The row asks the operator for an on-device visual check of ict-trader-android #56 'before merge'; the Android app was retired from the live feed 2026-09-01 and the repo is ON ICE since 2026-08-13, so #56 is not going to merge and the check has no decision hanging on it. Not evidence-blocked — reversal-blocked. REVERSAL: re-open if the Android consumer returns."
         }
       ],
       "snoozed_at": "2026-08-29T16:53:04+00:00",
@@ -5093,8 +5099,8 @@
       "trigger_condition": "Next android CI/quality pass.",
       "resolution_criteria": "lintDebug is a blocking PR gate with a clean baseline; abortOnError=true.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
+      "status": "wont_fix",
+      "resolved_at": "2026-09-08T11:05:00+00:00",
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null,
@@ -5137,6 +5143,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
           "note": "Re-validated: an operator DECISION or an operator-only action, not work a review can drain. Android repo is ON ICE (operator directive 2026-08-13); do not schedule."
+        },
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "wont_fix",
+          "note": "CLOSED as wont_fix on a class disposition, not on age. The Android app was RETIRED FROM THE LIVE FEED by operator decision 2026-09-01 (CLAUDE.md: 'The Streamlit dashboard and the Android app are retired from the live feed'), and the repo has been ON ICE by operator directive since 2026-08-13. This row's criteria ('lintDebug is a blocking PR gate ... abortOnError=true') require work INSIDE that frozen repo for a consumer that is no longer on the feed, so they cannot be met and are not waiting on evidence — they are waiting on a reversal. Its own 2026-08-29 triage already recorded 'not work a review can drain' and snoozed it; carrying it open re-triages it forever, which is the treadmill the operator named on 2026-08-31. REVERSAL: re-open verbatim if the Android consumer is un-frozen or returns to the live feed."
         }
       ],
       "severity": "low",
@@ -15896,7 +15908,7 @@
     {
       "id": "BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET",
       "severity": "low",
-      "status": "kept_open",
+      "status": "wont_fix",
       "tier": 1,
       "area": "android/ci",
       "opened_at": "2026-08-13T11:00:00+00:00",
@@ -15923,10 +15935,17 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "snoozed",
           "note": "Re-validated: the Android repo is ON ICE by operator directive (2026-08-13) and its own CLAUDE.md names this row as the known-open item. Correctly not scheduled."
+        },
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "wont_fix",
+          "note": "CLOSED as wont_fix, same class disposition. Criteria require app/src/test/kotlin to exist and run in CI on a real `./gradlew :app:test` — work inside a repo frozen by operator directive (2026-08-13) for a consumer retired from the live feed (2026-09-01). REVERSAL: re-open if the Android consumer returns; the invariant cases named in the criteria are still the right first tests when it does."
         }
       ],
       "snoozed_at": "2026-08-29T16:53:04+00:00",
-      "disposition": "snoozed"
+      "disposition": "snoozed",
+      "resolved_at": "2026-09-08T11:05:00+00:00"
     },
     {
       "id": "BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
@@ -26544,7 +26563,7 @@
       "opened": "2026-08-25",
       "severity": "medium",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "area": "alpaca_live / affordability / record-integrity",
       "summary": "The standing answer 'Nasdaq-100 has no sub-$100 ETF; the QQQ cell stays unaffordable on alpaca_live until the account is funded higher' (S-PROXY-EQUITIES-ALPACA-LIVE-2026-07-07.md) is PROSE that was quoted as a measurement for 7 weeks, and its operational conclusion is FALSE. Measured 2026-08-25 (yfinance-lane-proof run 32828398224: 53 requested / 51 sound / 1 unsound [SPLG] / 1 no_data [DDG]) and run through RiskManager.position_size at the live config (equity $200.10, risk_pct 0.05): 42 of 51 candidates are REACHABLE. Nasdaq/tech is reachable four ways (ONEQ $102.40, VGT $116.42, IGM $156.61, QQQJ $45.64); Russell 2000 is reachable as VTWO $120.47 (IWM $303.03 is not); gold has six sub-$100 routes; every -1x short proxy sizes. The literal sub-claim was narrowly true (QQQM is $290.81) but the conclusion drawn from it was not, and a session repeated it as established fact this morning. TWO MEASUREMENT NOTES worth more than the finding: (1) the affordability ceiling is 0.9 x equity, NOT equity - risk.py::_MARGIN_SAFETY_BUFFER = 0.9 puts the wall at $180.00 on a $200 account, and XLK ($180.05) misses by five cents; all 9 refusals are cash-bound against that buffered ceiling, not risk-bound. (2) hand arithmetic (budget / stop >= 1) CANNOT see risk.py::_ROUND_UP_BUDGET_MULT = 1.5 and gives wrong answers - it produced a false '5% adds GDX' claim in the same session. Run the sizer.",
       "evidence": "yfinance-lane-proof run 32828398224 (job 97741405818); sizer pass at equity 200.0 / risk_pct 0.05 / whole_units=True; config/instruments.yaml (SCHA declared, alpaca, min_qty 1); S-PROXY-EQUITIES-ALPACA-LIVE-2026-07-07.md Deferred section; S-M20-DISPERSION-ISOLATION-AND-QUEUE-2026-08-15.md (scha_trend_long_1d INERT_NEVER_FLIPPED wf=17/17 flip%=0.0)",
@@ -26556,8 +26575,15 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated (title empty in file): a claim refuted by measurement is a completed negative. Keep as the record of the refutation."
+        },
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "resolved",
+          "note": "CLOSED as resolved on criterion (b) — 'a measured reason is recorded for NOT using them'. The row IS that measured reason: it records a claim refuted by measurement, which is a completed negative, and its own 2026-08-29 triage said exactly that and then kept it OPEN 'to keep the record of the refutation'. That is the error this close corrects: resolved rows are RETAINED in the backlog for history — that retention is how a recurrence gets recognised as one — so closing it preserves the record in full while removing it from a work queue it was never going to leave. Per the operator's 2026-08-31 reframing, the metric is net burn-down, and a completed negative held open forever is precisely a row that is re-triaged 'to no avail every time'. REVERSAL: re-open if the affordability claim is re-asserted or the underlying prices move enough to reopen candidate (a)."
         }
-      ]
+      ],
+      "resolved_at": "2026-09-08T11:05:00+00:00"
     },
     {
       "id": "BL-20260825-SHARED-VOCABULARY-HELPER-HAS-NO-CALLER-PARITY-GUARD",
@@ -30847,9 +30873,18 @@
       "title": "ict-trader-android/CLAUDE.md's ON-ICE directive justifies the freeze with 'the operator is using the web app (Streamlit + the Svelte SPA)' -- Streamlit was retired from the live feed on 2026-09-01, so the banner's stated reason is now half false",
       "severity": "low",
       "tier": 1,
-      "status": "open",
+      "status": "wont_fix",
       "detail": "Found while working BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED. The ON-ICE directive (operator, 2026-08-13) at the top of ict-trader-android/CLAUDE.md reads: 'The operator is using the web app (Streamlit + the Svelte SPA) and the Telegram channels. This app is not in active use and is explicitly lower priority.' The 2026-09-01 operator decision retires Streamlit from the live feed, so one of the two named replacements no longer exists. THE FREEZE ITSELF IS UNAFFECTED and this row does not argue for reversing it -- the directive is explicit that it reverses 'only on an explicit operator instruction', and the remaining justification (the SPA + Telegram) still holds on its own. What is wrong is the stated REASON, and that matters here more than usual because this banner's whole job is to be read and obeyed by a session that will not read further. A directive whose premise a reader can verify as stale is a directive that invites re-litigation. NOT FIXED IN THIS SESSION, deliberately: correcting it is repo-side work inside the frozen repo, which is exactly what the directive forbids -- 'do not open speculative work here'. Filing is the action the directive itself prescribes for this case: 'Do not let it silently rot into a false record either... still FILE it.' Same class as the pre-rename repo reference in that file, which points operating rules at benbaichmankass/ict-trading-bot rather than the current Metis-Insights.",
-      "resolution_criteria": "RESOLVED when the ON-ICE banner in ict-trader-android/CLAUDE.md names only consumers that are actually live (the Svelte SPA + Telegram), with the Streamlit reference marked retired 2026-09-01. Requires an operator instruction to touch the frozen repo, OR gets folded into whatever change next legitimately opens that repo. Re-opens if a future retirement leaves the banner naming a dead consumer again."
+      "resolution_criteria": "RESOLVED when the ON-ICE banner in ict-trader-android/CLAUDE.md names only consumers that are actually live (the Svelte SPA + Telegram), with the Streamlit reference marked retired 2026-09-01. Requires an operator instruction to touch the frozen repo, OR gets folded into whatever change next legitimately opens that repo. Re-opens if a future retirement leaves the banner naming a dead consumer again.",
+      "resolved_at": "2026-09-08T11:05:00+00:00",
+      "updates": [
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "wont_fix",
+          "note": "CLOSED as wont_fix, same class disposition, and the row's own criteria anticipate it: they say resolution 'requires an operator instruction to touch the frozen repo, OR gets folded into whatever change next legitimately opens that repo'. The banner's inaccuracy (it justifies the freeze by citing Streamlit, retired 2026-09-01) is now harmless because the repo it lives in is itself retired from the live feed — a stale banner in a frozen repo misleads nobody who is acting. REVERSAL is already written into the criteria and I am keeping it: re-open if the repo is opened, or if a future retirement leaves the banner naming a dead consumer again."
+        }
+      ]
     },
     {
       "id": "BL-20260901-NO-PR-PATH-INTO-ICT-TRADER-DASHBOARD-FROM-A-WEB-SESSION",
@@ -32793,8 +32828,17 @@
       "source": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj, 2026-09-06",
       "detail": "MEASURED 2026-09-06 against the live API by bisection, with a positive control at every step: limit=5 -> 5 rows, limit=100 -> 100, limit=200 -> 200, limit=400 -> 0, limit=800 -> 0, limit=2000 -> 0. Separately ANY `since=<iso8601>` returns 0 rows while the same query without it returns rows: since=2026-07-01T00:00:00Z -> 0, and days=60 -> 0 at limit=2000 but rows at limit=200. NO error, NO status code, NO empty-reason field -- a bare [] that renders identically to 'this window genuinely had no closed trades'. !! THIS IS THE ROUTE A PERFORMANCE REVIEW GRADES FROM, and the dashboard's Trades tab reads it with `since=` (CLAUDE.md documents '/api/bot/trades/closed?limit=200&since=...' as the Performance page's single client-side fetch). A reviewer asking a 90-day question gets a clean empty answer and concludes the book was quiet. The manager hit exactly this three times in a row this session before bisecting. !! IT IS THE silent-empty-guard CLASS ON A READ ROUTE: this repo already has a guard for a producer swallowing an exception into [], and the same shape here reaches a human decision surface instead of a log. It is also the 'unasserted denominator' sub-class C the diagnostic-provenance rule names -- an empty result read as a clean negative. || 2026-09-06, MI-144 (session_01L7dTAuGMdn3CTGeyYV5Mox) -- ADDRESSED, AND THE MEASUREMENT ABOVE IS CORRECTED. RE-MEASURED against the same live endpoint the same day, from a different container: limit=201/400/800/2000 each return HTTP 422 carrying detail[0].type='less_than_equal' and ctx.le=200 -- a REFUSAL NAMING ITS BOUND, not a bare []. And since= WORKS: since=2026-09-01 -> 142 rows; since=2026-07-01T00:00:00Z -> 50 (that is the DEFAULT limit of 50, not a filter failure); limit=200&since=2026-07-01T00:00:00Z -> 78; limit=200&days=60 -> 200. !! ONE ROOT CAUSE EXPLAINS EVERY ORIGINAL OBSERVATION: a probe that coerced a non-200 body into []/0. That also explains this row's own internally-consistent oddity -- 'days=60 -> 0 at limit=2000 but rows at limit=200' -- since days= is not a parameter on this route at all and is ignored, so the ONLY difference between those two calls was the 422. It is the SAME sub-class C the row correctly names, turned on the probe instead of on the route: an unasserted denominator. Recorded rather than quietly dropped, so the next session does not re-derive it. !! THE ROW IS STILL A REAL FINDING AND IS NOT DISMISSED -- the bare [] IS there, in the except handlers: missing DB, locked DB, sqlite3.Error and a blanket Exception each returned [], and the docstring advertised it as a feature. On the route a performance review grades from, an unreadable journal rendering as 'no closed trades yet' is exactly the clean confident wrong negative this row is about. FIXED: 503 + a machine-readable reason (db_file_missing / db_operational / db_read_failed / unexpected_error). The second half of the criteria -- the window above the cap being UNREACHABLE -- is fixed by an `offset` parameter plus X-Total-Count / X-Has-More headers, so a full page is distinguishable from an exhausted one. The cap itself was NOT raised. Two tests that ASSERTED the old bare-[] contract were updated. !! The 'check every OTHER read route' clause is now MEASURED and carried forward as BL-20260906-FOURTEEN-READ-ROUTES-STILL-RETURN-A-BARE-EMPTY-ON-ERROR (28 empty-on-except returns across src/web/api/routers/, 12 justified, 16 bare, 2 of them this route). Evidence: docs/research/trade-record-integrity-2026-09-06.md. || STATUS: the fix is MERGED-PENDING (this branch) and NOT DEPLOYED and NOT OBSERVED on the fleet -- so this row stays `open` deliberately. `fixed_pending_deploy` is not in the status enum, and collapsing 'the code is in' into 'resolved' is the exact conflation CLAUDE.md's manager checklist calls out (`done` means MERGED AND OBSERVED; `landed_unproven` is a different fact). CLOSE IT when a session has OBSERVED the live route return 503 with a `detail.reason` on an unreadable journal, or confirmed the deployed sha carries the change and the X-Total-Count header is present on a real call.",
       "resolution_criteria": "The route either SERVES the requested window or REFUSES it with a stated reason -- never a bare []. A caller must be able to tell 'no rows matched' from 'your limit exceeded a cap' from 'the query failed'. Verify by the same bisection with a POSITIVE CONTROL: show a limit that returns rows, then the first limit that does not, and show the new response distinguishes them. !! Raising the cap alone does NOT clear this -- the defect is the silence, not the number. !! And check every OTHER read route for the same shape before closing; this was found by accident, so the population of affected routes is UNMEASURED.",
-      "status": "open",
-      "opened": "2026-09-06"
+      "status": "resolved",
+      "opened": "2026-09-06",
+      "resolved_at": "2026-09-08T11:05:00+00:00",
+      "updates": [
+        {
+          "at": "2026-09-08T11:05:00+00:00",
+          "by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+          "disposition": "resolved",
+          "note": "CLOSED ON THE ROW'S OWN CRITERIA, verified live 2026-09-08 against the deployed head by the bisection-with-a-positive-control the criteria demand. LIMIT HALF: limit=200 -> HTTP 200 with 200 rows (the positive control); limit=201 -> HTTP 422 with a typed, stated reason {'type':'less_than_equal','loc':['query','limit'],'msg':'Input should be less than or equal to 200'}. That is 'REFUSES it with a stated reason', not a bare []. SINCE HALF: since=2026-09-05T00:00:00Z&include_paper=true -> 46 rows, newest closedAt 2026-09-08T09:02:28 — so since= serves the window. I checked the near-miss before trusting it: the same since WITHOUT include_paper returns 0, which looks like the reported bug and is CORRECT — the last real-money close was 2026-09-04T12:32:16Z, and the control since=2026-09-04 (real only) duly returns 2 rows. Fixed upstream by PR #11131. ⚠️ THE SURVIVING HALF IS A DIFFERENT ROW AND STAYS OPEN: since=notadate still returns HTTP 200 with a bare [] (verified this session) — that is BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE, which I did NOT close."
+        }
+      ]
     },
     {
       "id": "BL-20260906-RCOVERAGE-REPORTS-1-0-WHILE-90-PERCENT-OF-ROWS-ARE-UNVERIFIED",
@@ -33738,6 +33782,121 @@
       "detail": "MEASURED on origin/main at 1e1d3718 (2026-09-08T11:52Z): docs/claude/session-board.json's `merge_slot` object carried `\"held_by\"` TWICE, both reading 'MI-196 (session_01U2ibSa4FNcuV6bSLaPb9GS)'. The diff c3486810..1e1d3718 shows the shape of the mistake: a surgical string replace re-emitted the held_by line instead of replacing it, so the branch/claimed_at lines updated while held_by was appended. IT WAS HARMLESS THIS TIME ONLY BY COINCIDENCE -- the two values were identical. json.loads takes the LAST occurrence silently, so had the sub-session been claiming the slot FROM a different holder, every reader would have seen the new value and no reader would have seen that a prior claim was overwritten rather than released. THE REAL FINDING IS THAT NOTHING CAUGHT IT. The PR merged green: check_board_coherence.py, check_manager_scope.py's merge_slot_claim_only carve-out and check_pr_landing.py all read this file through json.loads, which is duplicate-tolerant by specification, so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it. The merge_slot is the file's one load-bearing key -- R13 requires an armed branch to hold it and the carve-out admits a manager commit ONLY when it is the sole top-level key changed -- so it is exactly the wrong place for a defect that parses. REPAIRED opportunistically in the same commit that re-claimed the slot (claude/mgr-lanes-1152-20260908), because that commit rewrites merge_slot wholesale anyway and the carve-out permits precisely that change; the repair is therefore free and adds no new path to the diff. THE DETECTOR IS NOT BUILT and that is what this row is for.",
       "resolution_criteria": "A guard REFUSES a session-board.json carrying a duplicate key -- i.e. it parses with `object_pairs_hook` and raises on a repeat rather than calling plain json.loads -- and that guard is OBSERVED failing a PR that introduces one (a deliberate exercise counts; a green run over a clean file does NOT, since that is what every run already does). NOT SUFFICIENT: repairing the live file, which is already done -- the file being clean today says nothing about whether the next surgical replace is caught. NOT SUFFICIENT: a unit test over a fixture, for the same reason the rest of this repo does not accept a green harness as evidence a CI path fires. IF THE OPERATOR DECIDES duplicate-key detection is not worth a guard, this row does NOT clear -- it CHANGES: the merge_slot is then structurally unvalidated by decision, which is legitimate and must be RECORDED as one rather than left looking like a check about to be written.",
       "found_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj while re-laying a register branch onto 1e1d3718"
+    },
+    {
+      "id": "BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+      "opened_at": "2026-09-08",
+      "opened_by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "open",
+      "severity": "high",
+      "tier": "2 — reconciler / order path",
+      "area": "runtime/order_monitor reconciliation",
+      "title": "ib_paper/MGC: the journal holds 54 lots across two open rows while the broker holds 11 — trade 5531 (43 lots) is a phantom open row, and a live 43-lot protective STOP rests against it",
+      "detail": "MEASURED 2026-09-08 by reconciling every journal open row against venue truth. POPULATION: all 31 non-backtest status='open' rows in trades (via /api/bot/db/table/trades) netted per (account_id, symbol) and compared to /api/diag/exchange_positions captured 2026-09-08T10:29:57Z. 26 of 27 comparable (account, symbol) pairs reconcile EXACTLY to the venue — that is the positive control, and it is why this one divergence is trustworthy rather than a parsing artifact. THE ONE DIVERGENCE: ib_paper/MGC, journal net 54.0 vs venue 11.0, gap 43.0. It is two open rows: id=5353 (mgc_pullback_1d, 11.0 long, opened 2026-09-02T13:41:20Z) and id=5531 (ict_scalp_mgc_15m, 43.0 long, opened 2026-09-07T08:26:33Z). The broker position equals 5353 alone, so 5531's 43 lots do not exist at the venue. BOTH rows carry reconcile_status=NULL — the reconciler has not flagged either, so this is not a known-and-tracked orphan. WHY IT MATTERS BEYOND BOOKKEEPING: a 43-lot protective STOP is resting against the phantom. PROTECTION_REASSERT re-armed it at 2026-09-07T11:55:19Z (protection_reassert_soak: trade 5531, decision=reassert, acted=true, applied_state=both_legs_resting, ocaGroup oca-protect-t5531), and trades.protection_repair_last_kind reads 'reassert' / 'both_legs_resting' on row 5531. If that stop fires it SELLS 43 MGC contracts the account does not hold, opening a naked SHORT of 43 lots — exactly the hazard CLAUDE.md names as CRITICAL for disjoint OCA groups. The over-cover page is CORRECT and has been firing since 2026-09-07T12:00:59Z (4 rows through 2026-09-08T06:09:21Z in /api/bot/logs?level=error, population 152 rows spanning 2026-08-25T05:37:42Z-2026-09-08T10:20:49Z, not at the 1000 cap): 'ib_paper/MGC: position 11.0 but resting STOP qty totals 54.0 (491%) across 2 DISJOINT OCA groups oca-protect-t5353, oca-protect-t5531'. The page is a SYMPTOM report; the phantom row is the cause. NOTE THE TIMING BUT DO NOT READ IT AS PROOF OF CAUSATION: the reassert landed 5m40s before the first page. I did not establish which mechanism placed t5353, and the reassert re-arming a bracket for a row the journal says is open is the mechanism behaving as designed on bad input. ROOT CAUSE (verified, not inferred): IB futures NET per contract, so one venue position backs N journal rows and per-order close detection cannot tell that ONE of two open rows has lost its venue backing while the other still has some. This is the same shape as the Bybit netting defect, and the remedy already exists FOR BYBIT ONLY: order_monitor._reconcile_netting_partial_closes selects accounts with `str(a.get('exchange','')).lower() == 'bybit'` (read at src/runtime/order_monitor.py, the bybit_ids set comprehension). There is NO interactive_brokers equivalent, so IB carries the identical netting hazard with no attribution path. ib_paper is a PAPER account so no real money is at risk in this instance — but the code path is account-agnostic and ib_live is real_money (currently mode: dry_run with 0 strategies).",
+      "remediation": "TIER-2/3, PROPOSE ONLY — do NOT cancel the resting legs (standing prohibition; and BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happened the one time this class was auto-remediated). Two separable pieces. (1) IMMEDIATE, operator decision: establish whether trade 5531 should be closed in the journal as an unbacked row, and if so close it and let its bracket be cancelled with it. (2) STRUCTURAL: extend the netting-attribution reconciler to interactive_brokers, or give IB its own equivalent — the Bybit implementation (leg-id-first, FIFO residual, live-leg-picked-last, three-state provenance ladder) is the design to copy, and NETTING_ATTRIBUTION_MODE's annotate-first staging is the safe way to land it. DONE-CONDITION: journal net == venue net for every (account, symbol) pair on a readable account, asserted by a recurring probe rather than by a session happening to look — there is no such probe today, which is why a 43-lot divergence stood ~26h with reconcile_status NULL.",
+      "resolution_criteria": "TWO PARTS, and they are different facts — say which you cleared. (1) THE INSTANCE: trade 5531 is disposed of by an OPERATOR decision (closed as unbacked, or established as genuinely backed), and a fresh read shows journal net == venue net for ib_paper/MGC. ⚠️ The position simply closing does NOT clear this — that makes the divergence unobservable rather than resolved. ⚠️ Nor does the over-cover page going quiet: it keys on DISJOINT OCA GROUPS, so it falls silent the moment one group is cancelled while the journal is still wrong. (2) THE CLASS: order_monitor reconciles journal-vs-venue quantity for interactive_brokers, not only for accounts whose exchange is 'bybit' — verified by finding an IB account in the netting-attribution pass, or an equivalent IB detector, and by a recurring probe that nets every open row per (account, symbol) against the venue and reports an UNREADABLE account as unreadable rather than as agreement."
+    },
+    {
+      "id": "BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT-SO-THE-NUMBER-EVERY-REVIEW-STEERS-BY-IS-UNDERSTATED",
+      "opened_at": "2026-09-08",
+      "opened_by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 — tooling / measurement",
+      "area": "scripts/ops/system_review_checklist.py",
+      "title": "backlog_burndown() counts a row as opened only if it carries `opened_at`, but 287 rows carry `opened`/`date` instead and 70 carry no creation date at all — so the burn-down every /system-review steers by is understated",
+      "detail": "MEASURED 2026-09-08 across all three backlog files at working-tree head eafafae4. scripts/ops/system_review_checklist.py::backlog_burndown reads a single creation key, `opened_at`. Census of the health backlog alone: `opened_at` 930 rows, `opened` 283, both 15, `date` 8, and 70 rows with NO creation key under any spelling. Rows carrying only `opened`/`date` are counted as opened in NO month; the 70 keyless rows are invisible to every computation. POSITIVE CONTROL (so this is not a broken probe): the `opened_at` filter finds 930 health rows, so it works — it is PARTIAL, not empty. CONSEQUENCE, and it is the reason this is `high` and not `low`: the operator reframed the backlog metric on 2026-08-31 to NET BURN-DOWN precisely so a review measures CLOSING rather than LOOKING, and this is the function that computes it. Shipped series for 2026-08: opened 536 / closed 331. Recomputed with `opened_at or opened`: opened 677. For 2026-09 (8 days): shipped 91 opened / 15 closed; corrected 232 opened / 15 closed — a file-to-close ratio of ~15:1 against the ~1.64:1 the previous review reported. Cumulative open measured directly from status is 788 (health 721 = 537 open + 184 kept_open; performance 44; ml 23), not the 456 previously carried. This is the cycle priority (CY-20260906-TRADING-TRUTH) in the backlog domain: the instrument under-reports the quantity a review is told to move, so a review can believe it is holding the line while the pile grows ~2.5x faster than the number says.",
+      "remediation": "TIER-1. (1) Make backlog_burndown read the creation date as `opened_at or opened or date`, and COUNT AND PUBLISH the keyless rows as their own state rather than dropping them — `no_creation_date` is 'we cannot place this row in time', which is not the same as 'it was not opened'. (2) Then converge the schema: backlog_append.py should stamp exactly one creation key and be the only writer, which is the structural fix for the whole `register-schema-is-not-one-schema` class (see BL-20260903-THREE-CREATION-DATE-KEYS-IN-ONE-BACKLOG-AND-THE-NEW-GUARD-ACCEPTS-ONLY-ONE, BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-REQUIRES-THE-FORBIDDEN-HAND-EDIT). Fixing the reader is the two-line half and must come FIRST; converging the schema is the durable half. DONE-CONDITION: the checklist's burn-down block and a direct status census agree on the open count.",
+      "resolution_criteria": "backlog_burndown() reads the creation date as `opened_at or opened or date`, AND publishes the count of rows carrying no creation key at all as its own state (not silently dropped) — verified by the checklist's burn-down block and a direct status census agreeing on the open count over all three backlogs. A code change alone does not clear it: the two numbers must be shown to agree."
+    },
+    {
+      "id": "BL-20260908-GRADE-CLOSED-TRADES-REPORTS-TRUNCATED-FALSE-WHILE-THE-ISSUE-COMMENT-DROPS-60-PERCENT-OF-THE-DELTA",
+      "opened_at": "2026-09-08",
+      "opened_by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — tooling / diagnostic provenance",
+      "area": "scripts/ops/grade_closed_trades_action.sh + system-actions relay",
+      "title": "grade-closed-trades' own `_delta_summary` says `truncated: false` while GitHub renders only the last 50000 bytes of the comment — the reader receives 66 of 165 rows under a banner asserting nothing was truncated",
+      "detail": "MEASURED 2026-09-08 on two real dispatches. Issue #11372 (run 34216722614): NDJSON delta 139808 bytes, comment rendered '(Showing last 50000 of 139808 bytes)'. Issue #11373 (run 34217219506), re-scoped to the review window: the trailing summary line reads {\"_delta_summary\": true, \"emitted\": 165, \"truncated\": false, \"more_available\": 0, \"limit\": 400, ...} and the comment STILL rendered only the last 50711 bytes — I recovered 66 of the 165 emitted rows. Both statements are individually true and together they mislead: `truncated: false` is a correct claim about what the ACTION emitted, and a reader takes it as a claim about what they RECEIVED. That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A as CLAUDE.md defines it — the label names a quantity ('the delta') that is not the quantity the value describes ('the delta the action produced, before a transport the action cannot see'). The action's docstring explicitly says it exists to avoid 'the diag relay's ~55KB comment budget', so the size wall it was built to escape is still there one layer up. IMPACT: the grading-freshness guard requires every closed package in the window to carry a grade. A session that trusted this banner would append 66 rows, believe it had appended 165, and ship a report whose dossiers silently reference ungraded packages. NOT BLOCKING THIS REVIEW: I graded via the documented FALLBACK instead — scripts/ops/grade_closed_trades_from_diag.py fed from a direct /api/bot/db/table/trades pull over HTTPS, which has no comment budget at all. That produced 207 graded closed trades (B 90 / C 67 / D 50) with newest reviewed_at 2026-09-08T10:50:51Z.",
+      "remediation": "TIER-1. Have the wrapper compare its rendered comment length against the emitted byte count and set the summary's `truncated` from what the COMMENT will carry, not from what the action produced — or, better, stop trying to pass bulk data through a comment: write the delta to a run ARTIFACT and put only the summary + artifact URL in the comment. Note the fallback grader's own docstring calls this action its replacement 'avoiding the size wall entirely'; that claim needs correcting in the same change. DONE-CONDITION: a dispatch whose delta exceeds the comment budget reports `truncated: true` with an accurate `more_available`, verified on a real oversized run.",
+      "resolution_criteria": "A dispatch whose NDJSON delta exceeds the issue-comment budget reports `truncated: true` with an accurate `more_available`, OR the delta is delivered as a run artifact with only the summary plus a link in the comment — either settles it. Verified on a REAL oversized run, not a unit test, by comparing the emitted row count against the row count recoverable from the comment. The fallback grader's docstring claim that this action avoids the size wall 'entirely' is corrected in the same change."
+    },
+    {
+      "id": "BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED",
+      "opened_at": "2026-09-08",
+      "opened_by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — CI guard",
+      "area": "scripts/ci/check_unwired_artifacts.py",
+      "title": "check_unwired_artifacts.py enumerates `rglob('*.py')` only, so shell tools under scripts/ are outside its denominator entirely — its clean report is a SCOPE result, not a COVERAGE result",
+      "detail": "MEASURED 2026-09-08. The guard reports unwired=2 / doc_only=92 / skill_invoked=9 and exits 0. Its file enumeration is `rglob('*.py')`, with no `.sh` suffix test anywhere in the file, so shell tooling cannot appear in any of its three buckets — including the `unwired` one. LIVE INSTANCE: scripts/ops/llm_capacity_benchmark.sh, added 2026-08-31, has zero references anywhere outside docs/ and carries no `# wiring: manual-only` declaration (the repo's sanctioned marker, which 10 other in-window scripts do carry). It is genuinely unwired and the guard cannot see it. WHY THIS IS THE GUARD-IS-VACUOUS SHAPE: the `since_last_build_verification` coverage key instructs a review to 'run check_unwired_artifacts.py and read its diff against the previous run; a newly-appearing entry is a shipped-and-unwired capability'. A reviewer doing exactly that gets a clean answer about a population that silently excludes an entire file type. The guard is not wrong about what it measured; it does not state what it did not measure. Related: BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS and BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES.",
+      "remediation": "TIER-1. Extend the enumeration to `.sh` (and state the suffix set in the output), and PRINT THE DENOMINATOR — how many files were scanned, by type — so a clean report carries its own scope. A guard that cannot say what it looked at cannot be read as evidence of absence. DONE-CONDITION: the guard's own output names llm_capacity_benchmark.sh as unwired, or that script gains a runner or a `# wiring: manual-only` declaration.",
+      "resolution_criteria": "check_unwired_artifacts.py enumerates shell tools as well as Python AND prints its denominator (how many files it scanned, by suffix) so a clean report carries its own scope — verified by the guard's own output naming scripts/ops/llm_capacity_benchmark.sh as unwired, or by that script gaining a runner or a `# wiring: manual-only` declaration. A pass that merely stays green does not clear this, because green is what it already reports."
+    },
+    {
+      "id": "BL-20260908-PERFORMANCE-ENDPOINT-DOES-NOT-APPLY-THE-REDUCE-LEG-PREDICATE-WRITTEN-FOR-IT-AND-RELIES-ON-A-ONE-SHOT-CLEANUP",
+      "opened_at": "2026-09-08",
+      "opened_by": "MI-192b /system-review session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "open",
+      "severity": "low",
+      "tier": "1 — read path / defence in depth",
+      "area": "src/web/api/routers/performance.py",
+      "title": "/api/bot/performance never applies exclude_reduce_leg_predicate — its correctness against phantom-PnL reduce legs rests on `pnl IS NOT NULL` plus a historical one-shot cleanup, which is the exact case the predicate's own docstring says that filter does NOT catch",
+      "detail": "MEASURED 2026-09-08. src/web/api/_clean_trades.py::exclude_reduce_leg_predicate exists specifically to keep reduce legs out of per-strategy analytics, and its docstring names two failure modes: count padding, and 'phantom PnL — a reconciler-flipped reduce leg booked reconciler_filled with entry==exit yet a large non-NULL pnl, a fabricated win/loss that the `pnl IS NOT NULL` filter alone does NOT catch'. Its only real consumer is src/web/api/routers/attribution.py (line 33 import, line 125 use). performance.py imports exclude_reconciler_predicate / exclude_reset_flat_predicate / exclude_superseded_predicate and NOT this one; its WHERE clause is status='closed' AND is_backtest=0 AND pnl IS NOT NULL, plus paper/not-paper, _EXCLUDE_RECONCILER and _EXCLUDE_SUPERSEDED. trades_closed.py likewise applies superseded and not-paper but not this predicate. THE LEAK IS ZERO TODAY AND I VERIFIED THAT RATHER THAN ASSUMING IT. Population: all 254 rows with setup_type='intent_reduce' (the table's full count for that filter). 253 are closed; 115 of those carry a non-NULL pnl — i.e. 115 rows `pnl IS NOT NULL` cannot drop — and ALL 115 carry reconcile_status='superseded', so _EXCLUDE_SUPERSEDED removes every one. Rows that would leak: 0. WHY IT IS STILL WORTH A ROW, AND WHY ONLY `low`: the defence is two historical mechanisms, not the predicate. PR #6926 stopped new phantoms at source, and the evidence says it has HELD — the newest phantom-pnl reduce leg closed 2026-07-18, while all 138 closed reduce legs since carry NULL pnl (newest 2026-09-06T03:32:39Z), so ~7 weeks with no recurrence. The superseded flags came from the one-shot `supersede-intent-reduce-phantom-pnl` system-action, which is correctly a manual Tier-2 cleanup and not a recurring job. So today's correctness depends on #6926 continuing to hold; if it ever regresses, the read path has no second line and the phantom lands straight in the headline PnL that promotion and demotion decisions are read from.",
+      "remediation": "TIER-1, defence in depth: apply exclude_reduce_leg_predicate in performance.py (and consider trades_closed.py, where reduce legs currently surface to the SPA as closes with realizedPnl null). It is a pure narrowing of an already-narrowed population and is a no-op against today's data — which is precisely what makes it cheap to land and easy to verify: the endpoint's totals must not move. DONE-CONDITION: performance.py applies the predicate AND /api/bot/performance?window=30d returns byte-identical aggregates before and after.",
+      "resolution_criteria": "src/web/api/routers/performance.py applies exclude_reduce_leg_predicate, AND /api/bot/performance?window=30d returns byte-identical aggregates before and after the change — the no-op result is the proof it is a pure narrowing against today's data rather than a silent restatement of the book. Consider trades_closed.py in the same change, where reduce legs currently surface to the SPA as closes with realizedPnl null."
+    },
+    {
+      "id": "BL-20260908-SESSION-BOARD-MERGE-SLOT-CAN-CARRY-A-DUPLICATE-KEY-AND-NOTHING-CHECKS-IT",
+      "opened_at": "2026-09-08",
+      "severity": "low",
+      "tier": "1 (CI guard / tooling — a session may write this itself)",
+      "status": "open",
+      "area": "coordination",
+      "title": "session-board.json merge_slot carried held_by TWICE on main and no guard reads the file at all",
+      "observation": "Measured on origin/main at 1e1d3718f while resolving a merge conflict in MI-192b: docs/claude/session-board.json's merge_slot object contains the key held_by TWICE, with identical values (MI-196, session_01U2ibSa4FNcuV6bSLaPb9GS). It is valid-enough JSON that json.load() accepts it and silently keeps the LAST occurrence, so nothing failed and nothing warned. Population: the merge_slot object only; the rest of the file was not audited for duplicate keys, so this is a lower bound, not a count. The MI-192b merge resolution takes its own branch's side per R13 and therefore removes THIS instance as a side effect -- that is not a fix, because the writer is unchanged. No script writes merge_slot: it is hand-edited by each session, which is how a duplicate key gets in. Verified that nothing validates the file: check_board_coherence.py is about the GitHub coordination ISSUE and contains zero references to session-board.json (grep, 0 hits), and run_guards.py registers no session-board guard. So the ONLY reason this was seen is that it happened to land inside a conflict hunk that was being read line by line.",
+      "why_it_matters": "merge_slot is the coordination primitive that is supposed to stop two sessions merging at once. A duplicate key does not break that today -- json.load resolves deterministically to the last value and both copies were identical here -- so the honest severity is low. The hazard is the class, not this instance: if the two copies ever DISAGREE, the file reads as one session's claim to Python and as another's to a human reading the diff, and the slot is exactly the artifact where those two readers must not diverge. Duplicate JSON keys are undefined behaviour per the spec, so the tie-break is a CPython implementation detail, not a contract.",
+      "remediation": "Add a session-board validity check to run_guards.py that parses docs/claude/session-board.json with json.load(object_pairs_hook=...) so duplicate keys RAISE instead of being silently collapsed, and fails the PR naming the offending key and object. Cheap, diff-independent, and it reads the file that today nothing reads. Do NOT fix this by hand-repairing the one instance -- that leaves the writer and the blind spot untouched, which is the post-it-note non-fix this repo already pays for elsewhere.",
+      "resolution_criteria": "A guard registered in run_guards.py is OBSERVED failing a PR that introduces a duplicate key into docs/claude/session-board.json -- demonstrated with a positive control (a deliberately duplicated key makes it red) and a negative control (the current clean file makes it green), because a checker that has never rejected anything has not been shown to work. NOT sufficient: the duplicate key being gone from main (the MI-192b merge already does that, and it says nothing about the next hand-edit). NOT sufficient: a note in the session-coordination skill telling sessions not to duplicate keys -- the file already documents plenty that sessions miss.",
+      "refs": [
+        "docs/claude/session-board.json",
+        "scripts/ci/check_board_coherence.py",
+        "scripts/ci/run_guards.py",
+        "PR #11379 (MI-192b) merge resolution"
+      ],
+      "found_by": "MI-192b /system-review (session_012yX7SLyJiqAWG8oVxZSNoq)"
+    },
+    {
+      "id": "BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED",
+      "opened": "2026-09-08",
+      "resolution_criteria": "BOTH, and they are different facts. (1) THE INSTANCE: alpaca_paper GLD is flat or its bracket is gone, AND the resolution is ATTRIBUTED (operator/venue action, or Alpaca finally processing the group) — if the position simply disappears, record THAT rather than closing on it. (2) THE CLASS, which is the part that outlives the instance and does NOT close with it: either a coverage check is observed grading an inert leg as NOT protection — i.e. a real position whose stop has been through the market for a full session is reported uncovered rather than covered — or the operator RECORDS a decision not to model order liveness, with the consequence stated (an inert leg stays indistinguishable from a working one on every venue). ⚠️ NOT sufficient: the GLD position closing. That ends the exhibit and leaves the blind spot exactly where it is. ⚠️ NOT sufficient: a passing unit test — the claim is about what the venue does, which a harness cannot reach.",
+      "severity": "high",
+      "tier": 2,
+      "status": "open",
+      "area": "execution",
+      "title": "alpaca_paper GLD's resting OCO bracket is INERT at the venue -- a sell-stop 13 points in the money has not fired in 12 days, while every protection check grades the position covered",
+      "detail": "MEASURED 2026-09-08T12:21-12:44Z, live, three independent reads. (1) /api/diag/exchange_positions: alpaca_paper GLD long 39 @ 419.508462, unrealised -639.930018 => current price ~403.10. (2) /api/diag/alpaca_open_orders: the position's OCO bracket rests as parent 2e843e04-5487-470c-a702-70e796fbd05e (limit 461.27, status `new`) + child 891ddff0-b24d-4039-9322-8492bcd51e66 (STOP 416.09, status `held`), both submitted 2026-08-27. A sell-stop at 416.09 on a long trading at ~403.10 is ~13 POINTS IN THE MONEY and should have triggered days ago. It has not. (3) The trader journal at 12:20:54Z: our DELETE on the child is refused `rc=422 order pending cancel` while the open-orders listing renders that same order `held`, and our DELETE on the PARENT is ACCEPTED and the parent is still `new` twelve days later. Taken together these say the Alpaca PAPER engine has stopped processing this OCO group entirely: it will not fire it, will not complete a cancel of it, and will not release the shares it reserves. THE FINDING IS NOT THE STUCK CLOSE -- that is MI-199 and is fixed in #11389/#11390. THE FINDING IS THAT THE POSITION IS UNPROTECTED WHILE READING AS PROTECTED. AlpacaClient.has_protective_orders is a BOOLEAN over resting legs, so _check_broker_naked_equity_positions sees a leg, grades GLD covered, and re-arms nothing -- the same shape as BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY one venue over, but with a NEW cause: there the leg was real and mis-counted, here the leg EXISTS and the VENUE IS NOT EVALUATING IT. No coverage check anywhere models order LIVENESS, so an inert leg is indistinguishable from a working one. STATE THE POPULATION AND THE EXPOSURE HONESTLY: n=1, on alpaca_paper, which is a PAPER account -- no money is at risk and this must not be reported as if it were. What makes it worth filing at `high` is that alpaca_live is mode: live / real_money, shares this exact client code, and trades GLD; a real-money position under the same venue behaviour would read covered and be naked, and nothing in the repo could tell. I have NOT established whether the live (non-paper) Alpaca engine can produce this state -- that is the open question, not an assumed answer. CHEAPEST DETECTOR IF ONE IS WANTED: a stop whose trigger price has been through the market for longer than a session, on a position that is still open, is a positive observation of an inert leg and needs no new venue call -- both numbers are already on /api/diag/alpaca_open_orders and /api/diag/exchange_positions. Not built here; this row is the record.",
+      "refs": [
+        "docs/claude/OPEN-ITEMS.json::OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
+        "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+        "src/units/accounts/alpaca_client.py::has_protective_orders",
+        "src/runtime/order_monitor.py::_check_broker_naked_equity_positions"
+      ]
+    },
+    {
+      "id": "BL-20260908-A-BACKED-UP-MERGE-QUEUE-RED-LINES-EVERY-PR-VIA-DIGEST-LIVENESS-WHICH-MAKES-THE-QUEUE-HARDER-TO-CLEAR",
+      "title": "A backed-up merge queue red-lines EVERY PR in the repo via digest-liveness, which makes the queue harder to clear — a self-reinforcing loop, not a one-branch strand",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-08",
+      "area": "ci/merge-queue",
+      "detail": "MEASURED 2026-09-08T13:05Z. `digest-liveness-guard` (scripts/ci/check_digest_liveness.py) reads docs/claude/work/WORK-DIGEST.json ON MAIN and fails when it is older than 6h. Main carried generated_at 2026-09-08T06:58:52Z, so it graded `stale` at 6.1h and FAILED — on EVERY open PR in the repo simultaneously, including #11389, the operator's twice-asked GLD close fix. THE CARRIER WAS NOT BROKEN. Three fresher receipts existed and every one was sitting in an UNMERGED PR: 11:20:56Z (#11377, trigger=schedule), 09:28:41Z (#11363, trigger=push), 07:58:32Z (#11354, trigger=push). The digest ran; its receipt could not reach main because the queue was backed up. THE LOOP IS THE FINDING, NOT THE STALE FILE. A slow queue makes a time-based liveness guard go stale on main; the stale guard reds every PR; a repo where nothing is green is slower to clear; the queue backs up further. It is self-reinforcing, and it is invisible from any single PR — each one just looks individually red for a reason that is nobody's diff. That is what distinguishes it from BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH, which is one branch stranded by a base that was red once; this is a whole-repo condition that GROWS with the backlog. Filed as a sibling, not a duplicate. AND IT COMPOSES WITH THE MERGE SLOT. Only one branch may hold merge_slot (check_pr_landing R13), so clearing the backlog is serialized — while the guard that reds everything is driven by how long the backlog has been unclear. Verified on #11377: PASS 53 / FAIL 1 with the SOLE failure being the R13 slot claim, and PASS 54 / FAIL 0 once claimed. The content was clean the whole time. NOTE WHAT THE GUARD IS FOR AND DO NOT WEAKEN IT: F6 makes operator notification the condition the autonomy grant rests on, so a digest that has genuinely stopped reaching the operator SHOULD red. The defect is not the 6h window; it is that the guard cannot distinguish 'the digest stopped being PRODUCED' (real, alarming) from 'the digest was produced and its receipt is stuck in our own merge queue' (our problem, not the channel's). Those are two different facts and the guard collapses them.",
+      "resolution_criteria": "Either (a) digest-liveness distinguishes the two states above — e.g. it grades `stale_unmerged` when a fresher receipt exists on an OPEN PR head, which is readable without a broker or VM call, and only grades `stale` when no fresher receipt exists anywhere; or (b) a recorded operator decision that the coupling is acceptable, WITH the consequence stated (every PR reds whenever the queue is slow). Landing #11377 does NOT resolve this — that refreshes the receipt and buys hours, and the loop is structural. Widening the 6h window resolves NOTHING and is the wrong direction: it weakens the only thing watching whether the operator is still being told anything, to work around a queue problem.",
+      "next_step": "Do NOT hand this to the manager as an item — it is a build. Route it to a session with the measurement above; the whole finding is reproducible from PR heads plus docs/claude/work/WORK-DIGEST.json, with no VM access.",
+      "found_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj, while clearing the queue for the operator's GLD fix"
     }
   ]
 }

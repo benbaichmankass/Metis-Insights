@@ -610,6 +610,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/alpaca-roster-phase2-capital-efficiency-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-roster-phase3-compat-gate-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/artifacts/m27/coverage.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/backtest-live-exit-fidelity-2026-09-08.md` | evidence | live | — | 2026-09-08 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/bracket-calibration-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/bracket-expectation-construction-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/bracket-geometry-decision-packet-2026-08-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
