@@ -74,6 +74,122 @@ note: >-
   with the caveat attached rather than inventing a state nobody measured; two more
   live edges have the same shape (PHASE-G -> PHASE-D, PHASE-H -> PHASE-B).
 
+operator_decision_2026_09_08:
+  verdict: consolidate_into_the_readout
+  text: >-
+    "Carry the four missing classes into the readout, then retire DUE.md."
+  decided_on: 2026-09-08
+  scope: >-
+    The PORT only. Retiring docs/claude/DUE.* is a SEPARATE, later change and is
+    NOT authorised by the same act.
+  condition: >-
+    TWO CHANGES, NEVER ONE. Port the classes first and demonstrate them
+    rendering; retire DUE.md only afterwards, in its own PR. Retiring in the
+    same change takes the session-facing due list to ZERO if the port is
+    incomplete. Precedent and reasoning are already in this repo: the hourly
+    digest carrier was split across two PRs "so that a timer which fails to
+    install cannot take the digest to ZERO", with the duplicate output in
+    between recorded as an accepted cost rather than a defect. The same accepted
+    cost applies here — DUE.md and READOUT.md §5 both render the same rows until
+    the second PR lands, and that is a KNOWN state, not a defect to re-file.
+  condition_2: >-
+    ⚠️ THIS DOES NOT FIX THE READOUT'S COVERAGE AND MUST NOT BE REPORTED AS
+    DOING SO. §1 still grades `insufficient_basis` and still names no stage, and
+    that is CORRECT. Folding registers in adds ROWS, not assessed `blocked_on`
+    BASIS. A PR body implying the consolidation improved the diagnosis would be
+    the unprovenanced-diagnostic defect this repo has a guard for.
+  condition_3: >-
+    EVERY PORTED CLASS KEEPS ITS OWN READ-STATE. A cron that could not be READ
+    is not a cron that is GREEN; an unlanded-automation list that could not be
+    FETCHED is not an EMPTY queue.
+  provenance: >-
+    ⚠️ RELAYED, NOT READ FROM THIS FILE. The MI-196 spawn prompt instructed the
+    session to read this decision at
+    `WO-20260901-PHASE-D.yaml::operator_decision_2026_09_08` — and NO SUCH BLOCK
+    EXISTED. Verified at session start with a positive control: `blocked_on_basis`
+    was found in this same file on `origin/main` by the same probe, while
+    `operator_decision_2026_09_08` and the string `consolidate_into_the_readout`
+    returned ZERO hits repo-wide. So the verdict and its three conditions above
+    are transcribed from the spawn prompt, which is the only surface that carried
+    them; MI-196 did not witness the operator state them. This block is that
+    record. If the wording differs from what the operator actually said, THIS is
+    the text that was acted on.
+
+port_measurement_2026_09_08: >-
+  ⚠️ TWO CLAIMS IN THIS OBJECT'S OWN `blocked_on` NOTE ARE FALSE, measured by
+  MI-196 against `scripts/ops/render_due_list.py` rather than re-quoted.
+  (1) THE COUNT IS WRONG: the note says four due-list source classes have no
+  readout counterpart. There are NINE `def src_*` functions — open_items, soaks,
+  operator_owed, probes, research_queue, red_crons, unlanded_automation,
+  error_feed, sunset_dispositions — and only `operator_owed` has one, so EIGHT
+  classes were missing, not four. The operator's "four" was taken from this note.
+  MI-196 ported all nine (eight rendered, `operator_owed` marked
+  covered-elsewhere and deliberately not double-counted) because porting a
+  subset would leave DUE.md un-superseded and make the retirement PR unsafe
+  permanently.
+  (2) THE RECURRENCE LEDGER IS NOT A DUE-LIST SOURCE. The note names it as one.
+  The only `RECURRENCE-LEDGER` mention in `render_due_list.py` is line 15, a
+  docstring reference to its SIBLING `render_session_brief.py`, which is the
+  script that actually reads it. Positive control: `PROBES` appears 13 times in
+  the same file and every real source has a `def src_*`. Field beats comment —
+  the note is corrected here rather than reasoned from.
+  A session planning off the old note would have ported the wrong set.
+
+port_observed_2026_09_08: >-
+  §5 IS RENDERING ON MAIN — OBSERVED, not inferred from the merge. PR #11369
+  merged 11:09:03Z as 0e03be9d; read back from `origin/main` (not from a local
+  build): docs/claude/READOUT.md carries "## 5 · Everything else that is due"
+  with all nine sources, and docs/claude/CONSTRAINT.json carries the `due` block
+  reading read_state `read` / completeness `partial` / due_count 79 /
+  unreadable_sources [red_crons, unlanded_automation]. The two GitHub-backed
+  sources correctly grade `could_not_read` and render `—` rather than `0`.
+  This satisfies the operator's "demonstrate them rendering" condition and
+  UNBLOCKS the second half (retirement). It does NOT clear this object's first
+  blocked_on edge: §1 still grades `insufficient_basis` at 49/682 = 7.2% and
+  still names no stage, which is correct — the port added rows, not basis.
+
+third_surface_2026_09_08: >-
+  ⚠️ THE DECISION'S PREMISE UNDERCOUNTED THE SURFACES, AND THE RETIREMENT MUST
+  NOT BE PLANNED FROM IT. The operator's framing was "a session had to read TWO
+  surfaces" (DUE.md and READOUT.md). Measured on origin/main after the port
+  there are THREE renderers over ONE collector, and the third predates this
+  work: `scripts/ops/render_daily_brief.py:150` does
+  `from scripts.ops import render_due_list as _due` and line 519 calls
+  `_due.build(_due.collect(root, now.date(), token=due_token))` under the
+  comment "what is DUE — imported wholesale from render_due_list". So the
+  daily brief has been rendering the same due rows all along.
+  WHY THIS MATTERS FOR THE RETIREMENT: `render_due_list.py` CANNOT be deleted.
+  Its nine `src_*` functions are a LIBRARY with two live importers
+  (render_daily_brief and constraint_readout §5); only the DUE.md/DUE.json
+  RENDERING half, its carrier `.github/workflows/due-list.yml`, its
+  `due-list-guard` registration, and the `duty` skill's pointer are retirable.
+  Blast radius measured with a positive control (`READOUT.md` finds 5 files):
+  14 live consumers name DUE.md/DUE.json/render_due_list, among them
+  `.claude/skills/duty/SKILL.md` (whose entire premise is reading DUE.md) and
+  `docs/CLAUDE-RULES-CANONICAL.md` (the level-1 doc). A retirement PR that
+  deletes the file breaks the daily brief; one that repoints only the skill
+  leaves the guard and the carrier behind.
+  ⚠️ WHAT I DID NOT ESTABLISH: no workflow under .github/workflows/ references
+  `render_daily_brief` at all, so I could not determine what CARRIES the daily
+  brief, or whether it currently runs. That is a separate question from this
+  object and is deliberately not answered here.
+
+broadcast_2026_09_08: >-
+  The §5 observation and the three-surface finding were BROADCAST to the live
+  coordination board (#11336, comment 5584288534) as well as recorded here,
+  because a finding that changes what a planned change IS must reach the
+  sessions planning it before the next one starts — a committed file only
+  propagates through a merge, which is too late to prevent the wrong retirement
+  being built. The board note also carries two corrections other sessions were
+  going to trip on: that the recurrence ledger is not a due-list source, and
+  that `git branch -r --merged` cannot see a squash-merge (it gave this session
+  a wrong answer twice; see the backlog row of that name).
+  ⚠️ It was posted from a SCRATCH branch, not from the branch carrying the open
+  PR: board-post.yml commits its result file back as github-actions[bot], and a
+  bot commit landing last on a PR branch leaves that PR showing zero checks —
+  the trap CLAUDE.md documents for pr-opener and which applies to board-post
+  identically.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
   - scripts/ops/constraint_readout.py
@@ -87,3 +203,73 @@ verdict: >-
   that graph would be the fabricated-answer-wearing-a-computed-label class this phase
   was written to avoid. Basis MEASURED for the coverage figures; the floor itself is
   CHOSEN with a stated argument and no distribution behind it.
+
+remeasured_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp). COVERAGE HAS MOVED AND THE VERDICT HAS NOT.
+  MEASURED by running scripts/ops/constraint_readout.py itself — the canonical owner of
+  the definition — rather than by re-deriving "assessed" locally:
+  **49 of 679 objects = 7.2%**, against the declared 50.0% floor. Verdict stays
+  `insufficient_basis`; NO STAGE IS NAMED, which is still the correct output.
+  Edge basis, never collapsed: `blocked` 18 · `declared_none` 31 · `unstated` 630 ·
+  `malformed` 0.
+  ⚠️ THE TREND IS REAL BUT SMALL, AND BOTH TERMS MOVED: 6/584 (1.0%) on 2026-09-01 →
+  9/587 (1.5%) on 2026-09-02 → 49/679 (7.2%) today. The store grew by 95 objects over
+  the same period, so this is not a fixed denominator — coverage rose because sessions
+  wrote 40 more real edges, faster than migration added unassessed rows. At this rate
+  the 50% floor is far away: it needs ~290 assessed rows against today's 49.
+  ⚠️ A METHOD WARNING FOR THE NEXT SESSION TO MEASURE THIS, because I got it wrong
+  first: a naive `blocked_on_basis.upper() == "ASSESSED"` exact match reports **10 of
+  679 = 1.47%**, because almost every real basis STARTS with "ASSESSED …" and then
+  explains itself. That number is wrong by a factor of five and looks plausible. Use
+  constraint_readout.py, which owns the definition; a second copy of "what counts as
+  assessed" is exactly how the two would drift.
+  ⚠️ NO EDGES WERE INVENTED TO IMPROVE THIS FIGURE. One edge pair was DISCHARGED on
+  WO-20260901-PHASE-B (both satisfied, see that object), which moves a row from
+  `blocked` to `declared_none` and does not raise coverage. Writing edges on the 630
+  unstated rows is the actual work this phase's first edge names, and it belongs to
+  the sessions that own those rows.
+  ⚠️ THE SECOND EDGE IS AN OPERATOR DECISION AND IS SURFACED, NOT DECIDED — per the
+  manager's explicit instruction. The question: does the readout SUPERSEDE
+  docs/claude/DUE.* in full, or do both stay? The measured obstacle is unchanged and
+  is the reason the due-list was not deleted as the build plan said it would be:
+  render_due_list.py draws on PROBES.json, monitoring cadences, the recurrence ledger,
+  red scheduled crons and unlanded automation PRs — FOUR source classes with no
+  counterpart in the readout — so deleting it today would drop live signals. Exactly
+  one class overlaps (operator-owed items). So the decision is really "carry those four
+  across first, or keep both deliberately", and it is the operator's.
+operator_decision_2026_09_08:
+  recorded_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+  recorded_at: '2026-09-08T09:55:00Z'
+  basis: asked directly and answered directly in-conversation, 2026-09-08
+  verdict: consolidate_into_the_readout
+  text: 'Carry the four missing classes into the readout, then retire DUE.md'
+  what_it_settles: >-
+    Two surfaces answered "what should I work on" from disjoint sources.
+    MEASURED by MI-194: docs/claude/DUE.md draws on PROBES.json, monitoring
+    cadences, the recurrence ledger, red scheduled crons and unlanded
+    automation PRs; the constraint readout draws on the work store's typed
+    blocked_on edges. Exactly ONE of the five source classes appears in both,
+    so a session had to read both to see everything and nothing said so.
+    The operator's call is ONE surface: port the four missing classes into the
+    readout, then retire DUE.md.
+  warnings:
+    - >-
+      RETIRE DUE.md ONLY AFTER the four classes are demonstrably rendering in
+      the readout, never in the same change. Retiring first, or in one step,
+      takes the session-facing due list to ZERO if the port is incomplete -
+      the same failure shape as taking the digest to zero, which is why that
+      change was deliberately split across two PRs.
+    - >-
+      THIS DOES NOT FIX THE READOUT'S COVERAGE AND MUST NOT BE REPORTED AS
+      DOING SO. The readout grades `insufficient_basis` at 49 of 679 = 7.2%
+      assessed edges against a declared 50% floor, so the merged surface will
+      STILL refuse to name a stage. Folding more sources in adds rows, not
+      basis. Reaching the floor needs ~290 assessed edges against today's 49,
+      and that is written TRUE edges, one at a time - an invented edge is read
+      by the computation as a real blocker, and a false blocker is worse than
+      a missing one.
+    - >-
+      Each ported class must keep its own read-state. A cron that could not be
+      READ is not a cron that is GREEN, and an unlanded automation PR nobody
+      could list is not an empty queue. Collapsing those into a clean negative
+      is the exact defect the readout exists to avoid.

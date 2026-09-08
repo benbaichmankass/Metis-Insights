@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research unit, Tier-1: one new doc under docs/research/, three appended rows in docs/claude/health-review-backlog.json (via scripts/ops/backlog_append.py, format round-tripped), this branch's own landing files, and its own merge_slot claim. NOTHING under scripts/ci/, src/, config/, tests/ or .github/workflows/ — MI-191 owns the two live guard deadlocks and this unit deliberately reads those guards without changing them. No live trading state touched."
+}

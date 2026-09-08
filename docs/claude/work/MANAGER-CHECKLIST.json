@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T06:45:00Z",
+  "updated_at": "2026-09-08T11:58:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2424,9 +2424,119 @@
       "tier": "1",
       "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
       "note": "FILED, NOT TAKEN — filing is the act of not taking the item. This is a RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, which is OPEN and which the manager that hit it had not read — the 'we file lessons and learn none' class. ⚠️ THE NEW HALF IS THE DANGEROUS ONE: no-repo fails LOUDLY in seconds; wrong-repo fails QUIETLY and produces quotable findings from the wrong codebase, which under CY-20260906-TRADING-TRUTH is exactly the contaminated instrument the cycle exists to prevent. Remedy wanted is a CHECK or a DEFAULT, not a fourth reminder: assert `git remote -v` in every spawn prompt beside the push probe, or ship a spawn helper that always passes source_url."
+    },
+    {
+      "id": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "status": "in_flight",
+      "owner": "session_014wizWRD5P388ZL3APK3EGG",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "LANE 0: main is red (board-coherence R3) + the R13/R2 deadlock",
+      "note": "BLOCKS ALL THREE LANES. board-coherence fails on a CLEAN checkout of origin/main, so every PR in the repo is red; separately R13 and R2 are mutually unsatisfiable for a manager register PR. Both defects came from merges the manager made 2026-09-08T07:5xZ -- #11334 added the guard, #11344 added the violating line, each green alone. Told explicitly NOT to disarm either guard."
+    },
+    {
+      "id": "MI-192-LANE-1-OPS-SYSTEM-REVIEW",
+      "status": "failed",
+      "owner": "session_01AWw28Sfk7hNZASfMrssFLq",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 1 (ops): /system-review, 38 days overdue",
+      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows.  ⚠️ SUPERSEDED BY OBSERVATION 2026-09-08T10:25Z: Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows. ⚠️ OBSERVED FAILED at 2026-09-08T10:25Z via list_sessions: session_01AWw28Sfk7hNZASfMrssFLq died 08:46Z with 'The model tool call could not be parsed (retry also failed)', 29 minutes in, producing NO PR and no committed artifact. Lane 1 was dead for 1h40m before a cadence tick caught it — post_turn_summary would have kept reading optimistically. Respawned as MI-192b."
+    },
+    {
+      "id": "MI-193-LANE-2-RESEARCH-ACTIVE-MANAGEMENT-MECHANICS",
+      "status": "in_flight",
+      "owner": "session_012cVryifpv359yAWWVkrmnk",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 2 (research): measure how active management actually behaves",
+      "note": "Four failure classes measured in one day and none studied: containers that silently cannot push (~360k tokens lost, NO verbatim refusal on record), create_session without source_url attaching the WRONG repo with a SUCCEEDING clone, registers going false by time passing, and individually-correct guards deadlocking in pairs. FILES findings, does not fix -- MI-191 owns the two live deadlocks."
+    },
+    {
+      "id": "MI-194-LANE-3-ENGINEERING-PHASE-F",
+      "status": "in_flight",
+      "owner": "session_01W7CyS8ShLnZiNyUms3YYEp",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 3 (engineering): resume the workflow build at Phase F / C4",
+      "note": "Operator: resume the workflow setup paused for research. Grounded before dispatch: A-D are waiting on external OBSERVATIONS not on more building, G waits on an event, H waits on B -- F is the ONLY startable phase and the only one touching the measured constraint. Most of C3 is ALREADY SHIPPED (cron, committed path, reader) and the prompt names each so it is not rebuilt. Real work is C4, the decision record. The window/floor question is a DECISION and is explicitly NOT its to flip."
+    },
+    {
+      "id": "MI-195-OPERATOR-TP-DECISIONS-AND-EXAMINE-QLD-TQQQ",
+      "title": "Apply the operator's three tp decisions; EXAMINE qld/tqqq instead of publishing their absence",
+      "owner": "session_01Lozuti2jAX4kQ9RC4yTSPo",
+      "status": "in_flight",
+      "tier": "3 — config/strategies.yaml (gld tp_r), plus Tier-1 sweep + reader",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator answered all three DEC-20260907-* requests directly, 2026-09-08. TP-VALUE=apply (gld_pullback_1h tp_r 4.0, REACHABILITY not calibration, scope that leg only, and NOT approval of the matrix's sm1.5 winner). TP-VOCAB=accept_with_reader (the tp_intent key does not land without a reader in the same cycle). TP-UNEXAMINED=REJECTED ALL THREE OPTIONS with 'Why don't we just examine them?' — the options all asked how to PUBLISH an absence and none asked what it costs to REMOVE it. Blocker is a missing candle substrate for QLD/TQQQ, i.e. an unfetched dataset, not a property of the legs; the proposal's own section 9.3 already called this the only work in the memo that unblocks new evidence. Verdicts recorded verbatim with their conditions in WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE.yaml::operator_answers_2026_09_08. ⚠️ insufficient_n is a likely and legitimate outcome of the sweep (44 of 44 legs grade that way under MI-155's floor); if so, unexamined becomes a MEASURED verdict and the publish question returns to the operator in a legitimate form. The Tier-3 gld diff cannot self-land (R4) and is mine to merge."
+    },
+    {
+      "id": "MI-196-CONSOLIDATE-DUE-INTO-THE-READOUT",
+      "title": "Carry DUE.md's four missing source classes into the constraint readout, then retire DUE.md",
+      "owner": "session_01U2ibSa4FNcuV6bSLaPb9GS",
+      "status": "in_flight",
+      "tier": "1 — tooling",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08. Two surfaces answered 'what should I work on' from disjoint sources: MI-194 measured that exactly ONE of five source classes appears in both. TWO CHANGES, NEVER ONE — port first and show it rendering, retire DUE.md only afterwards, or an incomplete port takes the due list to zero (the hourly-digest split precedent). ⚠️ This does NOT fix the readout's 7.2% assessed-edge coverage against a 50% floor and must not be reported as doing so; it adds rows, not basis. Recorded in WO-20260901-PHASE-D::operator_decision_2026_09_08. Spawn gate correctly REFUSED this first (Phase D absent from covers); admitted by adding it to spawn-priority-exception.yaml on the operator's direct ask, with the displacement cost stated."
+    },
+    {
+      "id": "MI-194-PHASE-A-CRITERION-RESPEC-BEHAVIOUR-NOT-CITATION",
+      "title": "Re-spec Phase A: measure whether the brief CHANGES BEHAVIOUR, not whether a cold session cites it",
+      "owner": "session_01W7CyS8ShLnZiNyUms3YYEp",
+      "status": "in_flight",
+      "tier": "1 — work-object record",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator decision, asked and answered directly 2026-09-08: 'Change what is measured: behaviour, not citation.' The old edge — a COLD session CITING the CLAUDE.md brief — was unfalsifiable by construction, since every candidate observer arrives with a dispatch prompt; MI-194 measured its absence retrospectively (positive controls fired) and correctly refused to manufacture an observer. ⚠️ The re-spec MUST carry a negative branch; a replacement that can only ever be satisfied reproduces BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER with better wording. ⚠️ The old edge is RETIRED ON A DECISION, never `discharged` — discharging would assert an observation nobody made. Poked into the live idle session (trig_01DAyCVoP7XTfL7vLqHdJcUr, fired 09:51Z, destination verified against the body) rather than respawned, because it holds the A–D context; it was at 605k/1M and was told to hand back a fresh-session prompt rather than half-do it."
+    },
+    {
+      "id": "MI-192B-SYSTEM-REVIEW-RESPAWN",
+      "title": "/system-review, 38 days overdue — respawn after MI-192 died on an unparseable tool call",
+      "owner": "session_012yX7SLyJiqAWG8oVxZSNoq",
+      "status": "in_flight",
+      "tier": "1 — review session",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "MI-192 failed at 08:46Z after 29 minutes with no PR and no artifact; the lane sat dead for 1h40m. Told to check the predecessor's branch first rather than assume it pushed nothing, and warned that several open PRs' guards failures are this morning's main-red and not their own — filing that as a finding would be a false positive. Carries the standing prohibitions and the closed diag-token question so the review does not re-raise it. Inherits its predecessor's starting finding, preserved from the original dispatch row rather than discarded in the merge: comms/reports/index.json's newest entry is 2026-06-23, SIX WEEKS behind the artifacts, and that index is what --window=since-last resolves against — so a since-last review would silently pick the wrong window. And backlog_drive means DRAIN, against 716 unresolved health rows."
+    },
+    {
+      "id": "MI-197-MERGE-SLOT-CARVE-OUT-DEADLOCK-HIT-TWICE-IN-ONE-MORNING",
+      "title": "The merge_slot carve-out is checked against EVERY parent, so an armed manager branch can never take main in — hit twice, cost two full re-lays",
+      "owner": "unassigned",
+      "status": "filed_not_taken",
+      "tier": "1 — CI guard change",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "FILED, DELIBERATELY NOT TAKEN — a guard change is scripts/ci/, a worker path, and the manager does not execute items. Row: BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH. MEASURED TWICE ON 2026-09-08. check_manager_scope's merge_slot_claim_only admits a manager commit touching docs/claude/session-board.json only when merge_slot is the sole top-level key changed, checked against EVERY parent — so on a merge commit whose two parents differ on ANY other key, or on merge_slot itself, no resolution can satisfy it. First hit: the parents differed on `updated_at`. Second hit: #11378 landed its own merge_slot change and `git merge-tree --write-tree` returned EXIT 1 on session-board.json. ⚠️ THE INTERACTION IS THE DEFECT, NOT EITHER RULE. pr-landing R13 REQUIRES an armed branch to hold merge_slot in that file; the carve-out then makes the file unmergeable. So the one file a manager register branch MUST touch is the one it can never resolve a conflict in. Force-push is prohibited and weakening the carve-out would re-open what #11357 closed, which leaves re-laying linearly off main as the ONLY honest route — and it must be re-done every time another branch lands a merge_slot change first, which under a working merge queue is often. ⚠️ DO NOT 'fix' this with a manager-scope-exception: that is the papering-over this repo has already ruled against."
+    },
+    {
+      "id": "MI-198-DUPLICATE-HELD-BY-KEY-PARSED-PAST-BY-EVERY-GUARD",
+      "title": "#11378 left a duplicate `held_by` inside merge_slot and every guard read straight past it",
+      "owner": "unassigned",
+      "status": "filed_not_taken",
+      "tier": "1 — CI guard change",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "FILED, NOT TAKEN — same reason as MI-197. Row: BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST. THE LIVE FILE IS REPAIRED (free, in the same commit that re-claimed the slot, which rewrites merge_slot wholesale anyway — exactly the change the carve-out permits). THE DETECTOR IS NOT BUILT and that is what the row is for. ⚠️ It was harmless ONLY because the two values happened to be identical; json.loads takes the LAST occurrence silently, so a claim taken FROM a different holder would have read as clean while the prior claim was overwritten rather than released. check_board_coherence, merge_slot_claim_only and check_pr_landing all read this file through plain json.loads, which is duplicate-tolerant by specification — so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it, and the PR merged green."
     }
   ],
-  "as_of": "2026-09-08T06:45:00Z",
+  "as_of": "2026-09-08T11:58:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T06:45:00Z"
+  "updated": "2026-09-08T11:58:00Z"
 }

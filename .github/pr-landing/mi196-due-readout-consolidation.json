@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by the canonical doc's own list: tooling and observability on a READ path. The diff adds a section to scripts/ops/constraint_readout.py (a generator that reads registers and renders a markdown/JSON readout), passes an existing secret to the workflow that already runs it, and regenerates its own committed output plus the generated SESSION-BRIEF block in CLAUDE.md. No order path, no strategy config, no risk caps, no account modes, no src/, no config/, no deploy/, no live-VM runtime file, and no new persistent table. It cannot change what the trader does. Deliberately scoped to a PORT: docs/claude/DUE.md and scripts/ops/render_due_list.py are UNTOUCHED and keep rendering, per the operator's own condition that retiring the due list is a separate later change — so a defect in this PR degrades a readout section, it cannot take the session-facing due list to zero. Self-lands because Tier-1 needs no human OK to merge and routing it through one is the convention pr-landing exists to end; GitHub still merges only on green."
+}
