@@ -52,12 +52,24 @@ that happen — it matches `mcp__github__merge_pull_request` and
 even in the CLI/desktop runtimes that do load project hooks. R6 therefore
 mandates the one landing route on which the slot guard is structurally silent.
 
-R13 answers that silence WITHOUT weakening either rule: R6 still requires arming,
-the hook still guards the MCP route unchanged, and the slot claim now has to
-travel by the same `git push` that arms. It is checked in CI rather than by a
-hook, so it also holds on Claude Code on the web, where no project hook loads at
-all (1,379 consecutive `Hooks: Found 0 total hooks in registry` lines,
-2026-08-18 -> 2026-08-20).
+R13 puts an ENFORCED CLAIM on that silent route without weakening either rule:
+R6 still requires arming, the hook still guards the MCP route unchanged, and the
+claim travels by the same `git push` that arms. Being a CI check rather than a
+hook, it also holds on Claude Code on the web, where no project hook loads at all
+(1,379 consecutive `Hooks: Found 0 total hooks in registry` lines, 2026-08-18 ->
+2026-08-20).
+
+  ⚠️ R13 DOES NOT SERIALIZE, and nothing here should be read as claiming it does.
+  Per `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`, `merge_slot` lives in
+  a committed file, so a claim written on a branch reaches no other session until
+  that branch MERGES — by which point the claim is over. Two branches can each
+  arm, each write a valid claim, and never see one another. What R13 buys is that
+  an armed merge carries an ATTRIBUTABLE, TIMESTAMPED claim where the route
+  previously recorded nothing, and that arming with none — or with someone else's
+  — FAILS CI rather than being exhorted against. The real-time half needs a slot
+  store not gated on merging (that row's option (a), and the same artifact MI-182
+  needs); concurrent-merge safety meanwhile rests on branch-protection required
+  status checks, where it already rested.
 
 WHY THIS GUARD CAN BITE AT ALL
 ------------------------------
@@ -517,9 +529,13 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                     f"— the merge is performed by a workflow under GITHUB_TOKEN, so "
                     f"no hook fires even in the CLI/desktop runtimes that do load "
                     f"hooks. R6 therefore mandates the one landing route on which "
-                    f"the slot guard is structurally silent, and this is where that "
-                    f"silence is answered: the slot is claimed HERE, in the same "
-                    f"push that arms, or it is not claimed at all. Set `merge_slot` "
+                    f"the slot guard is structurally silent, so the claim is made "
+                    f"HERE, in the same push that arms, or it is not made at all. "
+                    f"(R13 records an ATTRIBUTABLE claim and fails closed without "
+                    f"one; it does NOT serialize — a committed claim reaches no "
+                    f"other session until this branch merges, "
+                    f"BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE.) "
+                    f"Set `merge_slot` "
                     f"in {SESSION_BOARD} to this branch (`held_by`, `branch`, "
                     f"`claimed_at`) and commit it alongside the arming file. "
                     f"This does not replace the `🔒 MERGE SLOT CLAIM` comment on "

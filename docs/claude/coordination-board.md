@@ -436,27 +436,44 @@ route R6 mandates simply had no slot enforcement on it, and the board comment
 that *is* the authoritative claim is unpostable while #6927 sits at GitHub's hard
 2500-comment cap (writes 403 — **MI-182**).
 
-**R13** closes it, weakening neither rule: a branch that arms must hold
-`merge_slot` in [`session-board.json`](session-board.json) — `held_by`, `branch`
-and `claimed_at` set to itself — **added-or-modified in its own diff**, for the
-same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it of the arming
-file: a branch that merely merged `main` while somebody else's claim sat on it
-has asked for nothing, and presence alone cannot tell the two apart. R6 still
-requires arming; the hook still guards the MCP route unchanged; the claim now
-travels by the same `git push` that arms. Being a **CI check rather than a hook**,
-it also holds on the web, where no project hook loads.
+**R13** puts an enforced claim on that route, weakening neither rule: a branch
+that arms must hold `merge_slot` in [`session-board.json`](session-board.json) —
+`held_by`, `branch`, `claimed_at` set to itself — **added-or-modified in its own
+diff**, for the same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it
+of the arming file: a branch that merely merged `main` while somebody else's
+claim sat on it has asked for nothing, and presence alone cannot tell the two
+apart. R6 still requires arming; the hook still guards the MCP route unchanged.
+Being a **CI check rather than a hook**, R13 also holds on the web, where no
+project hook loads.
 
-⚠️ **Yes, this makes every self-landing branch touch one shared file — and that
-is correct here.** `BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE` is not
-being repeated: that file's *contents were never read*, so every collision was
-pure ceremony with no information in the resolution. A merge slot is a **mutex**.
-Two branches colliding on it is the serialization doing its job, and the
-resolution carries the only fact that matters — who holds it.
+#### ⚠️ What R13 does NOT do, stated plainly
 
-While #6927 is capped, the durable record is the **only** claim anyone can make.
-When a successor board exists (MI-182), the `🔒 MERGE SLOT CLAIM` comment resumes
-as the live signal; R13 is unaffected either way, because it enforces the mirror,
-not the authority.
+**R13 does not serialize anything, and must not be described as if it does.**
+`BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE` establishes why, and it
+still stands: `merge_slot` lives in a committed file, so a claim written on a
+branch **reaches no other session until that branch merges** — by which point the
+claim is over. Two branches can each arm, each write a valid claim, and never see
+one another. `require-up-to-date` has been off since 2026-08-10, so nothing even
+forces them to collide textually.
+
+What R13 changes is narrower and worth having anyway:
+
+- an armed merge now carries an **attributable, timestamped** claim in the
+  permanent record, where previously the arming route recorded nothing at all;
+- arming with **no** claim, or riding **someone else's**, now **fails CI** — it is
+  enforced, not exhorted, which is the failure mode BL-20260810 warns against
+  ("do NOT re-file an exhortation");
+- it costs **no extra CI cycle**. This is the one half of BL-20260810 that no
+  longer applies: that row assumed the mirror is a *separate* commit at merge
+  time, costing a ~9-minute restart. Riding the arming push, the write is free.
+
+**The real-time half is still missing and R13 cannot supply it.** The remedy is
+BL-20260810's own option (a) — a slot store not gated on merging — which is the
+same artifact **MI-182** needs for the successor board. Those are one piece of
+work, not two. Until it exists, the durable record is the only claim anyone can
+make, and concurrent-merge safety continues to rest where it actually rests:
+branch-protection required status checks.
+
 
 Because hooks load at **session start**, a session that edits `settings.json`
 mid-run does **not** pick up the new guard itself — it must still follow the
