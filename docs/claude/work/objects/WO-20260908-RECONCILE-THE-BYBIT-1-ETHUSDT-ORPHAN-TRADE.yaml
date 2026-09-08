@@ -1,0 +1,30 @@
+id: WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Reconcile the bybit_1 ETHUSDT orphan (trade 5569) to its real order package, or mark it explicitly unreconcilable
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Trade 5569 carries reconcile_status 'reconciled' and names the order package that opened the venue position, OR it carries an explicit terminal 'unreconcilable' with the reason written down. Orphan is a problem state, not a status - leaving it 'unreconciled' is not a disposition.
+
+why: >-
+  Operator-directed 2026-09-08: route this to the system-review lane. The reverse reconciler adopted an exchange position with no matching open journal row.
+
+source: >-
+  operator directive 2026-09-08 + /api/diag/exchange_positions?account_id=bybit_1 read 2026-09-08T14:31:27Z
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
