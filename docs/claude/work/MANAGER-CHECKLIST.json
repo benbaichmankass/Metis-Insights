@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T02:30:00Z",
+  "updated_at": "2026-09-08T03:22:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2221,11 +2221,22 @@
       "status": "in_flight",
       "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
       "opened": "2026-09-08T02:16:00Z",
-      "updated": "2026-09-08T02:16:00Z",
+      "updated": "2026-09-08T03:22:00Z",
       "blocked_on": null,
       "tier": "1 to measure; the DETECTION ship is Tier-2",
       "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
-      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG)."
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold."
+    },
+    {
+      "id": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
+      "status": "in_flight",
+      "owner": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "opened": "2026-09-08T03:22:00Z",
+      "updated": "2026-09-08T03:22:00Z",
+      "blocked_on": null,
+      "tier": "1 — measurement only",
+      "title": "Pipeline lane pass 4: audit journal-open rows against the venue across EVERY account",
+      "note": "THE STANDING LANE'S OWN NEXT STEP, NAMED BY MI-166 AND NEVER DONE: 'Tier-1 fix: journal-open vs exchange_positions audit across all accounts'. ⚠️ THE REASON IT IS WORTH A SESSION: every journal-vs-venue divergence this system has found was found BY ACCIDENT while someone looked at something else — MGC's 43 phantom lots during a health review, Bybit's 451x SOLUSDT during a netting investigation, alpaca_portfolio/TLT's 72 shares only because MI-173 went looking at one symbol. NOBODY HAS ASKED THE QUESTION FLEET-WIDE. Scoped MEASURE ONLY: no close, no cancel, no repair, no reconcile, no order path — the known divergences already have owners. Required of it: a per-account read_state (an unreadable account is 'we did not look', NEVER clean), a POSITIVE CONTROL naming the accounts that reconcile exactly, and real money ranked first."
     }
   ],
   "as_of": "2026-09-06T16:05Z",

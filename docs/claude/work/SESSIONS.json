@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T02:44:00Z",
+  "updated_at": "2026-09-08T03:22:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2889,8 +2889,19 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "confirmed_at": "2026-09-08T02:16:14Z",
-      "manager_observation": "OBSERVED 2026-09-08T02:25Z via list_sessions: RUNNING, connected, task_summary 'writing protective coverage grading; tests anchored on real payload'. ⚠️ THIS ROW COULD NOT BE ANNOTATED AT 02:27Z BECAUSE IT WAS NOT ON MAIN — #11313 had not merged, so a session ten minutes into a REAL-MONEY question was invisible to any manager arriving cold. #11313 merged at ~02:33Z and the row is here now. Recorded because the gap was real and the heartbeat commit that noted it is the reason it was not papered over with a duplicate.",
-      "observed_at": "2026-09-08T02:25:00Z"
+      "manager_observation": "RE-OBSERVED 2026-09-08T03:20Z via get_session: now IDLE / bucket BLOCKED — it has finished. needs_action: 'decide: repair TLT 56-share naked position now? bind quantity grade to re-arm path (BYBIT analogue)?' Its work is COMPLETE and #11315 is up at tier:2/landing:hold; what remains is entirely the operator's. ⚠️ Its status_detail says 'PR #5414' — 5414 is a TRADE id, not a PR; do not chase a nonexistent PR.",
+      "observed_at": "2026-09-08T03:20:00Z"
+    },
+    {
+      "session_id": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "registry_key": "pending-20260908T032134Z",
+      "state": "working",
+      "title": "MI-177 — pipeline lane pass 4: audit journal-open rows against the venue across EVERY account",
+      "owns_object": "WO-20260908-NOTHING-HAS-AUDITED-JOURNAL-OPEN-ROWS-AGAINST",
+      "spawned_at": "2026-09-08T03:21:34Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "see WO-20260908-NOTHING-HAS-AUDITED-JOURNAL-OPEN-ROWS-AGAINST",
+      "confirmed_at": "2026-09-08T03:22:25Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
