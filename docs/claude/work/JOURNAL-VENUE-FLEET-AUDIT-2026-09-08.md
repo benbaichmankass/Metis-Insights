@@ -21,11 +21,39 @@ symbol. **The question had never been asked fleet-wide.**
 
 ## Verdict
 
-**Of 11 declared accounts, 8 were readable on both sides. Across those 8, 24
-symbol pairs were compared: 23 reconcile EXACTLY and 1 diverges.** The one
+**Of 11 declared accounts, 8 were readable on both sides. Across those 8, 25
+symbol pairs were compared: 24 reconcile EXACTLY and 1 diverges.** The one
 divergence is the already-owned MGC case. **Neither real-money account that
 could be read diverges at all.** Three accounts were not readable on the venue
 side and are reported as *not looked at* — never as clean.
+
+## Two things a reader should know about this record
+
+**The pair count was wrong on first writing, and arithmetic caught it.** This
+document first said *"24 symbol pairs, 23 exact"*. The correct figures are
+**25 and 24** — 3 (`bybit_1`) + 2 (`bybit_2`) + 2 (`bybit_portfolio`) + 3
+(`ib_paper`) + 8 (`alpaca_paper`) + 7 (`alpaca_portfolio`). It was found when
+`scripts/ops/journal_venue_audit.py` counted independently and disagreed, which
+is the *cross-check with arithmetic* rule working on this session's own output.
+No verdict changes: still one divergence, still MGC, still no real-money
+divergence.
+
+**The `ib_paper` venue read is INTERMITTENT.** On one fleet-wide call at
+~03:46Z, `/api/diag/exchange_positions` returned `positions: null` for
+`ib_paper` — the account carrying the only divergence — while the same account
+read alone (`?account_id=ib_paper`) returned MHG 30 / MGC 11 / MES 15 three
+times in a row seconds later, and five subsequent fleet-wide calls all read it
+fine. So: **1 observed failure in roughly 8 fleet-wide reads, cause not
+established** (the per-account path succeeding while the fleet-wide path failed
+points at the shared single-worker account-read executor, but that was not
+proven and should not be repeated as if it were).
+
+This fails in the SAFE direction — it degrades to `NOT_READ`, never to a false
+"clean" — and the audit reports it as *not looked at*, which is exactly the
+discrimination this document argues for. But **a fleet-wide audit can silently
+lose an account, and the one it lost was the one with the finding.** Anyone
+re-running this must read the per-account `read_state` and not just the
+summary line.
 
 ## The per-account table
 
@@ -106,7 +134,7 @@ carry more than one journal row against a single venue position:
 | `bybit_1` | ADAUSDT | 5417, 5479 | `trend_donchian_ada_4h`, `ada_pullback_2h` |
 | `bybit_1` | AVAXUSDT | 5522, 5535 | `trend_donchian_avax_4h`, `ict_scalp_avax_5m` |
 
-**Anyone reading this audit's "23 of 24 exact" must not read it as "per-trade
+**Anyone reading this audit's "24 of 25 exact" must not read it as "per-trade
 attribution is correct".** It says the *quantities* agree. Whether each journal
 row owns the share of the venue position it claims — which is what a per-leg
 PnL or exit verdict depends on — is a different question this instrument does
@@ -174,6 +202,13 @@ whose venue was not read.
 ## What the next pass should check
 
 Named here because this lane's contract is that each pass names the next one:
+
+**This audit is now re-runnable**: [`scripts/ops/journal_venue_audit.py`](../../../scripts/ops/journal_venue_audit.py)
+performs the comparison above, carries the read-state discrimination and the
+notional cross-check, and refuses to report an account as reconciling when
+either side is unproven. `--self-test` drives it with a planted 54-vs-11
+divergence, a planted could-not-read account, a planted journal/DB mismatch and
+a planted cap hit. It writes nothing and opens no broker socket.
 
 1. **Attribution, not quantity** — for the four multi-row symbols above,
    establish whether each journal row owns the share of the venue position it
