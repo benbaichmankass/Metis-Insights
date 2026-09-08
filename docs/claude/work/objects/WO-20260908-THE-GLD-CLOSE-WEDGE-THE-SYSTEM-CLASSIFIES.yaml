@@ -1,0 +1,30 @@
+id: WO-20260908-THE-GLD-CLOSE-WEDGE-THE-SYSTEM-CLASSIFIES
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The GLD close wedge: the system classifies it as unclearable, then retries and pages forever
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  BOTH halves, and they are different facts. (1) RETRY/PAGE: a position whose share_hold is the EVIDENCED broker_cancel_wedged no longer has a close re-attempted every tick, and the operator-facing close_failure banner for it is not permanently lit — verified by finding the retry ABSENT in the trader journal over a window in which the wedge still stands, never by reading the diff. The suppression must key on the EVIDENCED determination only, never on the failure merely repeating, so a close failing for an unknown reason still retries and still pages exactly as now. (2) RELEASE: order 2e843e04 is gone and GLD on alpaca_paper is flat or legitimately closed, AND the resolution is ATTRIBUTED — which lever released it. If the position simply disappears with no attribution, record THAT rather than clearing on it. NOT SUFFICIENT for either half: a quiet pager (the class was deliberately downgraded out of paging on 2026-09-02, so silence is designed behaviour and says nothing), a passing unit test, or the banner clearing because the position vanished.
+
+why: >-
+  MEASURED 2026-09-08T12:14Z. runtime_logs/close_wedge_standing.json holds alpaca_paper|GLD|long: share_hold=broker_cancel_wedged, OCO parent 2e843e04 pending_cancel since 2026-08-27 (12 days), first_seen 2026-09-03T13:35Z, last_seen 2026-09-08T08:03Z, pages_suppressed 56, and the close_failure banner is live on /api/bot/notifications. THE DIAGNOSIS IS CORRECT AND THE BEHAVIOUR IS NOT: classify_share_hold returns broker_cancel_wedged whose own comment reads 'NO app-level retry can clear it', and the close is then retried every tick regardless. A system that knows an action is futile and takes it anyway is the desensitized-alarm P1 with a live order path attached. Two SEPARABLE halves: (1) stop retrying and stop paging on the EVIDENCED wedge state; (2) actually release the 39 shares.
+
+source: >-
+  operator directive 2026-09-08: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

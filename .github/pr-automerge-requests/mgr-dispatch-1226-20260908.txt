@@ -1,0 +1,12 @@
+Manager register branch: the two sessions dispatched on the operator's 2026-09-08
+questions, their work objects, and their checklist rows.
+
+MI-199 (GLD close wedge) and MI-200 (real-money losing streak) both went through
+the spawn gate, which correctly REFUSED the first attempt for naming no work
+object — so both objects were captured first and the registry rows carry them.
+
+Laid linearly off 2aaa5bba. Not a merge: check_manager_scope's merge_slot
+carve-out is checked against EVERY parent, so an armed manager branch cannot take
+main in (BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-...).
+SESSIONS.json was union-asserted against origin/main before committing: 171 -> 173,
+two added, zero dropped.

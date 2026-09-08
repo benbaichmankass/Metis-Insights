@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T11:58:00Z",
+  "updated_at": "2026-09-08T12:27:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2534,9 +2534,33 @@
       "updated": "2026-09-08",
       "blocked_on": [],
       "note": "FILED, NOT TAKEN — same reason as MI-197. Row: BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST. THE LIVE FILE IS REPAIRED (free, in the same commit that re-claimed the slot, which rewrites merge_slot wholesale anyway — exactly the change the carve-out permits). THE DETECTOR IS NOT BUILT and that is what the row is for. ⚠️ It was harmless ONLY because the two values happened to be identical; json.loads takes the LAST occurrence silently, so a claim taken FROM a different holder would have read as clean while the prior claim was overwritten rather than released. check_board_coherence, merge_slot_claim_only and check_pr_landing all read this file through plain json.loads, which is duplicate-tolerant by specification — so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it, and the PR merged green."
+    },
+    {
+      "id": "MI-199-GLD-CLOSE-WEDGE",
+      "title": "The GLD close wedge — stop retrying a close the system KNOWS cannot succeed, then clear it",
+      "owner": "session_011PHmZzVy92M6zjNopAMy51",
+      "status": "in_flight",
+      "tier": "operator-directed",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-THE-GLD-CLOSE-WEDGE-THE-SYSTEM-CLASSIFIES",
+      "note": "OPERATOR DIRECTIVE 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close — this has been going on for weeks, and it needs to be fixed already.' MEASURED 12:14Z: close_wedge_standing.json holds alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, OCO parent 2e843e04 pending_cancel since 2026-08-27 (12 days), pages_suppressed 56, and the close_failure banner is LIVE on /api/bot/notifications. ⚠️ THE DEFECT IS NOT THE DIAGNOSIS, WHICH IS CORRECT — it is that classify_share_hold returns a state whose own comment reads 'NO app-level retry can clear it' and the close is then re-attempted every tick regardless. Every prior session diagnosed it accurately and stopped, which is why the operator has watched the same ping for weeks. TWO SEPARABLE HALVES: (1) stop the futile retry and the permanently-lit banner, keyed on the EVIDENCED state only so unknown failures still page as now — buildable today; (2) release the 39 shares, testing the 'needs venue action' claim rather than inheriting it, including the un-named lever that alpaca_paper is a PAPER account Alpaca can reset. ⚠️ THE RESET IS PROPOSED, NEVER ENACTED — it wipes the 19-strategy soak book and is the operator's call."
+    },
+    {
+      "id": "MI-200-REAL-MONEY-LOSING-STREAK",
+      "title": "The real-money losing streak — attribute the 15 closes before grading any leg",
+      "owner": "session_01CvFCybCkvrfzaHqNH3tQsb",
+      "status": "in_flight",
+      "tier": "operator-directed",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
+      "note": "OPERATOR DIRECTIVE 2026-09-08: 'even on 16 trades, we can't just chalk this up to chance — something isn't working, and we need to track it down.' MEASURED 12:16Z (population: every accountClass=real_money row on /api/bot/trades/closed?limit=200, n=15, all bybit_2): 0 wins, 13 losses, -43.12. ict_scalp_5m is 6 closes / -25.25 = 59% and is ALREADY OFF bybit_2 — verified against the LIVE config roster, not the YAML — leaving 9 closes / -17.86 on 4 legs, still zero wins. ⚠️ THE LEAD IS NOT WHICH LEG IS LOSING: only 6 of 15 closed on 'sl'; 4 on 'reconciler' and 5 on 'other', so NINE OF FIFTEEN WERE NOT A STRATEGY EXIT DECISION, two carry pnl NULL and three are 'estimated'. A book where 60% of exits are plumbing reports on its own machinery as much as its edge, which is what the cycle priority says to repair BEFORE acting on the verdict. Carries an ADDENDUM (poked 12:24Z) answering the operator's alpaca_live question: 1 leg, routed 2026-08-31, ONE signal since, rejected with NO recorded reason. ⚠️ insufficient_n is a legitimate verdict and must be reported, not dodged by widening the window. No Tier-3 enacted."
     }
   ],
-  "as_of": "2026-09-08T11:58:00Z",
+  "as_of": "2026-09-08T12:27:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T11:58:00Z"
+  "updated": "2026-09-08T12:27:00Z"
 }
