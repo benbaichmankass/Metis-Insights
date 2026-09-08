@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lease heartbeat, supervision observations, a corrected _comment in SESSIONS.json, one appended backlog detail, two checklist rows. docs/claude/** only — management surface. No src/, tests/, scripts/, workflows, config or deploy; no order path."
+}

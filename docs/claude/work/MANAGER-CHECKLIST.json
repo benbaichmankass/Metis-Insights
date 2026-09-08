@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T05:14:00Z",
+  "updated_at": "2026-09-08T05:56:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2269,14 +2269,14 @@
     },
     {
       "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01AA7sxfCGwRtoed1CANsWwr",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:49:00Z",
+      "updated": "2026-09-08T05:45:00Z",
       "blocked_on": null,
       "tier": "3 — operator-approved, live venue action",
       "title": "Re-dispatch the MGC remediation against the CONFIRMED order ids 550 / 551",
-      "note": "OPERATOR CONFIRMED 2026-09-08: the approval now covers orders 550 (STP 43 @ 4394.50) and 551 (LMT 43 @ 4485.00), superseding the original approval that named 548. This is the ib_paper/MGC 43-phantom-lot position — MI-177's fleet audit re-confirmed it as the ONLY divergence across 25 compared pairs. ⚠️ RE-READ THE LIVE ORDERS BEFORE ACTING and abort if the resting ids are not 550/551: the ids already moved once, which is exactly why this was blocked. ⚠️ MI-177 also found the fleet-wide exchange_positions read intermittently returns positions:null — and the account it dropped was THIS one — so read the per-account read_state and never act on an unconfirmed read."
+      "note": "OPERATOR CONFIRMED 2026-09-08: the approval now covers orders 550 (STP 43 @ 4394.50) and 551 (LMT 43 @ 4485.00), superseding the original approval that named 548. This is the ib_paper/MGC 43-phantom-lot position — MI-177's fleet audit re-confirmed it as the ONLY divergence across 25 compared pairs. ⚠️ RE-READ THE LIVE ORDERS BEFORE ACTING and abort if the resting ids are not 550/551: the ids already moved once, which is exactly why this was blocked. ⚠️ MI-177 also found the fleet-wide exchange_positions read intermittently returns positions:null — and the account it dropped was THIS one — so read the per-account read_state and never act on an unconfirmed read. || COMPLETED BY ABORT 2026-09-08, and the abort is the RIGHT outcome. Operator ruled: stay aborted, settle attribution from IB execution records first. THE DISPATCH'S PREMISE WAS MINE AND IT WAS WRONG — I told the operator 550/551 had replaced 548, and the operator confirmed on that basis. 548 is NOT stale: it rests live as the stop leg of a SECOND, DISJOINT OCA group (oca-protect-t5353, 11 lots), beside 550/551 (oca-protect-t5531, 43 lots). Every resting leg matches its journal row to the tick on both sides, so MI-166's 'protection is FAITHFUL' holds and the 43 phantom lots are a JOURNAL QUANTITY defect upstream. Cancelling 550/551 would have stripped trade 5531's own correct protection and left a live 43-lot position naked — BL-20260820 repeated knowingly. #11328 merged."
     },
     {
       "id": "MI-182-COORDINATION-BOARD-SUCCESSOR",
@@ -2316,6 +2316,17 @@
       "note": "MEASURED 2026-09-08T05:02Z. #11312 (MI-173, operator-approved Tier-3) is green and approved and CANNOT BE LANDED BY THE MANAGER. GitHub refuses the merge (register conflict in health-review-backlog.json, both sides appended rows). The merge driver resolves it correctly — verified independently, 1287 = the exact union — but the resulting merge commit FAILS check_manager_scope R2 on docs/DOCUMENT-INDEX.md, a file the manager AUTHORED NOTHING IN: `git show --cc` lists only the backlog, because a combined diff shows what a merge actually RESOLVED, while R2 reads the FIRST-PARENT diff and so attributes everything main changed since the branch point to the manager. ⚠️ I PUSHED THE BAD COMMIT BEFORE CHECKING — the guard ran in the same command chain as the push — then force-pushed the branch back to its author's commit 525c48a7, removing my own commit and restoring the branch exactly as its author left it. Force-pushing someone else's branch is normally forbidden; this was removing MY commit from an idle session's branch, and leaving it would have made the PR permanently unmergeable, which is the harm the rule exists to prevent. ⚠️ NO manager-scope-exception WAS FILED, deliberately: that file is for a live incident, and using it for a routine register conflict is exactly the 'cheaper to lie to than to satisfy' bypass the repo already names. ⚠️ THE GUARD'S VERDICT DEPENDS ON UNRELATED TRAFFIC: the identical merge on #11315 forty minutes earlier PASSED, because main happened not to have touched a non-manager path in that window. So this will keep appearing and disappearing. FILED as BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT. MI-183 already owns the neighbouring R6/merge-slot conflict and is live; this is a THIRD guard interaction and is deliberately NOT folded into it."
     },
     {
+      "id": "MI-186-SUBSESSIONS-ARE-REACHABLE-AND-THE-REGISTRY-SAID-OTHERWISE",
+      "status": "done",
+      "owner": "manager",
+      "opened": "2026-09-08T05:45:00Z",
+      "updated": "2026-09-08T05:45:00Z",
+      "blocked_on": null,
+      "tier": "1 — supervision channel",
+      "title": "Three sessions sat blocked on answerable questions because SESSIONS.json said they were unreachable",
+      "note": "MEASURED 2026-09-08T05:41-05:43Z. MI-185, MI-183 and MI-176 had all FINISHED their work and were idle, each asking for something only the manager could give (a push go-ahead, a hook diagnosis, a commit decision). Their output lived only in ephemeral containers. ⚠️ THE REASON NOBODY ANSWERED THEM IS THAT SESSIONS.json's own _comment said 'A manager CANNOT message a sub-session ... Verified by test, not assumed', and I believed it. THE CHANNEL EXISTS: create_trigger(persistent_session_id) + fire_trigger. TWO woke and acted (MI-185 IDLE->RUNNING at the exact fire time; MI-183 RUNNING with task_summary 'Checking whether any git pre-push hook exists'). ONE DID NOT: MI-176 stayed IDLE while fire_trigger returned SUCCESS and a DIFFERENT session id — a silent failed delivery whose only signal is that returned id not matching the target. Grade every poke with get_session on the TARGET id, never by fire_trigger's own success. ⚠️ THIS WAS ALREADY KNOWN AND FILED SIX DAYS AGO as BL-20260902-AN-IDLE-CLOUD-SUB-SESSION-IS-RESUMABLE-VIA-A-SESSION-BOUND-ROUTINE-NOT-UNREACHABLE, which is still open and whose resolution_criteria explicitly ask for the manager-facing guidance to be corrected. It was not, so the row was filed and taught nothing — the exact failure the backlog discipline exists to prevent. The _comment is corrected in this change and today's two-of-three measurement is appended to that row rather than filed as a duplicate."
+    },
+    {
       "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
       "status": "in_flight",
       "owner": "session_015iukpShDdwvP5CM79Qtt3B",
@@ -2327,7 +2338,7 @@
       "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages."
     }
   ],
-  "as_of": "2026-09-08T05:14:00Z",
+  "as_of": "2026-09-08T05:56:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T05:14:00Z"
+  "updated": "2026-09-08T05:56:00Z"
 }
