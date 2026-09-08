@@ -135,6 +135,45 @@ port_measurement_2026_09_08: >-
   the note is corrected here rather than reasoned from.
   A session planning off the old note would have ported the wrong set.
 
+port_observed_2026_09_08: >-
+  §5 IS RENDERING ON MAIN — OBSERVED, not inferred from the merge. PR #11369
+  merged 11:09:03Z as 0e03be9d; read back from `origin/main` (not from a local
+  build): docs/claude/READOUT.md carries "## 5 · Everything else that is due"
+  with all nine sources, and docs/claude/CONSTRAINT.json carries the `due` block
+  reading read_state `read` / completeness `partial` / due_count 79 /
+  unreadable_sources [red_crons, unlanded_automation]. The two GitHub-backed
+  sources correctly grade `could_not_read` and render `—` rather than `0`.
+  This satisfies the operator's "demonstrate them rendering" condition and
+  UNBLOCKS the second half (retirement). It does NOT clear this object's first
+  blocked_on edge: §1 still grades `insufficient_basis` at 49/682 = 7.2% and
+  still names no stage, which is correct — the port added rows, not basis.
+
+third_surface_2026_09_08: >-
+  ⚠️ THE DECISION'S PREMISE UNDERCOUNTED THE SURFACES, AND THE RETIREMENT MUST
+  NOT BE PLANNED FROM IT. The operator's framing was "a session had to read TWO
+  surfaces" (DUE.md and READOUT.md). Measured on origin/main after the port
+  there are THREE renderers over ONE collector, and the third predates this
+  work: `scripts/ops/render_daily_brief.py:150` does
+  `from scripts.ops import render_due_list as _due` and line 519 calls
+  `_due.build(_due.collect(root, now.date(), token=due_token))` under the
+  comment "what is DUE — imported wholesale from render_due_list". So the
+  daily brief has been rendering the same due rows all along.
+  WHY THIS MATTERS FOR THE RETIREMENT: `render_due_list.py` CANNOT be deleted.
+  Its nine `src_*` functions are a LIBRARY with two live importers
+  (render_daily_brief and constraint_readout §5); only the DUE.md/DUE.json
+  RENDERING half, its carrier `.github/workflows/due-list.yml`, its
+  `due-list-guard` registration, and the `duty` skill's pointer are retirable.
+  Blast radius measured with a positive control (`READOUT.md` finds 5 files):
+  14 live consumers name DUE.md/DUE.json/render_due_list, among them
+  `.claude/skills/duty/SKILL.md` (whose entire premise is reading DUE.md) and
+  `docs/CLAUDE-RULES-CANONICAL.md` (the level-1 doc). A retirement PR that
+  deletes the file breaks the daily brief; one that repoints only the skill
+  leaves the guard and the carrier behind.
+  ⚠️ WHAT I DID NOT ESTABLISH: no workflow under .github/workflows/ references
+  `render_daily_brief` at all, so I could not determine what CARRIES the daily
+  brief, or whether it currently runs. That is a separate question from this
+  object and is deliberately not answered here.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
   - scripts/ops/constraint_readout.py
