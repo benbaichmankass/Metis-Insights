@@ -1,0 +1,3 @@
+MI-200 — real-money close attribution (WO-20260908-REAL-MONEY-IS-0-FOR-13-AND).
+Tier-1: measurement + docs + backlog. Arms claude-pr-automerge; GitHub still
+merges only on green required checks.
