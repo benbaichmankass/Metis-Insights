@@ -1,0 +1,182 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-09-08T11:20:00+00:00 · window 2026-08-29T16:30:00+00:00 → 2026-09-08T11:20:00+00:00</p>
+<p><span class="grade">Roll-up: 🔴 investigate</span></p>
+<p>Real money is on a 16-close losing streak with zero wins since 2026-08-28, -$43.37 in the journal and -$38.15 on venue truth — and the losses are spread across five legs, so this is the book, not a leg. The single most actionable defect is elsewhere: ib_paper/MGC&#x27;s journal holds 43 lots the broker does not, with a live 43-lot stop resting against the phantom, and the root cause is that the netting-attribution reconciler was only ever built for Bybit while IB nets identically. The measurement news is genuinely good: MI-144&#x27;s R-contamination fix is live and removed 82% of the published R from a losing 30d window (expectancyR +0.9818 -&gt; +0.1772 on the same 39 trades), and the 7-day real-money population is CLEAN (zero contaminated rows), so the losing streak can be acted on. The 30d window still cannot: 12 of 39 rows remain contaminated and it still publishes a POSITIVE expectancyR on a losing book. Two instruments are themselves broken and both are now filed — shadow drift is unmeasurable by arithmetic (so no drift-driven demote can fire), and the backlog burn-down under-counts opened rows by ~2.5x.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>—</b> <span class="pill">— · T2</span> ⚠️ operator<br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T3</span> ⚠️ operator<br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T1</span> ⚠️ operator<br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T1</span><br><span class='muted'>—</span></li>
+<li><b>—</b> <span class="pill">— · T2</span> ⚠️ operator<br><span class='muted'>—</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">720 open / 1312 total · 37 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">44 open / 114 total · 5 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">25 open / 109 total · 2 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>health</span> Extend netting-attribution to interactive_brokers (or give IB an equivalent). Copy the Bybit design — leg-id first, FIFO residual, live-leg-picked-last, three-state provenance ladder — and stage it annotate-first. — WHY: ib_paper/MGC is a live 43-lot journal-vs-venue divergence with a stop resting on the phantom; nothing detects this class on IB today.</li>
+<li><span class='pill'>ml</span> Enrol the four exit-head artifacts in the model registry so the candidate-&gt;shadow-&gt;advisory ladder, stage-guard and gate-check cover them. — WHY: exit-head-donchian-1h-v1 is advisory and can close a live trade while being invisible to every governance mechanism. Blocked in practice until the drift reader is fixed.</li>
+<li><span class='pill'>performance</span> Decide the real-money roster question raised by the 16-close losing streak — reduce, pause, or continue. — WHY: The 7d population is clean so the streak is real; but n=10 is small and I am not proposing a demote off it.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>THE TRANSLATION GAP: the paper headline (+$219,384 over 544 trades) is 88% unmeasured — pnlCoverage 0.1213 — so no PnL conclusion may be drawn from it. The honest paper mirror, paperPortfolio, is NEGATIVE: n=51, PF 0.8934, -$2,581.20 at coverage 0.3137. Real money is the only book whose PnL is majority-measured (0.6667 at 30d). Paper green / mirror red / real red is the gap, and the mirror is the one to believe.</li>
+<li>MEASUREMENT REPAIR IS WORKING AND IS INCOMPLETE, WHICH IS THE CYCLE PRIORITY EXACTLY. MI-144&#x27;s r_multiple_provenanced re-bases every row onto declared initial risk: the same 30d window (n=39, totalPnl -3.6266, PF 0.9507 — identical population) moved totalR +38.2891 -&gt; +6.9118 and expectancyR +0.9818 -&gt; +0.1772. But rBasis.refusedWrongSide is 0, so nothing was refused — the change is re-basing, not exclusion — and rProvenance still reads 12 contaminated / 20 unverified / 7 confirmedInitial. Only 7 of 39 rows have a CONFIRMED basis while rCoverage publishes 1.0. Read rProvenance beside rCoverage or the 30d expectancyR reads as trustworthy when it is not.</li>
+<li>A guard that cannot state its own denominator is not evidence of absence. Two instances this run: check_unwired_artifacts.py globs *.py so shell tools cannot appear in any bucket, and grade-closed-trades&#x27; `truncated: false` is a true claim about the action read as a claim about what the caller received. Both are the UNPROVENANCED DIAGNOSTIC OUTPUT class CLAUDE.md already names.</li>
+<li>THE DECISION-EXIT IMPROVEMENT IS A COMPOSITION EFFECT, NOT A REPAIR — see structural_health. The headline decision-driven exit share rose 22.6% (July) -&gt; 61.3% (September), but ex-pairs it rose only 27.7% -&gt; 47.0%, still well below May&#x27;s 70.4%. A new high-frequency sleeve that closes via its own logic diluted a janitor-heavy legacy book. Do not read the headline as evidence the exit-refinement program fixed the legacy legs.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>F-H1 · ib_paper/MGC holds 43 journal lots the broker does not, with a live 43-lot stop on the phantom</td><td class="sev-concern">🔴 concern</td><td>Journal net 54 vs venue 11. Trade 5531 (43 lots, ict_scalp_mgc_15m, open since 2026-09-07T08:26:33Z) has no venue backing, and PROTECTION_REASSERT re-armed a 43-lot bracket against it at 11:55:19Z. If that stop fires it sells 43 contracts the account does not hold. Root cause verified: _reconcile_netting_partial_closes selects exchange==&#x27;bybit&#x27; only; IB nets identically with no equivalent. Filed BL-20260908-IB-PAPER-MGC-...; Tier-2/3, PROPOSED not enacted.</td></tr>
+<tr><td>F-H2 · Journal-vs-venue reconciliation is otherwise EXACT</td><td class="sev-ok">🟢 ok</td><td>26 of 27 comparable (account,symbol) pairs match the venue to the unit across bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio. This is the positive control that makes F-H1 trustworthy rather than a parsing artifact. 3 accounts (ib_live, oanda_practice, breakout_1) could not be read and are the declared exclusions.</td></tr>
+<tr><td>F-H3 · Services and deploy</td><td class="sev-ok">🟢 ok</td><td>40 units; all 6 expected services active. Every timer active except ict-ib-gateway-watchdog.timer, which is CORRECT on the trader host (it is auto-enabled only where /etc/ict-vm-role==gateway). restart_pending flipped false-&gt;true between two reads as main advanced under an active merge day — normal churn, not a stuck deploy.</td></tr>
+<tr><td>F-H4 · The alpaca GLD close wedge is standing at day 6</td><td class="sev-concern">🔴 concern</td><td>alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, order 2e843e04 stuck pending_cancel since 2026-09-03T13:35:04Z, last seen 2026-09-08T08:03:06Z, pages_suppressed 56. No bot-side lever can clear a broker-side pending_cancel — by design the classifier says so. Needs operator/venue action.</td></tr>
+<tr><td>F-H5 · The backlog burn-down instrument under-counts opened rows</td><td class="sev-concern">🔴 concern</td><td>backlog_burndown() reads only `opened_at`; 287 rows carry `opened`/`date` and 70 carry no creation key. Corrected September is 232 opened / 15 closed, not 91/15; cumulative open 788, not 456. Filed with the two-line fix.</td></tr>
+<tr><td>F-H6 · Two CLAUDE.md claims were stale in the dangerous direction</td><td class="sev-watch">🟡 watch</td><td>PROTECTION_REASSERT_MODE was documented as &#x27;still UNEXERCISED&#x27; and PROTECTION_STRAY_GROUP_MODE as &#x27;cancels NOTHING&#x27;, while both soaks show mode=apply/allowlisted with real cancels. A session reading CLAUDE.md would have believed two order-path gates were inert. Corrected in this PR with the measurements.</td></tr>
+<tr><td>F-H7 · Security sweep is PARTIAL, not clean</td><td class="sev-watch">🟡 watch</td><td>The 152-row ERROR+ feed (2026-08-25 to 2026-09-08, under the 1000 cap so a real denominator) shows no intrusion signal — all hits are operational (over-cover 68, naked 92+, target-naked 23). But the auth-denial log sweep and the secret-literal scan of changed files were NOT repeated this run. Recorded as not-done rather than implied clean.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$1.46 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">—</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">— full dossiers, — summarized (—).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Real money, 30d: -$13.53 over 23 closes, winRate 39.1%. Carried 13 of the 16 losing-streak closes&#x27; largest single loss (-$5.51). OHLC NOT PULLED this run — recorded as not-done, never as 0.</td></tr>
+<tr><td>XRPUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Real money, 30d: -$8.91, winRate 20.0% — the weakest real-money symbol by win rate. OHLC not pulled this run.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Real money, 30d: +$18.82, winRate 45.5% — the only real-money symbol positive over 30d. OHLC not pulled this run.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>—</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>Gates real-money BTC routing. Investigate loudly; do NOT demote off the proxy window.</td></tr>
+<tr><td>—</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>Observer with no authored SOL trend_vol cell — zero live-order impact by design.</td></tr>
+<tr><td>—</td><td>advisory</td><td>—</td><td>—</td><td>—</td><td>n_eval instability worth a look.</td></tr>
+<tr><td>—</td><td>advisory (UNREGISTERED)</td><td>—</td><td>—</td><td>—</td><td>⚠️ Can CLOSE a live trade and has no registry row. The true live-influencing count is 4, not 3.</td></tr>
+<tr><td>—</td><td>shadow</td><td>—</td><td>—</td><td>—</td><td>31 of 34 emitting models accruing normally. mes-regime-15m-lgbm-v2 has read gate-ready for 49 days and is parked.</td></tr>
+<tr><td>—</td><td>candidate</td><td>—</td><td>—</td><td>—</td><td>25 of the 27 registry rows stale &gt;7d are in this tier — retired experiment runs, correctly not trained.</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>NO-PROMOTION <b>&lt;fleet&gt;</b> shadow→shadow: The shadow→advisory gate includes a drift bound and drift is `insufficient_data` for every model by arithmetic. Recommending a promotion off a gate whose input cannot be computed would be the contaminated-instrument failure the cycle priority names. Fix the drift reader (a glob in shadow.py::_log_path) first, then decide.</li>
+<li>DECISION-OWED <b>mes-regime-15m-lgbm-v2</b> shadow→advisory (or a recorded decline): Gate-ready and parked since 2026-07-21 — 49 days — per MB-20260721-MES-15M-HEAD-PARKED, still emitting (462 predictions, retrained 2026-09-08). A gate met and never actioned across many reviews is the anti-normalization case. ⚠️ It cannot be honestly graded TODAY because drift is half its gate; the operator should either take the decision after the drift fix or record a decision NOT to.</li>
+<li>NO-DEMOTE <b>btc-regime-15m-lgbm-fc-pcv-v2</b> advisory→advisory: PSI 0.685 (~2.7x the 0.25 bar) on the head gating real-money BTC routing — but measured at a NON-STANDARD 4d/2d proxy window, which may reflect regime change rather than capability loss. Enough to investigate loudly; not enough to demote a real-money head. Correct sequence: repair the drift reader, re-measure at the configured window, then decide.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>NO PROMOTION AND NO DEMOTION PROPOSED OFF PERFORMANCE THIS RUN — and the reason is the cycle priority, not caution for its own sake. REAL MONEY IS TWO ACCOUNTS AND ONLY ONE TRADES. bybit_2 (mode live, real_money, 6 legs) is the whole real-money book; alpaca_live (mode live, real_money, 1 leg: tlt_pullback_1h) has placed nothing — it signalled twice since being routed on 2026-09-01 and both were SHORTS, correctly suppressed by side_filter:long. ib_live is mode dry_run with zero strategies. WHY NO DEMOTE OFF expectancyR: the 30d real-money window publishes expectancyR +0.1772 on a book that LOST money (totalPnl -3.6266, PF 0.9507), with rProvenance 12 contaminated / 20 unverified / 7 confirmedInitial. A promote or demote computed off that number would be a verdict from a contaminated instrument. The 7d window IS clean (0 contaminated, 2 confirmedInitial / 8 unverified, rCoverage 1.0) and reads expectancyR -0.9679 over 10 trades — real, actionable, and too small a sample to retire a leg on. PER-LEG, bybit_2, newest 400 rows of the trades table (379 with non-null pnl, 2026-05-10 to 2026-09-04): vwap n=250 net -$52.49 (already enabled:false, historical, dominates the account&#x27;s lifetime loss); ict_scalp_5m n=37 net -$12.65 at the HIGHEST win rate on the account (54.1%) — wins often, loses bigger, and was demoted off bybit_2 by operator Tier-3 decision on 2026-09-06; eth_pullback_2h n=14 -$15.24; xrp_pullback_2h n=10 -$12.50; ada_pullback_2h n=6 -$12.25; trend_donchian_xrp_4h n=5 -$7.09. POSITIVE: trend_donchian_eth_4h n=9 +$28.65, trend_donchian n=13 +$18.57, htf_pullback_trend_2h n=8 +$11.41. Excluding the disabled vwap the account is roughly flat (-$3.71 over 129 trades). THE DECISION I AM PUTTING TO THE OPERATOR is the roster question in operator_priorities[2], not a per-leg verdict.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">9</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">250</div></div>
+</div>
+<p class='muted'>17 cycle_end rows, ALL overall_rc=0, failed=0. 9 cycles trained (68-69 manifests each); 8 were same-day second runs returning trained:0 / already_done:76 — resumption no-ops, not failures. Daily cadence held every day except 2026-09-03, which had a single cycle at 06:09Z, ~5h late. Manifest statuses: manifest_ok 617, manifest_untrained_stale 102, manifest_audit_skipped_enforced 37, manifest_dataset_empty 27, manifest_skipped 27, zero failures. manifest_quarantine_tripped / manifest_quarantined: ZERO occurrences over those 1000 rows, so no Rule-3 shrink/GPU/drop disposition is owed. The probe was validated rather than trusted — the emitter strings exist in run_training_cycle.sh and write to the same `status` field that successfully enumerated 18 other statuses. Dataset builds: 0 failed (500-row population, 09-06 to 09-08: ok 250, build_end 5 all rc=0, skipped 5, all the deliberate MES setup_labels clobber-guard). Trainer timer enabled+active, last trigger 2026-09-08T00:23:33Z, mirror age 56s. WATCH: trainer disk 86.1% used, 6.71 GB free.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>Shadow model fleet (34 emitting)</td><td>accruing</td><td>31 of 34 accruing normally (last_seen 0.1–4.8h). Counts are window-limited by the 7-day log rotation, NOT lifetime.</td></tr>
+<tr><td>exit-head-donchian-1h-v1 / -peak-1h-v1</td><td>correctly-not-scoring</td><td>52 records each, last_seen 48.7h. CHECKED BEFORE FILING: /api/bot/positions shows 2 open positions, both *_pullback_2h on bybit_2, and ZERO open donchian positions. The head scores per closed bar per open donchian position, so silence is correct — not a stall.</td></tr>
+<tr><td>mes-regime-15m-lgbm-v2</td><td>MET-AND-UNACTIONED</td><td>⚠️ Gate-ready and parked since 2026-07-21 — 49 days (MB-20260721-MES-15M-HEAD-PARKED). Still emitting 462 predictions, retrained 2026-09-08. Escalated to operator_priorities. Cannot be honestly graded until the drift reader is fixed, since drift is half its gate.</td></tr>
+<tr><td>mes-setup-quality-baseline-v0 / mes-trade-outcome-winrate-baseline-v0</td><td>degenerate</td><td>0 predictions; retrained 2026-09-08 on n_eval = 5. Five evaluation rows is not a model. Repower the label source or retire to candidate.</td></tr>
+<tr><td>setup-quality-lgbm-v2</td><td>stalled</td><td>44.2 days since last train, manifest listed in refusing_manifests_24h, 3045 live predictions, PSI 1.317 at the proxy window. Stale model against a shifted distribution.</td></tr>
+<tr><td>ALL drift-dependent soak verdicts</td><td>UNGRADEABLE</td><td>⚠️ reference_count is 0 by arithmetic for every model, so no shadow→advisory gate can be honestly evaluated and no drift-driven demote can fire. This blocks the soak assessment as a class, not one model.</td></tr>
+<tr><td>BYBIT_GRADED_COVERAGE (operator hold)</td><td>accruing, hold intact</td><td>400-row tail: mode=annotate ×400, verdicts_differ=False ×400 — arming would have changed nothing over this population. The 2026-09-02 operator hold is correct and intact.</td></tr>
+<tr><td>ALPACA_CASH_SETTLEMENT on alpaca_live</td><td>EMPTY</td><td>⚠️ Armed `apply` on a real-money account and the whole 27-row soak file contains ZERO alpaca_live rows. Cause established: the account has never placed an order (both post-routing signals were shorts, suppressed by side_filter:long), so the gate has never been consulted. Not scoped out — 22 of 27 rows are not_allowlisted, proving non-allowlisted accounts are measured.</td></tr>
+</table></div>
+<h3>Execution capture <span class='muted'>— did the edge reach the account?</span></h3>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Book</th><th>n</th><th>Round-trip %</th><th>Giveback R</th><th>Hold h (act/exp)</th><th>Bars held med / <b>p90</b> / exp</th><th>p90 &times;</th><th>State</th></tr>
+<tr><td>spy_pullback_1h</td><td>paper</td><td>4</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🔴 anomaly</td></tr>
+<tr><td>ada_pullback_2h</td><td>paper</td><td>3</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🔴 anomaly</td></tr>
+<tr><td>trend_donchian_eth_4h</td><td>paper</td><td>5</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🔴 anomaly</td></tr>
+<tr><td>qqq_pullback_1h</td><td>paper</td><td>4</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🔴 anomaly</td></tr>
+<tr><td>trend_donchian_avax_4h</td><td>paper</td><td>6</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🟡 degraded</td></tr>
+<tr><td>xrp_pullback_2h</td><td>paper</td><td>4</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🟡 degraded</td></tr>
+<tr><td>trend_donchian_sol_4h</td><td>paper</td><td>7</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🟡 degraded</td></tr>
+<tr><td>trend_donchian_ada_4h</td><td>paper</td><td>5</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🟢 ok</td></tr>
+<tr><td>uso_trend_1h</td><td>paper</td><td>4</td><td>—</td><td>—</td><td>— / —</td><td>— / <b>—</b> / —</td><td>—</td><td>🟢 ok</td></tr>
+</table></div>
+<p class='pri'>🔴 <b>ict_scalp_mgc_15m|paper</b>: held 10-100x design horizon <span class='muted'>(open 5 review(s), since 2026-08-21, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE</span></p>
+<p class='pri'>🔴 <b>ict_scalp_5m|paper</b>: held 10-100x design horizon <span class='muted'>(open 5 review(s), since 2026-08-21, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE</span></p>
+<p class='pri'>🔴 <b>qqq_pullback_1h|paper</b>: median hold multiples of its budget <span class='muted'>(open 3 review(s), since 2026-08-25, BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON) ⚠️ ESCALATE</span></p>
+<p class='pri'>🔴 <b>&lt;fleet&gt;|all</b>: only 14.5% of closes exit via a declared bracket <span class='muted'>(open 5 review(s), since 2026-08-21, BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT) ⚠️ ESCALATE</span></p>
+<p class='pri'>🔴 <b>pairs_*|paper</b>: leg stranded on open, cleaned by a janitor path <span class='muted'>(open 3 review(s), since 2026-08-21, BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN) ⚠️ ESCALATE</span></p>
+<p class='muted'>Capture = (peak_r − giveback_r)/peak_r over 73 ever-positive closed telemetry rows. Median −0.1508 (prior +0.345); 39/73 (53.4%) gave back ≥95% of peak, prior 17/45 (37.8%); 12/73 kept ≥95%. EVERY ratio is an UPPER BOUND (peak_r_is_lower_bound true on 74/74). The mean (−2.1594) is outlier-destroyed and must not be quoted. roundtrippers_pct / mean_giveback_r / hold-bars columns are null because m20_exit_analysis.py was NOT dispatched to the trainer this run — recorded as not-measured, never as 0. Declared-arm reachability: 48 of 59 read `unreachable`. · dollars reconciled: True</p>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 CRITICAL-CLASS / ib_paper MGC: the journal holds 54 MGC lots across two open rows while the broker holds 11. Trade 5531 (43 lots, ict_scalp_mgc_15m) is a PHANTOM OPEN ROW and a live 43-lot protective STOP rests against it — if that stop fires it SELLS 43 contracts the account does not hold, opening a naked short. 26 of 27 (account,symbol) pairs reconcile exactly, so this is one divergence and not a measurement artifact. ib_paper is PAPER, so no real money is at risk in this instance; the code path is account-agnostic. Root cause verified: the netting-attribution reconciler selects exchange==&#x27;bybit&#x27; only and IB nets identically. BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM</li><li>🚩 REAL MONEY IS ON A 16-CLOSE LOSING STREAK. bybit_2 — the only real-money account actually trading — has had ZERO winning closes since 2026-08-28T16:24:21Z: 16 closed rows, sum -$43.37, spread across FIVE legs (ict_scalp_5m 7/-18.95, xrp_pullback_2h 3/-9.90, trend_donchian_xrp_4h 1/-4.82, trend_donchian_eth_4h 2/-2.30, eth_pullback_2h 4/-1.09). This is the whole book losing, not one leg misbehaving. 7d journal: 10 trades, 0 wins, PF 0.0, expectancyR -0.9679. Venue truth agrees: -$38.15 realized over 32 fills.</li><li>🚩 PROP ACCOUNT IS $87.34 FROM ITS PERMANENT-KILL FLOOR ON AN 8.6-DAY-STALE SNAPSHOT — FOURTH CONSECUTIVE REVIEW. breakout_1 balance 4787.34 against a static_dd_floor_usd of 4700.00; status_freshness reads `stale` at status_age_hours 206.95 (last report 2026-08-30T19:33Z), and day_pnl_state is `realized_unreported` so distance_to_daily_loss_usd is null — the daily-loss half is UNMEASURED, not zero. The prior report carried this at $55.00 on its THIRD review. OPERATOR ACTION: a fresh `bal &lt;balance&gt; &lt;equity&gt;` is the whole fix.</li><li>🚩 SHADOW DRIFT IS STRUCTURALLY UNMEASURABLE FLEET-WIDE, so no drift-driven demote can ever fire. The shadow log rotates at 7 days while /api/bot/shadow/drift&#x27;s default reference window starts 37 days back, and the reader never opens the archives — reference_count is 0 BY ARITHMETIC for every model (6/6 probed). Positive control at a 4d/2d window returns real verdicts, and it surfaces PSI 0.685 on btc-regime-15m-lgbm-fc-pcv-v2, the ADVISORY head that gates real-money BTC routing (~2.7x the 0.25 bar). CAVEAT STATED: 4d/2d is short and non-standard and may reflect regime change, not capability loss — it is NOT grounds for a demote, it is grounds for a measurement that is currently impossible. BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW</li><li>🚩 AN ORDER-INFLUENCING MODEL IS OUTSIDE THE REGISTRY. exit-head-donchian-1h-v1 is stage `advisory` and exit_head_apply returns {&#x27;action&#x27;:&#x27;close&#x27;} for advisory heads on three live legs — yet it and three sibling exit heads appear in NONE of the 96 registry rows, so stage-guard, gate-check and every registry census are blind to it. The true live-influencing count is 4, not 3. The exit_head path IS firing (4 real-money closes in the 30d window). BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE</li><li>🚩 THE BACKLOG BURN-DOWN INSTRUMENT IS ITSELF WRONG — the cycle priority, in the backlog domain. backlog_burndown() counts a row as opened only if it carries `opened_at`; 287 rows carry `opened`/`date` and 70 carry no creation key at all. Corrected September: 232 opened / 15 closed (a ~15:1 file-to-close ratio), not the 91/15 the shipped function reports; cumulative open is 788, not 456. A review can believe it is holding the line while the pile grows ~2.5x faster than the number says. BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT-SO-THE-NUMBER-EVERY-REVIEW-STEERS-BY-IS-UNDERSTATED</li><li>🚩 UNWIRED CAPABILITY SHIPPED THIS WINDOW: scripts/ops/llm_capacity_benchmark.sh (added 2026-08-31) has zero references outside docs/ and carries no `# wiring: manual-only` marker. It is invisible to check_unwired_artifacts.py, which globs *.py only — so shell tools are outside that guard&#x27;s denominator entirely and its clean report is a SCOPE result, not a COVERAGE result. BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED</li><li>🚩 RESEARCH IS LANDING AND NOT BEING READ — verdict `landed_but_unread`, and UNCHANGED IN 8 DAYS. 103 dispositioned / 11 unread / 256 superseded_unread, byte-identical to the 2026-08-31 measurement: nothing has landed in a registered corpus and nothing has been dispositioned since. Separately, 29 research artifacts landed under docs/research/ since 2026-09-01 in NO registered corpus, so this key&#x27;s own denominator understates what is unread.</li><li>🚩 EXECUTION CAPTURE HAS DETERIORATED. Median capture fell from +0.345 (prior review) to -0.151, and the share of ever-positive closed trades giving back &gt;=95% of their peak rose from 17/45 (37.8%) to 39/73 (53.4%). Every ratio is an UPPER BOUND — peak_r_is_lower_bound is true on 74/74 rows — so true capture is worse. Of the rows carrying a declared take-profit arm, 48 of 59 (81.4%) read `unreachable`.</li><li>🚩 FIVE EXECUTION-CAPTURE ANOMALIES ARE OPEN &gt;=2 REVIEWS and are escalated here rather than carried: ict_scalp_mgc_15m|paper (5 reviews), ict_scalp_5m|paper (5), &lt;fleet&gt;|all declared-bracket exit rate (5), qqq_pullback_1h|paper (3), pairs_*|paper (3).</li><li>🚩 THE ALPACA GLD CLOSE WEDGE IS STANDING AT DAY 6 AND NEEDS OPERATOR/VENUE ACTION. alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, order 2e843e04-5487-470c-a702-70e796fbd05e stuck `pending_cancel`; first_seen 2026-09-03T13:35:04Z, last_seen 2026-09-08T08:03:06Z, pages_suppressed 56. No bot-side lever can clear it — by design, the classifier says so explicitly.</li><li>🚩 unexercised: ALPACA_CASH_SETTLEMENT_MODE is armed `apply` on alpaca_live (real money) and its soak contains ZERO alpaca_live rows across the whole 27-row file — so the evidence base for the arming decision is empty. Cause established rather than assumed: alpaca_live has signalled twice since being routed (2026-09-01, 2026-09-03) and BOTH were shorts, correctly suppressed by side_filter:long, so the account has never placed a real-money order and the gate has never been consulted. Not a defect — but the gate is armed and unmeasurable.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP</code></td><td>health</td><td>🧱 awaiting-data</td><td>Clause (2) DEPLOYED is now satisfied and I verified it: live /api/bot/config shows bybit_2 with 6 strategies and ict_scalp_5m absent, bybit_portfolio likewise (the ROSTER-SYNC mirror), and only bybit_1 still carries it. Clause (3) OBSERVED CANNOT be satisfied yet, for exactly the reason the row&#x27;s own criterion warns about: the leg&#x27;s newest trade on ANY account is 2026-09-04T08:37Z, so the positive control (the leg live and producing on bybit_1 over the same window) is absent. The leg is alive, not dead — 7 ict_scalp_eval rows in a 13-minute sample, all &#x27;no liquidity sweep in last 12 bars&#x27;. Silence on bybit_2 while the leg signals nowhere proves nothing.</td><td>a window in which ict_scalp_5m produces &gt;=1 order package on bybit_1; then report the bybit_2 count as zero against that positive control</td></tr>
+<tr><td><code>OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Clause (2) IS satisfied — close_wedge_standing.wedges is non-empty carrying share_hold=broker_cancel_wedged with the order named, which that row states IS the clause-(2) observation. Clause (3) is not: the wedge is unresolved at day 6 and needs operator/venue action.</td><td>order 2e843e04 gone and the position flat or legitimately closed, WITH the resolution attributed</td></tr>
+<tr><td><code>BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Filed this run. Needs an operator decision on trade 5531 before any structural work.</td><td>operator disposition on 5531</td></tr>
+</table></div>
+<footer>report_id RPT-20260908-112000-since-last · reviewer claude · prior RPT-20260829-163000-since-last · ICT Trading Bot system-report</footer></div></body></html>

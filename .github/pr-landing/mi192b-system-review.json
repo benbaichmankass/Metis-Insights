@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs, review backlogs, comms/reports artifacts, the grading JSONL and CLAUDE.md prose only. No src/, config/, deploy/, scripts/ or .github/workflows/ change; no runtime, order path, risk cap or strategy parameter is touched. The Tier-3 items this review surfaced (the IB netting-attribution gap, the exit-head registry enrolment, the ict_scalp_5m demote observation) are PROPOSED to the operator in the report and are deliberately not enacted here."
+}
