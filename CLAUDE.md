@@ -107,7 +107,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 
 - **No stage is named — verdict `insufficient_basis`.** Only 49 of 682 objects (7.2%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **633 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
 - ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (576 of 682; only 105 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
-- **4 in flight** against a ceiling of 8 · 15 waiting · 0 stopped moving (≥14d, declared dates only).
+- **4 in flight** against a ceiling of 8 · 14 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
 - **79 other row(s) due** across the structured registers (§5, completeness `partial`). ⚠️ **LOWER BOUND** — `red_crons`, `unlanded_automation` could not be read, and *could not read* is not *nothing due*.
 

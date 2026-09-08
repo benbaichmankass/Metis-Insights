@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-08T09:59:00+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-08T10:10:51+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -14,7 +14,7 @@ _Generated 2026-09-08T09:59:00+00:00 by `scripts/ops/constraint_readout.py` · c
 |---|---|---|---|
 | 682 objects | 49 | **7.2%** | 50.0% |
 
-**Edge basis, never collapsed** — `blocked` 19 · `declared_none` 30 · **`unstated` 633** · `malformed` 0.
+**Edge basis, never collapsed** — `blocked` 18 · `declared_none` 31 · **`unstated` 633** · `malformed` 0.
 
 ⚠️ `unstated` is an empty `blocked_on` whose basis says `NOT_ASSESSED` (or which carries no basis at all). It is **nobody having looked**, not a claim that nothing blocks the object. Reading the second as the first is how a false *ready* appears.
 
@@ -24,13 +24,10 @@ Objects by stage: `QUESTION` 16 · `EVIDENCE` 90 · `DECISION` 9 · `DEPLOYMENT`
 
 Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, INTEGRITY 498 · `per_object` → (unstated) 1, CAPABILITY 21, DECISION 9, DEPLOYMENT 24, EVIDENCE 12, INTEGRITY 16, OBSERVATION 6, QUESTION 16 · `unstated` → (unstated) 1
 
-**The assessed subgraph — every object that declares an edge (19 of 682):**
+**The assessed subgraph — every object that declares an edge (18 of 682):**
 
 - **`WO-20260901-PHASE-A`** (CAPABILITY · waiting) — Phase A — survival — the plan carries itself forward
   - `external_event` → `a COLD session reporting on this work, citing the CLAUDE.md brief` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
-- **`WO-20260901-PHASE-B`** (CAPABILITY · waiting) — Phase B — visibility — the read-only work view and the daily digest
-  - `external_event` → `the work view rendered from the deployed SPA, by someone who is not this session` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
-  - `external_event` → `the daily digest firing once on a real cadence` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
 - **`WO-20260901-PHASE-C`** (CAPABILITY · waiting) — Phase C — migration, the WIP ceiling, and the priority that reaches a session
   - `external_event` → `a cold session stating this cycle's priority and citing the CLAUDE.md brief as where it read it` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
 - **`WO-20260901-PHASE-D`** (CAPABILITY · waiting) — Phase D — the constraint, computed rather than judged
@@ -39,7 +36,7 @@ Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, IN
 - **`WO-20260901-PHASE-G`** (CAPABILITY · ready) — Phase G — the forcing function — retirement, and the E2 pull rule
   - `external_event` → `assessed `blocked_on` coverage crossing the readout's declared 50% floor, so E1 can NAME a held-up stage instead of refusing` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
 - **`WO-20260901-PHASE-H`** (CAPABILITY · ready) — Phase H — the control half — decisions from the UI, and the read gate
-  - `object` → `WO-20260901-PHASE-B` → `waiting` · ref `resolved` · hold **`holding`** · since 2026-09-01
+  - `object` → `WO-20260901-PHASE-B` → `done` · ref `resolved` · hold **`stale`** · since 2026-09-01
   - `object` → `BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED` → `dormant` · ref `resolved` · hold **`holding`** · since 2026-09-01
   - `object` → `BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN` → `dormant` · ref `resolved` · hold **`holding`** · since 2026-09-01
   - `operator_decision` → `DEC-20260901-READ-GATE-SEQUENCING` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-01
@@ -76,8 +73,7 @@ Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 78, IN
 - **`WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED`** (DEPLOYMENT · waiting) — Re-arm protection for the 56 naked shares on trade 5414 (alpaca_portfolio/TLT)
   - `capability` → `BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE` · ref `not_in_store_by_design` · hold **`unverifiable_outside_store`** · since 2026-09-08
 
-⚠️ **2 of the live `object` holds point at a target whose lifecycle is `waiting`, and that is the weakest hold the graph can express.** `waiting` covers two opposite facts — *not delivered yet* and *delivered, awaiting an observation* — and a dependent needs the capability, not the observation. The store cannot tell them apart, so this is published as a caveat rather than resolved into a state nobody measured. Check the target before treating one of these as a real blocker:
-  - `WO-20260901-PHASE-H` → `WO-20260901-PHASE-B`
+⚠️ **1 of the live `object` holds point at a target whose lifecycle is `waiting`, and that is the weakest hold the graph can express.** `waiting` covers two opposite facts — *not delivered yet* and *delivered, awaiting an observation* — and a dependent needs the capability, not the observation. The store cannot tell them apart, so this is published as a caveat rather than resolved into a state nobody measured. Check the target before treating one of these as a real blocker:
   - `WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG` → `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED`
 
 ## 2 · The book and the money
@@ -100,13 +96,13 @@ Provenance split — measured 26 · estimated 13 · fabricated 0 · unverified 0
 
 ## 3 · In flight against the ceiling, and what has stopped moving
 
-**4 in flight against a ceiling of 8** (headroom 4) · 15 waiting.
+**4 in flight against a ceiling of 8** (headroom 4) · 14 waiting.
 
 Ceiling source: scripts/ci/check_wip_ceiling.py::CEILING (imported, not restated). `waiting` is deliberately free of the ceiling — a thing blocked on an operator decision is not consuming the attention the ceiling rations.
 
 In flight: `WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH` · `WO-20260906-ML-2-THE-PREDICTIVE-BRACKET` · `WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED` · `WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500`
 
-Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-B` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D` · `WO-20260902-DECISION-REVIEW-PACKET-POPULATION` · `WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB` · `WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT` · `WO-20260903-SUNSET-DISPOSITIONS-OWED` · `WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK` · `WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT` · `WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE` · `WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD` · `WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS` · `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED` · `WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED`
+Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D` · `WO-20260902-DECISION-REVIEW-PACKET-POPULATION` · `WO-20260902-EVIDENCE-TRADE-PRIORITISATION-AB` · `WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT` · `WO-20260903-SUNSET-DISPOSITIONS-OWED` · `WO-20260903-THE-REFUSAL-HALF-OF-MANAGER-CONTROL-BLOCK` · `WO-20260904-MANAGER-IDLE-IS-UNBOUNDED-AND-NOTHING-WAKES-IT` · `WO-20260905-PENDING-PINGS-HAS-NO-MERGE-DRIVER-SO-PING-PRS-DIE` · `WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD` · `WO-20260906-SHIP-THE-EXIT-HEAD-INTO-ICT-SCALP-THREE-LEGS` · `WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED` · `WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED`
 
 **Nothing in flight or waiting has been still for ≥14d** on declared dates.
 
@@ -148,10 +144,10 @@ The two sources are kept **separate rather than merged** — one says *this work
 | `soaks` | `read` | 2 | 2 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=1 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=23.5h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
+| `probes` | `read` | 9 | freshness=fresh age=23.7h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
 | `red_crons` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
 | `unlanded_automation` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
-| `error_feed` | `read` | 11 | digest 2026-09-08T05:10:01+00:00, age 4.8h |
+| `error_feed` | `read` | 11 | digest 2026-09-08T05:10:01+00:00, age 5.0h |
 | `sunset` | `read` | 0 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.

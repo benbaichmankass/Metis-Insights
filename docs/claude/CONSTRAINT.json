@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-08T09:59:00+00:00",
+  "generated_at": "2026-09-08T10:10:51+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -17,8 +17,8 @@
     "assessed_coverage": 0.0718475073313783,
     "min_assessed_coverage": 0.5,
     "basis_counts": {
-      "blocked": 19,
-      "declared_none": 30,
+      "blocked": 18,
+      "declared_none": 31,
       "unstated": 633,
       "malformed": 0
     },
@@ -58,14 +58,14 @@
     },
     "lifecycle_counts": {
       "dormant": 623,
-      "done": 27,
-      "waiting": 15,
+      "done": 28,
+      "waiting": 14,
       "ready": 13,
       "in_flight": 4
     },
     "chain_stages_with_no_objects": [],
     "held_up_candidates": {
-      "CAPABILITY": 7,
+      "CAPABILITY": 6,
       "DECISION": 5,
       "EVIDENCE": 2,
       "QUESTION": 2,
@@ -74,16 +74,12 @@
     },
     "holds_on_waiting_targets": [
       {
-        "object_id": "WO-20260901-PHASE-H",
-        "ref": "WO-20260901-PHASE-B"
-      },
-      {
         "object_id": "WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG",
         "ref": "WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED"
       }
     ],
     "edge_kinds": {
-      "external_event": 8,
+      "external_event": 6,
       "object": 5,
       "operator_decision": 8,
       "capability": 2,
@@ -94,8 +90,9 @@
       "artifact": 1
     },
     "hold_states": {
-      "unverifiable_outside_store": 25,
-      "holding": 5
+      "unverifiable_outside_store": 23,
+      "stale": 1,
+      "holding": 4
     },
     "blocked_objects": [
       {
@@ -107,30 +104,6 @@
           {
             "kind": "external_event",
             "ref": "a COLD session reporting on this work, citing the CLAUDE.md brief",
-            "since": "2026-09-01",
-            "ref_state": "not_in_store_by_design",
-            "target_lifecycle": null,
-            "hold_state": "unverifiable_outside_store"
-          }
-        ]
-      },
-      {
-        "id": "WO-20260901-PHASE-B",
-        "stage": "CAPABILITY",
-        "lifecycle": "waiting",
-        "title": "Phase B — visibility — the read-only work view and the daily digest",
-        "edges": [
-          {
-            "kind": "external_event",
-            "ref": "the work view rendered from the deployed SPA, by someone who is not this session",
-            "since": "2026-09-01",
-            "ref_state": "not_in_store_by_design",
-            "target_lifecycle": null,
-            "hold_state": "unverifiable_outside_store"
-          },
-          {
-            "kind": "external_event",
-            "ref": "the daily digest firing once on a real cadence",
             "since": "2026-09-01",
             "ref_state": "not_in_store_by_design",
             "target_lifecycle": null,
@@ -205,8 +178,8 @@
             "ref": "WO-20260901-PHASE-B",
             "since": "2026-09-01",
             "ref_state": "resolved",
-            "target_lifecycle": "waiting",
-            "hold_state": "holding"
+            "target_lifecycle": "done",
+            "hold_state": "stale"
           },
           {
             "kind": "object",
@@ -527,10 +500,9 @@
       "WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED",
       "WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500"
     ],
-    "waiting": 15,
+    "waiting": 14,
     "waiting_ids": [
       "WO-20260901-PHASE-A",
-      "WO-20260901-PHASE-B",
       "WO-20260901-PHASE-C",
       "WO-20260901-PHASE-D",
       "WO-20260902-DECISION-REVIEW-PACKET-POPULATION",
@@ -778,7 +750,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=23.5h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=23.7h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 8,
@@ -878,7 +850,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-08T05:10:01+00:00, age 4.8h",
+        "note": "digest 2026-09-08T05:10:01+00:00, age 5.0h",
         "row_count": 11,
         "covered_elsewhere": null,
         "rows_shown": 8,
