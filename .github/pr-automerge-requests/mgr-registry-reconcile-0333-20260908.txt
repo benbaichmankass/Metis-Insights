@@ -1,0 +1,1 @@
+Registry reconcile: 17 stale `working` rows corrected against a live read.

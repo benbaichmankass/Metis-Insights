@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registry reconcile + one checklist row + one appended backlog detail. All paths under docs/claude/work/** and docs/claude/health-review-backlog.json — management surface only, no src/, tests/, scripts/, workflows, config or deploy. No order path, no strategy config, no risk caps."
+}
