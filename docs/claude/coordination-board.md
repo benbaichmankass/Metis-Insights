@@ -411,6 +411,22 @@ with a `reason`, or push `automation/board-requests/<fresh-name>.json`
   strictly worse than one full board**, because the sessions split between them
   and neither is a coordination board any more.
 
+**Fixing a board's BODY without rotating.** The template is the body of record,
+so it has to be pushable onto the live board — otherwise the two drift, which is
+the same failure as a hardcoded number. Push
+`automation/board-requests/<fresh-name>.json` with `{"refresh_body": true,
+"reason": "..."}`: it re-renders the CURRENT board from the template, creates
+nothing, retires nothing and does not touch the pointer. It is also the only
+repair path available to a session, since a PM-side MCP cannot edit an issue at
+all (403) and re-running a *rotation* to fix a body would create a second live
+board — strictly worse than a wrong body.
+
+⚠️ **Everything above `%%BOARD_BODY_STARTS_HERE%%` in the template is FILE
+metadata and never reaches the issue.** That cut did not exist when board #11336
+was provisioned on 2026-09-08, so its first body carried a doc-status banner and
+a *"this is a template, edit it here and not on the issue"* warning — on the
+issue, where every session reads it. Repaired by a `refresh_body` request.
+
 **Never hand-roll a second board.** If the relay is unavailable, say so on the
 board (or in your PR) and stop — do not create an issue and hope the pointer
 catches up. A board nothing points at is exactly as useless as no board, and

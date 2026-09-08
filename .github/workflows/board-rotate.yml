@@ -114,6 +114,7 @@ jobs:
 
           reason="$(jq -r '.reason // ""' "$req")"
           force="$(jq -r '.force // false' "$req")"
+          refresh="$(jq -r '.refresh_body // false' "$req")"
           if [ -z "$reason" ] || [ "${#reason}" -lt 20 ]; then
             echo "REFUSED: a rotation must say WHY, in at least 20 characters" > "$out"
             echo "::error::board-rotate: refused — no substantive reason given"
@@ -162,13 +163,36 @@ jobs:
           # ---- Build the new body from the COMMITTED template -------------- #
           title="🤖 Claude Coordination Board ($(date -u +%Y-%m-%d))"
           prev="${retire:-none}"
-          prev_retired="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # WHEN THE OUTGOING BOARD DIED, not when we got around to rotating.
+          # Those differ -- #6927 froze at 2026-09-07T11:28:17Z and was rotated
+          # 18h later -- and stamping the rotation time made board #11336's own
+          # header state a cap date that never happened. The pointer records the
+          # real one; `now` is only the fallback for a board with no recorded
+          # retirement.
+          prev_retired="$(jq -r --arg p "$prev" \
+            '[.previous_boards[]? | select((.issue|tostring) == $p) | .retired_at] | last // empty' \
+            "$ptr" 2>/dev/null || true)"
+          [ -z "$prev_retired" ] && prev_retired="$now"
+
           body=/tmp/board-body.md
+          # EVERYTHING ABOVE THE MARKER IS FILE METADATA -- a doc-status banner
+          # and a "this is a template, edit it here not on the issue" warning,
+          # both of which are nonsense once they are ON the issue. They reached
+          # board #11336 because this cut did not exist.
+          sed -n '/^%%BOARD_BODY_STARTS_HERE%%$/,$p' docs/claude/board-body-template.md \
+            | tail -n +2 > /tmp/board-template.md
+          if [ ! -s /tmp/board-template.md ]; then
+            echo "REFUSED: board-body-template.md has no %%BOARD_BODY_STARTS_HERE%% marker" > "$out"
+            echo "::error::board-rotate: the template's body marker is missing — refusing to post a body that may carry file metadata"
+            exit 1
+          fi
           sed -e "s|{{BOARD_TITLE}}|${title}|g" \
               -e "s|{{PREV_ISSUE}}|${prev}|g" \
               -e "s|{{CAP}}|${cap}|g" \
               -e "s|{{PREV_RETIRED_AT}}|${prev_retired}|g" \
-              docs/claude/board-body-template.md > "$body"
+              /tmp/board-template.md > "$body"
 
           # {{BOARD_ISSUE}} is DELIBERATELY still here: the new issue's own number
           # cannot be known until GitHub has assigned it, so it is filled by the
@@ -181,6 +205,42 @@ jobs:
               echo "::error::board-rotate: unsubstituted placeholder(s): $(echo "$leftover" | tr '\n' ' ')"
               exit 1
             fi
+          fi
+
+          # ---- REFRESH-ONLY: re-render the LIVE board, create nothing ------- #
+          #
+          # The template is the board's BODY OF RECORD, so there has to be a way
+          # to push an edit of it onto the live board -- otherwise the record and
+          # the board drift, which is the same class of failure as the hardcoded
+          # number this whole change removes. It is also the only repair path for
+          # a body that rendered wrong, since a PM-side session cannot edit an
+          # issue at all (403) and re-running a ROTATION to fix a body would
+          # create a second live board, which is strictly worse than a wrong one.
+          #
+          # It creates nothing, retires nothing and does not touch the pointer.
+          if [ "$refresh" = "true" ]; then
+            if [ "$state" != "live" ] || [ -z "$cur" ]; then
+              echo "REFUSED: refresh_body needs a live board; board_state=$state" > "$out"
+              echo "::error::board-rotate: refresh_body with no live board"
+              exit 1
+            fi
+            sed -i "s|{{BOARD_ISSUE}}|${cur}|g" "$body"
+            if grep -q '{{[A-Z_]*}}' "$body"; then
+              echo "REFUSED: unsubstituted placeholder(s) after refresh render" > "$out"
+              echo "::error::board-rotate: $(grep -o '{{[A-Z_]*}}' "$body" | sort -u | tr '\n' ' ')"
+              exit 1
+            fi
+            # The TITLE is deliberately not touched: a rotated board's title
+            # carries its own date, and re-dating it on every refresh would make
+            # the board look newly created every time the template is edited.
+            if ! err="$(gh issue edit "$cur" --repo "$GITHUB_REPOSITORY" --body-file "$body" 2>&1)"; then
+              printf 'FAILED to refresh #%s:\n%s\n' "$cur" "$err" > "$out"
+              echo "::error::board-rotate: could not refresh #${cur} — ${err}"
+              exit 1
+            fi
+            printf 'OK refreshed body of #%s\nboard=%s\nat=%s\n' "$cur" "$cur" "$now" > "$out"
+            echo ">>> refreshed the body of #${cur} from the template; created nothing"
+            exit 0
           fi
 
           # ---- Create it --------------------------------------------------- #

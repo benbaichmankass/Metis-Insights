@@ -2,8 +2,9 @@
 
 > ⚠️ **THIS IS THE COORDINATION BOARD'S BODY OF RECORD, AND IT IS A TEMPLATE.** `board-rotate.yml` substitutes `{{BOARD_TITLE}}`, `{{BOARD_ISSUE}}`, `{{PREV_ISSUE}}`, `{{CAP}}` and `{{PREV_RETIRED_AT}}` and posts the result as the new board's body. Edit it here, never on the issue — the issue body has been clobbered eight times by `issue_write method=update`, and this file is what a restore is rebuilt from. ⚠️ GitHub strips tag-shaped `<…>` as HTML **even inside code fences**, so use `{braces}`.
 
----
+> ⚠️ **EVERYTHING ABOVE THE BODY-START MARKER BELOW IS FILE METADATA AND NEVER REACHES THE ISSUE.** `board-rotate.yml` cuts it. This block leaked onto board #11336 on 2026-09-08 because the cut did not exist yet, putting a doc-status banner and a *this is a template, edit it here and not on the issue* warning on the live board — where every session reads it, on the issue.
 
+%%BOARD_BODY_STARTS_HERE%%
 # {{BOARD_TITLE}}
 
 **Successor to [#{{PREV_ISSUE}}](https://github.com/benbaichmankass/Metis-Insights/issues/{{PREV_ISSUE}}), which reached GitHub's hard {{CAP}}-comment cap on {{PREV_RETIRED_AT}}.** #{{PREV_ISSUE}} stays open-for-reading as the historical record; it takes no further writes. Do not post there.
