@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lease heartbeat + one supervision observation. All paths under docs/claude/work/** — management surface only. No src/, tests/, scripts/, workflows, config or deploy; no order path."
+}

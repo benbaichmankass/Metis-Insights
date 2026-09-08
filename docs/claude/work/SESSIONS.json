@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T03:36:00Z",
+  "updated_at": "2026-09-08T03:51:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2916,8 +2916,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-NOTHING-HAS-AUDITED-JOURNAL-OPEN-ROWS-AGAINST",
       "confirmed_at": "2026-09-08T03:22:25Z",
-      "manager_observation": "RE-OBSERVED 2026-09-08T03:35Z via get_session: RUNNING, connected, task_summary 'reconciled journal caps; filing 2 new audit findings' — 14 min in and past startup, so it is producing. ⚠️ 'filing 2 findings' is ITS claim about its own turn, not an observation of a landed row; grade it on merged output, never on the status line (this file's own _comment). Its state stays `working` and it is the ONLY row in this register that is genuinely in flight.",
-      "observed_at": "2026-09-08T03:35:41Z"
+      "manager_observation": "RE-OBSERVED 2026-09-08T03:50Z. ⚠️ GRADED ON PUSHED OUTPUT, NOT ON THE STATUS LINE — task_summary still reads 'reconciled journal caps; filing 2 new audit findings', unchanged since 03:35Z, while updated_at moved to 03:49:58Z; the summary freezes at a turn boundary and is NOT evidence of a stall. WHAT I ACTUALLY SAW: branch claude/mi177-journal-venue-fleet-audit-20260908 exists on origin at 5f198e64 — 'fleet-wide journal-open vs venue audit — 8/11 accounts read, 23/24 exact, 1 known divergence' — carrying docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md (187 lines), 24 lines of new health-review-backlog rows and a DOCUMENT-INDEX registration. State stays `working`: RUNNING and connected at the read. ⚠️ 8 of 11 accounts READ is not 11 of 11 — the 3 unread are 'we did not look' and the audit's own verdict on them must be read before the headline 23/24 is quoted. ⚠️ ITS PR WILL LIKELY SHOW total_count 0-1: the branch tip is a `pr-opener: results` commit authored by github-actions[bot], and GitHub does not trigger workflows for GITHUB_TOKEN pushes. That is the check-arming trap, NOT a red PR — read mergeable_state before reacting. Not armed by the manager here: the session is still live on that branch and R2 bars a manager commit on a worker path.",
+      "observed_at": "2026-09-08T03:50:38Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
