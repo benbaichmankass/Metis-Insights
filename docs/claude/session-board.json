@@ -7,7 +7,7 @@
  "merge_slot": {
   "held_by": "session_011PHmZzVy92M6zjNopAMy51",
   "branch": "claude/mi199-reset-decision",
-  "pr": null,
+  "pr": 11395,
   "claimed_at": "2026-09-08T13:05:00Z"
  },
  "active_sessions": [
