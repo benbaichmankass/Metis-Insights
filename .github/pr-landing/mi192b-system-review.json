@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "The REVIEW content is Tier-1 and would self-land. What blocks it is one path this PR did not author: `automation/board-results/mi196-start.txt`, committed onto this branch by the `board-post` relay running as github-actions[bot] at 2026-09-08T11:30Z. R5 correctly refuses to certify a path outside TIER1_SURFACE, and that refusal is the guard working. I am NOT narrowing the PR by deleting the file, and the reason is measurable: its matching request `automation/board-posts/mi196-start.md` IS on main while the result is NOT, so the relay's idempotency marker is missing on main and it re-processed MI-196's request when this branch pushed. Deleting it here leaves that state intact and the relay re-posts MI-196's board comment on the next `claude/**` push. Carrying it lands the marker and stops the loop. So: one human merge click, on a Tier-1 review PR whose own content needs none.",
+  "why": "docs, review backlogs, comms/reports artifacts, the grading JSONL and CLAUDE.md prose — plus one relay-authored automation result file this branch did not write."
+}

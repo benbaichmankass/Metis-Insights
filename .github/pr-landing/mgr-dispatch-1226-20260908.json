@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only manager work: two spawns registered (MI-199 GLD close wedge, MI-200 real-money losing streak), their two work objects, and the two checklist items. Both were dispatched on direct operator instruction on 2026-09-08. No src/, tests/, scripts/, config/, deploy/ or workflow path — every file is docs/claude/work/**, docs/claude/session-board.json (a merge_slot claim naming this branch and changing nothing else) or .github/pr-*. Registering a spawn and recording an operator directive are management acts, not items."
+}

@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T11:58:00Z",
+  "updated_at": "2026-09-08T12:32:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2534,9 +2534,45 @@
       "updated": "2026-09-08",
       "blocked_on": [],
       "note": "FILED, NOT TAKEN — same reason as MI-197. Row: BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST. THE LIVE FILE IS REPAIRED (free, in the same commit that re-claimed the slot, which rewrites merge_slot wholesale anyway — exactly the change the carve-out permits). THE DETECTOR IS NOT BUILT and that is what the row is for. ⚠️ It was harmless ONLY because the two values happened to be identical; json.loads takes the LAST occurrence silently, so a claim taken FROM a different holder would have read as clean while the prior claim was overwritten rather than released. check_board_coherence, merge_slot_claim_only and check_pr_landing all read this file through plain json.loads, which is duplicate-tolerant by specification — so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it, and the PR merged green."
+    },
+    {
+      "id": "MI-199-GLD-CLOSE-WEDGE",
+      "title": "The GLD close wedge — stop retrying a close the system KNOWS cannot succeed, then clear it",
+      "owner": "session_011PHmZzVy92M6zjNopAMy51",
+      "status": "in_flight",
+      "tier": "operator-directed",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-THE-GLD-CLOSE-WEDGE-THE-SYSTEM-CLASSIFIES",
+      "note": "OPERATOR DIRECTIVE 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close — this has been going on for weeks, and it needs to be fixed already.' MEASURED 12:14Z: close_wedge_standing.json holds alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, OCO parent 2e843e04 pending_cancel since 2026-08-27 (12 days), pages_suppressed 56, and the close_failure banner is LIVE on /api/bot/notifications. ⚠️ THE DEFECT IS NOT THE DIAGNOSIS, WHICH IS CORRECT — it is that classify_share_hold returns a state whose own comment reads 'NO app-level retry can clear it' and the close is then re-attempted every tick regardless. Every prior session diagnosed it accurately and stopped, which is why the operator has watched the same ping for weeks. TWO SEPARABLE HALVES: (1) stop the futile retry and the permanently-lit banner, keyed on the EVIDENCED state only so unknown failures still page as now — buildable today; (2) release the 39 shares, testing the 'needs venue action' claim rather than inheriting it, including the un-named lever that alpaca_paper is a PAPER account Alpaca can reset. ⚠️ THE RESET IS PROPOSED, NEVER ENACTED — it wipes the 19-strategy soak book and is the operator's call. —— UPDATE 13:01Z, ROOT CAUSE FOUND AND IT IS NOT WHAT THIS NOTE SAID. The note above reads 'THE DEFECT IS NOT THE DIAGNOSIS, WHICH IS CORRECT'. ⚠️ THE DIAGNOSIS WAS NOT CORRECT AND MUST NOT BE RE-QUOTED: read live 12:21:34Z, OCO parent 2e843e04 is status 'new' — healthy, byte-identical in shape to every other bracket on the account — and the WEDGED order is the CHILD stop 891ddff0, which the order LISTING cannot show as wedged. CLAUDE.md and OPEN-ITEMS.json both name the parent and are wrong. The real defect is that TWO BROKER ENDPOINTS DISAGREE and we read the weaker one: GET /v2/orders says 'held' (retryable) while DELETE /v2/orders/{id} says '422 order pending cancel' (never retryable), and CancelOutcome — built by #10679 to carry exactly this evidence — was DISCARDED by both close paths. Cost, population = last 400 rows of operator_alerts.jsonl (09-02 → 09-08), 178 of them GLD: 122 PAGED, 56 digested — ~21 pages/day for a PAPER position about a condition the bot cannot act on. #11392 MERGED (ea20e2c5, record correction). #11389 = the classifier fix, changes NO order behaviour; #11390 = suppress the futile retry, which DOES change when a close is attempted. ⚠️ I GAVE THE MERGE SLOT TO #11389 AND HELD #11390: I read the operator's 'get it done already' as the Tier-2 OK for the zero-behaviour-change half only, told the operator so plainly so it can be countermanded, and asked for a distinct word on #11390. The paper-account reset stays PROPOSED, never enacted."
+    },
+    {
+      "id": "MI-200-REAL-MONEY-LOSING-STREAK",
+      "title": "The real-money losing streak — attribute the 15 closes before grading any leg",
+      "owner": "session_01CvFCybCkvrfzaHqNH3tQsb",
+      "status": "in_flight",
+      "tier": "operator-directed",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
+      "note": "OPERATOR DIRECTIVE 2026-09-08: 'even on 16 trades, we can't just chalk this up to chance — something isn't working, and we need to track it down.' MEASURED 12:16Z (population: every accountClass=real_money row on /api/bot/trades/closed?limit=200, n=15, all bybit_2): 0 wins, 13 losses, -43.12. ict_scalp_5m is 6 closes / -25.25 = 59% and is ALREADY OFF bybit_2 — verified against the LIVE config roster, not the YAML — leaving 9 closes / -17.86 on 4 legs, still zero wins. ⚠️ THE LEAD IS NOT WHICH LEG IS LOSING: only 6 of 15 closed on 'sl'; 4 on 'reconciler' and 5 on 'other', so NINE OF FIFTEEN WERE NOT A STRATEGY EXIT DECISION, two carry pnl NULL and three are 'estimated'. A book where 60% of exits are plumbing reports on its own machinery as much as its edge, which is what the cycle priority says to repair BEFORE acting on the verdict. Carries an ADDENDUM (poked 12:24Z) answering the operator's alpaca_live question: 1 leg, routed 2026-08-31, ONE signal since, rejected with NO recorded reason. ⚠️ insufficient_n is a legitimate verdict and must be reported, not dodged by widening the window. No Tier-3 enacted. —— UPDATE 13:01Z, ⚠️ THE MEASUREMENT IN THIS NOTE IS MINE AND IT IS WRONG — DO NOT RE-QUOTE '0 wins, 13 losses, n=15'. /api/bot/trades/closed already defaults include_paper=False, so it is ALREADY real-money-only; passing include_paper=true and then filtering to accountClass=real_money does not widen the set, it NARROWS it to whatever fraction of the newest 200 MIXED rows happens to be real money. limit=200 alone returns 200 real-money rows (05-19→09-04); paged to exhaustion the population is 447 (2026-05-09→09-04): 117 W / 258 L / 49 flat, sum -69.53 on n=424 graded. So 'zero wins' was a 5-DAY SLICE, and 'alpaca_live contributed zero closes' is likewise true of the slice and false of the population. THE STREAK IS REAL (14 consecutive non-wins since trade 5170) BUT ITS LENGTH IS NOT THE EVIDENCE: at the lifetime non-win rate 0.7241, E[runs>=14 in 424] = 1.24, so P(some such run) is ~71% — reported as an IID FLOOR on how ordinary the run is, not a p-value. What DOES support the operator's instinct is a different number: 28.3% of closes (122 of 431) were NOT strategy exits at all — operator flattens, reconciler, netting — and 8 of the 14 streak rows are in that bucket. Instrument is broken two ways: closeReason folds FIFTEEN mechanisms into 'other' including 182 rows that ARE strategy exits, and /trades/closed vs /strategies are different taxonomies disagreeing on 174 of 447 rows (38.9%). Every live-routed real-money leg grades insufficient_n (floor 20, largest 7); lifetime loss is dominated by vwap (-49.38 of -69.53), OFF since 2026-06-07 and routed nowhere. And 446 of 447 rows carry journalTrust=known_divergent with broker_truth_ledger 57 days stale. #11391 is 3/4 with guards RED on its own scripts/ path — poked back to it 12:58Z; I did not touch it."
+    },
+    {
+      "id": "MI-201-ALPACA-LIVE-ROSTER-EXPANSION",
+      "title": "Wire more strategies to alpaca_live — propose the roster, operator decides (Tier-3)",
+      "owner": "unassigned",
+      "status": "ready",
+      "tier": "3 — real-money roster change; the PROPOSAL is Tier-1",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
+      "note": "OPERATOR DIRECTIVE 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'. MEASURED 12:22Z: alpaca_live is mode: live / real_money with a roster of ONE leg (tlt_pullback_1h, routed 2026-08-31 by #10633); since that routing it has signalled EXACTLY ONCE and that signal was rejected with no recorded reason. It is idle because almost nothing is assigned to it. ⚠️ THREE CONSTRAINTS BOUND THE CANDIDATE SET: it is a CASH account (~$200, multiplier 1) so T+1 settlement binds and ALPACA_CASH_SETTLEMENT_MODE is already armed apply/alpaca_live; Alpaca is in WHOLE_UNIT_QTY_EXCHANGES so a leg whose risk budget cannot buy ONE WHOLE SHARE can never place; and accounts.yaml states that adding a leg to this account IS the live-trading moment and is Tier-3 in its own right, with no second gate behind it. ⚠️ The candidate pool is real, not hypothetical — alpaca_paper runs 19 legs and alpaca_portfolio 14 on the same venue — so the question is which clear a real-money bar on a cash account, not which could be written. ⚠️ insufficient_n is a legitimate per-leg outcome and must be reported per leg: all 44 enabled live legs currently grade that way under MI-155's floor, so a proposal assuming gradeable paper evidence claims something this system does not have. NOTHING IS ENACTED FROM THIS ITEM — the roster edit is a separate Tier-3 act after the operator answers. NOT YET SPAWNED: sequenced behind MI-199 and MI-200, which are the operator's other two directives from the same message. —— UPDATE 13:01Z: STILL NOT SPAWNED, and MI-200's finding STRENGTHENS the reason rather than merely restating it — the exit instrument itself is unreliable (28.3% of closes are not strategy exits; two API surfaces disagree on 38.9% of rows; 446 of 447 rows are not broker-truth-reconciled), so wiring more legs to a real-money cash account now would add trades this system cannot yet grade. That is a sequencing judgement, NOT a refusal of the operator's directive, and the item stays 'ready' rather than being blocked."
     }
   ],
-  "as_of": "2026-09-08T11:58:00Z",
+  "as_of": "2026-09-08T13:01:08Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T11:58:00Z"
+  "updated": "2026-09-08T13:01:08Z"
 }
