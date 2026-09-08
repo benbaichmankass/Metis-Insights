@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T05:56:00Z",
+  "updated_at": "2026-09-08T06:45:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2291,14 +2291,14 @@
     },
     {
       "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_0173g82hw2Rf3HjnfydGcnyX",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:49:00Z",
+      "updated": "2026-09-08T06:45:00Z",
       "blocked_on": null,
       "tier": "1 — CI guard machinery",
       "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
-      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted). Self-disclosed by session 018ruZdg on #11309: the only path that completes BYPASSES one of the two guards. A guard that must be bypassed to land is worse than no guard, because the bypass becomes routine and then invisible. Establish the exact conflict from both guards' code before proposing a change, and do not weaken either to make them agree."
+      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted). Self-disclosed by session 018ruZdg on #11309: the only path that completes BYPASSES one of the two guards. A guard that must be bypassed to land is worse than no guard, because the bypass becomes routine and then invisible. Establish the exact conflict from both guards' code before proposing a change, and do not weaken either to make them agree. || SESSION UNRECOVERABLE, RE-DISPATCHED AS MI-183b 2026-09-08T06:40Z. It confirmed 'push denied by harness' at 06:22Z after FINISHING the work (commit 5101620, 3 files, +259/-7) and spending 201k tokens. Second of six containers to refuse; four pushed fine, so per-container. MI-183b (session_01LSfhSog9oxATpMUUPBfTN9) owns the same object with a push-probe-first prompt and must REDO the work — the predecessor's commit is stranded where nobody can read it."
     },
     {
       "id": "MI-184-R2-BLOCKS-THE-MANAGER-FROM-RESOLVING-A-REGISTER-CONFLICT",
@@ -2328,17 +2328,28 @@
     },
     {
       "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_015iukpShDdwvP5CM79Qtt3B",
       "opened": "2026-09-08T05:12:00Z",
-      "updated": "2026-09-08T05:13:00Z",
+      "updated": "2026-09-08T06:29:00Z",
       "blocked_on": null,
       "tier": "1 — mechanical merge, routed off the manager",
       "title": "Land #11279 and #11312 — both operator-approved, both un-mergeable BY THE MANAGER",
-      "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages."
+      "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages. || SESSION UNRECOVERABLE, RE-DISPATCHED AS MI-185b 2026-09-08T06:28Z. Three pokes, ~160k tokens, ZERO pushed output: its container's permission classifier refuses git merge/push and its branches are absent from origin. Four sibling sessions pushed fine the same night, so this reads per-container. MI-185b (session_01SmCEELFxuDSwBbLBmrF4mL) owns the SAME work object and is told to PROVE IT CAN PUSH with a throwaway branch BEFORE any analysis — that is exactly how the predecessor burned its budget."
+    },
+    {
+      "id": "MI-187-A-SUBSESSION-CAN-BURN-ITS-BUDGET-ON-WORK-IT-CANNOT-LAND",
+      "status": "landed_unproven",
+      "owner": null,
+      "opened": "2026-09-08T06:29:00Z",
+      "updated": "2026-09-08T06:45:00Z",
+      "blocked_on": null,
+      "tier": "1 — dispatch discipline",
+      "title": "A blocked sub-session analyses to completion before discovering it cannot push",
+      "note": "MEASURED 2026-09-08. TWO sessions (MI-185, MI-183) each did their whole task, THEN discovered their container would not let them push. MI-185 spent ~160k tokens and three manager pokes and landed NOTHING; MI-183 has a finished commit (5101620) stranded in a container nobody can read. Meanwhile FOUR siblings spawned the same way pushed fine, so it is not environment-wide. ⚠️ THE COST IS NOT THE PERMISSION — IT IS THE ORDERING. Every dispatch asks for analysis first and landing last, so a container that cannot push is discovered at the most expensive possible moment, after the budget is spent and with the output trapped where the manager cannot reach it (I cannot read files out of a sub-session's container, so a patch handed back is not a deliverable). CANDIDATE FIX, cheap and testable: every spawn prompt opens with a PUSH PROBE — throwaway branch, empty commit, `git push -u origin <branch>`, delete it — and STOPS on failure with the exact command and verbatim refusal. MI-185b's prompt carries this and is the first trial. ⚠️ NOT YET ESTABLISHED: why two of six containers refuse. Do not state a mechanism; the useful artefact is the verbatim refusal text, which neither blocked session has yet produced. || ⚠️ VALIDATED ON ITS FIRST TRIAL, AND THE COST IS NOW MEASURED AT n=2. MI-185b ran the push probe first, PASSED (probe-push-20260908 on origin 06:29:13Z), and pushed a real merge to mi-168-trade-scoped-close-confirmation at 06:34:26Z — six minutes from spawn to landed output. Against that: MI-185 ~160k tokens and MI-183 201k tokens, both having done the ENTIRE task before discovering they could not push. TWO OF SIX CONTAINERS REFUSE; four push fine, so it is per-container and not environment-wide. ⚠️ STILL NOT ESTABLISHED: WHY those two refuse. MI-183 reported 'push denied by harness' and MI-185 'permission classifier denied git merge' — those are the sessions' paraphrases, not the verbatim refusal, and neither produced the raw text. Do not state a mechanism. RECOMMENDATION: every future spawn prompt opens with the probe. That is cheap, and it is the difference between a six-minute failure and a 200k-token one."
     }
   ],
-  "as_of": "2026-09-08T05:56:00Z",
+  "as_of": "2026-09-08T06:45:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T05:56:00Z"
+  "updated": "2026-09-08T06:45:00Z"
 }

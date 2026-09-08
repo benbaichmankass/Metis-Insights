@@ -45,43 +45,6 @@
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
     {
-      "pr": 11279,
-      "opened_at": "2026-09-07T19:51:13Z",
-      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
-      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
-      "draft": false,
-      "tier": "3",
-      "state": "approved_ready_to_merge",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
-        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
-        "decided_on": "2026-09-08",
-        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
-      },
-      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
-      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it."
-    },
-    {
-      "pr": 11312,
-      "state": "approved_ready_to_merge",
-      "tier": 3,
-      "draft": false,
-      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal, landing: hold)",
-      "owner_session": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
-      "checklist_item": "MI-173-ALPACA-SIBLING-MECHANISM",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "TWO conditions, and the second is a HOLD that must survive this row. (1) The approved direction is TRADE-SCOPE THE ALPACA CLOSE, and its FIRST step is to establish whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not, and must NOT be forced if the venue cannot express it. The fix must also cover modify_protective, which carries the identical scope defect on a different verb and is filed nowhere. (2) ⚠️ MI-140 IS HELD until that fix lands. alpaca_live is REAL MONEY and is immune today for exactly one reason — it cannot place orders at all — and MI-140 removes precisely that. Do not remediate MI-140 first. ⚠️ MERGING #11312 LANDS MEASUREMENT AND A PROPOSAL ONLY; it implements nothing, so the merge is not the fix and must not be reported as one.",
-        "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca — #11279's own body establishes that doing so would reinstate BL-20260707's false-SUCCESS on a real-money-capable path.",
-        "decided_on": "2026-09-08",
-        "text": "Asked as two questions. (1) 'Trade-scope the Alpaca close' rather than ruling whole-symbol close intended — noting that ruling it intended would MOVE the defect rather than close it, since the per-trade qty stays silently discarded. (2) 'Hold MI-140 until the fix lands.'"
-      },
-      "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
-      "opened_at": "2026-09-08T02:00:33Z"
-    },
-    {
       "pr": 11337,
       "opened_at": "2026-09-08T05:36:34Z",
       "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold — the venue CAN express it)",
@@ -89,16 +52,16 @@
       "checklist_item": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
       "draft": false,
       "tier": "3",
-      "state": "open_needs_merge_decision",
+      "state": "approved_ready_to_merge",
       "operator_decision": {
         "verdict": "approved_with_conditions",
-        "condition": "The OPERATION change is approved and the CONFIRMATION is not — they are different facts and a successor must not collapse them. What the operator approved on 2026-09-08 is trade-scoping the Alpaca close, chosen over ruling whole-symbol close intended. The approval EXPLICITLY DOES NOT FORCE the change if the venue cannot express it; that condition is SATISFIED and the evidence is in the PR — DELETE /v2/positions/{symbol} documents a `qty` parameter, read from the Alpaca API reference 2026-09-08. ⚠️ WHAT IS NOT APPROVED IS THE CLOSE-CONFIRMATION MEASUREMENT FOR ALPACA. #11279's own approval scope says 'EXPLICITLY NOT Alpaca — Alpaca's mirror defect is decided separately on #11312', and that decision has not been made. The PR declares its choice: the whole-symbol path KEEPS its strict flatness gate untouched, and only the NEW partial path measures the trade's own quantity delta. The partial-FILL rule is `strict`, which is the same answer the operator already gave for IB on #11279 rather than a new choice. ⚠️ MI-140 IS HELD UNTIL THIS LANDS and the operator confirmed that hold on 2026-09-08; the dependency runs THAT way, so do not read this PR as blocked on MI-140.",
+        "condition": "The OPERATION change is approved and the CONFIRMATION is not — they are different facts and a successor must not collapse them. What the operator approved on 2026-09-08 is trade-scoping the Alpaca close, chosen over ruling whole-symbol close intended. The approval EXPLICITLY DOES NOT FORCE the change if the venue cannot express it; that condition is SATISFIED and the evidence is in the PR — DELETE /v2/positions/{symbol} documents a `qty` parameter, read from the Alpaca API reference 2026-09-08. ⚠️ WHAT IS NOT APPROVED IS THE CLOSE-CONFIRMATION MEASUREMENT FOR ALPACA. #11279's own approval scope says 'EXPLICITLY NOT Alpaca — Alpaca's mirror defect is decided separately on #11312', and that decision has not been made. The PR declares its choice: the whole-symbol path KEEPS its strict flatness gate untouched, and only the NEW partial path measures the trade's own quantity delta. The partial-FILL rule is `strict`, which is the same answer the operator already gave for IB on #11279 rather than a new choice. ⚠️ MI-140 IS HELD UNTIL THIS LANDS and the operator confirmed that hold on 2026-09-08; the dependency runs THAT way, so do not read this PR as blocked on MI-140. || ⚠️ SECTION 3(b) IS NOW ANSWERED — APPROVED, 2026-09-08, put to the operator as its own Tier-3 question by the manager after this PR asked it. The ordering argument is ACCEPTED, and the reasoning is recorded so it survives its authors: BL-20260707's hazard requires the confirmation to be loosened AHEAD of the operation; this one is loosened only for a path whose OPERATION was narrowed in the SAME COMMIT, and the pre-existing whole-symbol path keeps its strict flatness gate untouched. A partial close can never satisfy a flatness gate, so demanding one would make it retry forever, eating the sibling's position a slice at a time. ⚠️ THE LIMIT OF THAT APPROVAL IS PART OF IT: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered. Do not re-open or re-scope this.",
         "scope": "The Alpaca close OPERATION (AlpacaClient.close, _close_extended_hours) and AlpacaClient.modify_protective, plus their execute.py call sites. EXPLICITLY NOT the Alpaca close CONFIRMATION on the pre-existing whole-symbol path, which is untouched. EXPLICITLY NOT MI-140 — no change to account capability gating, config/accounts.yaml or side_filter, so alpaca_live's inability to place orders is exactly as it was. EXPLICITLY NOT `partial_close` in the Alpaca capability set, which gates the exit-ladder's scale-out and stays unwired. No live position was touched.",
         "decided_on": "2026-09-08",
         "text": "Operator was asked on 2026-09-08 whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to TRADE-SCOPE THE CLOSE, with the approval explicitly not forcing the change if the venue cannot express it, and with MI-140's remediation HELD until this lands. Recorded from the dispatch that carried it; the conversational original is not in this repo. ⚠️ NOT VERIFIED BY THIS SESSION AGAINST THE OPERATOR — read `owner_session` as the implementer, not the witness."
       },
-      "blocker": "Needs a MERGE CLICK, not a re-approval. R4 bars `landing: self` for any Tier-3 diff whatever its approval state, so this PR cannot land itself and correctly declares `landing: hold` with `tier_2_3_needs_approval`. The substantive thing a reviewer is asked to settle is section 3(b) of the body: whether loosening the confirmation MEASUREMENT for the new partial path only — with the whole-symbol path's strict gate untouched, in the same commit that narrows the operation — is the right ordering. The PR argues it is and names that as the line to push on.",
-      "note": "Rebased onto main after #11315 (MI-176, Unit B) landed and also touched alpaca_client.py; alpaca_client.py auto-merged, and _leg_qty was then aligned with the NOT-abs() rule #11315 shipped. The health-review-backlog.json conflict was resolved by taking main's file and re-appending this session's two rows through backlog_append.py — `git checkout --theirs` during a rebase gives the REPLAYED side and would have silently deleted two other sessions' rows. Verified after resolution that no row on main is missing. || ⚠️ ANSWER TO THE MANAGER'S 2026-09-08T05:53Z QUESTION, PUT HERE BECAUSE THIS IS THE MANAGER'S OWN HANDOFF SURFACE AND THE PR BODY CANNOT BE EDITED (update_pull_request, add_issue_comment and create_pull_request all 403 for this session; board #6927 is at the 2500-comment cap). SCOPING `place_protective` IS A SEPARATE UNIT (MI-187), NOT THIS DIFF, and nothing in this diff changed in response. Dispatch it knowing three things. (1) The operator's ruling 'place_protective should honour oca_key on Alpaca as it already does on IB' is NOT directly implementable as worded: IB's oca_key works because an OCA GROUP is a nameable venue concept, and Alpaca has none — verified from the Alpaca reference 2026-09-08, client_order_id is ORDER-level and the nested take_profit/stop_loss objects carry only price fields, so no per-leg client id exists at submission. Honouring it means INVENTING a handle (set client_order_id on the OCO parent, read children back with nested=true, persist those ids) — an entry/persistence change. (2) A PRECONDITION IS UNVERIFIED AND I DID NOT LOOK: whether the post-#11315 naked sweep even reaches place_protective for a partially-naked symbol. MI-179 measured it gating on a symbol-wide boolean; if that still holds, scoping place_protective changes nothing observable and would be a deploy, not a fix. Settle that first. (3) A STAGED OPTION exists before the handle does: qty-matching fits this verb BETTER than it fits modify_protective, because place_protective runs when a trade is NAKED — it cancels nothing, the sibling's legs survive, and a repeat re-arm still replaces its own OCO. On the live TLT book that is exactly right. ⚠️ But its refusal case leaves a position NAKED rather than a row open, so it needs its own operator read and must NOT inherit this PR's approval. Full reasoning: the work object's `scope_judgement_place_protective`."
+      "blocker": "NONE remaining on the decision side — approved 2026-09-08 including section 3(b). It needs a MERGE CLICK: R4 bars `landing: self` for any Tier-3 diff whatever its approval state, so this PR correctly declares `landing: hold` and cannot land itself. The manager merges.",
+      "note": "Rebased onto main after #11315 (MI-176, Unit B) landed and also touched alpaca_client.py; alpaca_client.py auto-merged, and _leg_qty was then aligned with the NOT-abs() rule #11315 shipped. The health-review-backlog.json conflict was resolved by taking main's file and re-appending this session's two rows through backlog_append.py — `git checkout --theirs` during a rebase gives the REPLAYED side and would have silently deleted two other sessions' rows. Verified after resolution that no row on main is missing. || ⚠️ ANSWER TO THE MANAGER'S 2026-09-08T05:53Z QUESTION, PUT HERE BECAUSE THIS IS THE MANAGER'S OWN HANDOFF SURFACE AND THE PR BODY CANNOT BE EDITED (update_pull_request, add_issue_comment and create_pull_request all 403 for this session; board #6927 is at the 2500-comment cap). SCOPING `place_protective` IS A SEPARATE UNIT (MI-187), NOT THIS DIFF, and nothing in this diff changed in response. Dispatch it knowing three things. (1) The operator's ruling 'place_protective should honour oca_key on Alpaca as it already does on IB' is NOT directly implementable as worded: IB's oca_key works because an OCA GROUP is a nameable venue concept, and Alpaca has none — verified from the Alpaca reference 2026-09-08, client_order_id is ORDER-level and the nested take_profit/stop_loss objects carry only price fields, so no per-leg client id exists at submission. Honouring it means INVENTING a handle (set client_order_id on the OCO parent, read children back with nested=true, persist those ids) — an entry/persistence change. (2) A PRECONDITION IS UNVERIFIED AND I DID NOT LOOK: whether the post-#11315 naked sweep even reaches place_protective for a partially-naked symbol. MI-179 measured it gating on a symbol-wide boolean; if that still holds, scoping place_protective changes nothing observable and would be a deploy, not a fix. Settle that first. (3) A STAGED OPTION exists before the handle does: qty-matching fits this verb BETTER than it fits modify_protective, because place_protective runs when a trade is NAKED — it cancels nothing, the sibling's legs survive, and a repeat re-arm still replaces its own OCO. On the live TLT book that is exactly right. ⚠️ But its refusal case leaves a position NAKED rather than a row open, so it needs its own operator read and must NOT inherit this PR's approval. Full reasoning: the work object's `scope_judgement_place_protective`. || ⚠️ MERGE-RESOLUTION CORRECTION, 2026-09-08: the dispatch that asked for this merge said 'OPEN-PRS.json on main now carries a row for #11337 with the typed operator decision — keep it and do not rewrite its operator_decision block.' THAT PREMISE IS FALSE, checked against all three merge stages: main's `open_prs` is EMPTY (#11349 moved 11279 and 11312 into `settled_prs`) and no 11337 row exists in either list on that side. This branch is the ONLY place the row exists, so there was nothing of main's to preserve — and following the instruction literally would have left the section-3(b) approval recorded NOWHERE. It is therefore APPENDED to this row's `condition` rather than left out. ⚠️ ALSO: `open_prs` was NOT resolved as a blind union. A blind union would have resurrected 11279 and 11312 into `open_prs` while they simultaneously sit in `settled_prs` — two lists disagreeing about the same PR. The union rule is right for the append-only BACKLOG and wrong here; open_prs is a live set whose rows are REMOVED on settlement."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1728,10 +1691,55 @@
       "merge_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
       "observed_at": "2026-09-08T05:02:08Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11279,
+      "opened_at": "2026-09-07T19:51:13Z",
+      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
+      "owner_session": "session_01BpU7rfqWKir4rQrowT4ZQd",
+      "checklist_item": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
+      "draft": false,
+      "tier": "3",
+      "state": "approved_ready_to_merge",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The partial-fill default is `strict` — the operator was asked to name it and DID, so it is a recorded choice and not a default that drifted. strict is what the PR already ships, so the merged artifact matches the approval exactly; if anything later flips it to `reduction` that is a NEW decision, not this one. The approval covers the IB close path ONLY.",
+        "scope": "IB close confirmation (IBClient.close / IB_CLOSE_CONFIRM_SCOPE, IB_CLOSE_CONFIRM_PARTIAL). EXPLICITLY NOT Alpaca — MI-168's own body establishes that applying the identical change to Alpaca would install a false-SUCCESS on a real-money-capable path, and Alpaca's mirror defect is decided separately on #11312. EXPLICITLY NOT Bybit, which has no close-confirm gate at all.",
+        "decided_on": "2026-09-08",
+        "text": "Asked as two separate questions and answered separately. (1) 'Approve the re-scope' — confirm against the close order's own fill, then position reduction, then flatness. (2) 'strict' for IB_CLOSE_CONFIRM_PARTIAL: a 40-of-43 fill REFUSES and the row stays open to retry, erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked with nothing looking for them."
+      },
+      "blocker": "⚠️ THE SESSION REPORTS THIS PR IS NOT SUFFICIENT ALONE. While preparing it, it found the OPPOSITE-SIGN twin of MI-167 on Alpaca — a false-SUCCESS in which closing one trade liquidates its SIBLINGS — and filed BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. That is on alpaca_live, REAL MONEY, inert only because MI-140 measured that account as unable to place an order. Filed as MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS. NOT VERIFIED BY THE MANAGER — this is the session's report.",
+      "note": "Tier-3 APPROVED 2026-09-08. R4 bars the DECLARATION `landing: self` for tier != 1; it does not bar the merge, and this PR correctly declares `landing: hold`. The approval is what unblocks it.",
+      "terminal": "merged",
+      "merge_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
+      "observed_at": "2026-09-08T06:58:23Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11312,
+      "state": "approved_ready_to_merge",
+      "tier": 3,
+      "draft": false,
+      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal, landing: hold)",
+      "owner_session": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
+      "checklist_item": "MI-173-ALPACA-SIBLING-MECHANISM",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO conditions, and the second is a HOLD that must survive this row. (1) The approved direction is TRADE-SCOPE THE ALPACA CLOSE, and its FIRST step is to establish whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not, and must NOT be forced if the venue cannot express it. The fix must also cover modify_protective, which carries the identical scope defect on a different verb and is filed nowhere. (2) ⚠️ MI-140 IS HELD until that fix lands. alpaca_live is REAL MONEY and is immune today for exactly one reason — it cannot place orders at all — and MI-140 removes precisely that. Do not remediate MI-140 first. ⚠️ MERGING #11312 LANDS MEASUREMENT AND A PROPOSAL ONLY; it implements nothing, so the merge is not the fix and must not be reported as one.",
+        "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca — #11279's own body establishes that doing so would reinstate BL-20260707's false-SUCCESS on a real-money-capable path.",
+        "decided_on": "2026-09-08",
+        "text": "Asked as two questions. (1) 'Trade-scope the Alpaca close' rather than ruling whole-symbol close intended — noting that ruling it intended would MOVE the defect rather than close it, since the per-trade qty stays silently discarded. (2) 'Hold MI-140 until the fix lands.'"
+      },
+      "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
+      "opened_at": "2026-09-08T02:00:33Z",
+      "terminal": "merged",
+      "merge_sha": "07f5ea5081e2b1b5870f69012948ec16d49dec0f",
+      "observed_at": "2026-09-08T07:04:13Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-08T05:02:08Z",
-  "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
-  "updated_at": "2026-09-08T06:45:00Z",
+  "last_reconciled_at": "2026-09-08T07:04:13Z",
+  "last_reconciled_sha": "07f5ea5081e2b1b5870f69012948ec16d49dec0f",
+  "updated_at": "2026-09-08T07:20:00Z",
   "updated_by": "session_01GYsNAhP6SpKe1vyn2tBc94"
 }

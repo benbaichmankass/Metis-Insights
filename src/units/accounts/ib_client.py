@@ -93,6 +93,85 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+# ---------------------------------------------------------------------------
+# MI-168 — the close-confirmation's SCOPE
+# ---------------------------------------------------------------------------
+#
+# A verification inherits a scope, and a check whose scope is WIDER than the
+# thing it verifies fails safe in exactly one direction and dangerously in the
+# other. ``close()`` closes ONE TRADE's lots; its confirmation used to require
+# the whole SYMBOL to reach flat. See the long comment at the confirm gate in
+# ``_locked_close`` for the measured incident.
+#
+# Both knobs are read AT CALL TIME (an env flip needs no redeploy) and an
+# unparseable value falls back to its DEFAULT — never to the wider or the more
+# permissive setting. A typo must not silently change behaviour in either
+# direction (the ``CANDLE_CACHE_TTL_FRACTION`` discipline).
+
+_CLOSE_QTY_EPS = 1e-6
+
+#: Whether the confirmation is scoped to the TRADE or to the SYMBOL.
+#:
+#: ``trade``  (default) — confirm the lots THIS close was responsible for.
+#: ``symbol``           — require the whole symbol flat. Byte-for-byte the
+#:                        pre-MI-168 behaviour, kept as the SANCTIONED
+#:                        ROLLBACK: one env flip + restart, no redeploy.
+_CLOSE_CONFIRM_SCOPES = ("trade", "symbol")
+
+#: Whether a PARTIAL reduction confirms the close. ⚠️ THIS IS AN OPERATOR RISK
+#: DECISION, NOT AN IMPLEMENTATION DETAIL, and it is deliberately surfaced as a
+#: knob rather than settled in code — see
+#: ``docs/design/close-confirmation-scope-DESIGN.md`` § "The partial-reduction
+#: question" for both behaviours' consequences.
+#:
+#: ``strict``    (default) — the evidenced reduction must cover the WHOLE
+#:                           ``close_qty``. A 40-of-43 fill does NOT confirm;
+#:                           the row stays open and the close is retried. Errs
+#:                           toward a phantom OPEN row.
+#: ``reduction``           — ANY reduction of at least one contract confirms.
+#:                           Errs toward journalling a trade fully closed while
+#:                           part of it is still held — i.e. a FABRICATED PnL
+#:                           on the unclosed remainder, which is the exact
+#:                           false-SUCCESS class BL-20260707 exists to kill.
+_CLOSE_CONFIRM_PARTIAL_MODES = ("strict", "reduction")
+
+
+def _close_confirm_scope() -> str:
+    raw = (os.environ.get("IB_CLOSE_CONFIRM_SCOPE") or "").strip().lower()
+    return raw if raw in _CLOSE_CONFIRM_SCOPES else "trade"
+
+
+def _close_confirm_partial_mode() -> str:
+    raw = (os.environ.get("IB_CLOSE_CONFIRM_PARTIAL") or "").strip().lower()
+    return raw if raw in _CLOSE_CONFIRM_PARTIAL_MODES else "strict"
+
+
+def _order_filled_qty(trade: Any) -> Optional[float]:
+    """Quantity IB reports FILLED on *trade*, or ``None`` when unreadable.
+
+    This is the venue telling us what OUR order did, so it is trade-scoped by
+    construction — unlike a symbol position read, which cannot distinguish our
+    fill from anybody else's lots.
+
+    ``None`` is *we could not look* and must never be read as ``0.0``. Read
+    defensively for the same reason ``_cancel_own_close_order`` does: a
+    stand-in or older ``ib_insync`` may not carry ``orderStatus``, and an
+    unreadable status must not be mistaken for a quantity.
+    """
+    try:
+        status = getattr(trade, "orderStatus", None)
+        if status is None:
+            return None
+        filled = getattr(status, "filled", None)
+        if filled is None:
+            return None
+        return abs(float(filled))
+    except (TypeError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 # Hard cap on the post-connect liveness probe (reqCurrentTime round-trip). A
 # healthy gateway answers in milliseconds; a logged-out one never answers, so
 # this is the bound that converts "hang forever" into "fail in N seconds".
@@ -2633,29 +2712,153 @@ class IBClient:
         # re-arms a bracket next tick, and the close is retried — i.e. "DB closed"
         # always means "broker confirmed flat". ``IB_CLOSE_CONFIRM_S <= 0`` skips
         # the check (legacy accept-is-success behaviour).
+        #
+        # ── MI-168: THE CONFIRMATION'S SCOPE MUST BE THE CLOSE'S SCOPE ──────
+        #
+        # This gate used to require the whole SYMBOL to reach flat. The close
+        # is of a single TRADE. So whenever the account legitimately holds
+        # OTHER lots of that symbol — a sibling journal trade, an unjournalled
+        # venue position, the untouched remainder of a scaled position — the
+        # gate could never be satisfied, no matter how perfectly the close
+        # executed, and the failure branch below deliberately leaves the
+        # journal row OPEN.
+        #
+        # MEASURED, ib_paper/MGC, 2026-09-07 (MI-167, from the systemd
+        # journal): order 547 sold ALL 43 of trade 5531's lots at 11:45:06Z
+        # (`orderStatus 547: status='Filled', filled=43.0, remaining=0.0,
+        # avgFillPrice=4392.9`). At 11:45:09Z the close was graded a FAILURE —
+        # `close not confirmed flat: live_qty=11.0` — because sibling trade
+        # 5353 legitimately held 11 lots. Consequences: a realised
+        # −$17,024.28 absent from the book, a phantom 43-lot open row, and ten
+        # minutes later 43 re-armed sell lots resting over an 11-lot position.
+        # The precondition is common, not exotic: 13 (account, symbol) pairs
+        # held two or more simultaneously-open rows in the 28-day window.
+        #
+        # `live_qty=11.0` was CORRECT. MGC's position genuinely was 11. It is
+        # the answer to "is this symbol flat?" and it was used to answer "did
+        # trade 5531 close?" — a value that is right about a question nobody
+        # asked.
+        #
+        # We now confirm against evidence that is TRADE-scoped:
+        #
+        #   (a) THE CLOSE ORDER'S OWN FILL (`_order_filled_qty`). The venue
+        #       telling us what OUR order did — trade-scoped by construction.
+        #       Preferred FIRST, and not merely as a convenience: the
+        #       precondition for this entire defect is that other lots of this
+        #       symbol exist, so concurrent activity on the symbol is the
+        #       EXPECTED case, and a position-delta test can be corrupted by a
+        #       sibling's fill landing inside our confirm window. The order's
+        #       own fill cannot be.
+        #
+        #       ⚠️ THE CODE ALREADY HELD THIS EVIDENCE AND THREW IT AWAY.
+        #       `_cancel_own_close_order` (below) reads this very
+        #       `orderStatus` and returns "already_filled" — so on 2026-09-07
+        #       the failure envelope literally carried the fact that the close
+        #       had filled, and used it only to phrase a cancel. It was read to
+        #       decide how to give up, never to decide whether to.
+        #
+        #   (b) THE POSITION REDUCTION — `qty_before - qty_now >= need`.
+        #       `qty_before` is the Step-0 clamp read (`live_qty`), already
+        #       taken before the order was placed; no extra broker call. Used
+        #       when the order status is unreadable.
+        #
+        #   (c) FLATNESS — still sufficient, and still exactly correct in the
+        #       one case where it is equivalent: the account holds nothing
+        #       else. Nothing that used to pass stops passing.
+        #
+        # ⚠️ THIS NARROWS WHAT COUNTS AS SUCCESS; IT MUST NOT WIDEN WHAT
+        # COUNTS AS UNKNOWN. This gate exists for a real defect
+        # (BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT) in which treating
+        # ACCEPTANCE as success let a close never fill while the trade was
+        # journaled `closed` with a FABRICATED local mark-to-market PnL. That
+        # false-SUCCESS stays dead: a read failure is still not a confirmation,
+        # and "we could not look" is still a refusal. Deleting the gate would
+        # re-open BL-20260707; only RE-SCOPING it fixes both directions.
+        #
+        # THREE STATES, NEVER COLLAPSED (`confirm_state`, returned in the
+        # envelope on every path):
+        #   confirmed_flat / _reduced / _order_filled
+        #                — we LOOKED and this trade's lots are gone.
+        #   not_reduced / not_flat
+        #                — we LOOKED and they are still there. A real failure.
+        #   unreadable   — WE COULD NOT LOOK. Still a refusal (retCode 1,
+        #                  exactly as today), but a DIFFERENT FACT, and the
+        #                  record must be able to say which. Before MI-168 the
+        #                  middle and the last returned the same envelope and
+        #                  were indistinguishable afterwards — the collapse
+        #                  docs/CLAUDE-RULES-CANONICAL.md § "Collapsed states"
+        #                  names, in the one place where the difference decides
+        #                  whether a retry can ever work.
+        #
+        # ⚠️ THE SUBSTRING "not confirmed flat" IS LOAD-BEARING AND IS KEPT ON
+        # EVERY REFUSAL PATH. `order_monitor._apply_update` STRING-MATCHES it
+        # (order_monitor.py:1012) to arm the IB_CLOSE_RETRY_COOLDOWN_S defer,
+        # and MI-167 named it as the greppable marker for counting this
+        # defect's incidence across all accounts and all time. Rewording it
+        # would silently disarm the cooldown and destroy the audit trail.
+        #
+        # `IB_CLOSE_CONFIRM_S <= 0` still skips the check entirely (legacy
+        # accept-is-success). `IB_CLOSE_CONFIRM_SCOPE=symbol` restores the
+        # pre-MI-168 flatness test byte-for-byte — the sanctioned rollback, one
+        # env flip + restart, no redeploy.
         confirm_s = _env_float("IB_CLOSE_CONFIRM_S", 6.0)
         if confirm_s > 0:
+            scope = _close_confirm_scope()
+            partial_mode = _close_confirm_partial_mode()
+            # `qty_before` is the Step-0 read. It is None when THAT read
+            # failed, in which case the reduction test (b) is unavailable and
+            # we fall back to (a) and (c) — never to assuming a baseline.
+            qty_before = live_qty
+            # How much evidenced reduction is enough. Under `strict` the whole
+            # close_qty; under `reduction` a single contract. See the knob's
+            # docstring — this is the operator's risk decision.
+            need = close_qty if partial_mode == "strict" else 1.0
             deadline = time.monotonic() + confirm_s
             last_qty: Optional[float] = None
-            flat = False
+            filled_qty: Optional[float] = None
+            confirm_state = "unreadable"
             while True:
+                # (a) our own order's fill — trade-scoped, race-free.
+                filled_qty = _order_filled_qty(close_trade)
+                if (
+                    scope == "trade"
+                    and filled_qty is not None
+                    and filled_qty + _CLOSE_QTY_EPS >= need
+                ):
+                    confirm_state = "confirmed_order_filled"
+                    break
                 try:
                     last_qty = self._live_position_qty(sym)
                 except Exception:  # noqa: BLE001
                     last_qty = None
                 # A read failure (None) is NOT treated as flat — we don't know,
                 # so keep polling until the deadline rather than confirming a
-                # close we can't see.
-                if last_qty is not None and last_qty <= 0:
-                    flat = True
-                    break
+                # close we can't see. `confirm_state` stays "unreadable".
+                if last_qty is not None:
+                    # (c) flat — sufficient under either scope.
+                    if last_qty <= 0:
+                        confirm_state = "confirmed_flat"
+                        break
+                    # (b) the symbol fell by at least this trade's lots.
+                    if (
+                        scope == "trade"
+                        and qty_before is not None
+                        and (qty_before - last_qty) + _CLOSE_QTY_EPS >= need
+                    ):
+                        confirm_state = "confirmed_reduced"
+                        break
+                    # We LOOKED, and this trade's lots are still here. Distinct
+                    # from never having managed to look at all.
+                    confirm_state = (
+                        "not_reduced" if scope == "trade" else "not_flat"
+                    )
                 if time.monotonic() >= deadline:
                     break
                 try:
                     ib.sleep(0.25)
                 except Exception:  # noqa: BLE001
                     break
-            if not flat:
+            if not confirm_state.startswith("confirmed"):
                 # CANCEL OUR OWN ABANDONED ORDER before giving up.
                 #
                 # This method's Step-1 docstring already makes the argument:
@@ -2691,19 +2894,57 @@ class IBClient:
                 # leaves at most one live order, and a caller that gives up
                 # leaves none.
                 cancel_state = self._cancel_own_close_order(ib, close_trade)
+                # ⚠️ THE FAILURE BRANCH'S ACTION IS DELIBERATELY UNCHANGED.
+                #
+                # MI-168 changes WHEN this fires, not what it does. Leaving the
+                # DB row open so protection re-arms and the close retries is
+                # the CORRECT response to a close that genuinely did not
+                # execute — the position really is still there and really is
+                # unprotected (Step 1 cancelled its bracket). The phantom
+                # protection MI-167 measured was not caused by this branch
+                # being wrong; it was caused by this branch firing on closes
+                # that had SUCCEEDED. Fix the trigger, keep the response.
+                #
+                # `unreadable` takes the same action on purpose: if we could
+                # not look, the position MAY be open and unprotected, so
+                # re-arming and retrying is the fail-safe direction. It is
+                # NAMED rather than merged so a reader can tell a venue that
+                # refused from an instrument that went blind — those have
+                # different remedies, and only one of them means "retry will
+                # never work".
+                #
+                # `filled` is in the message because it is the single most
+                # diagnostic field here and was previously absent: on
+                # 2026-09-07 it read 43.0 while the envelope said the close had
+                # failed.
                 return {
                     "retCode": 1,
+                    "confirm_state": confirm_state,
                     "retMsg": (
-                        f"close not confirmed flat: live_qty={last_qty} after "
+                        f"close not confirmed flat [{confirm_state}]: "
+                        f"scope={scope} partial={partial_mode} "
+                        f"close_qty={close_qty} filled={filled_qty} "
+                        f"qty_before={qty_before} live_qty={last_qty} after "
                         f"~{confirm_s}s — close order {close_order.orderId} was "
-                        "accepted but the position is still open; leaving DB row "
-                        "open to re-arm protection and retry next tick "
+                        "accepted but this trade's lots are still open; leaving "
+                        "DB row open to re-arm protection and retry next tick "
                         f"(own close order: {cancel_state})"
                     ),
                 }
 
+            return {
+                "retCode": 0,
+                "confirm_state": confirm_state,
+                "result": {"orderId": str(close_order.orderId)},
+                "retMsg": "OK",
+            }
+
+        # IB_CLOSE_CONFIRM_S <= 0 — the gate is disabled; acceptance is
+        # success (legacy). Say so rather than implying a confirmation nobody
+        # made: "we did not look" must never render as "we looked".
         return {
             "retCode": 0,
+            "confirm_state": "not_checked",
             "result": {"orderId": str(close_order.orderId)},
             "retMsg": "OK",
         }

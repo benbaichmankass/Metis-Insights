@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T05:45:00Z",
+  "updated_at": "2026-09-08T06:45:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2920,8 +2920,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "confirmed_at": "2026-09-08T02:16:14Z",
-      "manager_observation": "POKED AND DID NOT WAKE 2026-09-08T05:42:41Z — RECORDED AS A FAILED DELIVERY, not as a message sent. Still IDLE with updated_at unchanged at 05:09:06Z, while fire_trigger returned SUCCESS and a DIFFERENT session id (cse_014BiZjfw8T3jtHX7cRMg8e4) — it spawned a fresh session instead of resuming this one. Its 3 staged files remain uncommitted in a container nobody can read. Candidate cause, NOT established: it had by far the largest context of the three poked (459,520 tokens vs 127,664 and 174,909) and was the oldest.",
-      "observed_at": "2026-09-08T05:45:00Z"
+      "manager_observation": "POKED TWICE. First attempt 05:42:41Z FAILED — stayed IDLE while fire_trigger returned SUCCESS and a DIFFERENT session id. RETRY 06:14:10Z SUCCEEDED: PENDING/connected, updated_at exactly the fire time, returned id matching the target. ⚠️ THE CAUSE I FIRST RECORDED (largest context, oldest session) IS FALSIFIED by that retry — same session, same 459,520-token context, woke fine. The actual difference was that the failed call passed fire_trigger's optional `text` parameter and the successful ones did not (n=3 successes without it, n=1 failure with it — a stronger reading, still not established). Poke with trigger_id alone.",
+      "observed_at": "2026-09-08T06:16:00Z"
     },
     {
       "session_id": "session_01EPvAGZDFZCYF3QJk12u3mk",
@@ -2974,15 +2974,15 @@
     {
       "session_id": "session_0173g82hw2Rf3HjnfydGcnyX",
       "registry_key": "pending-20260908T044628Z",
-      "state": "working",
+      "state": "blocked",
       "title": "MI-183 — pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
       "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
       "spawned_at": "2026-09-08T04:46:28Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator granted a spawn-priority exception 2026-09-08.",
       "confirmed_at": "2026-09-08T04:47:58Z",
-      "manager_observation": "POKED AND WOKE 2026-09-08T05:42:52Z. Was IDLE/BLOCKED, patch ready, 'commit blocked by pre-push hook twice'. After the poke: RUNNING/connected, task_summary 'Checking whether any git pre-push hook exists' — visibly ACTING on the instruction, not merely resumed. Told to diagnose the hook, never --no-verify past it.",
-      "observed_at": "2026-09-08T05:45:00Z"
+      "manager_observation": "BLOCKED, UNRECOVERABLE IN THIS CONTAINER — confirmed 06:22Z, its own words: 'push denied by harness'. It had FINISHED the work first (commit 5101620, 3 files, +259/-7) and spent 201k tokens before discovering it could not land any of it; the branch claude/mi-r6-slot-diagnosis-20260908 is absent from origin (verified by ls-remote). Poked twice, including with the exact plain push form its siblings used. ⚠️ SAME CLASS AS MI-185 (~160k tokens, same outcome) and the SECOND of six containers to refuse while four pushed fine, so this is per-container, not environment-wide. RE-DISPATCHED as MI-183b (session_01LSfhSog9oxATpMUUPBfTN9) against the same work object with a PUSH-PROBE-FIRST prompt. Do not poke this session again — it costs budget and lands nothing. ⚠️ Its finished commit is stranded: a manager cannot read files out of a sub-session's container, so the patch it offers is not a deliverable and MI-183b must redo the work.",
+      "observed_at": "2026-09-08T06:45:00Z"
     },
     {
       "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
@@ -2998,13 +2998,37 @@
     {
       "session_id": "session_015iukpShDdwvP5CM79Qtt3B",
       "registry_key": "pending-20260908T050420Z",
-      "state": "working",
+      "state": "blocked",
       "title": "MI-185 — land #11279 and #11312, which the manager is barred by R2 from merging",
       "owns_object": "WO-20260908-LAND-THE-TWO-OPERATOR-APPROVED-PRS-THE",
       "spawned_at": "2026-09-08T05:04:20Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Both operator-approved and green; the manager cannot author the conflict-resolution merge commit (MI-184).",
-      "confirmed_at": "2026-09-08T05:05:05Z"
+      "confirmed_at": "2026-09-08T05:05:05Z",
+      "manager_observation": "BLOCKED, UNRECOVERABLE IN THIS CONTAINER — observed 06:23Z after THREE pokes (05:41, 06:19, and the operator-decision relay). It acted on every one and pushed NOTHING: ~160k tokens spent, and its needs_action kept changing shape while staying the same blocker — 'permission classifier denied git merge', then 'grant Claude GitHub App access + add git bash patterns to .claude/settings.json'. Its branches are absent from origin (verified by ls-remote). ⚠️ IT ALSO PROPOSED RESOLVING #11279's register collision by TAKING MAIN'S VERSION, which was REFUSED: these registers only gain rows, so either side wins by silently deleting the other's, invisibly in the diff. ⚠️ FOUR SIBLING SESSIONS PUSHED FINE THE SAME NIGHT, so this looks per-container rather than environment-wide — MI-185b (session_01SmCEELFxuDSwBbLBmrF4mL) is the test, and is instructed to PROVE IT CAN PUSH before doing any analysis. Do not poke this session again; feeding it more turns costs budget and lands nothing.",
+      "observed_at": "2026-09-08T06:29:00Z"
+    },
+    {
+      "session_id": "session_01SmCEELFxuDSwBbLBmrF4mL",
+      "registry_key": "pending-20260908T062735Z",
+      "state": "working",
+      "title": "MI-185b — land #11279 and #11312 (MI-185's container cannot push; fresh attempt)",
+      "owns_object": "WO-20260908-LAND-THE-TWO-OPERATOR-APPROVED-PRS-THE",
+      "spawned_at": "2026-09-08T06:27:35Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-185 burned 160k tokens across three pokes and pushed nothing: its container's permission classifier refuses git merge/push while four sibling sessions pushed fine. A fresh container is the cheapest test of whether that is per-container.",
+      "confirmed_at": "2026-09-08T06:28:25Z"
+    },
+    {
+      "session_id": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "registry_key": "pending-20260908T064020Z",
+      "state": "working",
+      "title": "MI-183b — R6 vs merge-slot (MI-183's container cannot push; fresh attempt)",
+      "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
+      "spawned_at": "2026-09-08T06:40:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-183 finished the work (commit 5101620, 3 files, +259/-7) and burned 201k tokens unable to push: 'push denied by harness'. Same class as MI-185, and MI-185b proved a fresh container CAN push.",
+      "confirmed_at": "2026-09-08T06:40:53Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
