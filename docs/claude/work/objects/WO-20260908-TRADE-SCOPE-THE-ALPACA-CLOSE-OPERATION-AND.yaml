@@ -1,0 +1,30 @@
+id: WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Trade-scope the Alpaca close operation (and modify_protective)
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  EITHER the Alpaca close and modify_protective act on the named trade's quantity rather than the whole symbol, verified by a test that fails on today's code; OR it is established from the Alpaca API that a qty-scoped close cannot be expressed, and THAT is recorded as the finding with the consequence stated. The approval explicitly does not force the change if the venue cannot support it.
+
+why: >-
+  AlpacaClient.close(symbol) takes no qty; execute.close_open_position validates the per-trade qty then never passes it, so closing one trade liquidates the whole symbol. modify_protective carries the identical scope defect on a different verb and is filed nowhere. Tier-3, operator-approved 2026-09-08.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

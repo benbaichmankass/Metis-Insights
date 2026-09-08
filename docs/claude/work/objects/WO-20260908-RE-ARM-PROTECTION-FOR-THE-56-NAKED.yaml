@@ -1,0 +1,30 @@
+id: WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Re-arm protection for the 56 naked shares on trade 5414 (alpaca_portfolio/TLT)
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The 56 uncovered shares carry a resting protective leg at the JOURNAL's declared stop_loss 82.32875, verified by a fresh /api/diag/alpaca_open_orders read showing stop coverage for the full 72, with the sibling trade 5266's existing leg still resting and uncancelled.
+
+why: >-
+  alpaca_portfolio/TLT is a 72-share short and only 16 shares carry a resting stop. Trade 5414's 56 shares have been entirely naked since ~2026-09-03 while its journal row declares stop_loss 82.32875. Operator-approved 2026-09-08 to re-arm rather than monitor or flatten. PAPER money.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
