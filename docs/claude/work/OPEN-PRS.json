@@ -43,26 +43,7 @@
   "as_of": "2026-09-08T04:16:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [
-    {
-      "pr": 11312,
-      "state": "approved_ready_to_merge",
-      "tier": 3,
-      "draft": false,
-      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal, landing: hold)",
-      "owner_session": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
-      "checklist_item": "MI-173-ALPACA-SIBLING-MECHANISM",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "TWO conditions, and the second is a HOLD that must survive this row. (1) The approved direction is TRADE-SCOPE THE ALPACA CLOSE, and its FIRST step is to establish whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not, and must NOT be forced if the venue cannot express it. The fix must also cover modify_protective, which carries the identical scope defect on a different verb and is filed nowhere. (2) ⚠️ MI-140 IS HELD until that fix lands. alpaca_live is REAL MONEY and is immune today for exactly one reason — it cannot place orders at all — and MI-140 removes precisely that. Do not remediate MI-140 first. ⚠️ MERGING #11312 LANDS MEASUREMENT AND A PROPOSAL ONLY; it implements nothing, so the merge is not the fix and must not be reported as one.",
-        "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca — #11279's own body establishes that doing so would reinstate BL-20260707's false-SUCCESS on a real-money-capable path.",
-        "decided_on": "2026-09-08",
-        "text": "Asked as two questions. (1) 'Trade-scope the Alpaca close' rather than ruling whole-symbol close intended — noting that ruling it intended would MOVE the defect rather than close it, since the per-trade qty stays silently discarded. (2) 'Hold MI-140 until the fix lands.'"
-      },
-      "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
-      "opened_at": "2026-09-08T02:00:33Z"
-    }
-  ],
+  "open_prs": [],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -1713,10 +1694,32 @@
       "merge_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
       "observed_at": "2026-09-08T06:58:23Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11312,
+      "state": "approved_ready_to_merge",
+      "tier": 3,
+      "draft": false,
+      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal, landing: hold)",
+      "owner_session": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
+      "checklist_item": "MI-173-ALPACA-SIBLING-MECHANISM",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "TWO conditions, and the second is a HOLD that must survive this row. (1) The approved direction is TRADE-SCOPE THE ALPACA CLOSE, and its FIRST step is to establish whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not, and must NOT be forced if the venue cannot express it. The fix must also cover modify_protective, which carries the identical scope defect on a different verb and is filed nowhere. (2) ⚠️ MI-140 IS HELD until that fix lands. alpaca_live is REAL MONEY and is immune today for exactly one reason — it cannot place orders at all — and MI-140 removes precisely that. Do not remediate MI-140 first. ⚠️ MERGING #11312 LANDS MEASUREMENT AND A PROPOSAL ONLY; it implements nothing, so the merge is not the fix and must not be reported as one.",
+        "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca — #11279's own body establishes that doing so would reinstate BL-20260707's false-SUCCESS on a real-money-capable path.",
+        "decided_on": "2026-09-08",
+        "text": "Asked as two questions. (1) 'Trade-scope the Alpaca close' rather than ruling whole-symbol close intended — noting that ruling it intended would MOVE the defect rather than close it, since the per-trade qty stays silently discarded. (2) 'Hold MI-140 until the fix lands.'"
+      },
+      "note": "Tier-3 approved. Merge unblocked for the measurement/proposal; the implementation is a separate dispatched session.",
+      "opened_at": "2026-09-08T02:00:33Z",
+      "terminal": "merged",
+      "merge_sha": "07f5ea5081e2b1b5870f69012948ec16d49dec0f",
+      "observed_at": "2026-09-08T07:04:13Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-08T06:58:23Z",
-  "last_reconciled_sha": "12b5b84b1b8676bdad7d0524e27a35e425931449",
+  "last_reconciled_at": "2026-09-08T07:04:13Z",
+  "last_reconciled_sha": "07f5ea5081e2b1b5870f69012948ec16d49dec0f",
   "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
