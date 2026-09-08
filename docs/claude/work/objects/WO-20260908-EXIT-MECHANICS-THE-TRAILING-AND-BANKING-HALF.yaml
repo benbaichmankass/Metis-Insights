@@ -1,0 +1,30 @@
+id: WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Exit mechanics: the trailing and banking half, which the ship-blocked matrix never covered
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A measurement, with its POPULATION stated, of what the trailing and banking paths actually did on closed trades -- how often a trailing amend fired, how often it was the exit, and whether any partial bank ever occurred -- read from broker-truth rows only (provenance.is_measured), never from journal prose. It is DONE when the numbers exist with their denominators; it is NOT done by proposing a parameter change, and NO exit-matrix cell status may be re-graded (Tier-3, decided).
+
+why: >-
+  Operator-flagged as still owed. The 2026-08-23 exit-matrix verdict is SHIP BLOCKED and DECIDED, and that decision covered the take-profit/cap geometry. The TRAILING and BANKING behaviour -- when a runner's stop is advanced, and whether partial profit is ever actually banked -- was never measured on the same footing. Under CY-20260906-TRADING-TRUTH the instrument must be trustworthy BEFORE anything is acted on, so this is measurement, not a lever change.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
