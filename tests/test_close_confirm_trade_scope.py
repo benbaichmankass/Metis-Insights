@@ -316,12 +316,17 @@ def test_ib_close_flatness_still_confirms_when_nothing_else_is_held(
 # OPERATION it gates is not, and that is what decides whether the scope is
 # wrong:
 #
-#   * ``AlpacaClient.close(symbol)`` takes NO qty. It issues
+# ⚠️ THE THREE BULLETS BELOW WERE TRUE WHEN THIS FILE WAS WRITTEN AND ARE NOW
+# HISTORY, NOT DESCRIPTION — #11337 repaired all three. They are kept because
+# the REASONING that follows them is still correct and still binding, and it is
+# only readable against the state it was reasoning about:
+#
+#   * ``AlpacaClient.close(symbol)`` took NO qty. It issued
 #     ``DELETE /v2/positions/{sym}`` — Alpaca's whole-symbol liquidation.
-#   * ``_close_extended_hours(symbol)`` reads ``qty`` from the LIVE POSITION
-#     (``pos.get("qty")``), i.e. the whole symbol, and places a limit for it.
-#   * ``execute.close_open_position`` receives a per-trade ``qty`` and, on the
-#     alpaca branch, DISCARDS it.
+#   * ``_close_extended_hours(symbol)`` read ``qty`` from the LIVE POSITION
+#     (``pos.get("qty")``), i.e. the whole symbol, and placed a limit for it.
+#   * ``execute.close_open_position`` received a per-trade ``qty`` and, on the
+#     alpaca branch, DISCARDED it.
 #
 # So on Alpaca the operation is symbol-scoped and the confirmation is
 # symbol-scoped: they MATCH, symbol-flatness is reachable, and the
@@ -332,7 +337,18 @@ def test_ib_close_flatness_still_confirms_when_nothing_else_is_held(
 # REAL-MONEY-CAPABLE PATH: confirming a trade-sized reduction while the venue
 # in fact liquidated the whole symbol would journal one trade closed and leave
 # its sibling's row open with no position behind it — the BL-20260707 class,
-# re-introduced. The Alpaca confirmation is therefore left UNCHANGED.
+# re-introduced. The Alpaca confirmation was therefore left UNCHANGED here.
+#
+# ⚠️ AND THAT REASONING STILL HOLDS AFTER #11337 — read the ORDER, because it
+# is the whole safety property. #11337 did NOT re-scope this confirmation. It
+# narrowed the OPERATION, and only then added a reduction-aware gate to the NEW
+# partial path, leaving the pre-existing whole-symbol path's strict flatness
+# check exactly as it is. The hazard above requires the confirmation to be
+# loosened AHEAD of the operation; loosening it for a path whose operation was
+# narrowed in the same commit is a different act. The operator was asked this
+# as its own Tier-3 question on 2026-09-08 and ACCEPTED the ordering argument,
+# with the limit recorded: a future change that loosens an Alpaca confirmation
+# WITHOUT narrowing its operation in the same commit is NOT covered by it.
 
 
 def _regular_hours(monkeypatch):
@@ -427,8 +443,14 @@ def test_alpaca_close_of_one_trade_liquidates_its_sibling_too(monkeypatch):
     cli = AlpacaClient(api_key="k", api_secret="s")
     monkeypatch.setattr(cli, "_request", fake_request)
 
-    # The caller wanted to close ONE trade's 43 shares. The client's signature
-    # cannot express that — it takes only a symbol.
+    # ⚠️ THIS CALL PASSES NO QTY, AND THAT IS NOW THE POINT OF IT.
+    # The sentence here used to read "the client's signature cannot express
+    # that — it takes only a symbol", which #11337 made false. What the call
+    # still demonstrates, and what keeps this test worth running, is the
+    # LEGACY UNSCOPED PATH: a caller that names no quantity gets exactly the
+    # whole-symbol flatten it always got. The over-close this test is named
+    # for is repaired at `execute.close_open_position`, which now forwards the
+    # per-trade qty — see tests/test_alpaca_trade_scoped_close.py.
     cli.close("TLT")
 
     assert deleted, "the flatten was issued"
@@ -438,11 +460,44 @@ def test_alpaca_close_of_one_trade_liquidates_its_sibling_too(monkeypatch):
     )
 
 
-def test_alpaca_close_signature_cannot_express_a_trade_scoped_close():
-    """Structural pin behind the correction above: ``AlpacaClient.close``
-    accepts no quantity, so a trade-scoped confirmation would have no
-    trade-scoped operation to confirm."""
+def test_alpaca_close_signature_can_now_express_a_trade_scoped_close():
+    """⚠️ INVERTED 2026-09-08 — this test asserted the OPPOSITE until #11337.
+
+    It was named ``test_alpaca_close_signature_cannot_express_a_trade_scoped_close``
+    and asserted ``params == ["self", "symbol"]``. It was a CHARACTERISATION
+    pin on a defect, not a property worth preserving, and the defect has since
+    been repaired: ``AlpacaClient.close`` now takes the named trade's ``qty``
+    and issues ``DELETE /v2/positions/{sym}?qty=N`` — Alpaca's documented
+    partial liquidation — when that quantity is smaller than the live position.
+
+    The OLD NAME IS RECORDED HERE ON PURPOSE: `BL-20260907-ALPACA-CLOSE-OF-ONE-
+    TRADE-LIQUIDATES-ITS-SIBLINGS` cites it by name in its
+    ``resolution_criteria``, and that row's RESOLVES-WHEN is what #11337
+    satisfies. Renaming without leaving the old name findable would break the
+    only link between the row and its evidence. Renaming was still necessary:
+    a test whose NAME asserts the opposite of what it checks is the
+    unprovenanced-diagnostic class this file exists to argue against.
+
+    ⚠️ **#11279's IB-ONLY SCOPING IS STILL CORRECT, AND FOR ITS OWN REASON —
+    which this inversion does NOT weaken.** #11279 declined to extend its
+    confirmation change to Alpaca because doing so would confirm a trade-sized
+    reduction against a venue that had liquidated the whole symbol: the
+    BL-20260707 false-SUCCESS, on a real-money-capable path. That hazard is
+    about ORDER, not about whether `qty` exists. It requires the CONFIRMATION
+    to be loosened while the OPERATION is still whole-symbol, and #11279 could
+    only have done it that way round, because on its branch the operation
+    could not be scoped at all — which is precisely what the old assertion
+    recorded. #11337 narrowed the operation FIRST and left the whole-symbol
+    path's strict flatness gate untouched, so it is not the move #11279
+    refused. The operator was asked this as its own Tier-3 question on
+    2026-09-08 and accepted the ordering, with the limit recorded: loosening
+    an Alpaca confirmation WITHOUT narrowing its operation in the same commit
+    is still forbidden and is not covered by that approval.
+    """
     import inspect
 
     params = list(inspect.signature(AlpacaClient.close).parameters)
-    assert params == ["self", "symbol"], params
+    assert params == ["self", "symbol", "qty"], params
+    # …and it is OPTIONAL, so every pre-existing caller keeps the whole-symbol
+    # behaviour it had. That is what the two controls below rest on.
+    assert inspect.signature(AlpacaClient.close).parameters["qty"].default is None

@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T19:29:00Z",
+  "updated_at": "2026-09-08T23:50:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2258,14 +2258,14 @@
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
-      "status": "blocked",
+      "status": "landed_unproven",
       "owner": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T07:16:00Z",
-      "blocked_on": "register merge conflict on its own branch",
+      "updated": "2026-09-08T23:50:00Z",
+      "blocked_on": null,
       "tier": "3 — order path, operator-approved",
       "title": "Trade-scope the Alpaca close operation (and modify_protective)",
-      "note": "APPROVED AND CANNOT MERGE. Operator accepted the section-3(b) confirmation-ordering argument, so the diff is cleared; the 405 is a conflict in two append-only registers only. Poked 07:12Z with the union rule. ⚠️ THE MANAGER MUST NOT RESOLVE THIS ITSELF — merging main in would put main's src/ changes in the merge commit's first-parent diff, which R2 grades as a manager touching a worker path. That is MI-184, and it already cost a force-push today."
+      "note": "✅ MERGED 2026-09-08T23:49Z as 0862f8ac (squash of #11337). The manager clicked it: R4 bars a Tier-3 diff from self-landing, which is why it needed a manager and NOT a sign approval was missing. Authority read from OPEN-PRS.json's typed record, not from a checklist note — verdict approved_with_conditions, both conditions SATISFIED (DELETE /v2/positions/{symbol} documents `qty`; modify_protective scoped in the same diff), section 3(b) confirmation-ordering ACCEPTED by the operator as its own Tier-3 question. || GREEN WAS VERIFIED AGAINST THE RIGHT HEAD: all five checks on 66e2b972 started 23:25:24Z, matching that head's 23:25:17Z push — not the 18:32Z set that made the previous pass read a stale-head green. pytest-run completed 23:41:50Z. || ⚠️ landed_unproven, NOT done, and the distinction is the whole point: `?qty=` acceptance against a real Alpaca position is DOCUMENTED and has never been OBSERVED — no broker call was made by anyone, so an alpaca_paper verification is still owed. Nothing about this is confirmed on the fleet. || ⚠️ THE LIMIT OF THE APPROVAL, carried so a later session cannot widen it: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered. || MI-140's hold was 'until this lands' and is now RELEASABLE — releasable is not released, and it is a separate decision."
     },
     {
       "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
@@ -2661,13 +2661,24 @@
       "id": "MI-206-ALPACA-SCOPED-WRITE",
       "title": "Build the trade/qty-scoped Alpaca protective attach and scoped modify (Tier-2, approved)",
       "owner": "unassigned",
-      "status": "ready",
+      "status": "duplicate_of_MI-180",
       "tier": "2 — order-path change; the operator APPROVED it 2026-09-08 and it is RECORDED, not applied",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08T23:26:51Z",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY",
+      "note": "⚠️ DO NOT SPAWN THIS. CORRECTED 2026-09-08T23:26Z — this row read 'ready / unassigned' as though the work needed a session, and it does not: it is ALREADY BUILT and in CI as #11337 under MI-180-ALPACA-CLOSE-TRADE-SCOPE, owned by session_01GYsNAhP6SpKe1vyn2tBc94 since 04:46Z — 22 commits, 1326 additions across 13 files, 18 tests. Spawning a session against this row would have duplicated all of it. || HOW THE DUPLICATE AROSE, because the mechanism matters more than the row: I opened MI-206 from the operator's DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write) answer, treating an approval as though it created new work. It did not — my own note on this row already said the decision 'RELEASES PR #11337', which is the correct reading and is incompatible with also listing it as unassigned work to dispatch. An approval that releases an existing PR is not a work item; conflating the two manufactures a second owner for one deliverable. || ⚠️ AND THE APPROVAL WAS PARTLY REDUNDANT: #11337's own landing declaration records that the operator had ALREADY approved the operation earlier on 2026-09-08 ('asked whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to trade-scope it'), and that what the hold was actually waiting on was the section-3(b) CONFIRMATION question — a different question from the one I put to them. OPEN-PRS.json shows 3(b) was also answered. Nothing is lost by the duplication, but a manager re-asking a question already answered is the cost, and it is recorded. || THE OPERATOR'S SEQUENCING IS UNAFFECTED: 'harness first, Alpaca next' governs what gets SPAWNED. #11337 needs no spawn — only the merge click tracked on MI-180."
+    },
+    {
+      "id": "MI-207-REGISTRY-MUST-REFUSE-A-SPAWN-WITH-NO-SOURCE-URL",
+      "title": "Make session_registry.py refuse to register a spawn that does not name its repo, and print source_url into the prompt it emits",
+      "owner": "unassigned",
+      "status": "ready",
+      "tier": "1 — scripts/ change; ROUTED to a session because it is a worker path and R2 bars the manager from authoring it",
       "opened": "2026-09-08",
       "updated": "2026-09-08",
       "blocked_on": [],
-      "owns_object": "WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY",
-      "note": "OPERATOR-APPROVED 2026-09-08 via DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write), and SEQUENCED SECOND by the operator behind MI-205. ⚠️ SCOPE OF THE APPROVAL, which must not be widened: a TRADE/QTY-SCOPED protective attach PLUS a scoped modify. It is NOT approval to retry the re-arm through the existing symbol-wide path, whose blast radius is measured — place_protective calls _cancel_open_orders_for_symbol UNCONDITIONALLY and silently drops the oca_key that the IB implementation honours. It RELEASES PR #11337, which has sat at landing: hold since 05:36Z. ⚠️ URGENCY CORRECTED 2026-09-08T22:08Z, AND THE OPERATOR RE-SEQUENCED ON THE CORRECTION: the standing 56 uncovered shares on trade 5414 are on alpaca_portfolio, whose account_class is PAPER (paper_role: portfolio) — read live from /api/bot/config, not the YAML. alpaca_live (real_money) was FLAT at the time of measurement. My earlier framing called it 'a real position', which on a system where real_money is a defined account class invites the wrong reading; the operator approved the Tier-2 partly on that urgency and was told before anything was spawned. WHAT SURVIVES THE CORRECTION: the defect is real and the same code path serves alpaca_live, so the fix is PROSPECTIVE real-money protection rather than an active real-money cleanup."
+      "note": "⚠️ FILED AS AN ITEM, NOT AS A BACKLOG ROW, DELIBERATELY. The class is already filed THREE times (BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, BL-20260908-SPAWNING-WITHOUT-SOURCE-URL-CAN-ATTACH-THE-WRONG-REPO-NOT-MERELY-NO-REPO-AND-THE-2026-09-06-ROW-DID-NOT-PREVENT-IT, BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS) and the third row's resolution_criteria says in terms: 'NOT SUFFICIENT: another backlog row, another line in a spawn template.' It measures 15 instances across 5 distinct days and records that FILING TAUGHT NOTHING. A fourth row would be the accumulation this repo complains about, so none was filed. || THE 16TH INSTANCE IS MINE, 2026-09-08T22:11Z: I spawned MI-205 with source_url omitted and it attached the-lizardking/ict-trading-bot — a different OWNER, outside this session's allowed scope. It reached RUNNING, cloned that repo, read its docs and pushed a board START there before I interrupted it at 22:17Z and re-dispatched as MI-205b with the source pinned. || WHAT IS NEW AND IS WHY THIS ITEM EXISTS: I spawned THROUGH session_registry.py, and register + confirm BOTH SUCCEEDED. The registry records that a spawn happened and cannot see which repo the child was handed, so A REGISTERED SPAWN IS NOT A CORRECTLY-TARGETED ONE. The registry is also the one mechanism a manager reliably runs at spawn time and the one thing in this class the REPO ACTUALLY OWNS — CLAUDE.md states plainly that nothing here is on create_session's call path, so 'wrap create_session' (the third row's own clause 1) is not buildable from inside this repository. Refusing to register without an explicit --source-url, and printing it into the spawn prompt the registry already emits, is the strongest prevention the repo can actually implement. || ⚠️ THE TRAP IS IN THE TOOL'S OWN WORDING and should be quoted in whatever is built: create_session says it 'inherits the calling session's environment' when environment_id is omitted. An ENVIRONMENT IS NOT A SET OF SOURCES. Verified both directions this session: my own get_session carries the three benbaichmankass/* repos, while MI-205 — spawned from it, same environment — carried the-lizardking/ict-trading-bot. || ⚠️ THE FAILURE MODE IS SILENT, NOT SAFE. The third row draws the distinction and it held here: a no-repo spawn fails safe (nothing to compute), a WRONG-repo spawn runs and produces confident, quotable output from the wrong codebase — MI-188 reported a trading number from the historical the-lizardking tree. MI-205's own task_summary read 'repo cloned, docs read, board START pushed' and looked entirely healthy. || DETECTION HALF, already available and cheap: get_session with NO argument returns the caller's own session_context.sources in one call — no git, no commit, no push. That is how this instance was caught, and it was caught only because I went looking for whether the child had STARTED rather than assuming it had."
     }
   ],
   "as_of": "2026-09-08T19:29:00Z",

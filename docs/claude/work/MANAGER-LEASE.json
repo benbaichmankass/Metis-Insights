@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T22:12:05Z",
-  "expires_at": "2026-09-08T23:42:05Z",
+  "heartbeat_at": "2026-09-08T23:50:00Z",
+  "expires_at": "2026-09-09T01:20:00Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat, tool-stamped. SPAWNED MI-205 (session_01JALQ7skjJQN3yNHz5mF51s) for the N-book ranking-key harness, THROUGH the registry — register refused first because the decision object declared no parent_intent, which is the gate working: a build object (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS, parent IN-20260903-TRADING-SYSTEM-HEALTH) was created and the registration re-run against it. ⚠️ AND A CORRECTION THE OPERATOR ACTED ON IS RECORDED THIS PASS: the 56 unprotected TLT shares are on alpaca_portfolio, which is account_class PAPER, not real money."
+  "note": "Heartbeat 23:50:00Z, tool-stamped. MERGE PASS: #11337 LANDED as 0862f8ac — the Tier-3 Alpaca trade-scoped close, merged on the manager's click because R4 bars a Tier-3 diff from self-landing. All five checks green on head 66e2b972, and I verified they were THAT head's (started 23:25:24Z, matching the 23:25:17Z push) rather than the 18:32Z set that misled the previous pass. #11469 merged as 23292309. ⚠️ MI-180 is landed_unproven, NOT done: `?qty=` acceptance against a real Alpaca position is DOCUMENTED and has never been observed — no broker call was made by anyone. ⚠️ MI-205b IS NOW NAMED AS A STALL — 91 minutes, nothing on the remote, summary string frozen 32 minutes. It is alive; it has produced nothing."
 }

@@ -722,8 +722,15 @@ EXCHANGE_MANAGEMENT_CAPS: dict[str, frozenset[str]] = {
     # branch — so ``close`` + ``open_positions`` are supported. S2
     # (BL-20260616-LTMGMT-MODIFY) added ``modify``: AlpacaClient.modify_protective
     # PATCHes the resting bracket legs (stop_price / limit_price) for whichever
-    # of SL/TP the verdict changed. ``partial_close`` is not wired (the flatten
-    # endpoint closes the whole position).
+    # of SL/TP the verdict changed. ``partial_close`` is deliberately NOT
+    # declared, and the reason it used to give — "the flatten endpoint closes
+    # the whole position" — is FALSE and was corrected 2026-09-08:
+    # ``DELETE /v2/positions/{symbol}`` takes a documented ``qty`` parameter,
+    # which is what ``AlpacaClient.close`` now uses to keep a close on the
+    # named trade. That capability is about the exit-ladder's
+    # ``_send_partial_close_to_exchange`` verb — a scheduled scale-out — which
+    # is a different feature with its own journal accounting and is still
+    # unwired here. The venue could support it; nothing has built it.
     "alpaca": frozenset({"modify", "close", "open_positions"}),
     # oanda (oanda_practice, currently dry_run): S2 (BL-20260616-LTMGMT-OANDA)
     # wired ``close`` (OandaClient.close → v20 PUT positions/{instrument}/close,

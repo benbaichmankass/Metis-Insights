@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager post-merge pass. Registers only, all under docs/claude/**: the tool-stamped lease heartbeat, MI-180 moved to landed_unproven after #11337 merged as 0862f8ac, and MI-205b named as a stall. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}

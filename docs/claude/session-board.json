@@ -7,9 +7,9 @@
   "merge_slot": {
   "held_by": "session_01ML8uLRrKLMmzR9fFywTWv5",
   "branch": "claude/mi205b-ranking-key-harness",
-  "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T23:35:00Z",
-  "note": "MI-205b - the N-book ranking-key harness (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS). Tier-1 measurement build: three scripts under scripts/research/, .github/workflows/ranking-key-ab.yml, tests/research/, docs/research/. No order path and no live config; the ranking arm is installed by in-process patching and restored unconditionally. The result is a NULL and nothing live is proposed."
+  "pr": 11473,
+  "claimed_at": "2026-09-08T23:56:00Z",
+  "note": "MI-205b - the N-book ranking-key harness (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS), PR #11473. Tier-1 measurement build: three scripts under scripts/research/, .github/workflows/ranking-key-ab.yml, tests/research/, docs/research/. No order path and no live config; the ranking arm is installed by in-process patching and restored unconditionally. The result is a NULL and nothing live is proposed. || MERGE-CONFLICT RESOLUTION, RECORDED RATHER THAN SILENT: this overwrote a NEWER claim (session_01HrmZ1RRNM4UnEUaFdrPEjj, branch claude/mgr-heartbeat-2352-20260908, 23:50:00Z). It was NOT taken on seniority - it was CHECKED. That branch has NO OPEN PR (verified against list_pull_requests state=open, 2026-09-08T23:55Z: the only non-automation PR open is #11473), so its work has already merged and the claim on main is a leftover nobody released, not a live lock. A claim whose branch has nothing in flight is not serialization working; it is a slot that was never freed. If that reading is wrong, the remedy is to say so - do not infer consent from this note."
  },
  "active_sessions": [
   {

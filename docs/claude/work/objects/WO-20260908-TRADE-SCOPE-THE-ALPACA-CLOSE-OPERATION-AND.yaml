@@ -4,13 +4,17 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Trade-scope the Alpaca close operation (and modify_protective)
 stage: CAPABILITY
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01GYsNAhP6SpKe1vyn2tBc94
 opened_at: 2026-09-08
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  Re-read when the PR that carries this work is merged or rejected. ⚠️ MERGING
+  IS NOT THE DONE CONDITION and must not be read as one: the done condition
+  below asks for a test that fails on today's code (satisfied — see
+  `evidence`), and the OBSERVATION half is separate and is NOT owed by this
+  object, because the only account that could produce it is paper and the
+  precondition is a live multi-row symbol.
 done_condition: >-
   EITHER the Alpaca close and modify_protective act on the named trade's quantity rather than the whole symbol, verified by a test that fails on today's code; OR it is established from the Alpaca API that a qty-scoped close cannot be expressed, and THAT is recorded as the finding with the consequence stated. The approval explicitly does not force the change if the venue cannot support it.
 
@@ -20,11 +24,144 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: operator_decision
+    ref: "The Alpaca close-confirmation MEASUREMENT — reserved to #11312 by #11279's own approval scope"
+    since: 2026-09-08
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-08 by the owning session, from the code, from the Alpaca API
+  reference, and from the recorded operator decision on #11279 in
+  `docs/claude/work/OPEN-PRS.json`. Exactly ONE edge. ⚠️ IT IS NARROWER THAN
+  MI-173'S QUESTION 3 AS PUT, and the narrowing is the finding: question 3
+  asked "strict vs reduction", and the strict/reduction half is ALREADY
+  ANSWERED. The operator answered it for IB on 2026-09-08 — a partial fill
+  REFUSES, "erring toward a phantom OPEN row that existing reconcilers clean up,
+  rather than a phantom CLOSED row that fabricates PnL on the remainder and
+  leaves lots naked" — and this change is `strict` in exactly that sense: a
+  reduction that lands only partly does not confirm, retCode 1, the row stays
+  open. So that is the same answer applied to the mirror venue, not a default
+  that drifted. What is genuinely undecided is the MEASUREMENT: #11279's
+  approval scope reads "EXPLICITLY NOT Alpaca — Alpaca's mirror defect is
+  decided separately on #11312", and that decision has not been made. Here the
+  whole-symbol path KEEPS its flatness gate untouched and only the new partial
+  path measures the trade's own quantity delta. ⚠️ The edge does NOT block the
+  operation change, which is approved and complete. ⚠️ And the MI-140 coupling
+  is deliberately NOT written as an edge: MI-140 is HELD UNTIL THIS LANDS, so
+  the dependency runs the other way, and recording it backwards would make the
+  constraint computation read a deadlock that does not exist.
+
+evidence: >-
+  CAPABILITY QUESTION ANSWERED FIRST, which was the proposal's own first step:
+  a qty-scoped close CAN be expressed at the venue. `DELETE
+  /v2/positions/{symbol_or_asset_id}` documents a `qty` query parameter — "the
+  number of shares to liquidate. Can accept up to 9 decimal points. Cannot work
+  with percentage" — read from the Alpaca API reference on 2026-09-08. So the
+  second branch of the done condition (record that it cannot be expressed) does
+  NOT apply, and the operator's approval holds.
+  TEST POPULATION, measured against `main`'s src by reading each failure's
+  EXCEPTION TYPE rather than by counting reds. 18 tests: 16 failed, 2 passed —
+  and only SIX of those failures are BEHAVIOURAL. Those six are the evidence,
+  and they go through `execute.close_open_position` / `execute.modify_open_order`,
+  whose signatures are IDENTICAL on both trees, so on `main` they run the real
+  defect and report it. TEN fail with `TypeError` — they hand the CLIENT a qty
+  that has no parameter on `main`, which is the ABSENCE OF THE FEATURE and not a
+  demonstration of the defect; they pin per-path behaviour the end-to-end six
+  cannot see, but they are not counted as evidence. TWO pass on both trees and
+  are the only true either-way controls. ⚠️ AN EARLIER VERSION OF THIS BLOCK
+  CLAIMED TEN BEHAVIOURAL FAILURES AND WAS WRONG IN THE FLATTERING DIRECTION.
+  The cause was a test-design weakness — the core claims were expressed through
+  the NEW signature, so on `main` they could only say "no such parameter" — and
+  it was fixed by ADDING three caller-level tests, not by rewording. Recorded
+  rather than quietly overwritten.
+  ⚠️ THE modify_protective HALF IS NO LONGER HYPOTHETICAL — evidence that arrived
+  AFTER this work was written, from MI-179 (#11330), which landed on main while
+  this PR was open. MI-173 found a hybrid OCO on alpaca_portfolio/TLT and could
+  NOT distinguish cross-trade contamination from journal/venue divergence,
+  because the deciding log line was past the journal's ~30-minute retention.
+  MI-179 settled it from the leg's `submitted_at` — four days after its own
+  parent and after trade 5414 opened — as CONTAMINATION: trade 5414's routine
+  trailing amend rewrote trade 5266's stop to 82.33 against 5266's declared
+  84.61875, a 2.29 error on a live protective level. Filed as
+  BL-20260908-ALPACA-TRAILING-AMEND-PATCHED-A-SIBLING-TRADES-STOP-TO-THE-WRONG-DECLARED-LEVEL.
+  So the symbol-scoped PATCH this change repairs has FIRED on a real book. ⚠️ NOT
+  VERIFIED BY THIS SESSION — that is MI-179's live read, cited, not reproduced.
+
+  ⚠️ AND THE THIRD VERB IS STILL OPEN AND IS NOT IN THIS SCOPE. MI-179 also filed
+  BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE:
+  `place_protective`'s pre-cancel is unconditional and the `oca_key` its caller
+  passes to scope it is silently ignored. This object covers `close` and
+  `modify_protective` only, so a re-arm still cannot be placed on Alpaca without
+  cancelling every leg on the symbol. Naming it so the close+modify fix is not
+  read as making Alpaca protection trade-scoped in general.
+
+  NOT ESTABLISHED, stated rather than filled in: live acceptance of `?qty=`
+  against a real Alpaca position. No broker call was made from this session.
+  Also not established: whether any over-close has ever actually fired — that
+  was MI-171's measurement and was not reproduced here.
 
 captured_by: scripts/ops/capture_idea.py
+
+scope_judgement_place_protective: >-
+  ASKED BY THE MANAGER 2026-09-08T05:53Z, carrying an operator ruling: should
+  scoping the Alpaca PROTECTIVE WRITES (`place_protective`) fold into this diff,
+  or be dispatched as its own unit (MI-187)? VERDICT: **SEPARATE UNIT, building
+  on this landed pattern.** Four reasons, and the second is a finding the
+  dispatch needs before it is written.
+
+  1. DIFFERENT GUARANTEE, DIFFERENT FAILURE ASYMMETRY. This unit's invariant is
+  "a close never touches shares it does not own", and its worst case is a
+  REFUSED close leaving a journal row open — which existing reconcilers clean
+  up. `place_protective`'s invariant is "protection gets armed on a naked
+  position without disarming a sibling", and its restrictive failure leaves a
+  LIVE POSITION NAKED. That is a worse failure mode than anything in this diff,
+  and BL-20260820's "detection only — do not wire a re-arm" attaches to that
+  unit, not this one. Folding them puts two different guarantees behind one
+  Tier-3 approval; the approval this unit holds covers close + modify_protective.
+
+  2. ⚠️ THE OPERATOR'S RULING (a) IS NOT DIRECTLY IMPLEMENTABLE AS WORDED, AND
+  THAT IS THE MOST USEFUL THING THIS JUDGEMENT CARRIES. It reads
+  "`place_protective` should honour `oca_key` on Alpaca as it already does on
+  IB". IB's `oca_key` works because an OCA GROUP is a first-class venue concept
+  that can be NAMED and cancelled by name. Alpaca has no OCA-group naming — its
+  OCO is an anonymous parent plus child legs. Verified from the Alpaca reference
+  2026-09-08: `client_order_id` is an ORDER-LEVEL field, and the nested
+  `take_profit` / `stop_loss` objects carry only price fields, so no per-leg
+  client id can be set AT SUBMISSION. So "honour oca_key" on Alpaca means
+  INVENTING a per-trade handle, not passing a parameter through. The viable
+  route is: set `client_order_id` on the OCO PARENT, read the children back with
+  `nested=true` (which `_open_orders_for_symbol` already does), and persist those
+  ids. That is an entry/persistence change — a unit of work, not a one-liner in
+  this diff. It is the same gap as
+  BL-20260908-ALPACA-PROTECTION-IS-NOT-TRADE-ATTRIBUTABLE-AT-ALL.
+
+  3. IT HAS A PRECONDITION I DID NOT ESTABLISH — we did not look. MI-179
+  measured the Alpaca naked sweep gating on a SYMBOL-WIDE BOOLEAN
+  (`if state.get("stop"): continue`), so trade 5414 is skipped on every pass.
+  #11315 has since shipped `protection_coverage` and a `partially_naked`
+  counter. Whether the sweep now actually REACHES `place_protective` for a
+  partially-naked symbol is NOT established by me. If it does not, scoping
+  `place_protective` changes nothing observable and would be a DEPLOY, not a
+  fix. MI-187 should settle that first — the same way this unit began with a
+  capability question rather than a patch.
+
+  4. THE PATTERN TRANSFERS, which is what makes the follow-up cheap rather than
+  a restart. Already landed and reusable here: `_leg_qty` (carrying #11315's
+  NOT-`abs()` rule), `_QTY_EPS`, the refuse-rather-than-guess rule, and the
+  "resolve scope from ONE live read BEFORE anything destructive" shape.
+
+  ⚠️ ONE STAGED OPTION FOR MI-187, offered because it is cheap and available
+  BEFORE the client_order_id work: qty-matching fits `place_protective`'s
+  pre-cancel BETTER than it fits `modify_protective`'s PATCH, and the reason is
+  structural. `place_protective` is called precisely when a trade is NAKED — it
+  has no legs of its own — so a qty-scoped pre-cancel finds nothing to cancel
+  and simply places, leaving the sibling's legs alone; and on a REPEAT re-arm it
+  finds its OWN previous OCO (same qty) and replaces it, so the anti-stacking
+  property the unconditional cancel exists for is preserved. On the live TLT
+  book that is exactly the wanted behaviour: 5414 re-arming at qty 56 cancels
+  nothing and 5266's 16-share legs survive. ⚠️ BUT IT CARRIES THE SAME
+  EQUAL-SIZE AMBIGUITY, and on THIS verb the refusal leaves a position NAKED
+  rather than leaving a row open — so it needs its own operator read and must
+  not inherit this unit's approval.
+
+  NOT FOLDED IN, AND NOTHING IN THIS DIFF WAS CHANGED IN RESPONSE. No live
+  position or resting order was touched by this session.
