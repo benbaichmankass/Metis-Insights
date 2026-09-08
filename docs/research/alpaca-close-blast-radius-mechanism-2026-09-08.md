@@ -235,8 +235,8 @@ They are invisible to the broker-naked sweep by construction.
 `_check_broker_naked_equity_positions` calls `AlpacaClient.protection_state`,
 and its own inline comment records the limit: `stop_qty=None,  # Alpaca grades
 sides, not qty`. The sweep asks *"does a stop leg rest? does a target leg
-rest?"*. On TLT both answer yes. A position that is 22% covered therefore grades
-**fully protected**.
+rest?"*. On TLT both answer yes. A position carrying protective legs for **16 of
+its 72 shares (22.2%)** therefore grades **fully protected**.
 
 This is the third instalment of a class this repo has already fixed twice and
 not here:
