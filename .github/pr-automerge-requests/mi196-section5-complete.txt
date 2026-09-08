@@ -1,0 +1,3 @@
+MI-196 — make §5 render every due row, so it can actually supersede DUE.md.
+Tier-1; merge slot claimed in this same diff (R13). Blocker found by measuring
+the retirement, not by the port's own tests.
