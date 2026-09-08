@@ -1,0 +1,1730 @@
+{
+  "report_id": "RPT-20260908-112000-since-last",
+  "reviewed_at": "2026-09-08T11:20:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-08-29T16:30:00+00:00",
+  "window_end": "2026-09-08T11:20:00+00:00",
+  "prior_report_id": "RPT-20260829-163000-since-last",
+  "overall_assessment": "investigate",
+  "operator_attention_required": true,
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260908T112000Z/report.json",
+    "html_path": "comms/reports/since-last/20260908T112000Z/report.html",
+    "md_path": "comms/reports/since-last/20260908T112000Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260908T112000Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260908-112000-since-last"
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Real money is on a 16-close losing streak with zero wins since 2026-08-28, -$43.37 in the journal and -$38.15 on venue truth \u2014 and the losses are spread across five legs, so this is the book, not a leg. The single most actionable defect is elsewhere: ib_paper/MGC's journal holds 43 lots the broker does not, with a live 43-lot stop resting against the phantom, and the root cause is that the netting-attribution reconciler was only ever built for Bybit while IB nets identically. The measurement news is genuinely good: MI-144's R-contamination fix is live and removed 82% of the published R from a losing 30d window (expectancyR +0.9818 -> +0.1772 on the same 39 trades), and the 7-day real-money population is CLEAN (zero contaminated rows), so the losing streak can be acted on. The 30d window still cannot: 12 of 39 rows remain contaminated and it still publishes a POSITIVE expectancyR on a losing book. Two instruments are themselves broken and both are now filed \u2014 shadow drift is unmeasurable by arithmetic (so no drift-driven demote can fire), and the backlog burn-down under-counts opened rows by ~2.5x.",
+    "operator_priorities": [
+      {
+        "priority": 1,
+        "tier": 2,
+        "operator_action_required": true,
+        "item": "ib_paper/MGC phantom open row + 43-lot stop. DECIDE whether trade 5531 should be closed in the journal as unbacked. Do NOT cancel legs (standing prohibition, and BL-20260820 is what happened the one time this class was auto-remediated). Then the structural half: extend netting attribution to interactive_brokers, staged annotate-first the way the Bybit one was."
+      },
+      {
+        "priority": 2,
+        "tier": 3,
+        "operator_action_required": true,
+        "item": "Real money: 16 consecutive losing closes across 5 legs on bybit_2. The 7d instrument is CLEAN (0 contaminated, rCoverage 1.0), so this is actionable. I am NOT proposing a demote off a 10-trade sample \u2014 I am asking whether you want the real-money roster reduced or paused while the streak is investigated. ict_scalp_5m carries the largest share (7 rows, -$18.95) and was already demoted off bybit_2 on 2026-09-06."
+      },
+      {
+        "priority": 3,
+        "tier": 1,
+        "operator_action_required": true,
+        "item": "breakout_1 is $87.34 from its permanent-kill floor on a snapshot 8.6 days old, with the daily-loss distance UNMEASURED. Fourth consecutive review. One `bal <balance> <equity>` message closes the gap."
+      },
+      {
+        "priority": 4,
+        "tier": 1,
+        "operator_action_required": false,
+        "item": "Fix the two broken instruments before acting on what they say: the shadow-drift reader (a glob change unblocks drift, stage-guard's demote trigger and gate packets together) and backlog_burndown's creation-key read. Both filed with the exact change."
+      },
+      {
+        "priority": 5,
+        "tier": 2,
+        "operator_action_required": true,
+        "item": "The alpaca_paper GLD close wedge is at day 6 with 56 suppressed pages and needs operator/venue action \u2014 no bot-side lever can clear a broker-side pending_cancel."
+      }
+    ],
+    "cross_review_notes": [
+      "THE TRANSLATION GAP: the paper headline (+$219,384 over 544 trades) is 88% unmeasured \u2014 pnlCoverage 0.1213 \u2014 so no PnL conclusion may be drawn from it. The honest paper mirror, paperPortfolio, is NEGATIVE: n=51, PF 0.8934, -$2,581.20 at coverage 0.3137. Real money is the only book whose PnL is majority-measured (0.6667 at 30d). Paper green / mirror red / real red is the gap, and the mirror is the one to believe.",
+      "MEASUREMENT REPAIR IS WORKING AND IS INCOMPLETE, WHICH IS THE CYCLE PRIORITY EXACTLY. MI-144's r_multiple_provenanced re-bases every row onto declared initial risk: the same 30d window (n=39, totalPnl -3.6266, PF 0.9507 \u2014 identical population) moved totalR +38.2891 -> +6.9118 and expectancyR +0.9818 -> +0.1772. But rBasis.refusedWrongSide is 0, so nothing was refused \u2014 the change is re-basing, not exclusion \u2014 and rProvenance still reads 12 contaminated / 20 unverified / 7 confirmedInitial. Only 7 of 39 rows have a CONFIRMED basis while rCoverage publishes 1.0. Read rProvenance beside rCoverage or the 30d expectancyR reads as trustworthy when it is not.",
+      "A guard that cannot state its own denominator is not evidence of absence. Two instances this run: check_unwired_artifacts.py globs *.py so shell tools cannot appear in any bucket, and grade-closed-trades' `truncated: false` is a true claim about the action read as a claim about what the caller received. Both are the UNPROVENANCED DIAGNOSTIC OUTPUT class CLAUDE.md already names.",
+      "THE DECISION-EXIT IMPROVEMENT IS A COMPOSITION EFFECT, NOT A REPAIR \u2014 see structural_health. The headline decision-driven exit share rose 22.6% (July) -> 61.3% (September), but ex-pairs it rose only 27.7% -> 47.0%, still well below May's 70.4%. A new high-frequency sleeve that closes via its own logic diluted a janitor-heavy legacy book. Do not read the headline as evidence the exit-refinement program fixed the legacy legs."
+    ],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "health",
+        "summary": "Extend netting-attribution to interactive_brokers (or give IB an equivalent). Copy the Bybit design \u2014 leg-id first, FIFO residual, live-leg-picked-last, three-state provenance ladder \u2014 and stage it annotate-first. \u2014 WHY: ib_paper/MGC is a live 43-lot journal-vs-venue divergence with a stop resting on the phantom; nothing detects this class on IB today."
+      },
+      {
+        "source_review": "ml",
+        "summary": "Enrol the four exit-head artifacts in the model registry so the candidate->shadow->advisory ladder, stage-guard and gate-check cover them. \u2014 WHY: exit-head-donchian-1h-v1 is advisory and can close a live trade while being invisible to every governance mechanism. Blocked in practice until the drift reader is fixed."
+      },
+      {
+        "source_review": "performance",
+        "summary": "Decide the real-money roster question raised by the 16-close losing streak \u2014 reduce, pause, or continue. \u2014 WHY: The 7d population is clean so the streak is real; but n=10 is small and I am not proposing a demote off it."
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "Clause (2) DEPLOYED is now satisfied and I verified it: live /api/bot/config shows bybit_2 with 6 strategies and ict_scalp_5m absent, bybit_portfolio likewise (the ROSTER-SYNC mirror), and only bybit_1 still carries it. Clause (3) OBSERVED CANNOT be satisfied yet, for exactly the reason the row's own criterion warns about: the leg's newest trade on ANY account is 2026-09-04T08:37Z, so the positive control (the leg live and producing on bybit_1 over the same window) is absent. The leg is alive, not dead \u2014 7 ict_scalp_eval rows in a 13-minute sample, all 'no liquidity sweep in last 12 bars'. Silence on bybit_2 while the leg signals nowhere proves nothing.",
+        "since": "2026-09-06",
+        "next_check": "a window in which ict_scalp_5m produces >=1 order package on bybit_1; then report the bybit_2 count as zero against that positive control"
+      },
+      {
+        "item_id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Clause (2) IS satisfied \u2014 close_wedge_standing.wedges is non-empty carrying share_hold=broker_cancel_wedged with the order named, which that row states IS the clause-(2) observation. Clause (3) is not: the wedge is unresolved at day 6 and needs operator/venue action.",
+        "since": "2026-09-03",
+        "next_check": "order 2e843e04 gone and the position flat or legitimately closed, WITH the resolution attributed"
+      },
+      {
+        "item_id": "BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Filed this run. Needs an operator decision on trade 5531 before any structural work.",
+        "since": "2026-09-08",
+        "next_check": "operator disposition on 5531"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "population": "All 11 declared accounts read from live /api/bot/config and config/accounts.yaml; per-strategy performance over /api/bot/performance windows 7d and 30d (real money = account_class real_money).",
+        "stance": "NO PROMOTION AND NO DEMOTION PROPOSED OFF PERFORMANCE THIS RUN \u2014 and the reason is the cycle priority, not caution for its own sake.",
+        "detail": "REAL MONEY IS TWO ACCOUNTS AND ONLY ONE TRADES. bybit_2 (mode live, real_money, 6 legs) is the whole real-money book; alpaca_live (mode live, real_money, 1 leg: tlt_pullback_1h) has placed nothing \u2014 it signalled twice since being routed on 2026-09-01 and both were SHORTS, correctly suppressed by side_filter:long. ib_live is mode dry_run with zero strategies. WHY NO DEMOTE OFF expectancyR: the 30d real-money window publishes expectancyR +0.1772 on a book that LOST money (totalPnl -3.6266, PF 0.9507), with rProvenance 12 contaminated / 20 unverified / 7 confirmedInitial. A promote or demote computed off that number would be a verdict from a contaminated instrument. The 7d window IS clean (0 contaminated, 2 confirmedInitial / 8 unverified, rCoverage 1.0) and reads expectancyR -0.9679 over 10 trades \u2014 real, actionable, and too small a sample to retire a leg on. PER-LEG, bybit_2, newest 400 rows of the trades table (379 with non-null pnl, 2026-05-10 to 2026-09-04): vwap n=250 net -$52.49 (already enabled:false, historical, dominates the account's lifetime loss); ict_scalp_5m n=37 net -$12.65 at the HIGHEST win rate on the account (54.1%) \u2014 wins often, loses bigger, and was demoted off bybit_2 by operator Tier-3 decision on 2026-09-06; eth_pullback_2h n=14 -$15.24; xrp_pullback_2h n=10 -$12.50; ada_pullback_2h n=6 -$12.25; trend_donchian_xrp_4h n=5 -$7.09. POSITIVE: trend_donchian_eth_4h n=9 +$28.65, trend_donchian n=13 +$18.57, htf_pullback_trend_2h n=8 +$11.41. Excluding the disabled vwap the account is roughly flat (-$3.71 over 129 trades). THE DECISION I AM PUTTING TO THE OPERATOR is the roster question in operator_priorities[2], not a per-leg verdict.",
+        "gates_met_unactioned": [
+          "mes-regime-15m-lgbm-v2 has read gate-ready since 2026-07-21 (49 days) per MB-20260721-MES-15M-HEAD-PARKED and is still emitting (462 predictions, retrained 2026-09-08). A gate met and never actioned across many reviews is the anti-normalization case; it is escalated here. \u26a0\ufe0f It cannot honestly be promoted TODAY because the drift half of its gate is structurally unmeasurable \u2014 fix that first, then decide, or record a decision NOT to."
+        ],
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "NO PROMOTION AND NO DEMOTION PROPOSED OFF PERFORMANCE THIS RUN \u2014 and the reason is the cycle priority, not caution for its own sake. REAL MONEY IS TWO ACCOUNTS AND ONLY ONE TRADES. bybit_2 (mode live, real_money, 6 legs) is the whole real-money book; alpaca_live (mode live, real_money, 1 leg: tlt_pullback_1h) has placed nothing \u2014 it signalled twice since being routed on 2026-09-01 and both were SHORTS, correctly suppressed by side_filter:long. ib_live is mode dry_run with zero strategies. WHY NO DEMOTE OFF expectancyR: the 30d real-money window publishes expectancyR +0.1772 on a book that LOST money (totalPnl -3.6266, PF 0.9507), with rProvenance 12 contaminated / 20 unverified / 7 confirmedInitial. A promote or demote computed off that number would be a verdict from a contaminated instrument. The 7d window IS clean (0 contaminated, 2 confirmedInitial / 8 unverified, rCoverage 1.0) and reads expectancyR -0.9679 over 10 trades \u2014 real, actionable, and too small a sample to retire a leg on. PER-LEG, bybit_2, newest 400 rows of the trades table (379 with non-null pnl, 2026-05-10 to 2026-09-04): vwap n=250 net -$52.49 (already enabled:false, historical, dominates the account's lifetime loss); ict_scalp_5m n=37 net -$12.65 at the HIGHEST win rate on the account (54.1%) \u2014 wins often, loses bigger, and was demoted off bybit_2 by operator Tier-3 decision on 2026-09-06; eth_pullback_2h n=14 -$15.24; xrp_pullback_2h n=10 -$12.50; ada_pullback_2h n=6 -$12.25; trend_donchian_xrp_4h n=5 -$7.09. POSITIVE: trend_donchian_eth_4h n=9 +$28.65, trend_donchian n=13 +$18.57, htf_pullback_trend_2h n=8 +$11.41. Excluding the disabled vwap the account is roughly flat (-$3.71 over 129 trades). THE DECISION I AM PUTTING TO THE OPERATOR is the roster question in operator_priorities[2], not a per-leg verdict."
+      },
+      "ml_training_health": {
+        "population": "/api/bot/ml/cycle?limit=1000 = 1000 rows spanning 2026-08-31T00:49 to 2026-09-08T05:46. UNAVAILABLE: 2026-08-29 -> 2026-08-31 is outside the API's 1000-row cap and was not read.",
+        "verdict": "ok, one watch",
+        "detail": "17 cycle_end rows, ALL overall_rc=0, failed=0. 9 cycles trained (68-69 manifests each); 8 were same-day second runs returning trained:0 / already_done:76 \u2014 resumption no-ops, not failures. Daily cadence held every day except 2026-09-03, which had a single cycle at 06:09Z, ~5h late. Manifest statuses: manifest_ok 617, manifest_untrained_stale 102, manifest_audit_skipped_enforced 37, manifest_dataset_empty 27, manifest_skipped 27, zero failures. manifest_quarantine_tripped / manifest_quarantined: ZERO occurrences over those 1000 rows, so no Rule-3 shrink/GPU/drop disposition is owed. The probe was validated rather than trusted \u2014 the emitter strings exist in run_training_cycle.sh and write to the same `status` field that successfully enumerated 18 other statuses. Dataset builds: 0 failed (500-row population, 09-06 to 09-08: ok 250, build_end 5 all rc=0, skipped 5, all the deliberate MES setup_labels clobber-guard). Trainer timer enabled+active, last trigger 2026-09-08T00:23:33Z, mirror age 56s. WATCH: trainer disk 86.1% used, 6.71 GB free.",
+        "cycles_since_last_review": 9,
+        "dataset_builds_ok": 250,
+        "summary": "17 cycle_end rows, ALL overall_rc=0, failed=0. 9 cycles trained (68-69 manifests each); 8 were same-day second runs returning trained:0 / already_done:76 \u2014 resumption no-ops, not failures. Daily cadence held every day except 2026-09-03, which had a single cycle at 06:09Z, ~5h late. Manifest statuses: manifest_ok 617, manifest_untrained_stale 102, manifest_audit_skipped_enforced 37, manifest_dataset_empty 27, manifest_skipped 27, zero failures. manifest_quarantine_tripped / manifest_quarantined: ZERO occurrences over those 1000 rows, so no Rule-3 shrink/GPU/drop disposition is owed. The probe was validated rather than trusted \u2014 the emitter strings exist in run_training_cycle.sh and write to the same `status` field that successfully enumerated 18 other statuses. Dataset builds: 0 failed (500-row population, 09-06 to 09-08: ok 250, build_end 5 all rc=0, skipped 5, all the deliberate MES setup_labels clobber-guard). Trainer timer enabled+active, last trigger 2026-09-08T00:23:33Z, mirror age 56s. WATCH: trainer disk 86.1% used, 6.71 GB free."
+      },
+      "soak_status": [
+        {
+          "soak": "Shadow model fleet (34 emitting)",
+          "state": "accruing",
+          "detail": "31 of 34 accruing normally (last_seen 0.1\u20134.8h). Counts are window-limited by the 7-day log rotation, NOT lifetime."
+        },
+        {
+          "soak": "exit-head-donchian-1h-v1 / -peak-1h-v1",
+          "state": "correctly-not-scoring",
+          "detail": "52 records each, last_seen 48.7h. CHECKED BEFORE FILING: /api/bot/positions shows 2 open positions, both *_pullback_2h on bybit_2, and ZERO open donchian positions. The head scores per closed bar per open donchian position, so silence is correct \u2014 not a stall."
+        },
+        {
+          "soak": "mes-regime-15m-lgbm-v2",
+          "state": "MET-AND-UNACTIONED",
+          "detail": "\u26a0\ufe0f Gate-ready and parked since 2026-07-21 \u2014 49 days (MB-20260721-MES-15M-HEAD-PARKED). Still emitting 462 predictions, retrained 2026-09-08. Escalated to operator_priorities. Cannot be honestly graded until the drift reader is fixed, since drift is half its gate."
+        },
+        {
+          "soak": "mes-setup-quality-baseline-v0 / mes-trade-outcome-winrate-baseline-v0",
+          "state": "degenerate",
+          "detail": "0 predictions; retrained 2026-09-08 on n_eval = 5. Five evaluation rows is not a model. Repower the label source or retire to candidate."
+        },
+        {
+          "soak": "setup-quality-lgbm-v2",
+          "state": "stalled",
+          "detail": "44.2 days since last train, manifest listed in refusing_manifests_24h, 3045 live predictions, PSI 1.317 at the proxy window. Stale model against a shifted distribution."
+        },
+        {
+          "soak": "ALL drift-dependent soak verdicts",
+          "state": "UNGRADEABLE",
+          "detail": "\u26a0\ufe0f reference_count is 0 by arithmetic for every model, so no shadow\u2192advisory gate can be honestly evaluated and no drift-driven demote can fire. This blocks the soak assessment as a class, not one model."
+        },
+        {
+          "soak": "BYBIT_GRADED_COVERAGE (operator hold)",
+          "state": "accruing, hold intact",
+          "detail": "400-row tail: mode=annotate \u00d7400, verdicts_differ=False \u00d7400 \u2014 arming would have changed nothing over this population. The 2026-09-02 operator hold is correct and intact."
+        },
+        {
+          "soak": "ALPACA_CASH_SETTLEMENT on alpaca_live",
+          "state": "EMPTY",
+          "detail": "\u26a0\ufe0f Armed `apply` on a real-money account and the whole 27-row soak file contains ZERO alpaca_live rows. Cause established: the account has never placed an order (both post-routing signals were shorts, suppressed by side_filter:long), so the gate has never been consulted. Not scoped out \u2014 22 of 27 rows are not_allowlisted, proving non-allowlisted accounts are measured."
+        }
+      ],
+      "execution_capture": {
+        "dollars_reconciled": true,
+        "reconciliation_note": "Real-money dollars reconciled against /api/bot/pnl/exchange (FIFO exchange fills) scoped to bybit_2 \u2014 the only real-money account trading. 7d: 32 fills, 3 symbols, realized -$38.15, fees $4.37 (BTC -25.22 / XRP -8.61 / ETH -4.32). The journal's 7d totalPnl is -$34.56, so the two agree in sign and magnitude and the ~$3.6 gap is approximately the fee component the journal does not carry. STATE THE POPULATION: the UNSCOPED /api/bot/pnl/exchange headline is -$27,267.44 over 525 fills and is NOT real money \u2014 it aggregates every account including the bybit_1 demo book. /api/bot/pnl/broker-truth still serves only the FROZEN bybit_2 ledger (-$262.52, as_of 2026-07-13, window 2026-04-15..07-13) and was NOT used for this window.",
+        "method": "MEASURED from /api/diag/position_telemetry (175 rows, 76 closed, 74 with both peak_r and giveback_r, 73 ever-positive) using capture = (peak_r - giveback_r)/peak_r; plus the close-reason mix and hold times over the 207 closed non-backtest rows in the window; plus /api/bot/performance perExitPath coverage. NOT via m20_exit_analysis.py on the trainer (not dispatched this run).",
+        "caveat": "peak_r_is_lower_bound is TRUE on 74 of 74 gradeable rows, so EVERY capture ratio here is an UPPER BOUND on true capture \u2014 the real figure is worse. The MEAN (-2.1594) is destroyed by outliers down to -46.0 and must not be quoted; the MEDIAN and the >=95%-giveback share are the robust statistics. Population differs from the prior review's (73 ever-positive vs 45), so the comparison is directional, not like-for-like.",
+        "capture_median": -0.1508,
+        "capture_median_prior": 0.345,
+        "gave_back_95pct_share": "39/73 (53.4%), prior 17/45 (37.8%)",
+        "kept_95pct_share": "12/73 (16.4%), prior 11/45 (24.4%)",
+        "declared_bracket_exit_rate": 0.145,
+        "declared_bracket_exit_rate_caveat": "(tp+sl)/n over the newest 200 closes; prior review measured 0.083 over its 120 closes. Improved, and the denominators differ.",
+        "arm_reachability": "Of 59 rows carrying a declared arm, 48 (81.4%) read `unreachable`; 116 rows declare no arm at all.",
+        "per_strategy": [
+          {
+            "strategy": "spy_pullback_1h",
+            "book": "paper",
+            "n_closed": 4,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -10.0416,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "ada_pullback_2h",
+            "book": "paper",
+            "n_closed": 3,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -3.6531,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "trend_donchian_eth_4h",
+            "book": "paper",
+            "n_closed": 5,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -1.9096,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "qqq_pullback_1h",
+            "book": "paper",
+            "n_closed": 4,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -1.7549,
+            "state": "anomaly"
+          },
+          {
+            "strategy": "trend_donchian_avax_4h",
+            "book": "paper",
+            "n_closed": 6,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -1.4346,
+            "state": "degraded"
+          },
+          {
+            "strategy": "xrp_pullback_2h",
+            "book": "paper",
+            "n_closed": 4,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -1.3898,
+            "state": "degraded"
+          },
+          {
+            "strategy": "trend_donchian_sol_4h",
+            "book": "paper",
+            "n_closed": 7,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": -0.9276,
+            "state": "degraded"
+          },
+          {
+            "strategy": "trend_donchian_ada_4h",
+            "book": "paper",
+            "n_closed": 5,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": 0.3897,
+            "state": "ok"
+          },
+          {
+            "strategy": "uso_trend_1h",
+            "book": "paper",
+            "n_closed": 4,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": null,
+            "hold_h_actual": null,
+            "hold_h_expected": null,
+            "bars_held_median": null,
+            "bars_held_p90": null,
+            "bars_held_expected": null,
+            "bars_held_p90_ratio": null,
+            "capture_mean": 0.6296,
+            "state": "ok"
+          }
+        ],
+        "anomalies": [
+          {
+            "strategy": "ict_scalp_mgc_15m|paper",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 5,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "Carried forward; n<3 closes this window so no fresh median. Escalated on age."
+          },
+          {
+            "strategy": "ict_scalp_5m|paper",
+            "symptom": "held 10-100x design horizon",
+            "first_seen": "2026-08-21",
+            "reviews_open": 5,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "17 closes this window, median hold 2.40h on a 5-minute leg = ~28.8x design horizon. Still squarely in the 10-100x band."
+          },
+          {
+            "strategy": "qqq_pullback_1h|paper",
+            "symptom": "median hold multiples of its budget",
+            "first_seen": "2026-08-25",
+            "reviews_open": 3,
+            "backlog_id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+            "detail": "MATERIALLY IMPROVED: median 49.96h against a ~20h budget (2.5x), down from 193.70h at the prior review and 240.65h at the one before. Still over, but the trend is right and worth saying."
+          },
+          {
+            "strategy": "<fleet>|all",
+            "symptom": "only 14.5% of closes exit via a declared bracket",
+            "first_seen": "2026-08-21",
+            "reviews_open": 5,
+            "backlog_id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+            "detail": "29 of 200 (tp 7 + sl 22). Improved from 0.083 but the denominators differ."
+          },
+          {
+            "strategy": "pairs_*|paper",
+            "symptom": "leg stranded on open, cleaned by a janitor path",
+            "first_seen": "2026-08-21",
+            "reviews_open": 3,
+            "backlog_id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+            "detail": "8 pairs_half_open_cleanup closes in the 207-row window (3.9%), against 36 pairs_revert + 34 pairs_stop. The sleeve's own exits now dominate its cleanups, which is an improvement on 17-of-42."
+          }
+        ],
+        "summary": "Capture = (peak_r \u2212 giveback_r)/peak_r over 73 ever-positive closed telemetry rows. Median \u22120.1508 (prior +0.345); 39/73 (53.4%) gave back \u226595% of peak, prior 17/45 (37.8%); 12/73 kept \u226595%. EVERY ratio is an UPPER BOUND (peak_r_is_lower_bound true on 74/74). The mean (\u22122.1594) is outlier-destroyed and must not be quoted. roundtrippers_pct / mean_giveback_r / hold-bars columns are null because m20_exit_analysis.py was NOT dispatched to the trainer this run \u2014 recorded as not-measured, never as 0. Declared-arm reachability: 48 of 59 read `unreachable`."
+      },
+      "account_reachability": {
+        "population": "All 11 declared accounts, read three ways: /api/bot/accounts/balances api_ok (as_of 2026-09-08T10:00:58Z), /api/diag/exchange_positions positions!=null (10:29:57Z), and /api/diag/services.",
+        "verdict": "ALL CLEAR \u2014 no declared-live account is down.",
+        "detail": "api_ok TRUE: alpaca_live, alpaca_options_paper, alpaca_paper, alpaca_portfolio, bybit_1, bybit_2, bybit_portfolio, ib_paper, oanda_practice. api_ok FALSE: breakout_1 (API-less prop bridge by design) and ib_live (mode dry_run, zero strategies) \u2014 both are the DECLARED exclusions from the reachability set, not outages. SERVICES: 40 units, all 6 expected services active (ict-trader-live, ict-web-api, caddy, ict-telegram-bot, ict-claude-bridge, ict-claude-decision-bot), and every timer active EXCEPT ict-ib-gateway-watchdog.timer \u2014 which is CORRECT on this host: that watchdog is auto-enabled only where /etc/ict-vm-role == gateway and runs on the gateway VM, not the trader. Reported so it is not re-filed as an outage. DEPLOY: /api/diag/version read twice \u2014 10:29:20Z git_sha eafafae4 == git_sha_on_disk, restart_pending false; 10:44:18Z git_sha eafafae4 with git_sha_on_disk 4f595f7d and restart_pending TRUE. That is main advancing under an active merge day (ict-git-sync pulls ~5-minutely), not a stuck deploy \u2014 the on-disk sha moved again between reads. Recorded so a later session does not read it as a defect."
+      },
+      "since_last_build_verification": {
+        "population": "git log --since=2026-08-29T16:30 --diff-filter=A over src/ scripts/ deploy/ .github/ on eafafae4 = 865 added files. 714 are per-PR request artifacts (.github/pr-landing/, .github/pr-automerge-requests/) \u2014 inputs to relays, not capabilities. History was deepened first (4,427 commits; the clone is no longer shallow).",
+        "count_shipped": 151,
+        "items": [
+          {
+            "name": ".github/workflows/board-heartbeat.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/board-rotate.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/ci-settled.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ops/ci_settle.py"
+          },
+          {
+            "name": ".github/workflows/constraint-readout.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/due-list.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/error-feed-digest.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/pr-automerge-disable.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/pr-queue-watch.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/probes.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/reconcile-open-prs.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/scope-overlap-audit.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. .github/workflows/board-heartbeat.yml"
+          },
+          {
+            "name": ".github/workflows/session-reaper.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/strategy-review-packets.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/sunset-pass.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/trainer-capture-watch.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/bootstrap-labels.yml"
+          },
+          {
+            "name": ".github/workflows/trainer-diag-relay.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ci/board_pointer.py"
+          },
+          {
+            "name": ".github/workflows/work-decision-commit.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": ".github/workflows/work-digest.yml",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "self-triggering workflow (its own trigger block); zero inbound refs is the CORRECT shape"
+          },
+          {
+            "name": "deploy/ict-claude-decision-bot.service",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 9 non-doc file(s), e.g. scripts/ci/check_unwired_artifacts.py"
+          },
+          {
+            "name": "deploy/ict-work-digest.service",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. scripts/ops/work_digest_now.py"
+          },
+          {
+            "name": "deploy/ict-work-digest.timer",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. scripts/ops/work_digest_now.py"
+          },
+          {
+            "name": "scripts/candle_variance.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. scripts/candle_io.py"
+          },
+          {
+            "name": "scripts/ci/board_pointer.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. .github/workflows/board-heartbeat.yml"
+          },
+          {
+            "name": "scripts/ci/check_automerge_trigger.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_board_coherence.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/board-rotate.yml"
+          },
+          {
+            "name": "scripts/ci/check_candle_fixture_variance.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/research/be_floor_sweep.py"
+          },
+          {
+            "name": "scripts/ci/check_capability_pull.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_cron_failure_watch.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/claude-run-failure-alert.yml"
+          },
+          {
+            "name": "scripts/ci/check_decision_answers.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_digest_liveness.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ops/digest_due.py"
+          },
+          {
+            "name": "scripts/ci/check_document_index.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/ops/error_feed_digest.py"
+          },
+          {
+            "name": "scripts/ci/check_manager_queue_watch.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/pr-queue-watch.yml"
+          },
+          {
+            "name": "scripts/ci/check_manager_scope.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_manifest_scope_constants.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_matrix_bracket_values.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/research/e35_matrix_recheck.py"
+          },
+          {
+            "name": "scripts/ci/check_one_live_workplan.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ops/document_index.py"
+          },
+          {
+            "name": "scripts/ci/check_pending_pings_render.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_pr_landing.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/pr-opener.yml"
+          },
+          {
+            "name": "scripts/ci/check_pr_queue_watch.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 10 non-doc file(s), e.g. .github/workflows/pr-queue-watch.yml"
+          },
+          {
+            "name": "scripts/ci/check_register_ids.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_role_pack_operating_layer.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_scope_overlap.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/scope-overlap-audit.yml"
+          },
+          {
+            "name": "scripts/ci/check_skills_index.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_soak_registered.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_strategy_decision_record.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ci/check_sunset_dispositions.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. .github/workflows/pytest-run.yml"
+          },
+          {
+            "name": "scripts/ci/check_trainer_capture_watch.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/trainer-capture-watch.yml"
+          },
+          {
+            "name": "scripts/ci/check_wip_ceiling.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 15 non-doc file(s), e.g. scripts/ops/constraint_readout.py"
+          },
+          {
+            "name": "scripts/ci/check_workflow_trigger_reachability.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. .github/workflows/ict-scalp-exit-sweep.yml"
+          },
+          {
+            "name": "scripts/ml/evidence_floor_report.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ml/pregate_stream.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/replay-pregate-nightly.yml"
+          },
+          {
+            "name": "scripts/ops/accrual_clock.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ops/check_backlog_criteria.py"
+          },
+          {
+            "name": "scripts/ops/backlog_drain_candidates.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. .claude/skills/backlog-drain/SKILL.md"
+          },
+          {
+            "name": "scripts/ops/bybit_switch_position_mode.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/bybit_switch_position_mode_action.sh",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/capture_idea.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/check_drain_liveness.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 9 non-doc file(s), e.g. .github/workflows/work-decision-commit.yml"
+          },
+          {
+            "name": "scripts/ops/check_wake_liveness.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ops/manager_wake.py"
+          },
+          {
+            "name": "scripts/ops/ci_settle.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/ci-settled.yml"
+          },
+          {
+            "name": "scripts/ops/ci_settled.sh",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. .github/workflows/ci-settled.yml"
+          },
+          {
+            "name": "scripts/ops/commit_work_decisions.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/work-decision-commit.yml"
+          },
+          {
+            "name": "scripts/ops/constraint_readout.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. .github/workflows/constraint-readout.yml"
+          },
+          {
+            "name": "scripts/ops/demote_budget.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ops/digest_due.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/work-digest.yml"
+          },
+          {
+            "name": "scripts/ops/document_index.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/ops/error_feed_digest.py"
+          },
+          {
+            "name": "scripts/ops/error_feed_digest.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/error-feed-digest.yml"
+          },
+          {
+            "name": "scripts/ops/fetch_standing_wedges.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. .github/workflows/work-digest.yml"
+          },
+          {
+            "name": "scripts/ops/handoff_check.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 11 non-doc file(s), e.g. scripts/ops/session_reaper.py"
+          },
+          {
+            "name": "scripts/ops/install_merge_driver.sh",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ops/merge_json_register.py"
+          },
+          {
+            "name": "scripts/ops/journal_venue_audit.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/llm_capacity_benchmark.sh",
+            "verdict": "UNWIRED",
+            "reason": "referenced ONLY by docs (2 doc file(s)) \u2014 nothing runs it"
+          },
+          {
+            "name": "scripts/ops/manager_lease.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 15 non-doc file(s), e.g. scripts/ops/manager_wake.py"
+          },
+          {
+            "name": "scripts/ops/manager_preflight.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. .github/workflows/pr-queue-watch.yml"
+          },
+          {
+            "name": "scripts/ops/manager_state_watch.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/pr-queue-watch.yml"
+          },
+          {
+            "name": "scripts/ops/manager_view.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/manager_wake.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/mark_operator_flattened.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/mark_operator_flattened_action.sh",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/merge_json_register.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. scripts/ops/install_merge_driver.sh"
+          },
+          {
+            "name": "scripts/ops/migrate_backlog_to_work_objects.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ops/constraint_readout.py"
+          },
+          {
+            "name": "scripts/ops/open_pr_record.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 11 non-doc file(s), e.g. .github/workflows/reconcile-open-prs.yml"
+          },
+          {
+            "name": "scripts/ops/orderflow_capture_freshness.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/trainer-capture-watch.yml"
+          },
+          {
+            "name": "scripts/ops/pr_action_gate.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/pr_queue_latency.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/pr-queue-watch.yml"
+          },
+          {
+            "name": "scripts/ops/probe_actions_log.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. .github/workflows/work-digest.yml"
+          },
+          {
+            "name": "scripts/ops/probe_api.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/probes.yml"
+          },
+          {
+            "name": "scripts/ops/probe_file.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/probes.yml"
+          },
+          {
+            "name": "scripts/ops/probe_lib.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 9 non-doc file(s), e.g. .github/workflows/probes.yml"
+          },
+          {
+            "name": "scripts/ops/probe_soak.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. .github/workflows/probes.yml"
+          },
+          {
+            "name": "scripts/ops/pull_bybit_transaction_log.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/pull_bybit_transaction_log_action.sh",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "scripts/ops/push_decisions_back.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/queue_latency.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/reconcile_open_prs.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/reconcile-open-prs.yml"
+          },
+          {
+            "name": "scripts/ops/render_daily_brief.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/ci/run_guards.py"
+          },
+          {
+            "name": "scripts/ops/render_due_list.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 12 non-doc file(s), e.g. .github/workflows/due-list.yml"
+          },
+          {
+            "name": "scripts/ops/run_probes.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 14 non-doc file(s), e.g. .github/workflows/probes.yml"
+          },
+          {
+            "name": "scripts/ops/send_route_test_ping.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/session_reaper.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .github/workflows/session-reaper.yml"
+          },
+          {
+            "name": "scripts/ops/session_registry.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 22 non-doc file(s), e.g. scripts/ops/session_reaper.py"
+          },
+          {
+            "name": "scripts/ops/soak_alarm.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ops/render_due_list.py"
+          },
+          {
+            "name": "scripts/ops/spawn_gate.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/ops/capture_idea.py"
+          },
+          {
+            "name": "scripts/ops/stuck_automation_branches.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/sunset_pass.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. .github/workflows/sunset-pass.yml"
+          },
+          {
+            "name": "scripts/ops/system_review_checklist.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. .claude/skills/backlog-drain/SKILL.md"
+          },
+          {
+            "name": "scripts/ops/uncarried_specs.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/ops/work_digest.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 19 non-doc file(s), e.g. .github/workflows/constraint-readout.yml"
+          },
+          {
+            "name": "scripts/ops/work_digest_now.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. deploy/ict-work-digest.service"
+          },
+          {
+            "name": "scripts/ops/work_phase_ping.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/_control_oracle_harness.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1 non-doc file(s), e.g. scripts/research/exit_sweep_positive_control.py"
+          },
+          {
+            "name": "scripts/research/banking_mechanism_audit.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/be_floor_sweep.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/bracket_calibration_report.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/e35_matrix_recheck.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/e35_resweep_verdict_diff.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/exit_location_fidelity.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/exit_sweep_positive_control.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/gld_compat_extract.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. .github/workflows/gld-compat-matrix.yml"
+          },
+          {
+            "name": "scripts/research/mi171_alpaca_overclose_population.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/ml2_bracket_corpus.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/research/ml2_bracket_train_eval.py"
+          },
+          {
+            "name": "scripts/research/ml2_bracket_train_eval.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/r_contamination_audit.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/research_disposition.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "scripts/research/timeout_binding_audit.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "declares `# wiring: manual-only` \u2014 the repo's sanctioned marker"
+          },
+          {
+            "name": "src/bot/claude_decision_bot.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. scripts/ci/check_unwired_artifacts.py"
+          },
+          {
+            "name": "src/bot/operator_commands.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. src/bot/claude_decision_bot.py"
+          },
+          {
+            "name": "src/bot/telegram_routes.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 12 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "src/research/bracket_quantile.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. scripts/research/ml2_bracket_train_eval.py"
+          },
+          {
+            "name": "src/runtime/arbitration_fanout.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 11 non-doc file(s), e.g. scripts/ops/probe_actions_log.py"
+          },
+          {
+            "name": "src/runtime/arbitration_fanout_soak.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. scripts/ops/probe_actions_log.py"
+          },
+          {
+            "name": "src/runtime/bracket_calibration.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. scripts/research/ml2_bracket_corpus.py"
+          },
+          {
+            "name": "src/runtime/bracket_outcome.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. src/runtime/exit_head_apply.py"
+          },
+          {
+            "name": "src/runtime/bybit_coverage_basis.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. src/runtime/bybit_leg_sides.py"
+          },
+          {
+            "name": "src/runtime/bybit_coverage_soak.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 5 non-doc file(s), e.g. scripts/ci/check_soak_registered.py"
+          },
+          {
+            "name": "src/runtime/bybit_leg_sides.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. scripts/ci/check_collapsed_states.py"
+          },
+          {
+            "name": "src/runtime/bybit_wallet_truth.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. scripts/ops/pull_bybit_transaction_log.py"
+          },
+          {
+            "name": "src/runtime/claude_ping.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 18 non-doc file(s), e.g. .github/workflows/system-actions.yml"
+          },
+          {
+            "name": "src/runtime/close_wedge_standing.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. .github/workflows/work-digest.yml"
+          },
+          {
+            "name": "src/runtime/decision_push.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 3 non-doc file(s), e.g. scripts/ops/push_decisions_back.py"
+          },
+          {
+            "name": "src/runtime/election_track_record.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 2 non-doc file(s), e.g. src/runtime/intents.py"
+          },
+          {
+            "name": "src/runtime/evidence_horizon.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. scripts/ci/check_collapsed_states.py"
+          },
+          {
+            "name": "src/runtime/exit_head_apply.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/ops/exit_mechanism_coverage.py"
+          },
+          {
+            "name": "src/runtime/manager_status.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. scripts/ci/check_collapsed_states.py"
+          },
+          {
+            "name": "src/runtime/operator_flatten_intent.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. scripts/ops/flatten_ib_position.py"
+          },
+          {
+            "name": "src/runtime/r_provenance.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 8 non-doc file(s), e.g. scripts/research/r_contamination_audit.py"
+          },
+          {
+            "name": "src/runtime/stray_oca_soak.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 6 non-doc file(s), e.g. scripts/ci/check_soak_registered.py"
+          },
+          {
+            "name": "src/runtime/telegram_decisions.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 9 non-doc file(s), e.g. scripts/ci/check_manager_scope.py"
+          },
+          {
+            "name": "src/runtime/telegram_poll_registry.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 7 non-doc file(s), e.g. scripts/ci/check_collapsed_states.py"
+          },
+          {
+            "name": "src/runtime/work_decisions.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 13 non-doc file(s), e.g. .github/workflows/work-decision-commit.yml"
+          },
+          {
+            "name": "src/utils/work_facts.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 4 non-doc file(s), e.g. scripts/ops/work_digest.py"
+          },
+          {
+            "name": "src/web/api/routers/work.py",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "referenced by 1032 non-doc file(s), e.g. .github/workflows/reset-daily-risk-state.yml"
+          }
+        ],
+        "note": "Classification rule, stated so the verdicts are checkable: a file is `wired_not_yet_exercised` if it declares the repo's `# wiring: manual-only` marker, OR is a self-triggering workflow (its own schedule/dispatch/push block \u2014 zero inbound references is the CORRECT shape there), OR is referenced by at least one non-doc file. `UNWIRED` means referenced only by docs, or nowhere at all. I did NOT individually attribute a firing observation to each of the 150 wired items, so none is marked `running` even though a subset demonstrably is (the automation workflows land receipts as commits on main). `wired_not_yet_exercised` is the honest verdict for a file I have not observed fire. check_unwired_artifacts.py reports unwired=2 / doc_only=92 / skill_invoked=9 against the prior baseline of 2 / 105 / 9 \u2014 doc_only improved by 13, the other two flat. NEITHER of its two unwired entries shipped in this window (fetch_fred_macro.py added 2026-07-02, validate_registry_vm.py 2026-04-29), so reporting them as shipped-and-unwired would mis-attribute them. Its clean report is also a SCOPE result \u2014 see flags_raised."
+      },
+      "backlog_classes": {
+        "total_open_reviewed": 788,
+        "population": "Every row with status in {open, kept_open} across all three backlogs at working-tree head: health 721 (537 open + 184 kept_open), performance 44 (15+29), ml 23 (4+19). Severity spread over the 788: 10 critical, 243 high, 357 medium, 145 low, 38 with no severity field. (research-review-backlog, not one of the three, holds 10 open.)",
+        "classes": [
+          {
+            "class": "register-schema-is-not-one-schema",
+            "member_ids": [
+              "BL-20260903-THREE-CREATION-DATE-KEYS-IN-ONE-BACKLOG-AND-THE-NEW-GUARD-ACCEPTS-ONLY-ONE",
+              "BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-REQUIRES-THE-FORBIDDEN-HAND-EDIT",
+              "BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION",
+              "BL-20260902-FU-IDS-CAN-NEVER-RESOLVE-IN-CHECK-BACKLOG-REFS",
+              "BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT-SO-THE-NUMBER-EVERY-REVIEW-STEERS-BY-IS-UNDERSTATED"
+            ],
+            "structural_fix": "backlog_append.py stamps exactly ONE creation key and is the only writer; every reader (backlog_burndown included) reads that key. NEW MEMBER FILED THIS RUN \u2014 the class now demonstrably corrupts the burn-down metric the operator reframed the review around, which is what promotes it from tidiness to high severity."
+          },
+          {
+            "class": "retired-consumer rows kept alive by re-triage",
+            "member_ids": [
+              "BL-20260617-ANDROID-LINT-PROMOTE",
+              "BL-20260617-ANDROID-56-VISUAL",
+              "BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET",
+              "BL-20260901-ANDROID-ON-ICE-BANNER-JUSTIFIES-THE-FREEZE-WITH-A-NOW-RETIRED-CONSUMER"
+            ],
+            "structural_fix": "ONE disposition on the operator's 2026-09-01 live-feed retirement plus the 2026-08-13 ON-ICE directive closes the whole class. DONE THIS RUN \u2014 all four closed wont_fix with the reversal condition recorded on each. This is the class-fix pattern working: four rows retired by one decision rather than four re-triages."
+          },
+          {
+            "class": "no-read-surface (a field/artifact with a writer and no branching consumer)",
+            "member_ids": [
+              "BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE",
+              "BL-20260901-COMMITTED-REVIEW-RECORD-HAS-A-ROUTE-BUT-STILL-NO-RENDERED-CONSUMER",
+              "BL-20260824-PROTECTION-REPAIR-STAMP-HAS-NO-BRANCHING-CONSUMER",
+              "MB-20260902-SHADOW-ARCHIVES-ARE-WRITTEN-AND-NO-READER-RESOLVES-THEM",
+              "BL-20260907-TRAINER-DIAG-RELAY-DISCARDS-A-COMPUTED-RESULT",
+              "BL-20260908-EXIT-LADDER-SOAK-HAS-NEVER-PRODUCED-A-RUNG"
+            ],
+            "structural_fix": "Generalise provenance-consumer-guard: a declared field or artifact that gains a writer and has no BRANCHING consumer fails CI. ALIVE AND GROWING \u2014 at least 4 members opened in September. The shadow-archive member is the same defect as this run's drift finding, one level up."
+          },
+          {
+            "class": "guard-is-vacuous (a guard that cannot detect the class its own docstring names)",
+            "member_ids": [
+              "BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS",
+              "BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER",
+              "BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE",
+              "BL-20260906-QTY-LEGALIZATION-GUARD-CANNOT-DETECT-THE-CLASS-ITS-OWN-DOCSTRING-NAMES",
+              "BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED"
+            ],
+            "structural_fix": "Every guard ships a planted-positive self-test asserting it FAILS on a synthetic instance of its own class, AND prints its denominator (what it scanned, by type) so a clean report carries its own scope. NEW MEMBER FILED THIS RUN."
+          },
+          {
+            "class": "shipped-never-exercised",
+            "member_ids": [
+              "BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN",
+              "BL-20260902-SESSIONS-REGISTRY-HAS-A-SPAWN-WRITER-AND-NO-CLOSE-WRITER",
+              "BL-20260903-LANDED-UNPROVEN-ROWS-NAME-NO-CARRIER"
+            ],
+            "structural_fix": "A `landed_unproven` row must NAME its carrier \u2014 the specific mechanism that will produce the observation \u2014 so a fix cannot sit in a deployed-but-unproven state with nobody watching for its first fire. Same defect the OPEN-ITEMS monitoring rows exist for."
+          }
+        ],
+        "refused_as_classes": "Rejected as house VOCABULARY rather than defect shapes, re-testing the prior review's conclusion and reaching the same answer: 'exit', 'provenance', 'coverage', 'collapsed state', 'cron never fired'. Also refused: title-similarity duplicates \u2014 a Jaccard>=0.5 sweep over all open titles found exactly ONE near-pair, which is evidence backlog_append's duplicate probe is working."
+      },
+      "ml_output_actionability": {
+        "cycles_in_window": 9,
+        "outputs_consumed_by": [
+          "src/runtime/regime/ml_vol_verdict.py -> src/runtime/intents.py::_decision_vol_regime -> Coordinator.aggregate_intents (the regime HARD gate). Evidence it is firing: audit event regime_hard_gate newest 2026-09-08T02:02:47Z and regime_ml_vol_shadow newest 2026-09-08T09:40:02Z. Positive control: regime_shadow_gate newest 2026-06-08, consistent with the router being ENFORCED rather than shadow.",
+          "src/runtime/exit_head_apply.py::exit_head_verdict, called from trend_donchian.py and ict_scalp.py \u2014 can CLOSE a live trade when the artifact is advisory. Confirmed firing: perExitPath shows exit_reason 'exit_head' with 4 real-money closes in the 30d window.",
+          "src/runtime/conviction_sizing.py (CONVICTION_SIZING_MODE=apply on bybit_1) \u2014 conviction-meta-v1 is SHADOW, so it feeds the observed conviction only, not the applied one.",
+          "/api/bot/shadow/* -> the SPA Models page (a read surface)."
+        ],
+        "verdict": "actionable",
+        "qualifier": "Real consumers exist and are demonstrably firing, so the verdict is `actionable`. But state the qualifier: 29 of the 32 registry shadow+advisory heads are observe-only, and THE FEEDBACK LOOP IS OPEN \u2014 drift, the signal that would retire a bad input, is dead by arithmetic (see flags_raised). A fleet whose outputs are consumed but whose quality signal cannot be computed is producing usable results on trust."
+      },
+      "structural_health": {
+        "population": "THE WHOLE HISTORY, not the window: all 1,670 closed non-backtest rows in `trades`, pulled as four 500-row pages from /api/bot/db/table/trades and de-duplicated by id, spanning 2026-05-09T21:42:44Z to 2026-09-08T09:02:28Z. The 253 intent_reduce bookkeeping legs are excluded (they are not closes), leaving n=1,417.",
+        "findings": [
+          {
+            "finding": "Cleanup machinery still closes about half of all trades, but the decision share is RECOVERING from its July trough",
+            "measured": "Decision-driven exit share by month over the 1,417-row population: 2026-05 70.4% (n=399), 06 34.2% (120), 07 22.6% (234), 08 43.0% (509), 09 61.3% (155, partial). Lifetime 48.6% decided / 51.4% cleanup. Top single exit_reason lifetime is reconciler_filled at 386 (27.2%).",
+            "trend": "falling",
+            "structural_fix": "Continue the exit-refinement program on the legacy legs specifically \u2014 see the hypothesis below for why the headline overstates progress. NOTE THE CLASSIFICATION: I count pairs_revert, pairs_stop and vwap_cross as DECIDED because they are the relevant sleeve's own exit logic. An earlier pass in this session classified them as janitor and got 77.8% cleanup for the window; that was MY error, corrected before reporting. The prior review's 64.7%/35.3% figure used a different classification and population and is not like-for-like."
+          },
+          {
+            "finding": "The M20 exit levers are firing more, and are still a rounding error",
+            "measured": "exit_head + stale_stop + giveback_stop + time_decay: 32 of 1,417 lifetime = 2.26%, against the SKILL's 2026-08-24 baseline of 17 ever (1.3%). Monthly: 1.0% (May) -> 0.0% -> 2.6% -> 2.9% -> 4.5% (Sept). Composition: stale_stop 14, exit_head 9, giveback_stop 5, time_decay 4.",
+            "trend": "rising",
+            "structural_fix": "The levers work and are under-reaching. The binding constraint is arm reachability, not lever wiring: 48 of 59 rows with a declared arm read `unreachable`. Investigate the arm geometry before adding more levers."
+          },
+          {
+            "finding": "Real-money losses are a book-wide condition, not a leg-level one",
+            "measured": "bybit_2 has had ZERO winning closes since 2026-08-28T16:24:21Z: 16 closed rows, -$43.37, across 5 distinct legs. No single leg accounts for more than 44% of the loss.",
+            "trend": "first_measurement",
+            "structural_fix": "A per-leg demote cannot fix a book-wide condition. The right next step is a regime//market-context question \u2014 whether the conditions these legs were tuned for are present \u2014 not a roster edit. Put to the operator as a roster decision rather than enacted."
+          }
+        ],
+        "hypothesis_tested": {
+          "hypothesis": "The rising decision-driven exit share since July is driven by the M20 exit levers (exit_head / stale_stop / giveback_stop / time_decay) finally firing \u2014 i.e. the exit-refinement program is working on the legacy legs.",
+          "verdict": "refuted",
+          "evidence": "REFUTED, and the refutation is the finding. The M20 levers ARE rising (1.0% -> 4.5% monthly, 17 -> 32 lifetime) but cannot account for the move: in September they are 7 of 155 closes (4.5%) while the decision share rose to 61.3%. The actual driver is COMPOSITION \u2014 the pairs sleeve, whose own exits (pairs_revert + pairs_stop) went from 0% before August to 22.0% in August and 36.1% in September. Controlling for it: EX-PAIRS the decision share is 27.7% (Jul) -> 38.9% (Aug) -> 47.0% (Sep), against a headline of 22.6% -> 43.0% -> 61.3%, and still far below May's 70.4%. So a new high-frequency sleeve that closes via its own logic diluted a janitor-heavy legacy book. The headline metric improved for a reason that is not the improvement anyone was working on, and a review reading only the headline would have reported the exit program as succeeding."
+        }
+      },
+      "unexercised_fixes": [
+        {
+          "fix": "PROTECTION_REASSERT_MODE \u2014 re-assert a diverged protective leg at its journal-declared level",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "protection_reassert_soak, whole file (17 rows): 2 carry mode=apply / apply_scope=allowlisted / acted=true \u2014 ib_paper MES (2026-08-23T13:54:32Z) and ib_paper MGC trade 5531 (2026-09-07T11:55:19Z, applied_state=both_legs_resting, ocaGroup oca-protect-t5531). CLAUDE.md said this gate was 'still UNEXERCISED'; that claim was stale and I corrected it in this PR. \u26a0\ufe0f The second exercise is not a clean success: it re-armed a 43-lot bracket for a journal row the broker does not back."
+        },
+        {
+          "fix": "PROTECTION_STRAY_GROUP_MODE \u2014 cancel a trade's own prior protection under a different group name",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "stray_oca_soak, whole file (8 rows): ALL read mode=apply / apply_scope=allowlisted, and 2 carry decision=stray_unkeyed with acted=true, cancel_calls_made=2, verify_state=verified \u2014 ib_paper MGC, and ib_paper MHG at 2026-09-08T01:55:01Z with both legs confirmed_gone. CLAUDE.md said this 'cancels NOTHING'; corrected in this PR."
+        },
+        {
+          "fix": "Bybit over_cover operator page (_emit_bybit_over_cover_alert)",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "58 `bybit_over_cover detected` rows in the operator ERROR+ feed, 2026-08-26T01:16:05Z to 2026-09-08T10:20:49Z, e.g. bybit_1/ADAUSDT 'SAME-BOOK LEG OVER-ACCUMULATION' at 179%. These reach outcomes.jsonl, not just the journal \u2014 which is the property the fix added."
+        },
+        {
+          "fix": "IB _emit_stop_over_cover_alert (disjoint-group over-cover page)",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "10 `ib_stop_over_cover` rows in the ERROR+ feed, 2026-08-25T12:27:44Z to 2026-09-08T06:09:21Z. The four most recent all name ib_paper/MGC position 11.0 vs resting STOP 54.0 (491%) across oca-protect-t5353 + oca-protect-t5531 \u2014 a CORRECT page about the phantom-row defect filed in flags_raised."
+        },
+        {
+          "fix": "Durable ib_target_naked cooldown (state survives restart)",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "3 ib_target_naked rows in 14 days (2026-08-27T17:02:00Z to 2026-09-07T11:49:36Z) against the 202-in-6.5-days flood the per-process latch produced. The alert still fires and the latch now survives trader restarts, which is what the fix changed."
+        },
+        {
+          "fix": "MI-144 R-contamination repair (r_multiple_provenanced re-bases R onto declared initial risk)",
+          "deployed_sha": "eafafae4",
+          "verdict": "exercised",
+          "evidence": "Measured on the SAME 30d real-money window the fix's own code comment measured on 2026-09-06 (n=39, totalPnl -3.6266, PF 0.9507 \u2014 identical population): totalR moved +38.2891 -> +6.9118 and expectancyR +0.9818 -> +0.1772, i.e. 82.0% of the published R removed from a losing window. rBasis now reads declaredInitial 39 / storedStop 0, so all 39 rows are re-based. It is exercised and INCOMPLETE \u2014 12 of 39 rows still grade contaminated and the window still publishes a positive expectancyR."
+        },
+        {
+          "fix": "ALPACA_CASH_SETTLEMENT_MODE=apply on alpaca_live (T+1 settlement basis)",
+          "deployed_sha": "eafafae4",
+          "verdict": "still_unexercised",
+          "evidence": "",
+          "reason": "Whole cash_settlement_soak file, 27 rows spanning 2026-08-31T13:30 to 2026-09-04T18:21: alpaca_paper 13, alpaca_portfolio 12, alpaca_options_paper 2, and ZERO alpaca_live rows. Cause established rather than assumed \u2014 alpaca_live has never placed an order since routing (both its post-routing signals were shorts, correctly suppressed by side_filter:long), so the gate has never been consulted. The measurement is not scoped out: 22 of the 27 rows are apply_scope=not_allowlisted, proving non-allowlisted accounts ARE measured. Escalated in flags_raised."
+        },
+        {
+          "fix": "BYBIT_GRADED_COVERAGE_MODE (side-aware coverage basis for the Bybit re-arm)",
+          "deployed_sha": "eafafae4",
+          "verdict": "still_unexercised",
+          "evidence": "",
+          "reason": "400-row tail of bybit_coverage_soak (2026-09-08T09:10:19Z to 10:40:11Z): mode=annotate x400, apply_scope=not_apply x400, and verdicts_differ=False on all 400 \u2014 so over this population arming would have changed NOTHING. The operator hold from 2026-09-02 is intact and correct. Named in flags_raised as unexercised."
+        }
+      ],
+      "research_results_disposition": {
+        "units_landed_since_last": 130,
+        "dispositioned": 103,
+        "unread": 11,
+        "superseded_unread": 256,
+        "verdict": "landed_but_unread",
+        "detail": "Measured 2026-09-08 via scripts/research/research_disposition.py over 370 units in 3 corpora; corpus_unreadable 0, ledger_state read. The counts are BYTE-IDENTICAL to the 2026-08-31 measurement (103/11/256) \u2014 nothing has landed in a registered corpus and nothing has been dispositioned in 8 days. The 11 live-unread are all gld_compat at run stamp 2026-08-31T17:20:54Z. \u26a0\ufe0f superseded_unread is NOT counted as a finding: 223 of the 256 are benign_read_successor and the remaining 33 are the SAME 11 legs, so recording the 11 dispositions would clear all 33 in one step. WHAT THE 11 SAY: a determinism/refresh re-run of a deterministic grader \u2014 every verdict, metric and value is unchanged from the already-dispositioned 05:20:34Z batch, differing only in a 12h-fresher balance snapshot and a <=1.65% account-size drift. 10 ROUTE + 1 UNGRADED (ib_live, size_state unreadable \u2014 the collapsed-state discipline working). Implied disposition no_action_warranted for all 11. \u26a0\ufe0f ROUTE IS A RISK-RULESET CLEARANCE, NOT A ROUTING RECOMMENDATION, and reading it as one would be the error: gld_pullback_1h is routed to exactly two accounts (alpaca_paper, alpaca_portfolio, both PAPER), and at least 5 of the 11 ROUTE accounts cannot list a US equity ETF at all. risk_pct cross-checked 11/11 against config/accounts.yaml as a positive control that the extractor reads live config. TWO STRUCTURAL FINDINGS beyond the counts: (1) the e35 corpus is DEDUPLICATED by measurement_key, so a re-sweep REPLACES a row and orphans any disposition written against its stamp \u2014 14 of the 117 ledger entries (12.0%) already point at units the corpus no longer contains, arithmetically closing the 103-vs-117 gap. The module's docstring calls the corpus append-only; the field says otherwise. (2) 29 research artifacts landed under docs/research/ since 2026-09-01 in NO registered corpus, so this key's denominator describes the sweep corpora only. NOT ESTABLISHED: whether fee_bps_roundtrip=0.0 is correct for the non-Alpaca venues (the producer was not read) \u2014 harmless today since none of those accounts trades GLD."
+      },
+      "test_execution_verification": {
+        "runs_in_window": "unavailable: pytest-run has 11,446 lifetime runs and the API pages at 100; two complete pages were measured (89 pull_request runs 2026-09-08T05:30-10:33, 100 push/main runs 2026-09-06T11:21-2026-09-08T09:27) rather than the full 10 days. Stated as a sample, not the window.",
+        "suite_executed": true,
+        "guards_executed": true,
+        "verdict": "executed",
+        "detail": "The question is whether the suite EXECUTED, not whether a job reported success \u2014 pytest-run is PATH-FILTERED and its own comments record FOUR incidents of a 9-second green run that merged and left main RED. EVIDENCE OF REAL EXECUTION: run 34214915620 (PR head 19881c9e), `Run tests` 10:21:45-10:37:45, log tail '15601 passed, 14 skipped, 80 warnings in 952.56s (0:15:52)'. A short-circuited selection cannot collect 15,615 tests over ~16 minutes. 39 of 89 PR runs ran >=120s. THE SHORT-CIRCUITS WERE CHECKED, NOT ASSUMED BENIGN: 72 of 100 push/main runs ran <120s; six were traced to their merge commits (0c74a9c2, 9a437dfc, d50543a1, 161ee60a, 2ccc2ab8, 4c00c120) and EVERY one touched only docs/** or the .github/pr-landing / pr-automerge-requests request artifacts \u2014 paths the filter deliberately excludes. No instance of a filter-MATCHING diff that short-circuited was found. GUARDS: 30 push/main runs 2026-09-07T21:57-2026-09-08T09:27, 27 ran 127-202s; guards does not short-circuit. tests/test_pytest_run_filter.py \u2014 the guard that exists so the filter cannot be silently narrowed \u2014 is present (9 test functions, no skip/xfail) and was inside the 15,601-passing run. THIS SESSION'S OWN RUN: scripts/ci/run_guards.py --base main returned PASS 52 / FAIL 4 / SKIP 36. All four failures were diagnosed rather than assumed: two were `No module named pytest` in this container (pytest installed, then 78 passed), one was a dangling backlog id I introduced by copying a sub-agent's id verbatim (corrected \u2014 it is the exact failure MI-191 warned about on the board this morning), and one was the missing pr-landing declaration for this branch (added)."
+      },
+      "backlog_drive": {
+        "summary": "7 rows FILED and 6 CLOSED this run, so this session is net +1 against a corrected September baseline of +217. That is not a win and I am not presenting it as one. What this run contributes to the burn-down is upstream of the count: the metric itself is broken, and it is now filed with the two-line fix (BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT). Every close was made on the row's OWN resolution criteria and none on age; four of the six were retired by a SINGLE class disposition (the operator's 2026-09-01 consumer retirement), which is the class-fix pattern the mandate asks for rather than four separate re-triages. Three rows that a faster pass would have closed were deliberately left open after checking: PROP-SCREENSHOT (clause 5 of 5 unmet \u2014 I verified no guard exists on INSIGHTS_MODEL_MODE), CAP-PROXIMITY (its BTC exception is unsettled), and TRADES-CLOSED-UNPARSEABLE-SINCE (re-verified STILL TRUE while closing its sibling).",
+        "health": {
+          "open_at_start": 721,
+          "triaged": 721,
+          "count_untriaged": 0,
+          "drained": [
+            "BL-20260906-TRADES-CLOSED-SILENTLY-RETURNS-EMPTY-ABOVE-LIMIT-200-AND-FOR-ANY-SINCE",
+            "BL-20260617-ANDROID-LINT-PROMOTE",
+            "BL-20260617-ANDROID-56-VISUAL",
+            "BL-20260813-ANDROID-APP-MODULE-NO-TEST-SOURCE-SET",
+            "BL-20260901-ANDROID-ON-ICE-BANNER-JUSTIFIES-THE-FREEZE-WITH-A-NOW-RETIRED-CONSUMER",
+            "BL-20260825-PROXY-UNAFFORDABILITY-CLAIM-REFUTED-BY-MEASUREMENT"
+          ],
+          "filed": [
+            "BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+            "BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT-SO-THE-NUMBER-EVERY-REVIEW-STEERS-BY-IS-UNDERSTATED",
+            "BL-20260908-GRADE-CLOSED-TRADES-REPORTS-TRUNCATED-FALSE-WHILE-THE-ISSUE-COMMENT-DROPS-60-PERCENT-OF-THE-DELTA",
+            "BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED",
+            "BL-20260908-PERFORMANCE-ENDPOINT-DOES-NOT-APPLY-THE-REDUCE-LEG-PREDICATE-AND-RELIES-ON-A-ONE-SHOT-CLEANUP"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS",
+              "reason": "Clauses 1-4 of 5 read DONE in the row itself; clause 5 is unmet and I verified it rather than trusting the row \u2014 nothing guards INSIGHTS_MODEL_MODE. Repo-wide search finds only the generator's own read, sync-vm-secrets.yml and get_env.py (a read surface, not a guard). Live model_id reads `template:v1`, so the mode is correct and unwatched. Waiting on: an alert on a non-template mode, or a recorded operator decision that the flip is deliberate and unguarded."
+            },
+            {
+              "id": "BL-20260818-CAP-PROXIMITY-DOES-NOT-IDENTIFY-A-PEAK-WORTH-BANKING",
+              "reason": "The row's criteria are explicit that the pooled refutation closes the general hypothesis but resolution needs the BTC exception settled by a per-bar simulation or declined on stated grounds. Neither has happened. Waiting on: the per-bar simulation, which the row itself says an upper bound cannot substitute for."
+            },
+            {
+              "id": "BL-20260829-TRADES-CLOSED-RETURNS-A-CONFIDENT-EMPTY-LIST-FOR-AN-UNPARSEABLE-SINCE",
+              "reason": "Re-verified live this session and STILL TRUE: since=notadate returns HTTP 200 with a bare []. Deliberately kept open when I closed its sibling BL-20260906 (the limit-200 and valid-since halves, both now fixed). Waiting on: the route distinguishing an unparseable since from an empty result."
+            },
+            {
+              "id": "BL-20260906-STRAY-UNKEYED-OCA-GROUPS-HAVE-RETURNED-ON-TWO-OF-THREE-IB-SYMBOLS-AND-THE-SWEEP-HAS-ACTED-ONCE-EVER",
+              "reason": "Its headline is now stale \u2014 the sweep has acted TWICE (stray_oca_soak: MGC, and MHG at 2026-09-08T01:55:01Z with cancel_calls_made 2 and verify_state verified). But the condition it describes recurs, so the row stands. Waiting on: the root-cause fix for why unkeyed groups keep reappearing, not more sweep activity."
+            },
+            {
+              "id": "BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED",
+              "reason": "Waiting on an OPERATOR decision \u2014 the Phase-H read-surface gating call (applying require_session to the ungated /api/bot/db/* routes), which is a Tier-2 change to a live read path and is not a review's to make. I re-tested the condition rather than assuming it: GET /api/bot/db/table/signals?limit=1 returns HTTP 200 with no credential, so the row still describes a live high-severity exposure."
+            }
+          ]
+        },
+        "performance": {
+          "open_at_start": 44,
+          "triaged": 44,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260706-ETH-BOOK-RECHECK",
+              "reason": "Its snoozed_until was 2026-08-01 and expired 38 days ago with no update since \u2014 so it is DUE NOW and nothing wakes an expired snooze. Waiting on: an ETH-book re-check, and structurally on a mechanism that surfaces an expired snooze (no such mechanism exists, which is the more useful finding)."
+            },
+            {
+              "id": "<remaining 43 performance rows>",
+              "reason": "Re-read for CLASS membership as part of the 788-row backlog_classes pass rather than individually re-triaged. Waiting on: they are predominantly strategy soaks and tweak proposals blocked on accrual or on a Tier-3 operator decision, and the cycle priority forbids acting on expectancyR-derived proposals while the 30d instrument still grades 12 of 39 rows contaminated."
+            }
+          ]
+        },
+        "ml": {
+          "open_at_start": 23,
+          "triaged": 23,
+          "count_untriaged": 0,
+          "drained": [],
+          "filed": [
+            "BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW",
+            "BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE"
+          ],
+          "deferred": [
+            {
+              "id": "MB-20260721-MES-15M-HEAD-PARKED",
+              "reason": "Gate-ready and parked 49 days; escalated to flags_raised and operator_priorities this run. Waiting on: an operator promote/decline decision \u2014 and it cannot honestly be graded until the drift reader is fixed, since drift is half its gate."
+            },
+            {
+              "id": "MB-20260712-SHADOW-LOG-HISTORY",
+              "reason": "Root-causes the same 7-day rotation as this run's drift finding but frames it as a research-join horizon. Waiting on: the glob fix in shadow.py::_log_path, which resolves this row's stated criteria verbatim and the new drift row together."
+            },
+            {
+              "id": "<remaining 21 ml rows>",
+              "reason": "Read for class membership in the backlog_classes pass. Waiting on: model soaks accruing, or the same drift blocker \u2014 no shadow->advisory gate can be honestly evaluated while reference_count is 0 by arithmetic for every model."
+            }
+          ]
+        }
+      },
+      "flags_raised": [
+        "CRITICAL-CLASS / ib_paper MGC: the journal holds 54 MGC lots across two open rows while the broker holds 11. Trade 5531 (43 lots, ict_scalp_mgc_15m) is a PHANTOM OPEN ROW and a live 43-lot protective STOP rests against it \u2014 if that stop fires it SELLS 43 contracts the account does not hold, opening a naked short. 26 of 27 (account,symbol) pairs reconcile exactly, so this is one divergence and not a measurement artifact. ib_paper is PAPER, so no real money is at risk in this instance; the code path is account-agnostic. Root cause verified: the netting-attribution reconciler selects exchange=='bybit' only and IB nets identically. BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+        "REAL MONEY IS ON A 16-CLOSE LOSING STREAK. bybit_2 \u2014 the only real-money account actually trading \u2014 has had ZERO winning closes since 2026-08-28T16:24:21Z: 16 closed rows, sum -$43.37, spread across FIVE legs (ict_scalp_5m 7/-18.95, xrp_pullback_2h 3/-9.90, trend_donchian_xrp_4h 1/-4.82, trend_donchian_eth_4h 2/-2.30, eth_pullback_2h 4/-1.09). This is the whole book losing, not one leg misbehaving. 7d journal: 10 trades, 0 wins, PF 0.0, expectancyR -0.9679. Venue truth agrees: -$38.15 realized over 32 fills.",
+        "PROP ACCOUNT IS $87.34 FROM ITS PERMANENT-KILL FLOOR ON AN 8.6-DAY-STALE SNAPSHOT \u2014 FOURTH CONSECUTIVE REVIEW. breakout_1 balance 4787.34 against a static_dd_floor_usd of 4700.00; status_freshness reads `stale` at status_age_hours 206.95 (last report 2026-08-30T19:33Z), and day_pnl_state is `realized_unreported` so distance_to_daily_loss_usd is null \u2014 the daily-loss half is UNMEASURED, not zero. The prior report carried this at $55.00 on its THIRD review. OPERATOR ACTION: a fresh `bal <balance> <equity>` is the whole fix.",
+        "SHADOW DRIFT IS STRUCTURALLY UNMEASURABLE FLEET-WIDE, so no drift-driven demote can ever fire. The shadow log rotates at 7 days while /api/bot/shadow/drift's default reference window starts 37 days back, and the reader never opens the archives \u2014 reference_count is 0 BY ARITHMETIC for every model (6/6 probed). Positive control at a 4d/2d window returns real verdicts, and it surfaces PSI 0.685 on btc-regime-15m-lgbm-fc-pcv-v2, the ADVISORY head that gates real-money BTC routing (~2.7x the 0.25 bar). CAVEAT STATED: 4d/2d is short and non-standard and may reflect regime change, not capability loss \u2014 it is NOT grounds for a demote, it is grounds for a measurement that is currently impossible. BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW",
+        "AN ORDER-INFLUENCING MODEL IS OUTSIDE THE REGISTRY. exit-head-donchian-1h-v1 is stage `advisory` and exit_head_apply returns {'action':'close'} for advisory heads on three live legs \u2014 yet it and three sibling exit heads appear in NONE of the 96 registry rows, so stage-guard, gate-check and every registry census are blind to it. The true live-influencing count is 4, not 3. The exit_head path IS firing (4 real-money closes in the 30d window). BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE",
+        "THE BACKLOG BURN-DOWN INSTRUMENT IS ITSELF WRONG \u2014 the cycle priority, in the backlog domain. backlog_burndown() counts a row as opened only if it carries `opened_at`; 287 rows carry `opened`/`date` and 70 carry no creation key at all. Corrected September: 232 opened / 15 closed (a ~15:1 file-to-close ratio), not the 91/15 the shipped function reports; cumulative open is 788, not 456. A review can believe it is holding the line while the pile grows ~2.5x faster than the number says. BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT-SO-THE-NUMBER-EVERY-REVIEW-STEERS-BY-IS-UNDERSTATED",
+        "UNWIRED CAPABILITY SHIPPED THIS WINDOW: scripts/ops/llm_capacity_benchmark.sh (added 2026-08-31) has zero references outside docs/ and carries no `# wiring: manual-only` marker. It is invisible to check_unwired_artifacts.py, which globs *.py only \u2014 so shell tools are outside that guard's denominator entirely and its clean report is a SCOPE result, not a COVERAGE result. BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED",
+        "RESEARCH IS LANDING AND NOT BEING READ \u2014 verdict `landed_but_unread`, and UNCHANGED IN 8 DAYS. 103 dispositioned / 11 unread / 256 superseded_unread, byte-identical to the 2026-08-31 measurement: nothing has landed in a registered corpus and nothing has been dispositioned since. Separately, 29 research artifacts landed under docs/research/ since 2026-09-01 in NO registered corpus, so this key's own denominator understates what is unread.",
+        "EXECUTION CAPTURE HAS DETERIORATED. Median capture fell from +0.345 (prior review) to -0.151, and the share of ever-positive closed trades giving back >=95% of their peak rose from 17/45 (37.8%) to 39/73 (53.4%). Every ratio is an UPPER BOUND \u2014 peak_r_is_lower_bound is true on 74/74 rows \u2014 so true capture is worse. Of the rows carrying a declared take-profit arm, 48 of 59 (81.4%) read `unreachable`.",
+        "FIVE EXECUTION-CAPTURE ANOMALIES ARE OPEN >=2 REVIEWS and are escalated here rather than carried: ict_scalp_mgc_15m|paper (5 reviews), ict_scalp_5m|paper (5), <fleet>|all declared-bracket exit rate (5), qqq_pullback_1h|paper (3), pairs_*|paper (3).",
+        "THE ALPACA GLD CLOSE WEDGE IS STANDING AT DAY 6 AND NEEDS OPERATOR/VENUE ACTION. alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, order 2e843e04-5487-470c-a702-70e796fbd05e stuck `pending_cancel`; first_seen 2026-09-03T13:35:04Z, last_seen 2026-09-08T08:03:06Z, pages_suppressed 56. No bot-side lever can clear it \u2014 by design, the classifier says so explicitly.",
+        "unexercised: ALPACA_CASH_SETTLEMENT_MODE is armed `apply` on alpaca_live (real money) and its soak contains ZERO alpaca_live rows across the whole 27-row file \u2014 so the evidence base for the arming decision is empty. Cause established rather than assumed: alpaca_live has signalled twice since being routed (2026-09-01, 2026-09-03) and BOTH were shorts, correctly suppressed by side_filter:long, so the account has never placed a real-money order and the gate has never been consulted. Not a defect \u2014 but the gate is armed and unmeasurable."
+      ],
+      "soak_status_note": {
+        "population": "/api/bot/shadow/stats \u2014 34 models emitting; live-log window 2026-09-01T22:31 to 2026-09-08T10:34. Counts are window-limited by the 7-day rotation, NOT lifetime.",
+        "detail": "31 of 34 accruing normally (last_seen 0.1-4.8h). TWO APPARENT STALLS CHECKED AND DISSOLVED rather than filed: exit-head-donchian-1h-v1 and -peak-1h-v1 sit at 52 records each with last_seen 48.7h ago, and the denominator explains it \u2014 /api/bot/positions shows 2 open positions, both *_pullback_2h on bybit_2, and ZERO open donchian positions. The head scores once per closed bar per open donchian position, so not scoring is correct, not stalled. TWO DEGENERATE-BUT-CORRECT: mes-setup-quality-baseline-v0 and mes-trade-outcome-winrate-baseline-v0 emit 0 predictions and were retrained 2026-09-08 on n_eval = 5. Five evaluation rows is not a model; they are weak conviction-lens inputs and should be repowered or retired. STALENESS, two populations that must not be conflated: the trainer's own scan reports 6 stale of 76 in rotation (7d threshold); a scan of all 96 registry rows finds 27 stale >7d, of which 25 are OFFLINE/candidate (retired experiment runs, correctly not trained) and 2 are shadow \u2014 setup-quality-lgbm-v2 (44.2 days, and its manifest is refusing to train) and btc-regime-5m-lgbm-flow-v1-offload (10.6 days). MET-AND-UNACTIONED: mes-regime-15m-lgbm-v2, parked gate-ready 49 days \u2014 escalated in strategy_promotion. \u26a0\ufe0f EVERY SOAK VERDICT THAT DEPENDS ON DRIFT IS CURRENTLY UNGRADEABLE \u2014 see flags_raised."
+      }
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 1318,
+        "open": 726,
+        "resolved": 592,
+        "drained": 37,
+        "present": true
+      },
+      "performance": {
+        "total": 114,
+        "open": 44,
+        "resolved": 70,
+        "drained": 5,
+        "present": true
+      },
+      "ml": {
+        "total": 109,
+        "open": 25,
+        "resolved": 84,
+        "drained": 2,
+        "present": true
+      }
+    },
+    "pnl_by_class": {
+      "real": {
+        "window_pnl_usd": -34.5582,
+        "basis": "journal /api/bot/performance?window=7d (n=10, 0 wins, PF 0.0, pnlCoverage 0.80, expectancyR -0.9679 at rCoverage 1.0 with ZERO contaminated rows)",
+        "venue_truth_usd": -38.147391,
+        "venue_basis": "/api/bot/pnl/exchange?account_id=bybit_2 \u2014 32 fills, 3 symbols, fees $4.37, 7d window. Agrees with the journal in sign and magnitude; the ~$3.6 gap is approximately the fee component.",
+        "trend": "down",
+        "prior_window_pnl": 1.46,
+        "note": "bybit_2 is the ONLY real-money account trading. alpaca_live is mode live/real_money but has placed nothing (both post-routing signals were shorts, suppressed by side_filter:long). ib_live is dry_run with zero strategies. 30d for context: n=39, -$3.6266, PF 0.9507, coverage 0.6667."
+      },
+      "paper": {
+        "window_pnl_usd": 219384.1121,
+        "pnl_coverage": 0.1213,
+        "trend": "up",
+        "note": "\u26a0\ufe0f NO PnL CONCLUSION MAY BE DRAWN \u2014 88% of this is unmeasured (pnlCoverage 0.1213 over 544 trades). Reported for completeness only. The honest mirror is paperPortfolio below."
+      },
+      "paper_portfolio": {
+        "window_pnl_usd": -2581.2036,
+        "pnl_coverage": 0.3137,
+        "trend": "down",
+        "note": "The net-of-everything paper MIRROR: n=51, PF 0.8934, coverage 0.3137. NEGATIVE while the paper headline is +$219k \u2014 that gap is the translation-gap finding in cross_review_notes."
+      },
+      "prop": {
+        "window_pnl_usd": null,
+        "trend": "flat",
+        "note": "breakout_1: balance AND equity 4787.34 on a snapshot from 2026-08-30T19:33:29Z \u2014 status_freshness `stale` at status_age_hours 206.95 (8.6 days). realized_today is null and day_pnl_state is `realized_unreported`, so window PnL is UNMEASURED, not zero. distance_to_dd_floor_usd 87.34 against a static floor of 4700.00; distance_to_daily_loss_usd is NULL (unmeasurable without a day-start balance)."
+      }
+    },
+    "dossier_coverage": {
+      "resolution": "per-trade for real money; aggregate for paper",
+      "detail": "207 closed non-backtest trades in the window were GRADED this session (B 90 / C 67 / D 50), newest reviewed_at 2026-09-08T10:50:51Z \u2014 after window_start, so the grading-freshness guard is satisfied. Full per-trade dossiers are rendered for the 15 real-money closes; paper is summarised by strategy because 185 of the 200 window closes are paper and its PnL is 88% unmeasured."
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "Real money, 30d: -$13.53 over 23 closes, winRate 39.1%. Carried 13 of the 16 losing-streak closes' largest single loss (-$5.51). OHLC NOT PULLED this run \u2014 recorded as not-done, never as 0."
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "Real money, 30d: -$8.91, winRate 20.0% \u2014 the weakest real-money symbol by win rate. OHLC not pulled this run."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "note": "Real money, 30d: +$18.82, winRate 45.5% \u2014 the only real-money symbol positive over 30d. OHLC not pulled this run."
+      }
+    ],
+    "market_context_note": "Symbols enumerated from the live traded set rather than hardcoded; real money traded exactly these three this window. A per-symbol candle pull was NOT performed, so open/close/high/low/pct_change are null (never 0) and the notes carry the per-symbol PnL from /api/bot/performance instead.",
+    "backlog_summary_note": "RECOMPUTED after this branch merged origin/main, because these counts are guard-mandated to be COMPUTED from the files as committed and mine were rendered before the merge. Health moved 1312\u21921318 total / 720\u2192726 open: six rows that OTHER lanes filed on main landed in the union merge. \u26a0\ufe0f `review_coverage.backlog_classes.total_open_reviewed` deliberately stays at 788 and is NOT reconciled to 726+44+25=795. 788 is the population I actually READ for pattern at the start of the run (721 health + 44 performance + 23 ml); raising it would claim I read seven rows I never saw \u2014 six that arrived in the merge and one of my own filed afterwards. The two numbers answer different questions and are both correct."
+  },
+  "health": {
+    "overall_assessment": "investigate",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings": {
+      "F-H1 \u00b7 ib_paper/MGC holds 43 journal lots the broker does not, with a live 43-lot stop on the phantom": {
+        "status": "concern",
+        "note": "Journal net 54 vs venue 11. Trade 5531 (43 lots, ict_scalp_mgc_15m, open since 2026-09-07T08:26:33Z) has no venue backing, and PROTECTION_REASSERT re-armed a 43-lot bracket against it at 11:55:19Z. If that stop fires it sells 43 contracts the account does not hold. Root cause verified: _reconcile_netting_partial_closes selects exchange=='bybit' only; IB nets identically with no equivalent. Filed BL-20260908-IB-PAPER-MGC-...; Tier-2/3, PROPOSED not enacted."
+      },
+      "F-H2 \u00b7 Journal-vs-venue reconciliation is otherwise EXACT": {
+        "status": "ok",
+        "note": "26 of 27 comparable (account,symbol) pairs match the venue to the unit across bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio. This is the positive control that makes F-H1 trustworthy rather than a parsing artifact. 3 accounts (ib_live, oanda_practice, breakout_1) could not be read and are the declared exclusions."
+      },
+      "F-H3 \u00b7 Services and deploy": {
+        "status": "ok",
+        "note": "40 units; all 6 expected services active. Every timer active except ict-ib-gateway-watchdog.timer, which is CORRECT on the trader host (it is auto-enabled only where /etc/ict-vm-role==gateway). restart_pending flipped false->true between two reads as main advanced under an active merge day \u2014 normal churn, not a stuck deploy."
+      },
+      "F-H4 \u00b7 The alpaca GLD close wedge is standing at day 6": {
+        "status": "concern",
+        "note": "alpaca_paper|GLD|long, share_hold=broker_cancel_wedged, order 2e843e04 stuck pending_cancel since 2026-09-03T13:35:04Z, last seen 2026-09-08T08:03:06Z, pages_suppressed 56. No bot-side lever can clear a broker-side pending_cancel \u2014 by design the classifier says so. Needs operator/venue action."
+      },
+      "F-H5 \u00b7 The backlog burn-down instrument under-counts opened rows": {
+        "status": "concern",
+        "note": "backlog_burndown() reads only `opened_at`; 287 rows carry `opened`/`date` and 70 carry no creation key. Corrected September is 232 opened / 15 closed, not 91/15; cumulative open 788, not 456. Filed with the two-line fix."
+      },
+      "F-H6 \u00b7 Two CLAUDE.md claims were stale in the dangerous direction": {
+        "status": "watch",
+        "note": "PROTECTION_REASSERT_MODE was documented as 'still UNEXERCISED' and PROTECTION_STRAY_GROUP_MODE as 'cancels NOTHING', while both soaks show mode=apply/allowlisted with real cancels. A session reading CLAUDE.md would have believed two order-path gates were inert. Corrected in this PR with the measurements."
+      },
+      "F-H7 \u00b7 Security sweep is PARTIAL, not clean": {
+        "status": "watch",
+        "note": "The 152-row ERROR+ feed (2026-08-25 to 2026-09-08, under the 1000 cap so a real denominator) shows no intrusion signal \u2014 all hits are operational (over-cover 68, naked 92+, target-naked 23). But the auth-denial log sweep and the secret-literal scan of changed files were NOT repeated this run. Recorded as not-done rather than implied clean."
+      }
+    },
+    "security_check": "No breach or intrusion signal found where it was looked for. Population and method stated: the operator ERROR+ feed (/api/bot/logs?level=error&limit=1000) returned 152 rows spanning 2026-08-25T05:37:42Z to 2026-09-08T10:20:49Z \u2014 well under the 1000 cap, so NOT truncated, and it is a real denominator. Keyword census over it: bybit_over_cover 58, naked 92, ib_stop_over_cover 10, alpaca_target_naked 20, ib_target_naked 3, alpaca_partial_stop_coverage 1, pairs_naked_leg 1 \u2014 all operational, none an intrusion signal. \u26a0\ufe0f NOT DONE THIS RUN and recorded rather than implied: no auth-denial sweep of the ict-web-api access log and no secret-literal scan of the window's changed files. The prior review did both and found 0/0; I did not repeat them, so this is a partial security check, not a clean one.",
+    "soak_decisions_due": "mes-regime-15m-lgbm-v2 gate-ready and parked 49 days \u2014 surfaced and routed to the operator; it cannot be honestly graded until the drift reader is fixed.",
+    "anomalies": [
+      "Real money 16 consecutive losing closes",
+      "Execution capture median fell +0.345 -> -0.151",
+      "Research disposition unchanged in 8 days",
+      "Prop account $87.34 from its kill floor on an 8.6-day-stale snapshot"
+    ],
+    "backlog_drain": "6 closed / 5 filed in health; see review_coverage.backlog_drive.",
+    "backlog_coverage": "Whole open set read: 788 rows across the three backlogs (health 721, performance 44, ml 23)."
+  },
+  "performance": {
+    "overall_assessment": "investigate",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "strategy_performance": "Real money 7d: n=10, 0 wins, PF 0.0, -$34.56, expectancyR -0.9679 on a CLEAN population (0 contaminated). 30d: n=39, PF 0.9507, -$3.63, but 12/39 rows contaminated so its +0.1772 expectancyR is not actionable. Per-leg detail in review_coverage.strategy_promotion.",
+    "trade_decision_grades": "207 closed trades graded this session via the documented fallback grader (the system-action path succeeded but its delta was truncated by GitHub's comment rendering \u2014 filed as a finding). Distribution B 90 / C 67 / D 50.",
+    "insights_review": "/api/bot/insights/health read live: model_id `template:v1`, cache_present true, 7/7 checks green, cache_age 732s. The analyst is running in template mode and is explicitly pinned there in the VM .env. \u26a0\ufe0f Nothing GUARDS that pin \u2014 verified repo-wide, only the generator's own read plus a secrets-sync workflow and a read surface. That is the unmet clause 5 of BL-20260823-PROP-SCREENSHOT.",
+    "proposed_tweaks": "NONE proposed off expectancyR this run, deliberately \u2014 the 30d instrument still grades 12 of 39 rows contaminated, and the cycle priority forbids a param verdict from a contaminated population. The one substantive proposal is the roster question in operator_priorities[2].",
+    "paper_book_tracker": "paperPortfolio (the honest mirror): n=51, PF 0.8934, -$2,581.20 at coverage 0.3137. The raw paper book reads +$219,384 at coverage 0.1213 and must not be quoted as a result.",
+    "anomalies": [
+      "81.4% of declared take-profit arms read `unreachable`",
+      "53.4% of ever-positive closed trades gave back >=95% of their peak"
+    ],
+    "backlog_drain": "0 closed in performance; every open row read for class membership. See backlog_drive.performance for why.",
+    "_source": "Grading RAN this session. The grade-closed-trades system-action (issues #11372, #11373) succeeded but GitHub truncated its comment to the last 50000 bytes, so 66 of 165 emitted rows were recoverable; graded instead via the documented fallback scripts/ops/grade_closed_trades_from_diag.py over a direct /api/bot/db/table/trades pull, which has no comment budget.",
+    "grading": {
+      "rows_emitted": 207,
+      "trades_in_window": 207,
+      "graded": 207,
+      "ungraded": 0,
+      "grade_histogram": {
+        "B": 90,
+        "C": 67,
+        "D": 50
+      },
+      "newest_reviewed_at": "2026-09-08T10:50:51.741903+00:00",
+      "note": "newest_reviewed_at is after window_start 2026-08-29T16:30:00Z, so the grading-freshness guard is satisfied."
+    },
+    "findings_detail": [
+      {
+        "id": "F-P1",
+        "severity": "high",
+        "title": "Real money: 16 consecutive losing closes across five legs",
+        "detail": "bybit_2 has had zero winning closes since 2026-08-28T16:24:21Z. Sum -$43.37. ict_scalp_5m 7/-18.95, xrp_pullback_2h 3/-9.90, trend_donchian_xrp_4h 1/-4.82, trend_donchian_eth_4h 2/-2.30, eth_pullback_2h 4/-1.09. Venue truth agrees at -$38.15 over 32 fills. The 7d instrument is CLEAN (0 contaminated) so this is actionable."
+      },
+      {
+        "id": "F-P2",
+        "severity": "high",
+        "title": "The 30d expectancyR is still positive on a losing book",
+        "detail": "expectancyR +0.1772 against totalPnl -3.6266 and PF 0.9507, with rProvenance 12 contaminated / 20 unverified / 7 confirmedInitial. MI-144's repair removed 82% of the published R (+38.29 -> +6.91) and the sign contradiction persists. Do not derive a promote/demote from it."
+      },
+      {
+        "id": "F-P3",
+        "severity": "high",
+        "title": "Execution capture deteriorated",
+        "detail": "Median capture +0.345 -> -0.151; the share giving back >=95% of peak rose 37.8% -> 53.4%. All ratios are upper bounds (peak_r_is_lower_bound on 74/74). 48 of 59 declared arms read unreachable."
+      },
+      {
+        "id": "F-P4",
+        "severity": "medium",
+        "title": "Only 14.5% of closes exit via a declared bracket",
+        "detail": "29 of the newest 200 (tp 7 + sl 22). Improved from the prior review's 0.083 over 120 closes; denominators differ."
+      },
+      {
+        "id": "F-P5",
+        "severity": "medium",
+        "title": "The paper headline is 88% unmeasured and its honest mirror is negative",
+        "detail": "paper +$219,384 at pnlCoverage 0.1213 vs paperPortfolio -$2,581.20 at 0.3137. No PnL conclusion may be drawn from the raw paper book."
+      }
+    ]
+  },
+  "ml": {
+    "overall_assessment": "investigate",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "trainer_findings": "Timer active, 9 training cycles in window, all rc=0, 0 failed manifests, 0 failed dataset builds, 0 quarantine events. Disk 86.1% \u2014 watch. One ~5h-late day (2026-09-03).",
+    "model_status": [
+      {
+        "model": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "last_metric": "macro_f1 0.5935 / acc 0.9152 / f1_volatile 0.2321 (n_eval 87636)",
+        "trend": "flat (0.5950\u21920.5958\u21920.5942\u21920.5935)",
+        "shadow_drift": "insufficient_data at the configured window; PSI 0.685 at a 4d/2d proxy",
+        "note": "Gates real-money BTC routing. Investigate loudly; do NOT demote off the proxy window."
+      },
+      {
+        "model": "sol-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "last_metric": "macro_f1 0.5380 / acc 0.6198 (n_eval 85812)",
+        "trend": "flat",
+        "shadow_drift": "insufficient_data; moderate at proxy",
+        "note": "Observer with no authored SOL trend_vol cell \u2014 zero live-order impact by design."
+      },
+      {
+        "model": "mes-regime-5m-lgbm-v2",
+        "stage": "advisory",
+        "last_metric": "macro_f1 0.6885 / acc 0.7010 (n_eval 8080)",
+        "trend": "flat, but n_eval swings 7449/10350/10350/8080",
+        "shadow_drift": "insufficient_data; moderate at proxy",
+        "note": "n_eval instability worth a look."
+      },
+      {
+        "model": "exit-head-donchian-1h-v1",
+        "stage": "advisory (UNREGISTERED)",
+        "last_metric": "\u2014",
+        "trend": "\u2014",
+        "shadow_drift": "\u2014",
+        "note": "\u26a0\ufe0f Can CLOSE a live trade and has no registry row. The true live-influencing count is 4, not 3."
+      },
+      {
+        "model": "shadow tier (29 of 96)",
+        "stage": "shadow",
+        "last_metric": "\u2014",
+        "trend": "\u2014",
+        "shadow_drift": "insufficient_data (all)",
+        "note": "31 of 34 emitting models accruing normally. mes-regime-15m-lgbm-v2 has read gate-ready for 49 days and is parked."
+      },
+      {
+        "model": "candidate/offline tier (64 of 96)",
+        "stage": "candidate",
+        "last_metric": "\u2014",
+        "trend": "\u2014",
+        "shadow_drift": "\u2014",
+        "note": "25 of the 27 registry rows stale >7d are in this tier \u2014 retired experiment runs, correctly not trained."
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "direction": "NO-PROMOTION",
+        "model_id": "<fleet>",
+        "current_stage": "shadow",
+        "proposed_stage": "shadow",
+        "evidence": "The shadow\u2192advisory gate includes a drift bound and drift is `insufficient_data` for every model by arithmetic. Recommending a promotion off a gate whose input cannot be computed would be the contaminated-instrument failure the cycle priority names. Fix the drift reader (a glob in shadow.py::_log_path) first, then decide."
+      },
+      {
+        "direction": "DECISION-OWED",
+        "model_id": "mes-regime-15m-lgbm-v2",
+        "current_stage": "shadow",
+        "proposed_stage": "advisory (or a recorded decline)",
+        "evidence": "Gate-ready and parked since 2026-07-21 \u2014 49 days \u2014 per MB-20260721-MES-15M-HEAD-PARKED, still emitting (462 predictions, retrained 2026-09-08). A gate met and never actioned across many reviews is the anti-normalization case. \u26a0\ufe0f It cannot be honestly graded TODAY because drift is half its gate; the operator should either take the decision after the drift fix or record a decision NOT to."
+      },
+      {
+        "direction": "NO-DEMOTE",
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "current_stage": "advisory",
+        "proposed_stage": "advisory",
+        "evidence": "PSI 0.685 (~2.7x the 0.25 bar) on the head gating real-money BTC routing \u2014 but measured at a NON-STANDARD 4d/2d proxy window, which may reflect regime change rather than capability loss. Enough to investigate loudly; not enough to demote a real-money head. Correct sequence: repair the drift reader, re-measure at the configured window, then decide."
+      }
+    ],
+    "experiments_proposed": [
+      "shadow-log-archive-reader (Tier-1, the precondition for everything else): make shadow.py::_log_path glob the rotated archives the way sync_trainer_data.sh already does on the write side \u2014 unblocks drift, stage-guard's demote trigger, gate packets and trade-to-score joins in one change",
+      "exit-head-registry-enrolment (Tier-3): give the 4 exit heads registry rows so the ladder covers the head that can close a live trade",
+      "btc-regime-15m-recalibration-v3 (Tier-3): f1_volatile 0.232 at precision 0.166 against a 3.3% base rate \u2014 the head driving the real-money BTC vol gate is right about `volatile` about one time in six; try class-weighting/focal loss and a threshold sweep against ML_VOL_VERDICT_THRESHOLD",
+      "mes-baseline-retire-or-repower: two MES baselines train on n_eval=5; widen the label source or retire them to candidate"
+    ],
+    "anomalies": [
+      "Drift structurally unmeasurable fleet-wide",
+      "4 exit heads outside the registry, 1 advisory",
+      "setup-quality-lgbm-v2: 44 days stale, manifest refusing, PSI 1.317, still soaking",
+      "/api/bot/trades/scores joins by TIME OVERLAP not by order package \u2014 do not grade a model on it"
+    ],
+    "backlog_drain": "0 closed / 2 filed in ml. See backlog_drive.ml.",
+    "_source": "Live VM trainer mirror (/api/bot/ml/{status,cycle,builds,registry}) + /api/bot/shadow/{stats,drift}; mirror age 56 s at read time.",
+    "trainer": {
+      "mirror_present": true,
+      "mirror_age_seconds": 56,
+      "cycles_in_window": 9,
+      "dataset_builds": {
+        "ok": 250,
+        "failed": 0,
+        "skipped": 5
+      },
+      "disk": {
+        "used_pct": 86.1,
+        "free_gb": 6.71,
+        "total_gb": 48.28
+      },
+      "quarantine_events": 0,
+      "note": "17 cycle_end rows over 1000 cycle-log rows (2026-08-31T00:49 to 2026-09-08T05:46), all overall_rc=0. 2026-08-29 to 08-31 is outside the API's 1000-row cap and was NOT read."
+    },
+    "findings_detail": [
+      {
+        "id": "F-M1",
+        "severity": "high",
+        "title": "Shadow drift is unmeasurable by arithmetic, so no drift-driven demote can ever fire",
+        "detail": "The shadow log rotates at 7 days (rotate_shadow_log.py default, no override in the unit) while /api/bot/shadow/drift's default reference window is [now-37d, now-7d), and shadow.py::_log_path never opens the .gz archives. reference_count is 0 for every model \u2014 6/6 probed. A 4d/2d positive control returns real verdicts and surfaces PSI 0.685 on the ADVISORY btc-regime-15m head. Fix is a glob."
+      },
+      {
+        "id": "F-M2",
+        "severity": "high",
+        "title": "An advisory, order-influencing model has no registry row",
+        "detail": "exit-head-donchian-1h-v1 is stage advisory and exit_head_apply returns action:close for advisory heads on 3 live legs, yet it and 3 siblings appear in none of the 96 registry rows. stage-guard, gate-check and every census are blind to it. The exit_head path fired 4 real-money closes in the 30d window."
+      },
+      {
+        "id": "F-M3",
+        "severity": "medium",
+        "title": "setup-quality-lgbm-v2 is 44 days stale, its manifest refuses to train, and it is still soaking",
+        "detail": "3045 live predictions and PSI 1.317 at the short window. A stale model against a shifted live distribution."
+      },
+      {
+        "id": "F-M4",
+        "severity": "medium",
+        "title": "/api/bot/trades/scores joins by TIME OVERLAP, not by order package",
+        "detail": "exit-head-donchian-1h-v1's 52 records are attributed to trade 5258 on MHG \u2014 not a donchian leg symbol \u2014 and the same records appear under other trades. Any realized track record read from it is co-occurrence, not attribution. Do not grade a model on it."
+      },
+      {
+        "id": "F-M5",
+        "severity": "low",
+        "title": "Two MES baselines train on n_eval = 5",
+        "detail": "mes-setup-quality-baseline-v0 and mes-trade-outcome-winrate-baseline-v0. Five evaluation rows is not a model; they are weak conviction-lens inputs. Repower or retire to candidate."
+      }
+    ],
+    "promotion_recommendations_note": "NONE recommendable. The shadow->advisory gate includes a drift bound and drift is `insufficient_data` for every model by arithmetic; recommending a promotion off a gate whose input cannot be computed would be the contaminated-instrument failure the cycle priority names. Fix the drift reader first. No demote proposed either \u2014 btc-regime-15m-lgbm-fc-pcv-v2's PSI 0.685 is a short-window proxy, enough to investigate loudly and not enough to demote a real-money head."
+  }
+}
