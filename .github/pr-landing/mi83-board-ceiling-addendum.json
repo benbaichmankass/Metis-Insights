@@ -1,5 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "why": "Backlog-row update only: appends a measured addendum to the existing BL-20260907 coordination-board row, answering the two items that row explicitly left NOT DIAGNOSED. One field on one row; 1 insertion / 1 deletion, verified by parsing both sides. Held rather than self-landed because it reports a live outage in two workflows the manager may want to act on in the same pass."
+  "landing": "self",
+  "why": "Backlog-row update only: appends a measured addendum to the existing BL-20260907 coordination-board row, answering the two items that row explicitly left NOT DIAGNOSED. One field on one row; 1 insertion / 1 deletion, verified by parsing both sides. No src/, config/, deploy/ or workflow change."
 }

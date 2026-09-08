@@ -1,0 +1,13 @@
+MI-83 · PR #11306 · Tier-1 backlog-row update.
+
+Appends a measured addendum to the existing
+BL-20260907-COORDINATION-BOARD-6927-IS-FULL row, answering the two items it
+explicitly left NOT DIAGNOSED: (1) reads on #6927 still work, which is the
+dangerous half — the board is frozen at 2026-09-07T11:28:17Z and a frozen
+board reads as a quiet one; (2) merge-claim-audit.yml both reads AND writes
+the board, so it is a second broken writer failing silently, while
+scope-overlap-audit.yml only reads and now emits "0 from a live session" for
+every PR against a frozen universe.
+
+One field on one row: 1 insertion / 1 deletion, asserted by parsing both
+sides of the edit rather than reading the diff.
