@@ -177,12 +177,22 @@ jobs:
           fi
 
           # ---- Create it --------------------------------------------------- #
+          # The label is a DISCOVERY aid, not the board. If it has been renamed
+          # or deleted, `gh issue create` fails outright and the whole rotation
+          # dies over a cosmetic — with the board still capped. So a label
+          # failure retries WITHOUT it and warns, rather than taking the repo's
+          # only coordination channel down for a missing tag.
           if ! url="$(gh issue create --repo "$GITHUB_REPOSITORY" \
                         --title "$title" --body-file "$body" \
                         --label claude-coordination 2>&1)"; then
-            printf 'FAILED to create the successor board:\n%s\n' "$url" > "$out"
-            echo "::error::board-rotate: the successor board was NOT created"
-            exit 1
+            echo "::warning::board-rotate: could not apply the claude-coordination label ($url) — retrying without it"
+            if ! url="$(gh issue create --repo "$GITHUB_REPOSITORY" \
+                          --title "$title" --body-file "$body" 2>&1)"; then
+              printf 'FAILED to create the successor board:\n%s\n' "$url" > "$out"
+              echo "::error::board-rotate: the successor board was NOT created"
+              exit 1
+            fi
+            echo "::warning::board-rotate: successor created WITHOUT the claude-coordination label — re-apply it by hand"
           fi
           new="${url##*/}"
           echo ">>> created #${new} — ${url}"
