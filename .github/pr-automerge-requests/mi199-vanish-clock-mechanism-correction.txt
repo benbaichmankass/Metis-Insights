@@ -1,0 +1,1 @@
+MI-199: correct the vanish-clock mechanism
