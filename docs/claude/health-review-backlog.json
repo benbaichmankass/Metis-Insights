@@ -33398,6 +33398,28 @@
         "Establish from the audit trail WHICH amend wrote 82.33 at 2026-09-04T17:35:55Z and confirm it originated from trade 5414 — the timestamps and the price make this the strong reading, but it is a reconstruction and is recorded as one.",
         "Confirmed by a read_state 'orders_read' showing TLT's resting stop legs each within a cent of their OWN trade's declared stop_loss."
       ]
+    },
+    {
+      "id": "BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS",
+      "opened_at": "2026-09-07",
+      "opened_by": "MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd)",
+      "status": "open",
+      "severity": "low",
+      "tier": "3 — order path",
+      "area": "order-path",
+      "title": "IBClient._locked_close Step 0 clamps close_qty to the SYMBOL's live position (min(requested_qty, live_qty)) — the same symbol-vs-trade scope confusion MI-168 fixed one gate downstream",
+      "resolution_criteria": "NOTICED 2026-09-07 by MI-168 while re-scoping the close-confirmation in the same method; FILED, NOT FIXED, deliberately — MI-168's scope was the confirmation, and changing the clamp changes ORDER SIZING, which is a materially riskier Tier-3 edit than changing what counts as confirmation. src/units/accounts/ib_client.py Step 0 reads live_qty = self._live_position_qty(sym) — the SYMBOL total — and sets close_qty = min(requested_qty, live_qty). That is the same scope confusion as the confirmation gate, one step earlier in the same method. !! IT IS MUCH LESS SEVERE THAN THE CONFIRMATION BUG AND THAT SHOULD NOT BE OVERSTATED: it is a SAFETY clamp and it errs toward UNDER-closing (never transmitting more than the venue holds, which on a one-way futures account would open a reverse position), so it fails in the safe direction. The residual concern is a case nobody has observed: if the symbol total is BELOW this trade's qty because a sibling's lots are gone, the clamp closes the symbol's remainder rather than this trade's lots, which can close another trade's position. NO INSTANCE HAS BEEN MEASURED — this is read from the code, not from a journal, and is filed so the reasoning is not lost rather than because it has bitten. RESOLVES WHEN: either the clamp is re-derived from the trade's own lots with the symbol total kept purely as an upper bound (so it can never exceed the venue AND can never silently retarget another trade's position), or it is established that the current behaviour is correct and the reasoning is written down. Note MI-168's confirmation change consumes this same live_qty as its qty_before baseline, so the two are coupled: a change to the clamp must re-read docs/design/close-confirmation-scope-DESIGN.md section 2 before landing."
+    },
+    {
+      "id": "BL-20260907-TWO-WORK-OBJECTS-FOR-THE-SAME-ALPACA-LIVE-UNIT",
+      "opened_at": "2026-09-07",
+      "opened_by": "MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd)",
+      "status": "open",
+      "severity": "low",
+      "tier": "1 — operating layer",
+      "area": "operating-layer",
+      "title": "WO-20260906- and WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG are two work objects for the same work, so a blocked_on edge written on one is invisible from the other",
+      "resolution_criteria": "MEASURED 2026-09-07 by MI-168 while writing the MI-140 coupling edge. Both files exist under docs/claude/work/objects/, share the same parent_intent (IN-20260903-TRADING-SYSTEM-HEALTH), the same title stem and substantially the same why/done_condition; they differ in opened_at (2026-09-06 vs 2026-09-07) and stage (EVIDENCE vs QUESTION). WHY IT MATTERS BEYOND TIDINESS: the coupling MI-168 was dispatched to record is an ORDERING CONSTRAINT on real money (MI-140 must not be remediated before MI-168 lands, because alpaca_live's only protection is that it cannot place orders). MI-168 wrote the reciprocal blocked_on edge on the -0907- object the dispatch named. A session that opens the -0906- object instead sees blocked_on: [] with basis NOT_ASSESSED and no sign the constraint exists — and CLAUDE.md is explicit that an empty list is not the claim that nothing blocks it. A duplicated object makes a true edge unreachable from half its own identity. MI-168 did NOT merge them: consolidating two work objects is not this unit's scope and doing it unasked risks discarding whichever fields the other row holds. RESOLVES WHEN: the two are reconciled into one object (or one is explicitly superseded with a pointer), and the MI-140 coupling edge is reachable from whatever survives. Population note: MI-168 found this pair incidentally while looking for ONE named object; it did NOT sweep the 662-object store for other duplicates. We did not look."
     }
   ]
 }

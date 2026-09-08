@@ -20,12 +20,62 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: object
+    ref: WO-20260907-CLOSE-CONFIRMATION-IS-SYMBOL-SCOPED
+    since: 2026-09-07
+    note: >-
+      ⚠️ ORDERING CONSTRAINT — DO NOT REMEDIATE MI-140 BEFORE MI-168 LANDS.
+      Written by MI-168 on 2026-09-07 as the reciprocal half of the edge on that
+      object, on an explicit operator decision that the two must not land
+      independently.
+
+      alpaca_live is REAL MONEY and is immune to the Alpaca close-path defect
+      today for exactly ONE reason: it cannot place orders at all — which is
+      THIS object. Both signals since arming were shorts suppressed by the
+      operator's `side_filter: long` gate; MI-167 read the venue at
+      2026-09-07T19:02:30Z as `positions: []` with `error: null` (a real read of
+      an empty book) and all 44 journal rows in the window `rejected`, 0 open, 0
+      closed. ⚠️ THE INERTNESS IS NOT A SAFETY PROPERTY. Whoever makes this
+      account able to place orders arms a real-money close-path defect the same
+      day, so the repair must be in first.
+
+      ⚠️ WHICH DEFECT, PRECISELY — because the dispatch that raised this
+      coupling named the wrong one and a session looking for it would find
+      nothing. It is NOT the symbol-scoped false refusal MI-167 measured on
+      ib_paper/MGC: MI-168 established by measurement that Alpaca is not exposed
+      to that, because both its close paths are symbol-scoped in their OPERATION
+      as well as their confirmation (`AlpacaClient.close(symbol)` takes no qty
+      and issues `DELETE /v2/positions/{sym}`; `_close_extended_hours` reads qty
+      from the LIVE POSITION; `execute.close_open_position` discards the
+      per-trade qty on the alpaca branch), so the two scopes MATCH and
+      symbol-flatness is reachable. It IS the mirror defect: an OVER-CLOSE —
+      closing trade A silently liquidates sibling trade B's shares while B's
+      journal row stays open with nothing behind it. Arguably the worse of the
+      two, since it liquidates a position nobody journalled closed. Both claims
+      are pinned by tests in tests/test_close_confirm_trade_scope.py; the
+      reasoning is in docs/design/close-confirmation-scope-DESIGN.md § "Alpaca
+      is a different defect".
+
+      ⚠️ AND THE ALPACA OVER-CLOSE IS FILED, NOT FIXED. MI-168 deliberately did
+      NOT apply MI-167's proposed "identical change" to alpaca_client.py —
+      re-scoping the confirmation without re-scoping the operation would confirm
+      a trade-sized reduction while the venue had liquidated everything, which
+      is BL-20260707's false-SUCCESS re-introduced on a real-money-capable path.
+      The honest fix makes the OPERATION trade-scoped and needs its own unit. So
+      MI-168 landing does NOT by itself make this account safe to arm; that is a
+      third piece of work and this note exists so it is not skipped.
+
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED for the edge above, by MI-168 on 2026-09-07 — it names a specific,
+  dated, verified dependency, and that IS an assessment. ⚠️ THIS IS NARROWER
+  THAN IT LOOKS AND MUST NOT BE READ AS A FULL ASSESSMENT OF THIS OBJECT: the
+  five leads in this object's own `done_condition` (cash-settlement gate armed
+  on this account, dry_run_sizing_skip on a now-live account, silent_refusal
+  alert_disposition, balance() None while positions() answers, whole-share
+  sizing on a ~200 dollar account trading TLT) are UNTOUCHED and nobody has
+  looked at them. MI-168 assessed what BLOCKS ACTING ON this object, not what
+  CAUSES it.
 
 captured_by: scripts/ops/capture_idea.py
 
