@@ -4,27 +4,108 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Re-arm protection for the 56 naked shares on trade 5414 (alpaca_portfolio/TLT)
 stage: DEPLOYMENT
-lifecycle: dormant
-owner: null
+lifecycle: waiting
+owner: claude session_01HwWNiwEGCGAAwKhfchMUs7
 opened_at: 2026-09-08
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  Re-read when the qty-scoped Alpaca protective-attach capability exists (see
+  `blocked_on`). ⚠️ DO NOT RETRY THE RE-ARM THROUGH THE EXISTING PATH — the
+  blast radius below is MEASURED, not suspected, and the existing path cancels
+  the leg the mandate requires to survive.
 done_condition: >-
-  The 56 uncovered shares carry a resting protective leg at the JOURNAL's declared stop_loss 82.32875, verified by a fresh /api/diag/alpaca_open_orders read showing stop coverage for the full 72, with the sibling trade 5266's existing leg still resting and uncancelled.
+  The 56 uncovered shares carry a resting protective leg at the JOURNAL's declared stop_loss 82.32875, verified by a fresh /api/diag/alpaca_open_orders read showing stop coverage for the full 72, with the sibling trade 5266's existing leg still resting and uncancelled. ⚠️ THE WORK ORDER ALSO ADMITS THE OTHER OUTCOME: "If you conclude it cannot be done safely, that finding, with the reason, is an equally valid completion." That is the outcome reached — see `verdict`.
 
 why: >-
   alpaca_portfolio/TLT is a 72-share short and only 16 shares carry a resting stop. Trade 5414's 56 shares have been entirely naked since ~2026-09-03 while its journal row declares stop_loss 82.32875. Operator-approved 2026-09-08 to re-arm rather than monitor or flatten. PAPER money.
 
+verdict: >-
+  DEFERRED — the re-arm CANNOT be performed safely with the capabilities that exist today,
+  and this is a MEASURED refusal rather than an unestablished one. Basis: MEASURED (live
+  venue reads) + MEASURED (code read against origin/main ed37f5ba). NOTHING WAS PLACED,
+  CANCELLED, AMENDED OR CLOSED on any account.
+
+  POPULATION AND READS. /api/diag/alpaca_open_orders, per-account `read_state: orders_read`
+  — a confirmed clean read, never the summary line (MI-177) — twice: 2026-09-08T04:47:34Z
+  (fleet-wide, 11 accounts) and 04:50:13Z (alpaca_portfolio). Identical both times, so the
+  state below is stable and this session changed none of it.
+
+  MEASURED STATE. alpaca_portfolio holds TLT short 72 shares @ 82.309028. Exactly ONE OCO
+  pair rests: buy limit 74.67 qty 16 (292b3240, submitted 2026-08-31T13:36:40Z) and buy stop
+  82.33 qty 16 (742c3729, submitted 2026-09-04T17:35:55Z). Journal: trade 5266
+  (tlt_pullback_1d, short 16, stop_loss 84.61875, opened 08-31) and trade 5414
+  (tlt_pullback_1h, short 56, stop_loss 82.32875, opened 09-03); 16 + 56 = 72, matching the
+  venue exactly. So 56 of 72 shares carry no protective leg — the briefed condition,
+  independently confirmed. alpaca_live was verified FLAT (0 positions, 0 orders,
+  read_state `orders_read`) and was not touched.
+
+  BLAST RADIUS — the constraint that decided this, established from code, not guessed.
+  `AlpacaClient.place_protective` (alpaca_client.py:1361) is the ONLY path in the repo that
+  places an Alpaca protective leg, and its ONLY caller is
+  `order_monitor._attempt_naked_autoprotect`. At line 1405 it calls
+  `_cancel_open_orders_for_symbol(sym)` UNCONDITIONALLY, which DELETEs every open order on
+  the symbol for that account — parents and nested legs — i.e. BOTH of trade 5266's legs.
+  The `oca_key` that `_attempt_naked_autoprotect` passes specifically to scope that cancel,
+  under a comment naming BL-20260814, is honoured by `IBClient.place_protective` and is
+  SILENTLY IGNORED by the Alpaca one. No other route reaches the goal either:
+  `modify_protective` PATCHes existing legs and cannot create coverage for uncovered shares;
+  `close(symbol)` is whole-symbol with no qty (MI-173); `place()` is a bracket MARKET ENTRY,
+  which on a short would REDUCE the position; and the `system-actions` allowlist carries
+  `flatten-alpaca-position` and `attach-ib-target` but NO Alpaca protective-attach action,
+  so no sanctioned wire exists to invoke a repair from a session. Filed as
+  BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE.
+
+  ⚠️ THIS WORK ORDER'S OWN PREMISE IS CORRECTED, AND THE CORRECTION IS THE MORE VALUABLE
+  FINDING. The brief states the resting 16-share leg belongs to trade 5266 and matches the
+  journal, echoing BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+  The leg IS 5266's (qty 16; limit 74.67 = 5266's take_profit_1 74.670375) but it DOES NOT
+  MATCH 5266's journal: 5266 declares stop_loss 84.61875 while the leg rests at 82.33, which
+  is trade 5414's declared 82.32875 to 2dp. The stop leg's submitted_at postdates its own
+  parent's by four days and postdates 5414's open — the signature of a PATCH leg-replace —
+  and the un-patched alpaca_paper mirror carries TLT stop 84.62, so 84.62 is what
+  tlt_pullback_1d declares. Mechanism: `execute.modify_open_order`'s Alpaca branch calls
+  `modify_protective(symbol, sl, tp)` with no trade scope, and that method PATCHes EVERY
+  stop leg on the symbol — so trade 5414's routine trailing amend rewrote trade 5266's
+  protective level. Filed as
+  BL-20260908-ALPACA-TRAILING-AMEND-PATCHED-A-SIBLING-TRADES-STOP-TO-THE-WRONG-DECLARED-LEVEL.
+  Both are recurrences of BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE on a venue where the scoping parameter does not exist to be passed.
+
+  WHY THE POSITION HAS STAYED NAKED, so nobody re-derives it: the Alpaca naked sweep
+  (`order_monitor._check_broker_naked_equity_positions`) gates its re-arm on a SYMBOL-WIDE
+  BOOLEAN — `if state.get("stop"): continue` — so 5266's resting leg makes the whole TLT
+  symbol read "stop armed" and trade 5414 is skipped on every pass. It will not self-heal.
+
+  ⚠️ CORRECTED 2026-09-08, MID-SESSION, AFTER #11315 LANDED — the DETECTION half of the
+  sentence above was true at ed37f5ba and is now stale, in the direction that matters. #11315
+  (MI-176) ships `AlpacaClient.protection_coverage`, a `partially_naked` counter and an
+  `alpaca_partial_stop_coverage` page, so the 56 naked shares are NO LONGER INVISIBLE. What is
+  unchanged is the REPAIR, which is this object's subject: that change's own comment at
+  order_monitor.py:7868 reads "NOTHING IS RE-ARMED OFF THIS GRADE ... The re-arm below still
+  reads `protection_state`, byte-identically", and re-verified against the post-#11315 tree,
+  `AlpacaClient.place_protective` still calls `_cancel_open_orders_for_symbol(sym)`
+  unconditionally with no `oca_key`. So the deferral verdict is UNAFFECTED and better
+  evidenced: the condition is now seen by two mechanisms and repairable by none.
+
+  WHAT WAS NOT ESTABLISHED, rather than filled in. We did NOT read the audit trail to
+  confirm which amend wrote 82.33 at 2026-09-04T17:35:55Z — the price and timestamps make
+  trade 5414 the strong reading, and it is recorded as a reconstruction. We did NOT measure
+  quantity-coverage across the other Alpaca accounts; that is the sibling WO's job.
+
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: capability
+    ref: BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE
+    since: 2026-09-08
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-08 from code against origin/main ed37f5ba, and it is a TRUE edge, not a
+  placeholder. The blocker is a missing CAPABILITY: no code path and no system-action can
+  place a qty-scoped protective leg on an Alpaca symbol without cancelling every resting leg
+  on it. Building that is a Tier-2 order-path change and needs its own operator approval —
+  the 2026-09-08 approval was to re-arm rather than monitor or flatten, which is not an
+  approval to ship a new order path. The mandate's own constraint 3 governs: "If the only
+  path available to place your leg goes through something symbol-scoped, it can strip 5266's
+  protection as a side effect."
 
 captured_by: scripts/ops/capture_idea.py
