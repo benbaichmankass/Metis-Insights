@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T03:28:07Z",
+  "updated_at": "2026-09-08T03:33:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2326,7 +2326,7 @@
     {
       "session_id": "session_01UaZ9boMDajiCZsjVkr4Fnz",
       "registry_key": "pending-20260906T084622Z",
-      "state": "working",
+      "state": "archived",
       "title": "Phase 1A — the observation sweep: what do we actually know?",
       "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
       "spawned_at": "2026-09-06T08:46:22Z",
@@ -2335,12 +2335,13 @@
         "claude/obs-sweep-20260906"
       ],
       "why": "54 OPEN-ITEMS rows (17 with verified_at=never) + 28 landed_unproven checklist items + 21 just re-graded out of a false in_flight. Nothing has been LOOKED at on the fleet.",
-      "confirmed_at": "2026-09-06T08:51:01Z"
+      "confirmed_at": "2026-09-06T08:51:01Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_013r8Joo877hnkYoKRzQsrwW",
       "registry_key": "pending-20260906T084729Z",
-      "state": "working",
+      "state": "archived",
       "title": "Phase 1B — the 0-for-13 week: fix the instrument, then attribute the loss",
       "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
       "spawned_at": "2026-09-06T08:47:29Z",
@@ -2349,12 +2350,13 @@
         "claude/perf-rootcause-20260906"
       ],
       "why": "Real money 0 wins / 13 losses since 2026-08-30 (-43.12 on a 264.86 book) and the R metric contradicts the PnL (30d expectancyR +0.98 vs totalPnl -3.63).",
-      "confirmed_at": "2026-09-06T08:51:01Z"
+      "confirmed_at": "2026-09-06T08:51:01Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01RHuSYKu1r1ZErc65KLKV8t",
       "registry_key": "pending-20260906T084730Z",
-      "state": "working",
+      "state": "archived",
       "title": "Phase 1C — three unowned live alarms: SOL orphan, MES data blindness, pending restart",
       "owns_object": "WO-20260906-THREE-LIVE-ALARMS-ON-THE-TRADING-FLEET",
       "spawned_at": "2026-09-06T08:47:30Z",
@@ -2363,12 +2365,13 @@
         "claude/live-alarms-20260906"
       ],
       "why": "Live at 07:13Z: orphan trade 5516 adopted on bybit_1 SOLUSDT (604.7 short), mes_trend_long_1d blind since 06:33Z, and restart_pending=true with live code behind main.",
-      "confirmed_at": "2026-09-06T08:51:01Z"
+      "confirmed_at": "2026-09-06T08:51:01Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01WaQaYCpGb3yZKkkRqk4JfU",
       "registry_key": "pending-20260906T100427Z",
-      "state": "working",
+      "state": "archived",
       "title": "Re-land 1C's live-alarms disposition on a clean branch (#11105 is permanently red on manager-scope)",
       "owns_object": "WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION",
       "spawned_at": "2026-09-06T10:04:27Z",
@@ -2377,12 +2380,13 @@
         "claude/reland-1c-disposition-20260906"
       ],
       "why": "The operator approved the job file; the PR cannot merge because of the manager's own commits. Operator chose a clean re-land.",
-      "confirmed_at": "2026-09-06T10:05:23Z"
+      "confirmed_at": "2026-09-06T10:05:23Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01C6Lh24HDdkn6p14qsaeNrA",
       "registry_key": "pending-20260906T100427Z-2",
-      "state": "working",
+      "state": "archived",
       "title": "Bybit reduce-only close rejected 10001 Qty invalid on an unquantised float qty — position cannot flatten",
       "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
       "spawned_at": "2026-09-06T10:04:27Z",
@@ -2391,12 +2395,13 @@
         "claude/bybit-qtystep-close-20260906"
       ],
       "why": "3 consecutive close failures on bybit_1/SOLUSDT; qty 33.299999999999955 reaches the wire unquantised to qtyStep. Likely engine of the orphan class.",
-      "confirmed_at": "2026-09-06T10:05:23Z"
+      "confirmed_at": "2026-09-06T10:05:23Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01Ne7LK6wMCoLUwnKpCZTPqE",
       "registry_key": "pending-20260906T102046Z",
-      "state": "working",
+      "state": "archived",
       "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
       "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
       "spawned_at": "2026-09-06T10:20:46Z",
@@ -2405,7 +2410,8 @@
         "claude/ict-scalp-5m-shadow-20260906"
       ],
       "why": "58.6% of the losing week on real money, zero shipped exit levers, bracket geometry never swept. Operator approved the shadow flip via pop-up.",
-      "confirmed_at": "2026-09-06T10:21:52Z"
+      "confirmed_at": "2026-09-06T10:21:52Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01XRYfPGr4jAHr4k1rmvTKFi",
@@ -2417,12 +2423,13 @@
         "claude/perf-rootcause-1b-20260906"
       ],
       "why": "session_013r8Joo877hnkYoKRzQsrwW completed the analysis and could not push (no repo attached); this is the re-spawn that carried it to #11111.",
-      "state": "working"
+      "state": "archived",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01L7dTAuGMdn3CTGeyYV5Mox",
       "registry_key": "pending-20260906T105301Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-144 — the record of a trade does not say what happened (R inverted, exit_reason frozen, read route silently empties)",
       "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
       "checklist_item": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
@@ -2432,12 +2439,13 @@
         "claude/trade-record-integrity-20260906"
       ],
       "why": "OPERATOR TOP PRIORITY 2026-09-06: 'we can't make good decisions if we have bad tools for making those decisions'",
-      "confirmed_at": "2026-09-06T10:53:56Z"
+      "confirmed_at": "2026-09-06T10:53:56Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_014jrW67rFyJNnHr7y6dEhec",
       "registry_key": "pending-20260906T105301Z-2",
-      "state": "working",
+      "state": "idle",
       "title": "MI-146 — are the bracket and active-management mechanisms in the roadmap, built, and applied where we claim",
       "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
       "checklist_item": "MI-146-BRACKET-MECHANISMS-AUDIT",
@@ -2447,12 +2455,13 @@
         "claude/bracket-mechanisms-audit-20260906"
       ],
       "why": "OPERATOR 2026-09-06 exit-mechanics thesis: trades must end at their brackets, and the stop must trail to bank R",
-      "confirmed_at": "2026-09-06T10:53:56Z"
+      "confirmed_at": "2026-09-06T10:53:56Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01X3kyzCfUdFVimATxZFE8nd",
       "registry_key": "pending-20260906T105926Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-143b — ict_scalp_5m OFF bybit_2 only (operator chose the narrow lever over execution:shadow); supersedes #11115",
       "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
       "checklist_item": "MI-143-ICT-SCALP-5M-SHADOW",
@@ -2462,12 +2471,13 @@
         "claude/ict-scalp-off-bybit2-20260906"
       ],
       "why": "OPERATOR DECISION 2026-09-06: stop the real-money bleed, KEEP paper evidence accruing for the bracket_geometry sweep",
-      "confirmed_at": "2026-09-06T11:00:41Z"
+      "confirmed_at": "2026-09-06T11:00:41Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_017UnyG4ArXmXKpB8rmEGv1j",
       "registry_key": "pending-20260906T105926Z-2",
-      "state": "working",
+      "state": "idle",
       "title": "MI-139b — APPLY the Tier-3 Bybit close-qty fix (operator approved both parts)",
       "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
       "checklist_item": "MI-139-BYBIT-QTYSTEP",
@@ -2477,7 +2487,8 @@
         "claude/bybit-close-qty-apply-20260906"
       ],
       "why": "OPERATOR APPROVAL 2026-09-06: both parts of the #11112 proposal approved; a reduce-only close cannot be flattened today",
-      "confirmed_at": "2026-09-06T11:00:41Z"
+      "confirmed_at": "2026-09-06T11:00:41Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01SKvbp9rm3fiyD9uHxpeFKM",
@@ -2571,7 +2582,7 @@
     {
       "session_id": "session_01JhtPDUP92XmMSuE8c4i3Up",
       "registry_key": "pending-20260906T165346Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-153 - two records disagree on every ict_scalp exit-head candidate leg: which is current, and WHY did they diverge?",
       "owns_object": "WO-20260906-TWO-RECORDS-DISAGREE-ON-EVERY-ICT-SCALP",
       "checklist_item": "MI-153-EXIT-HEAD-FIGURE-RECONCILIATION",
@@ -2581,12 +2592,13 @@
         "claude/mi153-exit-head-figures-20260906"
       ],
       "why": "BLOCKS PR #11140 by explicit operator decision 2026-09-06: offered 'resolve before arming' vs 'arm now, reconcile in parallel', the operator chose RESOLVE FIRST. These figures are the entire basis for calling a leg an arming candidate.",
-      "confirmed_at": "2026-09-06T16:55:05Z"
+      "confirmed_at": "2026-09-06T16:55:05Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01S7pASy78QiNViwhSadGdNb",
       "registry_key": "pending-20260906T165357Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-154 - publish a 5m/15m scalp exit-head artifact: without one the ict_scalp consumer cannot score a single leg",
       "owns_object": "WO-20260906-NO-5M-OR-15M-SCALP-EXIT-HEAD",
       "checklist_item": "MI-154-SCALP-EXIT-HEAD-ARTIFACT",
@@ -2596,12 +2608,13 @@
         "claude/mi154-scalp-exit-head-artifact-20260906"
       ],
       "why": "Operator decision 2026-09-06 chose 'Arm + queue the artifact', making this its own lane precisely because arming is inert without it. Measured with a positive control against /api/diag/shadow_stats: 32 models visible; the only exit-head artifacts are exit-head-donchian-1h-v1 and exit-head-donchian-peak-1h-v1, both 1h and both donchian, while all 8 ict_scalp legs are 5m/15m.",
-      "confirmed_at": "2026-09-06T16:55:05Z"
+      "confirmed_at": "2026-09-06T16:55:05Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01T5o3AkucfgozxdVhANWAdw",
       "registry_key": "pending-20260906T212618Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-147 - is backtesting actually gating what reaches soak, or is soak doing the discovery?",
       "owns_object": "WO-20260906-IS-BACKTESTING-ACTUALLY-GATING-WHAT-GOES-TO",
       "checklist_item": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
@@ -2611,7 +2624,8 @@
         "claude/mi147-backtest-soak-chain-20260906"
       ],
       "why": "OPERATOR COMPANION QUESTION 2026-09-06, unanswered across three manager ticks and the oldest outstanding thing the operator asked for. MI-151 gave it a concrete lead: backtest_fidelity_calibrate.py has never been run and grades the wrong quantity for exit location.",
-      "confirmed_at": "2026-09-06T21:27:03Z"
+      "confirmed_at": "2026-09-06T21:27:03Z",
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01GNkN16mQBnSVNRLweSXNWP",
@@ -2856,7 +2870,7 @@
     {
       "session_id": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
       "registry_key": "pending-20260908T013601Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-173 — pipeline lane pass 3: root-cause the Alpaca sibling-liquidation MECHANISM (MI-170), measurement and proposal only",
       "owns_object": "WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
       "spawned_at": "2026-09-08T01:36:01Z",
@@ -2864,12 +2878,12 @@
       "why": "see WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
       "confirmed_at": "2026-09-08T01:38:17Z",
       "manager_observation": "OBSERVED 2026-09-08T02:25Z: IDLE, status_bucket BLOCKED, needs_action 'check whether Alpaca API supports quantity-scoped close; unread: alpaca_paper/alpaca_live'. ⚠️ MANAGER DISPOSITION — NOT A STALL I NEED TO CLEAR. Its DELIVERABLE is already up as #11312 (landing: hold, by the author's own choice). The two things it names are both already placed: the qty-close capability question is the FIRST STEP OF ITS OWN PROPOSAL, so it belongs in the operator's decision on #11312 rather than being answered by a session that has stopped; and alpaca_paper/alpaca_live being unread is exactly MI-176's scope, spawned 02:15Z for that reason. ⚠️ AND I CANNOT TELL IT ANY OF THIS — a manager cannot message a running sub-session, re-confirmed by attempt this session (SendMessage: 'No agent named ... is reachable'). So this row IS the record.",
-      "observed_at": "2026-09-08T02:25:00Z"
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01V62BVG7Q9BHZeyTvkBWNPy",
       "registry_key": "pending-20260908T013601Z-2",
-      "state": "working",
+      "state": "idle",
       "title": "MI-174 — the error-feed digest is silently frozen: fix the generator, not the guard",
       "owns_object": "WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
       "spawned_at": "2026-09-08T01:36:01Z",
@@ -2877,12 +2891,12 @@
       "why": "see WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
       "confirmed_at": "2026-09-08T01:38:17Z",
       "manager_observation": "OBSERVED 2026-09-08T02:25Z: RUNNING, connected, 'two CI failures fixed (pr-landing, artifact-validity); awaiting CI+merge'. ⚠️ IT HIT THE SAME artifact-validity FAILURE THE MANAGER DID ON #11308 IN THE SAME HOUR — that is a THIRD and FOURTH instance of the unresolvable-backlog-id class today. The guard caught both, which is the mechanism working, but the recurrence rate is the finding. PR #11311 open, auto-merge armed.",
-      "observed_at": "2026-09-08T02:25:00Z"
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_018iDJZVj11ugKyUwsHF7X3q",
       "registry_key": "pending-20260908T021515Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-176 — is the REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
       "owns_object": "WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "spawned_at": "2026-09-08T02:15:15Z",
@@ -2890,7 +2904,7 @@
       "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "confirmed_at": "2026-09-08T02:16:14Z",
       "manager_observation": "RE-OBSERVED 2026-09-08T03:20Z via get_session: now IDLE / bucket BLOCKED — it has finished. needs_action: 'decide: repair TLT 56-share naked position now? bind quantity grade to re-arm path (BYBIT analogue)?' Its work is COMPLETE and #11315 is up at tier:2/landing:hold; what remains is entirely the operator's. ⚠️ Its status_detail says 'PR #5414' — 5414 is a TRADE id, not a PR; do not chase a nonexistent PR.",
-      "observed_at": "2026-09-08T03:20:00Z"
+      "observed_at": "2026-09-08T03:31:00Z"
     },
     {
       "session_id": "session_01EPvAGZDFZCYF3QJk12u3mk",
@@ -2907,5 +2921,5 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-06T16:50Z — LIVE reconcile against list_sessions(mine=true, limit=30). Population: 30 sessions returned; 16 carry the `manager-2026-09-06` tag. Of those 16, 8 are IDLE and 8 are ARCHIVED — ZERO are RUNNING, so no sub-session is in flight and supervision is not waiting on any of them. ⚠️ EVERY IDLE SESSION'S post_turn_summary IS STALE IN THE SAME DIRECTION as the 2026-09-05 close-out warned: MI-150's still reads 'CI workflows need approval in Actions UI', a claim this manager investigated and found false (the real causes were draft state, a relay-opened PR, and a merge conflict — none of them an Actions approval); MI-148's reads 'awaiting merge click' for #11138, which merged. Judge a session by its merged output, never by its status line. ⚠️ THIS RECONCILE IS A LIVE READ AND SO CANNOT BE PRODUCED BY CI — that is exactly why handoff_check.py grades `unknown` rather than `ready` without one."
+  "⚠️_last_live_reconcile": "2026-09-08T03:31Z — LIVE reconcile. POPULATION: the 17 rows reading `working` on origin/main at 3891f5d8, graded against list_sessions(mine=true, limit=40) (40 sessions returned, 15 of the 17 covered) plus a direct get_session on the 2 that fall outside that window (Phase 1A, Phase 1B). FINDING: ZERO of the 17 was RUNNING. 7 were ARCHIVED and 10 were IDLE. A cold manager reading this file would have believed 17 sub-sessions were in flight; the true count was 0. ⚠️ THE VOCABULARY IS REAL, so this was a false record and not a wording quibble — `working`/`idle`/`archived` are three actively-used states (17/82/25 rows before this commit), so `working` does mean in-flight. ⚠️ THE MECHANISM IS THE ONE THIS FILE ALREADY NAMES: nothing decays a row, so `working` is written at spawn and only ever corrected when a manager goes and looks — and the previous live reconcile was 2026-09-06T16:50Z, two days earlier. A row does not become false by an error; it becomes false by time passing. ⚠️ STATE DESCRIBES THE SESSION, NEVER ITS WORK: MI-173's and MI-176's PRs (#11312, #11315) are open and operator-held, and their sessions are still correctly `idle` — the work's status lives in MANAGER-CHECKLIST.json. Judge a session by its merged output, never by its status line. ⚠️ THIS RECONCILE IS A LIVE READ AND SO CANNOT BE PRODUCED BY CI — which is why handoff_check.py grades `unknown` rather than `ready` without one."
 }
