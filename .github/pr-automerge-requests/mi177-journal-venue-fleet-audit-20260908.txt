@@ -1,0 +1,2 @@
+MI-177 — journal-open vs exchange_positions fleet audit (measure-only, Tier-1 docs).
+Arms native auto-merge; GitHub merges only when the required checks pass.

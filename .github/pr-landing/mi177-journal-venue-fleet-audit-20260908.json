@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MEASURE-ONLY audit by MI-177 (standing pipeline-integrity lane pass 4, IN-20260903-TRADING-SYSTEM-HEALTH). The diff is documentation and register content only: one new evidence document under docs/claude/work/, its single registration row in docs/DOCUMENT-INDEX.md, and two appended rows in docs/claude/health-review-backlog.json written through scripts/ops/backlog_append.py (24 insertions, 0 deletions — no reformat). Tier-1 by the canonical doc's own list: no order path, no strategy config, no risk caps, no src/, no deploy/, no live-VM runtime file. Nothing was closed, cancelled, repaired, re-armed or reconciled — the session read /api/diag/exchange_positions, /api/diag/exposure and /api/bot/positions and wrote down what they said. Self-lands on green because a Tier-1 documentation diff needs no human OK to merge, and GitHub still merges only when the required checks pass."
+}
