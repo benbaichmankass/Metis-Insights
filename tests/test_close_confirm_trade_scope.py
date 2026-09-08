@@ -477,6 +477,22 @@ def test_alpaca_close_signature_can_now_express_a_trade_scoped_close():
     only link between the row and its evidence. Renaming was still necessary:
     a test whose NAME asserts the opposite of what it checks is the
     unprovenanced-diagnostic class this file exists to argue against.
+
+    ⚠️ **#11279's IB-ONLY SCOPING IS STILL CORRECT, AND FOR ITS OWN REASON —
+    which this inversion does NOT weaken.** #11279 declined to extend its
+    confirmation change to Alpaca because doing so would confirm a trade-sized
+    reduction against a venue that had liquidated the whole symbol: the
+    BL-20260707 false-SUCCESS, on a real-money-capable path. That hazard is
+    about ORDER, not about whether `qty` exists. It requires the CONFIRMATION
+    to be loosened while the OPERATION is still whole-symbol, and #11279 could
+    only have done it that way round, because on its branch the operation
+    could not be scoped at all — which is precisely what the old assertion
+    recorded. #11337 narrowed the operation FIRST and left the whole-symbol
+    path's strict flatness gate untouched, so it is not the move #11279
+    refused. The operator was asked this as its own Tier-3 question on
+    2026-09-08 and accepted the ordering, with the limit recorded: loosening
+    an Alpaca confirmation WITHOUT narrowing its operation in the same commit
+    is still forbidden and is not covered by that approval.
     """
     import inspect
 
