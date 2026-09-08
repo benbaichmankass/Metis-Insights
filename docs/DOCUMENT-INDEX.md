@@ -345,6 +345,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/comms-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
 | `docs/claude/comms-timer-assessment.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
 | `docs/claude/coordination-board.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/board-body-template.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/debug-memory.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/decomposition-rules.md` | instruction | unknown | — | never | `name:policy-prescribes / not-assessed` | — |
 | `docs/claude/deployment-ops.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
@@ -393,6 +394,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-177:self-measured-2026-09-08 / population-stated` | MI-177 fleet audit: 8/11 accounts read both sides, 25 symbol pairs, 24 exact + 1 known MGC divergence; 3 accounts not read. |
+| `docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-189b:self-measured-2026-09-08 / population-stated` | MI-189b lane pass 5: the 3 accounts MI-177 could not read. 3 attempted, 3 determined — ib_live + oanda_practice could_not_read (dry gate), breakout_1 RECONCILES via prop_account_status (as-of, 8.5d stale). |
 | `docs/claude/work/MGC-REMEDIATION-ABORT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `self-measured-2026-09-08 / population-stated` | MGC remediation ABORTED: 548 is not stale (rests in a second disjoint OCA group); venue avg cost attributes the 11 real lots to trade 5531, not 5353, inverting the assumed fix. Measure only. |
 | `docs/claude/work/MEASUREMENT-DEFECTS-2026-09-06.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -649,6 +651,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/exit-eval-fetch-attribution-2026-08-21.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-head-figure-reconciliation-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-lever-wiring-audit-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/exit-trailing-and-banking-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-location-fidelity-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/banking-half-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/be-floor-sweep-2026-09-07.md` | evidence | live | — | 2026-09-07 | `dir:research-is-measurement / not-assessed` | — |

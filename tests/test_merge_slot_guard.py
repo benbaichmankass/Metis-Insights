@@ -81,7 +81,23 @@ def test_deny_names_the_specific_pr(sid):
     reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
     assert "#4242" in reason
     assert f"/tmp/.claude-merge-claim-{sid}-4242" in reason
-    assert "6927" in reason, "the deny must name the coordination board issue"
+    # ⚠️ THIS ASSERTED THE LITERAL `6927` UNTIL 2026-09-08, AND THE CHANGE IS NOT
+    # A WEAKENING — it is the same requirement stated durably. The test's purpose
+    # is that a session reading this deny knows WHERE to post its claim. Pinning
+    # that to a hardcoded issue number made the test go stale the moment the
+    # board did: #6927 reached GitHub's hard 2500-comment cap on 2026-09-07 and
+    # stopped accepting writes, at which point a deny naming it was sending
+    # every session to a board that could not take a claim — while this test
+    # still passed, because the number was present.
+    #
+    # The board is now resolved from docs/claude/board-pointer.json, so the deny
+    # must name that instead. A future rotation cannot silently invalidate this
+    # message, and cannot silently invalidate this test either.
+    assert "board-pointer.json" in reason, (
+        "the deny must tell a session where to resolve the coordination board; "
+        "a number would go stale with the board, which is the failure being fixed")
+    assert "MERGE SLOT CLAIM" in reason, (
+        "and it must name the claim to post, not merely the board")
 
 
 def test_fresh_marker_allows(sid):

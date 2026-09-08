@@ -66,6 +66,28 @@ on:
       # advancing, and a stale ledger reads exactly like a quiet week.
       - session-reaper
       - work-digest
+      # The coordination board's proof that it is ALIVE. This entry is the
+      # sharpest instance of the whole pattern above, not another example of it:
+      # board-heartbeat FAILS DELIBERATELY when the board is write-blocked or at
+      # its rotate_at threshold, so a failed run here IS the finding — the board
+      # has stopped accepting claims — and not merely the death alarm for a
+      # watcher.
+      #
+      # ⚠️ AND ITS OWN SILENCE IS THE FAILURE IT WATCHES FOR. Every other
+      # consumer treats "no heartbeat in 18h" as proof the board is dead, so a
+      # heartbeat workflow that quietly stops running makes every session read
+      # DEAD on a perfectly healthy board — and one that dies mid-run while the
+      # board really is capped makes them read nothing at all. That is exactly
+      # how #6927 went ~20h unnoticed at GitHub's 2500-comment cap on
+      # 2026-09-07: reads kept succeeding, so absence carried no information and
+      # nothing anywhere failed loudly.
+      - board-heartbeat
+      # Provisioning the next board. Not cron'd, so `cron-failure-watch` does
+      # not require this entry — it is here because the failure is worse than a
+      # missed schedule. A half-completed rotation can leave a NEW board created
+      # and the pointer still naming the old one, i.e. a live board nothing
+      # points at, which is the state the pointer exists to make impossible.
+      - board-rotate
       - work-decision-commit
       # A1's readout, on the cadence the operating model always declared it
       # had. A dead run here is invisible in the worst possible way: the

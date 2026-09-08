@@ -1,30 +1,106 @@
 id: WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500
 type: question
-parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Coordination board is at GitHub's 2500-comment cap: successor issue plus re-point its two readers
 stage: INTEGRITY
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01GtvQEQnfwzz9yRdPF6sPFg
 opened_at: 2026-09-08
 closed_at: null
+
+reconciliation: >-
+  ⚠️ THIS OBJECT ABSORBED A DUPLICATE. `WO-20260908-THE-COORDINATION-BOARD-IS-AT-GITHUB-S`
+  was captured for the SAME problem under a different intent and is now
+  `superseded_by` this one. THIS one was kept because it is the object the
+  operator approved and the spawn registry keys on
+  (`pending-20260908T044700Z`) — but it was the WEAKER of the two on both axes
+  it differed, so both were taken from the duplicate rather than the keep:
+  (1) `parent_intent` moved IN-20260903-TRADING-SYSTEM-HEALTH ->
+  IN-20260901-OPERATING-LAYER, because a cross-session coordination channel is
+  operating-layer machinery and touches no trading behaviour; and (2) the
+  `done_condition` below is the duplicate's, which is strictly stronger —
+  it names the CLAUDE.md / SessionStart / skill surfaces and demands the
+  staleness check be shown to FIRE, neither of which this object originally
+  asked for. Keeping the weaker text and merely deleting the duplicate would
+  have silently dropped scope, which is the failure mode a reconciliation is
+  supposed to prevent.
+
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  While `in_flight`, read the PR. If this object returns to `dormant`, re-read
+  at the next cycle.
+
 done_condition: >-
-  A successor board exists AND both merge-claim-audit.yml and scope-overlap-audit.yml are re-pointed at it, demonstrated by a real posted claim appearing in a scope-overlap-audit verdict — not by the issue existing.
+  A successor board exists and is reachable for BOTH reads and writes from a
+  normal session; merge-claim-audit.yml and scope-overlap-audit.yml are
+  re-pointed at it and OBSERVED posting/reading successfully (a green run whose
+  post step was skipped clears nothing); the mandatory session-start read in
+  CLAUDE.md, the SessionStart contract and the session-coordination skill name
+  the new board; and the staleness check can FIRE again, demonstrated against a
+  deliberately-stale control. ⚠️ THE LAST CLAUSE IS THE ONE MOST EASILY
+  MIS-CLEARED: `board_pointer.py --self-test` and
+  `check_board_coherence.py --self-test` exercise the refusal paths against
+  planted controls, but a green self-test is a HARNESS result and cannot reach
+  a live board — it clears the "can fire" half and NOT the live half.
 
 why: >-
-  Issue #6927 writes 403 and reads return a board permanently frozen at 2026-09-07T11:28:17Z. merge-claim-audit.yml fails silently on every merge; scope-overlap-audit.yml reads the frozen board as input and now certifies 0-from-a-live-session for every PR. Operator granted a spawn-priority exception 2026-09-08.
-
-source: >-
-  operator (conversational)
+  Issue #6927 writes 403 and reads return a board permanently frozen at
+  2026-09-07T11:28:17Z. merge-claim-audit.yml fails silently on every merge;
+  scope-overlap-audit.yml reads the frozen board as input. Operator granted a
+  spawn-priority exception 2026-09-08.
+  ⚠️ ONE CLAIM IN THE DISPATCH BRIEF WAS MEASURED AND DOES NOT HOLD, and it
+  matters because it changes what had to be built. The brief stated
+  scope-overlap-audit.yml "reports 0 from a live session for every PR" and that
+  this "reads as no collision". It does not: `check_scope_overlap.assess`
+  already refused an empty START set as `could_not_check` with an explicit
+  denominator assertion, so a fully-frozen board produced a LOUD yellow on
+  every PR, not a false green. The real defect was narrower and different — the
+  yellow is permanent and indistinguishable from a tooling gap, so it is the
+  desensitized-alarm class this repo has a P1 rule for, and during the first 24h
+  after the freeze the window still contained pre-freeze STARTs that were graded
+  as if live. The fix therefore had to make the board's DEATH detectable
+  (a heartbeat), not merely re-point a number.
 
 blocked_on: []
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-08 by session_01GtvQEQnfwzz9yRdPF6sPFg. Nothing BLOCKS the
+  change: the repo work is complete and self-tested. What it WAITS on is not a
+  blocker in the typed sense but must not be read as done — see
+  `waiting_on_basis`.
+waiting_on_basis: >-
+  ⚠️ CLAUSE (1) IS NOW SATISFIED — do not re-quote this row as if provisioning
+  were still outstanding. The successor board is issue #11336, created
+  2026-09-08T05:30:17Z by `board-rotate.yml`, and `docs/claude/board-pointer.json`
+  names it (`board_state: live`). #6927 is retitled
+  "… — RETIRED at the 2500-comment cap → successor #11336" and closed
+  `not_planned`, with its BODY untouched (2500 comments, byte-identical to the
+  pre-change read — `gh issue edit --title` never puts the body in the payload).
+  It was relayed because this session's MCP is read-only for issues:
+  `issue_write method=create` -> `403 Resource not accessible by integration`,
+  the BL-20260901 boundary, measured again 2026-09-08.
+  WHAT REMAINS is (2) MERGE, and it is not a formality: this PR edits
+  `board-post.yml` and `scripts/ops/session_registry.py`, both in
+  `check_pr_landing`'s LANDING_MACHINERY set, so R12 bars it from self-landing
+  and a human must read it once.
+
+observation: >-
+  Measured 2026-09-08, and the numbers are stated with their populations.
+  #6927: 2500 comments over 50.1 days (2026-07-19T09:04:33Z ->
+  2026-09-07T11:28:17Z) = 49.9/day across its COMPLETE life, so a fresh board
+  fills in ~7 weeks. 13 hits across 6 files matched literal `6927` under
+  `.github/workflows/` and `scripts/` at main HEAD (the dispatch brief said 7
+  files; at that commit it is 6). Comment #2500 is itself a merge-claim-audit
+  post, confirming the brief's claim that the audit's own last post is the
+  ceiling comment.
+  ⚠️ THE LIVE HALF OF THE DONE-CONDITION IS NOT MET AND MUST NOT BE READ AS MET.
+  A real posted CLAIM appearing in a scope-overlap-audit verdict is reachable
+  only AFTER merge: `scope-overlap-audit.yml` runs on `pull_request_target`, so
+  both the workflow and `check_scope_overlap.py` come from the BASE branch, and
+  this PR's versions do not exist there yet. For the same reason `board-post.yml`
+  cannot relay a comment to #11336 yet — by design it resolves the pointer from
+  the DEFAULT branch, where `board_state` is still `unprovisioned`. What IS
+  established is that #11336 is writable by the runner (created, then its body
+  edited twice), and that every self-test fires against planted controls — but
+  a self-test is a HARNESS result and reaches no live board.
 
 captured_by: scripts/ops/capture_idea.py

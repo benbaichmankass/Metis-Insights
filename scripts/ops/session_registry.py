@@ -460,8 +460,13 @@ the manager owns that file.
 - The relays are `.github/workflows/board-post.yml` and
   `.github/workflows/pr-opener.yml`, with a FRESH filename per use (the result
   file is the idempotency key, so a reused name is a silent no-op). Post a board
-  START to issue #6927 before your first substantive change, naming your branch
-  AND your session id — a 403 is never a reason to skip the board.
+  START to the coordination board before your first substantive change, naming
+  your branch AND your session id — a 403 is never a reason to skip the board.
+  Resolve the board with `python3 scripts/ci/board_pointer.py --number`; it is
+  named ONLY in docs/claude/board-pointer.json and hardcoded nowhere, because
+  retiring the previous board at GitHub's 2500-comment cap meant sweeping 13
+  references across 6 files by hand. Read the tail AND the heartbeat — a board
+  frozen at the cap still serves perfectly successful reads.
 - ⚠️ Those relays commit as `github-actions[bot]`, and GitHub fires no workflows
   for `GITHUB_TOKEN` pushes, so if such a commit lands LAST your PR shows ZERO
   checks and reads as blocked, not green. Put board posts on a SEPARATE branch,

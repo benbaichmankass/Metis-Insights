@@ -1,0 +1,49 @@
+id: WO-20260908-PIPELINE-REVIEW-LANE-PASS-5-JOURNAL-VS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Pipeline-review lane pass 5: journal-vs-venue truth across the remaining unread accounts
+stage: EVIDENCE
+lifecycle: done
+owner: MI-189b session_01LRLUSvcGqQjPcMByAiggsg
+opened_at: 2026-09-08
+closed_at: 2026-09-08
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every account MI-177 could not read is either read against venue truth, or its unreadability is recorded WITH THE REASON and the account named -- three states kept apart: reconciled / divergent / could_not_read. Report the DENOMINATOR (accounts attempted vs read) beside any count, so a small number of findings cannot be mistaken for a clean fleet. Findings are FILED, not fixed: no position is closed, re-armed, cancelled or repaired by this pass.
+
+why: >-
+  The standing pipeline lane is what produced MI-171, MI-173 and MI-177 -- the passes that found the Alpaca over-close, the 56 naked TLT shares and the fleet audit. MI-177 read 8 of 11 accounts; three were never read, and MI-173 explicitly did not read alpaca_paper or alpaca_live. An account nobody has looked at is 'we did not look', never 'clean'.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+outcome: >-
+  DONE 2026-09-08 by MI-189b. Record: docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md.
+  DENOMINATOR: 3 accounts attempted, 3 reached a determination, 0 left unknown.
+  ib_live (REAL MONEY) = could_not_read (dry-mode gate at clients.py:1278-1280) --
+  AND its declared endpoint 127.0.0.1:7496 has no listener, so MI-177's note that it
+  "resolves on promotion to live" is FALSE (filed high:
+  BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT).
+  oanda_practice = could_not_read (same dry gate); journal definitively flat, genuinely dormant.
+  breakout_1 = RECONCILED, and it was never unreadable -- its venue analogue is the
+  operator-reported prop_account_status, not /api/diag/exchange_positions. Both sides flat
+  (equity == balance, unrealized 0.00; 0 open positions over the complete 41-row prop_fills
+  table). ⚠️ RECONCILED AS-OF 2026-08-30 ONLY -- that snapshot is 203.9h stale and the system
+  grades it `stale`; the account cannot be graded on a live basis by anything, because both
+  sides descend from operator reports. That is the one thing this pass could NOT establish and
+  it is recorded as a first-class result, not as a gap.
+  Findings FILED not fixed (4 rows) + MI-177's row NARROWED rather than duplicated.
+  Two false findings were caught before filing and are recorded with what caught them.
+  Nothing was closed, cancelled, re-armed or repaired.

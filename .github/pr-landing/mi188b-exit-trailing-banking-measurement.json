@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MEASUREMENT ONLY, and the diff is entirely on the Tier-1 surface: one new research doc under docs/research/ and three append-only rows in docs/claude/health-review-backlog.json (33 insertions, 0 deletions, filed through scripts/ops/backlog_append.py::append_row so the file's exact serialisation round-trips). No src/, no config/, no deploy/, no workflow, no live-VM runtime file, no order path, no strategy params, no risk caps. Nothing was armed, flipped or re-graded: the session's hard constraints forbade re-grading any exit-matrix cell, changing TP_VENUE_CAP_PCT, arming ICT_SCALP_EXIT_HEAD_MODE, and proposing any parameter change — findings that suggest one are FILED, which is what the three backlog rows are. Every live read was read-only (GET /api/bot/db/table/*, GET /api/diag/log_file) and no live position was touched. R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}

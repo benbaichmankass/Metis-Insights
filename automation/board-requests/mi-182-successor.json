@@ -1,0 +1,4 @@
+{
+  "reason": "Issue #6927 reached GitHub's hard 2500-comment cap at 2026-09-07T11:28:17Z. Writes 403 while reads keep succeeding against a permanently frozen board, so merge-claim-audit.yml cannot land its audits and scope-overlap-audit.yml is reading a board that can never contain another live declaration. MI-182, operator-approved 2026-09-08. Provisioning is relayed because this session's GitHub MCP is read-only for issues (issue_write method=create -> 403 Resource not accessible by integration).",
+  "force": false
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "R12: this PR edits .github/workflows/board-post.yml and scripts/ops/session_registry.py, both in LANDING_MACHINERY. It re-points board-post.yml off the hardcoded #6927 and onto docs/claude/board-pointer.json resolved from the DEFAULT branch, and rewrites the spawn prompt's board instruction. A mistake in either disarms the coordination channel a session uses to declare its scope, and self-landing would make the change and its own approval the same act. It also adds board-rotate.yml, which CREATES a GitHub issue and rewrites the pointer — an outward-facing action that should be read once by a human before it can fire. A human reads it, then merges.",
+  "why": "Tier-1 by the canonical doc's own list — 'GitHub Actions workflow fixes', 'CI scripts and lint configuration', 'Updates to comms/, docs/, tests/, .github/workflows/ that don't shift trading behavior', and 'communication infrastructure that does not alter trading behavior'. The diff is confined to .github/workflows/, scripts/ci/, scripts/ops/session_registry.py, .claude/, CLAUDE.md and docs/: no src/, no config/, no deploy/, no unit file, no order path, no strategy parameter, no risk cap, no live-VM runtime file, and nothing that can change what the trader does. It repairs the cross-session coordination board, which is comms machinery."
+}

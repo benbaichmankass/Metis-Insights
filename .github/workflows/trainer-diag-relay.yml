@@ -124,7 +124,8 @@ concurrency:
   # This does NOT serialize heavy work on the 1-OCPU trainer, and cannot: a true
   # FIFO of depth > 1 is impossible at this layer. That is why cross-session
   # serialization is an APPLICATION-level VM-lane FIFO on the coordination board
-  # (issue #6927) — the same reasoning `trainer-vm-diag.yml` states verbatim.
+  # (the issue named by docs/claude/board-pointer.json) — the same reasoning
+  # `trainer-vm-diag.yml` states verbatim.
   # See docs/claude/vm-resource-management.md.
   group: trainer-diag-relay-${{ github.sha }}
   cancel-in-progress: false
