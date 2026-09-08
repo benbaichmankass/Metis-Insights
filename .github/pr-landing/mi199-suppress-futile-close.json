@@ -1,7 +1,0 @@
-{
-  "tier": 2,
-  "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "hold_text": "Stacked on #11389 and meaningless without it: this gates the close on the ledger's `broker_cancel_wedged` entry, and #11389 is what makes that entry appear for the live GLD wedge at all. Land #11389 first. ALSO Tier-2 in its own right (src/runtime/order_monitor.py — it changes WHEN a live close is attempted) and needs one operator OK for that on top.",
-  "why": "Order-path behaviour change: an evidenced broker wedge stops having a close re-attempted every ~35s and is re-probed hourly instead. Rollback is one env flip (CLOSE_WEDGE_REPROBE_MINUTES=0), no redeploy."
-}
