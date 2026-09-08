@@ -27,6 +27,17 @@ counted every red-on-`main` test as evidence. The split below is MEASURED, by
 checking out `main`'s ``src/`` and reading the exception TYPE of each failure:
 **16 failed, 2 passed**, of which only **6 failures are behavioural**.
 
+⚠️ **RE-MEASURED 2026-09-08 AFTER THE BASE MOVED, and it holds unchanged.** The
+first measurement was taken against a `main` that has since absorbed #11315
+(MI-176's Alpaca coverage-quantity work, which edits this very client), #11279
+(the IB close confirmation) and #11357. A red-before/green-after claim is
+exactly the kind that goes stale silently when the base moves underneath it, so
+it was re-run rather than assumed: **still 16 failed / 2 passed, still 6
+behavioural and 10 signature, same test names in each group.** What that
+establishes is narrow and worth stating precisely — the defect this file pins
+was not incidentally repaired by any of those merges, so these tests still
+measure THIS change and nothing else.
+
 **(1) SIX fail on `main` with a behavioural ``AssertionError`` — the evidence:**
   * ``test_close_open_position_of_one_trade_leaves_the_siblings_position``
   * ``test_close_open_position_does_not_cancel_the_siblings_protection``
