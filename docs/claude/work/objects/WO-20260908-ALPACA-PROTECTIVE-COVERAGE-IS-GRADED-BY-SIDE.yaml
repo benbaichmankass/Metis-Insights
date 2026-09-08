@@ -1,0 +1,30 @@
+id: WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Alpaca protective coverage is graded by SIDE not QUANTITY, so a partly-naked position reads as covered — and alpaca_live is real money
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Establish, per Alpaca account INCLUDING alpaca_live and alpaca_paper, how much of each open position is actually covered by a resting protective leg — as a QUANTITY, from /api/diag/alpaca_open_orders which already returns per-leg qty. State the population and the read_state for every account: a failed read is 'we did not look' and must never be reported as 'nothing naked'. THEN ship the quantity grading as DETECTION ONLY (Tier-2, and the operator's OK is needed before it binds anything). ⚠️ DO NOT WIRE A RE-ARM — BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happens when this class is remediated automatically. ⚠️ AND DO NOT CLOSE, CANCEL OR RE-ARM ANYTHING on any account while measuring.
+
+why: >-
+  MI-173 measured on alpaca_portfolio/TLT (2026-09-08T01:42:07Z, read_state: orders_read — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look): of a 72-share short, only 16 shares carry any protective leg. FIFTY-SIX REST NAKED. It is invisible by construction: the Alpaca sweep grades SIDES, not quantity — the code literally carries 'stop_qty=None,  # Alpaca grades sides, not qty'. Bybit grades covered_qty and IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. MI-173 explicitly did NOT read alpaca_live or alpaca_paper — and alpaca_live is mode: live / real_money and shares this exact client code. So whether the real-money account carries the same unmeasurable exposure is UNKNOWN, and nobody has looked.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

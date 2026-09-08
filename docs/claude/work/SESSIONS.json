@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T02:27:00Z",
+  "updated_at": "2026-09-08T02:44:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2877,6 +2877,19 @@
       "why": "see WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
       "confirmed_at": "2026-09-08T01:38:17Z",
       "manager_observation": "OBSERVED 2026-09-08T02:25Z: RUNNING, connected, 'two CI failures fixed (pr-landing, artifact-validity); awaiting CI+merge'. ⚠️ IT HIT THE SAME artifact-validity FAILURE THE MANAGER DID ON #11308 IN THE SAME HOUR — that is a THIRD and FOURTH instance of the unresolvable-backlog-id class today. The guard caught both, which is the mechanism working, but the recurrence rate is the finding. PR #11311 open, auto-merge armed.",
+      "observed_at": "2026-09-08T02:25:00Z"
+    },
+    {
+      "session_id": "session_018iDJZVj11ugKyUwsHF7X3q",
+      "registry_key": "pending-20260908T021515Z",
+      "state": "working",
+      "title": "MI-176 — is the REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
+      "owns_object": "WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
+      "spawned_at": "2026-09-08T02:15:15Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
+      "confirmed_at": "2026-09-08T02:16:14Z",
+      "manager_observation": "OBSERVED 2026-09-08T02:25Z via list_sessions: RUNNING, connected, task_summary 'writing protective coverage grading; tests anchored on real payload'. ⚠️ THIS ROW COULD NOT BE ANNOTATED AT 02:27Z BECAUSE IT WAS NOT ON MAIN — #11313 had not merged, so a session ten minutes into a REAL-MONEY question was invisible to any manager arriving cold. #11313 merged at ~02:33Z and the row is here now. Recorded because the gap was real and the heartbeat commit that noted it is the reason it was not papered over with a duplicate.",
       "observed_at": "2026-09-08T02:25:00Z"
     }
   ],
