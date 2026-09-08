@@ -5,12 +5,12 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-   "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
-   "branch": "claude/mi200-real-money-close-attribution",
-   "pr": 11391,
-   "claimed_at": "2026-09-08T17:40:00Z",
-   "note": "MI-200, Tier-1, PR #11391 — OPEN and arming .github/pr-automerge-requests/, so pr-landing R13 requires the slot be held here. Board claim: #11336 comments 5585061326 / 5585500259. Re-asserted while resolving the origin/main conflict.",
-   "displaced": "session_01HrmZ1RRNM4UnEUaFdrPEjj's claim for claude/mgr-heartbeat-1728-20260908 was SPENT — #11427 merged as b0dcbb82, which is main's own tip. Established from the merge commit, NOT from the age of the claim. Not a seizure. This is the FOURTH successive spent claim I have had to displace today (#11387/42913d63, #11392/ea20e2c5, #11377/4f8b95bb, now #11427/b0dcbb82); n is recorded as an update on BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE, not filed as a new row."
+  "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
+  "branch": "claude/mi200-real-money-close-attribution",
+  "pr": 11391,
+  "claimed_at": "2026-09-08T17:47:00Z",
+  "note": "MI-200, Tier-1, PR #11391 — OPEN and arming .github/pr-automerge-requests/, so pr-landing R13 requires the slot be held here. Board claim: #11336 comments 5585061326 / 5585500259 / 5589397613. Re-asserted while resolving a SECOND origin/main conflict in four minutes.",
+  "displaced": "session_01HrmZ1RRNM4UnEUaFdrPEjj's claim for automation/work-digest-34252308438-1 was SPENT — #11426 merged as 250833e6, which is main's own tip. Established from the merge commit, NOT from the age of the claim. Not a seizure. FIFTH successive spent claim displaced today (#11387/42913d63, #11392/ea20e2c5, #11377/4f8b95bb, #11427/b0dcbb82, now #11426/250833e6), and the SECOND in four minutes — b0dcbb82 at 17:43Z, 250833e6 at 17:47Z. The displaced note I am overwriting recorded the same loop from the other side ('THIRD rebase of this one branch: every merge to main rewrites merge_slot, which dirties every branch R13 requires to hold a claim, so the guard that serialises landings also serialises them against each other', MI-195, 6 rows / 17 collisions); carried forward here rather than lost, and recorded as an update on BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE rather than re-filed."
  },
  "active_sessions": [
   {
