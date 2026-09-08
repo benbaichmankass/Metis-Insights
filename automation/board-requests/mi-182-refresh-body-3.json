@@ -1,0 +1,4 @@
+{
+  "refresh_body": true,
+  "reason": "Repair the previous refresh, which left board #11336 announcing that it is the successor to ITSELF and instructing sessions not to post there — pointing at the board they are reading. In refresh mode the predecessor must come from previous_boards (#6927, retired 2026-09-07T11:28:17Z), not from the rotation's retire-target, which in refresh mode is the current board. Fixed in board-rotate.yml; this pushes the corrected body."
+}

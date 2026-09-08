@@ -59,14 +59,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # The BASE ref, never the PR head — trusted content only, the same
+      # rationale scope-overlap-audit.yml states for its own checkout. This job
+      # gained a checkout on 2026-09-08 for one reason: the board issue number is
+      # no longer hardcoded here. It was, and that is how this workflow spent
+      # ~20h posting audits into a board at GitHub's 2500-comment cap that could
+      # not accept them (issue #6927, frozen 2026-09-07T11:28:17Z — and the last
+      # comment it ever accepted was THIS workflow's own post).
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Resolve the live coordination board
+        id: board
+        run: |
+          set -uo pipefail
+          python3 scripts/ci/board_pointer.py --self-test || exit 1
+          num="$(python3 scripts/ci/board_pointer.py --number)"; rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 0 ]; then
+            echo "issue=$num" >> "$GITHUB_OUTPUT"
+            echo "stale_after=$(jq -r .stale_after_hours docs/claude/board-pointer.json)" >> "$GITHUB_OUTPUT"
+          else
+            # NOT a failure of this job, and NOT "no claim". No board resolved
+            # means WE DID NOT LOOK — the third state, carried forward intact.
+            echo "::warning::merge-claim-audit: could_not_check — no live board resolved (rc=$rc)"
+          fi
+
       - name: Check for a merge-slot claim on the coordination board
         uses: actions/github-script@v7
         env:
-          BOARD_ISSUE: '6927'
+          BOARD_ISSUE: ${{ steps.board.outputs.issue }}
+          BOARD_RC: ${{ steps.board.outputs.rc }}
+          STALE_AFTER_HOURS: ${{ steps.board.outputs.stale_after }}
           LOOKBACK_HOURS: '48'
         with:
           script: |
-            const board = Number(process.env.BOARD_ISSUE);
             const pr = context.payload.pull_request;
             const prNum = pr.number;
             const mergedAt = new Date(pr.merged_at);
@@ -76,6 +105,18 @@ jobs:
             let state = 'could_not_check';
             let reason = '';
             let comments = [];
+
+            // NO BOARD RESOLVED is could_not_check and it STOPS HERE. It is not
+            // "unclaimed" -- that would be an accusation built on a denominator
+            // nobody asserted (diagnostic-provenance sub-class C).
+            const board = Number(process.env.BOARD_ISSUE);
+            if (!Number.isInteger(board) || board <= 0) {
+              reason = `no live coordination board resolved from docs/claude/board-pointer.json `
+                     + `(rc=${process.env.BOARD_RC}) — nothing was checked`;
+              core.warning(`could_not_check — ${reason}`);
+              core.setOutput('state', state);
+              return;
+            }
 
             try {
               comments = await github.paginate(github.rest.issues.listComments, {
@@ -89,14 +130,36 @@ jobs:
               return;
             }
 
-            // DENOMINATOR ASSERTION. Issue #6927 is a high-traffic board; a 48h window
-            // returning zero comments means the read did not work, not that the board was
-            // silent. Treating 0 as a clean negative is precisely the failure this guard
-            // is written to avoid, so it is refused rather than reported.
+            // DENOMINATOR ASSERTION — and since 2026-09-08 it rests on an INVARIANT
+            // rather than on an observation about traffic. `board-heartbeat.yml` posts a
+            // 💓 HEARTBEAT every 6h, so a LIVE board cannot be silent. A 48h window
+            // returning zero comments is therefore positive evidence of a broken board,
+            // not evidence of a quiet one. Treating 0 as a clean negative is the exact
+            // failure this guard exists to refuse.
             if (comments.length === 0) {
               state = 'could_not_check';
-              reason = `zero comments in the last ${process.env.LOOKBACK_HOURS}h on a board that is never silent — treating as a failed read, not as "no claim"`;
+              reason = `zero comments in the last ${process.env.LOOKBACK_HOURS}h on board #${board}, `
+                     + `which posts a heartbeat every 6h — so this is a dead or unreadable board, `
+                     + `not "no claim"`;
               core.warning(`could_not_check — ${reason}`);
+              core.setOutput('state', state);
+              return;
+            }
+
+            // STALENESS. The #6927 failure in one check: reads succeeded, the tail was
+            // valid, and the board had been frozen for ~20h. A frozen board is only
+            // detectable against a clock, so it is checked against one.
+            const staleH = Number(process.env.STALE_AFTER_HOURS || 18);
+            const newest = comments.reduce(
+              (m, c) => Math.max(m, Date.parse(c.created_at)), 0);
+            const ageH = (Date.now() - newest) / 3600e3;
+            if (newest && ageH > staleH) {
+              state = 'could_not_check';
+              reason = `board #${board}'s newest comment is ${ageH.toFixed(1)}h old and the `
+                     + `heartbeat runs every 6h — the board is FROZEN or write-blocked. Reads `
+                     + `still succeed, which is why this needs saying out loud. Rotate via `
+                     + `board-rotate.yml.`;
+              core.error(`could_not_check — ${reason}`);
               core.setOutput('state', state);
               return;
             }
@@ -135,7 +198,21 @@ jobs:
               `_Generated by [Claude Code](https://claude.ai/code)_`,
             ].join('\n');
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: board, body,
-            });
+            // ⚠️ THE POST IS CHECKED. Until 2026-09-08 this was a bare `await`, so when
+            // #6927 hit the 2500-comment cap every audit of an unclaimed merge threw into
+            // a post-merge run nobody watches — the audit stopped existing and said
+            // nothing. A detector whose own output channel can fail silently is not a
+            // detector. This names the likeliest cause instead of a bare stack trace.
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: board, body,
+              });
+            } catch (e) {
+              core.setFailed(
+                `merge-claim-audit: the audit for PR #${prNum} COULD NOT BE POSTED to board `
+                + `#${board}: ${e.message}. If this is a 403, the board is very likely at `
+                + `GitHub's ${'2500'}-comment cap — reads keep succeeding, writes do not. `
+                + `Rotate via board-rotate.yml. This finding is otherwise LOST: state was `
+                + `'${state}'.`);
+            }

@@ -1,10 +1,11 @@
 name: board-post
 
 # Git-push-triggered coordination-board relay — the MCP-independent path for
-# posting to the live Claude Coordination Board (issue #6927).
+# posting to the live Claude Coordination Board (resolved from
+# docs/claude/board-pointer.json on the DEFAULT branch — never hardcoded).
 #
 # WHY THIS EXISTS. `docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination"
-# makes posting a `▶️ START` comment to #6927 MANDATORY *before a session's first
+# makes posting a `▶️ START` comment to the board MANDATORY *before a session's first
 # substantive tool call*. But a PM-side session's GitHub MCP is intermittently
 # READ-ONLY — `add_issue_comment` returns 403 "Resource not accessible by
 # integration" (the same 403 `claude-pr-automerge.yml`'s header documents for PR
@@ -17,7 +18,7 @@ name: board-post
 #
 # Contract:
 #   * Drop a markdown file at `automation/board-posts/<name>.md` and push it to a
-#     `claude/**` branch. Its ENTIRE contents become one comment on issue #6927.
+#     `claude/**` branch. Its ENTIRE contents become one comment on the board.
 #   * The runner posts it, writes the resulting comment URL (or the error) to
 #     `automation/board-results/<name>.txt`, and commits that result back with
 #     [skip ci] (no re-trigger loop).
@@ -40,7 +41,7 @@ name: board-post
 #   Measured 2026-09-03: request present, result file holding a bare comment URL,
 #   run exited 0 -- a SUCCESSFUL post that the documented check graded a failure.
 #   The consequence runs the wrong way for a relay whose whole premise is that a
-#   failed post must be loud: the session either re-posts (duplicating on #6927)
+#   failed post must be loud: the session either re-posts (duplicating on the board)
 #   or reports its own successful claim as failed.
 #
 #   VERIFY A POST LIKE THIS, never by the request file:
@@ -59,11 +60,15 @@ name: board-post
 #      and did not is invisible to every other session AND to itself. The failure
 #      must be loud. `claude-run-failure-alert.yml` then pings the operator.
 #
-# Blast radius: posts issue COMMENTS on exactly one hardcoded issue (#6927) and
-# commits result files. It cannot open, close, label or edit an issue, cannot
-# touch a PR, and cannot reach `src/`, `config/`, a unit file, or either VM.
-# The issue number is hardcoded rather than read from the request on purpose —
-# a caller-supplied number would make this a general issue-commenting primitive.
+# Blast radius: posts issue COMMENTS on exactly one issue — the one the DEFAULT
+# branch's `docs/claude/board-pointer.json` names — and commits result files. It
+# cannot open, close, label or edit an issue, cannot touch a PR, and cannot reach
+# `src/`, `config/`, a unit file, or either VM.
+# The issue number is NOT read from the request, on purpose — a caller-supplied
+# number would make this a general issue-commenting primitive. Resolving it from
+# the DEFAULT branch (not the pushed branch) keeps that true now that the number
+# lives in a file: a `claude/**` branch can edit its own copy of the pointer and
+# it will not be consulted.
 
 on:
   push:
@@ -87,9 +92,44 @@ jobs:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
+      # RESOLVED FROM THE DEFAULT BRANCH, NOT FROM THE PUSHED BRANCH.
+      #
+      # The header below says the issue number is hardcoded on purpose: a
+      # caller-supplied number would turn this relay into a general
+      # issue-commenting primitive. That property is preserved, not dropped —
+      # the number now comes from `docs/claude/board-pointer.json` **as it
+      # stands on the default branch**, which a `claude/**` branch cannot
+      # influence. Reading the pointer off the pushed branch would have handed
+      # the caller exactly the control the hardcoding refused them.
+      #
+      # It stopped being hardcoded because #6927 hit GitHub's 2500-comment cap
+      # on 2026-09-07 and every hardcoded reference had to be swept by hand —
+      # 13 of them across 6 files. One resolver, one file, one edit.
+      - name: Resolve the live coordination board (from the default branch)
+        id: board
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          ptr="$(gh api "repos/${GITHUB_REPOSITORY}/contents/docs/claude/board-pointer.json?ref=${{ github.event.repository.default_branch }}" \
+                 --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || true)"
+          if [ -z "$ptr" ]; then
+            echo "::error::board-post: could not read the board pointer from the default branch — REFUSING to post rather than guessing an issue number."
+            exit 1
+          fi
+          state="$(printf '%s' "$ptr" | jq -r .board_state)"
+          num="$(printf '%s' "$ptr" | jq -r '.board_issue // empty')"
+          if [ "$state" != "live" ] || [ -z "$num" ]; then
+            echo "::error::board-post: no live board is provisioned (board_state=$state). A session believes it is claiming the board and is not. Run board-rotate.yml."
+            exit 1
+          fi
+          echo ">>> live coordination board: #${num}"
+          echo "issue=$num" >> "$GITHUB_OUTPUT"
+
       - name: Post pending board comments
         env:
           GH_TOKEN: ${{ github.token }}
+          BOARD_ISSUE: ${{ steps.board.outputs.issue }}
         run: |
           set -uo pipefail
           mkdir -p automation/board-results
@@ -130,7 +170,7 @@ jobs:
               continue
             fi
 
-            if url="$(gh issue comment 6927 --repo "$GITHUB_REPOSITORY" \
+            if url="$(gh issue comment "$BOARD_ISSUE" --repo "$GITHUB_REPOSITORY" \
                         --body-file "$req" 2>&1)"; then
               echo "$url" > "$out"
               echo ">>> ${base}: $(head -1 "$out")"

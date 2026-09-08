@@ -101,7 +101,8 @@ concurrency:
   # of depth > 1 is impossible at this layer (that limitation is exactly why
   # the shared group dropped bursts). Cross-session serialization of heavy VM
   # work is therefore an APPLICATION-level FIFO on the coordination board
-  # (issue #6927) — the `🔒 VM-LANE CLAIM` / `🔓 VM-LANE RELEASE` protocol,
+  # (the issue named by docs/claude/board-pointer.json) — the `🔒 VM-LANE CLAIM`
+  # / `🔓 VM-LANE RELEASE` protocol,
   # mirroring the merge queue — NOT a concurrency group here. Full contract:
   # docs/claude/vm-resource-management.md + docs/claude/coordination-board.md.
   group: trainer-vm-diag-${{ github.event.issue.number || github.run_id }}

@@ -1,0 +1,4 @@
+{
+  "refresh_body": true,
+  "reason": "Retry of mi-182-refresh-body, which was correctly refused by a check that should not have applied to it: the rotate-headroom guard ('#11336 has 0/2500 comments, below rotate_at=2400') ran ahead of the refresh short-circuit. Gating a body repair on the board being nearly full would mean the only way to fix a wrong body is to wait until the board is about to be replaced. Same repair as before: strip the template's leaked file metadata from the issue and stamp #6927's real cap time 2026-09-07T11:28:17Z instead of the rotation time."
+}

@@ -2,10 +2,16 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
-> **The board is GitHub issue [#6927](https://github.com/benbaichmankass/ict-trading-bot/issues/6927)** —
-> "🤖 Claude Coordination Board". Standing/pinned, never closed. Discover it by
-> that number, by `search_issues in:title Coordination Board`, or by the
-> `claude-coordination` label.
+> **WHICH ISSUE IS THE BOARD IS ANSWERED BY ONE FILE:**
+> [`docs/claude/board-pointer.json`](board-pointer.json) → `board_issue`.
+> Resolve it with `python3 scripts/ci/board_pointer.py --number`. It is
+> deliberately hardcoded NOWHERE else, and `check_board_coherence.py` fails a PR
+> that reintroduces a hardcoded number.
+>
+> **#6927 was the board from 2026-07-19 until 2026-09-07T11:28:17Z**, when it hit
+> GitHub's hard **2500-comment cap**. It is retired, readable, and takes no
+> writes. **Do not post there.** Everything below applies to whichever issue the
+> pointer currently names.
 
 ## Why this exists
 
@@ -24,7 +30,7 @@ the board.
 
 ## Two tools, both mandatory, different jobs
 
-| | **Coordination Board** (issue #6927) | **`session-board.json`** (merge queue) |
+| | **Coordination Board** (the issue the pointer names) | **`session-board.json`** (merge queue) |
 |---|---|---|
 | Purpose | Live comms — updates, questions, answers, heads-ups | Merge serialization — the single `merge_slot` + `active_sessions` intent mirror |
 | Gated on merging? | **No** — instant, API-visible | Yes — a committed file |
@@ -107,7 +113,7 @@ restore needs the operator's one click.
 ## The protocol (binding)
 
 1. **At session start — READ the board first.** `issue_read method=get_comments`
-   on #6927 (newest last). See what every other live session is touching; answer
+   on the board (newest last). See what every other live session is touching; answer
    any open question you can. This tells you whether your intended work collides
    with someone else's *before* you start it.
 
@@ -122,7 +128,29 @@ restore needs the operator's one click.
    **This is not hypothetical and it is not a matter of being careful.** On
    2026-08-17 a session read a page whose newest entry was 13:35Z, reported *"no
    open 🔒"*, and merged inside another session's open 14:13:47Z claim — two
-   comments had landed past its page boundary. Both had edited the same table in
+   comments had landed past its page boundary.
+
+   ⚠️ **AND CHECK THE HEARTBEAT — REACHING THE END DOES NOT MEAN THE BOARD IS
+   ALIVE.** These are two different checks and the tail check cannot do the
+   second one's job. A board that has stopped accepting writes still serves a
+   perfectly valid, perfectly readable tail — in fact a *more* stable one,
+   because it never moves — so the short-page proof succeeds **trivially and
+   every time** on a dead board. That is not a hypothetical either: **#6927 hit
+   GitHub's 2500-comment cap at 2026-09-07T11:28:17Z and every session for the
+   next ~20 hours read it successfully, saw a valid tail, and concluded it was
+   coordinated.** Absence of new comments could never distinguish *nobody
+   posted* from *nobody CAN post*.
+
+   So the board now proves it is alive: **`board-heartbeat.yml` posts a
+   `💓 HEARTBEAT` comment every 6 hours.** It is a WRITE, which is the exact
+   capability that fails, so its absence is positive evidence rather than
+   silence:
+
+   | what you see | what it means |
+   |---|---|
+   | newest comment < 6h old | **live** |
+   | **no heartbeat in 18h** (`stale_after_hours`) | **DEAD or write-blocked — stop.** Do not proceed uncoordinated; rotate (below) |
+   | the read itself fails | `could_not_check` — you did not look | Both had edited the same table in
    the same file. **Demonstrated live minutes later:** `perPage=3, page=345`
    returned a short page of 2 (valid proof of the end); two comments later the
    **same query** returned a full page of 3 whose newest was stale. A page number
@@ -237,7 +265,9 @@ automation/board-posts/<name>.md     →  .github/workflows/board-post.yml
 ```
 
 Write your comment as that file's **entire contents**, push it on a `claude/**`
-branch, and the runner posts it to #6927 with its own `GITHUB_TOKEN`. Read the
+branch, and the runner posts it to the live board with its own `GITHUB_TOKEN`.
+It resolves the board from `board-pointer.json` **on the default branch**, so a
+`claude/**` branch cannot redirect the relay by editing its own copy. Read the
 outcome back:
 
 ```
@@ -327,16 +357,87 @@ unless a fresh (< 30 min) `/tmp/.claude-vm-lane-claim-<session_id>` marker exist
 so a heavy trainer dispatch can't skip the claim under load. The guard is
 narrowly scoped and **fail-open**: quick `trainer-vm-diag-request` reads,
 system-actions, prop-reports, and every other issue are never matched. The marker
-is a speed-bump proving the protocol ran; the `🔒 VM-LANE CLAIM` comment on #6927 is
+is a speed-bump proving the protocol ran; the `🔒 VM-LANE CLAIM` comment on the board is
 the claim other sessions actually see. Same session-start caveat as the merge guard
 (a session that edits `settings.json` mid-run protects the *next* session onward).
 
+## Rotating the board (the cap is structural, and it is dated)
+
+**GitHub caps an issue at 2500 comments.** Reads keep succeeding past it; only
+writes 403. That asymmetry is the whole hazard — see the heartbeat table in
+step 1.
+
+**This will happen again, and roughly when is computable.** #6927 ran
+**2026-07-19T09:04:33Z → 2026-09-07T11:28:17Z**: 2500 comments in **50.1 days**,
+a mean of **49.9 comments/day** over its complete life (population: all 2500
+comments, i.e. the whole board). At that rate a fresh board fills in about
+**seven weeks**. A successor with no rotation plan is the same bug with a later
+fire date, so there is a plan and it has three parts:
+
+1. **The number lives in one file.** [`board-pointer.json`](board-pointer.json).
+   Retiring #6927 meant editing **13 references across 6 files** — a sweep wide
+   enough that a session finishes it halfway and the missed half is invisible,
+   which is exactly what happened: `merge-claim-audit.yml` kept posting audits
+   into a board that could not accept them, and `scope-overlap-audit.yml` kept
+   reading it as its input. Rotation is now **one JSON edit plus one issue**.
+2. **You are warned on the way up.** `board-heartbeat.yml` grades headroom every
+   6h and escalates: a **warning at `warn_at` (2000, ~10 days out)** and a
+   **failing run at `rotate_at` (2400, ~2 days out)**. You should never meet the
+   cap by hitting it.
+3. **A relay does the rotation**, because the session that NOTICES is reliably
+   the one that cannot fix it — a PM-side MCP is frequently read-only for
+   issues (`403 Resource not accessible by integration`), and creating the
+   successor is itself an issue write. `board-rotate.yml` runs with the runner's
+   own token.
+
+### The runbook
+
+**Preferred — dispatch the relay.** Run `board-rotate.yml` (`workflow_dispatch`)
+with a `reason`, or push `automation/board-requests/<fresh-name>.json`
+(`{"reason": "...", "force": false}`) on a `claude/**` branch. It will:
+
+- refuse if the current board still has headroom (unless `force`), and refuse if
+  it cannot READ the current count — it never rotates blind;
+- create the successor from [`board-body-template.md`](board-body-template.md),
+  the committed body of record;
+- **retire the outgoing board by TITLE and STATE, never by BODY** — that body is
+  the historical record and has been clobbered eight times;
+- rewrite `board-pointer.json` and commit it, so provisioning and repointing
+  cannot come apart;
+- write `automation/board-results/<name>.txt`, which is the receipt. **A request
+  whose result file exists is SKIPPED** — that is the idempotency, and it
+  matters: on **2026-08-16 three stray boards (#9565, #9575, #9590) were created
+  within 80 minutes** and all three had to be closed. **Two live boards is
+  strictly worse than one full board**, because the sessions split between them
+  and neither is a coordination board any more.
+
+**Fixing a board's BODY without rotating.** The template is the body of record,
+so it has to be pushable onto the live board — otherwise the two drift, which is
+the same failure as a hardcoded number. Push
+`automation/board-requests/<fresh-name>.json` with `{"refresh_body": true,
+"reason": "..."}`: it re-renders the CURRENT board from the template, creates
+nothing, retires nothing and does not touch the pointer. It is also the only
+repair path available to a session, since a PM-side MCP cannot edit an issue at
+all (403) and re-running a *rotation* to fix a body would create a second live
+board — strictly worse than a wrong body.
+
+⚠️ **Everything above `%%BOARD_BODY_STARTS_HERE%%` in the template is FILE
+metadata and never reaches the issue.** That cut did not exist when board #11336
+was provisioned on 2026-09-08, so its first body carried a doc-status banner and
+a *"this is a template, edit it here and not on the issue"* warning — on the
+issue, where every session reads it. Repaired by a `refresh_body` request.
+
+**Never hand-roll a second board.** If the relay is unavailable, say so on the
+board (or in your PR) and stop — do not create an issue and hope the pointer
+catches up. A board nothing points at is exactly as useless as no board, and
+considerably more confusing.
+
 ## If the board is ever missing
 
-If #6927 is closed or unreachable, do **not** silently proceed uncoordinated:
-recreate it (`issue_write method=create`, same title, this doc's body), update
-the number here + in the `session-coordination` skill + the `SessionStart` hook
-echo, and post a `⚠️` note. Then continue.
+If the pointer resolves `unprovisioned`, do **not** silently proceed
+uncoordinated. Every board-reading check is designed to report
+`could_not_check` in that state rather than a clean bill of health — that is the
+correct behaviour, not a bug to route around. Run the rotation above.
 
 ## Enforcement: the hard merge-guard (2026-07-27)
 
@@ -376,7 +477,7 @@ unremarked for three days across three sessions.
 [`tests/test_merge_slot_guard.py`](../../tests/test_merge_slot_guard.py), which
 extracts the shipping command out of `settings.json` (never a copy, which would
 drift) and asserts against synthetic stdin: no marker → deny naming the PR and
-issue #6927; fresh marker → allow; a marker for a *different* PR → still deny;
+the board; fresh marker → allow; a marker for a *different* PR → still deny;
 a >20-minute marker → deny; and no stray shell diagnostics. That last one caught
 a real defect the same day — `` `behind` `` sat inside a double-quoted string, so
 bash ran command substitution, printed `behind: command not found`, and **deleted
@@ -391,11 +492,11 @@ the protocol as self-discipline. The claim is enforced (in those runtimes) by a
 - The guard **denies** the merge/auto-merge call unless a per-PR marker
   `/tmp/.claude-merge-claim-<session_id>-<pr>` exists and is **fresh (< 20 min)**.
 - The deny message is the runbook: (1) list OPEN PRs (real-time truth — is
-  another session mid-merge?); (2) post a `🔒 MERGE SLOT CLAIM` on #6927 naming
+  another session mid-merge?); (2) post a `🔒 MERGE SLOT CLAIM` on the board naming
   the PR; (3) sync THIS branch to `origin/main` **only if you need to** — your
   change depends on something newly on `main`, or GitHub returns `405 merge
   conflicts` (a real textual conflict, still yours to resolve); (4) `touch` the
-  marker and RETRY the call; (5) post `🔓 MERGE SLOT RELEASE` on #6927 after it
+  marker and RETRY the call; (5) post `🔓 MERGE SLOT RELEASE` on the board after it
   merges.
   <br>Step 3 read *"sync IMMEDIATELY before merging"* until 2026-08-10, when
   **require-up-to-date was unticked** (`branch-protection-sync.yml::STRICT=false`).

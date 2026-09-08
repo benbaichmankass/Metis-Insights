@@ -120,11 +120,32 @@ jobs:
         if: steps.tool.outputs.present == 'true'
         run: python3 scripts/ci/check_scope_overlap.py --self-test
 
+      # The board number is resolved, never hardcoded. It WAS hardcoded here, and
+      # on 2026-09-07 that made this workflow read a board frozen at GitHub's
+      # 2500-comment cap — still returning 200, still returning a valid tail, and
+      # incapable of ever containing another live declaration.
+      - name: Resolve the live coordination board
+        id: board
+        if: steps.tool.outputs.present == 'true'
+        run: |
+          set -uo pipefail
+          python3 scripts/ci/board_pointer.py --self-test || exit 1
+          num="$(python3 scripts/ci/board_pointer.py --number)"; rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 0 ]; then
+            echo "issue=$num" >> "$GITHUB_OUTPUT"
+            echo "stale_after=$(jq -r .stale_after_hours docs/claude/board-pointer.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::scope-overlap-audit: could_not_check — no live board resolved (rc=$rc)"
+          fi
+
       - name: Collect the changed files and the board's recent STARTs
         if: steps.tool.outputs.present == 'true'
         uses: actions/github-script@v7
         env:
-          BOARD_ISSUE: '6927'
+          BOARD_ISSUE: ${{ steps.board.outputs.issue }}
+          BOARD_RC: ${{ steps.board.outputs.rc }}
+          STALE_AFTER_HOURS: ${{ steps.board.outputs.stale_after }}
           LOOKBACK_HOURS: '24'
         with:
           script: |
@@ -140,13 +161,54 @@ jobs:
             } catch (e) { core.warning(`changed-file read failed: ${e.message}`); }
 
             let dones = [], branchStates = {};
+
+            // BOARD HEALTH IS A SEPARATE AXIS FROM WHAT THE BOARD SAYS, and
+            // conflating them is what made #6927 dangerous. "no STARTs" from a
+            // live board and "no STARTs" from a board nobody can post to are the
+            // same bytes and opposite meanings, so health is decided here and
+            // carried into the verdict rather than re-inferred from emptiness.
+            //   unprovisioned — the pointer names no live board
+            //   unreadable    — the read itself failed
+            //   frozen        — read fine, but nothing has landed in stale_after_hours
+            //                   despite a heartbeat every 6h
+            //   live          — a heartbeat landed recently
+            const board = Number(process.env.BOARD_ISSUE);
+            let boardHealth = 'live', boardDetail = '';
+            const staleH = Number(process.env.STALE_AFTER_HOURS || 18);
+
+            if (!Number.isInteger(board) || board <= 0) {
+              boardHealth = 'unprovisioned';
+              boardDetail = `docs/claude/board-pointer.json resolved no live board `
+                          + `(rc=${process.env.BOARD_RC})`;
+              core.warning(`board unprovisioned — ${boardDetail}`);
+            }
             try {
+              if (boardHealth !== 'unprovisioned') {
               const since = new Date(Date.now() - Number(process.env.LOOKBACK_HOURS) * 3600e3);
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: Number(process.env.BOARD_ISSUE),
+                issue_number: board,
                 since: since.toISOString(), per_page: 100,
               });
+
+              // The staleness clock. A frozen board returns 200 with a stable,
+              // perfectly valid tail — it is only detectable against a clock,
+              // which is why the heartbeat exists to put something on it.
+              const newest = comments.reduce(
+                (m, c) => Math.max(m, Date.parse(c.created_at)), 0);
+              if (!newest) {
+                boardHealth = 'frozen';
+                boardDetail = `no comments at all in the last ${process.env.LOOKBACK_HOURS}h `
+                            + `on a board that heartbeats every 6h`;
+              } else {
+                const ageH = (Date.now() - newest) / 3600e3;
+                if (ageH > staleH) {
+                  boardHealth = 'frozen';
+                  boardDetail = `newest comment is ${ageH.toFixed(1)}h old, past the `
+                              + `${staleH}h staleness threshold, despite a 6h heartbeat`;
+                }
+              }
+              if (boardHealth === 'frozen') core.error(`board #${board} FROZEN — ${boardDetail}`);
               // A START declares scope. A QUESTION, a merge-slot claim and an
               // audit comment declare nothing, so they are not read. A DONE
               // declares nothing either, but it RETIRES a START, so it is now
@@ -170,7 +232,12 @@ jobs:
               // against the real comment (see `parse_identity`).
               starts = comments.filter(c => isStart(c.body)).map(row);
               dones  = comments.filter(c => !isStart(c.body) && isDone(c.body)).map(row);
-            } catch (e) { core.warning(`board read failed: ${e.message}`); }
+              }
+            } catch (e) {
+              boardHealth = 'unreadable';
+              boardDetail = e.message;
+              core.warning(`board read failed: ${e.message}`);
+            }
 
             // Branch -> PR state, for the STALENESS axis. A declaration whose
             // branch has already merged is not a live collision, and on PR
@@ -208,9 +275,12 @@ jobs:
               pr: pr.number, my_branch: pr.head.ref, my_body: pr.body || '',
               changed_files: changed, starts, done_posts: dones,
               branch_states: branchStates,
+              board_issue: Number.isInteger(board) && board > 0 ? board : null,
+              board_health: boardHealth, board_detail: boardDetail,
             }));
             core.info(`collected ${changed.length} changed file(s), ${starts.length} START(s), `
-                      + `${dones.length} DONE(s), ${Object.keys(branchStates).length} branch state(s)`);
+                      + `${dones.length} DONE(s), ${Object.keys(branchStates).length} branch state(s) `
+                      + `· board #${board || '—'} health=${boardHealth}`);
 
       - name: Assess and report
         if: steps.tool.outputs.present == 'true'
@@ -261,8 +331,11 @@ jobs:
               + `\`${ref}\`, so this PR's changed files were **not compared** against `
               + 'any session\'s declared scope.',
               '',
-              'This is **not** `no_overlap`. Nothing was checked. Read the '
-              + 'coordination board (#6927) by hand before merging.',
+              'This is **not** `no_overlap`. Nothing was checked. Read the live '
+              + 'coordination board by hand before merging — the issue number is in '
+              + '`docs/claude/board-pointer.json` (never hardcode it; that is how the '
+              + 'previous board stayed pointed-at for ~20h after it stopped accepting '
+              + 'writes).',
             ].join('\n');
             await core.summary
               .addHeading('scope-overlap audit')

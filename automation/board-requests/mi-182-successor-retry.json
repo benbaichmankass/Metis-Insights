@@ -1,0 +1,4 @@
+{
+  "reason": "Retry of mi-182-successor after board-rotate.yml correctly REFUSED the first attempt: its pre-create placeholder check rejected {{BOARD_ISSUE}}, which by construction cannot be filled until GitHub has assigned the new issue a number. Fresh filename because the result file is the idempotency key and a reused name is a deliberate no-op. Underlying reason unchanged: #6927 reached GitHub's hard 2500-comment cap at 2026-09-07T11:28:17Z; writes 403 while reads keep succeeding against a frozen board. MI-182, operator-approved 2026-09-08.",
+  "force": false
+}

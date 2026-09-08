@@ -1,0 +1,4 @@
+{
+  "refresh_body": true,
+  "reason": "Repair board #11336's body. Its first render leaked the template's FILE metadata onto the issue (a doc-status banner and a 'this is a template, edit it here not on the issue' warning, both nonsense once they are ON the issue), and stamped {{PREV_RETIRED_AT}} with the rotation time 2026-09-08T05:30:16Z instead of #6927's actual cap time 2026-09-07T11:28:17Z — so the board's own header stated a cap date that never happened. Both fixed in the template and the workflow; this pushes the corrected body onto the live board. Creates nothing and does not touch the pointer."
+}
