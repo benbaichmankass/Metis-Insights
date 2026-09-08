@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T14:56:43Z",
+  "updated_at": "2026-09-08T16:28:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3057,7 +3057,10 @@
       "spawned_at": "2026-09-08T07:14:13Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-08 into free WIP capacity after the merge queue emptied. The exit-matrix SHIP BLOCKED verdict covered take-profit geometry; trailing and banking were never measured on the same footing.",
-      "confirmed_at": "2026-09-08T07:15:25Z"
+      "confirmed_at": "2026-09-08T07:15:25Z",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z",
+      "observation": "FAILED 07:19Z, and pinned to the WRONG repo (the-lizardking/ict-trading-bot). Superseded by MI-188b, which completed."
     },
     {
       "session_id": "session_01JjJa5sRhrqQapwx25ebo6Q",
@@ -3068,7 +3071,10 @@
       "spawned_at": "2026-09-08T07:14:14Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-08. The standing lane produced every Alpaca finding this cycle; three accounts remain unread and 'unread' is not 'clean'.",
-      "confirmed_at": "2026-09-08T07:15:25Z"
+      "confirmed_at": "2026-09-08T07:15:25Z",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z",
+      "observation": "IDLE since 07:16Z, BLOCKED asking whether to audit or 'continue notebook work' — it has NO repo source pinned. This is the MI-190 wrong-repo spawn class, superseded by MI-189b which completed. Do not poke; it cannot do the work."
     },
     {
       "session_id": "session_019rZTh1JFCXRNR4kYpueGPu",
@@ -3119,7 +3125,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "FAILED 08:46Z: \"The model tool call could not be parsed (retry also failed)\". LANE 1 (the 38-day-overdue system review) IS DEAD and produced no PR. Respawn required - this is not a slow session, it is a stopped one.",
-      "observation": "IDLE/FAILED, unchanged since 08:46Z (unparseable tool call). Superseded by MI-192b, whose #11379 MERGED as 2aaa5bba."
+      "observation": "FAILED 08:46Z on an unparseable tool call. Superseded by MI-192b.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_012cVryifpv359yAWWVkrmnk",
@@ -3134,7 +3142,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/disconnected since 08:49Z (1h36m). Awaiting CI on #11359, which ran while main was red. Needs a poke to re-arm.",
-      "observation": "IDLE at 12:31Z, review_ready — #11359 guards+pytest-collect+repo-inventory green, pytest-run STILL in_progress. NOT merged: a pending check is not a result."
+      "observation": "IDLE since 12:33Z, completed — MI-193 exit-fidelity backtest filed, no live changes.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01W7CyS8ShLnZiNyUms3YYEp",
@@ -3149,7 +3159,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "WOKE FROM THE 09:51Z POKE - updated_at moved 09:14->10:15Z. #11360 MERGED to main (main head). #11358 CI running, auto-merge armed. 692k/1M ctx - near the handoff threshold.",
-      "observation": "IDLE/COMPLETED at 12:31Z — reports #11358, #11360, #11385 merged and Phase F complete. It resumed after my 12:03Z poke carrying the operator's Phase A ruling, which was the blocker. ⚠️ 'complete' is its own claim; the three merges are not manager-verified."
+      "observation": "IDLE since 12:19Z, completed — MI-194 Phase F done, 3 PRs merged.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01Lozuti2jAX4kQ9RC4yTSPo",
@@ -3166,7 +3178,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/connected, review_ready, PR #11370 open (repo-inventory green, guards+pytest running), 504k ctx. Alive.",
-      "observation": "RUNNING at 12:31Z — 'resolving 8th merge conflict in merge_slot'. EIGHT conflicts on one key is the R13 systemic cost: every armed branch must claim merge_slot, so N concurrent branches collide there."
+      "observation": "IDLE since 16:11Z, completed. #11370 has auto-merge armed and pytest-run still in progress at 16:30Z; it will land itself.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01U2ibSa4FNcuV6bSLaPb9GS",
@@ -3183,7 +3197,9 @@
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
       "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving.",
-      "observation": "RUNNING at 12:31Z but BLOCKED ON A STALE PREMISE: asks to 'resolve merge-slot conflict on claude/mgr-lanes-1152-20260908', a branch that MERGED as fc618147 at ~12:05Z. Needs a poke saying the blocker is gone."
+      "observation": "RUNNING at 16:25Z. Round 12 pushed (7668bdf6); #11384 awaiting merge, currently dirtied by the slot write above.",
+      "status": "working",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_012yX7SLyJiqAWG8oVxZSNoq",
@@ -3199,7 +3215,9 @@
       "state": "working",
       "state_observed_at": "2026-09-08T12:31:00Z",
       "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'guards running on supersede commit; holding push'. Its #11379 already merged; this is follow-on."
+      "observation": "IDLE since 15:30Z, completed. Verified #11404's landing:hold is correct; flagged a HOLD_REASONS vocabulary gap.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_011PHmZzVy92M6zjNopAMy51",
@@ -3214,7 +3232,9 @@
       "confirmed_at": "2026-09-08T12:19:31Z",
       "state_observed_at": "2026-09-08T14:24:00Z",
       "state_basis": "operator decision relayed 14:18Z; PR state read 14:16Z",
-      "observation": "OPERATOR APPROVED #11390 ('Approve now', 2026-09-08, from an explicit three-way choice with the tradeoff stated). #11389 merged bdccf226 and DEPLOYED (git_sha==on_disk==bdccf226, restart_pending false @14:08Z). #11390 is draft:true AND mergeable_state:dirty — it was stacked on #11389, so it needs a LINEAR rebase onto current main and to be marked ready; that is its own src/ branch and R2 forbids me committing there. Poked 14:18Z. ⚠️ Told it explicitly NOT to weaken the CADENCE-not-a-stop design under rebase pressure: the hourly re-probe keeps last_seen alive so sweep_vanished cannot manufacture a vanished_unattributed, and test_suppression_can_never_outlive_the_vanish_sweep must survive intact."
+      "observation": "IDLE since 14:49Z, BLOCKED on the manager: #11406 was green and clean and waiting on me. MERGED at 16:31Z as a5ba0073. This was a 1h42m stall R7 cannot see.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
@@ -3229,7 +3249,9 @@
       "confirmed_at": "2026-09-08T12:21:09Z",
       "state_observed_at": "2026-09-08T13:32:53Z",
       "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
-      "observation": "IDLE at 13:17:07Z with #11391 still RED on guards — a red PR is not a finished state, so this row is NOT 'done'. post_turn_summary read 'stop-type fix blocked by trailed-stop semantics; alpaca_live idle 8d (dry-run gates); digest-liveness-guard red on main'. The third blocker was never its own and I cleared it (#11377). ⚠️ THE 'alpaca_live idle 8d (dry-run gates)' LINE IS UNVERIFIED and is a DIFFERENT cause from the one-leg roster I relayed to the operator — a mechanism, not a roster problem — so it changes what MI-201 should propose. I did NOT relay it as fact. Poked 13:31Z to pin the gate, the config field, the read surface and the 8-day basis, or file it rather than let it die with the container."
+      "observation": "IDLE since 13:49Z (2h38m), review_ready on #11391, which is RED on guards over its own scripts/ path. Not merged.",
+      "status": "idle",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     },
     {
       "session_id": "session_016KUFTHGYyFDerbnXDSA6Wb",
@@ -3241,7 +3263,12 @@
         "claude/mi204-bybit1-eth-orphan"
       ],
       "why": "Operator-directed 2026-09-08: exchange-side orphan adopted on bybit_1 ETHUSDT; drive trade 5569 to reconciled or an explicit terminal with the reason written down",
-      "state": "working"
+      "state": "working",
+      "state_observed_at": "2026-09-08T15:28:00Z",
+      "state_basis": "merged PR commit messages on origin/main + /api/diag reads at 15:27Z",
+      "observation": "RUNNING at 16:26Z. Landed FOUR PRs today (#11409 #11410 #11411 #11414). Now verifying scope after MY merge_slot write re-dirtied #11384 — a direct cost of the manager's slot claim, recorded rather than glossed.",
+      "status": "working",
+      "last_observed_at": "2026-09-08T16:28:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
