@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T12:21:09Z",
+  "updated_at": "2026-09-08T12:31:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3116,9 +3116,10 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed three-lane structure, 2026-09-08. Absorbs the journal-vs-venue pipeline-health half per the operator's re-allocation.",
       "confirmed_at": "2026-09-08T08:19:02Z",
-      "state_observed_at": "2026-09-08T10:25:36Z",
-      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
-      "state_note": "FAILED 08:46Z: \"The model tool call could not be parsed (retry also failed)\". LANE 1 (the 38-day-overdue system review) IS DEAD and produced no PR. Respawn required - this is not a slow session, it is a stopped one."
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "state_note": "FAILED 08:46Z: \"The model tool call could not be parsed (retry also failed)\". LANE 1 (the 38-day-overdue system review) IS DEAD and produced no PR. Respawn required - this is not a slow session, it is a stopped one.",
+      "observation": "IDLE/FAILED, unchanged since 08:46Z (unparseable tool call). Superseded by MI-192b, whose #11379 MERGED as 2aaa5bba."
     },
     {
       "session_id": "session_012cVryifpv359yAWWVkrmnk",
@@ -3130,23 +3131,25 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed three-lane structure, 2026-09-08. Four unstudied failure classes measured in one day.",
       "confirmed_at": "2026-09-08T08:19:02Z",
-      "state_observed_at": "2026-09-08T10:25:36Z",
-      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
-      "state_note": "IDLE/disconnected since 08:49Z (1h36m). Awaiting CI on #11359, which ran while main was red. Needs a poke to re-arm."
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "state_note": "IDLE/disconnected since 08:49Z (1h36m). Awaiting CI on #11359, which ran while main was red. Needs a poke to re-arm.",
+      "observation": "IDLE at 12:31Z, review_ready — #11359 guards+pytest-collect+repo-inventory green, pytest-run STILL in_progress. NOT merged: a pending check is not a result."
     },
     {
       "session_id": "session_01W7CyS8ShLnZiNyUms3YYEp",
       "registry_key": "pending-20260908T081610Z-4",
-      "state": "working",
+      "state": "done",
       "title": "MI-194 — LANE 3 (engineering): resume the workflow build at Phase F",
       "owns_object": "WO-20260901-PHASE-F",
       "spawned_at": "2026-09-08T08:16:10Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed: resume the workflow setup paused for research. Phase F is the only unblocked phase and the only one touching the measured constraint.",
       "confirmed_at": "2026-09-08T08:19:02Z",
-      "state_observed_at": "2026-09-08T10:25:36Z",
-      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
-      "state_note": "WOKE FROM THE 09:51Z POKE - updated_at moved 09:14->10:15Z. #11360 MERGED to main (main head). #11358 CI running, auto-merge armed. 692k/1M ctx - near the handoff threshold."
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "state_note": "WOKE FROM THE 09:51Z POKE - updated_at moved 09:14->10:15Z. #11360 MERGED to main (main head). #11358 CI running, auto-merge armed. 692k/1M ctx - near the handoff threshold.",
+      "observation": "IDLE/COMPLETED at 12:31Z — reports #11358, #11360, #11385 merged and Phase F complete. It resumed after my 12:03Z poke carrying the operator's Phase A ruling, which was the blocker. ⚠️ 'complete' is its own claim; the three merges are not manager-verified."
     },
     {
       "session_id": "session_01Lozuti2jAX4kQ9RC4yTSPo",
@@ -3160,9 +3163,10 @@
       ],
       "note": "Operator answered DEC-20260907-TP-VALUE=apply, TP-VOCAB=accept_with_reader, TP-UNEXAMINED=rejected all options ('why don't we just examine them?'). Blocker is a missing candle substrate for QLD/TQQQ, not a property of the legs.",
       "state": "working",
-      "state_observed_at": "2026-09-08T10:25:36Z",
-      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
-      "state_note": "IDLE/connected, review_ready, PR #11370 open (repo-inventory green, guards+pytest running), 504k ctx. Alive."
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "state_note": "IDLE/connected, review_ready, PR #11370 open (repo-inventory green, guards+pytest running), 504k ctx. Alive.",
+      "observation": "RUNNING at 12:31Z — 'resolving 8th merge conflict in merge_slot'. EIGHT conflicts on one key is the R13 systemic cost: every armed branch must claim merge_slot, so N concurrent branches collide there."
     },
     {
       "session_id": "session_01U2ibSa4FNcuV6bSLaPb9GS",
@@ -3176,9 +3180,10 @@
       ],
       "note": "Operator decision 2026-09-08: carry the four missing source classes into the readout, THEN retire DUE.md - two changes, never one. Does NOT fix the readout 7.2% edge coverage and must not be reported as doing so.",
       "state": "working",
-      "state_observed_at": "2026-09-08T10:25:36Z",
-      "state_basis": "list_sessions(mine=true) read directly, not post_turn_summary",
-      "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving."
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving.",
+      "observation": "RUNNING at 12:31Z but BLOCKED ON A STALE PREMISE: asks to 'resolve merge-slot conflict on claude/mgr-lanes-1152-20260908', a branch that MERGED as fc618147 at ~12:05Z. Needs a poke saying the blocker is gone."
     },
     {
       "session_id": "session_012yX7SLyJiqAWG8oVxZSNoq",
@@ -3191,7 +3196,10 @@
         "claude/mi192b-system-review"
       ],
       "note": "RESPAWN of MI-192 (session_01AWw28Sfk7hNZASfMrssFLq), which FAILED 08:46Z on an unparseable tool call after 29 minutes and produced no PR. Lane 1 was dead for 1h40m before this tick observed it.",
-      "state": "working"
+      "state": "working",
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "observation": "RUNNING at 12:31Z — 'guards running on supersede commit; holding push'. Its #11379 already merged; this is follow-on."
     },
     {
       "session_id": "session_011PHmZzVy92M6zjNopAMy51",
@@ -3203,7 +3211,10 @@
       "spawned_at": "2026-09-08T12:18:46Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
-      "confirmed_at": "2026-09-08T12:19:31Z"
+      "confirmed_at": "2026-09-08T12:19:31Z",
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "observation": "RUNNING at 12:31Z — 'root cause found; confirming population'. Poked 12:29Z with the operator's approval to reset the paper account if needed."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
@@ -3215,7 +3226,10 @@
       "spawned_at": "2026-09-08T12:20:31Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
-      "confirmed_at": "2026-09-08T12:21:09Z"
+      "confirmed_at": "2026-09-08T12:21:09Z",
+      "state_observed_at": "2026-09-08T12:31:00Z",
+      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
+      "observation": "RUNNING at 12:31Z — 'mapping exit_reason→closeReason'. Poked 12:29Z with the operator's redirection: the 9 non-sl closes are now the primary question."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

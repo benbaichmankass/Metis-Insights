@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T12:27:00Z",
+  "updated_at": "2026-09-08T12:32:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2558,9 +2558,21 @@
       "blocked_on": [],
       "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
       "note": "OPERATOR DIRECTIVE 2026-09-08: 'even on 16 trades, we can't just chalk this up to chance — something isn't working, and we need to track it down.' MEASURED 12:16Z (population: every accountClass=real_money row on /api/bot/trades/closed?limit=200, n=15, all bybit_2): 0 wins, 13 losses, -43.12. ict_scalp_5m is 6 closes / -25.25 = 59% and is ALREADY OFF bybit_2 — verified against the LIVE config roster, not the YAML — leaving 9 closes / -17.86 on 4 legs, still zero wins. ⚠️ THE LEAD IS NOT WHICH LEG IS LOSING: only 6 of 15 closed on 'sl'; 4 on 'reconciler' and 5 on 'other', so NINE OF FIFTEEN WERE NOT A STRATEGY EXIT DECISION, two carry pnl NULL and three are 'estimated'. A book where 60% of exits are plumbing reports on its own machinery as much as its edge, which is what the cycle priority says to repair BEFORE acting on the verdict. Carries an ADDENDUM (poked 12:24Z) answering the operator's alpaca_live question: 1 leg, routed 2026-08-31, ONE signal since, rejected with NO recorded reason. ⚠️ insufficient_n is a legitimate verdict and must be reported, not dodged by widening the window. No Tier-3 enacted."
+    },
+    {
+      "id": "MI-201-ALPACA-LIVE-ROSTER-EXPANSION",
+      "title": "Wire more strategies to alpaca_live — propose the roster, operator decides (Tier-3)",
+      "owner": "unassigned",
+      "status": "ready",
+      "tier": "3 — real-money roster change; the PROPOSAL is Tier-1",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
+      "note": "OPERATOR DIRECTIVE 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'. MEASURED 12:22Z: alpaca_live is mode: live / real_money with a roster of ONE leg (tlt_pullback_1h, routed 2026-08-31 by #10633); since that routing it has signalled EXACTLY ONCE and that signal was rejected with no recorded reason. It is idle because almost nothing is assigned to it. ⚠️ THREE CONSTRAINTS BOUND THE CANDIDATE SET: it is a CASH account (~$200, multiplier 1) so T+1 settlement binds and ALPACA_CASH_SETTLEMENT_MODE is already armed apply/alpaca_live; Alpaca is in WHOLE_UNIT_QTY_EXCHANGES so a leg whose risk budget cannot buy ONE WHOLE SHARE can never place; and accounts.yaml states that adding a leg to this account IS the live-trading moment and is Tier-3 in its own right, with no second gate behind it. ⚠️ The candidate pool is real, not hypothetical — alpaca_paper runs 19 legs and alpaca_portfolio 14 on the same venue — so the question is which clear a real-money bar on a cash account, not which could be written. ⚠️ insufficient_n is a legitimate per-leg outcome and must be reported per leg: all 44 enabled live legs currently grade that way under MI-155's floor, so a proposal assuming gradeable paper evidence claims something this system does not have. NOTHING IS ENACTED FROM THIS ITEM — the roster edit is a separate Tier-3 act after the operator answers. NOT YET SPAWNED: sequenced behind MI-199 and MI-200, which are the operator's other two directives from the same message."
     }
   ],
-  "as_of": "2026-09-08T12:27:00Z",
+  "as_of": "2026-09-08T12:32:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T12:27:00Z"
+  "updated": "2026-09-08T12:32:00Z"
 }
