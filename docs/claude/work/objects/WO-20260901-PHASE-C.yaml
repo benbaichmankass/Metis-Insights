@@ -190,3 +190,86 @@ verdict: >-
   seen acting on it. Basis: MEASURED for every count above; DECIDED for the lifecycle
   and stage mappings. ⚠️ A deploy is not a verification, which is why this object is
   `waiting` and not `done`.
+
+proposed_respec_2026_09_08: >-
+  ⚠️ A PROPOSAL, NOT AN APPLIED CHANGE, and it covers ONLY the PRIORITY half. The
+  original criterion is preserved verbatim above and is not edited. The CEILING half is
+  NOT re-specified — it is sound, mechanically testable, and was re-verified today (see
+  `reverified_2026_09_08`); re-speccing a criterion that works would be the softening
+  the operator's ruling explicitly forbids.
+  THE DEFECT IN THE PRIORITY HALF is the same one Phase A carries: "a cold session
+  stating this cycle's priority and citing the CLAUDE.md brief" is unfalsifiable, and it
+  collapses "the priority does not reach sessions" with "a session knew it and had no
+  reason to say so".
+  ⚠️ BUT PHASE C HAS A BETTER INSTRUMENT THAN PHASE A, AND THE SUBSTITUTION IS ARGUED
+  RATHER THAN MADE QUIETLY so the operator can reject it. The manager proposed
+  (2026-09-08) that ENFORCEMENT is the stronger proof: `spawn_gate.grade_spawn` refuses a
+  spawn that displaces the cycle priority, naming the cycle and the intent, with NO
+  `--force` — the escape is an operator-approved `spawn-priority-exception.yaml` that is
+  visible and argued. On that reading the priority reaches the WORK through a mechanism,
+  with nobody reading anything, which is what the phase actually wants.
+  I AGREE THAT IT IS THE BETTER TARGET, AND IT DOES NOT WORK YET AS AN OBSERVATION.
+  MEASURED by reading `scripts/ops/session_registry.py::cmd_register`: on REFUSED it
+  prints to the terminal, states "NOTHING WAS WRITTEN and no spawn prompt was produced",
+  and returns 3. **A refusal leaves NO DURABLE TRACE.** So the three refusals the manager
+  cites from this morning exist only in that manager's session context — which is the
+  "a queue held in a session's head dies with that session" failure this repo has already
+  paid for, reproduced on the evidence rather than on the work. The exceptions ARE durable
+  (six objects recorded across four dated entries in spawn-priority-exception.yaml), so
+  the file records DISPLACEMENTS THAT WERE ALLOWED and cannot record REFUSALS THAT HELD.
+  ⚠️ THAT ASYMMETRY IS EXACTLY A MISSING DENOMINATOR: exceptions are countable, refusals
+  are not, so no rate can be formed and "the gate is binding" is unfalsifiable for the
+  same structural reason the testimony criterion was.
+  PROPOSED CRITERION — enforcement, with the record that makes it measurable:
+  (i) `spawn_gate` writes a durable refusal receipt (one append-only row per graded
+  spawn: timestamp, object, verdict, the cycle it was graded against). This is a small
+  build and it is the whole precondition.
+  POPULATION: every spawn graded in a stated window. k = REFUSED · j = PERMITTED ·
+  e = EXCEPTED, and k + j + e is the denominator by construction.
+  ⚠️ NEGATIVE BRANCH — what the criterion gains: over N >= 20 graded spawns, if k = 0
+  WHILE objects outside the cycle intent were in fact spawned, the gate is NOT binding
+  and Phase C's priority half closes **FAILED**, with the remedy being the gate rather
+  than more waiting. Equally, e >> k (every displacement excepted, nothing refused) is a
+  FAILED reading: an exception path that is never refused is a permanent
+  priority-suspension wearing an exception's clothes — which is the gate's own wording.
+  ⚠️ HARDER, NOT EASIER: the original discharged on one session's testimony; this needs a
+  receipt stream, an enumerated population, and it can return FAILED in two distinct ways.
+  ⚠️ N = 20 is CHOSEN, not derived. Stated rather than dressed up as measured.
+  ⚠️ WHAT THE SUBSTITUTION GIVES UP, so the operator can weigh it: enforcement proves the
+  priority binds on SPAWN DECISIONS. It does NOT prove a session READ the brief, which is
+  what the original clause said. If the operator wants the reading claim specifically,
+  this substitution does not deliver it and Phase A's rate is the instrument instead.
+  NEEDS AN OPERATOR DECISION: (1) accept the enforcement substitution for C's priority
+  half; (2) authorise the refusal receipt in `spawn_gate`, without which the substitution
+  cannot be measured at all. Neither is taken here.
+
+reverified_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp) RE-RAN THE CEILING CONTROL RATHER THAN
+  INHERITING IT, because "a previous session checked it" is not verification.
+  MEASURED against the live store (679 objects, 4 in flight) by copying the object
+  directory, flipping `dormant` rows to `in_flight` ONE AT A TIME and running
+  scripts/ci/check_wip_ceiling.py after each, then restoring every file (tree verified
+  clean afterwards): in_flight 5 → rc=0 verdict=ok · 6 → ok · 7 → ok · 8 → ok ·
+  **9 → rc=1 verdict=over_no_exception** · 10 → rc=1 over_no_exception.
+  So the ceiling admits the eighth and REFUSES THE NINTH, independently confirmed.
+  ⚠️ A CORRECTION TO THE 2026-09-08 DISPATCH, which told this session "WIP is 8 in
+  flight against a ceiling of 8" and that the refusal was therefore directly testable
+  by adding one. IT IS 4 IN FLIGHT, NOT 8 — `check_wip_ceiling.py` reads
+  `{done: 27, dormant: 620, in_flight: 4, ready: 13, waiting: 15}` over 679 objects.
+  Four slots are free, so nothing was at the ceiling and the test had to be
+  constructed rather than observed. Recording it because a session acting on the
+  dispatch figure would believe the store is at its cap and defer work that is
+  actually admissible.
+  ⚠️ THE PRIORITY HALF IS STILL NOT OBSERVED, and MI-194 CANNOT BE THE OBSERVATION:
+  its dispatch named the cycle priority to it directly, so it is contaminated exactly
+  as the edge's own note anticipated. Attempted retrospectively instead, per the
+  manager's explicit instruction not to manufacture the observation by pointing a
+  session at the brief. Population: the three other cold sessions spawned this morning
+  (MI-191, MI-192, MI-193), read through their board posts and PR bodies. NONE cites
+  the CLAUDE.md session brief as where it read the phase or the priority; MI-192
+  explicitly attributes its framing to "my dispatch brief" instead. A commit-message
+  probe over the last 300 commits on origin/main finds 32 mentioning "session brief"
+  and 15 mentioning CYCLE-PRIORITY (positive controls: "manager-lease" 54,
+  "OPEN-ITEMS" 114, so the probe finds positives) — but a mention is not a citation
+  by a cold session, and grading them apart needs reading, not counting. VERDICT:
+  **not yet observed**, which is a real result and not a failure of the phase.
