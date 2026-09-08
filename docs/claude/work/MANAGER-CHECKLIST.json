@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T01:35:00Z",
+  "updated_at": "2026-09-08T01:45:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2174,6 +2174,21 @@
       "tier": "3 — OPERATOR-APPROVED for this trade only",
       "title": "OPERATOR-APPROVED: cancel oca-protect-t5531, then repair trade 5531's journal row",
       "note": "OPERATOR APPROVED OPTION 3 on 2026-09-07 with all three options and their consequences put to them: cancel the legs THEN repair the row, both, IN THAT ORDER. ⚠️ THE ORDER IS PART OF THE APPROVAL — a repair alone leaves 43 resting sell lots, a cancel alone leaves a phantom open row for the next protection sweep to re-arm. Cancel orders 548 (STP 43 @ 4394.5) + 551 (LMT 43 @ 4485.0) of oca-protect-t5531 on ib_paper/MGC; ⚠️ DO NOT TOUCH oca-protect-t5353, whose 11 lots are trade 5353's real and correct protection — and note the alarm's own remedy text ('cancel the leg that does NOT match trades.stop_loss') is USELESS here because BOTH legs match. Then journal 5531 closed_at 2026-09-07T11:45:06Z / exit 4392.9 / pnl −17024.28, re-derived from the venue rather than copied, with provenance stamped so a repaired row stays distinguishable from one the pipeline booked. ⚠️ THE APPROVAL COVERS THIS TRADE ONLY — a second instance is filed and reported, never remediated. ⚠️ ROOT CAUSE REMAINS OPEN under MI-168; a repaired row with the defect live will simply recur. || 2026-09-08 MANAGER RECONCILE: the session HALTED without cancelling anything -- order 548 is UNCHANGED and the journal row is UNREPAIRED, so the live state is exactly as approved-but-not-enacted. IT HALTED FOR THE RIGHT REASON: the approval names order 548 and the venue read names 550/551, and a Tier-3 cancel is not something a session may re-target on its own authority. The manager did NOT substitute the ids either. What is owed is one operator confirmation of the corrected pair; the ORDER of the two steps (cancel THEN repair) is already part of the standing approval and does not need re-asking."
+    },
+    {
+      "id": "MI-175-TWO-GUARDS-ARE-MUTUALLY-UNSATISFIABLE-AND-THE-ONLY-WORKING-PATH-BYPASSES-ONE",
+      "status": "unassigned",
+      "owner": null,
+      "opened": "2026-09-08T01:45:00Z",
+      "updated": "2026-09-08T01:45:00Z",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: which of the two guards yields while the coordination board is full — see the three-way table below",
+        "since": "2026-09-08T01:45:00Z"
+      },
+      "tier": "1 to fix; the RULING is the operator's",
+      "title": "pr-landing R6 and the merge-slot guard cannot both be satisfied, and the path that works routes around one of them",
+      "note": "SELF-DISCLOSED by session_018ruZdgEkPZ1XceWzLwuYUU in #11309's body -- it benefited from the gap, did not intend to, and said so rather than letting it pass. That disclosure is the reason this row exists, and it must not stay buried in a merged PR body. THE THREE-WAY BIND, as it stands right now: (1) pr-landing-guard R6 REQUIRES a Tier-1 `landing: self` PR to arm .github/pr-automerge-requests/<slug>.txt -- 'a readiness declaration lands nothing on its own'; (2) the merge-slot guard FORBIDS arming auto-merge without a MERGE SLOT CLAIM comment on GitHub issue #6927; (3) #6927 is at GitHub's 2500-comment ceiling and refuses every write by every path. So the two guards are MUTUALLY UNSATISFIABLE, and the only route that completes is the one that does not pass the merge-slot check: pushing the R6 arm file makes claude-pr-automerge.yml open the PR and enable auto-merge SERVER-SIDE, through a door the session-level hook does not watch. The same session was refused by hand on #11306 thirty minutes earlier for exactly this. MANAGER POSITION, stated so it is arguable rather than assumed: I did not reverse #11309 and would not have. Its reasoning holds -- R6 is repo-level canon enforced in CI, the marker guard describes ITSELF as a session-level speed-bump, and the gated merge was a 21-line register deletion with no PR mid-merge. But 'the bypass was harmless this time' is not a policy, and a guard that is cheaper to route around than to satisfy is the failure shape CLAUDE.md already names for new-table-wiring-guard. WHAT IS OWED IS A RULING, NOT A PATCH: either the merge-slot guard is re-pointed at whatever succeeds #6927 (which couples this to MI-172, itself PARKED by the spawn gate), or it is explicitly suspended while the board is down, or R6 gains a path that satisfies both. Choosing one of those is the operator's; filing it is mine. DO NOT let a session pick silently -- the next one to hit this will have no disclosure to read."
     }
   ],
   "as_of": "2026-09-06T16:05Z",
