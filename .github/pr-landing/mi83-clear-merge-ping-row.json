@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: clears OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING because its own clears_when route (b) was OBSERVED on the live fleet, plus the generated CLAUDE.md session-brief block that renders from it. No src/, config/, deploy/, workflow or canonical prose outside the generated block."
+}

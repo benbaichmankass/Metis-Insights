@@ -28,3 +28,34 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+observation: >-
+  2026-09-08 (MI-83, session_018ruZdgEkPZ1XceWzLwuYUU). ⚠️ READ THIS BEFORE
+  CONCLUDING ANYTHING FROM THE CLEARED REGISTER ROW. OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING
+  was CLEARED today on its own route (b), and that does NOT close this object,
+  because this object's done_condition (1) is STRICTER and says so in terms:
+  'OBSERVED arriving -- not inferred from a log line saying dispatched'. What
+  was observed is precisely a log line. Do not read the cleared row as this
+  object being done. WHAT IS ESTABLISHED, measured on the live VM at
+  2026-09-08T01:32:43Z via /api/diag/journalctl?unit=ict-git-sync.service --
+  'notify_on_pull: merge-ping: 2 merge(s) in 5c1c50ae..2cc39223 -> #10895,
+  #11307' -- is that a real pull composed and ENQUEUED a correct per-merge ping
+  naming the merges by number, with /api/diag/version confirming
+  git_sha_on_disk 2cc39223 so the emitting code was on disk. One of the two
+  named merges is #10895 itself, i.e. the mechanism reported its own landing.
+  WHAT IS NOT ESTABLISHED is arrival on the operator's phone, which no repo
+  surface can read and which BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE
+  independently warns is not implied by a 'delivered' mark. So clause (1)
+  remains OWED and needs a human confirming what they received. ⚠️ CLAUSE (2)
+  IS SEPARATELY PARTIAL AND MUST NOT BE FOLDED IN: the VM systemd timer
+  (ict-work-digest.timer, OnCalendar=hourly) was live-verified firing on its
+  own clock -- a 07:01:46Z send with ZERO git-sync activity in that minute,
+  proving an OnCalendar firing rather than a pull-driven one, and the hour
+  latch held across 5 firings in 33 minutes producing 2 sends. That is 2
+  observed sends against a done_condition asking for at least 3 consecutive
+  declared slots, so (2) is short by measurement, not by argument. ⚠️ A
+  METHOD NOTE worth carrying: the first read of that journal returned ZERO
+  merge-ping lines and was NOT evidence of absence -- its window ended
+  01:27:19, before the 01:28:12 merge. A zero over a window that cannot
+  contain the event is the unasserted-denominator trap; the re-read used a
+  covering window and a positive control (139 lines mentioning Queued/ping).
