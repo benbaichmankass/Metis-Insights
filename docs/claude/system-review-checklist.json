@@ -97,7 +97,7 @@
     },
     "performance_review.insights_review": {
       "status": "done",
-      "evidence": "Live read: model_id template:v1, 7/7 checks green, cache_age 732s. Verified repo-wide that NOTHING guards the INSIGHTS_MODEL_MODE pin — that is the unmet clause 5 of BL-20260823-PROP-SCREENSHOT and why I did not close it."
+      "evidence": "Live read: model_id template:v1, 7/7 checks green, cache_age 732s. Verified repo-wide that NOTHING guards the INSIGHTS_MODEL_MODE pin — that is the unmet clause 5 of BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS and why I did not close it."
     },
     "performance_review.proposed_tweaks": {
       "status": "done",
@@ -149,7 +149,7 @@
     },
     "operator_ping": {
       "status": "done",
-      "evidence": "One consolidated ping dispatched via the send-ping system-action (issue #11374, priority high, target claude), carrying the roll-up grade and the SPA dashboard deep link. The three sub-review pings are suppressed — each sub-object records claude_channel_ping.delivered_via = 'suppressed (system-report)'. ⚠️ DELIVERY IS NOT CONFIRMED HERE: send-ping enqueues, and this repo's own record (BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE) is that a queued ping is not an observed arrival."
+      "evidence": "One consolidated ping dispatched via the send-ping system-action (issue #11374, priority high, target claude), carrying the roll-up grade and the SPA dashboard deep link. The three sub-review pings are suppressed — each sub-object records claude_channel_ping.delivered_via = 'suppressed (system-report)'. ⚠️ DELIVERY IS NOT CONFIRMED HERE: send-ping enqueues, and this repo's own record (BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE) is that a queued ping is not an observed arrival."
     }
   },
   "notes": [
