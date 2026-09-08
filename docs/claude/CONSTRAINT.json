@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-08T10:10:51+00:00",
+  "generated_at": "2026-09-08T10:41:09+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -750,7 +750,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=23.7h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=24.2h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 8,
@@ -850,7 +850,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-08T05:10:01+00:00, age 5.0h",
+        "note": "digest 2026-09-08T05:10:01+00:00, age 5.5h",
         "row_count": 11,
         "covered_elsewhere": null,
         "rows_shown": 8,

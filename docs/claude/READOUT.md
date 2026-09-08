@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-08T10:10:51+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-08T10:41:09+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -144,10 +144,10 @@ The two sources are kept **separate rather than merged** — one says *this work
 | `soaks` | `read` | 2 | 2 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=1 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=23.7h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
+| `probes` | `read` | 9 | freshness=fresh age=24.2h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
 | `red_crons` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
 | `unlanded_automation` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
-| `error_feed` | `read` | 11 | digest 2026-09-08T05:10:01+00:00, age 5.0h |
+| `error_feed` | `read` | 11 | digest 2026-09-08T05:10:01+00:00, age 5.5h |
 | `sunset` | `read` | 0 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
