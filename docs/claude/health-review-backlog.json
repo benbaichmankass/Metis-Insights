@@ -33947,7 +33947,7 @@
       "opened_at": "2026-09-08",
       "severity": "low",
       "tier": "1 (CI guard / tooling — a session may write this itself)",
-      "status": "open",
+      "status": "superseded",
       "area": "coordination",
       "title": "session-board.json merge_slot carried held_by TWICE on main and no guard reads the file at all",
       "observation": "Measured on origin/main at 1e1d3718f while resolving a merge conflict in MI-192b: docs/claude/session-board.json's merge_slot object contains the key held_by TWICE, with identical values (MI-196, session_01U2ibSa4FNcuV6bSLaPb9GS). It is valid-enough JSON that json.load() accepts it and silently keeps the LAST occurrence, so nothing failed and nothing warned. Population: the merge_slot object only; the rest of the file was not audited for duplicate keys, so this is a lower bound, not a count. The MI-192b merge resolution takes its own branch's side per R13 and therefore removes THIS instance as a side effect -- that is not a fix, because the writer is unchanged. No script writes merge_slot: it is hand-edited by each session, which is how a duplicate key gets in. Verified that nothing validates the file: check_board_coherence.py is about the GitHub coordination ISSUE and contains zero references to session-board.json (grep, 0 hits), and run_guards.py registers no session-board guard. So the ONLY reason this was seen is that it happened to land inside a conflict hunk that was being read line by line.",
@@ -33960,7 +33960,10 @@
         "scripts/ci/run_guards.py",
         "PR #11379 (MI-192b) merge resolution"
       ],
-      "found_by": "MI-192b /system-review (session_012yX7SLyJiqAWG8oVxZSNoq)"
+      "found_by": "MI-192b /system-review (session_012yX7SLyJiqAWG8oVxZSNoq)",
+      "superseded_by": "BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST",
+      "superseded_at": "2026-09-08",
+      "superseded_note": "DUPLICATE of the row named in superseded_by, which is STRICTLY BETTER and is the one to work. Both were filed within ~15 minutes on concurrent branches (this one from MI-192b resolving a merge conflict in #11379, the other from the manager re-laying a register branch onto 1e1d3718), so neither author could see the other and backlog_append's duplicate probe could not fire from either side -- it reads the file on the filing branch, and on each branch the other row did not exist yet. WHY THE OTHER ROW WINS, stated rather than waved at: it identifies the CAUSE (a surgical string replace in #11378 re-emitted the held_by line instead of replacing it, so branch/claimed_at updated while held_by was appended), and it identifies a sharper hazard this row MISSED -- because json.load keeps the LAST occurrence, a claim made FROM a different holder would have every reader see the new value and NO reader see that a prior claim was overwritten rather than released. That is a silent loss of the one mutual-exclusion primitive, which is why `medium` is correct and this row's `low` was wrong: this row argued severity from 'the tie-break is deterministic and both copies were identical today', which is true of the observed instance and not of the class. This row is retained rather than deleted because the two findings were reached INDEPENDENTLY by different routes, which is evidence the class is reachable from ordinary work and not a one-off. NOTHING here needs carrying across -- the other row already states the same structural fix (parse with object_pairs_hook so a duplicate RAISES), the same positive-control requirement, and adds an operator-decision clause this row lacked."
     },
     {
       "id": "BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED",
