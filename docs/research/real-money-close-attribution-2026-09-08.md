@@ -40,13 +40,15 @@ were read **2026-09-08 between 12:16Z and 12:30Z**.
    exit mid-bracket *by design*. Of the operator's own nine: two were the bracket
    firing, two were their own hand, two were reduce-leg bookkeeping, and **three
    closed mid-bracket unexplained, totalling −$4.83**. Not a systemic failure.
-6. **One label does state a price event that did not happen.** `sl_cross` asserts a
-   stop cross; 21 of 53 exited between the levels and **nine exited in PROFIT**, up
-   to +1.13R. Six are the retired `vwap` leg, two are still on real money. ⚠️ The
-   mechanism is **not established**, and the likeliest one is bigger than this
-   finding: if `trades.stop_loss` holds the *entry* stop while exits ran against a
-   *trailed* stop, every R computed from that column is wrong for every trailed
-   trade. That must be settled first.
+6. ⚠️ **WITHDRAWN — I had a sixth finding here and it was mine, not the system's.**
+   I reported nine `sl_cross` rows "exiting in profit, so the label states a price
+   event that did not happen". `trades.stop_loss` holds the **final trailed** stop
+   (`order_monitor._apply_update:1372`, and the API reference says so outright), so
+   a trade trailed above entry that genuinely stopped out reads as a positive return
+   measured against **entry** — which is what my R computed. **The label was
+   probably right and my basis was wrong.** Recorded rather than deleted; see the
+   correction banner before §3b. The canonical instrument for this question is
+   **`bracketOutcome`** on `/api/bot/performance`, which already existed.
 7. **`alpaca_live` is idle for a mechanical reason, not a market one.** Its one leg
    signalled **twice** since routing and both were refused `dry_run_no_order_placed`
    while every declared gate read `live`. Already filed; I eliminated two candidate
@@ -194,6 +196,57 @@ The structural half of that row — the flatten scripts still leave no marker �
 is untouched.
 
 ---
+
+> ## ⚠️ CORRECTION, 2026-09-08 — READ BEFORE §3b AND §5's `sl_cross` PARAGRAPH
+>
+> **I re-derived an instrument that already exists, and I built mine on the wrong
+> column.** `GET /api/bot/performance` has published a **`bracketOutcome`** block
+> since **2026-09-06 (MI-144)** that answers the operator's question directly —
+> *"are trades ending at their brackets?"* — from the recorded price rather than
+> the label (`src/runtime/bracket_outcome.py`). It is documented in
+> [`docs/reference/bot-api-reference.md`](../reference/bot-api-reference.md), which
+> I did not read until after writing §3b. That is the
+> `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` class, and the one-line existence
+> check would have prevented it.
+>
+> **The canonical instrument, read live 2026-09-08 (`?window=all`, real-money block):**
+>
+> | | |
+> |---|--:|
+> | gradeable | **421** |
+> | reached SL | **188** |
+> | reached TP | **41** |
+> | mid-bracket | **192** |
+> | `reachedRatio` | **0.5439** |
+> | `priceNotMeasurable` (refused) | 4 |
+>
+> **So 54.4% of real-money closes reached a declared bracket** — measured against
+> `order_packages.sl`/`.tp`, the **decision-time** bracket.
+>
+> ⚠️ **MY §3b GEOMETRY USED `trades.stop_loss`, WHICH IS THE *FINAL TRAILED* STOP,
+> NOT THE ENTRY STOP.** `order_monitor._apply_update` mirrors every confirmed
+> trailing amend onto that column (`src/runtime/order_monitor.py:1372`) — correctly,
+> because `/api/bot/positions` must show where the stop *is*. This is stated
+> outright in the API reference, and it is the exact contamination MI-144 fixed in
+> `expectancyR` on 2026-09-06. **Every R figure in §3b is therefore on a
+> contaminated basis for any trade that trailed, and `bracketOutcome` supersedes
+> it.** I have not deleted §3b — the mechanism attribution in it (which *path*
+> closed each row) is read from `exit_reason` and is unaffected; only the
+> **R/where-it-landed** columns are wrong.
+>
+> ⚠️ **AND §5's `sl_cross` FINDING IS PROBABLY NOT A FINDING.** I reported nine
+> `sl_cross` rows that "exited in profit, so the label states a price event that did
+> not happen", and flagged the trailed-stop explanation as a *hypothesis to settle
+> first*. **It is not a hypothesis — it is documented behaviour.** A trade whose
+> stop trailed above entry and then stopped out genuinely crossed its stop while
+> showing a positive return measured against **entry**, which is what my R computed.
+> The label is most likely correct and my basis was wrong. The backlog row is
+> reframed accordingly; I am recording the withdrawal rather than quietly deleting
+> the claim.
+>
+> **What survives unchanged:** §1 (the population), §2 (the two taxonomies
+> disagreeing on 174 of 447), §3 (mechanism attribution), §4 (the run arithmetic),
+> §6 (`insufficient_n`), §7 and §8. None of those depend on `trades.stop_loss`.
 
 ## 3b. The operator's sharpened question: "if we're not exiting on brackets, something is still not working"
 
