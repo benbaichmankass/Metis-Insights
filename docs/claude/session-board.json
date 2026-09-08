@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2035-20260908",
+  "branch": "claude/mgr-queue-operator-decisions-20260908",
   "pr": "(opened by hand; arming file lands second)",
-  "claimed_at": "2026-09-08T20:36:00Z",
-  "note": "Manager heartbeat 20:36:00Z. Records that #11450 answered MI-168's blocked ask and that #11347/#11355 are closed as superseded; corrects OI-20260907-BE-FLOOR-R-... whose own id and title assert its PR is 'a draft nobody can clear' when #11266 merged with draft=false (NOT cleared — its clause 2 is the operator's); files the board-declaration staleness row. Register writes only, no worker path."
+  "claimed_at": "2026-09-08T21:22:00Z",
+  "note": "Operator asked for the pending decisions as Telegram popups and reported none arriving. Measured cause: the inbox holds 12 requests and ALL 12 are committed, so the sweep correctly had nothing to send. Files three real decision requests so they can be delivered. Register writes only, no worker path."
  },
  "active_sessions": [
   {

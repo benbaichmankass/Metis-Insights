@@ -1,0 +1,1 @@
+Arm PR #11455 — manager heartbeat 21:06:34Z (tool-stamped) plus the corrected blocked-ask tally. Slot claimed on this branch's own committed session-board.json. Guards clean locally: manager-scope R2/R6/R7/R8 ok, backlog-refs OK.
