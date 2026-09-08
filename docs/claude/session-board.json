@@ -5,11 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "MI-196 (session_01U2ibSa4FNcuV6bSLaPb9GS)",
-  "held_by": "MI-196 (session_01U2ibSa4FNcuV6bSLaPb9GS)",
-  "branch": "claude/mi196-section5-complete",
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-lanes-1152-20260908",
   "pr": null,
-  "claimed_at": "2026-09-08T11:25:26Z"
+  "claimed_at": "2026-09-08T11:52:00Z"
  },
  "active_sessions": [
   {

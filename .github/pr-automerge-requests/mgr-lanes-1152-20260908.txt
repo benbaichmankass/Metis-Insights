@@ -1,0 +1,12 @@
+Manager register branch: lease heartbeat (11:51:54Z), supervision record, the
+operator's five recorded decisions and their routing, one repaired backlog
+reference, and a repair to the duplicate `held_by` key #11378 left in
+session-board.json's merge_slot. Tier-1, docs/claude/** and .github/pr-* only.
+
+SECOND re-lay. The 1132 branch was itself a re-lay off c3486810; #11378 then
+landed a merge_slot change and `git merge-tree --write-tree` returned EXIT 1 --
+a real conflict on docs/claude/session-board.json. A manager cannot resolve
+that by merging main in: check_manager_scope's merge_slot carve-out is checked
+against EVERY parent, so no merge commit can satisfy it. Re-laid linearly off
+1e1d3718 instead, with each carried file first ASSERTED unchanged on main since
+the old base so nothing is silently dropped from an append-only register.
