@@ -2258,14 +2258,14 @@
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
-      "status": "in_flight",
+      "status": "blocked",
       "owner": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:49:00Z",
-      "blocked_on": null,
+      "updated": "2026-09-08T07:16:00Z",
+      "blocked_on": "register merge conflict on its own branch",
       "tier": "3 — order path, operator-approved",
       "title": "Trade-scope the Alpaca close operation (and modify_protective)",
-      "note": "OPERATOR-APPROVED 2026-09-08 (Tier-3), the implementation of MI-173's proposal. FIRST STEP IS A QUESTION, NOT A PATCH: establish whether the Alpaca API supports a qty-scoped close at all. If it does not, say so and stop — the approval explicitly does not force it. Must cover modify_protective too (identical scope defect, different verb, filed nowhere). ⚠️ MI-140 IS HELD UNTIL THIS LANDS: alpaca_live is REAL MONEY and immune today only because it cannot place orders. ⚠️ Do NOT extend #11279's confirmation change to Alpaca."
+      "note": "APPROVED AND CANNOT MERGE. Operator accepted the section-3(b) confirmation-ordering argument, so the diff is cleared; the 405 is a conflict in two append-only registers only. Poked 07:12Z with the union rule. ⚠️ THE MANAGER MUST NOT RESOLVE THIS ITSELF — merging main in would put main's src/ changes in the merge commit's first-parent diff, which R2 grades as a manager touching a worker path. That is MI-184, and it already cost a force-push today."
     },
     {
       "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
@@ -2280,14 +2280,14 @@
     },
     {
       "id": "MI-182-COORDINATION-BOARD-SUCCESSOR",
-      "status": "in_flight",
+      "status": "landed_unproven",
       "owner": "session_01GtvQEQnfwzz9yRdPF6sPFg",
       "opened": "2026-09-08T04:16:00Z",
-      "updated": "2026-09-08T04:49:00Z",
+      "updated": "2026-09-08T07:16:00Z",
       "blocked_on": null,
       "tier": "1 — CI/coordination machinery",
       "title": "Coordination board is at GitHub's hard 2500-comment cap: stand up a successor and re-point its readers",
-      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted; this is NOT the trading-truth cycle's intent and is dispatched deliberately). Issue #6927 writes 403 and reads return a board PERMANENTLY FROZEN at 2026-09-07T11:28:17Z. ⚠️ A SUCCESSOR ISSUE ALONE IS HALF THE FIX: merge-claim-audit.yml fails silently on every merge, and scope-overlap-audit.yml reads the frozen board as INPUT and now certifies '0 from a live session' for every PR — an unasserted denominator that reads as 'no collision' when it means 'no session can post a claim'. Both must be re-pointed or the new board certifies against an empty universe too."
+      "note": "MERGED e0c26498 2026-09-08T07:13Z. Board #11336 is LIVE and #6927 retired — manager-verified by reading #11336 directly, not from the session's report. BOTH audits re-pointed, so the 'a successor issue alone is HALF' condition is met. ⚠️ `landed_unproven`: the heartbeat has NOT been observed firing, and the PR's own done-condition wants a real posted claim appearing in a scope-overlap verdict — which is only reachable AFTER merge, because scope-overlap-audit runs on pull_request_target and takes both workflow and script from the BASE branch. ⚠️ Its session is idle, blocked on a force-push question. THE ANSWER IS NO. Do not wake it; do not force-push its branch."
     },
     {
       "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
@@ -2369,6 +2369,28 @@
       "tier": "1",
       "title": "Land #11279 and #11312 (re-dispatch of MI-185)",
       "note": "Did the half only a worker could do: resolved #11279's conflict (branch fe57e8b4, 0 behind main) and armed CI on both. ⚠️ IT IS NOW IDLE at 06:50:45Z reporting 'merge armed on completion' — an IDLE session fires nothing, so THE MERGE DID NOT PASS TO IT and is the manager's. That is correct either way: both PRs declare `landing: hold` with no automerge file, and a merge is a MANAGEMENT act that R2 does not grade. Do not read 'merge armed' as a merge that will happen."
+    },
+    {
+      "id": "MI-188-EXIT-MECHANICS-TRAILING-AND-BANKING",
+      "status": "in_flight",
+      "owner": "session_01PQraBU1dSD52tRyjwcWb8M",
+      "opened": "2026-09-08T07:14:48Z",
+      "updated": "2026-09-08T07:16:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Exit mechanics: the trailing and banking half (measurement only)",
+      "note": "Operator-directed into free WIP capacity. MEASUREMENT ONLY — no exit-matrix cell may be re-graded (Tier-3, DECIDED), TP_VENUE_CAP_PCT must not change, ICT_SCALP_EXIT_HEAD_MODE must not be armed, and no parameter change may be proposed: findings are FILED. Spawned with the push probe first."
+    },
+    {
+      "id": "MI-189-PIPELINE-LANE-PASS-5",
+      "status": "in_flight",
+      "owner": "session_01JjJa5sRhrqQapwx25ebo6Q",
+      "opened": "2026-09-08T07:15:19Z",
+      "updated": "2026-09-08T07:16:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "Pipeline lane pass 5: the accounts MI-177 could not read",
+      "note": "Operator-directed. MI-177 read 8 of 11 accounts; three were never read, and 'unread' is not 'clean'. AUDIT ONLY — files findings, repairs nothing. Explicitly told NOT to re-arm the 56 naked TLT shares (deliberate operator hold) and not to cancel legs on an over-covered book."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",
