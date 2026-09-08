@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager housekeeping: the lease heartbeat plus the supervision observations R6 requires, both under docs/claude/work/**. No src/, tests/, scripts/, workflows, config, deploy, and nothing in CLAUDE.md."
+}
