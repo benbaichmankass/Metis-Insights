@@ -40,46 +40,28 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-08T07:06:00Z",
+  "as_of": "2026-09-08T07:16:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
-    {
-      "pr": 11334,
-      "opened_at": "2026-09-08T05:15:40Z",
-      "tier": 2,
-      "draft": true,
-      "state": "draft_needs_operator_read",
-      "title": "MI-182 — retire the capped coordination board, resolve it from one pointer, make a dead board detectable",
-      "owner_session": "session_01GtvQEQnfwzz9yRdPF6sPFg",
-      "checklist_item": "MI-182-COORDINATION-BOARD-SUCCESSOR",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The operator approved SPAWNING this (round 2, decision (h)). ⚠️ THE MANAGER'S OWN BRIEF WAS WRONG AND THE SESSION CORRECTED IT: the manager said scope-overlap-audit reports 0 and 'reads as no collision'. Measured false — check_scope_overlap.assess already refuses an empty START set as `could_not_check`, so a frozen board produced a LOUD YELLOW on every PR, not a false green. The real defect is narrower: that yellow is permanent and indistinguishable from a tooling gap (the desensitized-alarm P1). Do not restate the manager's framing. ⚠️ A successor issue alone is HALF — merge-claim-audit.yml AND scope-overlap-audit.yml must BOTH be re-pointed, and this PR does that plus board-post.yml.",
-        "scope": "Coordination/CI machinery only: .github/workflows/, scripts/ci/, scripts/ops/session_registry.py, .claude/, CLAUDE.md, docs/. No src/, config/, deploy/ or order path.",
-        "decided_on": "2026-09-08",
-        "text": "Round 2, decision (h): 'Spawn sessions for both the coordination-board cap (MI-182) and the R6/merge-slot conflict (MI-175/MI-183).'"
-      },
-      "note": "⚠️ STILL DRAFT and `landing: hold` (R12 — it edits board-post.yml and session_registry.py, both LANDING_MACHINERY). ⚠️ ITS OWN board-coherence CHECK FAILS UNTIL THE BOARD IS PROVISIONED, and that is the FORCING FUNCTION, not a bug: R2 refuses board_state `unprovisioned` on main so a half-finished rotation cannot merge. ⚠️ MEASURED CADENCE: #6927 took 2500 comments in 50.1 days = 49.9/day, so a fresh board fills in ~7 WEEKS. The answer is rotation, not a bigger board. ⚠️ HONEST LIMIT the session states itself: nothing watches the heartbeat watchdog. ⚠️ NOT VERIFIED BY THE MANAGER."
-    },
     {
       "pr": 11337,
       "opened_at": "2026-09-08T05:36:34Z",
       "tier": 3,
       "draft": false,
-      "state": "open_needs_operator_read",
+      "state": "approved_blocked_on_conflict",
       "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold)",
       "owner_session": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "checklist_item": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
       "operator_decision": {
         "verdict": "approved_with_conditions",
-        "condition": "Carried from #11312's approval, which is the decision that authorises this diff: the FIRST step was to establish whether Alpaca can express a qty-scoped close at all, and the fix must ALSO cover modify_protective. ⚠️ BOTH ARE NOW SATISFIED ON THE SESSION'S REPORT — DELETE /v2/positions/{symbol} documents a `qty` parameter, so the 'venue cannot express it' branch does not apply, and modify_protective is scoped in the same diff. ⚠️ MI-140 STAYS HELD until this lands. ⚠️ NOT VERIFIED BY THE MANAGER and NOT LIVE-VERIFIED BY ANYONE: no broker call was made, so `?qty=` acceptance against a real Alpaca position is documented, not observed.",
+        "condition": "Carried from #11312's approval, which is the decision that authorises this diff: the FIRST step was to establish whether Alpaca can express a qty-scoped close at all, and the fix must ALSO cover modify_protective. ⚠️ BOTH ARE NOW SATISFIED ON THE SESSION'S REPORT — DELETE /v2/positions/{symbol} documents a `qty` parameter, so the 'venue cannot express it' branch does not apply, and modify_protective is scoped in the same diff. ⚠️ MI-140 STAYS HELD until this lands. ⚠️ NOT VERIFIED BY THE MANAGER and NOT LIVE-VERIFIED BY ANYONE: no broker call was made, so `?qty=` acceptance against a real Alpaca position is documented, not observed. ⚠️ SECTION 3(b) IS NOW ANSWERED — the ordering argument is ACCEPTED (operator, 2026-09-08, asked as its own Tier-3 question). The reasoning: BL-20260707's hazard requires the confirmation to be loosened AHEAD of the operation; here it is loosened only for a path whose OPERATION was narrowed in the SAME commit, and the whole-symbol path keeps its strict flatness gate. ⚠️ THE LIMIT OF THAT APPROVAL: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered.",
         "scope": "The Alpaca close OPERATION (AlpacaClient.close / execute.close_open_position) and modify_protective. Does NOT extend #11279's confirmation change to Alpaca.",
         "decided_on": "2026-09-08",
         "text": "Operator answered 'trade-scope the Alpaca close' on #11312, then (round 3) 'build the scoped capability first rather than re-arming through the defective path' and 'fold the 5266 stop-rewrite into the same scoped-write fix'."
       },
       "note": "⚠️ THE OPEN QUESTION IS SECTION 3(b), AND IT IS THE THING TO READ BEFORE MERGING. The session narrowed the CONFIRMATION for the new partial path only, arguing the ordering is the safety property: the measurement is loosened only for a path whose OPERATION was narrowed in the same commit, and the pre-existing whole-symbol gate is untouched. Its own body says 'if you disagree with the ordering argument, this is the line to push on.' That is a Tier-3 order-path judgement and it is the operator's. ⚠️ `landing: hold`, needs a merge click; it is NOT waiting on the approval to be re-sought.",
-      "blocker": "Awaiting an operator read of the section-3(b) confirmation-ordering argument."
+      "blocker": "MERGE CONFLICT — the manager attempted the merge at 07:11Z and got 405. Conflicts are ONLY docs/claude/health-review-backlog.json and docs/claude/work/OPEN-PRS.json, both append-only registers. ⚠️ THE MANAGER DID NOT RESOLVE IT, DELIBERATELY: merging main into the branch puts main's src/ changes (#11279) into the merge commit's FIRST-PARENT diff, which is exactly what R2 grades and exactly the violation that cost a force-push earlier today (MI-184). MI-180 was poked at 07:12Z with the union rule."
     },
     {
       "pr": 11344,
@@ -1790,10 +1772,32 @@
       "merged_at": "2026-09-08T07:05:00Z",
       "merge_sha": "07f5ea5081e2b1b5870f69012948ec16d49dec0f",
       "terminal_basis": "squash 07f5ea50, the merge call's own return"
+    },
+    {
+      "pr": 11334,
+      "opened_at": "2026-09-08T05:15:40Z",
+      "tier": 2,
+      "draft": true,
+      "state": "merged",
+      "title": "MI-182 — retire the capped coordination board, resolve it from one pointer, make a dead board detectable",
+      "owner_session": "session_01GtvQEQnfwzz9yRdPF6sPFg",
+      "checklist_item": "MI-182-COORDINATION-BOARD-SUCCESSOR",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The operator approved SPAWNING this (round 2, decision (h)). ⚠️ THE MANAGER'S OWN BRIEF WAS WRONG AND THE SESSION CORRECTED IT: the manager said scope-overlap-audit reports 0 and 'reads as no collision'. Measured false — check_scope_overlap.assess already refuses an empty START set as `could_not_check`, so a frozen board produced a LOUD YELLOW on every PR, not a false green. The real defect is narrower: that yellow is permanent and indistinguishable from a tooling gap (the desensitized-alarm P1). Do not restate the manager's framing. ⚠️ A successor issue alone is HALF — merge-claim-audit.yml AND scope-overlap-audit.yml must BOTH be re-pointed, and this PR does that plus board-post.yml.",
+        "scope": "Coordination/CI machinery only: .github/workflows/, scripts/ci/, scripts/ops/session_registry.py, .claude/, CLAUDE.md, docs/. No src/, config/, deploy/ or order path.",
+        "decided_on": "2026-09-08",
+        "text": "Asked directly 2026-09-08 and answered 'provision the successor now'. The alternatives offered were reading it first, or accepting a capped board with no rotation; the operator chose to provision."
+      },
+      "note": "⚠️ STILL DRAFT and `landing: hold` (R12 — it edits board-post.yml and session_registry.py, both LANDING_MACHINERY). ⚠️ ITS OWN board-coherence CHECK FAILS UNTIL THE BOARD IS PROVISIONED, and that is the FORCING FUNCTION, not a bug: R2 refuses board_state `unprovisioned` on main so a half-finished rotation cannot merge. ⚠️ MEASURED CADENCE: #6927 took 2500 comments in 50.1 days = 49.9/day, so a fresh board fills in ~7 WEEKS. The answer is rotation, not a bigger board. ⚠️ HONEST LIMIT the session states itself: nothing watches the heartbeat watchdog. ⚠️ NOT VERIFIED BY THE MANAGER. MERGED 2026-09-08T07:13Z by the manager, who un-drafted it first. ⚠️ MANAGER-VERIFIED BEFORE MERGING, not taken on the session's word: board #11336 read live — correctly bodied, labelled claude-coordination, naming #6927 as retired-for-reading. Zero conflict markers against main. ⚠️ THE SESSION IS STILL IDLE-BLOCKED ON A QUESTION THAT IS NOW MOOT: it asked whether to `git push --force-with-lease` to re-author its commits. THE ANSWER IS NO — force-push is a standing prohibition and the re-authorship was cosmetic. It was NOT woken: the work is merged, so waking it would spend a container to answer a question that no longer has an object.",
+      "terminal": "merged",
+      "merged_at": "2026-09-08T07:13:00Z",
+      "merge_sha": "e0c264981b09dad97f08ac735f9af2f216c6b414",
+      "terminal_basis": "squash e0c26498, the merge call's own return"
     }
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
   "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
-  "updated_at": "2026-09-08T07:06:00Z",
+  "updated_at": "2026-09-08T07:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
