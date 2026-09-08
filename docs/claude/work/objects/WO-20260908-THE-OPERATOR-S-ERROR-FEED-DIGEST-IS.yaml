@@ -1,0 +1,30 @@
+id: WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The operator's error-feed digest is silently frozen: the generator strips the doc-status header a required guard demands
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The generator emits the header R3 requires, a test pins it by MUTATION (removing the header makes the test fail), and a regenerated digest PR is OBSERVED going green and landing. Fix the GENERATOR, never the guard — weakening R3 would trade a frozen digest for an unregistered one.
+
+why: >-
+  scripts/ops/error_feed_digest.py writes docs/claude/ERROR-FEED-DIGEST.md WITHOUT the doc-status header that check_document_index.py R3 requires. main's committed copy HAS the header; every regenerated copy does not. So every digest PR the workflow opens is RED on a required check while the WORKFLOW ITSELF REPORTS SUCCESS — the digest is frozen and nothing says so. Filed as BL-20260908-ERROR-FEED-DIGEST-GENERATOR-STRIPS-THE-DOC-STATUS-HEADER-SO-EVERY-DIGEST-PR-IS-RED.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
