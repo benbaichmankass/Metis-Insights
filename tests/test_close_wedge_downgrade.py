@@ -529,3 +529,131 @@ def test_an_ordinary_cancel_refusal_still_pages():
         route, _t, _r, _sh = route_close_failure(
             account="alpaca_paper", symbol="GLD", side="long", error=err)
         assert route == "page", msg
+
+
+# --------------------------------------------------------------------------
+# MI-199 HALF 2: DO NOT RE-ATTEMPT A CLOSE WE HAVE PROVED CANNOT WORK.
+#
+# The assertions are mostly NEGATIVE, for the same reason the routing ones are:
+# the dangerous outcome is not that suppression fails to fire, it is that it
+# fires for something it was never meant to cover, or that it makes the wedge
+# invisible. A close suppressed forever would freeze `last_seen` and therefore
+# MANUFACTURE a `vanished_unattributed` for a position that never moved --
+# silence reached by ceasing to look.
+# --------------------------------------------------------------------------
+
+NOW = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.timezone.utc)
+
+
+def _entry(share_hold=cw.UNCLEARABLE_HOLD_STATE, minutes_ago=5.0):
+    return {"share_hold": share_hold,
+            "last_seen": (NOW - dt.timedelta(minutes=minutes_ago)).isoformat()}
+
+
+def test_only_the_evidenced_determination_buys_a_skip():
+    assert cw.decide_close_retry(_entry(), "read", NOW).attempt is False
+
+
+@pytest.mark.parametrize("share_hold", [
+    "orders_still_resting", "no_residual_orders", "residual_unreadable",
+    SHARE_HOLD_NOT_CLASSIFIED, "", None,
+])
+def test_every_other_reading_still_attempts_every_tick(share_hold):
+    """THE CONTROL. A close failing for a reason nobody has established must be
+    retried exactly as it is today -- including `residual_unreadable`, which is
+    'we did not look' and must never buy the silence of 'it cannot be fixed'."""
+    d = cw.decide_close_retry(_entry(share_hold, 0.1), "read", NOW)
+    assert d.attempt is True
+    assert d.state == "no_wedge"
+
+
+def test_repetition_alone_never_buys_a_skip():
+    """A wedge that has stood for a MONTH still probes on its cadence.
+
+    Suppression keys on the EVIDENCE, never on how long or how often the close
+    has failed -- the same narrowness as the paging downgrade.
+    """
+    d = cw.decide_close_retry(_entry(minutes_ago=60 * 24 * 30), "read", NOW)
+    assert d.attempt is True and d.state == "reprobe_due"
+
+
+@pytest.mark.parametrize("read_state", ["unreadable", "absent", "", "weird"])
+def test_an_unreadable_ledger_attempts_and_says_so(read_state):
+    """`ledger_unreadable` is NOT `no_wedge`: both attempt, but a reader must be
+    able to tell a fail-safe attempt from a confident one."""
+    d = cw.decide_close_retry(_entry(), read_state, NOW)
+    assert d.attempt is True
+    assert d.state == "ledger_unreadable"
+    assert d.state != "no_wedge"
+
+
+def test_an_unparseable_last_seen_probes_rather_than_skips():
+    d = cw.decide_close_retry(
+        {"share_hold": cw.UNCLEARABLE_HOLD_STATE, "last_seen": "not-a-time"},
+        "read", NOW)
+    assert d.attempt is True and d.state == "reprobe_due"
+
+
+def test_the_cadence_boundary(monkeypatch):
+    monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", "60")
+    assert cw.decide_close_retry(_entry(minutes_ago=59.9), "read", NOW).attempt is False
+    assert cw.decide_close_retry(_entry(minutes_ago=60.0), "read", NOW).attempt is True
+
+
+def test_zero_is_the_sanctioned_rollback(monkeypatch):
+    """One env flip restores the pre-MI-199 behaviour byte-for-byte."""
+    monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", "0")
+    d = cw.decide_close_retry(_entry(), "read", NOW)
+    assert d.attempt is True and d.state == "disabled"
+
+
+def test_an_unparseable_cadence_falls_back_to_the_default_not_to_zero(monkeypatch):
+    """A typo must not silently restore ~2,500 futile order-path round trips a
+    day, and must not silently switch the re-probe off either."""
+    for bad in ("", "  ", "sixty", "abc", "None"):
+        monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", bad)
+        assert cw.reprobe_minutes() == cw._DEFAULT_REPROBE_MINUTES, bad
+        assert cw.decide_close_retry(_entry(minutes_ago=5), "read", NOW).attempt is False
+
+
+def test_suppression_can_never_outlive_the_vanish_sweep():
+    """THE STRUCTURAL GUARD, and the reason this is a cadence and not a stop.
+
+    `sweep_vanished` declares a wedge gone once `last_seen` is older than
+    CLOSE_WEDGE_VANISH_AFTER_HOURS. If the re-probe cadence could exceed that
+    window, suppression would stop refreshing `last_seen` in time and the sweep
+    would report `vanished_unattributed` for a position that never went
+    anywhere -- a false resolution produced BY the fix.
+    """
+    assert cw._DEFAULT_REPROBE_MINUTES < cw._DEFAULT_VANISH_AFTER_HOURS * 60
+
+
+def test_close_retry_decision_reads_a_real_ledger(tmp_path, monkeypatch):
+    ledger = tmp_path / "standing.json"
+    monkeypatch.setattr(cw, "STANDING_LOG", ledger)
+    # No file at all -> we could not look -> ATTEMPT.
+    assert cw.close_retry_decision("alpaca_paper", "GLD", "long", NOW).attempt
+
+    state, detail = classify_share_hold(GLD_RESIDUAL)
+    cw.observe(Observation("alpaca_paper", "GLD", "long", state, detail))
+    d = cw.close_retry_decision("alpaca_paper", "GLD", "long", NOW)
+    assert d.attempt is False and d.state == "suppressed"
+    # A DIFFERENT position on the same account is untouched.
+    assert cw.close_retry_decision("alpaca_paper", "QQQ", "long", NOW).attempt
+    # Same symbol, other side, is a different wedge identity.
+    assert cw.close_retry_decision("alpaca_paper", "GLD", "short", NOW).attempt
+
+
+def test_close_retry_decision_never_raises(monkeypatch):
+    monkeypatch.setattr(cw, "_load", lambda *a, **k: 1 / 0)
+    d = cw.close_retry_decision("a", "b", "long", NOW)
+    assert d.attempt is True and d.state == "ledger_unreadable"
+
+
+def test_monitor_adapter_defaults_to_attempting(monkeypatch):
+    from src.runtime import order_monitor as om
+    monkeypatch.setattr(cw, "close_retry_decision",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    d = om._close_retry_decision_for(
+        {"account_id": "alpaca_paper", "symbol": "GLD", "direction": "long"})
+    assert d.attempt is True
