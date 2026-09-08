@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T05:05:00Z",
+  "updated_at": "2026-09-08T05:14:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2314,9 +2314,20 @@
       "tier": "1 — CI guard vs manager duty",
       "title": "#11312 is approved and cannot be merged: R2 fails the manager's conflict-resolution merge commit",
       "note": "MEASURED 2026-09-08T05:02Z. #11312 (MI-173, operator-approved Tier-3) is green and approved and CANNOT BE LANDED BY THE MANAGER. GitHub refuses the merge (register conflict in health-review-backlog.json, both sides appended rows). The merge driver resolves it correctly — verified independently, 1287 = the exact union — but the resulting merge commit FAILS check_manager_scope R2 on docs/DOCUMENT-INDEX.md, a file the manager AUTHORED NOTHING IN: `git show --cc` lists only the backlog, because a combined diff shows what a merge actually RESOLVED, while R2 reads the FIRST-PARENT diff and so attributes everything main changed since the branch point to the manager. ⚠️ I PUSHED THE BAD COMMIT BEFORE CHECKING — the guard ran in the same command chain as the push — then force-pushed the branch back to its author's commit 525c48a7, removing my own commit and restoring the branch exactly as its author left it. Force-pushing someone else's branch is normally forbidden; this was removing MY commit from an idle session's branch, and leaving it would have made the PR permanently unmergeable, which is the harm the rule exists to prevent. ⚠️ NO manager-scope-exception WAS FILED, deliberately: that file is for a live incident, and using it for a routine register conflict is exactly the 'cheaper to lie to than to satisfy' bypass the repo already names. ⚠️ THE GUARD'S VERDICT DEPENDS ON UNRELATED TRAFFIC: the identical merge on #11315 forty minutes earlier PASSED, because main happened not to have touched a non-manager path in that window. So this will keep appearing and disappearing. FILED as BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT. MI-183 already owns the neighbouring R6/merge-slot conflict and is live; this is a THIRD guard interaction and is deliberately NOT folded into it."
+    },
+    {
+      "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
+      "status": "in_flight",
+      "owner": "session_015iukpShDdwvP5CM79Qtt3B",
+      "opened": "2026-09-08T05:12:00Z",
+      "updated": "2026-09-08T05:13:00Z",
+      "blocked_on": null,
+      "tier": "1 — mechanical merge, routed off the manager",
+      "title": "Land #11279 and #11312 — both operator-approved, both un-mergeable BY THE MANAGER",
+      "note": "MEASURED 2026-09-08T05:10Z. Both PRs are approved and green. GitHub refuses each with 'Pull Request has merge conflicts'; the conflicts are register appends the merge driver resolves. The blocker is MI-184: since both branch points, main has carried in src/runtime/order_monitor.py (from #11315's merge) plus docs/reference/bot-api-reference.md and docs/claude/OPEN-ITEMS.json, so the merge commit's FIRST-PARENT diff contains worker paths and check_manager_scope R2 fails it — even though `git show --cc` would list only the registers the merge actually resolved. Verified by probing BOTH branches: identical base 7269fc5a, identical out-of-surface set. ROUTED TO A SESSION rather than bypassed, which is what the guard's own message instructs. No manager-scope-exception was filed: that file is for a live incident, and using it for a routine merge is the 'cheaper to lie to than to satisfy' bypass the repo names. ⚠️ THE CONDITIONS MUST TRAVEL WITH THE MERGE. Both verdicts are approved_with_conditions and the condition is the half a successor loses first — #11279 is the IB close path ONLY and must not be extended to Alpaca; #11312 lands MEASUREMENT AND A PROPOSAL ONLY and MI-140 stays HELD. Both are typed in docs/claude/work/OPEN-PRS.json and must be copied into the merge commit messages."
     }
   ],
-  "as_of": "2026-09-08T05:05:00Z",
+  "as_of": "2026-09-08T05:14:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08T05:05:00Z"
+  "updated": "2026-09-08T05:14:00Z"
 }

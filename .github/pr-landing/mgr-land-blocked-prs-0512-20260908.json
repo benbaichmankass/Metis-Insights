@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One work object, one checklist row, one confirmed registry row — routing two blocked PRs to a session. docs/claude/work/** only; management surface. No src/, tests/, scripts/, workflows, config or deploy."
+}
