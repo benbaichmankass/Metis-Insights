@@ -480,7 +480,15 @@ def test_close_open_position_ib_wrong_client_type_not_ok():
 
 
 def test_close_open_position_routes_alpaca():
-    """Alpaca cfg → AlpacaClient.close(symbol) (native flatten)."""
+    """Alpaca cfg → AlpacaClient.close(symbol, qty) (native liquidation).
+
+    The qty is FORWARDED, not dropped. It used to read
+    ``close.assert_called_once_with("SPY")`` — pinning the defect MI-173
+    measured, where the per-trade quantity was validated by
+    ``close_open_position`` and then never passed to the venue, so closing one
+    journal row liquidated every share of the symbol
+    (WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND).
+    """
     from src.units.accounts.alpaca_client import AlpacaClient
 
     alp_client = MagicMock(spec=AlpacaClient)
@@ -489,7 +497,7 @@ def test_close_open_position_routes_alpaca():
 
     res = close_open_position(alp_client, cfg, symbol="SPY", side="long", qty=5)
 
-    alp_client.close.assert_called_once_with("SPY")
+    alp_client.close.assert_called_once_with("SPY", 5)
     assert res["ok"] is True
 
 

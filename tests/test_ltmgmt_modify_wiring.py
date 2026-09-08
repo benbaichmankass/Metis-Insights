@@ -422,7 +422,14 @@ def test_modify_open_order_routes_alpaca():
 
     res = modify_open_order(alp_client, cfg, symbol="SPY", sl=495.0)
 
-    alp_client.modify_protective.assert_called_once_with("SPY", sl=495.0, tp=None)
+    # `qty` is forwarded so the PATCH lands on the NAMED TRADE's protective
+    # legs rather than on every leg resting on the symbol — the same
+    # symbol-vs-trade defect the close carried, on a different verb (MI-173,
+    # WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND). It is None here
+    # because this caller passes no qty; the monitor's modify path passes the
+    # leg row's `position_size`.
+    alp_client.modify_protective.assert_called_once_with(
+        "SPY", sl=495.0, tp=None, qty=None)
     assert res["ok"] is True
 
 

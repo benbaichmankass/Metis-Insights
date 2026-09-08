@@ -4,13 +4,17 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Trade-scope the Alpaca close operation (and modify_protective)
 stage: CAPABILITY
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01GYsNAhP6SpKe1vyn2tBc94
 opened_at: 2026-09-08
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  Re-read when the PR that carries this work is merged or rejected. ⚠️ MERGING
+  IS NOT THE DONE CONDITION and must not be read as one: the done condition
+  below asks for a test that fails on today's code (satisfied — see
+  `evidence`), and the OBSERVATION half is separate and is NOT owed by this
+  object, because the only account that could produce it is paper and the
+  precondition is a live multi-row symbol.
 done_condition: >-
   EITHER the Alpaca close and modify_protective act on the named trade's quantity rather than the whole symbol, verified by a test that fails on today's code; OR it is established from the Alpaca API that a qty-scoped close cannot be expressed, and THAT is recorded as the finding with the consequence stated. The approval explicitly does not force the change if the venue cannot support it.
 
@@ -20,11 +24,43 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: operator_decision
+    ref: "MI-173 operator question 3 — strict vs reduction for the follow-on close confirmation (#11312)"
+    since: 2026-09-08
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-08 by the owning session, from the code and from the Alpaca
+  API reference. Exactly ONE edge, and it is a real one: the trade-scoped close
+  path had to choose a confirmation semantics, because a partial close can
+  never satisfy the existing "the symbol must disappear" gate. It confirms on a
+  REDUCTION. That is a defensible reading of the operator's 2026-09-07 steer
+  ("confirm on the TRADE'S OWN QUANTITY DELTA"), but question 3 was put and has
+  not been answered, so the choice is DECLARED on the PR rather than presented
+  as settled. ⚠️ The edge does NOT block the operation change itself, which is
+  approved and complete. ⚠️ And the MI-140 coupling is deliberately NOT written
+  as an edge here: MI-140 is HELD UNTIL THIS LANDS, so the dependency runs the
+  other way, and recording it backwards would make the constraint computation
+  read a deadlock that does not exist.
+
+evidence: >-
+  CAPABILITY QUESTION ANSWERED FIRST, which was the proposal's own first step:
+  a qty-scoped close CAN be expressed at the venue. `DELETE
+  /v2/positions/{symbol_or_asset_id}` documents a `qty` query parameter — "the
+  number of shares to liquidate. Can accept up to 9 decimal points. Cannot work
+  with percentage" — read from the Alpaca API reference on 2026-09-08. So the
+  second branch of the done condition (record that it cannot be expressed) does
+  NOT apply, and the operator's approval holds.
+  TEST POPULATION, measured by running the new file against `main`'s src
+  verbatim (stashed), 14 tests: 12 failed, 2 passed. TEN of those failures are
+  BEHAVIOURAL and are the repair. TWO fail only with `TypeError:
+  AlpacaClient.close() takes 2 positional arguments but 3 were given` — they
+  pin that the whole-symbol path did NOT change, so by construction they cannot
+  demonstrate a change, and they are not counted as evidence. The remaining TWO
+  pass on both trees and are the only true either-way controls. The split is
+  restated in the test module's own docstring.
+  NOT ESTABLISHED, stated rather than filled in: live acceptance of `?qty=`
+  against a real Alpaca position. No broker call was made from this session.
+  Also not established: whether any over-close has ever actually fired — that
+  was MI-171's measurement and was not reproduced here.
 
 captured_by: scripts/ops/capture_idea.py

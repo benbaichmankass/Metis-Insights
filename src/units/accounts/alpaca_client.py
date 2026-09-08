@@ -209,6 +209,50 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+#: Float tolerance for comparing a journal quantity against a venue quantity.
+#: Alpaca reports share counts as decimal strings and accepts up to 9 decimal
+#: places, so an exact ``==`` on the round-trip is not safe.
+_QTY_EPS = 1e-9
+
+
+def _qty_param(value: float) -> str:
+    """Render a share count for Alpaca's ``qty`` query parameter.
+
+    ``DELETE /v2/positions/{symbol}`` documents ``qty`` as *"the number of
+    shares to liquidate. Can accept up to 9 decimal points. Cannot work with
+    percentage"* — so 9 dp is the venue's own precision, and trailing zeros are
+    stripped so a whole-share close reads ``16`` rather than ``16.000000000``.
+    """
+    text = f"{float(value):.9f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+class _CloseScope(NamedTuple):
+    """How wide a close should reach — resolved ONCE, before anything destructive.
+
+    ``partial`` is the whole point: it is ``True`` only when the caller named a
+    quantity that is genuinely SMALLER than the live position, i.e. only when
+    other shares on the symbol belong to somebody else. Every other case
+    (no quantity given, an unreadable quantity, or a trade that IS the whole
+    position) resolves ``partial=False`` and takes the pre-existing
+    whole-symbol path byte-for-byte unchanged.
+
+    ``envelope`` is a short-circuit answer: when it is not ``None`` the caller
+    must return it and do nothing else. It carries the two states where
+    proceeding would be wrong rather than merely unhelpful — a position
+    confirmed flat (idempotent ``retCode 0``) and a position we could not read
+    at all (``retCode 2``, a defer). ⚠️ The second one matters: a trade-scoped
+    close that cannot establish the live size must NOT fall back to the
+    whole-symbol flatten, because "we did not look" is exactly the state in
+    which liquidating everything is most likely to take a sibling out.
+    """
+
+    partial: bool
+    qty: float
+    live_qty: float
+    envelope: Optional[Dict[str, Any]]
+
+
 class MissingCredentialsError(RuntimeError):
     """Raised when an action requires the Alpaca key pair.
 
@@ -735,7 +779,173 @@ class AlpacaClient:
                 return last
             time.sleep(0.4)
 
-    def _close_extended_hours(self, symbol: str) -> Dict[str, Any]:
+    # -------------------------------------------------- trade-scoped close
+    def _resolve_close_scope(
+        self, sym: str, qty: Optional[float],
+    ) -> _CloseScope:
+        """Decide whether *qty* names a PART of the symbol's position.
+
+        One live position read, taken BEFORE any cancel or DELETE, so the
+        destructive steps below know whether they are allowed to touch shares
+        that are not the caller's. See :class:`_CloseScope` for the states.
+
+        ``qty is None`` is the legacy, unscoped call and is answered
+        ``partial=False`` without a read at all — so a caller that never
+        learned to pass a quantity gets exactly the behaviour it got before.
+        """
+        if qty is None:
+            return _CloseScope(False, 0.0, 0.0, None)
+        try:
+            want = abs(float(qty))
+        except (TypeError, ValueError):
+            want = 0.0
+        if want <= 0:
+            # Not a usable scope. `close_open_position` already refuses qty<=0
+            # upstream; treat it here as "unscoped" rather than inventing one.
+            return _CloseScope(False, 0.0, 0.0, None)
+
+        pos = self._position_raw(sym)
+        if pos is None:
+            # `_position_raw` collapses 404 and read-failure; `position_present`
+            # is the three-valued discriminator that tells them apart.
+            if self.position_present(sym) is False:
+                return _CloseScope(False, want, 0.0, {
+                    "retCode": 0, "result": {"note": "no open position"}})
+            return _CloseScope(False, want, 0.0, {"retCode": 2, "retMsg": (
+                f"alpaca close: position size for {sym} unreadable — a "
+                f"trade-scoped close of {_qty_param(want)} is DEFERRED rather "
+                "than falling back to a whole-symbol flatten (that fallback is "
+                "how one trade's close takes a sibling's position with it)")})
+        try:
+            live_qty = abs(float(pos.get("qty") or 0))
+        except (TypeError, ValueError):
+            live_qty = 0.0
+        if live_qty <= 0:
+            return _CloseScope(False, want, 0.0, {
+                "retCode": 0, "result": {"note": "no open position"}})
+        if want >= live_qty - _QTY_EPS:
+            # This trade IS the whole position (the overwhelmingly common
+            # case, and every single-row symbol). Whole-symbol flatten, with
+            # its existing cancel-settle / qty_available / strict flat-confirm
+            # machinery untouched.
+            return _CloseScope(False, want, live_qty, None)
+        return _CloseScope(True, want, live_qty, None)
+
+    def _close_partial(self, sym: str, want: float, live_qty: float) -> Dict[str, Any]:
+        """Reduce *sym* by *want* shares, leaving the rest of the position alone.
+
+        Reached ONLY when :meth:`_resolve_close_scope` established that ``want``
+        is strictly smaller than the live position — i.e. only when the shares
+        we are NOT closing belong to another open journal row on the same
+        symbol. Two deliberate differences from the whole-symbol path above:
+
+        **1. The venue does the scoping, not us.** ``DELETE
+        /v2/positions/{symbol}?qty=N`` is Alpaca's own partial liquidation;
+        ``qty`` is documented on that endpoint (up to 9 dp, mutually exclusive
+        with ``percentage``). We do not synthesise an opposing order.
+
+        **2. NOTHING IS PRE-CANCELLED.** The whole-symbol path cancels every
+        resting order on the symbol first, to free ``held_for_orders`` shares.
+        On this path that same call would cancel the SIBLING trade's stop and
+        take-profit — stripping its protection before a flatten that may then
+        fail, which leaves it naked. So this path issues the reduction against
+        whatever is available and, if the venue refuses for want of free
+        shares, REPORTS that (naming what is holding them) instead of
+        cancelling its way through. A loud failure here is correct: the
+        alternative is a silent over-close.
+
+        ⚠️ The confirmation is a REDUCTION check, not a flat check, and it
+        applies to this path only. The whole-symbol path keeps its strict
+        "the symbol must disappear" gate exactly as
+        BL-20260707-ALPACA-CLOSE-NOT-CONFIRMED-FLAT left it. That ordering is
+        the safety property: the confirmation is loosened only for a path whose
+        OPERATION was narrowed in the same change, never ahead of it.
+        """
+        qty_s = _qty_param(want)
+        env = self._request("DELETE", f"/v2/positions/{sym}?qty={qty_s}")
+        if env.get("retCode") == 404:
+            return {"retCode": 0, "result": {"note": "no open position"}}
+        if env.get("retCode") != 0:
+            msg = str(env.get("retMsg") or "").lower()
+            if "insufficient qty" in msg or "available: 0" in msg:
+                residual = self._open_orders_for_symbol(sym)
+                hold_state, hold_detail = classify_share_hold(residual)
+                logger.warning(
+                    "alpaca trade-scoped close %s qty=%s refused for want of "
+                    "available shares (position=%s); share_hold=%s (%s); "
+                    "residual open orders=%s. NOT escalating to a symbol-wide "
+                    "cancel: the resting legs may protect another open trade "
+                    "on this symbol.",
+                    sym, qty_s, live_qty, hold_state, hold_detail, residual,
+                )
+                return {"retCode": env.get("retCode", 1), "retMsg": (
+                    f"{env.get('retMsg')} "
+                    f"{format_share_hold_marker(hold_state, hold_detail)} "
+                    f"(trade-scoped close of {qty_s} of {live_qty}; resting "
+                    "orders left ARMED because they may belong to a sibling "
+                    "trade on this symbol)")}
+            return env
+
+        # Confirm the REDUCTION landed. Alpaca returning 2xx for the DELETE
+        # means the reduce order was ACCEPTED, not filled — the same lesson
+        # BL-20260707 taught the whole-symbol path, asked of a delta.
+        confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
+        if confirm_s > 0:
+            expect_max = live_qty - want
+            deadline = time.monotonic() + confirm_s
+            last_qty: Optional[float] = None
+            reduced = False
+            while True:
+                positions = self.positions()
+                # A read failure (None) is NOT treated as reduced — same rule
+                # the flat-confirm follows.
+                if positions is not None:
+                    match = next(
+                        (p for p in positions if p.get("symbol") == sym), None
+                    )
+                    if match is None:
+                        # The symbol went flat entirely. That is at least the
+                        # reduction we asked for, so the gate is satisfied —
+                        # but it is ALSO the over-close this change exists to
+                        # prevent, so say so rather than logging a clean pass.
+                        logger.warning(
+                            "alpaca trade-scoped close %s: asked for %s of %s "
+                            "and the symbol went FLAT — the reduction is "
+                            "satisfied but more left the book than this trade "
+                            "owned; any sibling row on this symbol now has no "
+                            "position behind it.", sym, qty_s, live_qty,
+                        )
+                        reduced = True
+                        break
+                    try:
+                        last_qty = abs(float(match.get("qty") or 0))
+                    except (TypeError, ValueError):
+                        last_qty = None
+                    if last_qty is not None and last_qty <= expect_max + _QTY_EPS:
+                        reduced = True
+                        break
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.5)
+            if not reduced:
+                return {"retCode": 1, "retMsg": (
+                    f"alpaca trade-scoped close not confirmed reduced: "
+                    f"symbol={sym} qty_before={live_qty} requested={qty_s} "
+                    f"expected<={expect_max} last_qty={last_qty} after "
+                    f"~{confirm_s}s — the reduction was accepted but the "
+                    "position has not come down; leaving DB row open to retry "
+                    "next tick")}
+
+        result = env.get("result") or {}
+        return {"retCode": 0, "result": {
+            "orderId": str(result.get("id") or ""),
+            "closed_qty": qty_s,
+            "scope": "trade",
+        }}
+
+    def _close_extended_hours(
+        self, symbol: str, qty: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Exit an equity position during EXTENDED hours (pre/after-market).
 
         A plain market order is rejected outside regular hours, so exit via a
@@ -747,8 +957,34 @@ class AlpacaClient:
         not a failure) so the monitor leaves the DB row open and re-attempts next
         tick without raising the "won't flatten" alarm. Part of
         BL-20260716-ALPACA-MARKET-HOURS-EXIT.
+
+        ⚠️ **A TRADE-SCOPED exit is DEFERRED on this path, not attempted.**
+        When *qty* names less than the live position — the only case where
+        another open row holds the remaining shares — this returns ``retCode
+        2`` and places nothing. That is a deliberate narrowing, and the reason
+        is that neither half of this path can be made trade-safe here: the
+        marketable limit is preceded by a symbol-wide cancel that would strip
+        the sibling's bracket, and dropping that cancel would instead stack a
+        fresh duplicate close-limit on every monitor tick, because a resting
+        extended-hours limit of our own is indistinguishable from a protective
+        take-profit leg on the side we are closing. Deferring keeps the
+        sibling's protection ARMED and costs the exit one session — the same
+        posture the ``closed`` branch already takes, and strictly better than
+        liquidating shares this trade does not own. The regular-hours path
+        below DOES scope, so this is a session-shaped gap, not a permanent one.
         """
         sym = str(symbol).upper()
+        scope = self._resolve_close_scope(sym, qty)
+        if scope.envelope is not None:
+            return scope.envelope
+        if scope.partial:
+            return {"retCode": 2, "retMsg": (
+                f"extended-hours: trade-scoped exit of {_qty_param(scope.qty)} "
+                f"of {scope.live_qty} on {sym} DEFERRED to the regular session "
+                "— the extended-hours limit path cannot close part of a symbol "
+                "without either cancelling a sibling trade's protection or "
+                "stacking duplicate close-limits (protective bracket left "
+                "armed; nothing placed)")}
         pos = self._position_raw(sym)
         if pos is None:
             # 404/flat closes cleanly; an unreadable position defers (never a
@@ -856,11 +1092,40 @@ class AlpacaClient:
         return {"retCode": 2, "retMsg": (
             "extended-hours limit close working — not yet filled, exit deferred")}
 
-    def close(self, symbol: str) -> Dict[str, Any]:
-        """Close the full position on *symbol*; retCode envelope.
+    def close(
+        self, symbol: str, qty: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Close *qty* of the position on *symbol* (all of it when *qty* is None).
 
         A 404 (no open position) maps to retCode 0 — idempotent close,
         matching the reconciler's expectations.
+
+        **TRADE SCOPE (MI-173 / WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-
+        OPERATION-AND).** *qty* is the NAMED TRADE's quantity, forwarded from
+        ``execute.close_open_position``, which in turn gets it from the journal
+        row (``trades.position_size``). Before this parameter existed the whole
+        chain carried that number and this signature dropped it on the floor:
+        closing a 16-share row on a symbol the account was short 72 of issued
+        ``DELETE /v2/positions/{sym}`` and liquidated all 72, leaving the
+        sibling's journal row ``open`` with nothing behind it.
+
+        Alpaca CAN express the scoped operation — ``DELETE
+        /v2/positions/{symbol}`` documents a ``qty`` query parameter ("the
+        number of shares to liquidate. Can accept up to 9 decimal points.
+        Cannot work with percentage"). Establishing that was the precondition
+        for this change; had the venue not supported it, the finding would have
+        been the deliverable instead.
+
+        Which path runs is decided by :meth:`_resolve_close_scope` from ONE
+        live position read, taken before anything destructive:
+
+        * *qty* omitted, or *qty* >= the live position → **whole-symbol
+          flatten**, everything below, byte-for-byte as it was. This is every
+          single-row symbol, i.e. almost every close.
+        * *qty* < the live position → :meth:`_close_partial`, which reduces by
+          *qty*, cancels NOTHING, and confirms on the reduction.
+        * the position cannot be read → **deferred** (``retCode 2``), never
+          downgraded to a whole-symbol flatten.
 
         Cancels resting orders on the symbol FIRST (e.g. the entry
         bracket's still-open SL/TP legs) before the flatten DELETE —
@@ -915,8 +1180,20 @@ class AlpacaClient:
         if _session == "extended":
             # Pre/after-hours: market orders are rejected; exit via a marketable
             # LIMIT with extended_hours=true instead.
-            return self._close_extended_hours(sym)
-        # else: regular trading hours → the standard market flatten below.
+            return self._close_extended_hours(sym, qty)
+        # else: regular trading hours → scope the close, THEN flatten.
+
+        # Resolve how wide this close may reach BEFORE the pre-cancel below,
+        # which is itself destructive: it cancels every resting order on the
+        # symbol, so on a multi-row symbol it strips a sibling trade's stop and
+        # take-profit before the flatten is even attempted. A partial close
+        # must never reach it.
+        scope = self._resolve_close_scope(sym, qty)
+        if scope.envelope is not None:
+            return scope.envelope
+        if scope.partial:
+            return self._close_partial(sym, scope.qty, scope.live_qty)
+
         n_cancelled = self._cancel_open_orders_for_symbol(symbol)
 
         # Alpaca order cancels are ASYNCHRONOUS — `DELETE /v2/orders/{id}`
@@ -1103,13 +1380,62 @@ class AlpacaClient:
                 out.append(leg)
         return [o for o in out if str(o.get("symbol") or "").upper() == sym]
 
+    @staticmethod
+    def _leg_qty(order: Dict[str, Any]) -> Optional[float]:
+        """A resting order's share count, or ``None`` when it cannot be read.
+
+        ``None`` is deliberately NOT 0: an unreadable quantity must not compare
+        equal to anything, or a leg whose size we could not establish would be
+        matched to a trade by accident.
+        """
+        for field in ("qty", "quantity"):
+            raw = order.get(field)
+            if raw in (None, ""):
+                continue
+            try:
+                return abs(float(raw))
+            except (TypeError, ValueError):
+                return None
+        return None
+
     def modify_protective(
         self,
         symbol: str,
         sl: Optional[float] = None,
         tp: Optional[float] = None,
+        qty: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Replace the resting SL/TP legs of the open bracket on *symbol*.
+
+        **TRADE SCOPE (the second verb carrying the same defect as
+        :meth:`close`).** *qty* is the NAMED TRADE's quantity. Without it this
+        method PATCHes every stop leg and every limit leg resting on the
+        symbol, so amending one trade's stop rewrites its sibling's stop too —
+        the same symbol-vs-trade confusion as the close, on a different verb,
+        and one that silently moves protection a different strategy chose.
+
+        With *qty* given, only legs whose own share count matches it are
+        touched, and the two ways that can go wrong are answered rather than
+        guessed at:
+
+        * **no leg matches** → ``retCode 1``, naming the quantities that DO
+          rest. It does not fall back to patching everything; the fallback is
+          the defect. Refusing leaves the existing stop where it is, which is
+          a conservative failure — the alternative moves a stop that belongs to
+          another trade.
+        * **more than one leg on the same SIDE matches** → ``retCode 1``,
+          naming the ambiguity. Two open rows of identical size cannot be told
+          apart from the symbol's order book, because Alpaca leg ids are never
+          captured at entry for this venue (``execute.execute_pkg`` only
+          records ``sl_order_id``/``tp_order_id`` for Bybit partial-tpsl), so
+          there is no per-trade handle to disambiguate with. Saying so is the
+          honest answer; picking one is a coin flip on somebody's protection.
+
+        ⚠️ Matching on quantity is an IDENTIFICATION HEURISTIC, not an
+        identity. It is sound whenever the open rows on a symbol differ in
+        size, and it refuses rather than mis-attributes when they do not. A
+        true fix needs entry-time leg-id capture for Alpaca, which is a
+        separate change on the entry path and is not made here.
 
         S2 of the live-trade management contract (BL-20260616-LTMGMT-MODIFY).
         Alpaca bracket legs are independent working orders, so a SL/TP modify
@@ -1130,6 +1456,55 @@ class AlpacaClient:
         legs = self._open_orders_for_symbol(symbol)
         if legs is None:
             return {"retCode": -1, "retMsg": "could not read open orders"}
+
+        sym = str(symbol).upper()
+        if qty is None:
+            if len(legs) > 2:
+                # More legs than one bracket has ⇒ more than one trade's
+                # protection is resting here, and an unscoped PATCH is about to
+                # move all of it. Say so; the caller that should have passed a
+                # quantity is `execute.modify_open_order`, which has one.
+                logger.warning(
+                    "alpaca modify_protective(%s): called with NO qty while %d "
+                    "protective legs rest — this patch is SYMBOL-scoped and "
+                    "may move a sibling trade's stop/target.", sym, len(legs),
+                )
+        else:
+            try:
+                want = abs(float(qty))
+            except (TypeError, ValueError):
+                want = 0.0
+            if want > 0:
+                scoped = [
+                    o for o in legs
+                    if (lq := self._leg_qty(o)) is not None
+                    and abs(lq - want) <= _QTY_EPS
+                ]
+                if not scoped:
+                    resting = sorted({
+                        q for o in legs
+                        if (q := self._leg_qty(o)) is not None
+                    })
+                    return {"retCode": 1, "retMsg": (
+                        f"no protective leg of qty={_qty_param(want)} rests on "
+                        f"{sym} (resting leg quantities: {resting or 'none'}) "
+                        "— refusing to patch, because the legs that DO rest "
+                        "may protect another open trade on this symbol")}
+                n_stop = sum(
+                    1 for o in scoped
+                    if "stop" in str(o.get("type") or o.get("order_type") or "").lower()
+                )
+                n_limit = len(scoped) - n_stop
+                if (sl is not None and n_stop > 1) or (tp is not None and n_limit > 1):
+                    return {"retCode": 1, "retMsg": (
+                        f"ambiguous protective legs on {sym}: "
+                        f"{n_stop} stop / {n_limit} limit leg(s) all carry "
+                        f"qty={_qty_param(want)}, so the named trade's own leg "
+                        "cannot be identified (Alpaca leg ids are not captured "
+                        "at entry) — refusing rather than moving a stop that "
+                        "may belong to a sibling trade")}
+                legs = scoped
+
         patched: list = []
         errors: list = []
         for o in legs:
