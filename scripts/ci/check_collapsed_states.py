@@ -944,14 +944,23 @@ CONTRACTS: List[Dict[str, object]] = [
                            r"\bclassify_share_hold\b|\bparse_share_hold\b|"
                            r"\bUNCLEARABLE_HOLD_STATE\b"),
         "states": ["residual_unreadable", "no_residual_orders",
-                   "broker_cancel_wedged", "orders_still_resting"],
+                   "broker_cancel_wedged", "cancel_accepted_ineffective",
+                   "orders_still_resting"],
         "why": (
             "WILL RETRYING HELP? Both Alpaca close paths produce a "
             "BYTE-IDENTICAL failure for a transient cancel race and for an order "
             "wedged in `pending_cancel` forever — same retMsg ('insufficient qty "
             "available'), same ERROR, same 'won't flatten' page, every tick, "
-            "indefinitely. The four states are the answer, and as of 2026-09-02 "
-            "one of them BUYS SILENCE: `broker_cancel_wedged` is the sole "
+            "indefinitely. The five states are the answer, and as of 2026-09-02 "
+            "TWO of them BUY SILENCE. `broker_cancel_wedged` was the first; "
+            "`cancel_accepted_ineffective` (2026-09-08, operator-approved "
+            "Tier-2) is the second, and it is a SEPARATE state on MEASURED "
+            "grounds rather than a widening of the first: Alpaca returns a "
+            "2xx for a cancel it does not perform, and over 2026-09-04 -> "
+            "2026-09-08 (n=122 GLD close_failure rows) 63 PAGES carried "
+            "`orders_still_resting` against 57 digest + 2 pages on "
+            "`broker_cancel_wedged`, so the first determination provably "
+            "cannot reach them. Each is the "
             "trigger that downgrades a close-failure page out of the paging "
             "channel into the daily digest (src/runtime/close_wedge_standing.py, "
             "operator decision on OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-"
