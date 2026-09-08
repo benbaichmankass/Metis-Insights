@@ -190,3 +190,57 @@ The relay opened it as `github-actions[bot]`, so GitHub's recursion prevention
 fired no workflows and `get_check_runs` read `total_count: 0` — **blocked, not
 green**, exactly as `pr-opener.yml`'s header documents. This commit is the
 ordinary push that arms CI.
+
+## Addendum — the `ib_paper` venue read went unreadable at 05:05Z, and this is a worse signature than MI-177 measured
+
+The final confirming read for this session **could not be taken**. Stated as
+*we could not look*, never as agreement.
+
+**What happened.** Reads at 04:47:38Z–04:51:00Z were healthy and consistent:
+`ib_open_orders` `read_state: orders_read` ×3, `exchange_positions` populated
+with `error: null` ×2. From **05:05:11Z** both IB endpoints degraded together
+and stayed there:
+
+| endpoint | attempts | result |
+|---|---|---|
+| `exchange_positions?account_id=ib_paper` | **6** | `positions: null`, `count: null`, `error: null` — all six |
+| `ib_open_orders?account_id=ib_paper` | **2** | `read_state: could_not_look` — both |
+
+**It is not a general outage, and that is the point.** Measured in the same
+minutes, same session:
+
+* `/api/diag/version` → **200**, serving.
+* `exchange_positions?account_id=bybit_1` → **read fine**, 3 positions with live
+  unrealised PnL. So the route works and the executor is not globally stuck.
+* `/api/diag/ib_state` → clients **497** and **9779** `connected: true`,
+  `account_data_ready: true`, `breaker_open: false`, `likely_wedged: false`,
+  `consecutive_failures: 0`, last OK 1.1s and 11.1s prior. (Client 498 shows
+  `disconnected` with `last_ok_age 46.6s`.)
+
+**So the null is not explained by a disconnected, breakered or wedged IB
+client** — the clients say they are healthy while the account read returns
+nothing. `error: null` alongside `positions: null` means the failure carries no
+reason at all: a collapsed state of exactly the kind this repo keeps filing
+(`BL-20260826-OPEN-TRADES-COLLAPSES-A-READ-FAILURE-INTO-AN-EMPTY-BOOK`).
+
+**Why it is worse than what MI-177 recorded.** MI-177 measured *1 failure in
+~8* reads, on the **fleet-wide** call, and explicitly found the **per-account**
+path succeeding three times in a row seconds later — which is why its
+recommendation was to read per-account. Here the **per-account path itself
+failed 6/6 and 2/2**, on both endpoints, while another account on the same
+route succeeded. That is a different signature, and the per-account remedy
+MI-177 proposes does not cover it.
+
+`/api/diag/version` also reports `restart_pending: true` (`git_sha 17377a9d`
+serving, `92d9f127` on disk). **Not offered as the cause** — the correlation was
+not tested and no attempt was made to establish one.
+
+**What this does and does not change.** It changes nothing about the abort: the
+evidence above was gathered while reads were confirmed healthy, and **no action
+was taken, so nothing depends on the current read**. What it does mean is that
+the done-condition's *"fresh per-account read shows journal-open matching the
+venue"* branch **cannot be exercised by anyone right now** — a further reason
+this object completes on its ABORT branch rather than its resolution branch.
+
+Worth its own object; not filed from here, because filing one is a write this
+session did not establish it should make on a Tier-3 object it does not own.
