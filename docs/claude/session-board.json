@@ -5,11 +5,11 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "session_016KUFTHGYyFDerbnXDSA6Wb",
-  "branch": "claude/mi204-realmoney-reach-and-pairs-asymmetry",
-  "pr": 11414,
-  "claimed_at": "2026-09-08T15:42:00Z",
-  "displaced": "moved from my own claude/mi204-orphan-reattach-misattribution, whose PR #11411 MERGED at 15:33:00Z with BOTH commits intact — the arming sequence held this time. Fourth slot write by this session for one unit, each spent by the merge it claimed; filed as BL-20260908-CLAUDE-PR-AUTOMERGE-OPENS-A-PR-WITH-NO-CI-AND-ARMS-A-RACE-THAT-DROPS-COMMITS-FOUR-SESSIONS-IN-ONE-DAY."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "automation/work-digest-34235343785-1",
+  "pr": 11403,
+  "claimed_at": "2026-09-08T16:00:00Z",
+  "displaced": "the previous holder session_016KUFTHGYyFDerbnXDSA6Wb / claude/mi204-realmoney-reach-and-pairs-asymmetry SPENT its claim \u2014 PR #11414 merged at 15:45:08Z as 8d75bcd1, so the slot is free and this is not a seizure. Manager taking it to land the 14:10:17Z work-digest receipt: main's receipt is 11:20:56Z and check_digest_liveness reds EVERY PR in the repo at 6h (~17:20Z), so a backed-up queue would block its own clearance."
  },
  "active_sessions": [
   {
