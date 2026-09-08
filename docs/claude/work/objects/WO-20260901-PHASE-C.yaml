@@ -190,3 +190,34 @@ verdict: >-
   seen acting on it. Basis: MEASURED for every count above; DECIDED for the lifecycle
   and stage mappings. ⚠️ A deploy is not a verification, which is why this object is
   `waiting` and not `done`.
+
+reverified_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp) RE-RAN THE CEILING CONTROL RATHER THAN
+  INHERITING IT, because "a previous session checked it" is not verification.
+  MEASURED against the live store (679 objects, 4 in flight) by copying the object
+  directory, flipping `dormant` rows to `in_flight` ONE AT A TIME and running
+  scripts/ci/check_wip_ceiling.py after each, then restoring every file (tree verified
+  clean afterwards): in_flight 5 → rc=0 verdict=ok · 6 → ok · 7 → ok · 8 → ok ·
+  **9 → rc=1 verdict=over_no_exception** · 10 → rc=1 over_no_exception.
+  So the ceiling admits the eighth and REFUSES THE NINTH, independently confirmed.
+  ⚠️ A CORRECTION TO THE 2026-09-08 DISPATCH, which told this session "WIP is 8 in
+  flight against a ceiling of 8" and that the refusal was therefore directly testable
+  by adding one. IT IS 4 IN FLIGHT, NOT 8 — `check_wip_ceiling.py` reads
+  `{done: 27, dormant: 620, in_flight: 4, ready: 13, waiting: 15}` over 679 objects.
+  Four slots are free, so nothing was at the ceiling and the test had to be
+  constructed rather than observed. Recording it because a session acting on the
+  dispatch figure would believe the store is at its cap and defer work that is
+  actually admissible.
+  ⚠️ THE PRIORITY HALF IS STILL NOT OBSERVED, and MI-194 CANNOT BE THE OBSERVATION:
+  its dispatch named the cycle priority to it directly, so it is contaminated exactly
+  as the edge's own note anticipated. Attempted retrospectively instead, per the
+  manager's explicit instruction not to manufacture the observation by pointing a
+  session at the brief. Population: the three other cold sessions spawned this morning
+  (MI-191, MI-192, MI-193), read through their board posts and PR bodies. NONE cites
+  the CLAUDE.md session brief as where it read the phase or the priority; MI-192
+  explicitly attributes its framing to "my dispatch brief" instead. A commit-message
+  probe over the last 300 commits on origin/main finds 32 mentioning "session brief"
+  and 15 mentioning CYCLE-PRIORITY (positive controls: "manager-lease" 54,
+  "OPEN-ITEMS" 114, so the probe finds positives) — but a mention is not a citation
+  by a cold session, and grading them apart needs reading, not counting. VERDICT:
+  **not yet observed**, which is a real result and not a failure of the phase.

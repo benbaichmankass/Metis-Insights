@@ -65,6 +65,41 @@ carried_out_of_scope:
       that can never fire. Health Check Routine also holds an unused stored OAuth token from
       2026-05-10, retired with it.
 
+attempted_2026_09_08: >-
+  MI-194 (session_01W7CyS8ShLnZiNyUms3YYEp) ATTEMPTED THIS OBSERVATION AND COULD NOT
+  MAKE IT. Recorded because "not yet observed" is a real result, and leaving the
+  attempt unrecorded would let the next session believe nobody has tried.
+  ⚠️ MI-194 IS DISQUALIFIED AS THE OBSERVER, by this edge's own terms — it says
+  "neither is this session reporting on its own work", and MI-194 owns Phase F and was
+  told about the brief and the cycle priority directly in its dispatch. Self-certifying
+  here would be worthless.
+  ⚠️ AND THE OBSERVATION WAS NOT MANUFACTURED. Pointing another live session at
+  CLAUDE.md and asking it to cite the brief produces a session that was POINTED, which
+  is precisely what this edge excludes. The manager's 2026-09-08 instruction said so in
+  terms, and it is right. So the attempt was RETROSPECTIVE: look for a session that had
+  ALREADY read the brief unprompted, from evidence it left behind.
+  POPULATION: the three other cold sessions spawned this morning (MI-191, MI-192,
+  MI-193), via their coordination-board posts and PR bodies, plus a commit-message
+  probe over the last 300 commits on origin/main.
+  RESULT: none of the three cites the CLAUDE.md session brief as where it read the
+  phase, the priority or the next step. All three were dispatched with explicit briefs,
+  and MI-192 attributes its framing to "my dispatch brief" in so many words. The commit
+  probe finds 32 commits mentioning "session brief" and 7 mentioning
+  CY-20260906-TRADING-TRUTH (positive controls: "manager-lease" 54, "OPEN-ITEMS" 114 —
+  the probe finds positives), but a MENTION is not a CITATION BY A COLD SESSION, and
+  separating them needs reading rather than counting. Most of those commits are from
+  sessions writing ABOUT the brief, which is the opposite of the evidence wanted.
+  ⚠️ THE HONEST READING OF THIS IS NARROW: it is NOT established that no session has
+  ever read the brief unprompted — only that no such evidence was found in the
+  population searched, and that population is one morning's sessions plus commit
+  subjects. The observation this edge names remains OUTSTANDING.
+  ⚠️ AND NOTE THE STRUCTURAL DIFFICULTY, since it is why this has sat since 2026-09-01:
+  every session that could serve as the observer arrives with a dispatch prompt, and a
+  dispatch that says nothing at all is not something a manager currently produces. If
+  that is not going to change, the honest move is an operator decision to change the
+  criterion rather than an edge that can never discharge —
+  OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION carries the same question.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
 verdict: null
