@@ -8,8 +8,8 @@
   "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
   "branch": "claude/mi200-real-money-close-attribution",
   "pr": 11391,
-  "claimed_at": "2026-09-08T12:58:00Z",
-  "note": "MI-200, Tier-1. Taken from a STALE claim, announced on board #11336 comment 5585500259 rather than overwritten silently: the prior holder was session_01HrmZ1RRNM4UnEUaFdrPEjj on branch claude/mgr-dispatch-1226-20260908, whose PR #11387 HAS MERGED as 42913d63 (origin/main's tip), so the work it serialised has landed. ⚠️ That branch still exists on origin at 3e26135e, which is NOT an ancestor of main, so the holder may have further work in flight; the board comment offers the slot straight back if so. Claimed here because pr-landing R13 requires the slot in the same push that arms .github/pr-automerge-requests/ — arming IS the merge."
+  "claimed_at": "2026-09-08T13:02:00Z",
+  "note": "MI-200, Tier-1. ⚠️ TAKEN FROM A SPENT CLAIM, ANNOUNCED NOT OVERWRITTEN — board #11336 comment 5585500259. TWO successive holders left the slot set after their PR had already merged, which is worth recording as a pattern rather than as two accidents: session_01HrmZ1RRNM4UnEUaFdrPEjj / claude/mgr-dispatch-1226-20260908 (PR #11387, merged as 42913d63) and then session_011PHmZzVy92M6zjNopAMy51 / claude/mi199-record-correction (PR #11392, merged as ea20e2c5, origin/main's tip when I took it). In both cases the work the slot serialised had LANDED, established by the merge commit rather than assumed from the age of the claim. A single-holder slot has no meaningful union, so this takes my own branch's claim per the MI-194 convention. Claimed because pr-landing R13 requires the slot in the same push that arms .github/pr-automerge-requests/ — arming IS the merge."
  },
  "active_sessions": [
   {
