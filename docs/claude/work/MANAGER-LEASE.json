@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T20:11:00Z",
-  "expires_at": "2026-09-08T21:41:00Z",
+  "heartbeat_at": "2026-09-08T20:36:00Z",
+  "expires_at": "2026-09-08T22:06:00Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 20:11:00Z (previous 19:55:55Z — a 15-minute gap against a 90-minute TTL). This pass exists to correct TWO of my own registers that were understating their subject, not to merge anything: MERGE-QUEUE said six automation PRs remained when the measured number is 26, and SESSIONS carried eleven rows as `idle` that the platform grades BLOCKED/FAILED/REVIEW_READY."
+  "note": "Heartbeat 20:36:00Z (previous 20:11:00Z — a 25-minute gap against a 90-minute TTL). This pass ANSWERED a sub-session rather than only recording one: #11450 landed MI-168's record correction, the one BLOCKED ask that was both live and mine, and #11347/#11355 are closed as superseded. It also corrects a canonical OPEN-ITEMS row that was asserting something false in its own title."
 }
