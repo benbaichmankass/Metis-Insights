@@ -99,8 +99,8 @@ shortfall vs declared tp_r   median 0.27 R | max 3.35 R
 The unit applies no clamp, so a `cap_r` for these legs is a **hypothetical, not
 a measurement**, and is not reported as one.
 
-> ⚠️ **Pooled over A+B the figure reads 87.8%, and that number should not be
-> quoted.** It is dominated by A, where the cap binding is the *design* — a 50R
+> ⚠️ **Pooled over A+B the figure reads 231/263 = 87.8%, and that number should
+> not be quoted.** It is dominated by A, where the cap binding is the *design* — a 50R
 > sentinel exists precisely so the clamp sets the target. The number that says
 > something is **B's 55.0%**: on legs where somebody chose a real target, the
 > venue clamp overrides that choice on **more than half** of live trades, by a
@@ -181,8 +181,8 @@ reads the wrong columns. **A different query, not a different instrument.**
 
 ⚠️ Two things this does NOT establish, stated rather than implied: it does not
 show the two distributions differ (no backtest run exists to compare against),
-and a 33.5% MEASURED provenance rate means **two thirds of the live window
-cannot be used** for the comparison at all — that, not the query, is the binding
+and a MEASURED provenance rate of 89/266 = 33.5% means **two thirds of the live
+window cannot be used** for the comparison at all — that, not the query, is the binding
 constraint on statistical power.
 
 ---
