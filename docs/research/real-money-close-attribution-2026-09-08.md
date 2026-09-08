@@ -31,7 +31,29 @@ were read **2026-09-08 between 12:16Z and 12:30Z**.
    streak.** 8 of the 14 streak rows were not strategy exits at all, and two
    published API surfaces disagree about the exit mechanism on **174 of 447 rows
    (38.9%)**.
-5. **Verdict on every leg currently routed to a real-money account:
+5. **On the operator's sharpened question — "if we're not exiting on brackets,
+   something is still not working" — the brackets ARE largely working.** Of the 122
+   non-strategy-exit closes, **42 of the 115 gradeable (36.5%) landed ON a declared
+   bracket level**: the bracket fired and `reconciler_filled` describes who *wrote*
+   the row, not what closed the position. And `between` is not automatically a
+   defect either — `vwap_cross`, an operator flatten and a netting reduce leg all
+   exit mid-bracket *by design*. Of the operator's own nine: two were the bracket
+   firing, two were their own hand, two were reduce-leg bookkeeping, and **three
+   closed mid-bracket unexplained, totalling −$4.83**. Not a systemic failure.
+6. **One label does state a price event that did not happen.** `sl_cross` asserts a
+   stop cross; 21 of 53 exited between the levels and **nine exited in PROFIT**, up
+   to +1.13R. Six are the retired `vwap` leg, two are still on real money. ⚠️ The
+   mechanism is **not established**, and the likeliest one is bigger than this
+   finding: if `trades.stop_loss` holds the *entry* stop while exits ran against a
+   *trailed* stop, every R computed from that column is wrong for every trailed
+   trade. That must be settled first.
+7. **`alpaca_live` is idle for a mechanical reason, not a market one.** Its one leg
+   signalled **twice** since routing and both were refused `dry_run_no_order_placed`
+   while every declared gate read `live`. Already filed; I eliminated two candidate
+   causes (the `account_state.yaml` override is absent for this account;
+   credentials resolve — the venue reads ACTIVE, $200.22, not blocked) and narrowed
+   a third.
+8. **Verdict on every leg currently routed to a real-money account:
    `insufficient_n`.** The largest convictable sample on a live-routed leg is
    **7**, against `MIN_CLOSED_FOR_ACTION = 20`. No promote, demote, kill or
    re-parameterisation is supportable from this population. **This is the finding,
