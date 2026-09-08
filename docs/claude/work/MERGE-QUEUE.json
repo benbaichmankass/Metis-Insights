@@ -71,7 +71,12 @@
       "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
       "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
       "tier": 3,
-      "note": "BLOCKED ON THE OPERATOR, not on CI and not on a conflict. Two decisions are owed and neither may be substituted by the manager: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default -- strict is what shipped, the alternative is confirm-on-reduction. Do not promote it until both are answered."
+      "note": "BLOCKED ON THE OPERATOR, not on CI and not on a conflict. Two decisions are owed and neither may be substituted by the manager: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default -- strict is what shipped, the alternative is confirm-on-reduction. Do not promote it until both are answered.",
+      "blocked_on": {
+        "kind": "decision",
+        "ref": "operator: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict shipped; the alternative is confirm-on-reduction)",
+        "since": "2026-09-07T20:33:00Z"
+      }
     }
   ]
 }
