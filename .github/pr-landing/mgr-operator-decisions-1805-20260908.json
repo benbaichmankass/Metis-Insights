@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records two operator decisions taken 2026-09-08 into docs/claude/work/MANAGER-CHECKLIST.json, which CLAUDE.md names as management rather than an item. Touches only that register plus a merge_slot claim naming this branch. No src/, no config/, no deploy/, no workflow, no order path. Recording a verdict is not enacting it — both approvals were routed to the sessions that own the code."
+}

@@ -8,9 +8,9 @@
   "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
   "branch": "claude/mi200-real-money-close-attribution",
   "pr": 11391,
-  "claimed_at": "2026-09-08T17:55:00Z",
-  "note": "MI-200, Tier-1, PR #11391 — OPEN and arming .github/pr-automerge-requests/, so pr-landing R13 requires the slot be held here. Board claim: #11336 comments 5585061326 / 5585500259 / 5589397613. THIRD re-lay in twelve minutes.",
-  "displaced": "SIXTH successive spent claim displaced today, and the THIRD in twelve minutes: #11387/42913d63, #11392/ea20e2c5, #11377/4f8b95bb, #11427/b0dcbb82 (17:43Z), #11426/250833e6 (17:47Z), now #11418/8c69e466 (~17:53Z). Every one established from its own merge commit, never from the age of the claim. THE CADENCE IS THE FINDING: main is taking a register merge roughly every 4-5 minutes while pytest-run takes ~20, so an armed branch that must hold this slot can never finish a CI cycle before the next merge dirties it. That is not a queue being busy, it is R13 and the merge queue in direct opposition. Recorded as an update on BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE, not re-filed."
+  "claimed_at": "2026-09-08T18:12:00Z",
+  "note": "MI-200, Tier-1, PR #11391 — arming, so pr-landing R13 requires the slot here. Board claim: #11336 comments 5585061326 / 5585500259 / 5589397613. FOURTH re-lay.",
+  "displaced": "SEVENTH spent claim displaced today: #11430 merged as 290a7ef6, main's own tip. Sequence, each established from its own merge commit: #11387/42913d63, #11392/ea20e2c5, #11377/4f8b95bb, #11427/b0dcbb82 17:43Z, #11426/250833e6 17:47Z, #11418/8c69e466 ~17:53Z, #11430/290a7ef6 ~18:08Z. Inter-merge gaps 4/6/15 min against a ~20 min pytest-run, and THIS one landed while my CI was still running. Recorded as an update on the existing R13 rows (BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE and BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION), not re-filed."
  },
  "active_sessions": [
   {
