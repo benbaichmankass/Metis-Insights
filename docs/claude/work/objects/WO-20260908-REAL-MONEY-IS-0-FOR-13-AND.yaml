@@ -1,115 +1,114 @@
 id: WO-20260908-REAL-MONEY-IS-0-FOR-13-AND
 type: question
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
-title: >-
-  Real money is "0 for 13" and the streak is not the evidence — attribute every
-  real-money close to the mechanism that actually closed it
+title: Real money is 0-for-13 and only 6 of 15 closes were a strategy exit at all
 stage: EVIDENCE
 lifecycle: done
-owner: "claude (MI-200, session 01CvFCybCkvrfzaHqNH3tQsb)"
+owner: claude (MI-200, session 01CvFCybCkvrfzaHqNH3tQsb)
 opened_at: 2026-09-08
-closed_at: 2026-09-08
+closed_at: '2026-09-08'
 cycle_priority: CY-20260906-TRADING-TRUTH
+done_condition: 'A written attribution of the 15 real-money closes that separates THREE things currently
+  pooled: (a) closes where the strategy''s own exit fired and the trade genuinely lost; (b) closes where
+  the reconciler or an ''other'' path booked the row, so the exit reason misdescribes WHY it closed; and
+  (c) rows whose pnl is null or ''estimated'' and therefore cannot carry a verdict at all. For each of
+  the 9 non-''sl'' closes, name the actual mechanism that closed it, read from the journal and the venue
+  rather than from exit_reason - which describes HOW a row closed and is known to misdescribe WHY (the
+  trade-4904 precedent in OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED, where a row
+  reading ''reconciler_filled'' was in fact an operator flatten). THEN, and only on the (a) subset, state
+  whether the remaining 4 legs show a real edge failure or an n too small to grade. [!] ''insufficient_n''
+  IS A LEGITIMATE AND LIKELY VERDICT and must be reported as the finding rather than avoided - do NOT
+  widen the window until something becomes gradeable, which is the low-n hazard MIN_CLOSED_FOR_ACTION
+  exists to prevent. [!] NOT SUFFICIENT: a per-leg PnL table (that is the input, not the answer), or a
+  promote/demote proposal computed off a population not yet shown to be clean. [!] NO Tier-3 action is
+  enacted from this object - retiring or demoting a leg is PROPOSED only.'
+why: 'See `why_as_dispatched` for the verbatim dispatch premise, PRESERVED because this object''s main
+  result is that the premise was measured on the wrong population. ⚠️ TWO OF ITS FIGURES ARE SUPERSEDED
+  AND MUST NOT BE RE-QUOTED. (1) ''n=15, all bybit_2 ... 0 wins, 13 losses'' is the real-money subset
+  of a PAPER-INCLUSIVE page — a 5-day slice. include_paper defaults to False, so the default response
+  is ALREADY real-money-only and the flag NARROWS the count; paged to exhaustion the population is n=447
+  over 2026-05-09..2026-09-04 and the book is 117 W / 258 L / 49 flat. (2) ''NINE OF FIFTEEN CLOSES WERE
+  NOT A STRATEGY EXIT DECISION'' is numerically right for that window (9/6) but its REASONING — that closeReason
+  ''other'' means ''not a strategy exit'' — is wrong in general: over the 447 rows `other` holds 182 rows
+  that ARE strategy exits, and the two published surfaces disagree on 174 of 447 (38.9%). It coincided
+  here only because no row in that window carried vwap_cross/sl_cross/tp_cross. WHAT SURVIVES AND WAS
+  RIGHT: the instinct to repair the measurement before acting on it, and the observation that ict_scalp_5m
+  is already off bybit_2.'
+why_as_dispatched: 'MEASURED 2026-09-08T12:16Z off /api/bot/trades/closed?limit=200 (population: every
+  accountClass=real_money row on that page, n=15, all bybit_2; 13 carry a non-null pnl). 0 wins, 13 losses,
+  -43.12. BY LEG: ict_scalp_5m 6 closes / -25.25 (58.6%), xrp_pullback_2h 3 / -9.90, trend_donchian_xrp_4h
+  1 / -4.82, trend_donchian_eth_4h 2 / -2.30, eth_pullback_2h 3 / -0.84. [!] ict_scalp_5m IS ALREADY OFF
+  bybit_2 - verified against the LIVE /api/bot/config roster, not the YAML - so the single biggest contributor
+  is removed and 59% of this loss cannot recur on that book. What remains is 9 closes, -17.86, still zero
+  wins. [!] THE SHARPER FINDING IS THE CLOSE REASONS: only 6 of 15 closed on ''sl''; 4 closed on ''reconciler''
+  and 5 on ''other'' - i.e. NINE OF FIFTEEN CLOSES WERE NOT A STRATEGY EXIT DECISION. Two rows carry pnl
+  NULL. Three of thirteen are ''estimated'' provenance, not measured. So ''the strategies are losing''
+  is NOT established by this population: a book where 60% of exits are reconciler/other is reporting on
+  its own plumbing as much as on its edge, which is exactly what the cycle priority says to repair BEFORE
+  acting on the verdict.'
+outcome: 'DONE 2026-09-08. All three clauses met, and the answer is NOT the one the dispatch expected.
 
-why: >-
-  Operator-directed 2026-09-08: "What are we doing about the losing streak? even
-  on 16 trades, we can't just chalk this up to chance - something isn't working,
-  and we need to track it down". The cycle priority is explicit that the
-  MEASUREMENT is repaired BEFORE anything is acted on, because a verdict from a
-  contaminated instrument is worse than no verdict — it gets acted on.
+  ⚠️ THE DISPATCHED POPULATION WAS WRONG AND WRONG IN THE DIRECTION THAT MATTERS. n=15 was the real-money
+  subset of a PAPER-INCLUSIVE page — a 5-day slice. `include_paper` defaults to False, so the default
+  response is already real-money-only and the flag NARROWS the real-money count. Paged to exhaustion the
+  real-money closed population is n=447 over 2026-05-09..2026-09-04. So "0 wins" is a window artifact:
+  the book is 117 W / 258 L / 49 flat (n=424 graded on the canonical decision set, sum -69.53). Filed
+  as BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447
 
-done_condition: >-
-  Each non-`sl` close is attributed to the mechanism that ACTUALLY closed it, read
-  from the journal and the venue rather than from `exit_reason` alone; the three
-  pooled things (a) a genuine strategy exit that lost, (b) a reconciler/other path
-  that misdescribes WHY the row closed, (c) a row whose pnl cannot carry a verdict
-  at all — are separated with populations stated; and a verdict is given on the
-  (a) subset only, with `insufficient_n` reported as the finding if that is what
-  the clean subset supports.
+  THE STREAK IS REAL: 14 consecutive non-wins since trade 5170 (2026-08-28T16:24Z), not 13 — and that
+  last win was itself booked by the reconciler, not a strategy exit. But under an IID model at the lifetime
+  non-win rate (0.7241), a run of >=14 somewhere in 424 trades has probability ~71%, expected ~1.24 times.
+  So the STREAK LENGTH does not exclude chance and must not be presented as if it does. These trades are
+  not IID, so that is a FLOOR on how ordinary the run is, not a p-value.
 
-outcome: >-
-  DONE 2026-09-08. All three clauses met, and the answer is NOT the one the
-  dispatch expected.
+  THE EVIDENCE FOR "SOMETHING ISN''T WORKING" IS THE INSTRUMENT. `closeReason` cannot answer the question
+  asked of it: its `other` bucket holds FIFTEEN distinct mechanisms, including 182 rows that ARE strategy
+  exits (vwap_cross 102, sl_cross 53, tp_cross 15, exit_head 5, time_decay 4, stale_stop 3). Reading `other`
+  as "not a strategy exit" — which the dispatch did — is wrong in BOTH directions. Worse, /api/bot/trades/closed
+  and /api/bot/strategies are DIFFERENT taxonomies over the same column and disagree on 174 of 447 rows
+  (38.9%); 53 rows read `sl` on one surface and `other` on the other. Filed as a RECURRENCE of BL-20260820-STRATEGIES-EXIT-REASON-ROLLUP-BUCKETS-LEVERS-AS-OTHER.
 
-  ⚠️ THE DISPATCHED POPULATION WAS WRONG AND WRONG IN THE DIRECTION THAT MATTERS.
-  n=15 was the real-money subset of a PAPER-INCLUSIVE page — a 5-day slice.
-  `include_paper` defaults to False, so the default response is already
-  real-money-only and the flag NARROWS the real-money count. Paged to exhaustion
-  the real-money closed population is n=447 over 2026-05-09..2026-09-04. So "0
-  wins" is a window artifact: the book is 117 W / 258 L / 49 flat (n=424 graded on
-  the canonical decision set, sum -69.53). Filed as
-  BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447
+  ATTRIBUTION over the decision set (n=431): (a) strategy exit 309 = 71.7%, (b) not a strategy exit 122
+  = 28.3%, unknown 0. Of the 14-row STREAK specifically, 8 of 14 were NOT strategy exits (2 operator flattens,
+  4 reconciler, 2 netting) and 6 of 14 were `ict_scalp_5m`, already demoted off bybit_2.
 
-  THE STREAK IS REAL: 14 consecutive non-wins since trade 5170 (2026-08-28T16:24Z),
-  not 13 — and that last win was itself booked by the reconciler, not a strategy
-  exit. But under an IID model at the lifetime non-win rate (0.7241), a run of >=14
-  somewhere in 424 trades has probability ~71%, expected ~1.24 times. So the STREAK
-  LENGTH does not exclude chance and must not be presented as if it does. These
-  trades are not IID, so that is a FLOOR on how ordinary the run is, not a p-value.
+  VERDICT: `insufficient_n` on EVERY leg routed to a real-money account. Largest convictable sample on
+  a live-routed leg is 7 (trend_donchian) against MIN_CLOSED_FOR_ACTION=20; three of the seven roster
+  legs have ZERO convictable closes. The lifetime loss is dominated by `vwap` (180 of 222 convictable
+  rows, -49.38 of -69.53) — a leg off since 2026-06-07 and routed to no account.
 
-  THE EVIDENCE FOR "SOMETHING ISN'T WORKING" IS THE INSTRUMENT. `closeReason`
-  cannot answer the question asked of it: its `other` bucket holds FIFTEEN distinct
-  mechanisms, including 182 rows that ARE strategy exits (vwap_cross 102, sl_cross
-  53, tp_cross 15, exit_head 5, time_decay 4, stale_stop 3). Reading `other` as
-  "not a strategy exit" — which the dispatch did — is wrong in BOTH directions.
-  Worse, /api/bot/trades/closed and /api/bot/strategies are DIFFERENT taxonomies
-  over the same column and disagree on 174 of 447 rows (38.9%); 53 rows read `sl`
-  on one surface and `other` on the other. Filed as a RECURRENCE of
-  BL-20260820-STRATEGIES-EXIT-REASON-ROLLUP-BUCKETS-LEVERS-AS-OTHER.
+  AND THE UNDERLYING PNL IS NOT BROKER TRUTH: 446 of 447 rows carry journalTrust ''known_divergent'',
+  and comms/broker_truth_ledger.json is as_of 2026-07-13 — 57 days stale — so every close in the streak
+  sits in a window with no wallet-truth counterpart at all.
 
-  ATTRIBUTION over the decision set (n=431): (a) strategy exit 309 = 71.7%,
-  (b) not a strategy exit 122 = 28.3%, unknown 0. Of the 14-row STREAK
-  specifically, 8 of 14 were NOT strategy exits (2 operator flattens, 4 reconciler,
-  2 netting) and 6 of 14 were `ict_scalp_5m`, already demoted off bybit_2.
-
-  VERDICT: `insufficient_n` on EVERY leg routed to a real-money account. Largest
-  convictable sample on a live-routed leg is 7 (trend_donchian) against
-  MIN_CLOSED_FOR_ACTION=20; three of the seven roster legs have ZERO convictable
-  closes. The lifetime loss is dominated by `vwap` (180 of 222 convictable rows,
-  -49.38 of -69.53) — a leg off since 2026-06-07 and routed to no account.
-
-  AND THE UNDERLYING PNL IS NOT BROKER TRUTH: 446 of 447 rows carry
-  journalTrust 'known_divergent', and comms/broker_truth_ledger.json is as_of
-  2026-07-13 — 57 days stale — so every close in the streak sits in a window with
-  no wallet-truth counterpart at all.
-
-  NO Tier-3 action enacted or proposed. No config change. Nothing promoted,
-  demoted, retired or re-parameterised — the population does not support it, and
-  saying so is the finding rather than an evasion of one.
-
+  NO Tier-3 action enacted or proposed. No config change. Nothing promoted, demoted, retired or re-parameterised
+  — the population does not support it, and saying so is the finding rather than an evasion of one.'
 evidence:
-  - docs/research/real-money-close-attribution-2026-09-08.md
-  - scripts/research/real_money_close_attribution.py   # reproduces it from the live API; --self-test = 20 assertions
-  - "live reads 2026-09-08 12:16-12:30Z: /api/bot/trades/closed (paged), /api/bot/db/table/trades (filter_state 'applied' asserted), /api/bot/config, /api/diag/{status,exchange_positions,bybit_open_orders,broker_account_status}"
-
+- docs/research/real-money-close-attribution-2026-09-08.md
+- scripts/research/real_money_close_attribution.py
+- 'live reads 2026-09-08 12:16-12:30Z: /api/bot/trades/closed (paged), /api/bot/db/table/trades (filter_state
+  ''applied'' asserted), /api/bot/config, /api/diag/{status,exchange_positions,bybit_open_orders,broker_account_status}'
 filed:
-  - BL-20260908-TRADES-CLOSED-AND-STRATEGIES-PUBLISH-DIFFERENT-EXIT-TAXONOMIES
-  - BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447
-  - "updated BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED (now 66 closes / 57 days)"
-  - "updated BL-20260830-OPERATOR-FLATTEN-LEAVES-NO-MARKER-ON-THE-JOURNAL-ROW (retroactive marker OBSERVED APPLIED; notes JSON still stale)"
-
-incidental_observations: >-
-  (1) THIS OBJECT DID NOT EXIST when the dispatch named it as owned — the exact
-  shape OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING describes.
-  It was created by the session doing the work, which is the failure mode, not the
-  fix.
-  (2) bybit_2 has written no journal row of any status for 94h (newest 5474,
-  2026-09-04T14:04Z) while bybit_1 produced 38 of the newest 40 fleet-wide. NOT an
-  outage — the trader is alive, two of six roster legs hold open positions and the
-  no-pyramiding guard suppresses re-entry. Both positions verified real and
-  correctly protected on the venue (reduce-only SL+TP resting, qty matching, ETH
-  stop trailed up). Recorded so the next session does not re-derive it.
-  (3) OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2 clause (3) does NOT clear and its
-  POSITIVE CONTROL FAILS: bybit_1 also produced zero ict_scalp_5m rows on/after
-  2026-09-06; the leg went quiet on every account on 2026-09-04T08:37Z, two days
-  BEFORE the demote. The bybit_2 silence therefore cannot distinguish "the demote
-  worked" from "the strategy was quiet" — exactly what that row warns about.
-
+- BL-20260908-TRADES-CLOSED-AND-STRATEGIES-PUBLISH-DIFFERENT-EXIT-TAXONOMIES
+- BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447
+- updated BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED (now 66 closes / 57
+  days)
+- updated BL-20260830-OPERATOR-FLATTEN-LEAVES-NO-MARKER-ON-THE-JOURNAL-ROW (retroactive marker OBSERVED
+  APPLIED; notes JSON still stale)
+incidental_observations: '(1) THIS OBJECT DID NOT EXIST when the dispatch named it as owned — the exact
+  shape OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING describes. It was created by the
+  session doing the work, which is the failure mode, not the fix. (2) bybit_2 has written no journal row
+  of any status for 94h (newest 5474, 2026-09-04T14:04Z) while bybit_1 produced 38 of the newest 40 fleet-wide.
+  NOT an outage — the trader is alive, two of six roster legs hold open positions and the no-pyramiding
+  guard suppresses re-entry. Both positions verified real and correctly protected on the venue (reduce-only
+  SL+TP resting, qty matching, ETH stop trailed up). Recorded so the next session does not re-derive it.
+  (3) OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2 clause (3) does NOT clear and its POSITIVE CONTROL FAILS:
+  bybit_1 also produced zero ict_scalp_5m rows on/after 2026-09-06; the leg went quiet on every account
+  on 2026-09-04T08:37Z, two days BEFORE the demote. The bybit_2 silence therefore cannot distinguish "the
+  demote worked" from "the strategy was quiet" — exactly what that row warns about.'
 blocked_on: []
-blocked_on_basis: >-
-  ASSESSED 2026-09-08 — nothing blocked this object. It is a pure measurement unit
-  over read-only surfaces that were all reachable this session (direct HTTPS to the
-  Caddy host, no relay needed). It is now `done`.
-
-source: >-
-  operator (conversational, 2026-09-08) via MI-200 dispatch
+blocked_on_basis: ASSESSED 2026-09-08 — nothing blocked this object. It is a pure measurement unit over
+  read-only surfaces that were all reachable this session (direct HTTPS to the Caddy host, no relay needed).
+  It is now `done`.
+source: 'operator directive 2026-09-08: ''What are we doing about the losing streak? even on 16 trades,
+  we can''t just chalk this up to chance - something isn''t working, and we need to track it down'''
