@@ -328,10 +328,26 @@ class TestBybitPathActuallyRuns:
         assert out["stop_prices"] == [94.0, 95.5]   # sorted
 
     def test_a_flat_position_still_carries_the_key(self):
+        # ⚠️ A FLAT symbol is a size-0 ROW, not an empty list (MI-204,
+        # 2026-09-08). This passed `None`, which this stub turns into an empty
+        # `result.list` — and grading THAT as flat is what closed a live hedge
+        # position (trade 5568). An empty list now REFUSES; the venue's real
+        # flat shape is a row carrying `size: "0"`, which still grades `flat`
+        # and is what this test means. See
+        # tests/test_bybit_hedge_book_flat_read.py.
         from src.runtime.order_monitor import _bybit_position_protection
-        out = _bybit_position_protection(self._client(None, []), "linear", "X")
+        out = _bybit_position_protection(
+            self._client({"size": "0", "side": "", "stopLoss": ""}, []),
+            "linear", "X",
+        )
         assert out["source"] == "flat"
         assert out["stop_prices"] == []
+
+    def test_an_empty_position_list_refuses_rather_than_grading_flat(self):
+        # The MI-204 fix, pinned where this file already exercises the reader.
+        from src.runtime.order_monitor import _bybit_position_protection
+        assert _bybit_position_protection(
+            self._client(None, []), "linear", "X") is None
 
     def test_the_prices_feed_the_shared_grader_end_to_end(self):
         from src.runtime.order_monitor import _bybit_position_protection
