@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T19:55:55Z",
-  "expires_at": "2026-09-08T21:25:55Z",
+  "heartbeat_at": "2026-09-08T20:11:00Z",
+  "expires_at": "2026-09-08T21:41:00Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": null
+  "note": "Heartbeat 20:11:00Z (previous 19:55:55Z — a 15-minute gap against a 90-minute TTL). This pass exists to correct TWO of my own registers that were understating their subject, not to merge anything: MERGE-QUEUE said six automation PRs remained when the measured number is 26, and SESSIONS carried eleven rows as `idle` that the platform grades BLOCKED/FAILED/REVIEW_READY."
 }

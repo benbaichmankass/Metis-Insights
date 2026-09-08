@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T19:56:00Z",
+  "updated_at": "2026-09-08T20:11:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2803,9 +2803,18 @@
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "#11264 is green and correctly refuses to self-land a Tier-3 diff (R4). Waiting on a human merge.",
-      "state": "blocked",
+      "state": "review_ready",
       "supervised_at": "2026-09-07T18:30:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-164 (#11264) SCOPE REVIEWED, and the wider diff is JUSTIFIED — reviewed rather than waved through. It hooks all FOUR units where MI-163's follow-up narrowed to two. My concern was that vwap cannot produce a valid peak_r; the code ANSWERS it: the vwap hook documents that vwap writes neither risk_per_unit nor entry_time, so build_record reports peak_state='no_risk' and leaves peak_r None — a NAMED absence, never a peak divided by a guessed R — and it deliberately does NOT stamp those keys, since that is an order_package change and out of scope. So the two extra units are honest no-ops, not contamination of the very corpus this item exists to repair. Manager resolved its register conflict with the merge driver; verified 0 worker-path files in the merge commit (R2), 144 session rows, no duplicate session_id."
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-164 (#11264) SCOPE REVIEWED, and the wider diff is JUSTIFIED — reviewed rather than waved through. It hooks all FOUR units where MI-163's follow-up narrowed to two. My concern was that vwap cannot produce a valid peak_r; the code ANSWERS it: the vwap hook documents that vwap writes neither risk_per_unit nor entry_time, so build_record reports peak_state='no_risk' and leaves peak_r None — a NAMED absence, never a peak divided by a guessed R — and it deliberately does NOT stamp those keys, since that is an order_package change and out of scope. So the two extra units are honest no-ops, not contamination of the very corpus this item exists to repair. Manager resolved its register conflict with the merge driver; verified 0 worker-path files in the merge commit (R2), 144 session rows, no duplicate session_id.",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "REVIEW_READY",
+        "platform_updated_at": "2026-09-07T22:05:06.940602Z",
+        "needs_action": null
+      }
     },
     {
       "session_id": "session_01VKEGm8ZcTUgiZYRztPfryK",
@@ -2815,9 +2824,20 @@
       "spawned_at": "2026-09-07T16:40:27Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "the honest negative: no be_floor_r value clears the gate. #11266 landed.",
-      "state": "completed",
+      "state": "blocked",
       "supervised_at": "2026-09-07T18:30:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-165 LANDED (#11266, 40ebd40b): the path-aware be_floor_r sweep finds NO VALUE CLEARS THE GATE. That is the honest negative the dispatch named in advance as a fully successful outcome, and it was not softened. Consequence: the banking floor gets no number, and MI-163's gross +16.87R at 0.75R stays what it always was — a benefit side with no cost term."
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-165 LANDED (#11266, 40ebd40b): the path-aware be_floor_r sweep finds NO VALUE CLEARS THE GATE. That is the honest negative the dispatch named in advance as a fully successful outcome, and it was not softened. Consequence: the banking floor gets no number, and MI-163's gross +16.87R at 0.75R stays what it always was — a benefit side with no cost term.",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-07T18:03:26.363864Z",
+        "needs_action": "manager approval: (1) clear draft flag (403 from agent), (2) confirm 'arm nothing' ruling",
+        "manager_verdict": "live_and_actionable",
+        "manager_verdict_basis": "asks the manager to clear a draft flag it got a 403 on, and to confirm the 'arm nothing' ruling."
+      }
     },
     {
       "session_id": "session_01L4nzHTVNNdCxkpFxMqXB6V",
@@ -2827,9 +2847,20 @@
       "spawned_at": "2026-09-07T16:47:52Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "verdict merged as 0c74a9c2 after the manager cleared its 403 via the relay and MI-171 cleared its one red guard.",
-      "state": "completed",
+      "state": "blocked",
       "supervised_at": "2026-09-07T18:30:00Z",
-      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-140 DID NOT DIE — it was BLOCKED for ~80 minutes on a GitHub App 403 for PR creation, with its verdict already committed at 37d3ed41, and the manager had written it off as 'idle, no PR'. Unblocked via the pr-opener relay, now #11271. ⚠️ ITS VERDICT REVERSES THE PREMISE THE MANAGER DISPATCHED: alpaca_live is CORRECTLY REFUSING and its declaration is correct too. The T-7 premise is true over a population of TWO and misleading at that size — both signals since the 2026-08-31 arming were tlt_pullback_1h SHORT on TLT, both suppressed by the operator-directed side_filter:long gate, which folds into effective_dry by design. Four of five leads ruled OUT on evidence; the one ruled IN is silent_refusal_alert, whose latch is FROZEN at 2026-08-21 — ten days pre-arming — still reporting alerting/signalled_never_placed with no alert_disposition key. The alerting layer is the defect, not the order path, and is very likely where the framing came from. It refused to overclaim: the order path is UNTESTED, not inert, since zero long signals have reached it."
+      "supervision_note": "SUPERVISED 2026-09-07T18:30Z. MI-140 DID NOT DIE — it was BLOCKED for ~80 minutes on a GitHub App 403 for PR creation, with its verdict already committed at 37d3ed41, and the manager had written it off as 'idle, no PR'. Unblocked via the pr-opener relay, now #11271. ⚠️ ITS VERDICT REVERSES THE PREMISE THE MANAGER DISPATCHED: alpaca_live is CORRECTLY REFUSING and its declaration is correct too. The T-7 premise is true over a population of TWO and misleading at that size — both signals since the 2026-08-31 arming were tlt_pullback_1h SHORT on TLT, both suppressed by the operator-directed side_filter:long gate, which folds into effective_dry by design. Four of five leads ruled OUT on evidence; the one ruled IN is silent_refusal_alert, whose latch is FROZEN at 2026-08-21 — ten days pre-arming — still reporting alerting/signalled_never_placed with no alert_disposition key. The alerting layer is the defect, not the order path, and is very likely where the framing came from. It refused to overclaim: the order path is UNTESTED, not inert, since zero long signals have reached it.",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-07T17:01:51.804688Z",
+        "needs_action": "open PR from branch mi140-alpaca-live-refusal-verdict (org admin must connect Claude GitHub App)",
+        "manager_verdict": "live_operator_only",
+        "manager_verdict_basis": "needs the Claude GitHub App connected to the repo — a credential act no session can perform."
+      }
     },
     {
       "session_id": "session_01QZxiRyCB72BH4SaJ4yEJdC",
@@ -2851,7 +2882,16 @@
       "spawned_at": "2026-09-07T18:52:39Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Failed on an unparseable tool call, but AFTER committing its diagnosis and correctly declaring landing:hold knowing it could not un-draft its own PR. Output fully recovered; #11274 merged as fd818c50.",
-      "state": "failed"
+      "state": "failed",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "FAILED",
+        "platform_updated_at": "2026-09-07T19:09:37.665518Z",
+        "needs_action": null
+      }
     },
     {
       "session_id": "session_01BpU7rfqWKir4rQrowT4ZQd",
@@ -2861,7 +2901,18 @@
       "spawned_at": "2026-09-07T19:28:36Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Unchanged since 20:33Z and correctly so — it owes nothing; the OPERATOR owes it two decisions. Its REAL-MONEY finding no longer depends on them: the manager landed its backlog row to main separately (c71e610e), so BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS is readable by a cold session even while #11279 sits.",
-      "state": "blocked"
+      "state": "blocked",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T07:26:31.151226Z",
+        "needs_action": "merge PR #11347 (MI-168 record fix); update description to MI-173/#11312 merged, MI-180/#11337 held",
+        "manager_verdict": "live_and_actionable",
+        "manager_verdict_basis": "asks to merge #11347 (MI-168's record correction). #11347 is genuinely open and unattended, and my own #11355 re-arms it with an R13 slot claim. This is the one BLOCKED row whose ask is both live AND mine."
+      }
     },
     {
       "session_id": "session_0126L48N2S4fAxtjG82kq9vq",
@@ -2898,7 +2949,16 @@
       "observed_at": "2026-09-08T03:31:00Z",
       "state_observed_at": "2026-09-08T06:58:00Z",
       "state_basis": "get_session, read live by the manager",
-      "observation": "IDLE/disconnected since 02:16:49Z, 410,984 tokens. needs_action: 'check whether Alpaca API supports quantity-scoped close'. ⚠️ THAT QUESTION IS BEING ANSWERED BY MI-180 (session_01GYsNAhP6SpKe1vyn2tBc94) — do not re-dispatch it; its PR #11312 is approved and awaiting the manager's merge."
+      "observation": "IDLE/disconnected since 02:16:49Z, 410,984 tokens. needs_action: 'check whether Alpaca API supports quantity-scoped close'. ⚠️ THAT QUESTION IS BEING ANSWERED BY MI-180 (session_01GYsNAhP6SpKe1vyn2tBc94) — do not re-dispatch it; its PR #11312 is approved and awaiting the manager's merge.",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T02:16:49.796327Z",
+        "needs_action": "check whether Alpaca API supports quantity-scoped close; unread: alpaca_paper/alpaca_live"
+      }
     },
     {
       "session_id": "session_01V62BVG7Q9BHZeyTvkBWNPy",
@@ -2942,7 +3002,7 @@
     {
       "session_id": "session_01HwWNiwEGCGAAwKhfchMUs7",
       "registry_key": "pending-20260908T044448Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-179 — re-arm the 56 naked shares on trade 5414 (alpaca_portfolio/TLT), operator-approved",
       "owns_object": "WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED",
       "spawned_at": "2026-09-08T04:44:48Z",
@@ -2953,12 +3013,23 @@
       "state_observed_at": "2026-09-08T19:29:00Z",
       "state_basis": "list_sessions(mine=true, limit=30) read direct at 19:29Z — session_status IDLE, its own updated_at 2026-09-08T05:40:55Z",
       "observation": "|| RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed.",
-      "last_observed_at": "2026-09-08T19:29:00Z"
+      "last_observed_at": "2026-09-08T19:29:00Z",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T05:40:55.381235Z",
+        "needs_action": "approve PR #11330 to land, or confirm to hold pending the decision on re-arming Alpaca protection",
+        "manager_verdict": "answered_already",
+        "manager_verdict_basis": "asks to 'approve PR #11330 to land'. #11330 MERGED 2026-09-08T06:14:03Z by the operator. Same shape."
+      }
     },
     {
       "session_id": "session_01AA7sxfCGwRtoed1CANsWwr",
       "registry_key": "pending-20260908T044520Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-181 — re-dispatch the MGC remediation against the CONFIRMED order ids 550/551",
       "owns_object": "WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE",
       "spawned_at": "2026-09-08T04:45:20Z",
@@ -2966,12 +3037,23 @@
       "why": "Operator confirmed the corrected ids 2026-09-08, superseding the approval that named 548. ib_paper/MGC 43 phantom lots — MI-177 re-confirmed it as the fleet's only divergence.",
       "confirmed_at": "2026-09-08T04:45:51Z",
       "manager_observation": "COMPLETED 2026-09-08. ABORTED the MGC remediation — its object's own sanctioned completion. Found order 548 is NOT stale: it rests live as the stop leg of a SECOND, DISJOINT OCA group, so the dispatch's premise that 550/551 replaced it was wrong (that premise was the manager's). Both OCA groups match their journal rows to the tick, so MI-166's 'protection is FAITHFUL' holds and the 43 phantom lots are a JOURNAL QUANTITY defect upstream. Operator ruled 2026-09-08: stay aborted, settle attribution from execution records first. #11328 merged.",
-      "observed_at": "2026-09-08T05:45:00Z"
+      "observed_at": "2026-09-08T05:45:00Z",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T16:44:14.291205Z",
+        "needs_action": "review PR #11328 and approve landing (or close if abort confirmed)",
+        "manager_verdict": "answered_already",
+        "manager_verdict_basis": "asks to 'review PR #11328 and approve landing'. #11328 MERGED 2026-09-08T05:40:40Z by the operator (read via pull_request_read, not recalled) — ELEVEN HOURS before this summary was written at 16:44Z. The ask was already satisfied when it was made."
+      }
     },
     {
       "session_id": "session_01GYsNAhP6SpKe1vyn2tBc94",
       "registry_key": "pending-20260908T044551Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-180 — trade-scope the Alpaca close operation (and modify_protective)",
       "owns_object": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
       "spawned_at": "2026-09-08T04:45:51Z",
@@ -2982,12 +3064,23 @@
       "state_basis": "list_sessions(mine=true, limit=30) read direct at 19:29Z — session_status IDLE, its own updated_at 2026-09-08T18:32:21Z",
       "observation": "RUNNING 06:53:57Z — acting on the manager's 05:53Z poke about the protective writes ('reading place_protective signature; checking oca_key usage'). Its post_turn_summary already reads completed for #11337; the poke reopened it. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed.",
       "status": "idle",
-      "last_observed_at": "2026-09-08T19:29:00Z"
+      "last_observed_at": "2026-09-08T19:29:00Z",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T18:32:21.600350Z",
+        "needs_action": "merge d5232c9e when CI completes (or release hold)",
+        "manager_verdict": "live_and_answered_here",
+        "manager_verdict_basis": "asks the manager to 'merge d5232c9e when CI completes (or release hold)'. THE ANSWER IS NO, AND IT IS NOT MINE TO GIVE: d5232c9e is #11337, declared tier 3 / landing: hold / hold_reason tier_2_3_needs_approval. A Tier-3 order-path change needs the OPERATOR, and 'the manager releases the hold' is not in the hold_reason vocabulary. The PR is correctly waiting, not stuck."
+      }
     },
     {
       "session_id": "session_0173g82hw2Rf3HjnfydGcnyX",
       "registry_key": "pending-20260908T044628Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-183 — pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
       "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
       "spawned_at": "2026-09-08T04:46:28Z",
@@ -3001,12 +3094,23 @@
       "observation": "Superseded by MI-183b. Could not push; ~201k tokens spent before discovering it. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || ⚠️ BLOCKED since 06:22Z: 'push denied by harness; patch delivered locally'. Superseded by MI-183b, which had a working container.",
       "status": "idle",
       "status_bucket": "blocked",
-      "last_observed_at": "2026-09-08T19:56:00Z"
+      "last_observed_at": "2026-09-08T19:56:00Z",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T06:22:24.120161Z",
+        "needs_action": "grant git push rule, authorize benbaichmankass/Metis-Insights, or apply patch yourself",
+        "manager_verdict": "superseded",
+        "manager_verdict_basis": "its harness denied the push; MI-183b was spawned for exactly that and carries the work."
+      }
     },
     {
       "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
       "registry_key": "pending-20260908T044700Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-182 — coordination board at the 2500-comment cap: successor + re-point its two readers",
       "owns_object": "WO-20260908-COORDINATION-BOARD-IS-AT-GITHUB-S-2500",
       "spawned_at": "2026-09-08T04:47:00Z",
@@ -3018,12 +3122,23 @@
       "state_basis": "list_sessions(mine=true, limit=20) read direct at 19:55Z — session_status AND status_bucket",
       "observation": "|| RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || ⚠️ BLOCKED since 06:24Z awaiting a force-push decision. Board #11336 IS live and #6927 retired, so the substantive work landed.",
       "last_observed_at": "2026-09-08T19:56:00Z",
-      "status_bucket": "blocked"
+      "status_bucket": "blocked",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T06:24:54.059717Z",
+        "needs_action": "run git push --force-with-lease (re-auth) or git reset --hard (keep current)",
+        "manager_verdict": "superseded",
+        "manager_verdict_basis": "asks for a force-push decision on the board successor; board #11336 is live and the work landed."
+      }
     },
     {
       "session_id": "session_015iukpShDdwvP5CM79Qtt3B",
       "registry_key": "pending-20260908T050420Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-185 — land #11279 and #11312, which the manager is barred by R2 from merging",
       "owns_object": "WO-20260908-LAND-THE-TWO-OPERATOR-APPROVED-PRS-THE",
       "spawned_at": "2026-09-08T05:04:20Z",
@@ -3037,7 +3152,18 @@
       "observation": "Superseded by MI-185b. Could not push; ~160k tokens spent before discovering it. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || ⚠️ BLOCKED since 06:23Z asking for a merge-conflict resolution choice. SUPERSEDED: MI-185b landed #11279 and #11312 at 07:12Z, so the ask is moot — but the row was never updated to say so.",
       "status": "idle",
       "status_bucket": "blocked",
-      "last_observed_at": "2026-09-08T19:56:00Z"
+      "last_observed_at": "2026-09-08T19:56:00Z",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T06:23:04.511417Z",
+        "needs_action": "(1) grant Claude GitHub App access to repo; (2) choose resolution A or B for the provenance-note row; (3) add git bash patterns to .claude/settings.json",
+        "manager_verdict": "superseded",
+        "manager_verdict_basis": "asks for a merge-conflict resolution choice on #11279/#11312. MI-185b (fresh container) landed both at 07:12Z."
+      }
     },
     {
       "session_id": "session_01SmCEELFxuDSwBbLBmrF4mL",
@@ -3056,7 +3182,7 @@
     {
       "session_id": "session_01LSfhSog9oxATpMUUPBfTN9",
       "registry_key": "pending-20260908T064020Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-183b — R6 vs merge-slot (MI-183's container cannot push; fresh attempt)",
       "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
       "spawned_at": "2026-09-08T06:40:20Z",
@@ -3068,12 +3194,21 @@
       "observation": "RUNNING 06:53:58Z — 'implementing merge-slot guard fix; self-tests green'. Push probe passed. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || ⚠️ BLOCKED since 07:27Z: wants R13-landing approval, a work order moved out of dormant, and a ref hand-deleted. Partly overtaken by later work; nobody closed it out.",
       "status": "idle",
       "last_observed_at": "2026-09-08T19:56:00Z",
-      "status_bucket": "blocked"
+      "status_bucket": "blocked",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T07:27:22.122910Z",
+        "needs_action": "1) approve R13 landing (PRs go red per schema), 2) move work order from dormant to owned, 3) hand-delete claude/push-probe-1788849704"
+      }
     },
     {
       "session_id": "session_01PQraBU1dSD52tRyjwcWb8M",
       "registry_key": "pending-20260908T071413Z",
-      "state": "idle",
+      "state": "failed",
       "title": "MI-188 — exit mechanics: the trailing and banking half (measurement only)",
       "owns_object": "WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF",
       "spawned_at": "2026-09-08T07:14:13Z",
@@ -3085,12 +3220,21 @@
       "observation": "FAILED 07:19Z, and pinned to the WRONG repo (the-lizardking/ict-trading-bot). Superseded by MI-188b, which completed. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || FAILED 07:19Z on a tool-use stop. MI-188b took over and filed the measurement.",
       "state_observed_at": "2026-09-08T19:56:00Z",
       "state_basis": "list_sessions(mine=true, limit=20) read direct at 19:55Z — session_status AND status_bucket",
-      "status_bucket": "failed"
+      "status_bucket": "failed",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "FAILED",
+        "platform_updated_at": "2026-09-08T07:19:45.464945Z",
+        "needs_action": null
+      }
     },
     {
       "session_id": "session_01JjJa5sRhrqQapwx25ebo6Q",
       "registry_key": "pending-20260908T071414Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-189 — pipeline lane pass 5: the accounts MI-177 could not read",
       "owns_object": "WO-20260908-PIPELINE-REVIEW-LANE-PASS-5-JOURNAL-VS",
       "spawned_at": "2026-09-08T07:14:14Z",
@@ -3102,7 +3246,18 @@
       "observation": "IDLE since 07:16Z, BLOCKED asking whether to audit or 'continue notebook work' — it has NO repo source pinned. This is the MI-190 wrong-repo spawn class, superseded by MI-189b which completed. Do not poke; it cannot do the work. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || ⚠️ BLOCKED with an UNANSWERED question since 07:16Z: 'confirm: start pipeline-review audit, investigate scheduler, or continue ICT notebook?' Nobody answered it.",
       "state_observed_at": "2026-09-08T19:56:00Z",
       "state_basis": "list_sessions(mine=true, limit=20) read direct at 19:55Z — session_status AND status_bucket",
-      "status_bucket": "blocked"
+      "status_bucket": "blocked",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "BLOCKED",
+        "platform_updated_at": "2026-09-08T07:16:48.573474Z",
+        "needs_action": "confirm: start pipeline-review audit, investigate scheduler, or continue ICT notebook?",
+        "manager_verdict": "live_unanswered",
+        "manager_verdict_basis": "'confirm: audit, scheduler, or continue the notebook?' — a direction question, still open since 07:16Z."
+      }
     },
     {
       "session_id": "session_019rZTh1JFCXRNR4kYpueGPu",
@@ -3156,7 +3311,7 @@
     {
       "session_id": "session_01AWw28Sfk7hNZASfMrssFLq",
       "registry_key": "pending-20260908T081610Z-2",
-      "state": "idle",
+      "state": "failed",
       "title": "MI-192 — LANE 1 (ops): /system-review, 38 days overdue",
       "owns_object": "WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST",
       "spawned_at": "2026-09-08T08:16:10Z",
@@ -3169,7 +3324,16 @@
       "observation": "FAILED 08:46Z on an unparseable tool call. Superseded by MI-192b. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || FAILED 08:46Z — 'the model's tool call could not be parsed (retry also failed)'. MI-192b took over and has now landed.",
       "status": "idle",
       "last_observed_at": "2026-09-08T19:56:00Z",
-      "status_bucket": "failed"
+      "status_bucket": "failed",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "FAILED",
+        "platform_updated_at": "2026-09-08T08:46:53.381312Z",
+        "needs_action": null
+      }
     },
     {
       "session_id": "session_012cVryifpv359yAWWVkrmnk",
@@ -3236,14 +3400,23 @@
         "claude/mi196-due-readout-consolidation"
       ],
       "note": "Operator decision 2026-09-08: carry the four missing source classes into the readout, THEN retire DUE.md - two changes, never one. Does NOT fix the readout 7.2% edge coverage and must not be reported as doing so.",
-      "state": "idle",
+      "state": "review_ready",
       "state_observed_at": "2026-09-08T19:56:00Z",
       "state_basis": "list_sessions(mine=true, limit=20) read direct at 19:55Z — session_status AND status_bucket",
       "state_note": "IDLE/connected, review_ready, branch claude/mi196-due-readout-consolidation, 356k ctx. Alive and driving.",
       "observation": "IDLE 17:39Z, review_ready. Its #11384 landed as 0212b425. Now reports 'PR #9 auto-merge in progress' — a number that does not correspond to anything in this repo's current range, so it is either another repo or a stale reference; not acted on, recorded as unverified. || RECONCILED TO idle 2026-09-08T19:29Z. This row said `working` and the session is IDLE. NOTHING DECAYS A ROW, so `working` goes false purely by time passing -- measured this pass: 15 of the registry's rows claimed `working` and ALL 15 read IDLE, against a live listing of the 30 most recent sessions in which NOT ONE is running. State the population: that listing is the 30 MOST RECENT, so it is not proof about older rows, and every row reconciled here was found inside it rather than assumed. || 19:56Z: ALL 20 most recent sessions read IDLE — but `status_bucket` separates them and MY 19:29Z PASS LOST THAT. I reconciled 15 rows to `idle`, which is true of session_status and hides that FIVE are BLOCKED carrying an explicit unanswered `needs_action` and TWO FAILED. `idle` is not one state here; recording the bucket. || REVIEW_READY — 'dispatch proven; PR #9 auto-merge in progress; docs fix pending'. ⚠️ 'PR #9' is not a number in this repo's range; unverified and NOT chased this pass.",
       "status": "idle",
       "last_observed_at": "2026-09-08T19:56:00Z",
-      "status_bucket": "review_ready"
+      "status_bucket": "review_ready",
+      "last_observed": {
+        "at": "2026-09-08T20:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true, limit=40) — status_bucket, NOT session_status",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "REVIEW_READY",
+        "platform_updated_at": "2026-09-08T17:39:16.494678Z",
+        "needs_action": null
+      }
     },
     {
       "session_id": "session_012yX7SLyJiqAWG8oVxZSNoq",
@@ -3320,5 +3493,5 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-08T06:58Z — six rows re-read live with get_session and stamped with state_observed_at + state_basis. ⚠️ A `state` WITHOUT a state_observed_at IS NOT AN OBSERVATION — nothing decays a row, so it goes false BY TIME PASSING (MI-178 measured all 17 `working` rows false, ZERO actually RUNNING; MI-177's own row went false in 42 minutes). Read the stamp, not the word. | 2026-09-08T07:33Z: MI-188b (session_019rZTh1JFCXRNR4kYpueGPu) observed RUNNING with sources=benbaichmankass/metis-insights and BOTH probe checks passed; MI-180 observed RUNNING then pushing df4d18e1 after the 07:12Z poke. Both read live with get_session, not inferred. | 2026-09-08T07:35Z: #11350 opened by the relay with only open-and-automerge having fired (total_count=1) — the GITHUB_TOKEN arming trap, NOT a conflict; mergeable_state on the previous branch read  and that is what distinguishes them. Armed with this ordinary commit. | 2026-09-08T08:29Z: OPERATOR RE-SCOPED TWO LANES MID-FLIGHT and both were poked, not re-spawned. LANE 2 (MI-193) was stuffed with admin/ops debugging at the expense of research — the manager's error — and is redirected onto the joined backtest-fidelity finding (no leg went live on a dispositioned backtest; 11 of 15 harnesses never model the live TP cap; the calibrator cannot grade exit location). LANE 3 (MI-194) is redirected to VERIFY the Phase A-D observations before building Phase F, because A-D are waiting on observations rather than on code and closing B unblocks H. Observed live: MI-180 RUNNING 08:25:49Z investigating the pytest failure; MI-191 RUNNING 08:22:45Z on branch claude/mi191-board-coherence-r13-r2, not yet pushed."
+  "⚠️_last_live_reconcile": "2026-09-08T06:58Z — six rows re-read live with get_session and stamped with state_observed_at + state_basis. ⚠️ A `state` WITHOUT a state_observed_at IS NOT AN OBSERVATION — nothing decays a row, so it goes false BY TIME PASSING (MI-178 measured all 17 `working` rows false, ZERO actually RUNNING; MI-177's own row went false in 42 minutes). Read the stamp, not the word. | 2026-09-08T07:33Z: MI-188b (session_019rZTh1JFCXRNR4kYpueGPu) observed RUNNING with sources=benbaichmankass/metis-insights and BOTH probe checks passed; MI-180 observed RUNNING then pushing df4d18e1 after the 07:12Z poke. Both read live with get_session, not inferred. | 2026-09-08T07:35Z: #11350 opened by the relay with only open-and-automerge having fired (total_count=1) — the GITHUB_TOKEN arming trap, NOT a conflict; mergeable_state on the previous branch read  and that is what distinguishes them. Armed with this ordinary commit. | 2026-09-08T08:29Z: OPERATOR RE-SCOPED TWO LANES MID-FLIGHT and both were poked, not re-spawned. LANE 2 (MI-193) was stuffed with admin/ops debugging at the expense of research — the manager's error — and is redirected onto the joined backtest-fidelity finding (no leg went live on a dispositioned backtest; 11 of 15 harnesses never model the live TP cap; the calibrator cannot grade exit location). LANE 3 (MI-194) is redirected to VERIFY the Phase A-D observations before building Phase F, because A-D are waiting on observations rather than on code and closing B unblocks H. Observed live: MI-180 RUNNING 08:25:49Z investigating the pytest failure; MI-191 RUNNING 08:22:45Z on branch claude/mi191-board-coherence-r13-r2, not yet pushed. | 2026-09-08T20:11Z — CENSUS OF ALL 40 SESSIONS BY status_bucket, and my 19:29Z and 19:56Z passes BOTH understated it. 19:29Z reconciled 15 rows to `idle`, which is true of session_status and hides everything; 19:56Z corrected FIVE rows. The measured population is 40 sessions: 23 COMPLETED, **12 BLOCKED**, 3 FAILED, 2 REVIEW_READY — so eleven rows still read `idle` (and two read `completed`) for sessions the platform grades BLOCKED. All 17 non-COMPLETED rows are now stamped per row with session_status AND status_bucket AND the session's own needs_action text. ⚠️ AND THE MORE USEFUL FINDING IS THAT `needs_action` DOES NOT DECAY — it is that session's LAST-TURN claim, frozen at the moment it stopped, and reading it as a live question is the same collapsed-state error one level up. MEASURED, not asserted: MI-181 asks to 'review PR #11328 and approve landing' and #11328 merged at 05:40:40Z, ELEVEN HOURS BEFORE that summary was written; MI-179 asks to 'approve PR #11330 to land' and #11330 merged at 06:14:03Z. Both read via pull_request_read. With MI-185/MI-183/MI-182 superseded, FIVE of the twelve BLOCKED asks are already answered, and a cold manager trusting the bucket would have twelve live questions where there are seven. Each row now carries a manager_verdict so the next reader does not re-derive this. ⚠️ SEVEN REMAIN GENUINELY OPEN and are NOT closed by this pass: MI-189 (direction), MI-183b, MI-168 (#11347, the one that is mine), MI-180 (answered here: NO — #11337 is Tier-3 landing:hold, the operator's call, not the manager's), MI-165 (a draft flag it got a 403 on), MI-140 (needs the GitHub App connected — operator-only), MI-173."
 }
