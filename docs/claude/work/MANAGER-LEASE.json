@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T22:12:05Z",
-  "expires_at": "2026-09-08T23:42:05Z",
+  "heartbeat_at": "2026-09-08T22:41:37Z",
+  "expires_at": "2026-09-09T00:11:37Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat, tool-stamped. SPAWNED MI-205 (session_01JALQ7skjJQN3yNHz5mF51s) for the N-book ranking-key harness, THROUGH the registry — register refused first because the decision object declared no parent_intent, which is the gate working: a build object (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS, parent IN-20260903-TRADING-SYSTEM-HEALTH) was created and the registration re-run against it. ⚠️ AND A CORRECTION THE OPERATOR ACTED ON IS RECORDED THIS PASS: the 56 unprotected TLT shares are on alpaca_portfolio, which is account_class PAPER, not real money."
+  "note": "Heartbeat 22:41:37Z, tool-stamped. Quiet pass: nothing of mine is open (#11447 #11450 #11451 #11455 #11457 #11460 #11461 #11463 #11464 all merged), and the one live sub-session MI-205b was re-observed RUNNING on the correct repo. The only thing that moved this pass is the supervision record itself."
 }

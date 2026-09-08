@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass, PR #11466. Tier-1 by path and content: docs/claude/work/MANAGER-LEASE.json (the 22:41:37Z heartbeat, written by manager_lease.py rather than by hand), docs/claude/work/SESSIONS.json (MI-205b re-observed via get_session on the child, with its sources re-read rather than inferred from the spawn call), docs/claude/session-board.json (the R13 merge_slot claim naming this branch and changing nothing else), plus this branch's own two landing-route files. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps. A quiet pass recorded as one: nothing of the manager's is open, MI-206 and MI-207 stay ready and unassigned by the operator's sequencing, and no progress is claimed for MI-205b beyond what its own record shows. check_manager_scope.py --base origin/main reads clean with R2/R6/R7/R8 ok and check_backlog_refs.py reads OK, each run in its own command after committing."
+}
