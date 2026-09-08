@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Work-object records only: docs/claude/work/objects/WO-20260901-PHASE-{A,B,C,D}.yaml plus this branch's own landing files and merge_slot claim. NO src/, NO config/, NO deploy/, NO .github/workflows/, NO scripts/, NO tests. It records observations that were MADE (the digest firing on cron, the WIP ceiling refusing a ninth) and observations that could NOT be made (Phase A and C's cold-session citation), and discharges two edges that were already satisfied. No runtime, no order path, no strategy config, no risk caps. Tier-1 by the canonical doc's own examples (docs/ updates that do not shift trading behaviour)."
+}
