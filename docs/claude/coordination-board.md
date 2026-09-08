@@ -413,6 +413,51 @@ the protocol as self-discipline. The claim is enforced (in those runtimes) by a
   marker (> 20 min) forces a re-claim + re-sync (the sync is the part that
   actually prevents the behind-rebase churn).
 
+### ⚠️ THE ARMING ROUTE IS NOT ONE THE HOOK CAN SEE — R13 (2026-09-08)
+
+The guard above matches `mcp__github__merge_pull_request` and
+`mcp__github__enable_pr_auto_merge`. **The repo's primary landing route calls
+neither.** `pr-landing` **R6** requires a Tier-1 self-landing branch to ARM by
+committing `.github/pr-automerge-requests/<branch-slug>.txt`; the push then
+triggers `claude-pr-automerge.yml`, which enables auto-merge **as GitHub Actions
+under `GITHUB_TOKEN`**. The session calls no merge tool at all, so the hook never
+fires — measured, not inferred: the hook's own matcher does not match `Bash`,
+`Write`, `push_files` or `create_or_update_file`, and it denies as designed only
+when a merge tool is actually called.
+
+This is a **different and larger hole** than the web-runtime one above. That one
+is "the guard does not load here". This one is "the guard is not on this road",
+and it holds in CLI and desktop too, where hooks *do* load.
+
+So R6 and the merge-slot rule looked mutually unsatisfiable — satisfy R6 and you
+merge unclaimed; claim the slot through the MCP route instead and R6 fails the PR
+for not arming, so it never lands. **They are not actually in conflict**; the
+route R6 mandates simply had no slot enforcement on it, and the board comment
+that *is* the authoritative claim is unpostable while #6927 sits at GitHub's hard
+2500-comment cap (writes 403 — **MI-182**).
+
+**R13** closes it, weakening neither rule: a branch that arms must hold
+`merge_slot` in [`session-board.json`](session-board.json) — `held_by`, `branch`
+and `claimed_at` set to itself — **added-or-modified in its own diff**, for the
+same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it of the arming
+file: a branch that merely merged `main` while somebody else's claim sat on it
+has asked for nothing, and presence alone cannot tell the two apart. R6 still
+requires arming; the hook still guards the MCP route unchanged; the claim now
+travels by the same `git push` that arms. Being a **CI check rather than a hook**,
+it also holds on the web, where no project hook loads.
+
+⚠️ **Yes, this makes every self-landing branch touch one shared file — and that
+is correct here.** `BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE` is not
+being repeated: that file's *contents were never read*, so every collision was
+pure ceremony with no information in the resolution. A merge slot is a **mutex**.
+Two branches colliding on it is the serialization doing its job, and the
+resolution carries the only fact that matters — who holds it.
+
+While #6927 is capped, the durable record is the **only** claim anyone can make.
+When a successor board exists (MI-182), the `🔒 MERGE SLOT CLAIM` comment resumes
+as the live signal; R13 is unaffected either way, because it enforces the mirror,
+not the authority.
+
 Because hooks load at **session start**, a session that edits `settings.json`
 mid-run does **not** pick up the new guard itself — it must still follow the
 protocol manually for its own PRs; the guard protects the *next* session onward.
