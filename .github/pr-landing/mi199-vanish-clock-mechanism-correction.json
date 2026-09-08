@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "corrects the detail text of one backlog row I filed an hour earlier, plus this declaration, the arming file and the merge-slot claim; no runtime, order path, config or CI behaviour is touched"
+}
