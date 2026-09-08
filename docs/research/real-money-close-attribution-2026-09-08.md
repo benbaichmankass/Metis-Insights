@@ -173,6 +173,50 @@ is untouched.
 
 ---
 
+## 3b. The operator's sharpened question: "if we're not exiting on brackets, something is still not working"
+
+> **Operator, 2026-09-08, on being shown that only 6 of 15 closes exited on `sl`:** *"if we're not exiting on brackets, than something is still not working - it's just something else in the pipeline other than the strategy"*
+
+That is the right question, and it is answerable directly: **for every close, where did the exit price land relative to the bracket the trade was opened with?** R is computed per row from the journal's own `entry_price` / `stop_loss` / `exit_price` / `direction`; `at_stop` / `at_target` mean within 0.10R of the declared level — a slippage band, **chosen, not tuned**, and stated so the counts can be re-derived under a different one.
+
+**Of the 122 closes that were NOT a strategy exit, 115 have a usable exit price:**
+
+| where it landed | n | share of the 115 |
+|---|--:|--:|
+| **`at_stop`** — the bracket fired | 30 | 26.1% |
+| **`at_target`** — the bracket fired | 12 | 10.4% |
+| `beyond_stop` / `beyond_target` | 4 | 3.5% |
+| **`between`** — neither level was reached | 69 | 60.0% |
+| `no_exit_price` | 7 | *not gradeable — we did not look* |
+
+**So 42 of 115 (36.5%) of the "not a strategy exit" closes DID exit on a declared bracket level.** The bracket fired; `reconciler_filled` is a description of *who wrote the row*, not of what closed the position. That is a **labelling defect, not a pipeline failure**, and it independently corroborates `BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS`.
+
+⚠️ **And `between` is not automatically a defect either — the distinction the operator's question turns on.** For several mechanisms, exiting mid-bracket is the *designed* behaviour: `vwap_cross` exits on a VWAP cross by construction (86 of its 102 rows are `between`, correctly), an `operator_flatten_reconciled` is a human choosing the moment (3 of 3 `between`, correctly), and a netting reduce leg closes part of a position for reasons unrelated to price. Reporting "60% did not exit on the bracket" as a defect count would be exactly the unprovenanced-diagnostic error this document is about.
+
+### The operator's nine, individually
+
+| id | closed | leg | mechanism | exitR | tpR | where |
+|---|---|---|---|--:|--:|---|
+| 4934 | 08-30 09:46 | `xrp_pullback_2h` | `operator_flatten_reconciled` | −0.52 | 0.70 | between |
+| 4904 | 08-30 09:48 | `trend_donchian_eth_4h` | `operator_flatten_reconciled` | −0.36 | 1.39 | between |
+| 5312 | 09-01 23:36 | `ict_scalp_5m` | `reconciler_filled` | **−0.95** | 1.28 | **at_stop** |
+| 5342 | 09-02 18:05 | `trend_donchian_eth_4h` | `reconciler_filled` | −0.45 | 3.39 | between |
+| 5359 | 09-03 12:56 | `xrp_pullback_2h` | `reconciler_filled` | **−1.00** | 2.59 | **at_stop** |
+| 5403 | 09-03 13:36 | `eth_pullback_2h` | `reconciler_filled` | −0.41 | 3.47 | between |
+| 5461 | 09-04 12:32 | `xrp_pullback_2h` | `netting_attributed` | −0.73 | 2.45 | between |
+
+*(2 of the 9 — 5372, 5355 — are `intent_reduce_executed` reduce legs with `pnl` NULL by design, excluded by the canonical KPI predicate. That is the predicate working, not a gap.)*
+
+**Read as an answer to the operator: of the nine, two were the bracket firing (the reconciler merely booked it), two were the operator's own hand on 2026-08-30, two were reduce-leg bookkeeping, and three closed mid-bracket for reasons this measurement does not explain** — 5342, 5403 and 5461, at −0.45R, −0.41R and −0.73R, i.e. **closing for a smaller loss than the stop would have taken**. That is the residue worth chasing, and it is three rows totalling −$4.83, not a systemic bracket failure.
+
+### The one place the label states a price event that did not happen
+
+`sl_cross` asserts price crossed the declared stop. Over the 53 real-money `sl_cross` closes: **27 `at_stop`, 21 `between`, 5 `beyond_stop`** — and **nine of the 21 exited in PROFIT**, up to **R = +1.13** (id 1319, `vwap`/BTCUSDT, `measured` provenance, pnl +0.1677). A position that exited a full R *above* entry did not cross a stop one R *below* it.
+
+⚠️ **Six of those nine are `vwap`** — off since 2026-06-07, routed nowhere — so most of it is historical; **two are on legs still routed to real-money `bybit_2`**, so it is not purely historical either. ⚠️ **And I did not establish the mechanism.** The most likely explanation is that `trades.stop_loss` holds the **entry** stop while the exit was against a **trailed** stop — which would make the label defensible and make every R computed from that column wrong for every trailed trade. **That would be a larger finding than this one and must be settled before this is "fixed".** Filed as `BL-20260908-SL-CROSS-LABELS-NINE-CLOSES-THAT-EXITED-IN-PROFIT`.
+
+---
+
 ## 4. Is a 14-run surprising? The arithmetic, stated honestly
 
 Lifetime non-win rate over the graded decision set: **307/424 = 0.7241**.
@@ -281,6 +325,37 @@ that the leg is alive and evaluating on cadence (7 `ict_scalp_eval` rows in 13
 minutes, all "no liquidity sweep in last 12 bars") — i.e. nothing is stuck and the
 wait is on market conditions. I did not re-derive that and am not restating it as
 mine.
+
+---
+
+## 8. The operator's second question: why is there no activity on `alpaca_live`?
+
+**Short answer: because its one leg has signalled twice since going live, and BOTH were refused as dry-run while every declared gate read `live`. That is a known open defect, not quiet markets.**
+
+`alpaca_live` is `mode: live`, `account_class: real_money`, roster `['tlt_pullback_1h']` — one leg, routed by #10633.
+
+⚠️ **The rejection reason IS recoverable, and it is not in the column my dispatch looked at.** `closeReason` is null, but `notes.reason` carries it. Both post-routing rows:
+
+| id | created | `notes.is_dry` | `notes.reason` |
+|---|---|---|---|
+| 5306 | 2026-09-01T16:05:36Z | **true** | `dry_run_no_order_placed` |
+| 5415 | 2026-09-03T13:30:33Z | **true** | `dry_run_no_order_placed` |
+
+*(Two, not one. And note the polarity flip: the four **pre**-routing rows carry `is_dry: false` with `account_mode_dry_run`. The recorded shape changed at the routing.)*
+
+`dry_run_no_order_placed` is emitted only under `_genuinely_dry` (`execute.py:336`, `:457`) — deliberately distinct from `exchange_client_unavailable_no_order_placed`, so this is **not** a wedged client.
+
+**And every declared gate read live at both moments**, verified by parsing the YAML at each commit rather than grepping: `alpaca_live.mode = 'live'` and `tlt_pullback_1h enabled=true / execution='live'` at `c1f50fc5` (pre-routing), `a8a045a6` (the routing), `f2b871e9` and `origin/main`. Both refusals sit **+17.4h and +62.8h after** the routing commit, so neither is a pre-deploy artifact. Runtime agrees: `trading_mode.live_per_account.alpaca_live = True`.
+
+**This is already filed** as `BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE` (high, Tier-2). I did not duplicate it — I **eliminated two of its candidate causes and narrowed a third**:
+
+- **The documented third gate is NOT it.** `coordinator.py:1322` consults `account_state_dry_run()`, an override that can force an account dry regardless of `accounts.yaml` and is **not surfaced on `/api/bot/config`**. It was my leading hypothesis. Refuted: `config/account_state.yaml` declares only `bybit_1` and `bybit_2`, so for `alpaca_live` the accessor returns `None` and the branch is a no-op.
+- **Credentials are NOT it.** `/api/diag/broker_account_status?account_id=alpaca_live` (read 13:08:36Z): status **ACTIVE**, `trading_blocked: false`, `account_blocked: false`, buying_power **$200.22**, `error: null`. So the `configured=False` path is out.
+- **The stale-config branch now has to explain something awkward.** `load_accounts` is stateless per-call, so if the process held pre-routing config, `tlt_pullback_1h` would not have been in the roster and **no package would carry `account_id=alpaca_live` at all**. Two do. The roster was current; a stale-config story now needs the roster fresh and the mode stale, out of one file read by one call.
+
+⚠️ **What remains, and I did not test it:** the `dry_run` **parameter** passed into `multi_account_execute` (`coordinator.py:1314` — `if dry_run is not None: effective_dry = bool(dry_run)`), which overrides both declared gates. That needs a read of the running process, which the existing row's resolution criteria already asks for.
+
+⚠️ **n=2 supports no verdict about the account's health** — and it does not need to. The finding is not "the account is underperforming"; it is that **a Tier-3-approved real-money routing has produced no live capability for 8 days**, and `OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED` is waiting on a fill that a dry fold can never produce. ⚠️ `silent_refusal_alert` did not fire here: its floor is 5 rows in 24h and this is 2 rows in 8 days — the detector is behaving correctly and the cadence is simply below its floor.
 
 ---
 
