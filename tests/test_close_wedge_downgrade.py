@@ -422,3 +422,110 @@ def test_a_real_wedge_still_retires_normally_after_the_heartbeat(ledger: Path) -
         now=T0 + dt.timedelta(hours=window + 0.5), path=ledger,
     )
     assert [s.transition for s in swept] == ["vanished_unattributed"]
+
+
+# --------------------------------------------------------------------------
+# MI-199: THE CORRECTED CLASSIFICATION MUST ACTUALLY REACH THE DIGEST.
+#
+# The downgrade above was built correctly on 2026-09-02 and then almost never
+# fired, because the classifier it keys on was reading the weaker of two
+# available broker sources. Measured over the operator-alert ring's last 400
+# rows (2026-09-02T19:31Z -> 2026-09-08T12:06Z): of 178 alpaca_paper/GLD
+# close-failure alerts, 122 PAGED as `orders_still_resting` and only 56 reached
+# the digest -- roughly 21 operator pages a day about a condition the bot
+# provably cannot act on.
+#
+# These pin the whole chain on the LIVE bytes: cancel refusal -> classifier ->
+# marker -> route. A unit test of the classifier alone would not have caught
+# that the routing never saw the corrected state.
+# --------------------------------------------------------------------------
+
+#: Byte-exact, /api/diag/alpaca_open_orders?account_id=alpaca_paper,
+#: captured_at 2026-09-08T12:21:34.660879+00:00. Note the wedged CHILD leg is
+#: rendered `held` here -- the listing cannot see the wedge.
+LIVE_GLD_LISTING_20260908 = [
+    {"id": "2e843e04-5487-470c-a702-70e796fbd05e", "symbol": "GLD",
+     "status": "new", "order_class": "oco", "parent_id": None},
+    {"id": "891ddff0-b24d-4039-9322-8492bcd51e66", "symbol": "GLD",
+     "status": "held", "order_class": "oco",
+     "parent_id": "2e843e04-5487-470c-a702-70e796fbd05e"},
+]
+
+
+def _live_cancel_20260908():
+    """Byte-exact from the trader journal, 2026-09-08T12:20:54Z."""
+    from src.units.accounts.alpaca_client import CancelOutcome
+    return CancelOutcome(
+        "orders_read", 1, 0,
+        [("891ddff0-b24d-4039-9322-8492bcd51e66", 422, "order pending cancel")],
+    )
+
+
+def test_live_gld_now_routes_to_the_digest_end_to_end(tmp_path, monkeypatch):
+    """cancel refusal -> classifier -> retMsg marker -> route.
+
+    ⚠️ THE FIRST OBSERVATION STILL PAGES, AND THAT IS THE DESIGN, NOT A MISS:
+    `newly_wedged` is loud because downgrading the ARRIVAL of a wedge would hide
+    the condition rather than de-noise it. What this fix changes is the SECOND
+    observation onward -- which, on the live fleet, is ~21 pages a day.
+
+    Read this as the deployment note it is: when the fix lands, GLD's evidence
+    moves from the parent id the ledger currently carries to the CHILD id the
+    broker actually named, so the operator gets ONE `evidence_changed` page and
+    then silence-with-a-24h-floor. One page is the correct cost of a genuinely
+    different evidenced determination.
+    """
+    monkeypatch.setattr(cw, "STANDING_LOG", tmp_path / "standing.json")
+    state, detail = classify_share_hold(
+        LIVE_GLD_LISTING_20260908, _live_cancel_20260908())
+    assert state == cw.UNCLEARABLE_HOLD_STATE
+    # The retMsg the close path actually builds, in the same shape.
+    err = ("extended-hours limit close rejected: insufficient qty available "
+           "for order (requested: 39, available: 0) "
+           + format_share_hold_marker(state, detail))
+    assert parse_share_hold(err) == cw.UNCLEARABLE_HOLD_STATE
+    from src.runtime.execution_diagnostics import route_close_failure
+    kw = dict(account="alpaca_paper", symbol="GLD", side="long", error=err)
+    first = route_close_failure(**kw)
+    assert first[0] == "page" and first[1] == "newly_wedged", first
+    second = route_close_failure(**kw)
+    assert second[0] == "digest", second
+    assert second[3] == cw.UNCLEARABLE_HOLD_STATE
+
+
+def test_the_defect_this_replaced_still_pages_without_the_cancel_evidence():
+    """THE CONTROL. Same listing, no cancel evidence -> still pages.
+
+    This is the state the fleet was actually in, and it is what makes the test
+    above mean something: the change is the cancel evidence, not the listing.
+    """
+    state, detail = classify_share_hold(LIVE_GLD_LISTING_20260908)
+    assert state == "orders_still_resting"
+    err = ("extended-hours limit close rejected: insufficient qty available "
+           + format_share_hold_marker(state, detail))
+    from src.runtime.execution_diagnostics import route_close_failure
+    # Repeating cannot buy silence: page every time, however many times it fails.
+    for _ in range(5):
+        route, _t, _r, _sh = route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert route == "page"
+
+
+def test_an_ordinary_cancel_refusal_still_pages():
+    """NARROWNESS CONTROL: a refusal that does not name a wedged status.
+
+    The downgrade buys silence, so it must key on WHAT THE BROKER SAID about the
+    order's own state -- never on a cancel having been refused, and never on the
+    failure repeating.
+    """
+    from src.runtime.execution_diagnostics import route_close_failure
+    from src.units.accounts.alpaca_client import CancelOutcome
+    for msg in ("forbidden", "order is not cancelable", "rate limit exceeded"):
+        state, detail = classify_share_hold(
+            LIVE_GLD_LISTING_20260908,
+            CancelOutcome("orders_read", 0, 0, [("x", 422, msg)]))
+        assert state == "orders_still_resting", msg
+        err = "insufficient qty available " + format_share_hold_marker(state, detail)
+        route, _t, _r, _sh = route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert route == "page", msg
