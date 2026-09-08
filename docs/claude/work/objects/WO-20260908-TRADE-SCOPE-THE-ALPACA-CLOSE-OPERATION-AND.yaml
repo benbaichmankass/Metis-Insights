@@ -58,14 +58,21 @@ evidence: >-
   with percentage" — read from the Alpaca API reference on 2026-09-08. So the
   second branch of the done condition (record that it cannot be expressed) does
   NOT apply, and the operator's approval holds.
-  TEST POPULATION, measured by running the new file against `main`'s src
-  verbatim (stashed), 14 tests: 12 failed, 2 passed. TEN of those failures are
-  BEHAVIOURAL and are the repair. TWO fail only with `TypeError:
-  AlpacaClient.close() takes 2 positional arguments but 3 were given` — they
-  pin that the whole-symbol path did NOT change, so by construction they cannot
-  demonstrate a change, and they are not counted as evidence. The remaining TWO
-  pass on both trees and are the only true either-way controls. The split is
-  restated in the test module's own docstring.
+  TEST POPULATION, measured against `main`'s src by reading each failure's
+  EXCEPTION TYPE rather than by counting reds. 18 tests: 16 failed, 2 passed —
+  and only SIX of those failures are BEHAVIOURAL. Those six are the evidence,
+  and they go through `execute.close_open_position` / `execute.modify_open_order`,
+  whose signatures are IDENTICAL on both trees, so on `main` they run the real
+  defect and report it. TEN fail with `TypeError` — they hand the CLIENT a qty
+  that has no parameter on `main`, which is the ABSENCE OF THE FEATURE and not a
+  demonstration of the defect; they pin per-path behaviour the end-to-end six
+  cannot see, but they are not counted as evidence. TWO pass on both trees and
+  are the only true either-way controls. ⚠️ AN EARLIER VERSION OF THIS BLOCK
+  CLAIMED TEN BEHAVIOURAL FAILURES AND WAS WRONG IN THE FLATTERING DIRECTION.
+  The cause was a test-design weakness — the core claims were expressed through
+  the NEW signature, so on `main` they could only say "no such parameter" — and
+  it was fixed by ADDING three caller-level tests, not by rewording. Recorded
+  rather than quietly overwritten.
   NOT ESTABLISHED, stated rather than filled in: live acceptance of `?qty=`
   against a real Alpaca position. No broker call was made from this session.
   Also not established: whether any over-close has ever actually fired — that
