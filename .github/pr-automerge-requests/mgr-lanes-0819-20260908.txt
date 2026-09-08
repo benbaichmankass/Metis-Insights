@@ -6,3 +6,10 @@ Arming is legitimate only because #11357 (merged 417bd6b6) resolved the R13/R2
 deadlock. Before it, R13 required this branch to write docs/claude/session-board.json
 and R2 refused a manager commit touching that path, so no manager register PR
 could arm honestly. It now can, per commit by content.
+
+--- re-arm 2026-09-08T10:28Z ---
+#11365 squash-merged the first three commits on this branch and closed. Three
+further commits followed (the operator's five decisions, their routing, and the
+10:26Z heartbeat + supervision record) and no PR reopened, because
+claude-pr-automerge fires only on a push that TOUCHES this file and those
+commits did not. Appending here re-triggers the find-or-open.
