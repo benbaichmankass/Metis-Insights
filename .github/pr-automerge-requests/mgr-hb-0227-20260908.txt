@@ -1,0 +1,1 @@
+manager heartbeat 02:26Z + the supervision record R6 reads

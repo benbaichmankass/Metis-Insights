@@ -24,7 +24,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T01:38:17Z",
+  "updated_at": "2026-09-08T02:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2862,7 +2862,9 @@
       "spawned_at": "2026-09-08T01:36:01Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
-      "confirmed_at": "2026-09-08T01:38:17Z"
+      "confirmed_at": "2026-09-08T01:38:17Z",
+      "manager_observation": "OBSERVED 2026-09-08T02:25Z: IDLE, status_bucket BLOCKED, needs_action 'check whether Alpaca API supports quantity-scoped close; unread: alpaca_paper/alpaca_live'. ⚠️ MANAGER DISPOSITION — NOT A STALL I NEED TO CLEAR. Its DELIVERABLE is already up as #11312 (landing: hold, by the author's own choice). The two things it names are both already placed: the qty-close capability question is the FIRST STEP OF ITS OWN PROPOSAL, so it belongs in the operator's decision on #11312 rather than being answered by a session that has stopped; and alpaca_paper/alpaca_live being unread is exactly MI-176's scope, spawned 02:15Z for that reason. ⚠️ AND I CANNOT TELL IT ANY OF THIS — a manager cannot message a running sub-session, re-confirmed by attempt this session (SendMessage: 'No agent named ... is reachable'). So this row IS the record.",
+      "observed_at": "2026-09-08T02:25:00Z"
     },
     {
       "session_id": "session_01V62BVG7Q9BHZeyTvkBWNPy",
@@ -2873,7 +2875,9 @@
       "spawned_at": "2026-09-08T01:36:01Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-THE-OPERATOR-S-ERROR-FEED-DIGEST-IS",
-      "confirmed_at": "2026-09-08T01:38:17Z"
+      "confirmed_at": "2026-09-08T01:38:17Z",
+      "manager_observation": "OBSERVED 2026-09-08T02:25Z: RUNNING, connected, 'two CI failures fixed (pr-landing, artifact-validity); awaiting CI+merge'. ⚠️ IT HIT THE SAME artifact-validity FAILURE THE MANAGER DID ON #11308 IN THE SAME HOUR — that is a THIRD and FOURTH instance of the unresolvable-backlog-id class today. The guard caught both, which is the mechanism working, but the recurrence rate is the finding. PR #11311 open, auto-merge armed.",
+      "observed_at": "2026-09-08T02:25:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
