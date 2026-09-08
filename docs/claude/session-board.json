@@ -4,12 +4,11 @@
   "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
- "merge_slot": {
+  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "automation/work-digest-34252308438-1",
-  "pr": 11426,
-  "claimed_at": "2026-09-08T17:37:00Z",
-  "displaced": "the manager's own claim for claude/mgr-heartbeat-1728-20260908 was SPENT \u2014 #11427 merged 17:33Z as b0dcbb82. THIRD rebase of this one branch: every merge to main rewrites merge_slot, which dirties every branch R13 requires to hold a claim, so the guard that serialises landings also serialises them against each other. Filed by MI-195 (6 rows, 17 collisions measured); recorded here rather than re-filed."
+  "branch": "claude/mgr-operator-decisions-1805-20260908",
+  "pr": 11430,
+  "claimed_at": "2026-09-08T18:07:00Z"
  },
  "active_sessions": [
   {
