@@ -1,0 +1,30 @@
+id: WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  pr-landing R6 and the merge-slot guard are mutually unsatisfiable
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A PR can satisfy R6 and the merge-slot guard simultaneously, demonstrated on a real PR, without either guard being weakened to make them agree.
+
+why: >-
+  Self-disclosed by session 018ruZdg on #11309: the only path that completes bypasses one of the two guards. A guard that must be bypassed to land becomes routine and then invisible. Operator granted a spawn-priority exception 2026-09-08.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

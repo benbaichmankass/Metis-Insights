@@ -1,0 +1,30 @@
+id: WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Re-dispatch the MGC remediation against the confirmed order ids 550/551
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The MGC journal/venue divergence is resolved and a fresh per-account read shows journal-open matching the venue, OR the resting ids are found to have moved again and the session ABORTS and reports rather than acting on ids the approval does not cover.
+
+why: >-
+  ib_paper/MGC carries 43 phantom lots — MI-177's fleet audit re-confirmed it as the only divergence across 25 compared pairs. The original approval named order 548; the live resting legs are 550 (STP 43 @ 4394.50) and 551 (LMT 43 @ 4485.00). Operator confirmed the corrected ids 2026-09-08.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
