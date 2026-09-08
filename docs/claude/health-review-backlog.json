@@ -33715,6 +33715,7 @@
     },
     {
       "id": "BL-20260908-CONSTRAINT-READOUT-CRON-HAS-FAILED-6-OF-6-SCHEDULED-RUNS-ON-A-MISSING-PYYAML",
+      "resolution_criteria": "A run of .github/workflows/constraint-readout.yml with event=schedule is OBSERVED concluding `success` AND docs/claude/CONSTRAINT.json on main carries a `generated_at` from THAT run. Read the run history and that stamp, never the workflow file and never the cron expression. [!] A workflow_dispatch run resolves this NOT AT ALL -- the failure class is a cadence that does not deliver, and this workflow has never had a dispatch run, so a first dispatch would prove only what the local yaml-blocking reproduction already proves. [!] A green `guards` job on the fixing PR resolves nothing: the fix is a runner dependency and CI does not run this workflow. [!] If the run fails for a DIFFERENT reason, that does not resolve this row and is the more valuable finding. Tracked to observation as OI-20260908-CONSTRAINT-READOUT-CRON-FIXED-BUT-NO-SCHEDULED-RUN-HAS-EVER-SUCCEEDED.",
       "title": "constraint-readout.yml has failed every scheduled run it has ever had -- the runner has no PyYAML, so the WIP-ceiling import returns None and the self-test gate aborts",
       "area": "observability",
       "severity": "high",
