@@ -1,56 +1,205 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-08T05:13:21Z",
+  "generated_at": "2026-09-08T11:44:09Z",
   "read_state": "measured",
-  "population": "ALL 4 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 1,
-  "worst_hours": 9.2,
+  "population": "ALL 19 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 0,
+  "worst_hours": 4.4,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 3,
-    "waiting": 1
+    "active": 19
   },
   "rows": [
     {
-      "pr": 11279,
-      "title": "MI-168: propose a TRADE-scoped close confirmation (Tier-3, HELD — coupled to MI-140)",
-      "head_ref": "mi-168-trade-scoped-close-confirmation",
+      "pr": 11337,
+      "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold — the venue CAN express it)",
+      "head_ref": "claude/alpaca-trade-scoped-close-20260908",
       "draft": false,
-      "quiet_hours": 9.2,
-      "state": "waiting",
-      "why": "open and unmerged with no push for 9.2h (threshold 6.0h).",
-      "last_push_utc": "2026-09-07T20:02:01Z"
-    },
-    {
-      "pr": 11312,
-      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM, established from code and venue (measurement + Tier-3 proposal, landin",
-      "head_ref": "claude/mi173-alpaca-sibling-mechanism-20260908",
-      "draft": false,
-      "quiet_hours": 3.2,
+      "quiet_hours": 2.5,
       "state": "active",
-      "why": "a push landed 3.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-08T02:03:20Z"
+      "why": "a push landed 2.5h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T09:13:08Z"
     },
     {
-      "pr": 11328,
-      "title": "work: ABORT the MGC remediation — 548 is not stale and the attribution is contradicted",
-      "head_ref": "claude/mgc-remediation-abort-attribution-contradiction",
+      "pr": 11347,
+      "title": "MI-168: correct the records its own merge made stale (Tier-1)",
+      "head_ref": "mi-168-post-merge-record",
       "draft": false,
-      "quiet_hours": 0.1,
+      "quiet_hours": 4.4,
       "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-08T05:06:41Z"
+      "why": "a push landed 4.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T07:21:11Z"
     },
     {
-      "pr": 11330,
-      "title": "work: defer the TLT 56-share re-arm — the only Alpaca path cancels the leg it must preserve",
-      "head_ref": "claude/wo-20260908-rearm-56-naked-tlt",
+      "pr": 11353,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34201971618-1",
+      "draft": false,
+      "quiet_hours": 3.8,
+      "state": "active",
+      "why": "a push landed 3.8h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T07:58:01Z"
+    },
+    {
+      "pr": 11354,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34201971585-1",
+      "draft": false,
+      "quiet_hours": 3.8,
+      "state": "active",
+      "why": "a push landed 3.8h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T07:58:32Z"
+    },
+    {
+      "pr": 11355,
+      "title": "manager: re-arm MI-168's record correction with an R13 merge-slot claim",
+      "head_ref": "claude/mgr-land-11347-r13-20260908",
+      "draft": false,
+      "quiet_hours": 3.7,
+      "state": "active",
+      "why": "a push landed 3.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T07:59:40Z"
+    },
+    {
+      "pr": 11359,
+      "title": "MI-193: how wrong is the backtest instrument about the live exit",
+      "head_ref": "claude/mi193-backtest-exit-fidelity",
+      "draft": false,
+      "quiet_hours": 1.1,
+      "state": "active",
+      "why": "a push landed 1.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T10:40:38Z"
+    },
+    {
+      "pr": 11361,
+      "title": "chore(m7): strategy review packets (auto)",
+      "head_ref": "automation/strategy-reviews-34207987310-1",
+      "draft": false,
+      "quiet_hours": 2.7,
+      "state": "active",
+      "why": "a push landed 2.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T09:05:00Z"
+    },
+    {
+      "pr": 11362,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34210131957-1",
+      "draft": false,
+      "quiet_hours": 2.3,
+      "state": "active",
+      "why": "a push landed 2.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T09:28:06Z"
+    },
+    {
+      "pr": 11363,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34210132085-1",
+      "draft": false,
+      "quiet_hours": 2.3,
+      "state": "active",
+      "why": "a push landed 2.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T09:28:41Z"
+    },
+    {
+      "pr": 11366,
+      "title": "chore(ops): refresh probe results (auto)",
+      "head_ref": "automation/probes-34212052493-1",
+      "draft": false,
+      "quiet_hours": 1.7,
+      "state": "active",
+      "why": "a push landed 1.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T10:02:42Z"
+    },
+    {
+      "pr": 11367,
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "head_ref": "automation/error-feed-digest-34213399205-1",
+      "draft": false,
+      "quiet_hours": 1.7,
+      "state": "active",
+      "why": "a push landed 1.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T10:03:57Z"
+    },
+    {
+      "pr": 11368,
+      "title": "chore(ops): refresh the due-list (auto)",
+      "head_ref": "automation/due-list-34213610709-1",
+      "draft": false,
+      "quiet_hours": 1.6,
+      "state": "active",
+      "why": "a push landed 1.6h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T10:06:18Z"
+    },
+    {
+      "pr": 11370,
+      "title": "MI-195: examine qld_trend_long_1d and tqqq_trend_long_1d — the block was a routing gap, and the answer is a measured `no",
+      "head_ref": "claude/mi195-tp-decisions-and-examine",
       "draft": false,
       "quiet_hours": 0.2,
       "state": "active",
       "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-08T05:01:53Z"
+      "last_push_utc": "2026-09-08T11:32:44Z"
+    },
+    {
+      "pr": 11376,
+      "title": "chore(ops): session-reaper observations (auto)",
+      "head_ref": "automation/session-reaper-34219925632-1",
+      "draft": false,
+      "quiet_hours": 0.3,
+      "state": "active",
+      "why": "a push landed 0.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:28:30Z"
+    },
+    {
+      "pr": 11377,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34220144791-1",
+      "draft": false,
+      "quiet_hours": 0.2,
+      "state": "active",
+      "why": "a push landed 0.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:31:08Z"
+    },
+    {
+      "pr": 11378,
+      "title": "MI-196: §5 renders EVERY due row — at a cap of 8 it could not supersede DUE.md",
+      "head_ref": "claude/mi196-section5-complete",
+      "draft": false,
+      "quiet_hours": 0.3,
+      "state": "active",
+      "why": "a push landed 0.3h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:25:30Z"
+    },
+    {
+      "pr": 11379,
+      "title": "/system-review MI-192b: real money on a 16-close losing streak, a 43-lot phantom with a live stop, and two broken instru",
+      "head_ref": "claude/mi192b-system-review",
+      "draft": false,
+      "quiet_hours": 0.2,
+      "state": "active",
+      "why": "a push landed 0.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:34:37Z"
+    },
+    {
+      "pr": 11380,
+      "title": "chore(ops): trainer capture-watch receipt (auto)",
+      "head_ref": "automation/data-commit-34220943108-1",
+      "draft": false,
+      "quiet_hours": 0.2,
+      "state": "active",
+      "why": "a push landed 0.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:29:36Z"
+    },
+    {
+      "pr": 11381,
+      "title": "manager: heartbeat 10:26Z, five operator decisions, and the lapse that let it slip",
+      "head_ref": "claude/mgr-lanes-1132-20260908",
+      "draft": false,
+      "quiet_hours": 0.2,
+      "state": "active",
+      "why": "a push landed 0.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-08T11:32:50Z"
     }
   ],
   "runs": [
@@ -179,6 +328,13 @@
       "waiting": 1,
       "worst_hours": 9.2,
       "escalated": true
+    },
+    {
+      "at": "2026-09-08T11:44:09Z",
+      "read_state": "measured",
+      "waiting": 0,
+      "worst_hours": 4.4,
+      "escalated": false
     }
   ],
   "last_paged_at": "2026-09-08T05:13:21Z",
