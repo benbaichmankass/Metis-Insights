@@ -68,8 +68,7 @@ verdict: >-
   stop leg on the symbol — so trade 5414's routine trailing amend rewrote trade 5266's
   protective level. Filed as
   BL-20260908-ALPACA-TRAILING-AMEND-PATCHED-A-SIBLING-TRADES-STOP-TO-THE-WRONG-DECLARED-LEVEL.
-  Both are recurrences of BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-
-  CANCELS-SYMBOL-WIDE on a venue where the scoping parameter does not exist to be passed.
+  Both are recurrences of BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE on a venue where the scoping parameter does not exist to be passed.
 
   WHY THE POSITION HAS STAYED NAKED, so nobody re-derives it: the Alpaca naked sweep
   (`order_monitor._check_broker_naked_equity_positions`) grades stop coverage as a
