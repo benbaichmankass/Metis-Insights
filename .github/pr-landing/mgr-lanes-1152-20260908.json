@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only manager work re-laid onto current main as ONE linear commit: the lease heartbeat, the supervision record showing MI-192 dead, the operator's five recorded decisions and their routing, and one repaired backlog reference. It also repairs a DUPLICATE `held_by` key that #11378 left inside session-board.json's merge_slot. No src/, tests/, scripts/, config/, deploy/ or workflow path. It is a fresh branch rather than a merge because check_manager_scope's merge_slot carve-out is checked against EVERY parent, so a merge commit whose two parents differ on any other key in docs/claude/session-board.json can never satisfy it -- a manager cannot merge main into an armed branch at all. This is the SECOND re-lay for that reason: the 1132 branch conflicted with main the moment #11378 landed a merge_slot change. Re-laying linearly avoids the deadlock and needs no force-push, which is prohibited. Filed as BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH."
+}
