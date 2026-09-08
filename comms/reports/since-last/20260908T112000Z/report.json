@@ -1390,8 +1390,8 @@
     },
     "backlog_summary": {
       "health": {
-        "total": 1312,
-        "open": 720,
+        "total": 1318,
+        "open": 726,
         "resolved": 592,
         "drained": 37,
         "present": true
@@ -1472,7 +1472,8 @@
         "note": "Real money, 30d: +$18.82, winRate 45.5% \u2014 the only real-money symbol positive over 30d. OHLC not pulled this run."
       }
     ],
-    "market_context_note": "Symbols enumerated from the live traded set rather than hardcoded; real money traded exactly these three this window. A per-symbol candle pull was NOT performed, so open/close/high/low/pct_change are null (never 0) and the notes carry the per-symbol PnL from /api/bot/performance instead."
+    "market_context_note": "Symbols enumerated from the live traded set rather than hardcoded; real money traded exactly these three this window. A per-symbol candle pull was NOT performed, so open/close/high/low/pct_change are null (never 0) and the notes carry the per-symbol PnL from /api/bot/performance instead.",
+    "backlog_summary_note": "RECOMPUTED after this branch merged origin/main, because these counts are guard-mandated to be COMPUTED from the files as committed and mine were rendered before the merge. Health moved 1312\u21921318 total / 720\u2192726 open: six rows that OTHER lanes filed on main landed in the union merge. \u26a0\ufe0f `review_coverage.backlog_classes.total_open_reviewed` deliberately stays at 788 and is NOT reconciled to 726+44+25=795. 788 is the population I actually READ for pattern at the start of the run (721 health + 44 performance + 23 ml); raising it would claim I read seven rows I never saw \u2014 six that arrived in the merge and one of my own filed afterwards. The two numbers answer different questions and are both correct."
   },
   "health": {
     "overall_assessment": "investigate",
