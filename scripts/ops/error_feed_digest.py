@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # wiring: .github/workflows/error-feed-digest.yml (--write) + scripts/ci/run_guards.py::error-feed-digest-guard (--self-test, --check)
+# wiring: scripts/ops/document_index.py::stamp_for (the doc-status header this
+#         generator must emit, or scripts/ci/check_document_index.py R3 reds
+#         every digest PR while the workflow above still reports SUCCESS)
 """Render the trader's ERROR FEED into a triage-ready digest the `duty` pass owns.
 
 WHY (the operator's ask, 2026-09-02)
