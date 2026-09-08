@@ -1593,7 +1593,7 @@
       "owner_session": "session_018ruZdgEkPZ1XceWzLwuYUU",
       "checklist_item": "MI-83",
       "opened_at": "2026-09-03T06:13:40Z",
-      "disposition": "MERGED 2026-09-08T01:32Z at c6065fab after all four required checks went green (pytest-run completed 01:05:51Z, the last of them). It had sat open since 2026-09-03 blocked on BL-20260904-MANAGER-SCOPE-R7-...-READS-AS-A-LAPSE, which is now moot. WHAT IT DOES NOT DO: it does not prove the per-merge ping reaches the operator. It makes the SUCCESS path loggable, so a session can read 'merge-ping: N merge(s) in A..B -> #NNNN' out of the journal -- which establishes the ping was ENQUEUED and nothing more. The last hop is a phone no repo surface can read, so the MI-83 OPEN-ITEMS row stays OPEN by its own text and this merge must not be quoted as closing it."
+      "disposition": "MERGED 2026-09-08T01:32Z at c6065fab after all four required checks went green (pytest-run completed 01:05:51Z, the last of them). It had sat open since 2026-09-03 blocked on BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE, which is now moot. WHAT IT DOES NOT DO: it does not prove the per-merge ping reaches the operator. It makes the SUCCESS path loggable, so a session can read 'merge-ping: N merge(s) in A..B -> #NNNN' out of the journal -- which establishes the ping was ENQUEUED and nothing more. The last hop is a phone no repo surface can read, so the MI-83 OPEN-ITEMS row stays OPEN by its own text and this merge must not be quoted as closing it."
     },
     {
       "terminal": "merged",
