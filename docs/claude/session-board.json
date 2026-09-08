@@ -6,10 +6,10 @@
  },
  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1728-20260908",
-  "pr": 11427,
-  "claimed_at": "2026-09-08T17:35:00Z",
-  "displaced": "session_01U2ibSa4FNcuV6bSLaPb9GS's claim for claude/mi196-readout-cron-pyyaml was SPENT \u2014 #11384 merged as 0212b425. Not a seizure."
+  "branch": "automation/work-digest-34252308438-1",
+  "pr": 11426,
+  "claimed_at": "2026-09-08T17:37:00Z",
+  "displaced": "the manager's own claim for claude/mgr-heartbeat-1728-20260908 was SPENT \u2014 #11427 merged 17:33Z as b0dcbb82. THIRD rebase of this one branch: every merge to main rewrites merge_slot, which dirties every branch R13 requires to hold a claim, so the guard that serialises landings also serialises them against each other. Filed by MI-195 (6 rows, 17 collisions measured); recorded here rather than re-filed."
  },
  "active_sessions": [
   {
