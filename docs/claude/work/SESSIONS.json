@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T06:45:00Z",
+  "updated_at": "2026-09-08T07:35:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2887,7 +2887,7 @@
     {
       "session_id": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
       "registry_key": "pending-20260908T013601Z",
-      "state": "idle",
+      "state": "blocked",
       "title": "MI-173 — pipeline lane pass 3: root-cause the Alpaca sibling-liquidation MECHANISM (MI-170), measurement and proposal only",
       "owns_object": "WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
       "spawned_at": "2026-09-08T01:36:01Z",
@@ -2895,7 +2895,10 @@
       "why": "see WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN",
       "confirmed_at": "2026-09-08T01:38:17Z",
       "manager_observation": "OBSERVED 2026-09-08T02:25Z: IDLE, status_bucket BLOCKED, needs_action 'check whether Alpaca API supports quantity-scoped close; unread: alpaca_paper/alpaca_live'. ⚠️ MANAGER DISPOSITION — NOT A STALL I NEED TO CLEAR. Its DELIVERABLE is already up as #11312 (landing: hold, by the author's own choice). The two things it names are both already placed: the qty-close capability question is the FIRST STEP OF ITS OWN PROPOSAL, so it belongs in the operator's decision on #11312 rather than being answered by a session that has stopped; and alpaca_paper/alpaca_live being unread is exactly MI-176's scope, spawned 02:15Z for that reason. ⚠️ AND I CANNOT TELL IT ANY OF THIS — a manager cannot message a running sub-session, re-confirmed by attempt this session (SendMessage: 'No agent named ... is reachable'). So this row IS the record.",
-      "observed_at": "2026-09-08T03:31:00Z"
+      "observed_at": "2026-09-08T03:31:00Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "IDLE/disconnected since 02:16:49Z, 410,984 tokens. needs_action: 'check whether Alpaca API supports quantity-scoped close'. ⚠️ THAT QUESTION IS BEING ANSWERED BY MI-180 (session_01GYsNAhP6SpKe1vyn2tBc94) — do not re-dispatch it; its PR #11312 is approved and awaiting the manager's merge."
     },
     {
       "session_id": "session_01V62BVG7Q9BHZeyTvkBWNPy",
@@ -2969,12 +2972,15 @@
       "spawned_at": "2026-09-08T04:45:51Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-approved 2026-09-08 (Tier-3). First step is establishing whether the Alpaca API supports a qty-scoped close at all.",
-      "confirmed_at": "2026-09-08T04:46:27Z"
+      "confirmed_at": "2026-09-08T04:46:27Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "RUNNING 06:53:57Z — acting on the manager's 05:53Z poke about the protective writes ('reading place_protective signature; checking oca_key usage'). Its post_turn_summary already reads completed for #11337; the poke reopened it."
     },
     {
       "session_id": "session_0173g82hw2Rf3HjnfydGcnyX",
       "registry_key": "pending-20260908T044628Z",
-      "state": "blocked",
+      "state": "stalled",
       "title": "MI-183 — pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
       "owns_object": "WO-20260908-PR-LANDING-R6-AND-THE-MERGE-SLOT",
       "spawned_at": "2026-09-08T04:46:28Z",
@@ -2982,7 +2988,10 @@
       "why": "Operator granted a spawn-priority exception 2026-09-08.",
       "confirmed_at": "2026-09-08T04:47:58Z",
       "manager_observation": "BLOCKED, UNRECOVERABLE IN THIS CONTAINER — confirmed 06:22Z, its own words: 'push denied by harness'. It had FINISHED the work first (commit 5101620, 3 files, +259/-7) and spent 201k tokens before discovering it could not land any of it; the branch claude/mi-r6-slot-diagnosis-20260908 is absent from origin (verified by ls-remote). Poked twice, including with the exact plain push form its siblings used. ⚠️ SAME CLASS AS MI-185 (~160k tokens, same outcome) and the SECOND of six containers to refuse while four pushed fine, so this is per-container, not environment-wide. RE-DISPATCHED as MI-183b (session_01LSfhSog9oxATpMUUPBfTN9) against the same work object with a PUSH-PROBE-FIRST prompt. Do not poke this session again — it costs budget and lands nothing. ⚠️ Its finished commit is stranded: a manager cannot read files out of a sub-session's container, so the patch it offers is not a deliverable and MI-183b must redo the work.",
-      "observed_at": "2026-09-08T06:45:00Z"
+      "observed_at": "2026-09-08T06:45:00Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "Superseded by MI-183b. Could not push; ~201k tokens spent before discovering it."
     },
     {
       "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
@@ -2998,7 +3007,7 @@
     {
       "session_id": "session_015iukpShDdwvP5CM79Qtt3B",
       "registry_key": "pending-20260908T050420Z",
-      "state": "blocked",
+      "state": "stalled",
       "title": "MI-185 — land #11279 and #11312, which the manager is barred by R2 from merging",
       "owns_object": "WO-20260908-LAND-THE-TWO-OPERATOR-APPROVED-PRS-THE",
       "spawned_at": "2026-09-08T05:04:20Z",
@@ -3006,18 +3015,24 @@
       "why": "Both operator-approved and green; the manager cannot author the conflict-resolution merge commit (MI-184).",
       "confirmed_at": "2026-09-08T05:05:05Z",
       "manager_observation": "BLOCKED, UNRECOVERABLE IN THIS CONTAINER — observed 06:23Z after THREE pokes (05:41, 06:19, and the operator-decision relay). It acted on every one and pushed NOTHING: ~160k tokens spent, and its needs_action kept changing shape while staying the same blocker — 'permission classifier denied git merge', then 'grant Claude GitHub App access + add git bash patterns to .claude/settings.json'. Its branches are absent from origin (verified by ls-remote). ⚠️ IT ALSO PROPOSED RESOLVING #11279's register collision by TAKING MAIN'S VERSION, which was REFUSED: these registers only gain rows, so either side wins by silently deleting the other's, invisibly in the diff. ⚠️ FOUR SIBLING SESSIONS PUSHED FINE THE SAME NIGHT, so this looks per-container rather than environment-wide — MI-185b (session_01SmCEELFxuDSwBbLBmrF4mL) is the test, and is instructed to PROVE IT CAN PUSH before doing any analysis. Do not poke this session again; feeding it more turns costs budget and lands nothing.",
-      "observed_at": "2026-09-08T06:29:00Z"
+      "observed_at": "2026-09-08T06:29:00Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "Superseded by MI-185b. Could not push; ~160k tokens spent before discovering it."
     },
     {
       "session_id": "session_01SmCEELFxuDSwBbLBmrF4mL",
       "registry_key": "pending-20260908T062735Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-185b — land #11279 and #11312 (MI-185's container cannot push; fresh attempt)",
       "owns_object": "WO-20260908-LAND-THE-TWO-OPERATOR-APPROVED-PRS-THE",
       "spawned_at": "2026-09-08T06:27:35Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "MI-185 burned 160k tokens across three pokes and pushed nothing: its container's permission classifier refuses git merge/push while four sibling sessions pushed fine. A fresh container is the cheapest test of whether that is per-container.",
-      "confirmed_at": "2026-09-08T06:28:25Z"
+      "confirmed_at": "2026-09-08T06:28:25Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "IDLE 06:50:45Z, 'CI running on #11279 & #11312; merge armed on completion'. ⚠️ AN IDLE SESSION FIRES NOTHING — the merge did not pass to it and is the manager's."
     },
     {
       "session_id": "session_01LSfhSog9oxATpMUUPBfTN9",
@@ -3028,9 +3043,56 @@
       "spawned_at": "2026-09-08T06:40:20Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "MI-183 finished the work (commit 5101620, 3 files, +259/-7) and burned 201k tokens unable to push: 'push denied by harness'. Same class as MI-185, and MI-185b proved a fresh container CAN push.",
-      "confirmed_at": "2026-09-08T06:40:53Z"
+      "confirmed_at": "2026-09-08T06:40:53Z",
+      "state_observed_at": "2026-09-08T06:58:00Z",
+      "state_basis": "get_session, read live by the manager",
+      "observation": "RUNNING 06:53:58Z — 'implementing merge-slot guard fix; self-tests green'. Push probe passed."
+    },
+    {
+      "session_id": "session_01PQraBU1dSD52tRyjwcWb8M",
+      "registry_key": "pending-20260908T071413Z",
+      "state": "working",
+      "title": "MI-188 — exit mechanics: the trailing and banking half (measurement only)",
+      "owns_object": "WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF",
+      "spawned_at": "2026-09-08T07:14:13Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-08 into free WIP capacity after the merge queue emptied. The exit-matrix SHIP BLOCKED verdict covered take-profit geometry; trailing and banking were never measured on the same footing.",
+      "confirmed_at": "2026-09-08T07:15:25Z"
+    },
+    {
+      "session_id": "session_01JjJa5sRhrqQapwx25ebo6Q",
+      "registry_key": "pending-20260908T071414Z",
+      "state": "working",
+      "title": "MI-189 — pipeline lane pass 5: the accounts MI-177 could not read",
+      "owns_object": "WO-20260908-PIPELINE-REVIEW-LANE-PASS-5-JOURNAL-VS",
+      "spawned_at": "2026-09-08T07:14:14Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-08. The standing lane produced every Alpaca finding this cycle; three accounts remain unread and 'unread' is not 'clean'.",
+      "confirmed_at": "2026-09-08T07:15:25Z"
+    },
+    {
+      "session_id": "session_019rZTh1JFCXRNR4kYpueGPu",
+      "registry_key": "pending-20260908T072004Z",
+      "state": "working",
+      "title": "MI-188b — exit mechanics: trailing and banking (MI-188 cloned the WRONG repo)",
+      "owns_object": "WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF",
+      "spawned_at": "2026-09-08T07:20:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-188 (session_01PQraBU1dSD52tRyjwcWb8M) was created without an explicit source_url and its container cloned the-lizardking/ict-trading-bot -- the historical repo -- not benbaichmankass/metis-insights. Interrupted. Re-spawned with source_url pinned.",
+      "confirmed_at": "2026-09-08T07:21:09Z"
+    },
+    {
+      "session_id": "session_01LRLUSvcGqQjPcMByAiggsg",
+      "registry_key": "pending-20260908T072005Z",
+      "state": "working",
+      "title": "MI-189b — pipeline lane pass 5 (MI-189 got NO repo at all)",
+      "owns_object": "WO-20260908-PIPELINE-REVIEW-LANE-PASS-5-JOURNAL-VS",
+      "spawned_at": "2026-09-08T07:20:05Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-189 (session_01JjJa5sRhrqQapwx25ebo6Q) was created without an explicit source_url and its session_context carried NO sources key at all; it asked whether to work on an 'ICT notebook'. Re-spawned with source_url pinned.",
+      "confirmed_at": "2026-09-08T07:21:09Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-08T05:43Z — LIVE reconcile via list_sessions(mine=true, limit=8) plus per-session get_session. POPULATION: the 8 most recent sessions. THREE were IDLE/BLOCKED on questions only the manager could answer (MI-185 awaiting a push go-ahead, MI-183 blocked by a pre-push hook, MI-176 awaiting a commit decision) — work finished, sitting in ephemeral containers. All three were POKED via create_trigger(persistent_session_id) + fire_trigger; TWO woke and one did not (see their rows). ⚠️ MI-185's registry row is NOT on main — it is on the unmerged branch claude/mgr-land-blocked-prs-0512-20260908, which is exactly the dispatch-record-not-landed hazard BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED names. Do not fix that by writing a duplicate row; land the PR."
+  "⚠️_last_live_reconcile": "2026-09-08T06:58Z — six rows re-read live with get_session and stamped with state_observed_at + state_basis. ⚠️ A `state` WITHOUT a state_observed_at IS NOT AN OBSERVATION — nothing decays a row, so it goes false BY TIME PASSING (MI-178 measured all 17 `working` rows false, ZERO actually RUNNING; MI-177's own row went false in 42 minutes). Read the stamp, not the word. | 2026-09-08T07:33Z: MI-188b (session_019rZTh1JFCXRNR4kYpueGPu) observed RUNNING with sources=benbaichmankass/metis-insights and BOTH probe checks passed; MI-180 observed RUNNING then pushing df4d18e1 after the 07:12Z poke. Both read live with get_session, not inferred. | 2026-09-08T07:35Z: #11350 opened by the relay with only open-and-automerge having fired (total_count=1) — the GITHUB_TOKEN arming trap, NOT a conflict; mergeable_state on the previous branch read  and that is what distinguishes them. Armed with this ordinary commit."
 }

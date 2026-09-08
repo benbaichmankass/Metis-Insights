@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register update only — every path is under docs/claude/ plus this branch's own landing files. Cherry-picked onto main rather than merged, deliberately: main carries #11334's workflow and .claude/ changes, and a merge commit would put those in the first-parent diff that check_manager_scope R2 grades."
+}
