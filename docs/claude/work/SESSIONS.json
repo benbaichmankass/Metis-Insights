@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T12:31:00Z",
+  "updated_at": "2026-09-08T13:38:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,14 +3212,14 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T12:31:00Z",
-      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'root cause found; confirming population'. Poked 12:29Z with the operator's approval to reset the paper account if needed."
+      "state_observed_at": "2026-09-08T13:38:00Z",
+      "state_basis": "pull_request_read(get) on #11389 + #11395 at 13:37Z — PR heads and merge state, not a session summary",
+      "observation": "RUNNING. Re-laid #11389 onto current main: head is now 6216da28 (was 6febde04), 3 commits. ALSO LANDED #11395 (a83ab7d5) — 'the paper reset: approved, verified, and deliberately not spent'. That is the operator's 'you can reset the paper account if needed' approval, and MI-199 established the reset was NOT needed rather than spending a granted permission because it had it. Recording that as the judgement it is. #11389 remains landing: hold / tier_2_3_needs_approval and I am NOT overriding it; #11390 remains draft and unarmed. The only thing outstanding on the operator's GLD directive is a human word on #11389."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
       "registry_key": "pending-20260908T122031Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-200: the real-money losing streak — attribute the 15 closes before grading any leg",
       "owns_object": "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
       "checklist_item": "MI-200-REAL-MONEY-LOSING-STREAK",
@@ -3227,9 +3227,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
       "confirmed_at": "2026-09-08T12:21:09Z",
-      "state_observed_at": "2026-09-08T12:31:00Z",
-      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'mapping exit_reason→closeReason'. Poked 12:29Z with the operator's redirection: the 9 non-sl closes are now the primary question."
+      "state_observed_at": "2026-09-08T13:32:53Z",
+      "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
+      "observation": "IDLE at 13:17:07Z with #11391 still RED on guards — a red PR is not a finished state, so this row is NOT 'done'. post_turn_summary read 'stop-type fix blocked by trailed-stop semantics; alpaca_live idle 8d (dry-run gates); digest-liveness-guard red on main'. The third blocker was never its own and I cleared it (#11377). ⚠️ THE 'alpaca_live idle 8d (dry-run gates)' LINE IS UNVERIFIED and is a DIFFERENT cause from the one-leg roster I relayed to the operator — a mechanism, not a roster problem — so it changes what MI-201 should propose. I did NOT relay it as fact. Poked 13:31Z to pin the gate, the config field, the read surface and the 8-day basis, or file it rather than let it die with the container."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

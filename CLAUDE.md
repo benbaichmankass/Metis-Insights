@@ -1481,6 +1481,22 @@ below are the contract.
     hit twice in one PR, once per relay. Read `mergeable_state` to tell the two
     zero-check causes apart — `blocked` is this (no checks fired), `dirty` is a
     merge conflict, and both render as `total_count: 0`.
+    ⚠️ **AND IT APPLIES TO `claude-pr-automerge.yml`, BY A DIFFERENT ROUTE THAT
+    IS WORSE — measured THREE times on 2026-09-08 alone** (#11356 MI-193,
+    #11392 and #11395 MI-199). The two relays above bury an EXISTING PR's checks
+    with a results commit; `claude-pr-automerge` **opens the PR itself** under
+    `GITHUB_TOKEN`, so the PR is *born* with no `pull_request` event and carries
+    exactly ONE check run — its own `open-and-automerge`. It therefore reads as
+    a PR whose CI has not started yet and never will, and because that one run
+    is GREEN it is easy to glance at and call ready. **Push one ordinary commit
+    to the branch after the workflow opens the PR.** ⚠️ **A SECOND HAZARD ON THE
+    SAME ROUTE, and it is the one that loses work: ONCE AUTO-MERGE IS ARMED,
+    TREAT THE BRANCH AS CLOSED TO NEW CONTENT.** Measured on #11392 — a commit
+    pushed to the branch while CI ran on the previous head was NOT in the squash:
+    auto-merge took the PR the moment that earlier head went green, and the later
+    commit, though pushed before the merge, never reached `main`. Whether a
+    post-arming commit lands is a race with CI duration, so anything that must
+    land goes on a fresh branch (a merged PR is finished and must not be reused).
   - **`.github/workflows/board-post.yml`** — POST to the coordination board
     (it resolves the issue from `docs/claude/board-pointer.json` **on the default
     branch**, so your own branch cannot redirect it) when `add_issue_comment` 403s: drop

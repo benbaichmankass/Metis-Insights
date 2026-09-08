@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/ + docs/claude/session-board.json only — the manager lease heartbeat (13:32:53Z, expires 15:02:53Z), the merge-slot claim that R13 requires alongside the arming file, and two reconciled sub-session rows in SESSIONS.json (MI-200 observed IDLE at 13:17Z with its PR still red, so its row is corrected from 'working' — nothing decays a row, and a stale 'working' goes false purely by time passing). No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps. Self-lands because Tier-1 needs no human OK and a heartbeat that waits on one reaches main two-thirds through its own 90-minute TTL."
+}
