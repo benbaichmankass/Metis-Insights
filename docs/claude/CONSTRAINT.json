@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-08T11:21:57+00:00",
+  "generated_at": "2026-09-08T11:25:27+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -1164,7 +1164,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=24.8h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=24.9h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 9,
@@ -1273,7 +1273,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-08T05:10:01+00:00, age 6.2h",
+        "note": "digest 2026-09-08T05:10:01+00:00, age 6.3h",
         "row_count": 12,
         "covered_elsewhere": null,
         "rows_shown": 12,
@@ -1281,7 +1281,7 @@
           {
             "source": "error_feed",
             "id": "ERROR-FEED-DIGEST-STALE",
-            "title": "error-feed digest is 6.2h old — expected hourly",
+            "title": "error-feed digest is 6.3h old — expected hourly",
             "why_due": "EVERY group below was observed at 2026-09-08T05:10:01+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
             "age_days": 0,
             "loud": true,

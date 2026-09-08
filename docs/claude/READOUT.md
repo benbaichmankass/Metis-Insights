@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-08T11:21:57+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-08T11:25:27+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -144,10 +144,10 @@ The two sources are kept **separate rather than merged** — one says *this work
 | `soaks` | `read` | 2 | 2 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=1 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=24.8h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
+| `probes` | `read` | 9 | freshness=fresh age=24.9h cadence=daily (cron 20 5 * * *) \| 2 probe result(s) deferred to the `soaks` source,… |
 | `red_crons` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
 | `unlanded_automation` | `could_not_read` | — | HTTPError: HTTP Error 403: Forbidden |
-| `error_feed` | `read` | 12 | digest 2026-09-08T05:10:01+00:00, age 6.2h |
+| `error_feed` | `read` | 12 | digest 2026-09-08T05:10:01+00:00, age 6.3h |
 | `sunset` | `read` | 0 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
@@ -303,7 +303,7 @@ The two sources are kept **separate rather than merged** — one says *this work
 **`error_feed` — 12 due**
 
 - 🔔 `ERROR-FEED-DIGEST-STALE` · 0d — EVERY group below was observed at 2026-09-08T05:10:01+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition …
-  - error-feed digest is 6.2h old — expected hourly
+  - error-feed digest is 6.3h old — expected hourly
 - `ERRFEED-b0711dd4` · 1d — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 3 rows 2026-09-07T12:00:59 → 2026-09-08T00:05:05 · accounts=ib_pape…
   - [error] NEW x3 ib_stop_over_cover detected: ib_paper/MGC: position N but resting STOP qty totals N (N%) across N DISJOINT OCA groups oca-protect-tN(clientI
 - `ERRFEED-897ca384` · 0d — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-08T05:07:41 → 2026-09-08T05:07:41 · accounts=alpaca_…
