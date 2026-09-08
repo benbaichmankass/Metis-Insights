@@ -5,10 +5,11 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-dispatch-1226-20260908",
-  "pr": null,
-  "claimed_at": "2026-09-08T12:27:00Z"
+  "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
+  "branch": "claude/mi200-real-money-close-attribution",
+  "pr": 11391,
+  "claimed_at": "2026-09-08T12:58:00Z",
+  "note": "MI-200, Tier-1. Taken from a STALE claim, announced on board #11336 comment 5585500259 rather than overwritten silently: the prior holder was session_01HrmZ1RRNM4UnEUaFdrPEjj on branch claude/mgr-dispatch-1226-20260908, whose PR #11387 HAS MERGED as 42913d63 (origin/main's tip), so the work it serialised has landed. ⚠️ That branch still exists on origin at 3e26135e, which is NOT an ancestor of main, so the holder may have further work in flight; the board comment offers the slot straight back if so. Claimed here because pr-landing R13 requires the slot in the same push that arms .github/pr-automerge-requests/ — arming IS the merge."
  },
  "active_sessions": [
   {
