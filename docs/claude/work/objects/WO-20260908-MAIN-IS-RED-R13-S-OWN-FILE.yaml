@@ -1,0 +1,30 @@
+id: WO-20260908-MAIN-IS-RED-R13-S-OWN-FILE
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  main is red: R13's own file hardcodes the retired board, and R13+R2 deadlock the manager
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-08
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  BOTH, and they are different facts. (1) scripts/ci/check_board_coherence.py --all exits 0 on origin/main -- verified by running it on a clean checkout of main, not on a branch. (2) A manager-authored register commit that writes session-board.json passes check_manager_scope R2, AND check_pr_landing still enforces R13 for worker branches -- i.e. the deadlock is resolved without disarming either rule. A green self-test is not sufficient for (1): the failure is on main, so the observation must be against main.
+
+why: >-
+  TWO defects from merges landed 2026-09-08T07:5xZ, both blocking. (1) board-coherence R3 FAILS on clean origin/main: #11334's guard forbids a hardcoded #6927 on an executable line and #11344's check_pr_landing.py:542 contains one. Each PR was green alone; together they red EVERY PR in the repo. (2) R13 now requires every self-landing branch to write docs/claude/session-board.json, and check_manager_scope R2 refuses that path as 'not on the manager surface' -- so a manager register PR can satisfy neither rule. Same guard file, one fix.
+
+source: >-
+  operator (conversational)
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
