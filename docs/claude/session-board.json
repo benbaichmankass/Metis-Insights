@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2328-20260908",
-  "claimed_at": "2026-09-08T23:26:51Z",
-  "purpose": "Manager cadence tick: lease heartbeat 23:26:51Z, supervision records for the two live sub-sessions, and two checklist corrections (MI-180 unblocked itself; MI-206 is a duplicate and must not be spawned)."
+  "branch": "claude/mgr-heartbeat-2352-20260908",
+  "claimed_at": "2026-09-08T23:50:00Z",
+  "purpose": "Post-merge pass: heartbeat 23:50:00Z, MI-180 to landed_unproven after #11337 landed as 0862f8ac, and MI-205b named as a stall at 91 minutes with nothing on the remote."
  },
  "active_sessions": [
   {
