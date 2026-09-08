@@ -7810,7 +7810,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     # netted broker position, and grading it once is both cheaper and the only
     # way the page counts a symbol once rather than once per row.
     coverage_memo: Dict[Tuple[str, str], Any] = {}
-    graded_symbols: set = set()
+    graded_keys: set = set()
     for row in rows:
         account_id = str(row["account_id"] or "")
         if account_id not in alpaca_ids:
@@ -7892,8 +7892,8 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                         client.protection_coverage(symbol, position=_p)
                     )
             _cov = coverage_memo[_cov_key]
-            if _cov_key not in graded_symbols:
-                graded_symbols.add(_cov_key)
+            if _cov_key not in graded_keys:
+                graded_keys.add(_cov_key)
                 if _cov is None:
                     summary["coverage_read_failed"] += 1
                     logger.warning(
