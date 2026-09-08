@@ -1,0 +1,15 @@
+MI-205b — the N-book ranking-key harness (PR #11473).
+
+Tier-1, declared in .github/pr-landing/mi205b-ranking-key-harness.json.
+Measurement only: three research scripts, one dispatchable workflow, two test
+modules, docs, one field on one OPEN-ITEMS row, and the work object. No order
+path, no live config, no src/ change — the ranking arm is installed by patching
+a module attribute for the duration of a replay and restored unconditionally.
+
+The result is a NULL and nothing live is proposed; flipping the ranking key
+would be Tier-3.
+
+⚠️ The PR was opened BY HAND first, deliberately: a PR opened by
+claude-pr-automerge.yml under GITHUB_TOKEN carries no `pull_request` event, so
+its checks never fire and it reads as green on one run. Step 1 of that workflow
+adopts an already-open PR instead of creating one.
