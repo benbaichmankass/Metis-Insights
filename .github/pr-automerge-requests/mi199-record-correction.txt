@@ -1,0 +1,1 @@
+MI-199 record correction — Tier-1 register content only. Arms native auto-merge; GitHub still merges only on green.

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register content only — one appended row in docs/claude/health-review-backlog.json and a dated correction to one existing OPEN-ITEMS observation. No src/, no config/, no deploy/, no workflows, no order path, no risk caps. Tier-1 by the canonical doc's own list, and it self-lands deliberately: it CORRECTS a stale record that is currently wrong in the dangerous direction (it names the OCO parent as pending_cancel when the parent reads `new` and the wedged order is the child), so holding it behind an operator OK would leave every session that reads OPEN-ITEMS reasoning from the wrong order id for as long as the hold lasts. The two Tier-2 code PRs it refers to (#11389, #11390) are held separately and land on their own approvals."
+}
