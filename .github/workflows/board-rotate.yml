@@ -165,8 +165,22 @@ jobs:
 
           # ---- Build the new body from the COMMITTED template -------------- #
           title="🤖 Claude Coordination Board ($(date -u +%Y-%m-%d))"
-          prev="${retire:-none}"
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # WHOSE SUCCESSOR IS THE BODY DESCRIBING? The two modes have different
+          # answers and conflating them is not cosmetic:
+          #   rotate  -> the board being retired RIGHT NOW ($retire)
+          #   refresh -> the CURRENT board's predecessor, from previous_boards
+          # The first refresh of #11336 used $retire, which in refresh mode is
+          # the current board itself -- so the live board announced it was the
+          # successor to ITSELF and told every session "do not post there",
+          # pointing at the board they were reading.
+          if [ "$refresh" = "true" ]; then
+            prev="$(jq -r '.previous_boards | last | .issue // empty' "$ptr")"
+          else
+            prev="$retire"
+          fi
+          prev="${prev:-none}"
 
           # WHEN THE OUTGOING BOARD DIED, not when we got around to rotating.
           # Those differ -- #6927 froze at 2026-09-07T11:28:17Z and was rotated
