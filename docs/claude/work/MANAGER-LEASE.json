@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T23:26:51Z",
-  "expires_at": "2026-09-09T00:56:51Z",
+  "heartbeat_at": "2026-09-08T23:50:00Z",
+  "expires_at": "2026-09-09T01:20:00Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 23:26:51Z, tool-stamped (gap 13.6 min from 23:13:15Z). CADENCE-TICK pass, and it found a real one. #11337 (MI-180, the Alpaca trade-scoped close) is NOT the stalled-green PR my first read suggested: its head moved to merge commit 66e2b972 at 23:25:17Z and the five green checks I read belonged to the PREVIOUS head d5232c9e. mergeable_state is `blocked` (checks in_progress), never `dirty`. Its owning session resolved its OWN register conflict — correct, MI-184 bars the manager from that — and is now IDLE/review_ready awaiting green. TWO CHECKLIST CORRECTIONS follow from it, both recorded here because they change what gets spawned. || PR #11469. ⚠️ ARMED BY THE WORKFLOW, NOT BY ME: the arming file rode in the FIRST push, so claude-pr-automerge opened the PR under GITHUB_TOKEN — which fires no pull_request event, so it was born carrying only its own open-and-automerge check. This commit is the ordinary push that arms CI. The documented order is open the PR by hand FIRST, then push the arming pair; I had it backwards and am recording that rather than quietly fixing it."
+  "note": "Heartbeat 23:50:00Z, tool-stamped. MERGE PASS: #11337 LANDED as 0862f8ac — the Tier-3 Alpaca trade-scoped close, merged on the manager's click because R4 bars a Tier-3 diff from self-landing. All five checks green on head 66e2b972, and I verified they were THAT head's (started 23:25:24Z, matching the 23:25:17Z push) rather than the 18:32Z set that misled the previous pass. #11469 merged as 23292309. ⚠️ MI-180 is landed_unproven, NOT done: `?qty=` acceptance against a real Alpaca position is DOCUMENTED and has never been observed — no broker call was made by anyone. ⚠️ MI-205b IS NOW NAMED AS A STALL — 91 minutes, nothing on the remote, summary string frozen 32 minutes. It is alive; it has produced nothing."
 }
