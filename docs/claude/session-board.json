@@ -4,11 +4,12 @@
   "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
- "merge_slot": {
-  "held_by": "session_011PHmZzVy92M6zjNopAMy51",
-  "branch": "claude/mi199-vanish-clock-mechanism-correction",
-  "pr": null,
-  "claimed_at": "2026-09-08T16:47:00Z"
+  "merge_slot": {
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "automation/data-commit-34253472473-1",
+  "pr": 11425,
+  "claimed_at": "2026-09-08T19:36:00Z",
+  "note": "MANAGER CLAIM ON A BOT BRANCH, PR #11425 -- the automation half of the merge queue, which the manager runs. Same fix as #11436, which proved it: this branch arms auto-merge and cannot hold the slot because a bot writes no claim, so pr-landing R13 is its ONLY failure and a CI re-run changes nothing. Taken CLEANLY -- the previous claim (#11443, mine) is SPENT, merged as e217e8a9. ⚠️ NOT URGENT, AND THAT IS RECORDED RATHER THAN DRESSED UP: I measured the clock before doing this and check_pr_queue_watch already grades FRESH -- 14.3h into a 30h window, NOT the 6h window I had assumed by generalising from the digest. This is queue drainage, not a save. Its receipt does move the clock FORWARD (16:50:32Z against main's 05:13:21Z, verified to survive the merge rather than assumed), which is the only bar a receipt PR has to clear."
  },
  "active_sessions": [
   {
