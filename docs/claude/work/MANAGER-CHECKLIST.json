@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T02:30:00Z",
+  "updated_at": "2026-09-08T04:16:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2192,18 +2192,14 @@
     },
     {
       "id": "MI-173-ALPACA-SIBLING-MECHANISM",
-      "status": "in_flight",
+      "status": "operator_approved",
       "owner": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
       "opened": "2026-09-08T01:38:00Z",
-      "updated": "2026-09-08T02:16:00Z",
-      "blocked_on": {
-        "kind": "decision",
-        "ref": "operator: #11312 is landing:hold by its AUTHOR'S choice — it asks three questions and its author did not want it read as approved by being merged",
-        "since": "2026-09-08T02:16:00Z"
-      },
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
       "tier": "1 as measurement; the PROPOSAL is Tier-3",
       "title": "The Alpaca sibling-liquidation MECHANISM (#11312) — measurement + Tier-3 proposal",
-      "note": "MECHANISM ESTABLISHED FROM CODE, and it is NOT the Bybit shape. AlpacaClient.close(self, symbol) has NO qty parameter at all; execute.close_open_position validates qty and then never passes it. So Bybit's defect is a RECONCILIATION failure (the venue did the right thing, the journal failed to follow) and Alpaca's is an OPERATION failure (the journal is right, we send the wrong instruction) — a Bybit-shaped attribution reconciler would not touch it. Blast radius is session-dependent: `closed` defers and cancels NOTHING (0 shares); `extended` and `regular` cancel EVERY resting order on the symbol and then flatten the WHOLE symbol. THREE THINGS THE BACKLOG ROW DID NOT NAME: the pre-cancel is a second destructive step (closing A strips B's protection BEFORE the flatten is attempted); modify_protective(symbol, sl, tp) has the IDENTICAL scope defect on a different verb and is filed nowhere; and the success log prints a per-trade qty on a whole-symbol flatten. ⚠️ AND THE RECORD WAS WRONG: the backlog row claims a test pins this, and that test DOES NOT EXIST ON MAIN — it is on the unmerged #11279 branch, so on main the over-close is UNPINNED."
+      "note": "MECHANISM ESTABLISHED FROM CODE, and it is NOT the Bybit shape. AlpacaClient.close(self, symbol) has NO qty parameter at all; execute.close_open_position validates qty and then never passes it. So Bybit's defect is a RECONCILIATION failure (the venue did the right thing, the journal failed to follow) and Alpaca's is an OPERATION failure (the journal is right, we send the wrong instruction) — a Bybit-shaped attribution reconciler would not touch it. Blast radius is session-dependent: `closed` defers and cancels NOTHING (0 shares); `extended` and `regular` cancel EVERY resting order on the symbol and then flatten the WHOLE symbol. THREE THINGS THE BACKLOG ROW DID NOT NAME: the pre-cancel is a second destructive step (closing A strips B's protection BEFORE the flatten is attempted); modify_protective(symbol, sl, tp) has the IDENTICAL scope defect on a different verb and is filed nowhere; and the success log prints a per-trade qty on a whole-symbol flatten. ⚠️ AND THE RECORD WAS WRONG: the backlog row claims a test pins this, and that test DOES NOT EXIST ON MAIN — it is on the unmerged #11279 branch, so on main the over-close is UNPINNED. || APPROVED 2026-09-08 (Tier-3): trade-scope the Alpaca close, FIRST establishing whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not and must not be forced. Must also cover modify_protective (identical scope defect, different verb, filed nowhere). MI-140 is HELD until the fix lands. Merging #11312 lands measurement + proposal ONLY and is not the fix."
     },
     {
       "id": "MI-174-DIGEST-GENERATOR-HEADER",
@@ -2218,17 +2214,94 @@
     },
     {
       "id": "MI-176-ALPACA-COVERAGE-QUANTITY",
-      "status": "in_flight",
+      "status": "operator_approved",
       "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
       "opened": "2026-09-08T02:16:00Z",
-      "updated": "2026-09-08T02:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
       "blocked_on": null,
       "tier": "1 to measure; the DETECTION ship is Tier-2",
       "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
-      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG)."
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold. || APPROVED 2026-09-08 (Tier-2) as DETECTION ONLY. The quantity grade must NOT bind the Alpaca re-arm path — same hold placed on BYBIT_GRADED_COVERAGE_MODE on 2026-09-02, same reason: arm only once a soak shows what binding would have CHANGED. The merge is permitted BECAUSE it binds nothing; arming must not be inferred from it. The CRITICAL alpaca_partial_stop_coverage page WILL fire on merge for the standing TLT condition — expected, not a regression."
+    },
+    {
+      "id": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
+      "status": "landed_unproven",
+      "owner": "session_01EPvAGZDFZCYF3QJk12u3mk",
+      "opened": "2026-09-08T03:22:00Z",
+      "updated": "2026-09-08T04:05:00Z",
+      "blocked_on": null,
+      "tier": "1 — measurement only",
+      "title": "Pipeline lane pass 4: audit journal-open rows against the venue across EVERY account",
+      "note": "THE STANDING LANE'S OWN NEXT STEP, NAMED BY MI-166 AND NEVER DONE: 'Tier-1 fix: journal-open vs exchange_positions audit across all accounts'. ⚠️ THE REASON IT IS WORTH A SESSION: every journal-vs-venue divergence this system has found was found BY ACCIDENT while someone looked at something else — MGC's 43 phantom lots during a health review, Bybit's 451x SOLUSDT during a netting investigation, alpaca_portfolio/TLT's 72 shares only because MI-173 went looking at one symbol. NOBODY HAS ASKED THE QUESTION FLEET-WIDE. Scoped MEASURE ONLY: no close, no cancel, no repair, no reconcile, no order path — the known divergences already have owners. Required of it: a per-account read_state (an unreadable account is 'we did not look', NEVER clean), a POSITIVE CONTROL naming the accounts that reconcile exactly, and real money ranked first. || OUTPUT OBSERVED 2026-09-08T03:53Z: PR #11318 is open on claude/mi177-journal-venue-fleet-audit-20260908 — 'fleet-wide journal-open vs venue audit — 8/11 accounts read, 23/24 exact, 1 known divergence' — carrying docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md (187 lines), ~24 lines of new health-review-backlog rows and a DOCUMENT-INDEX registration. The session was still RUNNING at the read, so this is progress, not a final result. ⚠️ DO NOT QUOTE '23/24 exact' AS A FLEET VERDICT: 8 of 11 accounts were read, so THREE ARE UNREAD — 'we did not look', not 'clean' — and the denominator of the headline is 8 accounts, not the fleet. Whether the 3 are unreadable or merely unreached is the first thing to read in the audit doc. ⚠️ #11318 showed total_count 0 at 03:53Z: its branch tip is a `pr-opener: results` commit authored by github-actions[bot] and GitHub does not trigger workflows for GITHUB_TOKEN pushes. That is the check-arming trap, NOT a red PR. Left for the session to arm — it is live on that branch, and R2 bars a manager commit on a worker path. || SESSION FINISHED 2026-09-08T04:05Z (IDLE, status_category `completed`, needs_action empty). Its own closing read: 'audit complete: 24/25 symbol pairs exact, 1 known divergence; phantom-lot class clear', and it added an audit script under scripts/ops/ so the question is RE-ASKABLE rather than being a one-off reading — which is the difference between this pass and the three accidental discoveries that motivated it. Status is `landed_unproven`, NOT `done`: #11318 is still OPEN. ⚠️ THE LANE IS NOT CLOSED BY THIS PASS. Three accounts were NOT READ on the venue side — real-money `ib_live`, prop `breakout_1`, and one more — and 'not read' is *we did not look*, never clean, so the fleet question is answered for 8 of 11 accounts. ⚠️ AND THE PASS FOUND A DEFECT IN ITS OWN INSTRUMENT, which is this cycle's whole point: the fleet-wide /api/diag/exchange_positions read intermittently returns positions:null for an account (~1 observed failure in 8 reads), and the account it dropped was the one carrying the only divergence. It fails SAFE (degrades to NOT_READ, never to a false clean), but anyone re-running this must read the per-account read_state and not the summary line."
+    },
+    {
+      "id": "MI-178-SESSION-REGISTRY-WORKING-ROWS-DO-NOT-DECAY",
+      "status": "done",
+      "owner": "manager",
+      "opened": "2026-09-08T03:31:00Z",
+      "updated": "2026-09-08T03:35:00Z",
+      "blocked_on": null,
+      "tier": "1 — registry reconcile (management, not an item)",
+      "title": "All 17 SESSIONS.json rows reading `working` were false; ZERO were RUNNING",
+      "note": "MEASURED 2026-09-08T03:31Z. POPULATION: the 17 rows reading `working` on origin/main at 3891f5d8, graded against list_sessions(mine=true, limit=40) — 40 returned, 15 of the 17 covered — plus a direct get_session on the 2 outside that window (Phase 1A, Phase 1B). RESULT: 7 ARCHIVED, 10 IDLE, 0 RUNNING. Reconciled in this commit; the census now reads exactly one `working` (MI-177, confirmed RUNNING at 03:28Z), which is true. ⚠️ THIS IS A FALSE RECORD, NOT A WORDING QUIBBLE: `working`/`idle`/`archived` are three actively-used states (17/82/25 rows before this commit), so `working` does mean in-flight, and a cold manager — the exact reader this file exists for — would have tried to supervise 17 sub-sessions that were all gone. ⚠️ THE MECHANISM IS ALREADY NAMED IN THE FILE'S OWN _comment AND IS STRUCTURAL: nothing decays a row. `working` is written at spawn and corrected only when a manager goes and looks, so a row does not become false by an error — it becomes false BY TIME PASSING, silently, at a rate of one per spawn. The previous live reconcile was 2026-09-06T16:50Z, two days earlier, and it recorded the identical shape (16 tagged sessions: 8 IDLE, 8 ARCHIVED, ZERO RUNNING). That is a RECURRENCE, and the earlier reconcile's own remedy was to go and look again. ⚠️ WHY NO GUARD CATCHES IT: the grade needs a list_sessions observation, which is an mcp__* tool CI does not hold — the same reason handoff_check.py grades `unknown` rather than `ready` without one. So the detector cannot be moved into CI as-is; what CAN be graded offline is STALENESS — a `working` row whose spawned_at is older than any plausible session lifetime is a claim nobody has re-checked. ⚠️ NOT FILED AS A NEW ROW, DELIBERATELY: backlog_search returned BL-20260905-THE-SESSION-REGISTRY-WAS-WRONG-ON-69-PERCENT-OF-STATES-AND-58-ROWS-HAD-NEVER-BEEN-OBSERVED-ONCE at 0.86 overlap, still OPEN at severity high, and it is the SAME defect — no fix ever landed, so this is a DUPLICATE of an open row, not a recurrence of one that failed. Per the repo's own rule a duplicate is dropped and the existing row UPDATED, so today's measurement was appended there as confirming evidence. That row's resolution_criteria had ALREADY PREDICTED this exact outcome — 'this one-off re-grade … will be stale again within a day' — and the prediction holding is the finding, not the count. The addendum also bounds the fix in a way the 2026-09-05 measurement did not: the truth-grade needs list_sessions, an mcp__* tool CI does not hold, so the 'derive at read time' clause cannot be met by a guard as written; grading STALENESS offline can. ⚠️ STATE DESCRIBES THE SESSION, NEVER ITS WORK: MI-173/#11312 and MI-176/#11315 are open and operator-held while their sessions are correctly `idle`. The work's status lives here, in this file."
+    },
+    {
+      "id": "MI-179-TLT-5414-REARM-56-NAKED-SHARES",
+      "status": "ready",
+      "owner": null,
+      "opened": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
+      "tier": "2 — protective re-arm on a paper account",
+      "title": "Re-arm protection for the 56 uncovered shares on trade 5414 (alpaca_portfolio/TLT)",
+      "note": "OPERATOR-APPROVED 2026-09-08. alpaca_portfolio/TLT is a 72-share short; only 16 shares carry a resting stop (trade 5266). Trade 5414's 56 shares are entirely naked while its journal row declares stop_loss 82.32875, and have been since ~2026-09-03. PAPER money. Chosen over 'monitor only' and over flattening. ⚠️ THIS IS ADDING PROTECTION, NOT CANCELLING LEGS — it is NOT the BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG hazard, and nothing resting may be cancelled to achieve it. ⚠️ THE LEVEL MUST BE THE JOURNAL'S OWN declared stop_loss (82.32875), never a recomputed or venue-read level — recording a venue level as the declaration launders it and makes a divergence unfindable. ⚠️ MI-173 established the Alpaca close is WHOLE-SYMBOL, so any path that closes or re-places by symbol risks the sibling's 16 shares: establish the blast radius BEFORE acting, and defer rather than guess."
+    },
+    {
+      "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
+      "status": "ready",
+      "owner": null,
+      "opened": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
+      "tier": "3 — order path, operator-approved",
+      "title": "Trade-scope the Alpaca close operation (and modify_protective)",
+      "note": "OPERATOR-APPROVED 2026-09-08 (Tier-3), the implementation of MI-173's proposal. FIRST STEP IS A QUESTION, NOT A PATCH: establish whether the Alpaca API supports a qty-scoped close at all. If it does not, say so and stop — the approval explicitly does not force it. Must cover modify_protective too (identical scope defect, different verb, filed nowhere). ⚠️ MI-140 IS HELD UNTIL THIS LANDS: alpaca_live is REAL MONEY and immune today only because it cannot place orders. ⚠️ Do NOT extend #11279's confirmation change to Alpaca."
+    },
+    {
+      "id": "MI-181-MGC-REMEDIATION-REDISPATCH",
+      "status": "ready",
+      "owner": null,
+      "opened": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
+      "tier": "3 — operator-approved, live venue action",
+      "title": "Re-dispatch the MGC remediation against the CONFIRMED order ids 550 / 551",
+      "note": "OPERATOR CONFIRMED 2026-09-08: the approval now covers orders 550 (STP 43 @ 4394.50) and 551 (LMT 43 @ 4485.00), superseding the original approval that named 548. This is the ib_paper/MGC 43-phantom-lot position — MI-177's fleet audit re-confirmed it as the ONLY divergence across 25 compared pairs. ⚠️ RE-READ THE LIVE ORDERS BEFORE ACTING and abort if the resting ids are not 550/551: the ids already moved once, which is exactly why this was blocked. ⚠️ MI-177 also found the fleet-wide exchange_positions read intermittently returns positions:null — and the account it dropped was THIS one — so read the per-account read_state and never act on an unconfirmed read."
+    },
+    {
+      "id": "MI-182-COORDINATION-BOARD-SUCCESSOR",
+      "status": "ready",
+      "owner": null,
+      "opened": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
+      "tier": "1 — CI/coordination machinery",
+      "title": "Coordination board is at GitHub's hard 2500-comment cap: stand up a successor and re-point its readers",
+      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted; this is NOT the trading-truth cycle's intent and is dispatched deliberately). Issue #6927 writes 403 and reads return a board PERMANENTLY FROZEN at 2026-09-07T11:28:17Z. ⚠️ A SUCCESSOR ISSUE ALONE IS HALF THE FIX: merge-claim-audit.yml fails silently on every merge, and scope-overlap-audit.yml reads the frozen board as INPUT and now certifies '0 from a live session' for every PR — an unasserted denominator that reads as 'no collision' when it means 'no session can post a claim'. Both must be re-pointed or the new board certifies against an empty universe too."
+    },
+    {
+      "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
+      "status": "ready",
+      "owner": null,
+      "opened": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T04:16:00Z",
+      "blocked_on": null,
+      "tier": "1 — CI guard machinery",
+      "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
+      "note": "OPERATOR-APPROVED 2026-09-08 (spawn-priority exception granted). Self-disclosed by session 018ruZdg on #11309: the only path that completes BYPASSES one of the two guards. A guard that must be bypassed to land is worse than no guard, because the bypass becomes routine and then invisible. Establish the exact conflict from both guards' code before proposing a change, and do not weaken either to make them agree."
     }
   ],
-  "as_of": "2026-09-06T16:05Z",
+  "as_of": "2026-09-08T04:16:00Z",
   "updated_by": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-07T21:33:00Z"
+  "updated": "2026-09-08T04:16:00Z"
 }
