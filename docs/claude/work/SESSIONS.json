@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T14:02:30Z",
+  "updated_at": "2026-09-08T14:10:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,9 +3212,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T14:02:30Z",
-      "state_basis": "merge result + /api/diag/version read at 13:52Z; poked 14:00Z",
-      "observation": "OPERATOR APPROVED #11389 ('ok on gld', 2026-09-08) and I MERGED it: bdccf226. ⚠️ MERGED IS NOT DEPLOYED — /api/diag/version at 13:52Z read git_sha 2aaa5bba (running) vs git_sha_on_disk 29bcca4c, restart_pending true, so the live trader is behind the fix. Poked at 14:00Z to establish three things IN ORDER and say which it saw: (1) DEPLOYED, (2) the ONE expected evidence_changed page as GLD's evidence moves parent 2e843e04 -> child 891ddff0, which is the fix WORKING and must not be read as a regression, (3) the pages actually STOP (before: 122 of 178 GLD alerts paged, ~21/day). #11390 stays draft and UNARMED — 'ok on gld' answered a question naming only #11389 and is recorded as such in OPEN-PRS.json."
+      "state_observed_at": "2026-09-08T14:10:00Z",
+      "state_basis": "/api/diag/version + /api/diag/log_file?name=operator_alerts read direct at 14:08Z",
+      "observation": "#11389 MERGED (bdccf226) on the operator's 'ok on gld', and NOW DEPLOYED — VERIFIED, not assumed: /api/diag/version at 14:08Z reads git_sha == git_sha_on_disk == bdccf226 with restart_pending FALSE. That closes the merged->deployed gap (at 13:52Z it was still running 2aaa5bba). ⚠️ THE EFFECT IS NOT YET OBSERVABLE AND MUST NOT BE CLAIMED. Population: the last 250 rows of operator_alerts, spanning 2026-09-04T09:37:51Z -> 2026-09-08T13:44:18Z. The NEWEST row predates the deploy, so there are ZERO post-deploy GLD rows and the fix has not yet been exercised on a real close. Baseline over that window for the later comparison: 113 GLD close_failure rows — 56 page/orders_still_resting, 55 digest/broker_cancel_wedged, 2 page/broker_cancel_wedged. ⚠️ THE ~25min OF SILENCE SINCE 13:44Z IS NOT EVIDENCE OF ANYTHING: at the pre-fix rate of ~21 pages/day a gap of one per ~68min is ordinary, so quiet here is expected noise, not a result. What is still owed: the ONE evidence_changed page (parent 2e843e04 -> child 891ddff0), then the route split over a stated post-deploy window."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
