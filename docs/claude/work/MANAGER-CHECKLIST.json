@@ -2192,14 +2192,14 @@
     },
     {
       "id": "MI-173-ALPACA-SIBLING-MECHANISM",
-      "status": "operator_approved",
+      "status": "landed_unproven",
       "owner": "session_01HyZBZ7DNcu5VQaTmmJK5dL",
       "opened": "2026-09-08T01:38:00Z",
-      "updated": "2026-09-08T04:16:00Z",
+      "updated": "2026-09-08T07:06:00Z",
       "blocked_on": null,
       "tier": "1 as measurement; the PROPOSAL is Tier-3",
       "title": "The Alpaca sibling-liquidation MECHANISM (#11312) — measurement + Tier-3 proposal",
-      "note": "MECHANISM ESTABLISHED FROM CODE, and it is NOT the Bybit shape. AlpacaClient.close(self, symbol) has NO qty parameter at all; execute.close_open_position validates qty and then never passes it. So Bybit's defect is a RECONCILIATION failure (the venue did the right thing, the journal failed to follow) and Alpaca's is an OPERATION failure (the journal is right, we send the wrong instruction) — a Bybit-shaped attribution reconciler would not touch it. Blast radius is session-dependent: `closed` defers and cancels NOTHING (0 shares); `extended` and `regular` cancel EVERY resting order on the symbol and then flatten the WHOLE symbol. THREE THINGS THE BACKLOG ROW DID NOT NAME: the pre-cancel is a second destructive step (closing A strips B's protection BEFORE the flatten is attempted); modify_protective(symbol, sl, tp) has the IDENTICAL scope defect on a different verb and is filed nowhere; and the success log prints a per-trade qty on a whole-symbol flatten. ⚠️ AND THE RECORD WAS WRONG: the backlog row claims a test pins this, and that test DOES NOT EXIST ON MAIN — it is on the unmerged #11279 branch, so on main the over-close is UNPINNED. || APPROVED 2026-09-08 (Tier-3): trade-scope the Alpaca close, FIRST establishing whether the Alpaca API supports a qty-scoped close at all — the proposal degrades honestly if it does not and must not be forced. Must also cover modify_protective (identical scope defect, different verb, filed nowhere). MI-140 is HELD until the fix lands. Merging #11312 lands measurement + proposal ONLY and is not the fix."
+      "note": "MERGED 07f5ea50 2026-09-08T07:05Z with both operator conditions in the commit message. ⚠️ MEASUREMENT AND PROPOSAL ONLY — it implements nothing, so this is NOT the fix and must not be reported as one; the fix is MI-180/#11337. ⚠️ ITS OWNING SESSION (session_01HyZBZ7DNcu5VQaTmmJK5dL) is IDLE and blocked on 'does Alpaca support a qty-scoped close' — MI-180 ANSWERED IT (yes, per the documented `qty` parameter on DELETE /v2/positions/{symbol}), so DO NOT RE-DISPATCH MI-173. Its deliverable landed. ⚠️ The 56 naked TLT shares it found are still naked, deliberately (MI-179)."
     },
     {
       "id": "MI-174-DIGEST-GENERATOR-HEADER",

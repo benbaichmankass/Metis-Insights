@@ -53,24 +53,8 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T07:00:00Z",
+  "updated_at": "2026-09-08T07:06:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Refreshed 2026-09-08T01:35Z. The four entries this replaces (#11285, #11286, #11271, #11281) were ALL SETTLED and one of them (#11285) still read `rebasing` -- a phantom that occupies R8's single-rebasing slot while naming a merged PR, so a queue left unrefreshed does not merely go stale, it BLOCKS. Verified against the live open-PR list, not against this file's own history.",
-  "entries": [
-    {
-      "pr": 11279,
-      "state": "merged",
-      "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
-      "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
-      "tier": 3,
-      "note": "MERGED 2026-09-08T06:59Z as squash 12b5b84b, 5/5 checks green. The operator's TWO conditions are written into the merge commit message, which is the durable copy a successor reads: IB_CLOSE_CONFIRM_PARTIAL=strict is a RECORDED CHOICE, and scope is the IB close path ONLY (explicitly not Alpaca — that would reinstate BL-20260707's false-SUCCESS on a real-money-capable path — and explicitly not Bybit, which has no close-confirm gate). ⚠️ DEPLOYED IS NOT PROVEN: nothing has been observed on the fleet."
-    },
-    {
-      "pr": 11312,
-      "state": "waiting",
-      "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal)",
-      "tier": 2,
-      "note": "Operator-approved (approved_with_conditions). 5 of 6 checks green at 06:47Z; pytest-run in_progress from 06:45:43Z. ⚠️ `landing: hold`, manual merge by the manager. ⚠️ MERGING THIS LANDS MEASUREMENT AND A PROPOSAL ONLY — it implements nothing, so the merge is NOT the fix and must not be reported as one. MI-140 STAYS HELD until MI-180's trade-scoped write lands."
-    }
-  ]
+  "note": "Queue EMPTY of session work as of 2026-09-08T07:06Z — #11279 (12b5b84b) and #11312 (07f5ea50) both merged with their operator conditions in the commit messages. Still open and NOT queued here: #11337 and #11334 are `landing: hold` awaiting an operator read, #11344 is Tier-1 but R12-held and its owning session is still pushing to it, #11346 is automation carrying auto-merge.",
+  "entries": []
 }
