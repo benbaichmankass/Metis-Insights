@@ -5,11 +5,12 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1827-20260908",
-  "pr": 11434,
-  "claimed_at": "2026-09-08T18:28:00Z",
-  "displaced": "TAKEN BEFORE MI-200'S WINDOW OPENS, NOT DURING IT. A queue-hold was granted to session_01CvFCybCkvrfzaHqNH3tQsb at 18:27Z after seven displacement attempts on #11391. Landing this heartbeat FIRST spends the slot and leaves the queue genuinely quiet for them, which serves them better than holding it open and letting main's lease lapse at 18:56:59Z. The hold is absolute from the moment this merges."
+  "held_by": "session_01CvFCybCkvrfzaHqNH3tQsb",
+  "branch": "claude/mi200-real-money-close-attribution",
+  "pr": 11391,
+  "claimed_at": "2026-09-08T18:33:00Z",
+  "note": "MI-200, Tier-1, PR #11391 — arming, so pr-landing R13 requires the slot here. Board claim: #11336 comments 5585061326 / 5585500259 / 5589397613. FIFTH re-lay, and the first one taken INTO a granted queue hold rather than against a live queue.",
+  "displaced": "#11434, and it is NOT a broken hold — I checked before saying so. The manager granted the hold at 18:27:23Z and merged #11434 at 18:31:29Z (committer timestamp on 70924ef5), which looks like a violation and is not one: their own note in that merge says they took the slot deliberately BEFORE my window rather than during it, because the manager lease would have forced a heartbeat at 18:56:59Z — i.e. mid-window — and every manager heartbeat rewrites this object. Spending the slot first buys a genuinely quiet window; holding it open would have guaranteed an interruption. That is correct sequencing and is recorded here so the eighth displacement is not later miscounted as a broken promise. Eighth and, on the hold, expected to be last. Prior seven: #11387/42913d63, #11392/ea20e2c5, #11377/4f8b95bb, #11427/b0dcbb82, #11426/250833e6, #11418/8c69e466, #11430/290a7ef6. Recorded as an update on BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE, not re-filed."
  },
  "active_sessions": [
   {
