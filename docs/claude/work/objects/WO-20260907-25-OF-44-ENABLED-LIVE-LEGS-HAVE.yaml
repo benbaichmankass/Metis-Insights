@@ -226,3 +226,47 @@ source: >-
 artifacts:
   - docs/research/reachable-take-profit-proposal-2026-09-07.md
   - https://github.com/benbaichmankass/Metis-Insights/pull/11225
+
+operator_answers_2026_09_08:
+  recorded_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+  recorded_at: '2026-09-08T09:40:00Z'
+  basis: asked directly and answered directly in-conversation, 2026-09-08
+  answers:
+    - id: DEC-20260907-TP-VALUE
+      verdict: apply
+      text: 'Apply tp_r 4.0 to gld_pullback_1h'
+      scope: gld_pullback_1h only
+      condition: >-
+        REACHABILITY repair only. The operator was shown, in the question itself,
+        that 4.0R is reachable and NOT calibrated (live cap_r min 7.94 / median
+        8.24, n=4) and that the matrix's own d_net_r winner is sm1.5, which
+        carries no take-profit. Approving the reachable target is NOT approval of
+        sm1.5, and 4.0R must never be quoted as an evidenced level.
+    - id: DEC-20260907-TP-VOCAB
+      verdict: accept_with_reader
+      text: 'Accept the key, and land its reader in the same cycle'
+      condition: >-
+        The tp_intent key does not land without a reader in the same cycle.
+        A write-only declared field is what provenance-consumer-guard exists to
+        refuse, so shipping the key alone is not a partial win - it is the defect.
+    - id: DEC-20260907-TP-UNEXAMINED
+      verdict: rejected_all_options
+      text: "Why don't we just examine them?"
+      disposition: >-
+        The operator declined all three offered options and asked why the legs
+        cannot simply be swept. THE QUESTION IS SOUND AND THE OPTIONS WERE THE
+        WRONG SHAPE: all three asked how to PUBLISH an absence, and none asked
+        what it would cost to REMOVE it. The blocker is that QLD and TQQQ have no
+        candle substrate, so the sweep had nothing to run on - an unfetched data
+        set, not a property of the legs. Section 9.3 of the proposal already
+        named this as the only item in the memo that unblocks new evidence rather
+        than recording its absence, and it was still offered as a publish-the-gap
+        choice. Routed as work: fetch the substrate, sweep both legs, and let the
+        result decide the declaration. `unexamined` is NOT published in the
+        meantime; it stays the accurate internal reading until the sweep answers.
+      warning: >-
+        If the sweep comes back insufficient_n - which is the standing result on
+        44 of 44 legs under MI-155's abstain floor - then `unexamined` becomes a
+        MEASURED verdict rather than an unfetched one, and the publish question
+        returns in a legitimate form. Examining them is not guaranteed to produce
+        a number; it is guaranteed to produce an honest denominator.
