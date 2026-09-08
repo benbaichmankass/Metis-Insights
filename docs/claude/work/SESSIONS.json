@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T14:24:00Z",
+  "updated_at": "2026-09-08T14:56:43Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3230,6 +3230,18 @@
       "state_observed_at": "2026-09-08T13:32:53Z",
       "state_basis": "get_session(session_id) read direct at 13:30Z; state is that read, not a post_turn_summary",
       "observation": "IDLE at 13:17:07Z with #11391 still RED on guards — a red PR is not a finished state, so this row is NOT 'done'. post_turn_summary read 'stop-type fix blocked by trailed-stop semantics; alpaca_live idle 8d (dry-run gates); digest-liveness-guard red on main'. The third blocker was never its own and I cleared it (#11377). ⚠️ THE 'alpaca_live idle 8d (dry-run gates)' LINE IS UNVERIFIED and is a DIFFERENT cause from the one-leg roster I relayed to the operator — a mechanism, not a roster problem — so it changes what MI-201 should propose. I did NOT relay it as fact. Poked 13:31Z to pin the gate, the config field, the read surface and the 8-day basis, or file it rather than let it die with the container."
+    },
+    {
+      "session_id": "session_016KUFTHGYyFDerbnXDSA6Wb",
+      "title": "MI-204 — reconcile the bybit_1 ETHUSDT orphan (trade 5569)",
+      "owns_object": "WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE",
+      "spawned_at": "2026-09-08T14:56:43Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "branches": [
+        "claude/mi204-bybit1-eth-orphan"
+      ],
+      "why": "Operator-directed 2026-09-08: exchange-side orphan adopted on bybit_1 ETHUSDT; drive trade 5569 to reconciled or an explicit terminal with the reason written down",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
