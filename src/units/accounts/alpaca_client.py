@@ -1387,15 +1387,26 @@ class AlpacaClient:
         ``None`` is deliberately NOT 0: an unreadable quantity must not compare
         equal to anything, or a leg whose size we could not establish would be
         matched to a trade by accident.
+
+        ⚠️ **NOT ``abs()``, and that follows the rule :meth:`protection_coverage`
+        landed with in #11315** — Alpaca reports a leg qty as a positive
+        magnitude, so a non-positive or NaN value is ANOMALOUS, and taking its
+        magnitude would launder it into a real answer. There it would
+        manufacture coverage that does not rest; here it would let a leg
+        reporting ``-16`` be attributed to a 16-share trade and have its stop
+        moved. Same hazard, same verdict: ungradeable, never banked. The
+        caller reads ``None`` as "no match", so :meth:`modify_protective`
+        refuses rather than patching a leg it could not identify.
         """
         for field in ("qty", "quantity"):
             raw = order.get(field)
             if raw in (None, ""):
                 continue
             try:
-                return abs(float(raw))
+                value = float(raw)
             except (TypeError, ValueError):
                 return None
+            return value if value > 0 else None  # False for 0, negatives, NaN
         return None
 
     def modify_protective(

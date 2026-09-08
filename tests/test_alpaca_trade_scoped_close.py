@@ -22,11 +22,11 @@ have been the deliverable instead.
 WHICH TESTS ARE EVIDENCE OF THE REPAIR, AND WHICH ARE NOT
 ---------------------------------------------------------
 Stated explicitly because a green suite says nothing on its own. The split
-below is MEASURED, not asserted: the 14 tests were run against this file's src
-changes stashed, i.e. against `main`'s ``src/`` verbatim, giving **12 failed,
+below is MEASURED, not asserted: the 15 tests were run against this file's src
+changes stashed, i.e. against `main`'s ``src/`` verbatim, giving **13 failed,
 2 passed**. Three groups, and the middle one is easy to miscount as evidence.
 
-**(1) TEN fail on `main` on BEHAVIOUR — these are the repair:**
+**(1) ELEVEN fail on `main` on BEHAVIOUR — these are the repair:**
   * ``test_close_of_one_trade_reduces_by_that_trades_qty``
   * ``test_close_of_one_trade_does_not_cancel_the_siblings_protection``
   * ``test_close_defers_rather_than_flattening_when_the_size_is_unreadable``
@@ -36,6 +36,7 @@ changes stashed, i.e. against `main`'s ``src/`` verbatim, giving **12 failed,
   * ``test_modify_protective_refuses_when_no_leg_matches_the_trade``
   * ``test_modify_protective_patches_only_the_named_trades_leg``
   * ``test_modify_protective_refuses_ambiguous_same_size_legs``
+  * ``test_modify_protective_does_not_launder_an_anomalous_leg_qty``
   * ``test_modify_open_order_forwards_the_trade_qty``
 
 **(2) TWO fail on `main` for a SIGNATURE reason, and are NOT evidence:**
@@ -410,6 +411,26 @@ def test_modify_open_order_forwards_the_trade_qty(monkeypatch):
 
     assert res["ok"] is True, res
     assert [p for p, _ in fake.patches] == ["/v2/orders/B-stop"]
+
+
+def test_modify_protective_does_not_launder_an_anomalous_leg_qty(monkeypatch):
+    """A leg reporting a non-positive qty is UNGRADEABLE, never its magnitude.
+
+    Follows the rule `protection_coverage` landed with in #11315: Alpaca
+    reports a leg qty as a positive magnitude, so `-16` is anomalous, and
+    abs()-ing it would let it be attributed to a 16-share trade and have its
+    stop moved. It must fail to match instead.
+    """
+    legs = [_leg("weird-stop", -TRADE_A, "stop", stop_price="90.10")]
+    fake = FakeAlpaca(legs=legs)
+    c = _client()
+    monkeypatch.setattr(c, "_request", fake)
+
+    res = c.modify_protective(SYMBOL, sl=89.0, qty=TRADE_A)
+
+    assert res["retCode"] == 1, res
+    assert "no protective leg of qty=16" in res["retMsg"]
+    assert fake.patches == []
 
 
 # --- no-regression control: passes BEFORE and AFTER --------------------------
