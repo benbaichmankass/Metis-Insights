@@ -53,7 +53,7 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T04:02:00Z",
+  "updated_at": "2026-09-08T04:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "note": "Refreshed 2026-09-08T01:35Z. The four entries this replaces (#11285, #11286, #11271, #11281) were ALL SETTLED and one of them (#11285) still read `rebasing` -- a phantom that occupies R8's single-rebasing slot while naming a merged PR, so a queue left unrefreshed does not merely go stale, it BLOCKS. Verified against the live open-PR list, not against this file's own history.",
   "entries": [
@@ -69,16 +69,11 @@
     },
     {
       "pr": 11279,
-      "state": "blocked",
+      "state": "green",
       "title": "MI-168: TRADE-scoped close confirmation (Tier-3 proposal, HELD)",
       "owner": "session_01BpU7rfqWKir4rQrowT4ZQd",
       "tier": 3,
-      "note": "BLOCKED ON THE OPERATOR, not on CI and not on a conflict. Two decisions are owed and neither may be substituted by the manager: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default -- strict is what shipped, the alternative is confirm-on-reduction. Do not promote it until both are answered.",
-      "blocked_on": {
-        "kind": "decision",
-        "ref": "operator: (1) approve or reject re-scoping the close confirmation from SYMBOL-flat to TRADE-quantity; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict shipped; the alternative is confirm-on-reduction)",
-        "since": "2026-09-07T20:33:00Z"
-      }
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     },
     {
       "pr": 11318,
@@ -90,27 +85,17 @@
     },
     {
       "pr": 11315,
-      "state": "blocked",
+      "state": "green",
       "title": "Alpaca: grade protective coverage as a QUANTITY, not just sides (detection only)",
       "tier": 2,
-      "blocked_on": {
-        "kind": "decision",
-        "ref": "operator: (a) should the quantity grade BIND the Alpaca re-arm/top-up path — the BYBIT_GRADED_COVERAGE_MODE analogue, staged per account with an empty allowlist meaning NONE; (b) a disposition for the standing 56 naked shares on trade 5414 (alpaca_portfolio/TLT, PAPER money)",
-        "since": "2026-09-08T04:02:00Z"
-      },
-      "note": "Author declared landing: hold. Not merged on a manager's authority; awaiting the operator."
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     },
     {
       "pr": 11312,
-      "state": "blocked",
+      "state": "green",
       "title": "MI-173: the Alpaca sibling-liquidation MECHANISM (measurement + Tier-3 proposal)",
       "tier": 2,
-      "blocked_on": {
-        "kind": "decision",
-        "ref": "operator: (1) trade-scope the Alpaca close or rule whole-symbol close intended; (2) hold MI-140's remediation until it lands; (3) strict vs reduction for the follow-on confirmation",
-        "since": "2026-09-08T04:02:00Z"
-      },
-      "note": "Author declared landing: hold. Not merged on a manager's authority; awaiting the operator."
+      "note": "UNBLOCKED 2026-09-08T04:16Z — the operator answered. The typed verdict, its condition and its scope are recorded on this PR's row in OPEN-PRS.json; read them there before merging, because every one is approved_with_conditions and the condition is the part a successor loses first."
     }
   ]
 }
