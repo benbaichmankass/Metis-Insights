@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Must land after #11389 (MI-199's GLD close-classifier fix), which I have given the single merge slot to as the highest-value PR in a ~20-deep queue — it answers the operator's 'get it done already'. This PR deliberately does NOT claim merge_slot, so arming it would fail R13 and, worse, would take the slot away from #11389. It is held on the queue, not on approval: the content is Tier-1 management record (lease heartbeat, SESSIONS.json observations, checklist), and I will merge it manually once #11389 lands and releases the slot.",
+  "why": "docs/claude/work only — the manager lease heartbeat, two live sub-session observations in SESSIONS.json, and three MANAGER-CHECKLIST notes (one of which corrects a wrong measurement of my own). No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps."
+}

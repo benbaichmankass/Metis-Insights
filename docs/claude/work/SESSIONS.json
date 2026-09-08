@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T12:31:00Z",
+  "updated_at": "2026-09-08T13:01:08Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,9 +3212,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T12:31:00Z",
-      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'root cause found; confirming population'. Poked 12:29Z with the operator's approval to reset the paper account if needed."
+      "state_observed_at": "2026-09-08T13:01:08Z",
+      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
+      "observation": "RUNNING/connected. Landed #11392 (merged ea20e2c5) and opened #11389 (draft, Tier-2) + #11390 (draft, HELD). Root cause found: DELETE /v2/orders returns 422 'order pending cancel' while GET /v2/orders reports the child stop as 'held' -- the classifier read the weaker source, so 122 of 178 GLD alerts PAGED. Our own records also named the wrong order (parent 2e843e04 is healthy; child 891ddff0 is the wedged one). Poked 13:01Z: take the merge slot for #11389, leave #11390 draft."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
@@ -3227,9 +3227,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08: we cannot chalk 16 trades up to chance, something is not working, track it down.",
       "confirmed_at": "2026-09-08T12:21:09Z",
-      "state_observed_at": "2026-09-08T12:31:00Z",
-      "state_basis": "list_sessions(mine=true) read directly at 12:31Z, not post_turn_summary",
-      "observation": "RUNNING at 12:31Z — 'mapping exit_reason→closeReason'. Poked 12:29Z with the operator's redirection: the 9 non-sl closes are now the primary question."
+      "state_observed_at": "2026-09-08T13:01:08Z",
+      "state_basis": "get_session(session_id) read direct at 13:01Z (per-session record, not a list_sessions sweep)",
+      "observation": "RUNNING/connected. Opened #11391 (3/4, guards RED -- its own scripts/ path, poked back to it at 12:58Z). Correcting finding: include_paper=true NARROWS rather than widens, so the '0 for 13' I reported to the operator was a 5-day slice of a 447-close book (117W/258L/49 flat, sum -69.53). A 14-run is ~71% likely somewhere in 424 at the lifetime non-win rate; 8 of 14 were not strategy exits; every live-routed real-money leg grades insufficient_n (floor 20, largest 7)."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
