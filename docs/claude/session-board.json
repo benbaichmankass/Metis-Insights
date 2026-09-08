@@ -4,11 +4,12 @@
   "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
- "merge_slot": {
+  "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1528-20260908",
-  "pr": 11412,
-  "claimed_at": "2026-09-08T16:58:00Z"
+  "branch": "claude/mgr-heartbeat-1930-20260908",
+  "pr": 11443,
+  "claimed_at": "2026-09-08T19:32:00Z",
+  "note": "Manager heartbeat 19:26:00Z, Tier-1, PR #11443 -- arming, so pr-landing R13 requires the slot here. Four register writes under docs/claude/work/**, no worker path; check_manager_scope clean, R6/R7/R8 ok. Taken CLEANLY: the previous claim (#11436, which I made on that bot's behalf) is SPENT -- merged as 1b3b1d9b. Displaces nobody. PR opened by hand FIRST, armed second."
  },
  "active_sessions": [
   {

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat plus the supervision record R6 requires in the same commit. Touches only docs/claude/work/MANAGER-LEASE.json, docs/claude/work/SESSIONS.json and a merge_slot claim naming this branch — no src/, no config/, no order path, no strategy or risk change. It cannot alter what the trader does."
+}

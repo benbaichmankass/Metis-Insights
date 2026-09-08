@@ -1374,3 +1374,99 @@ def test_ext_hours_give_up_retmsg_names_the_wedge(monkeypatch, caplog):
     low = msg.lower()
     assert "exit deferred" not in low and "market closed" not in low
     assert "share_hold=broker_cancel_wedged" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# THE FIFTH STATE — `cancel_accepted_ineffective` (2026-09-08, Tier-2)
+#
+# Alpaca returns a SUCCESS code for a cancel it does not perform. Reproduced
+# from the live give-up line at 2026-09-08T14:12:54Z on `alpaca_paper`/GLD:
+#   cancel: accepted=2 already_gone=0 refused=0
+#   ...~6.0s later, both orders still rest, canceled_at null, `new` and `held`
+# The classifier read that as `orders_still_resting` -- "a retry may clear it"
+# -- 181 times over seven days about orders unmoved since 2026-08-27.
+# ---------------------------------------------------------------------------
+
+_LIVE_GLD_ACCEPTED_CANCEL = CancelOutcome(
+    "orders_read", 2, 0, [],
+    ("2e843e04-5487-470c-a702-70e796fbd05e",
+     "891ddff0-b24d-4039-9322-8492bcd51e66"),
+)
+
+
+def test_the_live_give_up_now_grades_ineffective_not_transient():
+    """THE DEFECT, and the fix. The exact live bytes must stop reading as retryable."""
+    from src.units.accounts.alpaca_client import classify_share_hold
+    state, detail = classify_share_hold(_LIVE_GLD_LISTING, _LIVE_GLD_ACCEPTED_CANCEL)
+    assert state == "cancel_accepted_ineffective", (state, detail)
+    # It must name BOTH orders and say what the broker did, not what we guess.
+    assert "2e843e04-5487-470c-a702-70e796fbd05e" in detail
+    assert "891ddff0-b24d-4039-9322-8492bcd51e66" in detail
+    assert "ACCEPTED" in detail
+    # And it must NOT carry the reassuring sentence that made this invisible.
+    assert "retry may clear it" not in detail
+
+
+def test_without_accepted_ids_the_old_reading_is_byte_identical():
+    """THE REGRESSION GUARD. `accepted_ids` defaults to (), so every caller and
+    every 4-tuple construction that predates this change keeps its old answer.
+    A new state that silently re-graded existing traffic would be the widening
+    the operator's approval explicitly excluded."""
+    from src.units.accounts.alpaca_client import classify_share_hold
+    old_shape = CancelOutcome("orders_read", 2, 0, [])      # no ids -- as before
+    assert classify_share_hold(_LIVE_GLD_LISTING, old_shape)[0] == "orders_still_resting"
+    assert classify_share_hold(_LIVE_GLD_LISTING, None)[0] == "orders_still_resting"
+
+
+def test_ineffective_needs_ALL_FOUR_conditions():
+    """Each condition alone must be able to refuse the finding."""
+    from src.units.accounts.alpaca_client import survived_accepted_cancel
+    ok = [{"id": "a", "status": "new", "canceled_at": None}]
+    accepted = CancelOutcome("orders_read", 1, 0, [], ("a",))
+    assert survived_accepted_cancel(ok, accepted) == [("a", "new")]
+
+    # (1) we never asked for this id
+    assert survived_accepted_cancel(ok, CancelOutcome("orders_read", 1, 0, [], ("z",))) == []
+    # (2) the broker REFUSED rather than accepted -- a different state entirely
+    assert survived_accepted_cancel(ok, CancelOutcome("orders_read", 0, 0, [("a", 422, "no")])) == []
+    # (3) canceled_at is set -- the cancel is COMPLETING, not ineffective
+    completing = [{"id": "a", "status": "new", "canceled_at": "2026-09-08T14:12:54Z"}]
+    assert survived_accepted_cancel(completing, accepted) == []
+    # (4) the broker HAS moved it -- that is broker_cancel_wedged, graded earlier
+    for st in ("pending_cancel", "PENDING_REPLACE"):
+        moved = [{"id": "a", "status": st, "canceled_at": None}]
+        assert survived_accepted_cancel(moved, accepted) == [], st
+
+
+def test_ineffective_never_asserted_from_a_read_we_could_not_make():
+    """`[]`, never a finding, whenever we did not look. An absent read is not
+    evidence a cancel was ineffective -- the collapse this family refuses."""
+    from src.units.accounts.alpaca_client import survived_accepted_cancel
+    ok = [{"id": "a", "status": "new", "canceled_at": None}]
+    accepted = CancelOutcome("orders_read", 1, 0, [], ("a",))
+    assert survived_accepted_cancel(None, accepted) == []        # listing unread
+    assert survived_accepted_cancel(ok, None) == []              # no outcome offered
+    assert survived_accepted_cancel(                             # cancel pass blind
+        ok, CancelOutcome("could_not_look", 0, 0, [], ("a",))) == []
+
+
+def test_a_refusal_still_outranks_the_ineffective_reading():
+    """ORDERING. The cancel RESPONSE remains the strongest evidence: an order the
+    broker refused to cancel naming its own stuck status is `broker_cancel_wedged`
+    even though it also satisfies the ineffective test on its siblings."""
+    from src.units.accounts.alpaca_client import classify_share_hold
+    mixed = CancelOutcome(
+        "orders_read", 1, 0,
+        [("891ddff0-b24d-4039-9322-8492bcd51e66", 422, "order pending cancel")],
+        ("2e843e04-5487-470c-a702-70e796fbd05e",),
+    )
+    assert classify_share_hold(_LIVE_GLD_LISTING, mixed)[0] == "broker_cancel_wedged"
+
+
+def test_a_listing_wedged_status_still_outranks_it_too():
+    """ORDERING, second half: an order the broker HAS moved to pending_cancel is
+    the venue saying it is working on it -- graded before this state, not as it."""
+    from src.units.accounts.alpaca_client import classify_share_hold
+    listing = [{"id": "a", "status": "pending_cancel", "canceled_at": None}]
+    accepted = CancelOutcome("orders_read", 1, 0, [], ("a",))
+    assert classify_share_hold(listing, accepted)[0] == "broker_cancel_wedged"

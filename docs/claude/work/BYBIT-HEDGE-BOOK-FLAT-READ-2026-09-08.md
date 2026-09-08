@@ -566,8 +566,33 @@ genuinely discriminates, and a `1` is not a default or a fill-in.
 currently *holds* a position, so the armed state of every flat symbol is unmeasured. The
 declared set on `/proc/<MainPID>/environ` is the only authoritative source for that, and
 `BYBIT_HEDGE_MODE_SYMBOLS` **is** in `get_env.py::ALLOWED_KEYS` (verified — 70 keys, it is
-one of them), so it is readable. Dispatched as issue **#11413**. CLAUDE.md's own row must
-not be used: it states outright that its value went stale twice on 2026-08-30 alone.
+one of them), so it is readable. CLAUDE.md's own row must not be used: it states outright
+that its value went stale twice on 2026-08-30 alone.
+
+✅ **ANSWERED 2026-09-08T15:41Z — and the tables below are the CORRECTED ones.** The first
+dispatch (**#11413**) failed *before* reaching the VM: I omitted the required `env_key:`
+line, and the relay said so rather than reporting an SSH or credential fault. Re-dispatched
+as **#11415** (`action: get-env`, `env_key: BYBIT_HEDGE_MODE_SYMBOLS`,
+`service: ict-trader-live`) → exit 0. **`process` and `declared` are byte-identical**, so
+there is no pending-restart divergence, and the declared set is **twelve** pairs:
+
+```
+bybit_1:SOLUSDT,bybit_1:ETHUSDT,bybit_1:BNBUSDT,bybit_1:BTCUSDT,
+bybit_2:BTCUSDT,bybit_2:ETHUSDT,bybit_2:XRPUSDT,bybit_2:ADAUSDT,
+bybit_portfolio:BTCUSDT,bybit_portfolio:ETHUSDT,bybit_portfolio:XRPUSDT,bybit_portfolio:ADAUSDT
+```
+
+⚠️ **`bybit_1:XRPUSDT` and `bybit_1:ADAUSDT` are ABSENT** — which independently corroborates
+the venue read, where both returned `position_idx=0`. Two sources, one answer, so the armed
+column below is no longer inferred from a position that happened to be open.
+
+⚠️ **THE CORRECTION MOVES THE HEADLINE DOWN, NOT MERELY TIGHTENS IT — say so rather than
+quoting the improvement.** All three `bybit_portfolio` rows previously graded
+`hedge unknown` resolve to **armed** (their symbols are ETHUSDT / BTCUSDT / XRPUSDT, all
+declared), so the armed population grows 14 → 17 while the flat count grows 11 → 12: the
+armed flat-rate **falls from 78.6% to 70.6%**. What did NOT move is the load-bearing claim —
+the negative control is still **0 of 2**, and **all 12 flat reads are on armed pairs, none
+on a one-way pair.**
 
 ## The size of it, with bounds rather than an estimate
 
@@ -579,15 +604,16 @@ arming date), from the newest-1000 trades window (ids 4570–5569, spanning 2026
 |---|--:|--:|--:|--:|--:|--:|
 | `bybit_1` | 14 | **9** | 5 | 12 | 2 | 0 |
 | **`bybit_2`** (real money) | 1 | **1** | 0 | 1 | 0 | 0 |
-| `bybit_portfolio` | 4 | **2** | 2 | 1 | 0 | 3 |
+| `bybit_portfolio` | 4 | **2** | 2 | **4** | 0 | **0** |
+| **total** | **19** | **12** | **7** | **17** | **2** | **0** |
 
 **The contingency is the finding, and it carries its own negative control:**
 
-| MEASURED hedge state | flat | non-flat | total | % flat |
+| hedge state (authoritative, from the declared set) | flat | non-flat | total | % flat |
 |---|--:|--:|--:|--:|
-| **armed** | **11** | 3 | 14 | **78.6%** |
+| **armed** | **12** | 5 | 17 | **70.6%** |
 | **one-way** | **0** | 2 | 2 | **0.0%** |
-| unknown | 1 | 2 | 3 | 33.3% |
+| *unknown* | — | — | **0** | *no row is unknown any more* |
 
 A one-way symbol has **one** book, so `rows[0]` cannot pick the wrong one — the prediction
 is exactly 0% flat, and that is what the two closes on measured-one-way symbols (5488, 5527,

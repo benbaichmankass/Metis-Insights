@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-200, work object WO-20260908-REAL-MONEY-IS-0-FOR-13-AND under IN-20260903-TRADING-SYSTEM-HEALTH (cycle priority CY-20260906-TRADING-TRUTH). Tier-1 by the canonical doc's own list: MEASUREMENT + DOCS + BACKLOG only. The diff is one new research doc, one new read-only research script (stdlib, no writes, GETs the public read surface), two new backlog rows plus two updates to existing ones, one new work-object YAML, and one appended OPEN-ITEMS row. NO order path, NO strategy config, NO risk caps, NO src/, NO config/, NO deploy/, NO .github/workflows/, and no live-VM runtime file. Nothing is promoted, demoted, retired or re-parameterised — the whole finding is that the population does not support any such action (insufficient_n on every live-routed real-money leg, largest convictable n=7 against MIN_CLOSED_FOR_ACTION=20), so there is deliberately no Tier-3 change to gate. Every live read was read-only (/api/bot/trades/closed, /api/bot/db/table/trades, /api/bot/config, /api/diag/*)."
+}
