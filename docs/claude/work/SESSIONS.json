@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T05:45:00Z",
+  "updated_at": "2026-09-08T06:16:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2920,8 +2920,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "confirmed_at": "2026-09-08T02:16:14Z",
-      "manager_observation": "POKED AND DID NOT WAKE 2026-09-08T05:42:41Z — RECORDED AS A FAILED DELIVERY, not as a message sent. Still IDLE with updated_at unchanged at 05:09:06Z, while fire_trigger returned SUCCESS and a DIFFERENT session id (cse_014BiZjfw8T3jtHX7cRMg8e4) — it spawned a fresh session instead of resuming this one. Its 3 staged files remain uncommitted in a container nobody can read. Candidate cause, NOT established: it had by far the largest context of the three poked (459,520 tokens vs 127,664 and 174,909) and was the oldest.",
-      "observed_at": "2026-09-08T05:45:00Z"
+      "manager_observation": "POKED TWICE. First attempt 05:42:41Z FAILED — stayed IDLE while fire_trigger returned SUCCESS and a DIFFERENT session id. RETRY 06:14:10Z SUCCEEDED: PENDING/connected, updated_at exactly the fire time, returned id matching the target. ⚠️ THE CAUSE I FIRST RECORDED (largest context, oldest session) IS FALSIFIED by that retry — same session, same 459,520-token context, woke fine. The actual difference was that the failed call passed fire_trigger's optional `text` parameter and the successful ones did not (n=3 successes without it, n=1 failure with it — a stronger reading, still not established). Poke with trigger_id alone.",
+      "observed_at": "2026-09-08T06:16:00Z"
     },
     {
       "session_id": "session_01EPvAGZDFZCYF3QJk12u3mk",
