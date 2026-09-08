@@ -2424,6 +2424,61 @@
       "tier": "1",
       "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
       "note": "FILED, NOT TAKEN — filing is the act of not taking the item. This is a RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, which is OPEN and which the manager that hit it had not read — the 'we file lessons and learn none' class. ⚠️ THE NEW HALF IS THE DANGEROUS ONE: no-repo fails LOUDLY in seconds; wrong-repo fails QUIETLY and produces quotable findings from the wrong codebase, which under CY-20260906-TRADING-TRUTH is exactly the contaminated instrument the cycle exists to prevent. Remedy wanted is a CHECK or a DEFAULT, not a fourth reminder: assert `git remote -v` in every spawn prompt beside the push probe, or ship a spawn helper that always passes source_url."
+    },
+    {
+      "id": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "status": "in_flight",
+      "owner": "session_014wizWRD5P388ZL3APK3EGG",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": null,
+      "tier": "1",
+      "title": "LANE 0: main is red (board-coherence R3) + the R13/R2 deadlock",
+      "note": "BLOCKS ALL THREE LANES. board-coherence fails on a CLEAN checkout of origin/main, so every PR in the repo is red; separately R13 and R2 are mutually unsatisfiable for a manager register PR. Both defects came from merges the manager made 2026-09-08T07:5xZ -- #11334 added the guard, #11344 added the violating line, each green alone. Told explicitly NOT to disarm either guard."
+    },
+    {
+      "id": "MI-192-LANE-1-OPS-SYSTEM-REVIEW",
+      "status": "in_flight",
+      "owner": "session_01AWw28Sfk7hNZASfMrssFLq",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 1 (ops): /system-review, 38 days overdue",
+      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows."
+    },
+    {
+      "id": "MI-193-LANE-2-RESEARCH-ACTIVE-MANAGEMENT-MECHANICS",
+      "status": "in_flight",
+      "owner": "session_012cVryifpv359yAWWVkrmnk",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 2 (research): measure how active management actually behaves",
+      "note": "Four failure classes measured in one day and none studied: containers that silently cannot push (~360k tokens lost, NO verbatim refusal on record), create_session without source_url attaching the WRONG repo with a SUCCEEDING clone, registers going false by time passing, and individually-correct guards deadlocking in pairs. FILES findings, does not fix -- MI-191 owns the two live deadlocks."
+    },
+    {
+      "id": "MI-194-LANE-3-ENGINEERING-PHASE-F",
+      "status": "in_flight",
+      "owner": "session_01W7CyS8ShLnZiNyUms3YYEp",
+      "opened": "2026-09-08T08:20:00Z",
+      "updated": "2026-09-08T08:20:00Z",
+      "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
+      "tier": "1",
+      "title": "LANE 3 (engineering): resume the workflow build at Phase F / C4",
+      "note": "Operator: resume the workflow setup paused for research. Grounded before dispatch: A-D are waiting on external OBSERVATIONS not on more building, G waits on an event, H waits on B -- F is the ONLY startable phase and the only one touching the measured constraint. Most of C3 is ALREADY SHIPPED (cron, committed path, reader) and the prompt names each so it is not rebuilt. Real work is C4, the decision record. The window/floor question is a DECISION and is explicitly NOT its to flip."
+    },
+    {
+      "id": "MI-195-OPERATOR-TP-DECISIONS-AND-EXAMINE-QLD-TQQQ",
+      "title": "Apply the operator's three tp decisions; EXAMINE qld/tqqq instead of publishing their absence",
+      "owner": "session_01Lozuti2jAX4kQ9RC4yTSPo",
+      "status": "in_flight",
+      "tier": "3 — config/strategies.yaml (gld tp_r), plus Tier-1 sweep + reader",
+      "opened": "2026-09-08",
+      "updated": "2026-09-08",
+      "blocked_on": [],
+      "note": "Operator answered all three DEC-20260907-* requests directly, 2026-09-08. TP-VALUE=apply (gld_pullback_1h tp_r 4.0, REACHABILITY not calibration, scope that leg only, and NOT approval of the matrix's sm1.5 winner). TP-VOCAB=accept_with_reader (the tp_intent key does not land without a reader in the same cycle). TP-UNEXAMINED=REJECTED ALL THREE OPTIONS with 'Why don't we just examine them?' — the options all asked how to PUBLISH an absence and none asked what it costs to REMOVE it. Blocker is a missing candle substrate for QLD/TQQQ, i.e. an unfetched dataset, not a property of the legs; the proposal's own section 9.3 already called this the only work in the memo that unblocks new evidence. Verdicts recorded verbatim with their conditions in WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE.yaml::operator_answers_2026_09_08. ⚠️ insufficient_n is a likely and legitimate outcome of the sweep (44 of 44 legs grade that way under MI-155's floor); if so, unexamined becomes a MEASURED verdict and the publish question returns to the operator in a legitimate form. The Tier-3 gld diff cannot self-land (R4) and is mine to merge."
     }
   ],
   "as_of": "2026-09-08T06:45:00Z",

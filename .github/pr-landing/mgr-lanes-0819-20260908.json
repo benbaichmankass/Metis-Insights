@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only manager work: the lease heartbeat, the supervision record, the lane re-scopes the operator directed, one filed backlog row, and this branch's own landing files plus its merge_slot claim. No src/, tests/, scripts/, config/, deploy/ or workflow path, so R2 cannot fire on its commits. This declaration previously read landing: hold on #11357, which is now MERGED (417bd6b6): that PR fixed the R13/R2 deadlock which made a manager register PR unable to satisfy either rule, so a self-land is honest here for the first time rather than a way around R13. The merge_slot claim is admitted by merge_slot_claim_only because the only top-level key this commit changes in docs/claude/session-board.json is merge_slot and it names this branch."
+}

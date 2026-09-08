@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "session_014wizWRD5P388ZL3APK3EGG",
-  "branch": "claude/mi191-board-coherence-r13-r2",
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-lanes-0819-20260908",
   "pr": null,
-  "claimed_at": "2026-09-08T08:24:00Z"
+  "claimed_at": "2026-09-08T09:30:00Z"
  },
  "active_sessions": [
   {
