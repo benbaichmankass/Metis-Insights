@@ -8,12 +8,29 @@
     "been silently orphaned mid-work. This file is what makes a manager arriving",
     "COLD able to resume rather than re-derive.",
     "",
-    "IT IS A REGISTRY, NOT A CHANNEL. A manager CANNOT message a sub-session:",
-    "SendMessage to a live sub-session id returns 'No agent named ... is",
-    "reachable', and there is no send_message or list_events tool. Verified by",
-    "test, not assumed. So a successor's only moves are: read this file, poll",
-    "each id with get_session, act on its branch/PR, and archive it when its",
-    "work has landed.",
+    "IT IS A REGISTRY, NOT A ROSTER OF THE REACHABLE -- BUT IT IS NOT TRUE THAT",
+    "A SUB-SESSION CANNOT BE REACHED. This block said 'A manager CANNOT message a",
+    "sub-session ... Verified by test, not assumed' until 2026-09-08. That test was",
+    "real and its conclusion was over-general: SendMessage and ListAgents do not",
+    "address a cloud session from a manager, and the note generalised from those two",
+    "mechanisms to the capability.",
+    "",
+    "THE CHANNEL THAT WORKS: create_trigger with persistent_session_id set, then",
+    "fire_trigger on the returned id. Filed 2026-09-02 as",
+    "BL-20260902-AN-IDLE-CLOUD-SUB-SESSION-IS-RESUMABLE-VIA-A-SESSION-BOUND-ROUTINE-NOT-UNREACHABLE",
+    "and re-confirmed 2026-09-08 on two more sessions, which woke IDLE -> RUNNING and",
+    "acted on what they were poked with.",
+    "",
+    "TWO LIMITS, both load-bearing. (1) IT IS ONE-WAY and the fired turn carries no",
+    "mcp__* tools. (2) IT IS NOT RELIABLE: of three sessions poked in one window on",
+    "2026-09-08, one did not resume -- fire_trigger returned SUCCESS while spawning a",
+    "FRESH session, and the only signal was that the returned session_id differed from",
+    "the persistent_session_id. So grade every poke with get_session on the TARGET id",
+    "before and after; never trust fire_trigger's own success.",
+    "",
+    "A successor's moves are therefore: read this file, poll each id with get_session,",
+    "act on its branch/PR, POKE it when it is blocked on something only the manager",
+    "can answer, and archive it when its work has landed.",
     "",
     "READ last_observed AS A SNAPSHOT, NEVER AS LIVE STATE. A sub-session's",
     "needs_action is written at ITS last turn and cannot be cleared by the",
@@ -24,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T04:47:58Z",
+  "updated_at": "2026-09-08T05:45:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2903,8 +2920,8 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "see WO-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE",
       "confirmed_at": "2026-09-08T02:16:14Z",
-      "manager_observation": "RE-OBSERVED 2026-09-08T03:20Z via get_session: now IDLE / bucket BLOCKED — it has finished. needs_action: 'decide: repair TLT 56-share naked position now? bind quantity grade to re-arm path (BYBIT analogue)?' Its work is COMPLETE and #11315 is up at tier:2/landing:hold; what remains is entirely the operator's. ⚠️ Its status_detail says 'PR #5414' — 5414 is a TRADE id, not a PR; do not chase a nonexistent PR.",
-      "observed_at": "2026-09-08T03:31:00Z"
+      "manager_observation": "POKED AND DID NOT WAKE 2026-09-08T05:42:41Z — RECORDED AS A FAILED DELIVERY, not as a message sent. Still IDLE with updated_at unchanged at 05:09:06Z, while fire_trigger returned SUCCESS and a DIFFERENT session id (cse_014BiZjfw8T3jtHX7cRMg8e4) — it spawned a fresh session instead of resuming this one. Its 3 staged files remain uncommitted in a container nobody can read. Candidate cause, NOT established: it had by far the largest context of the three poked (459,520 tokens vs 127,664 and 174,909) and was the oldest.",
+      "observed_at": "2026-09-08T05:45:00Z"
     },
     {
       "session_id": "session_01EPvAGZDFZCYF3QJk12u3mk",
@@ -2933,13 +2950,15 @@
     {
       "session_id": "session_01AA7sxfCGwRtoed1CANsWwr",
       "registry_key": "pending-20260908T044520Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-181 — re-dispatch the MGC remediation against the CONFIRMED order ids 550/551",
       "owns_object": "WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE",
       "spawned_at": "2026-09-08T04:45:20Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator confirmed the corrected ids 2026-09-08, superseding the approval that named 548. ib_paper/MGC 43 phantom lots — MI-177 re-confirmed it as the fleet's only divergence.",
-      "confirmed_at": "2026-09-08T04:45:51Z"
+      "confirmed_at": "2026-09-08T04:45:51Z",
+      "manager_observation": "COMPLETED 2026-09-08. ABORTED the MGC remediation — its object's own sanctioned completion. Found order 548 is NOT stale: it rests live as the stop leg of a SECOND, DISJOINT OCA group, so the dispatch's premise that 550/551 replaced it was wrong (that premise was the manager's). Both OCA groups match their journal rows to the tick, so MI-166's 'protection is FAITHFUL' holds and the 43 phantom lots are a JOURNAL QUANTITY defect upstream. Operator ruled 2026-09-08: stay aborted, settle attribution from execution records first. #11328 merged.",
+      "observed_at": "2026-09-08T05:45:00Z"
     },
     {
       "session_id": "session_01GYsNAhP6SpKe1vyn2tBc94",
@@ -2961,7 +2980,9 @@
       "spawned_at": "2026-09-08T04:46:28Z",
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator granted a spawn-priority exception 2026-09-08.",
-      "confirmed_at": "2026-09-08T04:47:58Z"
+      "confirmed_at": "2026-09-08T04:47:58Z",
+      "manager_observation": "POKED AND WOKE 2026-09-08T05:42:52Z. Was IDLE/BLOCKED, patch ready, 'commit blocked by pre-push hook twice'. After the poke: RUNNING/connected, task_summary 'Checking whether any git pre-push hook exists' — visibly ACTING on the instruction, not merely resumed. Told to diagnose the hook, never --no-verify past it.",
+      "observed_at": "2026-09-08T05:45:00Z"
     },
     {
       "session_id": "session_01GtvQEQnfwzz9yRdPF6sPFg",
@@ -2976,5 +2997,5 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-08T03:31Z — LIVE reconcile. POPULATION: the 17 rows reading `working` on origin/main at 3891f5d8, graded against list_sessions(mine=true, limit=40) (40 sessions returned, 15 of the 17 covered) plus a direct get_session on the 2 that fall outside that window (Phase 1A, Phase 1B). FINDING: ZERO of the 17 was RUNNING. 7 were ARCHIVED and 10 were IDLE. A cold manager reading this file would have believed 17 sub-sessions were in flight; the true count was 0. ⚠️ THE VOCABULARY IS REAL, so this was a false record and not a wording quibble — `working`/`idle`/`archived` are three actively-used states (17/82/25 rows before this commit), so `working` does mean in-flight. ⚠️ THE MECHANISM IS THE ONE THIS FILE ALREADY NAMES: nothing decays a row, so `working` is written at spawn and only ever corrected when a manager goes and looks — and the previous live reconcile was 2026-09-06T16:50Z, two days earlier. A row does not become false by an error; it becomes false by time passing. ⚠️ STATE DESCRIBES THE SESSION, NEVER ITS WORK: MI-173's and MI-176's PRs (#11312, #11315) are open and operator-held, and their sessions are still correctly `idle` — the work's status lives in MANAGER-CHECKLIST.json. Judge a session by its merged output, never by its status line. ⚠️ THIS RECONCILE IS A LIVE READ AND SO CANNOT BE PRODUCED BY CI — which is why handoff_check.py grades `unknown` rather than `ready` without one."
+  "⚠️_last_live_reconcile": "2026-09-08T05:43Z — LIVE reconcile via list_sessions(mine=true, limit=8) plus per-session get_session. POPULATION: the 8 most recent sessions. THREE were IDLE/BLOCKED on questions only the manager could answer (MI-185 awaiting a push go-ahead, MI-183 blocked by a pre-push hook, MI-176 awaiting a commit decision) — work finished, sitting in ephemeral containers. All three were POKED via create_trigger(persistent_session_id) + fire_trigger; TWO woke and one did not (see their rows). ⚠️ MI-185's registry row is NOT on main — it is on the unmerged branch claude/mgr-land-blocked-prs-0512-20260908, which is exactly the dispatch-record-not-landed hazard BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED names. Do not fix that by writing a duplicate row; land the PR."
 }
