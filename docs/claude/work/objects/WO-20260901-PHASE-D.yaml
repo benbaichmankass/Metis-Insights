@@ -74,6 +74,67 @@ note: >-
   with the caveat attached rather than inventing a state nobody measured; two more
   live edges have the same shape (PHASE-G -> PHASE-D, PHASE-H -> PHASE-B).
 
+operator_decision_2026_09_08:
+  verdict: consolidate_into_the_readout
+  text: >-
+    "Carry the four missing classes into the readout, then retire DUE.md."
+  decided_on: 2026-09-08
+  scope: >-
+    The PORT only. Retiring docs/claude/DUE.* is a SEPARATE, later change and is
+    NOT authorised by the same act.
+  condition: >-
+    TWO CHANGES, NEVER ONE. Port the classes first and demonstrate them
+    rendering; retire DUE.md only afterwards, in its own PR. Retiring in the
+    same change takes the session-facing due list to ZERO if the port is
+    incomplete. Precedent and reasoning are already in this repo: the hourly
+    digest carrier was split across two PRs "so that a timer which fails to
+    install cannot take the digest to ZERO", with the duplicate output in
+    between recorded as an accepted cost rather than a defect. The same accepted
+    cost applies here — DUE.md and READOUT.md §5 both render the same rows until
+    the second PR lands, and that is a KNOWN state, not a defect to re-file.
+  condition_2: >-
+    ⚠️ THIS DOES NOT FIX THE READOUT'S COVERAGE AND MUST NOT BE REPORTED AS
+    DOING SO. §1 still grades `insufficient_basis` and still names no stage, and
+    that is CORRECT. Folding registers in adds ROWS, not assessed `blocked_on`
+    BASIS. A PR body implying the consolidation improved the diagnosis would be
+    the unprovenanced-diagnostic defect this repo has a guard for.
+  condition_3: >-
+    EVERY PORTED CLASS KEEPS ITS OWN READ-STATE. A cron that could not be READ
+    is not a cron that is GREEN; an unlanded-automation list that could not be
+    FETCHED is not an EMPTY queue.
+  provenance: >-
+    ⚠️ RELAYED, NOT READ FROM THIS FILE. The MI-196 spawn prompt instructed the
+    session to read this decision at
+    `WO-20260901-PHASE-D.yaml::operator_decision_2026_09_08` — and NO SUCH BLOCK
+    EXISTED. Verified at session start with a positive control: `blocked_on_basis`
+    was found in this same file on `origin/main` by the same probe, while
+    `operator_decision_2026_09_08` and the string `consolidate_into_the_readout`
+    returned ZERO hits repo-wide. So the verdict and its three conditions above
+    are transcribed from the spawn prompt, which is the only surface that carried
+    them; MI-196 did not witness the operator state them. This block is that
+    record. If the wording differs from what the operator actually said, THIS is
+    the text that was acted on.
+
+port_measurement_2026_09_08: >-
+  ⚠️ TWO CLAIMS IN THIS OBJECT'S OWN `blocked_on` NOTE ARE FALSE, measured by
+  MI-196 against `scripts/ops/render_due_list.py` rather than re-quoted.
+  (1) THE COUNT IS WRONG: the note says four due-list source classes have no
+  readout counterpart. There are NINE `def src_*` functions — open_items, soaks,
+  operator_owed, probes, research_queue, red_crons, unlanded_automation,
+  error_feed, sunset_dispositions — and only `operator_owed` has one, so EIGHT
+  classes were missing, not four. The operator's "four" was taken from this note.
+  MI-196 ported all nine (eight rendered, `operator_owed` marked
+  covered-elsewhere and deliberately not double-counted) because porting a
+  subset would leave DUE.md un-superseded and make the retirement PR unsafe
+  permanently.
+  (2) THE RECURRENCE LEDGER IS NOT A DUE-LIST SOURCE. The note names it as one.
+  The only `RECURRENCE-LEDGER` mention in `render_due_list.py` is line 15, a
+  docstring reference to its SIBLING `render_session_brief.py`, which is the
+  script that actually reads it. Positive control: `PROBES` appears 13 times in
+  the same file and every real source has a `def src_*`. Field beats comment —
+  the note is corrected here rather than reasoned from.
+  A session planning off the old note would have ported the wrong set.
+
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md
   - scripts/ops/constraint_readout.py
