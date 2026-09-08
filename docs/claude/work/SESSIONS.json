@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-08T13:38:00Z",
+  "updated_at": "2026-09-08T14:02:30Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3212,9 +3212,9 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator directive 2026-09-08, second time of asking: 'I'm still seeing error pings on the gld close - this has been going on for weeks, and it needs to be fixed already'.",
       "confirmed_at": "2026-09-08T12:19:31Z",
-      "state_observed_at": "2026-09-08T13:38:00Z",
-      "state_basis": "pull_request_read(get) on #11389 + #11395 at 13:37Z — PR heads and merge state, not a session summary",
-      "observation": "RUNNING. Re-laid #11389 onto current main: head is now 6216da28 (was 6febde04), 3 commits. ALSO LANDED #11395 (a83ab7d5) — 'the paper reset: approved, verified, and deliberately not spent'. That is the operator's 'you can reset the paper account if needed' approval, and MI-199 established the reset was NOT needed rather than spending a granted permission because it had it. Recording that as the judgement it is. #11389 remains landing: hold / tier_2_3_needs_approval and I am NOT overriding it; #11390 remains draft and unarmed. The only thing outstanding on the operator's GLD directive is a human word on #11389."
+      "state_observed_at": "2026-09-08T14:02:30Z",
+      "state_basis": "merge result + /api/diag/version read at 13:52Z; poked 14:00Z",
+      "observation": "OPERATOR APPROVED #11389 ('ok on gld', 2026-09-08) and I MERGED it: bdccf226. ⚠️ MERGED IS NOT DEPLOYED — /api/diag/version at 13:52Z read git_sha 2aaa5bba (running) vs git_sha_on_disk 29bcca4c, restart_pending true, so the live trader is behind the fix. Poked at 14:00Z to establish three things IN ORDER and say which it saw: (1) DEPLOYED, (2) the ONE expected evidence_changed page as GLD's evidence moves parent 2e843e04 -> child 891ddff0, which is the fix WORKING and must not be read as a regression, (3) the pages actually STOP (before: 122 of 178 GLD alerts paged, ~21/day). #11390 stays draft and UNARMED — 'ok on gld' answered a question naming only #11389 and is recorded as such in OPEN-PRS.json."
     },
     {
       "session_id": "session_01CvFCybCkvrfzaHqNH3tQsb",
