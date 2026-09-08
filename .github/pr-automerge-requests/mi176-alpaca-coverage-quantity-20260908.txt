@@ -1,0 +1,2 @@
+MI-176 follow-up: record the operator's declined-to-bind ruling in the OPEN-ITEMS row.
+Tier-1, docs/** only. Self-lands on green; GitHub still merges only when required checks pass.
