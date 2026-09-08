@@ -1,16 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-08T05:10:04+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "red_crons",
-    "unlanded_automation"
-  ],
+  "generated_at": "2026-09-08T09:52:26+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 53,
+      "rows": 54,
       "note": ""
     },
     "soaks": {
@@ -31,22 +28,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=18.6h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot query the Actions API"
+      "state": "read",
+      "rows": 5,
+      "note": ""
     },
     "unlanded_automation": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot list pull requests"
+      "state": "read",
+      "rows": 5,
+      "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-08T05:10:01+00:00, age 0.0h"
+      "note": "digest 2026-09-08T05:10:01+00:00, age 4.7h"
     },
     "sunset": {
       "state": "read",
@@ -55,8 +52,8 @@
     }
   },
   "counts": {
-    "due": 78,
-    "loud": 57
+    "due": 89,
+    "loud": 68
   },
   "rows": [
     {
@@ -450,7 +447,7 @@
       "source": "soaks",
       "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
       "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
-      "why_due": "soak READY — ✅ READY — 37 matching row(s) of 754 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
+      "why_due": "soak READY — ✅ READY — 42 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
       "age_days": 2,
       "loud": true,
       "link": ""
@@ -502,12 +499,66 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+      "title": "⚠️ ORDERING CONSTRAINT ON REAL MONEY — READ THIS BEFORE PICKING UP MI-140. PR #11279 (Tier-3, landing: hold) re-scopes IBClient.close's confirmation from the SYMBOL to the TRADE. It is WRITTEN, GREEN ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING",
       "title": "MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's monitor(), and only tre",
       "why_due": "loud row — must be reported on every session",
       "age_days": 1,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11353",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11353"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11354",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11354"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11361",
+      "title": "chore(m7): strategy review packets (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11361"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11362",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11362"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11363",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11363"
     },
     {
       "source": "probes",
@@ -571,6 +622,51 @@
       "age_days": 0,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_crons",
+      "id": "constraint-readout",
+      "title": "constraint-readout",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34121157343"
+    },
+    {
+      "source": "red_crons",
+      "id": "pr-queue-watch",
+      "title": "pr-queue-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34189785909"
+    },
+    {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34205760509"
+    },
+    {
+      "source": "red_crons",
+      "id": "strategy-review-packets",
+      "title": "strategy-review-packets",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34207987310"
+    },
+    {
+      "source": "red_crons",
+      "id": "sunset-pass",
+      "title": "sunset-pass",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34110131942"
     },
     {
       "source": "error_feed",
