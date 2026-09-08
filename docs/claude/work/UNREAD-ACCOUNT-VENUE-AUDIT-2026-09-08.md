@@ -225,7 +225,7 @@ assertion here rather than a hope.
 | `BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED` | medium | The ask fires correctly every 12 h and has gone unanswered ~17 times over 8.5 days at identical volume. |
 | `BL-20260908-PROP-FILL-ROW-STATUS-READS-AS-POSITION-STATE-AND-IS-WRONG-18-TO-0` | low | The trap above, filed so the next session does not re-derive it. |
 
-`BL-20260908-THREE-OF-ELEVEN-ACCOUNTS-...-BREAKOUT-1-CAN-NEVER-HAVE-ONE`
+`BL-20260908-THREE-OF-ELEVEN-ACCOUNTS-HAVE-NO-VENUE-POSITION-READ-AND-BREAKOUT-1-CAN-NEVER-HAVE-ONE`
 (MI-177) is **updated, not duplicated** — its route-level claim stands, its
 account-level claim is narrowed by the reconciliation above.
 
