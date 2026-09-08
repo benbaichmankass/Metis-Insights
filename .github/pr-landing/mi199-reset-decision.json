@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register content only — one dated clause appended to an existing OPEN-ITEMS observation, plus the merge_slot in docs/claude/session-board.json. No src/, config/, deploy/, workflows, order path or risk caps. TWO reasons it self-lands rather than waiting. (1) It records an operator approval that was VERIFIED AND DELIBERATELY NOT SPENT; a granted permission with no written non-action reads later as an oversight, and the next session to see 'you can reset the paper account' without the verification would enact a credential rotation. (2) It carries the merge-slot RELEASE: #11392 merged carrying a claim that named a now-merged PR, which is precisely the staleness session-board.json's own _doc warns about. Leaving it would make the file assert a lock nobody holds."
+}

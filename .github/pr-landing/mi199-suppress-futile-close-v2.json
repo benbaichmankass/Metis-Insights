@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path (src/runtime/order_monitor.py — it changes WHEN a live close is attempted, on a code path shared with real-money Alpaca). The operator OK for exactly this was relayed on 2026-09-08 as an explicit approve/wait/reject choice with that tradeoff stated, and they chose approve. It is deliberately left UNARMED anyway: the manager offered to merge it by hand, and a session finding landed after the approval — that this PR does NOT address 82% of the GLD pages, which carry `orders_still_resting`, not `broker_cancel_wedged` — should be read by a human before it goes in. Arming would also close the branch to new content (measured on #11392).",
+  "why": "Order-path behaviour change: an evidenced broker wedge stops having a close re-attempted every ~30s and is re-probed hourly instead. It is a CADENCE, not a stop — the hourly re-probe keeps `last_seen` alive so `sweep_vanished` cannot manufacture a `vanished_unattributed` for a position that never moved. Rollback is one env flip (CLOSE_WEDGE_REPROBE_MINUTES=0), no redeploy."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs + registers only — an addendum to an existing evidence doc, 1 health-review-backlog row, and an extension to this session's own OPEN-ITEMS observation. No src/, config/, deploy/ or workflow change. The Tier-2 fix it root-causes is a proposal in the doc."
+}

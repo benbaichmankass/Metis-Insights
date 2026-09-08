@@ -422,3 +422,238 @@ def test_a_real_wedge_still_retires_normally_after_the_heartbeat(ledger: Path) -
         now=T0 + dt.timedelta(hours=window + 0.5), path=ledger,
     )
     assert [s.transition for s in swept] == ["vanished_unattributed"]
+
+
+# --------------------------------------------------------------------------
+# MI-199: THE CORRECTED CLASSIFICATION MUST ACTUALLY REACH THE DIGEST.
+#
+# The downgrade above was built correctly on 2026-09-02 and then almost never
+# fired, because the classifier it keys on was reading the weaker of two
+# available broker sources. Measured over the operator-alert ring's last 400
+# rows (2026-09-02T19:31Z -> 2026-09-08T12:06Z): of 178 alpaca_paper/GLD
+# close-failure alerts, 122 PAGED as `orders_still_resting` and only 56 reached
+# the digest -- roughly 21 operator pages a day about a condition the bot
+# provably cannot act on.
+#
+# These pin the whole chain on the LIVE bytes: cancel refusal -> classifier ->
+# marker -> route. A unit test of the classifier alone would not have caught
+# that the routing never saw the corrected state.
+# --------------------------------------------------------------------------
+
+#: Byte-exact, /api/diag/alpaca_open_orders?account_id=alpaca_paper,
+#: captured_at 2026-09-08T12:21:34.660879+00:00. Note the wedged CHILD leg is
+#: rendered `held` here -- the listing cannot see the wedge.
+LIVE_GLD_LISTING_20260908 = [
+    {"id": "2e843e04-5487-470c-a702-70e796fbd05e", "symbol": "GLD",
+     "status": "new", "order_class": "oco", "parent_id": None},
+    {"id": "891ddff0-b24d-4039-9322-8492bcd51e66", "symbol": "GLD",
+     "status": "held", "order_class": "oco",
+     "parent_id": "2e843e04-5487-470c-a702-70e796fbd05e"},
+]
+
+
+def _live_cancel_20260908():
+    """Byte-exact from the trader journal, 2026-09-08T12:20:54Z."""
+    from src.units.accounts.alpaca_client import CancelOutcome
+    return CancelOutcome(
+        "orders_read", 1, 0,
+        [("891ddff0-b24d-4039-9322-8492bcd51e66", 422, "order pending cancel")],
+    )
+
+
+def test_live_gld_now_routes_to_the_digest_end_to_end(tmp_path, monkeypatch):
+    """cancel refusal -> classifier -> retMsg marker -> route.
+
+    ⚠️ THE FIRST OBSERVATION STILL PAGES, AND THAT IS THE DESIGN, NOT A MISS:
+    `newly_wedged` is loud because downgrading the ARRIVAL of a wedge would hide
+    the condition rather than de-noise it. What this fix changes is the SECOND
+    observation onward -- which, on the live fleet, is ~21 pages a day.
+
+    Read this as the deployment note it is: when the fix lands, GLD's evidence
+    moves from the parent id the ledger currently carries to the CHILD id the
+    broker actually named, so the operator gets ONE `evidence_changed` page and
+    then silence-with-a-24h-floor. One page is the correct cost of a genuinely
+    different evidenced determination.
+    """
+    monkeypatch.setattr(cw, "STANDING_LOG", tmp_path / "standing.json")
+    state, detail = classify_share_hold(
+        LIVE_GLD_LISTING_20260908, _live_cancel_20260908())
+    assert state == cw.UNCLEARABLE_HOLD_STATE
+    # The retMsg the close path actually builds, in the same shape.
+    err = ("extended-hours limit close rejected: insufficient qty available "
+           "for order (requested: 39, available: 0) "
+           + format_share_hold_marker(state, detail))
+    assert parse_share_hold(err) == cw.UNCLEARABLE_HOLD_STATE
+    from src.runtime.execution_diagnostics import route_close_failure
+    kw = dict(account="alpaca_paper", symbol="GLD", side="long", error=err)
+    first = route_close_failure(**kw)
+    assert first[0] == "page" and first[1] == "newly_wedged", first
+    second = route_close_failure(**kw)
+    assert second[0] == "digest", second
+    assert second[3] == cw.UNCLEARABLE_HOLD_STATE
+
+
+def test_the_defect_this_replaced_still_pages_without_the_cancel_evidence():
+    """THE CONTROL. Same listing, no cancel evidence -> still pages.
+
+    This is the state the fleet was actually in, and it is what makes the test
+    above mean something: the change is the cancel evidence, not the listing.
+    """
+    state, detail = classify_share_hold(LIVE_GLD_LISTING_20260908)
+    assert state == "orders_still_resting"
+    err = ("extended-hours limit close rejected: insufficient qty available "
+           + format_share_hold_marker(state, detail))
+    from src.runtime.execution_diagnostics import route_close_failure
+    # Repeating cannot buy silence: page every time, however many times it fails.
+    for _ in range(5):
+        route, _t, _r, _sh = route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert route == "page"
+
+
+def test_an_ordinary_cancel_refusal_still_pages():
+    """NARROWNESS CONTROL: a refusal that does not name a wedged status.
+
+    The downgrade buys silence, so it must key on WHAT THE BROKER SAID about the
+    order's own state -- never on a cancel having been refused, and never on the
+    failure repeating.
+    """
+    from src.runtime.execution_diagnostics import route_close_failure
+    from src.units.accounts.alpaca_client import CancelOutcome
+    for msg in ("forbidden", "order is not cancelable", "rate limit exceeded"):
+        state, detail = classify_share_hold(
+            LIVE_GLD_LISTING_20260908,
+            CancelOutcome("orders_read", 0, 0, [("x", 422, msg)]))
+        assert state == "orders_still_resting", msg
+        err = "insufficient qty available " + format_share_hold_marker(state, detail)
+        route, _t, _r, _sh = route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert route == "page", msg
+
+
+# --------------------------------------------------------------------------
+# MI-199 HALF 2: DO NOT RE-ATTEMPT A CLOSE WE HAVE PROVED CANNOT WORK.
+#
+# The assertions are mostly NEGATIVE, for the same reason the routing ones are:
+# the dangerous outcome is not that suppression fails to fire, it is that it
+# fires for something it was never meant to cover, or that it makes the wedge
+# invisible. A close suppressed forever would freeze `last_seen` and therefore
+# MANUFACTURE a `vanished_unattributed` for a position that never moved --
+# silence reached by ceasing to look.
+# --------------------------------------------------------------------------
+
+NOW = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.timezone.utc)
+
+
+def _entry(share_hold=cw.UNCLEARABLE_HOLD_STATE, minutes_ago=5.0):
+    return {"share_hold": share_hold,
+            "last_seen": (NOW - dt.timedelta(minutes=minutes_ago)).isoformat()}
+
+
+def test_only_the_evidenced_determination_buys_a_skip():
+    assert cw.decide_close_retry(_entry(), "read", NOW).attempt is False
+
+
+@pytest.mark.parametrize("share_hold", [
+    "orders_still_resting", "no_residual_orders", "residual_unreadable",
+    SHARE_HOLD_NOT_CLASSIFIED, "", None,
+])
+def test_every_other_reading_still_attempts_every_tick(share_hold):
+    """THE CONTROL. A close failing for a reason nobody has established must be
+    retried exactly as it is today -- including `residual_unreadable`, which is
+    'we did not look' and must never buy the silence of 'it cannot be fixed'."""
+    d = cw.decide_close_retry(_entry(share_hold, 0.1), "read", NOW)
+    assert d.attempt is True
+    assert d.state == "no_wedge"
+
+
+def test_repetition_alone_never_buys_a_skip():
+    """A wedge that has stood for a MONTH still probes on its cadence.
+
+    Suppression keys on the EVIDENCE, never on how long or how often the close
+    has failed -- the same narrowness as the paging downgrade.
+    """
+    d = cw.decide_close_retry(_entry(minutes_ago=60 * 24 * 30), "read", NOW)
+    assert d.attempt is True and d.state == "reprobe_due"
+
+
+@pytest.mark.parametrize("read_state", ["unreadable", "absent", "", "weird"])
+def test_an_unreadable_ledger_attempts_and_says_so(read_state):
+    """`ledger_unreadable` is NOT `no_wedge`: both attempt, but a reader must be
+    able to tell a fail-safe attempt from a confident one."""
+    d = cw.decide_close_retry(_entry(), read_state, NOW)
+    assert d.attempt is True
+    assert d.state == "ledger_unreadable"
+    assert d.state != "no_wedge"
+
+
+def test_an_unparseable_last_seen_probes_rather_than_skips():
+    d = cw.decide_close_retry(
+        {"share_hold": cw.UNCLEARABLE_HOLD_STATE, "last_seen": "not-a-time"},
+        "read", NOW)
+    assert d.attempt is True and d.state == "reprobe_due"
+
+
+def test_the_cadence_boundary(monkeypatch):
+    monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", "60")
+    assert cw.decide_close_retry(_entry(minutes_ago=59.9), "read", NOW).attempt is False
+    assert cw.decide_close_retry(_entry(minutes_ago=60.0), "read", NOW).attempt is True
+
+
+def test_zero_is_the_sanctioned_rollback(monkeypatch):
+    """One env flip restores the pre-MI-199 behaviour byte-for-byte."""
+    monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", "0")
+    d = cw.decide_close_retry(_entry(), "read", NOW)
+    assert d.attempt is True and d.state == "disabled"
+
+
+def test_an_unparseable_cadence_falls_back_to_the_default_not_to_zero(monkeypatch):
+    """A typo must not silently restore ~2,500 futile order-path round trips a
+    day, and must not silently switch the re-probe off either."""
+    for bad in ("", "  ", "sixty", "abc", "None"):
+        monkeypatch.setenv("CLOSE_WEDGE_REPROBE_MINUTES", bad)
+        assert cw.reprobe_minutes() == cw._DEFAULT_REPROBE_MINUTES, bad
+        assert cw.decide_close_retry(_entry(minutes_ago=5), "read", NOW).attempt is False
+
+
+def test_suppression_can_never_outlive_the_vanish_sweep():
+    """THE STRUCTURAL GUARD, and the reason this is a cadence and not a stop.
+
+    `sweep_vanished` declares a wedge gone once `last_seen` is older than
+    CLOSE_WEDGE_VANISH_AFTER_HOURS. If the re-probe cadence could exceed that
+    window, suppression would stop refreshing `last_seen` in time and the sweep
+    would report `vanished_unattributed` for a position that never went
+    anywhere -- a false resolution produced BY the fix.
+    """
+    assert cw._DEFAULT_REPROBE_MINUTES < cw._DEFAULT_VANISH_AFTER_HOURS * 60
+
+
+def test_close_retry_decision_reads_a_real_ledger(tmp_path, monkeypatch):
+    ledger = tmp_path / "standing.json"
+    monkeypatch.setattr(cw, "STANDING_LOG", ledger)
+    # No file at all -> we could not look -> ATTEMPT.
+    assert cw.close_retry_decision("alpaca_paper", "GLD", "long", NOW).attempt
+
+    state, detail = classify_share_hold(GLD_RESIDUAL)
+    cw.observe(Observation("alpaca_paper", "GLD", "long", state, detail))
+    d = cw.close_retry_decision("alpaca_paper", "GLD", "long", NOW)
+    assert d.attempt is False and d.state == "suppressed"
+    # A DIFFERENT position on the same account is untouched.
+    assert cw.close_retry_decision("alpaca_paper", "QQQ", "long", NOW).attempt
+    # Same symbol, other side, is a different wedge identity.
+    assert cw.close_retry_decision("alpaca_paper", "GLD", "short", NOW).attempt
+
+
+def test_close_retry_decision_never_raises(monkeypatch):
+    monkeypatch.setattr(cw, "_load", lambda *a, **k: 1 / 0)
+    d = cw.close_retry_decision("a", "b", "long", NOW)
+    assert d.attempt is True and d.state == "ledger_unreadable"
+
+
+def test_monitor_adapter_defaults_to_attempting(monkeypatch):
+    from src.runtime import order_monitor as om
+    monkeypatch.setattr(cw, "close_retry_decision",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    d = om._close_retry_decision_for(
+        {"account_id": "alpaca_paper", "symbol": "GLD", "direction": "long"})
+    assert d.attempt is True

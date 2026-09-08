@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row in docs/claude/health-review-backlog.json plus this declaration; no runtime, order path, config or CI behaviour is touched"
+}
