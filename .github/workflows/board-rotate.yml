@@ -170,10 +170,17 @@ jobs:
               -e "s|{{PREV_RETIRED_AT}}|${prev_retired}|g" \
               docs/claude/board-body-template.md > "$body"
 
-          if grep -q '{{[A-Z_]*}}' "$body"; then
-            echo "REFUSED: unsubstituted placeholder left in the board body" > "$out"
-            echo "::error::board-rotate: $(grep -o '{{[A-Z_]*}}' "$body" | sort -u | tr '\n' ' ')"
-            exit 1
+          # {{BOARD_ISSUE}} is DELIBERATELY still here: the new issue's own number
+          # cannot be known until GitHub has assigned it, so it is filled by the
+          # second-pass edit below. Every OTHER placeholder must be gone by now —
+          # a body posted with one is a board whose own header lies about which
+          # issue it is.
+          if leftover="$(grep -o '{{[A-Z_]*}}' "$body" | grep -v '^{{BOARD_ISSUE}}$' | sort -u)"; then
+            if [ -n "$leftover" ]; then
+              echo "REFUSED: unsubstituted placeholder(s) in the board body: $leftover" > "$out"
+              echo "::error::board-rotate: unsubstituted placeholder(s): $(echo "$leftover" | tr '\n' ' ')"
+              exit 1
+            fi
           fi
 
           # ---- Create it --------------------------------------------------- #
@@ -198,8 +205,13 @@ jobs:
           echo ">>> created #${new} — ${url}"
 
           # BOARD_ISSUE is only knowable after creation, so the template's own
-          # pointer line is patched in a second edit rather than guessed.
+          # pointer line is patched in a second edit rather than guessed. NOW the
+          # body must be placeholder-free -- this is the assertion the pre-create
+          # check deliberately could not make.
           sed -i "s|{{BOARD_ISSUE}}|${new}|g" "$body"
+          if grep -q '{{[A-Z_]*}}' "$body"; then
+            echo "::error::board-rotate: created #${new} but its body STILL carries $(grep -o '{{[A-Z_]*}}' "$body" | sort -u | tr '\n' ' ') — fix the body by hand"
+          fi
           gh issue edit "$new" --repo "$GITHUB_REPOSITORY" --body-file "$body" \
             || echo "::warning::board-rotate: created #${new} but could not patch its pointer line"
 
