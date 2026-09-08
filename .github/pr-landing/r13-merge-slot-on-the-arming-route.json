@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Adds R13 to scripts/ci/check_pr_landing.py, which is landing machinery by its own LANDING_MACHINERY list. R12's reasoning is the point of this PR, not an obstacle to it: a change to the rules by which PRs land must not be merged by those rules unread, because a mistake in it disarms the check that would have caught the mistake. One human read.",
+  "why": "Tier-1 by surface (scripts/ci, docs, .github) and it touches no runtime, no order path and no config. The tier is not the objection; R12 is, and it is honoured rather than argued with."
+}

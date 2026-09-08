@@ -514,6 +514,68 @@ the protocol as self-discipline. The claim is enforced (in those runtimes) by a
   marker (> 20 min) forces a re-claim + re-sync (the sync is the part that
   actually prevents the behind-rebase churn).
 
+### ⚠️ THE ARMING ROUTE IS NOT ONE THE HOOK CAN SEE — R13 (2026-09-08)
+
+The guard above matches `mcp__github__merge_pull_request` and
+`mcp__github__enable_pr_auto_merge`. **The repo's primary landing route calls
+neither.** `pr-landing` **R6** requires a Tier-1 self-landing branch to ARM by
+committing `.github/pr-automerge-requests/<branch-slug>.txt`; the push then
+triggers `claude-pr-automerge.yml`, which enables auto-merge **as GitHub Actions
+under `GITHUB_TOKEN`**. The session calls no merge tool at all, so the hook never
+fires — measured, not inferred: the hook's own matcher does not match `Bash`,
+`Write`, `push_files` or `create_or_update_file`, and it denies as designed only
+when a merge tool is actually called.
+
+This is a **different and larger hole** than the web-runtime one above. That one
+is "the guard does not load here". This one is "the guard is not on this road",
+and it holds in CLI and desktop too, where hooks *do* load.
+
+So R6 and the merge-slot rule looked mutually unsatisfiable — satisfy R6 and you
+merge unclaimed; claim the slot through the MCP route instead and R6 fails the PR
+for not arming, so it never lands. **They are not actually in conflict**; the
+route R6 mandates simply had no slot enforcement on it, and the board comment
+that *is* the authoritative claim is unpostable while #6927 sits at GitHub's hard
+2500-comment cap (writes 403 — **MI-182**).
+
+**R13** puts an enforced claim on that route, weakening neither rule: a branch
+that arms must hold `merge_slot` in [`session-board.json`](session-board.json) —
+`held_by`, `branch`, `claimed_at` set to itself — **added-or-modified in its own
+diff**, for the same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it
+of the arming file: a branch that merely merged `main` while somebody else's
+claim sat on it has asked for nothing, and presence alone cannot tell the two
+apart. R6 still requires arming; the hook still guards the MCP route unchanged.
+Being a **CI check rather than a hook**, R13 also holds on the web, where no
+project hook loads.
+
+#### ⚠️ What R13 does NOT do, stated plainly
+
+**R13 does not serialize anything, and must not be described as if it does.**
+`BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE` establishes why, and it
+still stands: `merge_slot` lives in a committed file, so a claim written on a
+branch **reaches no other session until that branch merges** — by which point the
+claim is over. Two branches can each arm, each write a valid claim, and never see
+one another. `require-up-to-date` has been off since 2026-08-10, so nothing even
+forces them to collide textually.
+
+What R13 changes is narrower and worth having anyway:
+
+- an armed merge now carries an **attributable, timestamped** claim in the
+  permanent record, where previously the arming route recorded nothing at all;
+- arming with **no** claim, or riding **someone else's**, now **fails CI** — it is
+  enforced, not exhorted, which is the failure mode BL-20260810 warns against
+  ("do NOT re-file an exhortation");
+- it costs **no extra CI cycle**. This is the one half of BL-20260810 that no
+  longer applies: that row assumed the mirror is a *separate* commit at merge
+  time, costing a ~9-minute restart. Riding the arming push, the write is free.
+
+**The real-time half is still missing and R13 cannot supply it.** The remedy is
+BL-20260810's own option (a) — a slot store not gated on merging — which is the
+same artifact **MI-182** needs for the successor board. Those are one piece of
+work, not two. Until it exists, the durable record is the only claim anyone can
+make, and concurrent-merge safety continues to rest where it actually rests:
+branch-protection required status checks.
+
+
 Because hooks load at **session start**, a session that edits `settings.json`
 mid-run does **not** pick up the new guard itself — it must still follow the
 protocol manually for its own PRs; the guard protects the *next* session onward.

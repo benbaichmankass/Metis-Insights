@@ -42,6 +42,35 @@ questions, and either one alone leaves the work sitting:
 Tier-1 self-landing therefore needs BOTH, and this guard requires both together
 (R4/R5/R6). Tier-2 and Tier-3 need a human, so they may have NEITHER (R4, R10).
 
+AND ARMING TAKES THE MERGE SLOT (R13)
+-------------------------------------
+Arming is not a request to merge, it IS the merge: `claude-pr-automerge.yml`
+enables auto-merge and GitHub lands the PR on green with no further act by
+anybody. The `PreToolUse` merge-slot guard in `.claude/settings.json` cannot see
+that happen — it matches `mcp__github__merge_pull_request` and
+`mcp__github__enable_pr_auto_merge`, and arming calls NEITHER, so no hook fires
+even in the CLI/desktop runtimes that do load project hooks. R6 therefore
+mandates the one landing route on which the slot guard is structurally silent.
+
+R13 puts an ENFORCED CLAIM on that silent route without weakening either rule:
+R6 still requires arming, the hook still guards the MCP route unchanged, and the
+claim travels by the same `git push` that arms. Being a CI check rather than a
+hook, it also holds on Claude Code on the web, where no project hook loads at all
+(1,379 consecutive `Hooks: Found 0 total hooks in registry` lines, 2026-08-18 ->
+2026-08-20).
+
+  ⚠️ R13 DOES NOT SERIALIZE, and nothing here should be read as claiming it does.
+  Per `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`, `merge_slot` lives in
+  a committed file, so a claim written on a branch reaches no other session until
+  that branch MERGES — by which point the claim is over. Two branches can each
+  arm, each write a valid claim, and never see one another. What R13 buys is that
+  an armed merge carries an ATTRIBUTABLE, TIMESTAMPED claim where the route
+  previously recorded nothing, and that arming with none — or with someone else's
+  — FAILS CI rather than being exhorted against. The real-time half needs a slot
+  store not gated on merging (that row's option (a), and the same artifact MI-182
+  needs); concurrent-merge safety meanwhile rests on branch-protection required
+  status checks, where it already rested.
+
 WHY THIS GUARD CAN BITE AT ALL
 ------------------------------
 Auto-merge merges on GREEN. This guard is a required check. So a branch that
@@ -155,6 +184,19 @@ REPO = Path(__file__).resolve().parents[2]
 LANDING_DIR = ".github/pr-landing"
 AUTOMERGE_DIR = ".github/pr-automerge-requests"
 GUARD_REL = "scripts/ci/check_pr_landing.py"
+
+# R13. The DURABLE home of the merge slot (docs/claude/coordination-board.md
+# § Scope + limits). That doc calls the `🔒 MERGE SLOT CLAIM` comment on #6927
+# the authoritative live claim and this file its mirror. #6927 is at GitHub's
+# hard 2500-comment cap and writes 403 (MI-182), so the authoritative home is
+# UNREACHABLE and the mirror is the only claim anyone can actually make. R13
+# enforces the reachable one; it does not redefine which is authoritative.
+#
+# ⚠️ Deliberately NOT in LANDING_MACHINERY below. Every self-landing branch must
+# now touch this file, so listing it there would make R12 fire on every one of
+# them and nothing could ever self-land again — the same trap the
+# `.github/pr-automerge-requests/**` note guards against.
+SESSION_BOARD = "docs/claude/session-board.json"
 
 # The Tier-1 EXAMPLES from docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers.
 # An allowlist: a path not matched here cannot self-land. See the module
@@ -299,6 +341,38 @@ def _added_or_modified(root: Path, base: str, rel: str) -> bool:
     return head_sha != base_sha
 
 
+def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
+    """Does THIS branch hold the merge slot, and did it claim it in THIS diff?
+
+    Added-or-modified is load-bearing, for exactly the reason
+    `claude-pr-automerge.yml`'s REQUEST GATE gives: a branch that merely merged
+    `main` while somebody else's claim sat on it has asked for nothing, and by
+    presence alone its diff is indistinguishable from a real claim.
+    """
+    path = root / SESSION_BOARD
+    if not path.exists():
+        return (False, f"{SESSION_BOARD} does not exist")
+    if not _added_or_modified(root, base, SESSION_BOARD):
+        return (False, f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
+                       f"claimed nothing; it is carrying whatever `main` already had")
+    try:
+        slot = json.loads(path.read_text(encoding="utf-8")).get("merge_slot")
+    except (OSError, json.JSONDecodeError) as exc:
+        return (False, f"{SESSION_BOARD} is unreadable/invalid JSON: {exc}")
+    if not isinstance(slot, dict):
+        return (False, f"{SESSION_BOARD} carries no `merge_slot` object")
+    if slot.get("branch") != branch:
+        return (False, f"`merge_slot.branch` is {slot.get('branch')!r}, not "
+                       f"{branch!r} — the slot is held by someone else. That is "
+                       f"the serialization working, not a technicality to route "
+                       f"around; wait for the release")
+    for field in ("held_by", "claimed_at"):
+        if not str(slot.get(field) or "").strip():
+            return (False, f"`merge_slot.{field}` is empty — a claim nobody can "
+                           f"attribute or time out is not a claim")
+    return (True, "held by this branch")
+
+
 def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str], list[str]]:
     """Return (state, failures, notes)."""
     fails: list[str] = []
@@ -438,6 +512,35 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                 f"{arm_rel} (any contents; its PATH is the signal) and push. "
                 f"The PR must also be OPEN AND NOT A DRAFT — `claude-pr-automerge` "
                 f"refuses to un-draft a PR it did not itself open, by design.")
+        # R13 — arming IS the merge, so arming takes the slot.
+        if armed:
+            ok, detail = slot_claim_state(root, base, branch)
+            if not ok:
+                fails.append(
+                    f"R13 {decl_rel} arms the landing route while this branch does "
+                    f"not hold the merge slot in {SESSION_BOARD}: {detail}. Arming "
+                    f"is not a request to merge, it IS the merge — "
+                    f"`claude-pr-automerge.yml` enables auto-merge and GitHub lands "
+                    f"the PR on green with no further act by anybody. "
+                    f"⚠️ The `PreToolUse` merge-slot guard in `.claude/settings.json` "
+                    f"CANNOT see this route: it matches "
+                    f"`mcp__github__merge_pull_request` and "
+                    f"`mcp__github__enable_pr_auto_merge`, and arming calls NEITHER "
+                    f"— the merge is performed by a workflow under GITHUB_TOKEN, so "
+                    f"no hook fires even in the CLI/desktop runtimes that do load "
+                    f"hooks. R6 therefore mandates the one landing route on which "
+                    f"the slot guard is structurally silent, so the claim is made "
+                    f"HERE, in the same push that arms, or it is not made at all. "
+                    f"(R13 records an ATTRIBUTABLE claim and fails closed without "
+                    f"one; it does NOT serialize — a committed claim reaches no "
+                    f"other session until this branch merges, "
+                    f"BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE.) "
+                    f"Set `merge_slot` "
+                    f"in {SESSION_BOARD} to this branch (`held_by`, `branch`, "
+                    f"`claimed_at`) and commit it alongside the arming file. "
+                    f"This does not replace the `🔒 MERGE SLOT CLAIM` comment on "
+                    f"#6927 where that is possible — but #6927 is at GitHub's 2500-"
+                    f"comment cap and writes 403 (MI-182), so today it is not.")
     else:  # landing == "hold"
         # R10 — the bite.
         if armed:
@@ -507,6 +610,13 @@ def _sandbox(tmp: Path, *, tier1_only: bool = True, with_guard_at_base: bool = T
 
     (root / "docs").mkdir()
     (root / "docs/seed.md").write_text("seed\n", encoding="utf-8")
+    # Seeded at the BASE commit, unclaimed. A branch that arms without touching
+    # it is then indistinguishable from one that never tried — which is exactly
+    # the state R13 must refuse.
+    (root / SESSION_BOARD).parent.mkdir(parents=True, exist_ok=True)
+    (root / SESSION_BOARD).write_text(json.dumps({"merge_slot": {
+        "held_by": None, "branch": None, "pr": None, "claimed_at": None}},
+        indent=2) + "\n", encoding="utf-8")
     if with_guard_at_base:
         (root / "scripts/ci").mkdir(parents=True)
         (root / GUARD_REL).write_text("# the guard\n", encoding="utf-8")
@@ -533,6 +643,14 @@ def _arm(root: Path) -> None:
     (root / f"{AUTOMERGE_DIR}/demo.txt").write_text("land it\n", encoding="utf-8")
 
 
+def _claim_slot(root: Path, branch: str = "claude/demo") -> None:
+    (root / SESSION_BOARD).parent.mkdir(parents=True, exist_ok=True)
+    (root / SESSION_BOARD).write_text(json.dumps({"merge_slot": {
+        "held_by": "session_selftest", "branch": branch, "pr": 1,
+        "claimed_at": "2026-09-08T00:00:00Z"}}, indent=2) + "\n",
+        encoding="utf-8")
+
+
 def _commit(root: Path) -> None:
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "work"], check=True)
@@ -545,7 +663,8 @@ def self_test() -> int:
     # ---- positive controls: the shapes that MUST pass ----------------------
     positives = {
         "tier-1 armed self-land on a docs-only diff": (
-            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r)),
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r)),
             True, "declared_self_land"),
         "tier-3 diff held with a typed reason": (
             lambda r: _declare(r, tier=3, landing="hold",
@@ -615,9 +734,11 @@ def self_test() -> int:
                                 hold_text="the operator asked to hold this one back",
                                 why=_GOOD_WHY), _arm(r)), True),
         "R4 tier-2 asking to self-land": (
-            lambda r: (_declare(r, tier=2, landing="self", why=_GOOD_WHY), _arm(r)), True),
+            lambda r: (_declare(r, tier=2, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r)), True),
         "R5 tier-1 self-land over a Tier-3 path": (
-            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r)), False),
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r)), False),
         "R6 self-land declared but route not armed": (
             lambda r: _declare(r, tier=1, landing="self", why=_GOOD_WHY), True),
         "R3 a one-word `why`": (
@@ -642,7 +763,13 @@ def self_test() -> int:
                        (r / "scripts/ci/check_automerge_trigger.py").write_text(
                            "edited\n", encoding="utf-8"),
                        _declare(r, tier=1, landing="self", why=_GOOD_WHY),
+                       _arm(r), _claim_slot(r)), True),
+        "R13 armed self-land holding no merge slot": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY),
                        _arm(r)), True),
+        "R13 armed self-land riding another branch's slot claim": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r, branch="claude/somebody-else")), True),
         "R11 no declaration on a branch that could have known": (
             lambda r: None, True),
         "R1 a tier outside 1-3": (

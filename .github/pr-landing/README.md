@@ -86,6 +86,18 @@ The checks that matter most:
   does not recognise is not thereby dangerous — it is one the guard cannot
   vouch for, and self-landing is refused on it rather than granted by default.
 - **R12** — a PR that changes the landing machinery may not land itself by it.
+- **R13** — a branch that ARMS auto-merge must hold the merge slot in
+  `docs/claude/session-board.json`, claimed in its own diff. Arming is not a
+  request to merge, it **is** the merge. The `PreToolUse` merge-slot guard in
+  `.claude/settings.json` matches only `mcp__github__merge_pull_request` and
+  `mcp__github__enable_pr_auto_merge`, and the arming route calls **neither** —
+  the merge is performed by `claude-pr-automerge.yml` under `GITHUB_TOKEN`, so
+  no hook fires even in the runtimes that do load hooks. R6 therefore mandates
+  the one landing route on which the slot guard is structurally silent.
+  ⚠️ R13 makes that claim **attributable and fails-closed**; it does **not**
+  serialize. A committed claim reaches no other session until the branch merges
+  (`BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`), so concurrent-merge
+  safety still rests on branch-protection required status checks.
 - **R8** — `changes_landing_machinery` is verified against the diff, and the
   branch's own declaration file is excluded from that evidence. An excuse every
   branch satisfies excuses nothing.
