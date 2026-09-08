@@ -85,6 +85,31 @@ decision_requests:
           distinction this repo keeps insisting on. The position can still only be closed
           manually or by the strategy's own exit.
     allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-08'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj. NOT via the transit log, so
+        commit_work_decisions.py had nothing to replay and this answer was written by hand as
+        the README's 'or a session doing the same thing by hand' path. ⚠️ THE OPERATOR HAD TO
+        ASK TWICE: they said 'give me the decisions as popups' and the manager built the
+        Telegram delivery instead of rendering them in the chat, then read 'no popups here in
+        the chat' as a report that Telegram had failed. The Telegram prompts DID go out (sweep
+        21:25:26Z, prompted_choice 3, destination claude) and are now stale buttons; the
+        route's 409 makes a late tap harmless.
+      chosen: build_scoped_write
+      free_text: >-
+        Operator selected 'Build the scoped write (Tier-2)' 2026-09-08. ⚠️ THIS IS A TIER-2
+        ORDER-PATH APPROVAL and must be read as scoped to what the option said: a
+        TRADE/QTY-SCOPED Alpaca protective attach, plus a scoped modify so a trailing amend can
+        no longer PATCH a sibling's stop. It is NOT approval to retry the re-arm through the
+        EXISTING path — that path cancels symbol-wide and its blast radius is measured, not
+        suspected. #11337 already carries the close/modify half, written and green at landing:
+        hold; this approval is what releases it. The 56 shares on trade 5414 stay naked until
+        the scoped capability exists — building it is now authorised, so that wait is bounded
+        rather than indefinite. Trade 5266's stop, currently resting at 82.33 (5414's declared
+        level) instead of its own 84.62, is repaired by the same fix.
     asked_by:
       session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
       recorded_at: '2026-09-08T21:20:00Z'

@@ -85,6 +85,33 @@ decision_requests:
           depends on; but it leaves the live ranking key unproven by construction rather than by
           measurement.
     allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-08'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj. NOT via the transit log, so
+        commit_work_decisions.py had nothing to replay and this answer was written by hand as
+        the README's 'or a session doing the same thing by hand' path. ⚠️ THE OPERATOR HAD TO
+        ASK TWICE: they said 'give me the decisions as popups' and the manager built the
+        Telegram delivery instead of rendering them in the chat, then read 'no popups here in
+        the chat' as a report that Telegram had failed. The Telegram prompts DID go out (sweep
+        21:25:26Z, prompted_choice 3, destination claude) and are now stale buttons; the
+        route's 409 makes a late tap harmless.
+      chosen: build_harness
+      free_text: >-
+        Operator selected 'Build the N-book harness' 2026-09-08. Give
+        scripts/backtest_system.py an N-book mode and a ranking-key arm (the shape of its
+        existing --flip-policy), plus a workflow to fire it, then run the four declared arms —
+        confidence_first / priority_first / recent_pnl_first / random_tiebreak — reported on
+        the CONTESTED subset only, stratified by `decided_by`, against the ACHIEVED
+        contested-tick count rather than the declared one. ⚠️ A NULL RESULT CLOSES THE QUESTION
+        AND IS NOT A FAILURE TO RE-RUN UNTIL SOMETHING WINS: if confidence_first does not beat
+        random_tiebreak, the finding is that arbitration ORDER does not drive outcome, which is
+        publishable and is the signal to look at the confidence SCORE instead. M18's adjacent
+        allocator already answered NO (edge -$7, ranker OOS AUC ~0.51), which is why
+        random_tiebreak is a declared arm. This build also unblocks the global-vs-per-account
+        arbitration question, blocked on the same missing capability.
     asked_by:
       session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
       recorded_at: '2026-09-08T21:20:00Z'
