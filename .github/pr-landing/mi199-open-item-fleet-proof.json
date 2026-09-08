@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Must land after #11391. The merge slot in docs/claude/session-board.json records an ABSOLUTE queue-hold granted to session_01CvFCybCkvrfzaHqNH3tQsb at 2026-09-08T18:27Z for #11391 (MI-200), after seven displacement attempts on that PR. This change is a single monitoring row whose next observation is not due for 4 days, so it has no claim on the queue ahead of a session that was explicitly granted one. Arming auto-merge here would race that hold, which is how a queue stops being a queue. Re-declare to landing:self once #11391 has landed and the slot is free.",
+  "why": "Tier-1 by content: one appended row in docs/claude/OPEN-ITEMS.json, the session-end duty CLAUDE.md requires for work shipped but not yet proven on the fleet (MI-199 / PR #11433, merged 2547a6a8). No src/, no config/, no order path, no runtime, no CI machinery. The diff is a pure insertion — 24 added, 0 deleted — asserted against the pre-image so no existing row is reformatted or re-attributed."
+}
