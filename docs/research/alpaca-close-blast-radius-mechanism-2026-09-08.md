@@ -1,8 +1,6 @@
 # The Alpaca sibling-liquidation mechanism, established from code — and why `alpaca_portfolio`/TLT is the same condition on one exit path and not on the other
 
-> **Doc status:** `live` · category `research` · MI-173 · 2026-09-08 ·
-> work object `WO-20260908-AN-ALPACA-CLOSE-OF-ONE-TRADE-CAN` (intent
-> `IN-20260903-TRADING-SYSTEM-HEALTH`, cycle `CY-20260906-TRADING-TRUTH`)
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 >
 > **Scope: MEASUREMENT AND PROPOSAL ONLY.** Nothing was closed, cancelled,
 > repaired or re-armed. No order-path file is edited by this unit. The remedy
