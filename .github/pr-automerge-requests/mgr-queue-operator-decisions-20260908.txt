@@ -1,0 +1,1 @@
+Arm PR #11457 — three operator decision requests (be_floor_r arm-nothing, the Alpaca scoped write, the trade-prioritisation harness) so the Telegram decision sweep has something to deliver. Slot claimed on this branch's own committed session-board.json. Guards clean locally: manager-scope R2 ok, wip-ceiling ok, backlog-refs OK.
