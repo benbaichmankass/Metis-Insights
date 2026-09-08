@@ -153,6 +153,65 @@ SCHEMA = 1
 UNCLEARABLE_HOLD_STATE = "broker_cancel_wedged"
 assert UNCLEARABLE_HOLD_STATE in SHARE_HOLD_STATES
 
+#: The SECOND evidenced-unclearable determination (2026-09-08, operator-approved
+#: Tier-2). Alpaca returns a success code for a cancel it does not perform: the
+#: give-up at 14:12:54Z read `cancel: accepted=2 already_gone=0 refused=0` and
+#: ~6.0s later both orders still rested with `canceled_at: None`, status `new`
+#: and `held`. Re-issuing that same cancel is precisely what has already failed.
+#:
+#: ⚠️ **IT IS ITS OWN STATE, NOT A WIDENING OF `broker_cancel_wedged`.** Measured
+#: over `runtime_logs/operator_alerts.jsonl` (last 600 lines, 2026-09-01T18:29Z
+#: -> 2026-09-08T14:16Z, 278 close_failure rows of which 269 are GLD): across
+#: 2026-09-04 -> 2026-09-08, n=122 GLD rows, **63 PAGES carried
+#: `orders_still_resting`** against 57 digest + 2 pages on `broker_cancel_wedged`.
+#: The first state cannot reach those 63 — that measurement is why this is a
+#: separate determination rather than a looser test on the existing one.
+UNCLEARABLE_INEFFECTIVE_CANCEL = "cancel_accepted_ineffective"
+assert UNCLEARABLE_INEFFECTIVE_CANCEL in SHARE_HOLD_STATES
+
+#: Every reading that BUYS QUIET. Written as a set so a third determination is a
+#: membership question rather than another `!=` chain to keep in sync across the
+#: three sites that ask it (`observe`, `decide_close_retry`, and
+#: `execution_diagnostics.route_close_failure`).
+UNCLEARABLE_HOLD_STATES: frozenset = frozenset(
+    {UNCLEARABLE_HOLD_STATE, UNCLEARABLE_INEFFECTIVE_CANCEL}
+)
+
+#: ⚠️ **THE ONE-FLIP ROLLBACK, and it disables the BINDING while leaving the
+#: MEASUREMENT running.** Truthy `CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED`
+#: returns routing and retry to byte-for-byte what they were before this state
+#: existed — the classifier still emits `cancel_accepted_ineffective`, the give-up
+#: log and the operator-alert ring still carry it, so the rows a reviewer needs
+#: keep accruing while the state decides nothing. That asymmetry is deliberate
+#: and is the same one the account allowlists use: scoping the binding without
+#: scoping the measurement is what makes a held-back state reviewable instead of
+#: invisible. No redeploy; read at call time.
+_INEFFECTIVE_CANCEL_DISABLED_ENV = "CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED"
+
+
+def ineffective_cancel_binds() -> bool:
+    """Whether `cancel_accepted_ineffective` may buy quiet -- read at call time."""
+    raw = str(os.environ.get(_INEFFECTIVE_CANCEL_DISABLED_ENV) or "").strip().lower()
+    return raw not in {"1", "true", "yes", "on"}
+
+
+def is_unclearable(share_hold: Optional[str]) -> bool:
+    """Is this reading a positive, evidenced determination that buys quiet?
+
+    ⚠️ **The ONLY entry point for that question.** Three call sites ask it and
+    they must never drift: `observe` (does this reach the ledger at all),
+    `decide_close_retry` (may the close be skipped), and
+    `execution_diagnostics.route_close_failure` (page or digest). A `!=` against
+    one constant at each site is how the third determination would land in two
+    of them and not the third.
+    """
+    state = str(share_hold or "")
+    if state == UNCLEARABLE_HOLD_STATE:
+        return True
+    if state == UNCLEARABLE_INEFFECTIVE_CANCEL:
+        return ineffective_cancel_binds()
+    return False
+
 #: The five transitions. See the module docstring; only ``still_standing`` is
 #: quiet, and even it is floored.
 TRANSITIONS: Tuple[str, ...] = (
@@ -501,7 +560,7 @@ def observe(
     that only a positive, evidenced determination buys quiet.
     """
     now = now or datetime.now(timezone.utc)
-    if obs.share_hold != UNCLEARABLE_HOLD_STATE:
+    if not is_unclearable(obs.share_hold):
         return Decision(
             transition=NOT_A_WEDGE,
             should_page=True,
@@ -801,7 +860,7 @@ def decide_close_retry(
     if not isinstance(entry, dict):
         return RetryDecision(
             True, "no_wedge", "no standing wedge for this key", None)
-    if str(entry.get("share_hold") or "") != UNCLEARABLE_HOLD_STATE:
+    if not is_unclearable(entry.get("share_hold")):
         return RetryDecision(
             True, "no_wedge",
             f"share_hold={entry.get('share_hold')!r} is not the evidenced "
@@ -824,7 +883,7 @@ def decide_close_retry(
         )
     return RetryDecision(
         False, "suppressed",
-        f"evidenced wedge ({UNCLEARABLE_HOLD_STATE}) observed {age_min:.1f}min "
+        f"evidenced wedge ({entry.get('share_hold')}) observed {age_min:.1f}min "
         f"ago; no app-level retry can clear it — next probe in "
         f"{reprobe - age_min:.1f}min",
         str(seen_raw),

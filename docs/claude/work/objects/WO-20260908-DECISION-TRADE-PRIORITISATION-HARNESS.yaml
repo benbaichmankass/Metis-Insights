@@ -1,0 +1,120 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-08 from the
+# EXISTING `kind: pending_decision` row OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-
+# AND-ITS-AB-HARNESS-DOES-NOT-EXIST. That row is `loud: true` with verified_at: null and
+# observation: null — never once observed since 2026-08-31. Nothing here is a new measurement.
+id: WO-20260908-DECISION-TRADE-PRIORITISATION-HARNESS
+type: question
+parent_intent: null
+title: >-
+  Confidence has been the live primary ranking key on real money since 2026-08-31 and has never
+  been shown to pick the better trade — fund the harness that would settle it, or decide without?
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-08'
+closed_at: null
+
+review_trigger: >-
+  Re-read when the operator answers DEC-20260908-TRADE-PRIORITISATION-HARNESS. ⚠️ Do NOT try to
+  run the A/B first: scripts/backtest_system.py models ONE shared book, so neither
+  global-vs-per-account arbitration nor a swapped ranking key is EXPRESSIBLE in it today. The
+  harness gap is the whole reason this has sat unmeasured since 2026-08-31.
+
+done_condition: >-
+  The operator has recorded whether the N-book ranking-key harness is to be built, or whether
+  confidence-first is accepted as a declared-and-unproven choice, or reverted.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260908-TRADE-PRIORITISATION-HARNESS
+    since: '2026-08-31'
+    note: >-
+      ESTABLISHED FROM THE SOURCE ROW. Its clears_when opens "A decision is recorded either way,
+      on evidence" and then names a BUILD as the only route to that evidence. So the live
+      question is not which key wins — it is whether to fund the instrument that could say.
+      `since` is 2026-08-31, the day the key went live, not today: that is how long real money
+      has been ranked on it.
+blocked_on_basis: >-
+  ASSESSED 2026-09-08 by the manager from the source row's own summary and clears_when. ⚠️ WHAT
+  IS NOT CLAIMED: no arm was run and no contested tick was counted; this object adds no evidence
+  about which ranking key is better, and says so because the row's whole point is that nobody knows.
+
+decision_requests:
+  - id: DEC-20260908-TRADE-PRIORITISATION-HARNESS
+    question: >-
+      When two trades compete, the bot ranks them by CONFIDENCE — live on real money since
+      2026-08-31, never shown to pick the better one. Do we build the harness that would settle it?
+    urgency: routine
+    asked_on: '2026-09-08'
+    context: >-
+      It went live on a CORRECTNESS argument, not an outcome result: confidence is evidence about
+      the trade, unlike the strategy NAME it replaced. Your own words on 2026-08-31: "the
+      confidence score is a good start, but it isn't proven that it's necessarily what's gonna
+      give us the best trade every time." ⚠️ THE A/B CANNOT BE RUN TODAY. scripts/backtest_system.py
+      models ONE shared book, so a per-account arbitration or a swapped ranking key cannot even be
+      expressed. Settling it means first giving that harness an N-book mode and a ranking-key arm
+      (the shape of its existing --flip-policy), then running four arms — confidence_first /
+      priority_first / recent_pnl_first / random_tiebreak — reported on the CONTESTED subset only
+      and stratified by `decided_by`, against the ACHIEVED contested-tick count rather than the
+      declared one. ⚠️ A NULL RESULT IS A REAL ANSWER: if confidence_first does not beat a random
+      tiebreak, the finding is that arbitration ORDER does not drive outcome — publishable, and the
+      signal to stop investing here and look at the confidence SCORE itself. That is not
+      hypothetical: M18's allocator asked the adjacent question and the answer was NO (edge −$7,
+      ranker OOS AUC ~0.51), which is why random_tiebreak is a declared arm and not an afterthought.
+      ⚠️ THIS ROW IS `loud` AND HAS NEVER BEEN OBSERVED — verified_at and observation are both null
+      since 2026-08-31.
+    options:
+      - key: build_harness
+        label: Build the N-book ranking-key harness and run the four arms
+        implication: >-
+          Engineering work on scripts/backtest_system.py plus a workflow to fire it, before any
+          verdict. It also unblocks the ADJACENT open question (global vs per-account arbitration),
+          which is blocked on the same missing capability — so one build answers two questions.
+          Expect a real chance of a null result, which is still an answer.
+      - key: accept_declared
+        label: Accept confidence-first as a DECIDED but unproven choice, and record it as such
+        implication: >-
+          No build. The ranking key stays as it is on real money, and the row stops being a drifted
+          state and becomes a declared one — which is the distinction this repo keeps insisting on.
+          The cost is that we never learn whether arbitration order matters.
+      - key: look_at_the_score
+        label: Skip the ORDER question — investigate the confidence SCORE itself instead
+        implication: >-
+          Takes the M18 result seriously up front (an adjacent ranker scored OOS AUC ~0.51) and
+          assumes order is not where the edge is. Cheaper, and it targets the thing the ordering
+          depends on; but it leaves the live ranking key unproven by construction rather than by
+          measurement.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-08'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj. NOT via the transit log, so
+        commit_work_decisions.py had nothing to replay and this answer was written by hand as
+        the README's 'or a session doing the same thing by hand' path. ⚠️ THE OPERATOR HAD TO
+        ASK TWICE: they said 'give me the decisions as popups' and the manager built the
+        Telegram delivery instead of rendering them in the chat, then read 'no popups here in
+        the chat' as a report that Telegram had failed. The Telegram prompts DID go out (sweep
+        21:25:26Z, prompted_choice 3, destination claude) and are now stale buttons; the
+        route's 409 makes a late tap harmless.
+      chosen: build_harness
+      free_text: >-
+        Operator selected 'Build the N-book harness' 2026-09-08. Give
+        scripts/backtest_system.py an N-book mode and a ranking-key arm (the shape of its
+        existing --flip-policy), plus a workflow to fire it, then run the four declared arms —
+        confidence_first / priority_first / recent_pnl_first / random_tiebreak — reported on
+        the CONTESTED subset only, stratified by `decided_by`, against the ACHIEVED
+        contested-tick count rather than the declared one. ⚠️ A NULL RESULT CLOSES THE QUESTION
+        AND IS NOT A FAILURE TO RE-RUN UNTIL SOMETHING WINS: if confidence_first does not beat
+        random_tiebreak, the finding is that arbitration ORDER does not drive outcome, which is
+        publishable and is the signal to look at the confidence SCORE instead. M18's adjacent
+        allocator already answered NO (edge -$7, ranker OOS AUC ~0.51), which is why
+        random_tiebreak is a declared arm. This build also unblocks the global-vs-per-account
+        arbitration question, blocked on the same missing capability.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-08T21:20:00Z'
+      note: >-
+        Manager session. Answering this clears OI-20260831-TRADE-PRIORITISATION-..., a loud row
+        that has never been observed since it was opened.

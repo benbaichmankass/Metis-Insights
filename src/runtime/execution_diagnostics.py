@@ -500,6 +500,15 @@ def _share_hold_guidance(share_hold: str) -> str:
             "further app-level cancel and no cancel_orders=true liquidation can "
             "release these shares. This needs OPERATOR or VENUE action."
         )
+    if share_hold == "cancel_accepted_ineffective":
+        return (
+            "CANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these "
+            "orders, it returned a SUCCESS code, and the orders are still resting "
+            "with canceled_at null — not even moved to pending_cancel. Re-issuing "
+            "the same cancel is exactly what has already failed, so no app-level "
+            "retry and no cancel_orders=true liquidation will release these "
+            "shares. This needs OPERATOR or VENUE action."
+        )
     if share_hold == "orders_still_resting":
         return (
             "Ordinary cancellable orders are holding the shares — the next tick's "
@@ -556,11 +565,11 @@ def route_close_failure(
     try:
         from src.units.accounts.alpaca_client import parse_share_hold
         from src.runtime.close_wedge_standing import (
-            NOT_A_WEDGE, Observation, UNCLEARABLE_HOLD_STATE, observe,
+            NOT_A_WEDGE, Observation, is_unclearable, observe,
         )
 
         share_hold = parse_share_hold(error)
-        if share_hold != UNCLEARABLE_HOLD_STATE:
+        if not is_unclearable(share_hold):
             return ("page", NOT_A_WEDGE,
                     f"share_hold={share_hold} is not a confirmed-unclearable "
                     f"determination", share_hold)

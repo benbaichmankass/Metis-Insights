@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass, PR #11457. Tier-1 by path and content: three NEW work objects under docs/claude/work/objects/ declaring decision_requests[] for the operator, plus docs/claude/session-board.json (the R13 merge_slot claim naming this branch and changing nothing else) and this branch's own two landing-route files. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps — the objects ASK questions, they change no behaviour. Recording an operator decision request into docs/claude/work/** is a management act. All three objects land lifecycle: ready, not in_flight, so the WIP ceiling is untouched (verified: 4 in flight against a ceiling of 8). Every request grades not_submitted through the repo's own work_decisions.grade_answer_state, with a positive control confirming an answered request grades committed. check_manager_scope.py --base origin/main reads clean with R2 ok and check_backlog_refs.py reads OK, each run in its own command after committing."
+}

@@ -657,3 +657,118 @@ def test_monitor_adapter_defaults_to_attempting(monkeypatch):
     d = om._close_retry_decision_for(
         {"account_id": "alpaca_paper", "symbol": "GLD", "direction": "long"})
     assert d.attempt is True
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND UNCLEARABLE DETERMINATION — `cancel_accepted_ineffective`
+# (2026-09-08, operator-approved Tier-2)
+#
+# It is a SEPARATE state on measured grounds, not a widening: over 2026-09-04 ->
+# 2026-09-08 (n=122 GLD close_failure rows) 63 PAGES carried
+# `orders_still_resting` against 57 digest + 2 pages on `broker_cancel_wedged`,
+# so the first determination provably cannot reach them.
+# ---------------------------------------------------------------------------
+INEFFECTIVE = "cancel_accepted_ineffective"
+
+
+def test_both_determinations_buy_quiet_and_nothing_else_does():
+    assert cw.is_unclearable(cw.UNCLEARABLE_HOLD_STATE) is True
+    assert cw.is_unclearable(INEFFECTIVE) is True
+    assert cw.UNCLEARABLE_HOLD_STATES == {cw.UNCLEARABLE_HOLD_STATE, INEFFECTIVE}
+    for other in ("orders_still_resting", "no_residual_orders",
+                  "residual_unreadable", SHARE_HOLD_NOT_CLASSIFIED, "", None):
+        assert cw.is_unclearable(other) is False, other
+
+
+def test_the_ineffective_reading_suppresses_the_futile_retry():
+    """THE POINT OF THE CHANGE: the close stops being re-attempted every ~30s
+    once the broker has told us, in the same attempt, that it accepted a cancel
+    it did not perform."""
+    d = cw.decide_close_retry(_entry(INEFFECTIVE, 5.0), "read", NOW)
+    assert d.attempt is False and d.state == "suppressed"
+    assert INEFFECTIVE in d.reason      # the message names what it actually saw
+
+
+def test_it_is_a_cadence_not_a_stop():
+    """The re-probe is what keeps `last_seen` alive so `sweep_vanished` cannot
+    manufacture a false resolution, and what re-arms the retry the moment the
+    venue changes. Same property that made the first suppression safe."""
+    d = cw.decide_close_retry(_entry(INEFFECTIVE, minutes_ago=60 * 24), "read", NOW)
+    assert d.attempt is True and d.state == "reprobe_due"
+
+
+def test_repetition_alone_still_never_buys_a_skip_for_the_new_state():
+    """Keying on the EVIDENCED determination only -- an ordinary close failure
+    that has repeated a thousand times is still retried every tick."""
+    d = cw.decide_close_retry(_entry("orders_still_resting", 60 * 24 * 30), "read", NOW)
+    assert d.attempt is True and d.state == "no_wedge"
+
+
+def test_the_rollback_is_one_env_flip_and_disables_only_the_new_state(monkeypatch):
+    """ROLLBACK CONTRACT: one env flip, no redeploy, and it must not touch the
+    determination that was already live."""
+    monkeypatch.setenv("CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED", "1")
+    assert cw.is_unclearable(INEFFECTIVE) is False
+    assert cw.is_unclearable(cw.UNCLEARABLE_HOLD_STATE) is True   # untouched
+    d = cw.decide_close_retry(_entry(INEFFECTIVE, 5.0), "read", NOW)
+    assert d.attempt is True and d.state == "no_wedge"
+
+
+@pytest.mark.parametrize("raw", ["0", "false", "no", "off", "", "  ", "maybe"])
+def test_only_an_explicit_truthy_value_rolls_it_back(raw, monkeypatch):
+    """A typo must not silently disarm the suppression the operator approved."""
+    monkeypatch.setenv("CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED", raw)
+    assert cw.is_unclearable(INEFFECTIVE) is True
+
+
+def test_the_new_state_pages_once_then_carries_in_the_digest(monkeypatch, tmp_path):
+    """END TO END through the router the operator actually feels.
+
+    ⚠️ **The FIRST sighting PAGES, and that is the contract, not a miss.**
+    `newly_wedged` is a LOUD transition: a position becoming unclearable is news
+    exactly once. Only `still_standing` is quiet, and even it is floored. A test
+    asserting `digest` on first sight would be asserting that a NEW unclearable
+    hold arrives silently -- the opposite of what the downgrade is for.
+    """
+    from src.runtime import execution_diagnostics as ed
+    monkeypatch.setattr(cw, "STANDING_LOG", tmp_path / "standing_a.json")
+    err = (f"insufficient qty available for order [share_hold={INEFFECTIVE}: "
+           "2 order(s) survived a cancel Alpaca ACCEPTED]")
+
+    route, transition, _r, share_hold = ed.route_close_failure(
+        account="alpaca_paper", symbol="GLD", side="long", error=err)
+    assert share_hold == INEFFECTIVE
+    assert (route, transition) == ("page", "newly_wedged")
+
+    # Standing, on unchanged evidence -> carried in the digest. THIS is the 63.
+    for _ in range(5):
+        route, transition, _r, _sh = ed.route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert (route, transition) == ("digest", "still_standing")
+
+
+def test_the_rollback_restores_the_page_end_to_end(monkeypatch, tmp_path):
+    """With the state disarmed, routing is byte-identical to before it existed:
+    it pages every time, however often it repeats."""
+    from src.runtime import execution_diagnostics as ed
+    monkeypatch.setattr(cw, "STANDING_LOG", tmp_path / "standing_b.json")
+    monkeypatch.setenv("CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED", "1")
+    err = (f"insufficient qty available for order [share_hold={INEFFECTIVE}: "
+           "2 order(s) survived a cancel Alpaca ACCEPTED]")
+    for _ in range(5):
+        route, transition, _r, share_hold = ed.route_close_failure(
+            account="alpaca_paper", symbol="GLD", side="long", error=err)
+        assert share_hold == INEFFECTIVE     # still CLASSIFIED -- measurement runs
+        assert route == "page"               # but it binds nothing
+        assert transition == cw.NOT_A_WEDGE
+
+
+def test_it_gets_its_own_operator_action_not_a_borrowed_one():
+    """Five states, five actions. The whole reason share_hold is a state."""
+    from src.runtime.execution_diagnostics import _share_hold_guidance
+    mine = _share_hold_guidance(INEFFECTIVE)
+    assert "ACCEPTED AND NOT PERFORMED" in mine
+    assert mine != _share_hold_guidance("broker_cancel_wedged")
+    assert mine != _share_hold_guidance("orders_still_resting")
+    # and it must not inherit the sentence that made this invisible for 7 days
+    assert "may well clear this on its own" not in mine

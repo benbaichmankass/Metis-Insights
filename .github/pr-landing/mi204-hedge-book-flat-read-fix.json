@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "TIER-2 BY PATH AND BY BLAST RADIUS: src/runtime/order_monitor.py is the live order path and bybit_2 is REAL MONEY. The change decides whether a symbol reads as flat, and a wrong answer there is what closed live position 5568 with a fabricated +$63.8225. Declared tier 2 rather than 1 because understating a tier is the only direction that costs anything.",
+  "hold_text": "APPROVAL IS ALREADY GIVEN AND THIS HOLD IS NOT WAITING ON A DECISION \u2014 it is R4, which bars any Tier-2/3 diff from landing itself whatever its approval state, so a human clicks merge. Operator APPROVED all three fixes (D1, D2, D3) in conversation on 2026-09-08, verdict `approved`, scope 'all three of the fixes written out in docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md', NO conditions attached; relayed to me by the manager session_01HrmZ1RRNM4UnEUaFdrPEjj, which also stated it will merge. \u26a0\ufe0f I DID NOT HEAR THE OPERATOR SAY THIS MYSELF \u2014 it reached me through the manager's check-in, and it is recorded that way deliberately rather than laundered into a first-hand claim. The manager owns the merge; I own the code, because check_manager_scope R2 bars a manager from authoring a worker path, which is why this arrives as a PR rather than as their diff."
+}

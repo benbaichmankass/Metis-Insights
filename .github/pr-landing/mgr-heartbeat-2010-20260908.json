@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass, PR #11447. Tier-1 by path and content: three register files under docs/claude/work/** (MANAGER-LEASE, SESSIONS, MERGE-QUEUE), the R13 merge_slot claim in docs/claude/session-board.json naming this branch and changing nothing else, plus this branch's own two landing-route files. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/; no order path, no strategy config, no risk caps. check_manager_scope.py --base origin/main reads clean with R2/R6/R7/R8 ok, run in its own command after committing. The content is two corrections to my own registers: MERGE-QUEUE recorded six remaining automation PRs against a measured 26 over the complete open-PR list, and SESSIONS carried eleven rows as `idle` that the platform grades BLOCKED — with the finding that a session's needs_action does not decay, so five of the twelve blocked asks were already answered."
+}

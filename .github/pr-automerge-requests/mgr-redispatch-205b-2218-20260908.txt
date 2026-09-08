@@ -1,0 +1,1 @@
+Arm PR #11464 — MI-205 was spawned into the wrong repository, interrupted, and re-dispatched as MI-205b with the source pinned; the prevention is routed as MI-207 rather than filed as a fifth backlog row. Slot claimed on this branch's own committed session-board.json. Guards clean locally: manager-scope R2/R8 ok, registry consistent, backlog-refs OK.

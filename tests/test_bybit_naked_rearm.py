@@ -143,11 +143,35 @@ def test_position_protection_unparseable_leg_qty_is_flagged():
 
 
 def test_position_protection_flat():
-    st = om._bybit_position_protection(_FakeBybit(positions={}), "linear", "X")
-    assert st["size"] == 0.0 and st["source"] == "flat"
-    st2 = om._bybit_position_protection(
+    """A FLAT symbol is a size-0 ROW, and that still grades `flat`.
+
+    ⚠️ CHANGED 2026-09-08 (MI-204, operator-approved Tier-2). This test used to
+    ALSO assert that an EMPTY row list grades `flat`. It no longer does, because
+    that reading is what closed a live position: once hedge mode was armed a
+    zero-size sibling book could be listed first, `rows[0]` was graded, and the
+    netting reconciler attributed the whole journal row against a `_flat`
+    verdict (trade 5568, +$63.8225 fabricated while the venue held 26.05).
+
+    The empty-list half was a STUB ARTIFACT, not venue behaviour: `_FakeBybit`
+    returns `[pos] if pos else []`, so "no position configured" became an empty
+    list. The real venue signals a flat symbol with a ROW carrying `size: "0"` —
+    evidenced by `clients.py::account_bybit_open_orders`, whose symbol-scoped
+    cross-check does `get_positions(category, symbol=sym)` and then skips
+    `size <= 0` rows, a skip that would be dead code if flat symbols came back
+    as an empty list. An empty list is now REFUSED (`None`) rather than graded,
+    and the refusal case is pinned directly below.
+    """
+    st = om._bybit_position_protection(
         _FakeBybit(positions={"X": {"size": "0", "stopLoss": ""}}), "linear", "X")
-    assert st2["size"] == 0.0 and st2["source"] == "flat"
+    assert st["size"] == 0.0 and st["source"] == "flat"
+
+
+def test_position_protection_EMPTY_row_list_refuses_rather_than_grading_flat():
+    # The MI-204 fix. `None` => the caller SKIPS; see
+    # tests/test_bybit_hedge_book_flat_read.py for the full contract and
+    # src/runtime/bybit_position_book.py for what a refusal costs.
+    assert om._bybit_position_protection(
+        _FakeBybit(positions={}), "linear", "X") is None
 
 
 def test_sl_leg_qty_parser():
@@ -473,7 +497,13 @@ def test_divergence_fires_when_exchange_is_FLAT(tmp_path, monkeypatch):
     _insert(db, id=1, account_id="bybit_2", symbol="BTCUSDT", direction="long",
             position_size=1.553, stop_loss=90000.0, take_profit_1=99000.0,
             created_at="2026-01-01T00:00:00+00:00", status="open")
-    client = _FakeBybit(positions={})           # exchange holds NOTHING
+    # ⚠️ A FLAT symbol is a size-0 ROW, not an empty list (MI-204). The stub's
+    # `positions={}` produces an empty list, which the venue uses for "we
+    # enumerated nothing" — that now REFUSES, so the detector would correctly
+    # decline to assert divergence against an unknown rather than manufacture a
+    # finding. This fixture states the case the test actually means: the venue
+    # answered, and it holds nothing.
+    client = _FakeBybit(positions={"BTCUSDT": {"size": "0", "stopLoss": ""}})
     _patch_accounts(monkeypatch, client)
 
     summary = om._check_broker_naked_bybit_positions(db)

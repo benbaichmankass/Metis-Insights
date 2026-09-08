@@ -6,9 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-operator-decisions-1805-20260908",
-  "pr": 11430,
-  "claimed_at": "2026-09-08T18:07:00Z"
+  "branch": "claude/mgr-heartbeat-2313-20260908",
+  "pr": "(opened by hand; arming file lands second)",
+  "claimed_at": "2026-09-08T23:13:15Z",
+  "note": "Manager heartbeat 23:13:15Z, tool-stamped. Quiet pass: MI-205b re-observed RUNNING on the correct repo with its task_summary advancing, no PR and none owed yet. Register writes only, no worker path."
  },
  "active_sessions": [
   {

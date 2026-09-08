@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Operator Tier-2 OK relayed by the manager session 2026-09-08 (trigger queued 18:04:39Z): verdict APPROVED, no conditions, scope 'suppress the futile close retry on the cancel_accepted_ineffective condition'. The manager stated it merges this by hand -- 'I will merge it. Report on the PR; this channel is one-way.' So this branch arms no auto-merge and claims no merge slot: it holds for that hand-merge.",
+  "why": "Order-path behaviour change on the close path. A close is no longer re-attempted while the broker has, within one attempt, ACCEPTED a cancel it did not perform -- a new fifth share_hold state (cancel_accepted_ineffective) keyed on that evidenced determination, never on the failure merely repeating. It is a CADENCE, not a stop: the standing ledger re-probes on its existing interval, and repetition alone still buys no skip. Rollback is one env flip -- CLOSE_WEDGE_INEFFECTIVE_CANCEL_DISABLED truthy restores the page and the retry, no redeploy. Touches src/units/accounts/alpaca_client.py, src/runtime/close_wedge_standing.py, src/runtime/execution_diagnostics.py, plus the collapsed-state contract, tests and CLAUDE.md."
+}

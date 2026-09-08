@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T17:26:59Z",
-  "expires_at": "2026-09-08T18:56:59Z",
+  "heartbeat_at": "2026-09-08T23:13:15Z",
+  "expires_at": "2026-09-09T00:43:15Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": null
+  "note": "Heartbeat 23:13:15Z, tool-stamped. Quiet pass. MI-205b re-observed RUNNING on the correct repo, 55 minutes in and still in its reading phase — no PR, no branch push, and none owed yet. Nothing of mine is open; MI-206 and MI-207 stay unassigned by the operator's sequencing."
 }
