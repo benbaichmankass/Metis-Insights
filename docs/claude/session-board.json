@@ -6,10 +6,10 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-1957-20260908",
-  "pr": 11446,
-  "claimed_at": "2026-09-08T19:58:00Z",
-  "note": "Manager heartbeat 19:55:55Z, Tier-1, PR #11446 -- arming, so pr-landing R13 requires the slot here. Three register writes under docs/claude/work/**, no worker path; check_manager_scope clean, R6/R7/R8 ok. Taken CLEANLY: the previous claim (#11423, which I made on that bot's behalf) is SPENT -- merged as 116b4e59. Displaces nobody. PR opened by hand FIRST, armed second."
+  "branch": "claude/mgr-heartbeat-2010-20260908",
+  "pr": "(opened by hand; arming file lands second)",
+  "claimed_at": "2026-09-08T20:11:00Z",
+  "note": "Manager heartbeat 20:11:00Z plus two register corrections: MERGE-QUEUE said six automation PRs remained and the measured number is 26 (and it is a GENERATOR, not a pile — every merge, my own heartbeats included, spawns another); SESSIONS carried eleven rows as idle that the platform grades BLOCKED, and five of the twelve BLOCKED asks are already answered — a needs_action does not decay. Register writes only, no worker path."
  },
  "active_sessions": [
   {
