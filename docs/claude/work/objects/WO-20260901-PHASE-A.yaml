@@ -8,8 +8,17 @@ owner: claude
 opened_at: 2026-09-01
 closed_at: null
 review_trigger: >-
-  Re-read when the phase it depends on closes, or when the operator changes the cycle
-  priority. A dormant phase is not a queued one — it is re-argued when it becomes reachable.
+  ⚠️ REWRITTEN 2026-09-08 — the previous trigger went stale the moment the criterion
+  changed and would have sent a reader looking for the wrong event. It read: "Re-read
+  when the phase it depends on closes, or when the operator changes the cycle priority.
+  A dormant phase is not a queued one — it is re-argued when it becomes reachable."
+  That was right for a phase waiting on a COLD SESSION APPEARING. This object no longer
+  waits on an event at all: it waits on WORK — building both arms of the comparison in
+  `criterion_2026_09_08` and grading them by the same rule.
+  So: re-read when a session is available to BUILD THE BASELINE ARM, or when either arm
+  reaches N >= 20 and the comparison can be run. ⚠️ Do NOT wait for something to happen
+  — nothing will. And note the answer may come back NO, which CLOSES this object
+  FAILED rather than leaving it open; that is the point of the re-spec.
 
 done_condition: >-
   Whether the brief CHANGES WHAT SESSIONS DO, measured from commits and PR bodies
