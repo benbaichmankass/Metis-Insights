@@ -591,24 +591,52 @@ def esc(s: str) -> str:
     return s.replace("|", "\\|")
 
 
+def assess(rel: str, active: List[str], mi159: Dict[str, Dict[str, str]],
+           today: str) -> Dict[str, str]:
+    """The index row for ONE path. The single authority for a document's status.
+
+    Factored out of `build_rows` so `stamp_for` below can derive a file's HEADER
+    from the same computation that produces its ROW. R3 compares those two
+    surfaces; deriving them from one function is what makes them unable to
+    disagree. A second copy of this arithmetic -- even a two-line one -- would be
+    free to drift, which is the failure this whole register exists to end.
+    """
+    cat, cbasis = categorize(rel)
+    st, sup, sbasis, note = status_for(rel, active, cat, mi159)
+    return {
+        "path": rel,
+        "category": cat,
+        "status": st,
+        "superseded_by": sup,
+        "last_verified": "never" if sbasis == "not-assessed" else today,
+        "basis": f"{cbasis} / {sbasis}",
+        "note": note,
+    }
+
+
+def stamp_for(rel: str, today: str) -> str:
+    """The exact stamp line the index would compute for `rel`.
+
+    FOR GENERATORS THAT REWRITE THEIR OWN DOCUMENT WHOLESALE. Such a generator
+    has two honest options and this is the better one: emit the stamp itself, or
+    take a `GENERATED` waiver. The waiver drops the header a reader sees, so it
+    is right only where a stamp would actively break the file's own guard (a
+    `--matrix` generator whose output must be byte-exact). Where the generator
+    CAN carry a stamp, it should -- and it must derive it from here rather than
+    hardcode one, because a hardcoded status is a second surface, free to drift
+    from the row R3 compares it against. That is precisely the
+    two-surfaces-two-answers failure R3 exists to catch, and hardcoding it into
+    the producer would reintroduce it one level up.
+    """
+    r = assess(rel, _canonical_active_docs(), _mi159_states(), today)
+    return stamp_line(rel, r["status"], r["category"],
+                      r["superseded_by"], r["last_verified"])
+
+
 def build_rows(today: str) -> List[Dict[str, str]]:
     active = _canonical_active_docs()
     mi159 = _mi159_states()
-    rows = []
-    for rel in population():
-        cat, cbasis = categorize(rel)
-        st, sup, sbasis, note = status_for(rel, active, cat, mi159)
-        verified = "never" if sbasis == "not-assessed" else today
-        rows.append({
-            "path": rel,
-            "category": cat,
-            "status": st,
-            "superseded_by": sup,
-            "last_verified": verified,
-            "basis": f"{cbasis} / {sbasis}",
-            "note": note,
-        })
-    return rows
+    return [assess(rel, active, mi159, today) for rel in population()]
 
 
 def render_index(rows: List[Dict[str, str]], today: str, generated: Dict[str, str]) -> str:
