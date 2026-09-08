@@ -28,3 +28,37 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+manager_addendum:
+  added_at: "2026-09-08T01:47:00Z"
+  added_by: "manager session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  why_it_is_here: >-
+    These two questions were in the backlog filing note and did not make it into
+    MI-174's spawn prompt. A manager CANNOT message a running sub-session -- that
+    is stated in CLAUDE.md and was re-confirmed by attempt this session ("No agent
+    named ... is reachable") -- so the object is the only channel, and MI-174 was
+    told to read this file. They are part of the task, not extra credit.
+  questions:
+    - id: sibling_generator
+      ask: >-
+        Does scripts/ops/render_due_list.py -> docs/claude/DUE.md have the SAME
+        defect? The digest generator is one of a family of committed-artifact
+        generators. If a sibling also strips the header then the class is
+        "generators do not emit doc-status headers", not "one generator has a
+        bug" -- which changes what the fix should be. Establish it by reading the
+        generator against what R3 actually checks. SAY SO PLAINLY IF IT DOES NOT:
+        a clean sibling is equally informative and bounds the class to one file.
+    - id: landed_denominator
+      ask: >-
+        How many error-feed digest PRs have LANDED since check_document_index.py
+        R3 took effect? Get R3's effective date from git history, then count
+        digest PRs merged after it. STATE THE POPULATION -- which PRs you counted
+        and how you identified them as digest PRs.
+      why_it_matters: >-
+        ⚠️ IF THAT NUMBER IS ZERO, THAT IS THE FINDING AND IT IS BIGGER THAN THE
+        BUG: the operator's committed error feed has then been frozen for the
+        entire period while the workflow reported success every single time. A
+        frozen feed is not a formatting nit, it is an observability outage nobody
+        was ever told about. ⚠️ DO NOT INFER THIS FROM THE STRANDED
+        automation/error-feed-digest-* BRANCHES -- those are the failures, and
+        this question needs the DENOMINATOR.
