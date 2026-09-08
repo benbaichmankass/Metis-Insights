@@ -100,3 +100,68 @@ evidence: >-
   was MI-171's measurement and was not reproduced here.
 
 captured_by: scripts/ops/capture_idea.py
+
+scope_judgement_place_protective: >-
+  ASKED BY THE MANAGER 2026-09-08T05:53Z, carrying an operator ruling: should
+  scoping the Alpaca PROTECTIVE WRITES (`place_protective`) fold into this diff,
+  or be dispatched as its own unit (MI-187)? VERDICT: **SEPARATE UNIT, building
+  on this landed pattern.** Four reasons, and the second is a finding the
+  dispatch needs before it is written.
+
+  1. DIFFERENT GUARANTEE, DIFFERENT FAILURE ASYMMETRY. This unit's invariant is
+  "a close never touches shares it does not own", and its worst case is a
+  REFUSED close leaving a journal row open — which existing reconcilers clean
+  up. `place_protective`'s invariant is "protection gets armed on a naked
+  position without disarming a sibling", and its restrictive failure leaves a
+  LIVE POSITION NAKED. That is a worse failure mode than anything in this diff,
+  and BL-20260820's "detection only — do not wire a re-arm" attaches to that
+  unit, not this one. Folding them puts two different guarantees behind one
+  Tier-3 approval; the approval this unit holds covers close + modify_protective.
+
+  2. ⚠️ THE OPERATOR'S RULING (a) IS NOT DIRECTLY IMPLEMENTABLE AS WORDED, AND
+  THAT IS THE MOST USEFUL THING THIS JUDGEMENT CARRIES. It reads
+  "`place_protective` should honour `oca_key` on Alpaca as it already does on
+  IB". IB's `oca_key` works because an OCA GROUP is a first-class venue concept
+  that can be NAMED and cancelled by name. Alpaca has no OCA-group naming — its
+  OCO is an anonymous parent plus child legs. Verified from the Alpaca reference
+  2026-09-08: `client_order_id` is an ORDER-LEVEL field, and the nested
+  `take_profit` / `stop_loss` objects carry only price fields, so no per-leg
+  client id can be set AT SUBMISSION. So "honour oca_key" on Alpaca means
+  INVENTING a per-trade handle, not passing a parameter through. The viable
+  route is: set `client_order_id` on the OCO PARENT, read the children back with
+  `nested=true` (which `_open_orders_for_symbol` already does), and persist those
+  ids. That is an entry/persistence change — a unit of work, not a one-liner in
+  this diff. It is the same gap as
+  BL-20260908-ALPACA-PROTECTION-IS-NOT-TRADE-ATTRIBUTABLE-AT-ALL.
+
+  3. IT HAS A PRECONDITION I DID NOT ESTABLISH — we did not look. MI-179
+  measured the Alpaca naked sweep gating on a SYMBOL-WIDE BOOLEAN
+  (`if state.get("stop"): continue`), so trade 5414 is skipped on every pass.
+  #11315 has since shipped `protection_coverage` and a `partially_naked`
+  counter. Whether the sweep now actually REACHES `place_protective` for a
+  partially-naked symbol is NOT established by me. If it does not, scoping
+  `place_protective` changes nothing observable and would be a DEPLOY, not a
+  fix. MI-187 should settle that first — the same way this unit began with a
+  capability question rather than a patch.
+
+  4. THE PATTERN TRANSFERS, which is what makes the follow-up cheap rather than
+  a restart. Already landed and reusable here: `_leg_qty` (carrying #11315's
+  NOT-`abs()` rule), `_QTY_EPS`, the refuse-rather-than-guess rule, and the
+  "resolve scope from ONE live read BEFORE anything destructive" shape.
+
+  ⚠️ ONE STAGED OPTION FOR MI-187, offered because it is cheap and available
+  BEFORE the client_order_id work: qty-matching fits `place_protective`'s
+  pre-cancel BETTER than it fits `modify_protective`'s PATCH, and the reason is
+  structural. `place_protective` is called precisely when a trade is NAKED — it
+  has no legs of its own — so a qty-scoped pre-cancel finds nothing to cancel
+  and simply places, leaving the sibling's legs alone; and on a REPEAT re-arm it
+  finds its OWN previous OCO (same qty) and replaces it, so the anti-stacking
+  property the unconditional cancel exists for is preserved. On the live TLT
+  book that is exactly the wanted behaviour: 5414 re-arming at qty 56 cancels
+  nothing and 5266's 16-share legs survive. ⚠️ BUT IT CARRIES THE SAME
+  EQUAL-SIZE AMBIGUITY, and on THIS verb the refusal leaves a position NAKED
+  rather than leaving a row open — so it needs its own operator read and must
+  not inherit this unit's approval.
+
+  NOT FOLDED IN, AND NOTHING IN THIS DIFF WAS CHANGED IN RESPONSE. No live
+  position or resting order was touched by this session.
