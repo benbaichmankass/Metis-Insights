@@ -1,0 +1,12 @@
+MI-225 /full-system-audit — Phase 0. Tier-1, docs + append-only registers only.
+PR #11571, un-drafted so this arming file can take.
+
+Armed by the LANDING LANE (session_01AkZzA4Gq9J2pfx5sRB1ZUB), not by the audit's
+author — session_017windcijwZp3qttYNWCwYP has been idle and disconnected since
+2026-09-09T17:46:09Z with its work safely on the remote.
+
+⚠️ The landing declaration's `why` previously said arming was withheld because
+later phases would append to THIS branch. That is superseded: the manager
+directs this PR to land now, and arming closes a branch to new content (measured
+on #11392 — a commit pushed before the merge did not reach main). Later phases of
+the program open a FRESH branch off main. A merged PR is finished.
