@@ -1788,9 +1788,10 @@ def _log_170134_diagnostic(
 # CODE PATH THAT RESIZES ON THE NEXT REDUCE, PLUS THE DETECTOR. It does NOT
 # authorise cancelling any currently-resting leg — the one prior attempt at
 # remediating an over-covered book by cancelling cancelled the leg that MATCHED
-# the journal (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-
-# LEG). Nothing here cancels anything: `amend_order` is an in-place resize, and
-# the position's protection is never absent for an instant.
+# the journal — see
+# BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+# Nothing here cancels anything: `amend_order` is an in-place resize, and the
+# position's protection is never absent for an instant.
 
 # Five states, never collapsed (docs/CLAUDE-RULES-CANONICAL.md § "Collapsed
 # states"). The three non-acting ones are DIFFERENT FACTS and folding them into
