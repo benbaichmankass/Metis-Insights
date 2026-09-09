@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat, a live supervision record for both lanes, the merge-slot claim, and one backlog row. Re-cut onto a fresh branch because #11605's REQUIRED checks never fired: guards.yml produced ZERO pull_request runs for claude/mgr-lease-hb-20260909T2226 across a PR creation and three pushes, while the same workflow fired normally on both lane branches in the same window. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ path. No order was placed, modified or cancelled on any account."
+}

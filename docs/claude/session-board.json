@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "github-actions[bot] · work-digest run 34410703239",
-  "branch": "automation/work-digest-34410703239-1",
-  "claimed_at": "2026-09-09T22:09:42Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-lease-hb-20260909T2248",
+  "claimed_at": "2026-09-09T22:26:30Z",
+  "purpose": "Manager: lease heartbeat + fresh supervision record for the two live lanes. Supersedes the GHOST claim left on claude/mgr-route-two-lanes-20260909T2152, which merged as 42d3310be (BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST)"
  },
  "active_sessions": [
   {
