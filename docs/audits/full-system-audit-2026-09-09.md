@@ -719,6 +719,185 @@ The **account** axis (bucket ii = 0 on both recent adds; **8 of 401** `src/` fil
 
 ---
 
+## Phase 3.1 / 3.2 — BEHAVIOR. Invariants over live data. **The core pass.**
+
+> **Instruments proven BEFORE use, per Phase 0c:** `scripts/ops/system_invariants.py --self-test`
+> → **28/28** with the real `src.units.accounts.ib_client` classifier imported (not the fallback);
+> `scripts/ops/exit_path_coverage.py --self-test` → **19/19**. Both exist and both are sound.
+> **Neither has a scheduled caller.**
+
+### The headline result, stated first because it is the one that matters most
+
+**NO LIVE POSITION IS NAKED.** Every one of the **24 (account, symbol) groups** across the
+25 open journal rows — IB + Bybit + Alpaca, read 2026-09-09T16:47Z — carries a resting stop
+**≥** its position size.
+
+*What would have counted as a violation:* any group with `stop_qty < position_qty`, or a
+`could_not_look` read folded into "holds". **Neither occurred.** The one blind account
+(`ib_live`, `mode: dry_run`, no positions) is reported **UNGRADEABLE, not passed**.
+
+`system_invariants.py` on the **full** book: **0 FAIL · 6 pass · 1 NOT-MEASURED**
+(`INV-EXIT-INTERVAL`, correctly refusing to pass on n=3 after a 16:42:27Z process restart).
+
+### INVARIANT TABLE
+
+| # | invariant | verdict | population | if UNGRADEABLE — what blocked it |
+|---|---|---|---|---|
+| **1a** | stop ≥ position (nothing naked) | ✅ **HOLDS** | 24 groups / 25 open rows, 3 venues | — (`ib_live` excluded as blind and *named*) |
+| **1b** | stop ≤ position (exactly sized) | 🔴 **VIOLATED** | same 24; **23 at exactly 1.000×**, `bybit_1`/ADAUSDT at **1.7929×** | — |
+| **1c** | declared `take_profit_1` has a resting target | ✅ HOLDS | all 24 groups; `INV-PROTECT-TARGET` pass n=3 on IB | — |
+| **1d** | protection graded **per BOOK** on Bybit | ⚠️ **UNGRADEABLE** | 12 resting legs / 5 positions, 3 Bybit accounts | `/api/diag/bybit_open_orders` **omits `position_idx` on every order** while emitting it on every position (F-43). Hedge mode is armed, so a per-symbol grade is a side-blind sum — **it is not reported as per-book coverage** |
+| **2** | journal ⇄ exchange qty reconcile, netting-aware | ✅ HOLDS | `INV-JOURNAL-EXCHANGE` pass n=24. ADAUSDT reconciles **exactly**: 79227.0 + 628.0 = 79855.0 | 3 could-not-read + 2 exchange-only accounts excluded **and named**, not counted as passing |
+| **3** | order-package leg coherence | 🔴 **VIOLATED** | 3 live packages / **4 open legs stranded, one on real-money `bybit_2`** (F-39); the detector's own latch is 85% stale (F-38) | trade `4195` could not be joined to a package by either source — **excluded, not assumed clean** |
+| **4** | signal accounting closes | ✅ HOLDS | 24 h window, **44,434 audit rows paged in full** (not the 1000-row cap). 16,677 `pipeline_result`; **21 actionable, all dispatched; 0 of 21** lacked an order package within 120 s | — |
+| **5** | every declared-live account placed or refused | ✅ HOLDS (27 d) | 9 declared-live accounts; 7 accounted in 24 h. `alpaca_live` refuses **40/40** over 27 d with causes (F-45) | `breakout_1` **UNGRADEABLE on this surface** — a prop account executes via `prop_tickets`, not `trades`, so 0 rows is *expected*, not silence. The prop tables were not read, so it is graded **neither way** |
+| **6** | PnL provenance | ⚠️ **HOLDS on disclosure, VIOLATED on labelling** | n=558 closed non-backtest `pnl NOT NULL`, classified by the canonical `provenance.classify_pnl`. **0 fabricated rows; 0 fabricated rows lacking an anchor.** But see F-40 | — |
+| **7** | every three-state field can say *"we did not look"* | 🔴 **VIOLATED (1 new)** | `check_collapsed_states.py` clean on 34 contracts (1 grandfathered). Live payload audit found `exchange_positions` **unregistered and collapsing 3 causes into one null** (F-44) | — |
+
+### F-36 · `AUD-20260909-intent-reduce-orphans-an-oversized-protective-leg` — 🔴 **money-at-risk, Tier-2**
+
+**And it is the root cause of 64 of the 112 rows in the operator ERROR feed.**
+
+- **claim:** `apply_intent_reduce_partial_close` decrements `trades.position_size` on the parent row and **never resizes that row's own tracked venue protective legs**, leaving a reduce-only stop sized up to **101.8×** the row it protects and the symbol **179.3%** over-covered.
+- **evidence:**
+  ```
+  bybit_1 / ADAUSDT, live at 2026-09-09T16:47Z
+    trade 5479  position_size 79227.0   sl_order_id be88c2fd-…e504f1  -> venue qty 79227.0  ✓
+    trade 5417  position_size    628.0   sl_order_id 33c587c3-…b890   -> venue qty 63943.0  ✗ 101.82×
+    trade 5464  CLOSED 63315.0  intent_reduce_executed  2026-09-04T12:27:53Z
+    journal 79227.0 + 628.0 = 79855.0 == exchange position   (reconciles EXACTLY)
+    resting stops 79227.0 + 63943.0 = 143170.0 / 79855.0 = 1.7929
+    63943 − 63315 = 628  ==  5417's CURRENT position_size
+    first over-cover page 2026-09-04T12:28:34Z  =  the reduce + 41 seconds
+  grep over apply_intent_reduce_partial_close (133 lines):
+    sl_order_id 0 | tp_order_id 0 | modify_open_order 0 | set_trading_stop 0 | amend 0
+  ```
+  The leg was still 63,943.0 **after a trailing amend on 2026-09-08** — the amend followed the tracked id and preserved the wrong size.
+- **expected vs actual:** **Expected** 5417's tracked stop to rest at 628.0, its own size. **Actual** 63,943.0.
+- **population:** all 24 (account, symbol) groups in the live open book — **23 exactly-sized, 1 broken**. Class incidence: `exit_reason='intent_reduce_executed'` **n=21 of 1000** journal rows (2026-08-13 → 09-09) across **bybit_1 (15), bybit_portfolio (3), `bybit_2` (3 — REAL MONEY)**. **7 of the 8** distinct (account, symbol) pairs that had an intent-reduce later produced an over-cover page; **`bybit_1`/BNBUSDT had no reduce and is exactly sized — the negative control.**
+- ⚠️ *Today's standing instance is on a paper-class account. The mechanism is account-agnostic and has fired 3× on real-money `bybit_2`; those rows have since closed, so there is no standing real-money instance right now.*
+- **detector:** extend `system_invariants.py` with **`INV-PROTECT-LEG-MATCHES-ROW`** — for every open trade carrying a non-null `sl_order_id`/`tp_order_id`, assert the venue leg's qty equals **that row's** `position_size`. **Strictly stronger than the existing symbol-level `INV-PROTECT-OVERCOVER`**, which passes whenever siblings happen to sum correctly, and stronger than `exit_path_coverage.py`, which graded 5417 `bStop LIVE` **on presence alone**.
+- **tier:** 2 · **disposition:** proposed
+
+### F-37 · `AUD-20260909-system-invariants-default-population-truncation`
+
+**The audit suite's own instrument, reporting a truncated query as *"we could not look"*.**
+
+- **claim:** Run against the source its own docstring names, `system_invariants.py` sees **1 of 25** open positions and reports the three protection invariants `not_measured n=0` — indistinguishable from a blind read — because `/api/bot/positions` defaults `include_paper=False`.
+- **evidence:** same instant, one query parameter apart:
+  ```
+  # /api/bot/positions                      -> n=1
+  [NOT-MEASURED] INV-PROTECT-STOP       n=0
+  [NOT-MEASURED] INV-PROTECT-OVERCOVER  n=0
+  [NOT-MEASURED] INV-PROTECT-TARGET     n=0
+  7 invariants: 0 FAIL, 5 NOT-MEASURED, 2 pass
+
+  # /api/bot/positions?include_paper=true   -> n=25
+  [pass] INV-PROTECT-STOP n=3  [pass] INV-PROTECT-OVERCOVER n=3  [pass] INV-PROTECT-TARGET n=3
+  7 invariants: 0 FAIL, 1 NOT-MEASURED, 6 pass
+  ```
+  `dashboard.py:834` — `include_paper: bool = Query(False)`. `system_invariants.py:193` docstring names the route **without the parameter**. **No fetch helper is committed.**
+- **expected vs actual:** **Expected** the suite's population to be the open book (25 rows / 24 groups). **Actual** 1 row / 1 group, **with the loss reported as `not_measured` rather than as a truncated query**. 4 of 7 invariants flip verdict on the parameter.
+- ⚠️ **This is a RECURRENCE and the two causes are indistinguishable in the output.** The 2026-08-23 audit recorded the *same* 4-of-7 `not_measured` symptom (`docs/audits/full-system-audit-2026-08-23.md:240`) and attributed it to an `ib_paper` `could_not_look`. **Today `ib_paper` read cleanly and the symptom reproduced from a different cause.**
+- **detector:** a **fourth state — `population_truncated`** — refusing rather than reporting `not_measured` when the positions payload contains zero paper-class rows while `exchange_positions` shows paper positions; plus a committed `fetch_payloads.sh` pinning `include_paper=true`. A self-test fixture must produce that state, not `not_measured`.
+- **tier:** 1 · **disposition:** proposed
+
+### F-38 · `AUD-20260909-package-leg-latch-cannot-clear-once-legs-close`
+
+- **claim:** `package_leg_coverage`'s clear path is **unreachable** for any package whose legs have all closed, so **17 of 20 latched entries (85%)** describe conditions that no longer exist and can never be removed.
+- **evidence:** `package_leg_coverage.py:346` clears via `state.pop(pkg_id, None)` **inside a loop over `verdicts`**, and `_read_journal` (`:135`) builds `verdicts` from `WHERE status='open'` — so a package with no open leg is **absent from `verdicts`, and `state.pop` never runs on it**.
+  ```
+  flagged packages n=20  Counter({'stranded': 19, 'divergent': 1})
+  LIVE (still have an open leg)                    n=3
+  UNCLEARABLE (no open leg -> latch immortal)      n=17     oldest since 2026-08-18 (22 days)
+  signal-to-noise 3/20
+  ```
+- **detector:** a self-test that latches a package, closes its last leg, re-runs `run_package_leg_check`, and asserts the key is gone. **The fix is to prune keys absent from `verdicts`; the test is what makes it permanent.**
+- **tier:** 1 · **disposition:** proposed
+
+### F-39 · `AUD-20260909-live-stranded-package-legs-including-real-money` — 🔴 money-at-risk
+
+- **claim:** Three order packages are **closed** while still holding **four open legs** the monitor cannot manage, one of them on real-money `bybit_2`.
+- **evidence:**
+  ```
+  pkg-32a5162bbbdd4ef6 stranded SPY     "package closed (exchange_flat_reconciled) with 1 open leg" -> 4347 alpaca_paper
+  pkg-785d9a600c894c81 stranded TLT     "package closed (exchange_flat_reconciled) with 1 open leg" -> 5265 alpaca_paper
+  pkg-293021e2e84a48db stranded XRPUSDT "package closed (reconciler_filled) with 2 open legs"
+        -> 5474 bybit_2 (REAL MONEY, open since 2026-09-08), 5475 bybit_portfolio
+  ```
+  All four confirmed still open in `/api/bot/positions?include_paper=true` at 16:47Z. **5474 is the one real-money position in the whole book.**
+- **detector:** promote `package_leg_coverage.verdict ∈ {stranded, divergent}` **restricted to live legs** into `system_invariants.py` as a FAIL, so it lands in the suite's exit code rather than only in a latch file whose live rows are **15%** of its contents.
+- **tier:** 2 · **disposition:** proposed
+
+### F-40 · `AUD-20260909-totalpnlmeasured-sums-estimated-rows-too` — accounting
+
+**A field whose name asserts the exact thing `CLAUDE.md`'s provenance section exists to prevent.**
+
+- **claim:** `/api/bot/performance` publishes `totalPnlMeasured` beside `pnlMeasuredCount`, and the field sums MEASURED **and** ESTIMATED rows — a quantity over **444** rows presented under a label naming the **77**.
+- **evidence:**
+  ```
+  demo.totalTrades 558 | pnlMeasuredCount 77 | pnlEstimatedCount 367 | pnlUnverifiedCount 114
+  demo.totalPnl         = 216367.1372
+  demo.totalPnlMeasured = 217827.5617
+  performance.py:490   total_pnl_measured = 0.0   # sum of pnl over MEASURED+ESTIMATED rows only
+  performance.py:816   # `totalPnlMeasured` above sums MEASURED **and** ESTIMATED.
+  ```
+  Independent classification with the repo's own `provenance.classify_pnl`, population *closed, non-backtest, `pnl NOT NULL`*, **n=558**:
+
+  | bucket | n | sum pnl |
+  |---|---|---|
+  | **measured** | 104 | **−24,255.32** |
+  | estimated | 352 | +239,771.26 |
+  | unverified | 102 | −1,109.40 |
+  | **mixed total** | 558 | **+214,406.55** |
+
+- **expected vs actual:** **Expected** `totalPnlMeasured` to sum the 77 rows its sibling counts. **Actual** it sums 444. **The sign of the book flips on the filter — broker-truth PnL is NEGATIVE, the headline is POSITIVE** — which is precisely the population hazard `CLAUDE.md` documents, reproduced *inside a field whose name asserts the opposite*. The only disclosure lives in a **source comment no API consumer can read**.
+- ⚠️ **Coverage here is 104/558 = 18.6% on a 30-day window; it is NOT comparable to `CLAUDE.md`'s 42.9%, which is lifetime at n=1151. Different populations.**
+- **detector:** rename the wire field to `totalPnlMeasuredAndEstimated` (or emit both), and add a `provenance-consumer-guard` case asserting **any key matching `*Measured*` sums exactly the population its sibling `*MeasuredCount` counts**.
+- **tier:** 1 · **disposition:** proposed
+
+### F-41 · `AUD-20260909-cash-settlement-soak-has-zero-rows-on-its-only-armed-account` — 🔴 money-at-risk
+
+- **claim:** The T+1 cash-settlement gate is armed and **binding on `alpaca_live` alone**, and its soak contains **zero rows for that account** while writing rows for the three accounts the allowlist **excludes**.
+- **evidence:**
+  ```
+  soak rows n=31   window 2026-08-31T13:30Z -> 2026-09-08T13:36Z
+  Counter({('alpaca_paper','not_allowlisted'):13, ('alpaca_portfolio','not_allowlisted'):12,
+           ('alpaca_paper','not_apply'):2, ('alpaca_portfolio','not_apply'):2,
+           ('alpaca_options_paper','not_apply'):1, ('alpaca_options_paper','not_allowlisted'):1})
+  alpaca_live rows n=0        allowlisted rows anywhere n=0
+  ```
+  Against `CLAUDE.md`'s own contract for this knob: *"THE ALLOWLIST SCOPES THE BINDING, NEVER THE MEASUREMENT — every alpaca account is evaluated and annotated, so the rows a reviewer needs before widening actually exist."*
+- **population:** all 31 rows. ⚠️ **Positive control present and it passes** — the writer is demonstrably working (31 rows, 3 accounts, most recent 2026-09-08), so this is an **account-specific absence, not a dead writer**. What could **not** be determined from this surface is whether the annotate path never reaches `alpaca_live` or the write is suppressed. **Both contradict the documented contract; neither is folded into the other.**
+- **detector:** an invariant asserting **every account named in a `*_ACCOUNTS` allowlist appears in that knob's soak within one cadence window** — the general form of *"the allowlist scopes the binding, never the measurement"*, which is currently prose in three separate `CLAUDE.md` rows and **checked nowhere**.
+- **tier:** 1 to investigate (any change to the gate is Tier-2) · **disposition:** proposed
+
+### F-42 · `AUD-20260909-operator-error-feed-is-91-percent-standing-repeats`
+
+- **claim:** **102 of 112** rows in the operator CRITICAL/ERROR feed are protection-condition **re-pages on 26 standing conditions**, one of which has re-paged **22 times over 5 days** without changing.
+- **evidence:**
+  ```
+  feed n=112  oldest 2026-08-26T00:33Z  newest 2026-09-09T16:25Z   (NOT truncated: limit 1000)
+     64 bybit_over_cover      20 alpaca_target_naked      9 ib_stop_over_cover
+      5 alpaca_partial_stop_coverage   4 ib_target_naked   7 api_call bybit_place_order_failed
+  distinct conditions: 26 ; top = ('bybit_over_cover','bybit_1','ADAUSDT') ×22
+  standing 5 days 3:57:03
+  ```
+- **expected vs actual:** **Expected** the reserved operator channel to carry news. **Actual** 91.1% is the same unresolved detect-only conditions on a 6 h cooldown, **with no escalation and no disposition path**. ⚠️ **The durable latch that fixed the previous instance (202 of 376) is working correctly** — these repeats come from conditions *standing for days*, which is a different defect. **And the top condition's cause is F-36.**
+- **detector:** an **ageing/escalation rule keyed on standing duration** rather than a fixed cooldown — a condition unchanged past N cooldowns stops re-paging and is instead required to carry a disposition. **`close_wedge_standing.is_unclearable` already uses exactly this shape on the close path.**
+- **tier:** 2 · **disposition:** proposed
+
+### F-43..F-46 — the rest
+
+| id | claim | population | tier |
+|---|---|---|---|
+| **F-43** `bybit-diag-orders-drop-positionidx` | `/api/diag/bybit_open_orders` emits `position_idx` on the **positions** half (`clients.py:1828`) and drops it on the **orders** half (`_shape_order`, `:1929` — 15 keys, no `positionIdx`). With hedge mode armed, **the surface built to contradict the side-blind coverage verdict cannot itself attribute a leg to a book.** This is why invariant 1d is UNGRADEABLE rather than passed. ⚠️ **Routes to MI-221/MI-222 — not edited here.** | all 12 resting legs / 5 positions, 3 Bybit accounts, all `read_state: orders_read`; 3 of 5 positions carry idx 1 or 2 | 1 |
+| **F-44** `exchange-positions-null-cannot-say-why` | `/api/diag/exchange_positions` carries **no `read_state`** and never populates `error`, so *"not a position venue"*, *"gated because `mode: dry_run`"* and *"credential/API failure"* are **one indistinguishable value**. Sibling routes `/api/diag/{ib,bybit,alpaca}_open_orders` all carry an explicit `read_state`. ⚠️ `count: null` (never `0`) on a blind read **is correct** — the collapse is in the *reason*, not the count. | all 11 accounts; **3 read `null` for 3 different reasons** | 1 |
+| **F-45** `alpaca-live-cannot-size-a-single-share` 🔴 | `alpaca_live`'s only routed real-money leg is refused at sizing on **every** signal — `sized_qty=0 with balance=200.10` under whole-share rounding, TLT near $82. **`OI-20260831-ALPACA-LIVE-…-HAS-NEVER-TRADED` is therefore structurally unreachable, not pending.** Both declared execution gates read permissive; **the refusal is arithmetic.** `silent_refusal_alert` buckets `dry_run_sizing_skip` as `policy_skipped` and **cannot** raise this. | **40 of 40 rejected** over 27 days (n=40 of a 1000-row window); 25 the same deterministic cause | **3** |
+| **F-46** `eleven-of-twentyone-open-trades-are-price-only` | **11 of 21** gradeable open trades can be closed only by price reaching a level fixed at entry; **exactly one** has a live decision-driven exit. `no_exit_path=0` (nothing is wholly unclosable) and 9 `unknown` are reported as unknown, **not as covered**. ⚠️ **This is 21 of the true 25** — trades 4350/4347/4195/4194 fall outside the 1000-row journal cap and were **not graded**; stated as a coverage gap, not folded into the clean count. **The detector already exists and is correct (`exit_path_coverage.py`, 19/19); what is missing is that nothing runs it.** | 21 open non-backtest trades | 3 |
+
+---
+
 ## Coverage contract (Phase 1) — updated as the program runs
 
 **Behavioral coverage (primary):** _in progress — see the BEHAVIOR axis._
