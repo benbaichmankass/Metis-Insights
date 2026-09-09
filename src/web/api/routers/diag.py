@@ -2905,7 +2905,7 @@ async def get_bybit_raw_positions(
 
     That collapse is not theoretical and it is not new: it blocked root-cause
     on **two real-money P1 investigations one day apart**.
-    ``BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-...``
+    ``BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED``
     records verbatim *"NOT ESTABLISHED: which of `_flat`'s two triggers fired …
     No repo surface exposes the raw get_positions payload; saying which would
     be a guess"*, and MI-221 hit the identical wall on a different function.
