@@ -12,7 +12,7 @@ adjudicated_2026_09_06: >-
   ⚠️ `ready` claims only that the object is AVAILABLE TO PICK UP. It is NOT a claim that the work
   is done, and NOT a claim that it is undone — nobody read the artifact. Establishing that is the
   2026-09-06 Phase-1 observation sweep's job. The done_condition above is unchanged and still binds.
-owner: claude
+owner: session_01DUBXxiaZ3PMERcAfcJce7P
 opened_at: 2026-09-01
 closed_at: null
 review_trigger: >-

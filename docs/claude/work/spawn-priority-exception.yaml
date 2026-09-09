@@ -30,6 +30,8 @@ covers:
   - WO-20260901-PHASE-D
   # -- added 2026-09-09, the landing-machinery lane (see the block at the end) --
   - WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT
+  # -- added 2026-09-09, the engineering lane (see the block at the end) --
+  - WO-20260901-PHASE-F
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -337,6 +339,34 @@ phase_d_addendum_2026_09_08:
 # SCOPE — two objects' worth of work, ONE object named. MI-201 / MI-202 / MI-203
 # stay `ready` and unassigned and are NOT covered here. A blanket exception naming
 # nothing is a permanent priority-suspension wearing an exception's clothes.
+#
+# ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
+
+# ============================================================================
+# 2026-09-09 (second) — THE ENGINEERING LANE (WO-20260901-PHASE-F)
+# ============================================================================
+#
+# ASKED AND ANSWERED. The operator set the day's work plan in their own words:
+# "for the research lane, we're still working on building out the workflow
+# implementation in the engineering lane plus other things that are arising in
+# real time from the research", and then "pace the work correctly, and make sure
+# the lanes are actually working". This is the engineering lane of that plan.
+#
+# WHY IT DISPLACES. Phase F is the one phase the build plan marks as deliberately
+# UNBLOCKED and the only one that touches the MEASURED constraint. Its plumbing
+# landed (MI-194: #11358, #11360, #11385) and its done_condition is NOT met,
+# because that condition is an OBSERVATION — a packet committed on a cadence AND
+# READ, with a Tier-3 approval landing in exactly one place.
+# OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-
+# UNEXERCISED carries the measurement: 52 strategies graded, 0 actionable, every
+# leg below the evidence floor, and "A ROUTE IS NOT A READER". Written-and-never-
+# read is the exact failure the operating layer exists to end, so leaving it is
+# building more surface over an unread one.
+#
+# SCOPE — ONE object. Phase G and Phase D are NOT covered. The ops lane (system
+# review) parents to the trading intent and needs no exception; the backlog drain
+# has no object yet and is NOT covered here.
 #
 # ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
 # CY-20260906-TRADING-TRUTH.
