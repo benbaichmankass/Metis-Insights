@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-lane0-complete-0705-20260909",
-  "claimed_at": "2026-09-09T07:01:36Z",
-  "purpose": "Land the 07:01:36Z heartbeat (stamped, never pushed) and close lane 0 on verified evidence."
+  "branch": "claude/mgr-dispatch-lane3-0709-20260909",
+  "claimed_at": "2026-09-09T07:10:30Z",
+  "purpose": "Land the lane-3 dispatch record (Phase F) — held out of a stash, which is not durable."
  },
  "active_sessions": [
   {
