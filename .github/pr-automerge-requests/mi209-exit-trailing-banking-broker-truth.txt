@@ -1,0 +1,3 @@
+MI-209 — measure the trailing/banking exit paths under the broker-truth
+restriction the object's own done_condition required, and close the object out.
+Tier-1, measurement only, docs + registers only. PR #11498.
