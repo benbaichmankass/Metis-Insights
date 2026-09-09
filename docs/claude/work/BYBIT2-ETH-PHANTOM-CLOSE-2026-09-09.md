@@ -774,3 +774,57 @@ sweep is evidence FOR that row, not against the operator.
 3. **`total_position_im` at the ACCOUNT level is EMPTY** (`""`), so the figure above is the **USDT coin-level**
    one. That is the right number here precisely because no other coin block exists — but it is a per-coin
    reading and the distinction is stated rather than smoothed over.
+
+---
+
+## § 16 — The 16:00 funding test: a PRE-REGISTERED prediction that held, with its own positive control
+
+Every other reading in this document is retrospective. This one was **stated before the event**, which is
+what makes it different in kind rather than in degree.
+
+**The prediction, published at 14:22Z on the coordination board:** Bybit stamps a position's `updated_time`
+when funding settles (00:00 / 08:00 / 16:00 UTC). If an ETH position is live on any book these credentials
+reach, the 16:00 settlement will stamp it `16:00:00.xxx`. If ETH stays frozen at `2026-09-08T13:37:13.873Z`
+while XRP advances, that is a second independent confirmation on fresh data.
+
+**Read 2026-09-09T16:03:17Z**, ~3 minutes after the settlement:
+
+| book | BEFORE (14:22Z) | AFTER (16:03Z) | moved? |
+|---|---|---|---|
+| **XRPUSDT idx 1 — LIVE, 58.5** | `2026-09-09T08:00:00.012Z` | **`2026-09-09T16:00:00.027Z`** | ✅ advanced |
+| **ETHUSDT idx 1** | `2026-09-08T13:37:13.873Z` | `2026-09-08T13:37:13.873Z` | ❌ frozen |
+| ETHUSDT idx 2 | `2026-09-03T13:34:01.018Z` | unchanged | ❌ |
+| BTC / ADA flat books | unchanged | unchanged | ❌ |
+
+The live position was stamped **27 ms past the hour**. ETH was not stamped at all. ETHUSDT `positionIdx 1`
+has now missed **four consecutive settlements** — 09-08 16:00, 09-09 00:00, 09-09 08:00, 09-09 16:00 — while
+its same-batch sibling (trade 5474, opened 11 seconds later) was stamped at every one.
+
+### Why this form of the evidence is stronger than § 15's
+
+1. **It is prospective.** The result was not fitted to a prediction made afterwards.
+2. **It carries its own POSITIVE CONTROL in the same read.** XRP advancing proves both that the mechanism
+   works and that the response is fresh — so ETH's frozen stamp cannot be an artefact of a stale or cached
+   read. The earlier retrospective version of this argument had no such control, which is why it needed the
+   correction recorded in § 13 (the "live ⇔ funding boundary" framing that was false).
+3. **It never touches `size`.** It reads `updated_time` only, bypassing every reduction in the readers — the
+   `size <= 0` skip, the symbol dedupe, the cursor, and `rows[0]`.
+
+### ⚠️ WHAT IT DOES NOT SAY, and this is load-bearing
+
+**It observes only books THIS KEY reaches.** It is **not** evidence about the operator's terminal, and it
+narrows neither candidate **(a)** (a different UID / sub-account — `is_sub_account` still reads `None`,
+*we could not look*) nor **(c)**. It is one more measurement of OUR view, which is precisely the thing already
+established as incomplete. Read as anything more, it would be the § 14 error again.
+
+### Arithmetic consistency on trade 5471 — SHAPE, not venue truth
+
+`0.04 × (2451.27 − 2453.97)` = **−0.108** gross; round-trip taker fees on ~$98 notional ≈ **−0.108**; the
+recorded `pnl` of **−0.2528** leaves a **−0.037** residual, plausible as funding on a long held four days. The
+exit sits **0.324 below** the declared stop `2451.59428571`, consistent with a stop fill plus slippage.
+
+⚠️ **This establishes that the recorded PnL has the right SHAPE for a real fill. It does NOT establish that
+the venue booked the close.** Only `/v5/position/closed-pnl` can do that — a second endpoint sharing no
+filter, dedupe, cursor or `size` field with the position path. That instrument is written and tested
+(`account_bybit_raw_closed_pnl` + `/api/diag/bybit_raw_closed_pnl`) and is **held at `landing: hold` pending a
+merge click**, so the question *"did the venue book a realised close for 5471?"* is **still unanswered**.
