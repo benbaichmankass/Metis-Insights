@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T00:23:26Z",
+  "updated_at": "2026-09-09T00:58:30Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3540,9 +3540,9 @@
         "manager_verdict": "running_correct_repo",
         "manager_verdict_basis": "Third observation, 55 minutes after spawn. Still RUNNING and connected, platform updated_at 8 seconds before the read. Its task_summary has ADVANCED — 22:41Z read 'reading canonical docs + work object', this one adds '+ N-book engine; setting up harness' — so it is moving through the reading phase rather than stalled on it. ⚠️ WHAT IS NOT CLAIMED: no PR exists, nothing is pushed to its branch, and no output has been produced. That is EXPECTED at this stage and is recorded as 'nothing owed yet', never as progress. ⚠️ AND THE task_summary IS THE CHILD'S OWN CLAIM, frozen at its last turn — it is evidence the session is alive and moving, not evidence the harness works. The only thing that will settle that is merged output. sources re-read rather than carried over."
       },
-      "state_observed_at": "2026-09-09T00:23:26Z",
-      "state_basis": "get_session at 00:18:55Z — SESSION_STATUS_IDLE, status_category review_ready, 'CI armed for auto-merge; next check ~00:51Z'; plus list_commits on the branch (7 commits) and pull_request_read on #11473. sources RE-READ as benbaichmankass/metis-insights.",
-      "observation": "⚠️ THE STALL CALL WAS WRONG AND THIS CORRECTS IT. At 23:50Z I graded this session 'alive and unproductive' and merged that to main as #11472 at 23:53Z. Its first commit is authored 23:49:59Z and it opened PR #11473 at 23:53:32Z — 28 seconds BEFORE my claim landed. || WHAT IT HAD ACTUALLY BUILT: 29 files, 40,979 additions — the N-book portfolio engine, a four-arm ranking-key A/B over 400 days of BTCUSDT 5m (115,200 bars, 8 harness members, 6 folds), a gate, a free-runner workflow, 25 tests, and a written NULL result with the population stated before any number. It caught two defects in its own diff, one a commit-to-main missing verify-merged. It also opened its PR by hand FIRST and armed second — the order I got backwards on #11469. || THE DEFECT WAS MY INFERENCE, NOT THE READ: the 404 was accurate at 23:50Z, but remote-branch presence is not a proxy for work produced, and I never established what first-push latency looks like for a build this size. The counter-signal was in the payload I had already fetched and did not read — output_tokens 172,537, cost_usd 54.03. Filed as BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT. || DELIVERED: #11473, Tier-1 landing: self, auto-merge armed, head ceb3cea7 (00:18:28Z) fixing two real CI failures it diagnosed in its own diff. The A/B answer is a NULL — confidence_first is not distinguishable from priority_first or recent_pnl_first at power, and the only surviving effect is STABILITY (any deterministic order beats a per-tick random one). It explicitly does NOT claim the live key is wrong, and does NOT propose the Tier-3 flip.",
+      "state_observed_at": "2026-09-09T00:58:30Z",
+      "state_basis": "get_session at 00:53:40Z — SESSION_STATUS_IDLE, connected, post_turn_summary 'digest-liveness stale (6.17h); #11473 blocked by repo deadlock'; plus list_commits (head fc535649 authored 00:42:33Z) and the guards job log read direct.",
+      "observation": "#11473 is BLOCKED BY A REPO-WIDE GUARD, NOT BY ITS OWN DIFF. Its guards job reads PASS 71 · FAIL 1 and the 1 is digest-liveness-guard (state=stale last_digest_age=6.01h) — a time-based, repo-wide condition no PR can fix. ⚠️ ITS OWN DIAGNOSIS WAS CORRECT AND I VERIFIED IT FROM THE JOB LOG RATHER THAN TAKING ITS WORD: a post_turn_summary is the session's own claim, and the whole reason this row carries a correction from 23:50Z is that I once graded this session on a proxy instead of the artifact. || It merged main in at 00:42:33Z (head fc535649) BEFORE the 00:46:02Z guards failure, so it has not pushed since — correctly, because there is nothing for it to push. NO POKE SENT. The manager dispatched work-digest.yml to clear the blocker.",
       "branch": "claude/mi205b-ranking-key-harness",
       "pr": 11473
     }

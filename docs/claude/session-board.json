@@ -5,11 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01ML8uLRrKLMmzR9fFywTWv5",
-  "branch": "claude/mi205b-ranking-key-harness",
-  "pr": 11473,
-  "claimed_at": "2026-09-09T01:27:00Z",
-  "note": "MI-205b - the N-book ranking-key harness (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS), PR #11473. Tier-1 measurement build; no order path, no live config; the result is a NULL and nothing live is proposed. || THIRD AND FINAL SLOT RESOLUTION, AND THIS ONE IS A THANK-YOU, NOT A COMPLAINT. The claim overwritten here is automation/work-digest-34297202160-1 (session_01HrmZ1RRNM4UnEUaFdrPEjj, 01:04:00Z), written to UNBLOCK the merge queue after I flagged the deadlock on board #11336 - and IT WORKED: #11477 merged, the digest receipt landed, and digest-liveness on main now grades `fresh` (last_digest_age=0.44h, measured in a clean origin/main worktree at 01:26Z) after 6.17h stale. That manager note also CONFIRMS the cause I could only partly establish: work-digest.yml arms the landing route and never writes a merge_slot claim, so its receipt PR fails R13 and can never merge. Checked before overwriting, as with the previous two: that branch has NO OPEN PR (list_pull_requests state=open head=automation/work-digest-34297202160-1 -> [], 01:27Z), so its work has landed and the claim is a spent leftover."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-heartbeat-0100-20260909",
+  "claimed_at": "2026-09-09T00:58:30Z",
+  "purpose": "Heartbeat 00:58:30Z and the finding that digest-liveness-guard was deadlocking the whole merge queue. THIRD rebase onto main: every landing PR rewrites this one key, so each concurrent PR collides here — #11477's claim, then #11473's, each requiring a rebase. Recorded because R13's own text says it does NOT serialize, and in practice the shared key serializes anyway, through conflicts."
  },
  "active_sessions": [
   {
