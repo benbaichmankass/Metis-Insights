@@ -63,12 +63,13 @@ approximate and directional, not exact):**
 **So the two files are in completely different positions and must not be spoken of as
 one "tail cap":**
 
-* **`exit_ladder_soak` is ~96.5 % covered.** Its `n_rungs = 0` reading is within ~36
-  records of the lifetime **and** is independently bounded by the complete `meta.tp2`
-  census. It is not meaningfully tail-bound, and lifting the cap could not change the
-  banking conclusion.
-* **`exit_lever_soak` is only ~25.7 % covered** — this is the one where the cap
-  genuinely matters. **But it bears on the inverted-`mode` finding
+* **`exit_ladder_soak` is ~96.5 % covered (1000 records read of ~1,036 estimated).**
+  Its `n_rungs = 0` reading is within ~36 records of the lifetime **and** is
+  independently bounded by the complete `meta.tp2` census (3 of 4500 packages). It is
+  not meaningfully tail-bound, and lifting the cap could not change the banking
+  conclusion.
+* **`exit_lever_soak` is only ~25.7 % covered (1000 records read of ~3,897
+  estimated, leaving ~2,897 unread)** — this is the one where the cap genuinely matters. **But it bears on the inverted-`mode` finding
   (`BL-20260908-EXIT-LEVER-SOAK-MODE-IS-A-HARDCODED-LITERAL-AND-READS-AS-A-MODE`),
   not on banking**, which no soak feeds.
 
@@ -181,7 +182,7 @@ Asked for explicitly. Stated as three separate outcomes, never collapsed.
 - Whether the trail or the declared TP ends more trades.
 - Whether trailing **helps** — no lever-OFF arm exists
   (`BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE`).
-- **~74 % of `exit_lever_soak`'s lifetime**, and therefore whether its inverted-`mode`
+- **~2,897 of `exit_lever_soak`'s ~3,897 estimated lifetime records (~74 %)**, and therefore whether its inverted-`mode`
   finding holds across the whole file or only the last 9 days.
 - Anything before 2026-06-18 (53 % of packages carry no entry-time stop).
 
