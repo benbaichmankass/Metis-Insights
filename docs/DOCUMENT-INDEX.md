@@ -287,6 +287,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/full-system-audit-2026-08-04.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/full-system-audit-2026-08-20.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/full-system-audit-2026-08-23.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/full-system-audit-2026-09-09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/fvg-range-complement-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/live-trade-management-contract-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/local-pnl-fallback-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
