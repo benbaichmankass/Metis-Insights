@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "github-actions[bot] · work-digest run 34319949551",
-  "branch": "automation/work-digest-34319949551-1",
-  "claimed_at": "2026-09-09T06:38:47Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+  "held_by": "session_01YP3DnuFmSbvtLgBQiuCHso",
+  "branch": "claude/wo-landing-observed-20260909",
+  "claimed_at": "2026-09-09T06:47:17Z",
+  "purpose": "Clear the landing-deadlock OPEN-ITEMS row on the observation of PR #11500 merging with the action's own R13 claim. Claimed on the coordination board (#11336) before this push."
  },
  "active_sessions": [
   {
