@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-08T23:50:00Z",
-  "expires_at": "2026-09-09T01:20:00Z",
+  "heartbeat_at": "2026-09-09T00:23:26Z",
+  "expires_at": "2026-09-09T01:53:26Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 23:50:00Z, tool-stamped. MERGE PASS: #11337 LANDED as 0862f8ac — the Tier-3 Alpaca trade-scoped close, merged on the manager's click because R4 bars a Tier-3 diff from self-landing. All five checks green on head 66e2b972, and I verified they were THAT head's (started 23:25:24Z, matching the 23:25:17Z push) rather than the 18:32Z set that misled the previous pass. #11469 merged as 23292309. ⚠️ MI-180 is landed_unproven, NOT done: `?qty=` acceptance against a real Alpaca position is DOCUMENTED and has never been observed — no broker call was made by anyone. ⚠️ MI-205b IS NOW NAMED AS A STALL — 91 minutes, nothing on the remote, summary string frozen 32 minutes. It is alive; it has produced nothing."
+  "note": "Heartbeat 00:23:26Z, tool-stamped. ⚠️ THE STALL CALL WAS WRONG AND THIS CORRECTS IT. At 23:50Z I graded this session 'alive and unproductive' and merged that to main as #11472 at 23:53Z. Its first commit is authored 23:49:59Z and it opened PR #11473 at 23:53:32Z — 28 seconds BEFORE my claim landed. || WHAT IT HAD ACTUALLY BUILT: 29 files, 40,979 additions — the N-book portfolio engine, a four-arm ranking-key A/B over 400 days of BTCUSDT 5m (115,200 bars, 8 harness members, 6 folds), a gate, a free-runner workflow, 25 tests, and a written NULL result with the population stated before any number. It caught two defects in its own diff, one a commit-to-main missing verify-merged. It also opened its PR by hand FIRST and armed second — the order I got backwards on #11469. || THE DEFECT WAS MY INFERENCE, NOT THE READ: the 404 was accurate at 23:50Z, but remote-branch presence is not a proxy for work produced, and I never established what first-push latency looks like for a build this size. The counter-signal was in the payload I had already fetched and did not read — output_tokens 172,537, cost_usd 54.03. Filed as BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT. || MI-205b is review_ready on #11473 (Tier-1, landing: self, auto-merge armed, CI running on ceb3cea7). No poke was needed and none was sent. Its PR files TWO decision_requests for the operator — clearing the loud trade-prioritisation row, and whether scripts/backtest_*.py belongs in TIER1_SURFACE — neither of which is a manager's to answer."
 }

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager correction pass. Registers plus one health-backlog row, all under docs/claude/**: the tool-stamped lease heartbeat, and the correction of a false 'stall' record about MI-205b that reached main on #11472. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}
