@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One file under docs/claude/work/ — the MI-221 evidence document gains § 18 (the order-history result that refutes the naked-for-four-days premise) plus three in-place corrections to § 15 and a forward pointer in § 17. Nothing is deleted; superseded claims are struck through and attributed. No runtime, no order path, no strategy config, no risk caps, no live-VM file, no landing machinery. Tier-1 by the canonical doc's own examples (docs)."
+}
