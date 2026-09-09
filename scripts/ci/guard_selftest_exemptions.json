@@ -1,0 +1,13 @@
+{
+  "_doc": "Guards with NO failure-path evidence anywhere, each named, dated and reasoned. Read scripts/ci/check_guard_selftest_coverage.py's docstring before adding one: TWO rules bound this file, and the second is what makes the first enforceable. (1) A guard whose blast_radius is 'accounting' or 'money-at-risk' may not be listed here at all. (2) A guard REACHABLE from run_guards.py may not be listed here whatever it declares -- because blast_radius is written by whoever writes the exemption, so rule 1 alone would be cheaper to lie to than to satisfy. Reachability is a fact about run_guards.py, not a field. An entry naming a guard that has since gained a failure path is flagged STALE and must be deleted, so this file cannot silently pre-approve a regression.",
+  "exemptions": [
+    {
+      "guard": "scripts/ci/check_guard_glob_coverage.py",
+      "reason": "Not reachable from run_guards.py -- it has never run in CI at all, which is a DIFFERENT and larger finding than a missing self-test, and it is not this item's to fix. F-02 of the 2026-09-09 full-system audit establishes it is 'structurally unarmable as written' in the 17 days since it was written; arming it is a design change to that guard, and giving it a self-test first would produce the worst outcome available -- a proven failure path on a guard that still never runs, reading as progress. It ships a --self-test today which run_guards.py never invokes, and check_guard_selftest_coverage.py reports it by name under declared_but_never_invoked on every run, so it cannot go quiet behind this entry.",
+      "added": "2026-09-09",
+      "blast_radius": "observability",
+      "tracking_id": "MI-226",
+      "owed_to": "F-02 AUD-20260909-guard-glob-coverage-is-a-proven-detector-that-was-never-armed"
+    }
+  ]
+}

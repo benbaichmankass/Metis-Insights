@@ -985,6 +985,7 @@ GUARDS: List[Dict[str, Any]] = [
             # would make every queue look clean.
             ["python3", "scripts/ci/check_pending_pings_render.py", "--self-test"],
             ["python3", "scripts/ci/check_pending_pings_render.py"],
+            ["python3", "scripts/ci/check_workflow_failure_swallow.py", "--self-test"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
@@ -1441,7 +1442,16 @@ GUARDS: List[Dict[str, Any]] = [
                            "scripts/research/m20_fleet_exit_sweep.py",
                            "scripts/ops/exit_mechanism_coverage.py",
                            "scripts/ci/check_lever_wiring.py"]},
-        "steps": [["python3", "scripts/ci/check_lever_wiring.py"]],
+        # Self-test FIRST. It EXISTED and nothing invoked it: the guard
+        # shipped a passing 6-control `--self-test` that run_guards.py never
+        # ran, which is the defect `check_selftest_wiring.py` was built for,
+        # sitting outside its registry-shaped scope. Found by
+        # check_guard_selftest_coverage.py on its first real run, 2026-09-09
+        # (MI-226).
+        "steps": [
+            ["python3", "scripts/ci/check_lever_wiring.py", "--self-test"],
+            ["python3", "scripts/ci/check_lever_wiring.py"],
+        ],
     },
     {
         # MI-157. A committed candle file with no price variation makes every
@@ -1493,7 +1503,13 @@ GUARDS: List[Dict[str, Any]] = [
                 "scripts/ci/check_news_feed_coverage.py",
             ]
         },
-        "steps": [["python3", "scripts/ci/check_news_feed_coverage.py"]],
+        # Self-test FIRST: a guard whose planted controls no longer fire must
+        # not report a clean scan. Added 2026-09-09 (MI-226) -- this guard ran
+        # inside the REQUIRED `guards` context with no exercised failure path.
+        "steps": [
+            ["python3", "scripts/ci/check_news_feed_coverage.py", "--self-test"],
+            ["python3", "scripts/ci/check_news_feed_coverage.py"],
+        ],
         # Deliberately NOT in the notify set. `tests/ci/test_run_guards.py::
         # test_notify_set_is_preserved` pins that set and caught this guard
         # being added to it — correctly: "that is a behaviour change, not
@@ -1902,9 +1918,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "guard-selftest-coverage",
+        # UNGATED (`when: None`): this measures the guard POPULATION, so a diff
+        # filter would make it blind to exactly the change that matters -- a
+        # guard landing with no failure path. Its own self-test runs FIRST for
+        # the same reason every sibling's does: a coverage instrument whose
+        # failure path is unexercised is the finding it exists to report, one
+        # level up. Added 2026-09-09 (MI-226, audit F-01).
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_selftest_coverage.py", "--self-test"],
+            ["python3", "scripts/ci/check_guard_selftest_coverage.py"],
+        ],
+    },
+    {
         "name": "provenance-consumer-guard",
         "when": {"regex": r"\.py$"},
-        "steps": [["python3", "scripts/check_provenance_consumers.py", "--verbose"]],
+        # Self-test FIRST: a guard whose planted controls no longer fire must
+        # not report a clean scan. Added 2026-09-09 (MI-226) -- this guard ran
+        # inside the REQUIRED `guards` context with no exercised failure path.
+        "steps": [
+            ["python3", "scripts/check_provenance_consumers.py", "--self-test"],
+            ["python3", "scripts/check_provenance_consumers.py", "--verbose"],
+        ],
     },
     {
         "name": "trainer-heavy-lock-guard",
@@ -1949,6 +1985,7 @@ GUARDS: List[Dict[str, Any]] = [
         "name": "strategy-coverage-guard",
         "when": None,
         "steps": [
+            ["python3", "scripts/check_strategy_coverage.py", "--self-test"],
             ["python3", "scripts/check_strategy_coverage.py", "--check"],
             {
                 "argv": ["python3", "scripts/check_strategy_coverage.py", "--matrix"],
