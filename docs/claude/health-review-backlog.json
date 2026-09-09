@@ -34770,6 +34770,17 @@
       "owner": "unassigned",
       "status": "open",
       "resolution_criteria": "score_panel's report carries the panel's population basis — read from the manifest's existing `source`/cohort stamp, NOT inferred from the row count — and `unmeasured_reason` says whether the floor is satisfiable by deepening history or only by waiting. Three states, not two: `backtest`, `journal`, and `unknown` for a panel whose manifest carries no stamp (we did not look), which must never read as `backtest`. ⚠️ The FLOOR VALUES are not the subject of this row and must not be changed by it."
+    },
+    {
+      "id": "BL-20260909-SESSION-BOARD-SCHEMA-DOCUMENTS-A-PR-FIELD-THAT-THE-CLAIM-TOOL-REFUSES-AND-CI-REDS-ON",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "area": "ci-guard",
+      "tier": "1 — a doc/tool disagreement; the tool and its test are authoritative",
+      "summary": "MEASURED 2026-09-09 by paying for it: docs/claude/session-board.json's OWN `schema.merge_slot` documents the field as `{ held_by, branch, pr: <int|null>, claimed_at }` — it explicitly declares a `pr` key. scripts/ops/claim_merge_slot.py renders NO `pr` at all (the string does not appear in the file), and tests/test_claim_merge_slot.py::test_real_board_diff_is_small_enough_to_conflict_narrowly FAILS when one is present. ⚠️ THE FAILURE IS OPAQUE AND POINTS AT THE WRONG THING: dropping the extra key shifts every subsequent line, and the test's line-zip then reports `75 lines change; a claim is 4. A whole-file re-serialisation turns every concurrent session edit into a conflict.` So a session that followed the documented schema is told it REFORMATTED THE FILE, which it did not — measured on PR #11538, whose session-board diff was 15 insertions / 4 deletions, nowhere near a reformat. I lost a full CI cycle (~16 min) chasing a reformat that never happened. FIELD BEATS COMMENT: the tool and its test are the truth and the schema string is stale. NOT a defect in the test, whose invariant (keep the diff to the claim) is exactly right and is what makes this file survivable for concurrent sessions.",
+      "owner": "unassigned",
+      "status": "open",
+      "resolution_criteria": "EITHER (a) the `pr` key is removed from `schema.merge_slot` in docs/claude/session-board.json, so the documented shape matches what claim_merge_slot.py actually writes; OR (b) claim_merge_slot.py renders `pr` and the test's fixture covers it — one or the other, not both surfaces left disagreeing. ⚠️ ALSO WORTH FIXING AND SEPARATE: the test's message asserts a CAUSE (`a whole-file re-serialisation`) that its line-zip cannot distinguish from a one-line insertion or deletion, which is the unprovenanced-diagnostic class CLAUDE.md names — reporting the count alongside `len(a) vs len(b)` would name the real shape. A green run does NOT clear this row: the suite is green whenever nobody has added the documented key."
     }
   ]
 }
