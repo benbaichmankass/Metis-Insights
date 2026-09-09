@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-08T23:50:00Z",
+  "updated_at": "2026-09-09T00:23:26Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2649,13 +2649,13 @@
       "id": "MI-205-N-BOOK-RANKING-HARNESS",
       "title": "Build the N-book ranking-key harness and measure whether arbitration ORDER drives outcome",
       "owner": "session_01JALQ7skjJQN3yNHz5mF51s",
-      "status": "in_flight",
+      "status": "review_ready",
       "tier": "1 — the HARNESS is Tier-1; flipping the live ranking key would be Tier-3 and is out of scope",
       "opened": "2026-09-08",
-      "updated": "2026-09-08",
+      "updated": "2026-09-09T00:23:26Z",
       "blocked_on": [],
       "owns_object": "WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS",
-      "note": "OPERATOR-APPROVED 2026-09-08 via DEC-20260908-TRADE-PRIORITISATION-HARNESS (build_harness), and SEQUENCED FIRST by the operator ahead of the Alpaca scoped write on the grounds that it is a MEASUREMENT build and CY-20260906-TRADING-TRUTH says repair the instrument before acting on what it says. Confidence has been the LIVE primary ranking key on real money since 2026-08-31 (PR #10544) and has never been shown to pick the better trade; scripts/backtest_system.py models ONE shared book so the A/B is not expressible, which is why OI-20260831-TRADE-PRIORITISATION-... sat loud with verified_at and observation both null. ⚠️ A NULL RESULT CLOSES THE QUESTION and is a success, not a failure to re-run until something wins — M18's adjacent allocator already answered NO (edge -$7, ranker OOS AUC ~0.51), which is why random_tiebreak is a declared arm. ⚠️ DO NOT GRADE ON A FOLD MAJORITY ALONE: be_floor_r=1.5 won a fold majority under all three panel members while losing 35R because 30-39% of its folds were inert."
+      "note": "✅ DELIVERED as #11473 (Tier-1, landing: self, auto-merge armed). ⚠️ THE STALL CALL WAS WRONG AND THIS CORRECTS IT. At 23:50Z I graded this session 'alive and unproductive' and merged that to main as #11472 at 23:53Z. Its first commit is authored 23:49:59Z and it opened PR #11473 at 23:53:32Z — 28 seconds BEFORE my claim landed. || WHAT IT HAD ACTUALLY BUILT: 29 files, 40,979 additions — the N-book portfolio engine, a four-arm ranking-key A/B over 400 days of BTCUSDT 5m (115,200 bars, 8 harness members, 6 folds), a gate, a free-runner workflow, 25 tests, and a written NULL result with the population stated before any number. It caught two defects in its own diff, one a commit-to-main missing verify-merged. It also opened its PR by hand FIRST and armed second — the order I got backwards on #11469. || THE DEFECT WAS MY INFERENCE, NOT THE READ: the 404 was accurate at 23:50Z, but remote-branch presence is not a proxy for work produced, and I never established what first-push latency looks like for a build this size. The counter-signal was in the payload I had already fetched and did not read — output_tokens 172,537, cost_usd 54.03. Filed as BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT. || THE RESULT IS A NULL, and the row records it as one: at power, confidence_first is NOT distinguishable from the priority_first key it replaced, nor from recent_pnl_first (no p clears the declared Bonferroni α=0.0167, and every p is a LOWER bound). The one surviving effect is STABILITY — any deterministic order beats a per-tick random control — which the PR surfaces rather than buries by publishing the flip counts (control 92/331 flips vs 18–34 for the deterministic arms). ⚠️ IT DOES NOT SAY THE LIVE KEY IS WRONG and must not be quoted as saying so; the Tier-3 ranking flip is NOT proposed. ⚠️ Every expectancy in every stratum is NEGATIVE (−0.63 to −1.46 R), which bounds what any ranking key can be worth on this population. || TWO decision_requests are filed for the OPERATOR, not taken: whether to clear the loud OI-20260831-TRADE-PRIORITISATION row, and whether scripts/backtest_*.py belongs in TIER1_SURFACE. || A declared scope deviation is recorded honestly: the done-condition said backtest_system.py grows an N-book mode; it was built as a sibling that IMPORTS it, because that path is outside TIER1_SURFACE and widening the surface is itself LANDING_MACHINERY held by R12. Drift is closed by a trade-for-trade parity assertion that fails if its fixture goes vacuous."
     },
     {
       "id": "MI-206-ALPACA-SCOPED-WRITE",

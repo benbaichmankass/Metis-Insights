@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-2352-20260908",
-  "claimed_at": "2026-09-08T23:50:00Z",
-  "purpose": "Post-merge pass: heartbeat 23:50:00Z, MI-180 to landed_unproven after #11337 landed as 0862f8ac, and MI-205b named as a stall at 91 minutes with nothing on the remote."
+  "branch": "claude/mgr-heartbeat-0025-20260909",
+  "claimed_at": "2026-09-09T00:23:26Z",
+  "purpose": "Correct a false record: MI-205b was called a stall at 23:50Z and had in fact delivered #11473. Heartbeat 00:23:26Z; the manager-inference defect filed to the health backlog."
  },
  "active_sessions": [
   {
