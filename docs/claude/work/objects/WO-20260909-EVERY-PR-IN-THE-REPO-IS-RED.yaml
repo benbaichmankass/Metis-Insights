@@ -414,6 +414,49 @@ second_defect_in_my_own_fix_append_only_blocked_LANDING: >-
   the sweeper living in CI, where the checkout is clean, rather than being
   hand-run from a session's tree.
 
+one_strand_LEFT_deliberately_and_what_would_change_that: >-
+  MEASURED 2026-09-09T15:38Z, population = 158 origin/automation/* branches
+  compared against main: EXACTLY ONE carries a receipt newer than main's --
+  automation/data-commit-34347588537-1, PR-QUEUE-WATCH 11:50:12Z against main's
+  05:15:42Z. It has NO pull request (fifth mode), no OPEN PR carries a newer
+  PR-QUEUE-WATCH, and check_pr_landing.py passes under its real branch name.
+
+  ⚠️ AND IT COMPOUNDS WITH THE SWEEPER'S REFUSAL RULE. Its conflict against main
+  is NOT slot-file-only: `docs/claude/session-board.json` AND
+  `docs/claude/work/PR-QUEUE-WATCH.json`. `refresh()` aborts on any conflict
+  outside the slot file, so even with a PR the sweeper would leave it alone.
+  This is the first observed case of a stranded branch the sweeper refuses for a
+  reason OTHER than supersession.
+
+  I AM DELIBERATELY NOT LANDING IT, and this is a decision rather than an
+  oversight. check_pr_queue_watch has a 30h window and main's margin is +19.6h;
+  pr-queue-watch's cron (`41 */6 * * *`) next fires ~17:41Z, so a fresher
+  receipt is due through the NORMAL route in about two hours. Hand-resolving a
+  PAYLOAD conflict on an automation branch is a larger act than opening a PR,
+  and it buys ~6.5h of margin on a clock that has 19.6h. The digest case was the
+  opposite on every count -- 3.2h of margin, no other carrier -- which is why
+  that one WAS hand-landed as #11557.
+
+  WHAT WOULD CHANGE THIS, stated so it is checkable rather than a feeling:
+  EITHER the 17:41Z pr-queue-watch run also fails to open a PR (two consecutive
+  failures is a pattern, not an incident), OR the pr-queue margin drops below
+  ~6h with no fresher receipt on main. Either one, land it by hand.
+
+proposed_narrow_extension_NOT_shipped: >-
+  The refusal above is right in general and over-conservative here, and the fix
+  is small enough to state precisely: on a conflict, if EVERY conflicted payload
+  path is one the classifier already graded `newer` AND this PR is the newest
+  holder of each, take the branch's version; anything else, abort as today. That
+  is not a new judgement -- it is the SAME decision `REFRESH` already makes, and
+  the conflict is incidental (git cannot merge two whole-file rewrites of a
+  receipt).
+
+  ⚠️ NOT SHIPPED, deliberately. It expands what the sweeper may do to a PAYLOAD
+  file, and this session has already found TWO defects in this file by moving
+  quickly -- the `--no-edit` false success and the append-only scope error. A
+  19.6h margin does not justify a third. Write it with tests, against a stated
+  population, when it is the thing being worked rather than a detour.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
