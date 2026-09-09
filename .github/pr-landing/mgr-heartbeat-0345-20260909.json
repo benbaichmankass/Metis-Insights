@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager cadence pass. Two registers under docs/claude/**: the tool-stamped lease heartbeat and a live-reconcile note recording that the queue is clear and nothing is in flight. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}
