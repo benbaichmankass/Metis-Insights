@@ -826,5 +826,77 @@ exit sits **0.324 below** the declared stop `2451.59428571`, consistent with a s
 ⚠️ **This establishes that the recorded PnL has the right SHAPE for a real fill. It does NOT establish that
 the venue booked the close.** Only `/v5/position/closed-pnl` can do that — a second endpoint sharing no
 filter, dedupe, cursor or `size` field with the position path. That instrument is written and tested
-(`account_bybit_raw_closed_pnl` + `/api/diag/bybit_raw_closed_pnl`) and is **held at `landing: hold` pending a
-merge click**, so the question *"did the venue book a realised close for 5471?"* is **still unanswered**.
+(`account_bybit_raw_closed_pnl` + `/api/diag/bybit_raw_closed_pnl`), so the question *"did the venue book a
+realised close for 5471?"* is **still unanswered**.
+
+⚠️ **CORRECTED 2026-09-09T16:30Z — this paragraph said that instrument was "held at `landing: hold` pending a
+merge click", and that was STALE WITHIN THE HOUR.** #11560 was merged at 15:53Z as `0ff2afba` (operator
+approved it Tier-2) and DEPLOYED. What is true instead is worse and is recorded rather than quietly swapped
+in: **the route was deployed and BROKEN.** Its first live call at 2026-09-09T16:06:02Z returned
+`read_state: "could_not_look"` with `TypeError: run_account_read() got an unexpected keyword argument
+'symbol'` — `run_account_read(fn, *args)` (`src/web/api/_account_read_executor.py:56`) is POSITIONAL-ONLY
+because it forwards to `loop.run_in_executor`, which takes no kwargs. So the question above is still
+unanswered, but for a different reason than the sentence claimed, and the difference matters: *waiting on a
+merge* and *shipped and raising on every request* are not the same state. Fixed on
+`claude/mi-221-fix-closed-pnl-route` and folded into #11565; see § 17.
+
+---
+
+## § 17 — The sibling-coverage hypothesis: REFUTED for 5471, real as a CLASS, and narrower than first read
+
+**The operator's hypothesis, 2026-09-09T16:26Z, verbatim:** *"it's possible that there was a partial bracket
+on the position for one trade - once it closed, another trade, that never had brackets, became visibly naked
+once it wasn't hiding behind the first trade"*.
+
+It is precise and it fits this venue exactly: under netting ONE exchange position backs N journal rows, so a
+sibling's Partial leg can make the symbol look covered while a second row carries nothing of its own.
+
+### REFUTED for 5471 — population stated
+
+Measured over every `bybit_2` ETHUSDT row in the 1000-row journal window (ids **4611..5610**, read
+2026-09-09T16:26Z), **n = 12**:
+
+- **Other `bybit_2` ETHUSDT rows open at ANY point during 5471's life** (2026-09-04T14:04:14Z →
+  2026-09-08T13:37:13Z): **ZERO**.
+- Nearest prior close: trade **5403** at 2026-09-03T13:36:27Z — **1 day 0:27:47 BEFORE** 5471 opened.
+- Rows opened after 5471 closed, in window: **zero**.
+
+**5471 was alone on that netted position for its entire life.** It could not have been hiding behind
+anything, and nothing was hiding behind it. It also carries **both** leg ids
+(`sl_order_id 1a3490f9-b98c-4477-bbcb-39c7eb8830f7`, `tp_order_id 048623a7-2498-47f8-85f8-08096d732aa4`).
+
+⚠️ **This is a WINDOW, not the whole table** — ids 4611..5610, roughly 2026-08-11 onward. It brackets 5471's
+life densely (5342, 5355, 5372, 5403, 5471 all present) and exactly one `bybit_2` row is open today (XRP
+5474), so no older ETH row survives unseen — but the bound is stated rather than left implicit.
+
+### The CLASS is real on this symbol and account — and is NARROWER than "the operator's mechanism observed"
+
+Two rows closed with **`exit_reason: netting_attributed`** — the attribution path that exists ONLY because
+multiple journal rows share one netted position — and the timing is striking: **4886 closed
+2026-08-21T21:24:02.429Z, and its sibling 4808 closed on `tp_cross` 45.1 seconds later.** Verified from the
+journal, not relayed.
+
+⚠️ **BUT BOTH `netting_attributed` ROWS CARRY THEIR OWN `sl_order_id`** — 4886 `f78cd748…`, 4922
+`5cf9a71f…`. The operator's hypothesis is about a row **that never had brackets** hiding behind a sibling.
+**Neither of these is that row.** So what is demonstrated here is *netting-sharing on this symbol and
+account*, which is real; what is **NOT** demonstrated is *a row with no legs of its own being masked by a
+sibling's*. Reporting the second from this evidence would be over-claiming, and the distinction is the whole
+content of the hypothesis.
+
+⚠️ **The three NULL-leg-id ETH rows are NOT candidates either, and were checked rather than assumed:** 4730,
+5355 and 5372 are all `intent_reduce_executed` with `created_at == closed_at` to the second — reduce
+operations, not opens. Their NULLs are **correct**.
+
+**So the class is filed on its own evidence and explicitly NOT as an explanation of 5471.**
+
+### What the refutation leaves — two branches, and they are not equally cheap
+
+If 5471 was alone WITH both legs, and the operator saw an ETHUSDT row carrying "+ Add", then exactly one of:
+
+- **(A) 5471's legs were CANCELLED while it was live.** Still the primary line. The order-history lookup on
+  those two ids settles it — `cancel_type` distinguishes a venue-side clear at close from an early cancel.
+- **(B) The naked row is a position OUR JOURNAL DOES NOT RECORD AT ALL.** Worse, and consistent with
+  everything else here — § 15's margin arithmetic, § 16's frozen stamp, and `is_sub_account` reading `None`.
+
+**Both stay live. (A) must not be collapsed to merely because it is the tractable one** — that is selection
+by convenience, and it is the shape of error this document has already corrected twice.

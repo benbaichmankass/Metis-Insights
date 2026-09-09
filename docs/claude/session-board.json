@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-funding-test",
-  "claimed_at": "2026-09-09T16:04:43Z",
-  "purpose": "MI-221 § 16: the pre-registered 16:00 funding test and its result. Tier-1 docs only."
+  "branch": "claude/mi-221-s17-netting-class",
+  "claimed_at": "2026-09-09T16:28:30Z",
+  "purpose": "MI-221 § 17 + § 16 correction. Tier-1 docs + one backlog row."
  },
  "active_sessions": [
   {
