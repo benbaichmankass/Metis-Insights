@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
   "branch": "claude/mi-228-work-object-waiting",
-  "claimed_at": "2026-09-09T23:06:42Z",
-  "purpose": "MI-228 work object in_flight -> waiting after #11603 merged (Tier-1, one YAML)"
+  "claimed_at": "2026-09-09T23:11:55Z",
+  "purpose": "MI-228 work object in_flight -> waiting after #11603 merged (Tier-1, one YAML). Displaces the GHOST claim on claude/mgr-lease-hb-20260909T2248, which merged as 7a54ea839 (BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST)"
  },
  "active_sessions": [
   {
