@@ -1,0 +1,31 @@
+id: WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  How many operating-layer surfaces require CALENDAR TIME to pass before an EDGE verdict is possible? One is confirmed; nobody has counted the rest
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_01KSZCUtFKze3k7ZvxnTnD4T
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Operator-approved as a full sweep. Re-read if the count comes back zero, which
+  would itself need explaining given a known instance exists.
+done_condition: >-
+  A COUNT is reported of operating-layer surfaces that require calendar time to elapse before an EDGE verdict becomes possible, with the CLASSIFIER stated and the POPULATION defined. ⚠️ THE POSITIVE CONTROL IS THE FIRST DELIVERABLE, NOT A FORMALITY: demonstrate the probe finds the KNOWN M7 strategy-review instance before trusting anything else it says. A probe that misses M7 is broken, and a silent probe is indistinguishable from a clean result — which is exactly what check_soak_doctrine.py did for eight days while the rule it enforces was being contradicted. ⚠️ ZERO IS AN ACCEPTABLE ANSWER ONLY WITH THAT CONTROL SHOWN. ⚠️ A LIST WITH NO DENOMINATOR DOES NOT SATISFY THIS — "we found some" is the state it is already in. ⚠️ AND THIS IS A MEASUREMENT, NOT A LICENCE TO CHANGE GATES: report the count and the list; each fix is its own scoped decision, and anything touching what a promotion or KILL rests on is Tier-3.
+
+why: >-
+  The system establishes EDGE offline (the backtesting infrastructure) and uses live data for MECHANICS. The operating layer around it repeatedly assumes the opposite. The operator's framing, 2026-09-09: "our overall operation is clearly not built to suit the system's structure." The M7 strategy-review packet is ONE confirmed instance — it withheld all 52 verdicts for want of live in-window closes across seven committed days — and MI-215 established that its own CI guard could not reach it. What is unknown is whether that is an isolated surface or a pattern, and the difference decides whether this is a fix or a redesign.
+
+source: >-
+  operator, popup decision 2026-09-09T10:32Z, chose "Full sweep, with a positive control" over narrowing it to acting gates or not running it; relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager: nothing blocks starting. The candidate
+  surfaces are all readable in the repo, the known positive control (the M7
+  packet) is on main, and no deploy, credential or operator input is needed to
+  produce the count. MI-215's landing would ADD a surface worth checking but is
+  not a precondition for the sweep.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
