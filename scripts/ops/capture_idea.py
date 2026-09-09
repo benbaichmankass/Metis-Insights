@@ -280,7 +280,11 @@ def main(argv=None) -> int:
     print()
     print("If it genuinely comes FIRST, spawn against it:")
     print(f"  python3 scripts/ops/session_registry.py register --owns-object {oid} \\")
-    print("      --title \"...\" --why \"...\" --spawned-by \"$CLAUDE_SESSION_ID\"")
+    print("      --title \"...\" --why \"...\" --spawned-by \"$CLAUDE_SESSION_ID\" \\")
+    # ⚠️ NAMED HERE because a printed command IS documentation: leaving it off
+    # would teach the invocation the registry now refuses, and the reader would
+    # meet the refusal instead of the reason for it (`MI-207`).
+    print("      --source-url \"$(git remote get-url origin)\"")
     print("…and if its intent is not the cycle's, the spawn gate will refuse until "
           "an approved exception names it. That refusal is the point.")
     return 0

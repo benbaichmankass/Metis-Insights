@@ -90,6 +90,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import re
 import sys
 from datetime import datetime, timezone
@@ -425,6 +426,29 @@ You are a sub-session in the Metis-Insights trading repo, dispatched by the
 manager. Repo checked out on `main`. Work on a fresh `claude/**` branch. Do NOT
 message the operator directly — the manager relays.
 
+## ⛔ FIRST, BEFORE YOU READ OR MEASURE ANYTHING — CONFIRM YOUR REPOSITORY
+You were dispatched against **{source_repo}**. Run this NOW, as your first
+command, and STOP if it does not match:
+
+    git remote -v && git log --oneline -1
+
+If the remote names a different owner or repository, **stop and report it — do
+not work, and do not report any finding.** Everything you would produce would be
+a confident, quotable measurement of the wrong codebase.
+
+⚠️ This is not hypothetical and it is not rare. `create_session` documents that
+an omitted `environment_id` inherits the calling session's ENVIRONMENT — true,
+and NOT the same as inheriting its SOURCES. Measured 2026-09-08: a manager whose
+own session carried the three `benbaichmankass/*` repos spawned a child, in that
+same environment, that came up on `the-lizardking/ict-trading-bot` — a REAL
+repo, the pre-rename remote, so the clone SUCCEEDS instead of erroring. That
+child ran ~4.5 minutes and reported a trading number from the historical tree.
+Its own summary read "repo cloned, docs read, board START pushed" and looked
+entirely healthy. Sixteen instances over five days.
+
+⚠️ A no-repo spawn fails loudly within ~90s; a WRONG-repo spawn does not fail at
+all. You are the only thing standing between that and a banked false number.
+
 ## Your unit
 **{title}**
 
@@ -525,11 +549,120 @@ the manager owns that file.
 {scope}"""
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# WHICH REPOSITORY DID THE CHILD ACTUALLY GET? (`MI-207`)
+#
+# `register` and `confirm` both SUCCEEDED on a spawn that attached the wrong
+# OWNER's repository — sixteen instances over five days — because neither
+# command had any way to express, let alone check, which repo a child was
+# handed. The class is filed three times already
+# (BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED,
+# BL-20260908-SPAWNING-WITHOUT-SOURCE-URL-CAN-ATTACH-THE-WRONG-REPO-NOT-MERELY-NO-REPO-AND-THE-2026-09-06-ROW-DID-NOT-PREVENT-IT,
+# BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS),
+# and the third says in terms that a fourth row is not the remedy.
+#
+# ⚠️ THE TRAP IS IN THE TOOL'S OWN WORDING. `create_session` documents that an
+# omitted `environment_id` inherits the CALLING SESSION'S ENVIRONMENT. That is
+# true, and it is NOT the same as inheriting its SOURCES. Verified in both
+# directions on 2026-09-08: the manager's own `get_session` carried the three
+# `benbaichmankass/*` repos, while a child spawned FROM it IN THE SAME
+# ENVIRONMENT carried `the-lizardking/ict-trading-bot`.
+#
+# ⚠️ AND THE FAILURE IS SILENT, NOT SAFE. A no-repo spawn fails loudly within
+# ~90s (there is nothing to compute). A WRONG-repo spawn runs normally and
+# produces confident, quotable output from the wrong codebase — MI-188 reported
+# a trading number from that historical tree, and its own summary read "repo
+# cloned, docs read, board START pushed".
+#
+# `the-lizardking/ict-trading-bot` is a REAL repository — the pre-rename remote,
+# still named in the operator's saved preferences — which is exactly why the
+# clone succeeds instead of erroring.
+#
+# ⚠️ WHAT THIS CANNOT DO, stated rather than hidden: nothing in this repo sits
+# on `create_session`'s call path (it is an MCP tool with no interposition
+# point here), so this cannot MAKE the spawn correct. It can refuse to record a
+# spawn whose repository nobody stated, and it can refuse a confirmation whose
+# observed repository contradicts the stated one. Both operands are still typed
+# by the caller, so a caller who pastes the intended value in place of the
+# observed one defeats the confirm check. That is a real hole and it is named
+# here rather than papered over; the check still converts the DEFAULT path from
+# silent contamination into a loud stop.
+
+
+def normalize_repo(url: Optional[str]) -> Optional[str]:
+    """`owner/repo`, lowercased, from any of the shapes a caller might paste.
+
+    Case is folded because it is not identity here: this checkout's `origin` is
+    `benbaichmankass/metis-insights` while GitHub's canonical spelling is
+    `benbaichmankass/Metis-Insights`, so a case-sensitive compare would refuse
+    the correct answer.
+    """
+    if not url:
+        return None
+    text = str(url).strip().rstrip("/")
+    if not text:
+        return None
+    for prefix in ("https://github.com/", "http://github.com/",
+                   "git@github.com:", "ssh://git@github.com/"):
+        if text.lower().startswith(prefix.lower()):
+            text = text[len(prefix):]
+            break
+    if text.lower().endswith(".git"):
+        text = text[:-4]
+    parts = [p for p in text.split("/") if p]
+    if len(parts) < 2:
+        return None
+    return f"{parts[-2].lower()}/{parts[-1].lower()}"
+
+
+def origin_repo() -> Optional[str]:
+    """This checkout's own `origin` as `owner/repo`, or None if we COULD NOT LOOK.
+
+    ⚠️ `None` is `we could not look`, never `it matches`. Callers below treat it
+    as `unknown` — they proceed and SAY SO, rather than silently passing a spawn
+    they did not verify.
+    """
+    try:
+        r = subprocess.run(["git", "remote", "get-url", "origin"],
+                           capture_output=True, text=True, timeout=10,
+                           cwd=str(REPO_ROOT))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    return normalize_repo(r.stdout.strip())
+
+
+def grade_source_url(supplied: Optional[str],
+                     origin: Optional[str]) -> Tuple[str, str]:
+    """Return (state, detail). Four states, never collapsed.
+
+    ``absent``   — nobody stated a repository (the defect this exists to refuse)
+    ``unreadable`` — a value was given that is not a repo reference
+    ``mismatch`` — it names a repository other than this checkout's own
+    ``unknown``  — we could not read `origin`, so we could not compare
+    ``match``    — stated and equal to this checkout's `origin`
+    """
+    if supplied is None or not str(supplied).strip():
+        return ("absent", "no --source-url was given")
+    got = normalize_repo(supplied)
+    if got is None:
+        return ("unreadable", f"{supplied!r} is not a github owner/repo reference")
+    if origin is None:
+        return ("unknown", f"stated {got}; this checkout's `origin` could not be "
+                           f"read, so nothing was compared")
+    if got != origin:
+        return ("mismatch", f"stated {got}, but this checkout's `origin` is {origin}")
+    return ("match", got)
+
+
 def spawn_prompt(title: str, why: str, registry_ref: str,
-                 scope: Optional[str] = None) -> str:
+                 scope: Optional[str] = None,
+                 source_repo: Optional[str] = None) -> str:
     return _PROMPT_TEMPLATE.format(
         title=title.strip(), why=(why or "").strip() or "(no rationale recorded)",
         registry_ref=registry_ref,
+        source_repo=source_repo or "(UNSTATED — refuse to work and say so)",
         scope=f"\n## Scope discipline\n{scope.strip()}\n" if scope else "")
 
 
@@ -604,6 +737,7 @@ def _refuse_duplicate_session_id(doc: Dict[str, Any], session_id: str) -> None:
 
 
 def register(path: Path, *, title: str, why: str, spawned_by: str,
+             source_url: str,
              session_id: Optional[str] = None, branches: Optional[List[str]] = None,
              owns_object: Optional[str] = None, checklist_item: Optional[str] = None,
              note: Optional[str] = None, registry_key: Optional[str] = None,
@@ -642,6 +776,11 @@ def register(path: Path, *, title: str, why: str, spawned_by: str,
         row["checklist_item"] = checklist_item
     row["spawned_at"] = ts
     row["spawned_by"] = spawned_by
+    # ⚠️ KEYWORD-ONLY AND UNDEFAULTED, so an existing caller that never thought
+    # about the repository fails at the call rather than writing a row that
+    # silently means "nobody stated one". The whole defect was that both
+    # `register` and `confirm` SUCCEEDED on a wrong-repo spawn.
+    row["source_url"] = source_url
     if branches:
         row["branches"] = list(branches)
     if why:
@@ -659,6 +798,7 @@ def register(path: Path, *, title: str, why: str, spawned_by: str,
 
 
 def confirm(path: Path, *, registry_key: str, session_id: str,
+            observed_source_url: Optional[str] = None,
             now: Optional[str] = None) -> Dict[str, Any]:
     doc, readable = read_json(path)
     if not readable or not isinstance(doc, dict):
@@ -688,6 +828,11 @@ def confirm(path: Path, *, registry_key: str, session_id: str,
 
     row = matches[0]
     row["session_id"] = session_id
+    if observed_source_url:
+        # What the PLATFORM said, kept BESIDE what we asked for rather than
+        # overwriting it. Two fields on purpose: collapsing them would erase the
+        # only record that anybody looked, which is the whole defect.
+        row["observed_source_url"] = observed_source_url
     row["state"] = "working"
     row["confirmed_at"] = now or _now_iso()
     doc["updated_at"] = row["confirmed_at"]
@@ -806,26 +951,130 @@ def cmd_register(a) -> int:
               "produced. Fix the above, or file the exception, then re-run.")
         return 3
 
+    # THE REPOSITORY GATE. `MI-207`: `register` and `confirm` both SUCCEEDED on
+    # a spawn that attached the wrong OWNER's repo, because neither could
+    # observe — or even express — which repository a child was handed.
+    #
+    # ⚠️ NO --force AND NO DEFAULT, for the same reason the spawn gate above has
+    # none: a gate with a flag beside it is a gate that gets flagged past. The
+    # cost of the refusal is one command-line argument; the cost of the silence
+    # it replaces was sixteen wrong-repo spawns in five days, at least one of
+    # which published a trading number measured against the wrong codebase.
+    origin = origin_repo()
+    src_state, src_detail = grade_source_url(a.source_url, origin)
+    if src_state == "absent":
+        print("session-registry: REFUSED — no --source-url.\n"
+              "  NOTHING WAS WRITTEN and no spawn prompt was produced.\n"
+              "  `create_session` inherits the calling session's ENVIRONMENT when\n"
+              "  `environment_id` is omitted — that is what its docs say, it is\n"
+              "  true, and it is NOT the same as inheriting its SOURCES. A child\n"
+              "  spawned without an explicit source_url can come up on a DIFFERENT\n"
+              "  repository, which does not fail: it runs and produces confident\n"
+              "  findings from the wrong codebase.\n"
+              f"  Pass --source-url https://github.com/{origin or '<owner>/<repo>'}\n"
+              "  AND pass the same value to create_session.")
+        return 4
+    if src_state == "unreadable":
+        print(f"session-registry: REFUSED — {src_detail}. NOTHING WAS WRITTEN.\n"
+              "  Give a full URL or `owner/repo`.")
+        return 4
+    if src_state == "mismatch":
+        print(f"session-registry: REFUSED — {src_detail}. NOTHING WAS WRITTEN.\n"
+              "  This command emits the Metis-Insights sub-session prompt, so a\n"
+              "  different repository is a mismatch by construction. If you truly\n"
+              "  mean to dispatch against another repo, this is not the tool.\n"
+              "  ⚠️ `the-lizardking/ict-trading-bot` is the PRE-RENAME remote and\n"
+              "  is still named in the operator's saved preferences — it is a real\n"
+              "  repo, so a clone SUCCEEDS and the contamination is silent. That\n"
+              "  is the exact value this refusal exists to catch.")
+        return 4
+    if src_state == "unknown":
+        # `we could not look` is not `it matches`, and is not a reason to stop.
+        print(f"session-registry: ⚠️ source-url UNVERIFIED — {src_detail}. "
+              f"Proceeding; the value was recorded but nothing confirmed it.")
+
     row, ref = register(
         REGISTRY_PATH, title=a.title, why=a.why or "", spawned_by=a.spawned_by,
+        source_url=a.source_url.strip(),
         session_id=a.session_id, branches=a.branch or None, owns_object=a.owns_object,
         checklist_item=a.checklist_item, note=a.note)
-    print(f"session-registry: registered {ref}")
+    print(f"session-registry: registered {ref} (source {normalize_repo(a.source_url)})")
     print("session-registry: ⚠️ written but NOT committed — a registry entry that "
           "never reaches origin protects no successor.")
     print("\n" + "=" * 72 + "\nSPAWN PROMPT (paste into create_session)\n" + "=" * 72)
-    print(spawn_prompt(a.title, a.why or "", ref, a.scope))
+    print(spawn_prompt(a.title, a.why or "", ref, a.scope,
+                       source_repo=normalize_repo(a.source_url)))
+    print("=" * 72)
+    print(f"session-registry: ⚠️ PASS source_url=\"{a.source_url.strip()}\" TO "
+          f"create_session. Omitting it is the defect this refusal exists for; "
+          f"the prompt above only lets the CHILD catch it afterwards.")
     if not a.session_id:
         print("=" * 72)
         print(f"session-registry: then run:  python3 scripts/ops/session_registry.py "
-              f"confirm --registry-key {row['registry_key']} --session-id <new id>")
+              f"confirm --registry-key {row['registry_key']} --session-id <new id> "
+              f"--observed-source-url <what get_session ACTUALLY reported, or `none`>")
     return 0
 
 
 def cmd_confirm(a) -> int:
-    row = confirm(REGISTRY_PATH, registry_key=a.registry_key, session_id=a.session_id)
+    """Bind a pending row to its session id — and check the repo it really got.
+
+    ⚠️ `register` can only record an INTENTION. This is the one command that
+    runs after the platform has answered, so it is the only place the stated
+    repository can be checked against the delivered one. The check is one call
+    the caller has already made: `get_session` returns
+    `session_context.sources`, and a child calling it with no argument gets its
+    own.
+
+    ⚠️ WHAT THIS CANNOT CATCH, stated rather than hidden: both operands are
+    typed by the caller, so a caller who pastes the INTENDED value where the
+    OBSERVED one belongs defeats it. Nothing inside this repo can read the
+    platform. What it does buy is that the default path — confirm and move on —
+    now requires having LOOKED, and a look that contradicts the registry stops
+    the spawn instead of blessing it.
+    """
+    doc, readable = read_json(REGISTRY_PATH)
+    expected = None
+    if readable and isinstance(doc, dict):
+        for r in registry_rows(doc):
+            if str(r.get("registry_key")) == str(a.registry_key):
+                expected = r.get("source_url")
+                break
+
+    observed = (a.observed_source_url or "").strip()
+    # `none` is its OWN state, never folded into a mismatch: no repo attached is
+    # the loud failure (the child stalls within ~90s with nothing to compute),
+    # while a wrong repo is the quiet one. They need different remedies.
+    if observed.lower() in {"none", "null", "absent", "no-sources"}:
+        print("session-registry: REFUSED — you observed NO `sources` on the "
+              "session. NOTHING WAS CONFIRMED.\n"
+              "  That child has no repository: it cannot push, so whatever it "
+              "produces dies in its container.\n"
+              "  Interrupt it and re-spawn WITH source_url. Do not let it work.")
+        return 5
+    got, want = normalize_repo(observed), normalize_repo(expected)
+    if got is None:
+        print(f"session-registry: REFUSED — --observed-source-url "
+              f"{observed!r} is not a github owner/repo reference, and `none` "
+              f"is the way to say the session carried no sources. "
+              f"NOTHING WAS CONFIRMED.")
+        return 5
+    if want is not None and got != want:
+        print(f"session-registry: REFUSED — the session came up on {got}, but "
+              f"this row was dispatched against {want}. NOTHING WAS CONFIRMED.\n"
+              f"  ⚠️ This is the silent failure, not a loud one: that session "
+              f"will run normally and report confident findings measured "
+              f"against the wrong codebase.\n"
+              f"  Interrupt it, then re-spawn with source_url. Do NOT bank "
+              f"anything it has already reported.")
+        return 5
+
+    row = confirm(REGISTRY_PATH, registry_key=a.registry_key,
+                  session_id=a.session_id, observed_source_url=observed)
     print(f"session-registry: confirmed {a.registry_key} -> {a.session_id} "
-          f"({row.get('title')})")
+          f"({row.get('title')}) on {got}"
+          + ("" if want else "  ⚠️ the row recorded no expected repo, so this "
+                             "was NOT compared"))
     return 0
 
 
@@ -1050,6 +1299,10 @@ def main(argv=None) -> int:
     g.add_argument("--title", required=True)
     g.add_argument("--why", default=None)
     g.add_argument("--spawned-by", required=True, help="the manager's session id")
+    g.add_argument("--source-url", default=None,
+                   help="the repository this child must be given — pass the SAME "
+                        "value to create_session. Refused if absent or if it "
+                        "names a repo other than this checkout's origin (MI-207).")
     g.add_argument("--session-id", default=None,
                    help="omit when registering BEFORE the spawn; then use `confirm`")
     g.add_argument("--branch", action="append", default=None)
@@ -1062,6 +1315,12 @@ def main(argv=None) -> int:
     c = sub.add_parser("confirm", help="fill in the id of a spawn_pending row")
     c.add_argument("--registry-key", required=True)
     c.add_argument("--session-id", required=True)
+    c.add_argument("--observed-source-url", required=True,
+                   help="what `get_session` ACTUALLY reported in "
+                        "session_context.sources for this session — or the "
+                        "literal `none` if it carried no `sources` key. This is "
+                        "the only point at which the delivered repo is "
+                        "observable (MI-207).")
     c.set_defaults(fn=cmd_confirm)
 
     a = ap.parse_args(argv)
