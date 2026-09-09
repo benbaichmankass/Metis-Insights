@@ -9,14 +9,18 @@ title: >-
   intent_reduce leaves a stop up to 101.8x the row it protects - operator answered: resize the
   leg AND add the per-row invariant
 stage: DECISION
-lifecycle: in_flight
-owner: session_0178Pn128KK71u6nCzLeVH6w
+lifecycle: waiting
+owner: claude
 opened_at: '2026-09-09'
 closed_at: null
 
 review_trigger: >-
-  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD
-  on the order path. Do not re-measure - the venue read is in the audit at F-36.
+  Re-read when a live intent-reduce is seen on a Bybit partial-tpsl account. !! THE BUILD IS NO
+  LONGER WHAT REMAINS AND THIS FIELD SAID IT WAS UNTIL 2026-09-09T23:45Z: it read "The DECISION
+  is discharged; what remains is a Tier-2 BUILD on the order path", which was true when the
+  manager wrote it and is false now - #11604 merged as 7b8b6b51d. What remains is an
+  OBSERVATION, and picking this up does not mean writing code. Do not re-measure the finding -
+  the venue read is in the audit at F-36 - and do not re-run the build.
 
 done_condition: >-
   BOTH: (a) apply_intent_reduce_partial_close resizes the reducing row's OWN tracked protective
@@ -26,13 +30,52 @@ done_condition: >-
   SYMBOL-LEVEL INV-PROTECT-OVERCOVER, which passes whenever siblings happen to sum correctly -
   do not treat the existing one as covering this.
 
-blocked_on: []
+blocked_on:
+  - kind: external_event
+    ref: >-
+      a real intent-reduce firing on a Bybit account under BYBIT_TPSL_MODE=partial, after the
+      7b8b6b51d deploy reaches the running trader - and the shrunk row's tracked leg then read
+      back off /api/diag/bybit_open_orders at that row's NEW position_size
+    since: '2026-09-09'
+    note: >-
+      THE BUILD IS DELIVERED AND HALF THE DONE-CONDITION IS MET; THIS EDGE IS THE OTHER HALF AND
+      IT IS AN EVENT NOBODY CAN SCHEDULE. Clause (b) - INV-PROTECT-LEG-MATCHES-ROW existing in
+      system_invariants.py - is DONE: merged as 7b8b6b51d (#11604, squash, human merge click
+      2026-09-09T23:39:57Z), verified present on main by reading the blob rather than the commit
+      message (11 references), self-test 39/39 with the load-bearing control that it FAILS the
+      live F-36 fixture while INV-JOURNAL-EXCHANGE PASSES on the same fixture. Clause (a) -
+      the resize "verified against a venue read after a real intent-reduce" - is NOT met and
+      cannot be met by this lane: it needs a reduce to FIRE, and the class incidence is 21 of
+      1000 journal rows, so the wait may be days. !! DO NOT MANUFACTURE THE EVENT. Placing or
+      amending an order to test this is exactly what the Tier-2 approval withholds, and the
+      currently-oversized legs must not be "remediated" by cancelling them
+      (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). !! AND THE CHEAP
+      HALF IS NOT THE OBSERVATION: the intent_reduce_executed audit row carries
+      notes.intent_reduce_allocations[].leg_resize with resized / failed / no_tracked_id /
+      not_applicable / not_attempted. A `resized` there says THE VENUE ACCEPTED THE CALL, which
+      is necessary and is NOT clause (a) - the defect class this fixes is a system believing its
+      own summariser, so the leg's qty must be read off the venue. A `failed` is the MORE
+      VALUABLE finding: it most likely means Bybit refuses qty on an amend of a Partial-tpsl
+      conditional leg, i.e. the one premise taken from the V5 API contract rather than from a
+      call is false and the fix does not work. Full criteria:
+      OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED.
 blocked_on_basis: >-
-  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
-  detector is named in the audit, and the operator has now answered. What gated it was the
-  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
-  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
-  and buildable, NEVER in progress.
+  RE-ASSESSED 2026-09-09T23:45Z by the building lane (session_0178Pn128KK71u6nCzLeVH6w) after
+  #11604 merged. !! THE PRIOR BASIS IS SUPERSEDED BY A CHANGE OF FACT, NOT A DISAGREEMENT, AND
+  ITS TEXT MUST NOT BE RE-QUOTED: it read "Nothing blocks the BUILD ... IT IS NOT SCHEDULED: the
+  WIP ceiling stood at 8 of 8 in_flight, so no lane could be spawned". A lane WAS spawned, the
+  build is DELIVERED and merged, so both halves of that sentence are now false and a session
+  reasoning from them would conclude this is unstarted work. What blocks it now is a LIVE EVENT,
+  which is a different kind of blocker from a decision gate and is why the edge above is
+  external_event rather than operator_decision. !! THE EDGE IS A TRUE ONE, WRITTEN BY A SESSION
+  THAT BUILT THIS ROW AND UNDERSTANDS IT - not a bulk pass over unassessed rows, which the work
+  store's README records as an active harm because the constraint computation reads an invented
+  edge as a real blocker and a false blocker is worse than a missing one. Measured while writing
+  it: 65 of 707 objects carried an ASSESSED basis (9.2%), against the declared 50% floor that
+  keeps scripts/ops/constraint_readout.py at `insufficient_basis`. This is one edge, so it does
+  not move that verdict and is not claimed to. !! NOTHING IS OWED TO THIS ROW BY A HUMAN: the
+  operator's Tier-2 approval is discharged and MUST NOT be re-sought
+  (WO's own answer block, chosen: resize_and_invariant, 2026-09-09).
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
 
