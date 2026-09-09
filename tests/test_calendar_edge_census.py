@@ -50,7 +50,7 @@ def test_report_refuses_to_print_a_count_without_the_control(capsys):
     rc = cec.report(census)
     out = capsys.readouterr().out
     assert rc == 2, "a missing control must be a non-zero exit, not a footnote"
-    assert "CONTROL NOT ESTABLISHED" in out
+    assert "the count is WITHHELD, not zero" in out
     assert "PASS A" not in out, "no count may be printed once the control failed"
 
 

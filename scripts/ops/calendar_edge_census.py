@@ -524,8 +524,14 @@ def report(census: Census, as_json: bool = False) -> int:
     print(f"  target : {POSITIVE_CONTROL[0]}::{POSITIVE_CONTROL[1]}")
     print(f"  found  : {census.control_found}")
     if census.control_found is not True:
+        # The refusal states its own denominator on purpose: "we refuse" with no
+        # scope reads like "we found nothing", which is the exact substitution
+        # this whole census exists to distrust.
         print()
-        print("  !! CONTROL NOT ESTABLISHED — NO COUNT IS REPORTED.")
+        print("  !! CONTROL NOT ESTABLISHED — the count is WITHHELD, not zero.")
+        print(f"     scope searched : {census.files_walked} python file(s), "
+              f"{census.funcs_walked} function(s)")
+        print(f"     detector_state : {census.detector_state}")
         print("     A probe that misses M7 is broken, and a silent probe is")
         print("     indistinguishable from a clean result.")
         return 2
