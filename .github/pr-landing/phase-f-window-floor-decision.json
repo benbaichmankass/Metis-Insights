@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers and documentation only. The diff is docs/claude/OPEN-ITEMS.json (one stale monitoring row corrected and re-observed), docs/claude/work/objects/WO-20260901-PHASE-F.yaml (a typed operator_decision blocked_on edge plus the decision_requests entry it names), one new evidence doc under docs/claude/work/, one updated row in docs/claude/health-review-backlog.json, DOCUMENT-INDEX.md, and the rendered CLAUDE.md SESSION-BRIEF block. Tier-1 by the canonical doc's own list: no order path, no strategy config, no risk caps, no src/, no scripts/, no deploy/, no .github/workflows/ and no live-VM runtime file. Explicitly NOT in this diff: the review window and the evidence floor are UNCHANGED \u2014 this PR prepares that decision for the operator and does not take it."
+}
