@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T10:46:00Z",
+  "updated_at": "2026-09-09T10:54:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2256,7 +2256,8 @@
       "blocked_on": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
       "tier": "2 — protective re-arm on a paper account",
       "title": "Re-arm protection for the 56 uncovered shares on trade 5414 (alpaca_portfolio/TLT)",
-      "note": "HELD BY OPERATOR DECISION 2026-09-08, and the hold is the finding rather than a delay. MI-179 MEASURED that AlpacaClient.place_protective (alpaca_client.py:1361) is the ONLY path that places an Alpaca protective leg and calls _cancel_open_orders_for_symbol UNCONDITIONALLY — the oca_key IB honours is silently DROPPED — so every re-arm is symbol-wide. Re-arming the 56 shares through that path would strip trade 5266's own resting OCO first. ⚠️ THE 56 SHARES STAY NAKED DELIBERATELY (paper money, alpaca_portfolio) until MI-180 ships a trade-scoped protective write. DO NOT retry the re-arm through the existing path. Filed: BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE."
+      "note": "HELD BY OPERATOR DECISION 2026-09-08, and the hold is the finding rather than a delay. MI-179 MEASURED that AlpacaClient.place_protective (alpaca_client.py:1361) is the ONLY path that places an Alpaca protective leg and calls _cancel_open_orders_for_symbol UNCONDITIONALLY — the oca_key IB honours is silently DROPPED — so every re-arm is symbol-wide. Re-arming the 56 shares through that path would strip trade 5266's own resting OCO first. ⚠️ THE 56 SHARES STAY NAKED DELIBERATELY (paper money, alpaca_portfolio) until MI-180 ships a trade-scoped protective write. DO NOT retry the re-arm through the existing path. Filed: BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE.  ⚠️ CORRECTED AND CLOSED 2026-09-09 BY THE MANAGER, WHOSE OWN REPORTING WAS THE DEFECT. This row and the manager's status updates said the TLT short was NAKED and that a verified read was still OWED. BOTH WERE FALSE, AND THE READ HAD ALREADY LANDED — #11520 merged 2026-09-09T08:33:37Z, before the manager first said it was outstanding. The manager then repeated the claim across several updates, having inferred 'no PR exists' from the branch's absence from the OPEN pull-request list; it was absent because it had MERGED. A negative read of an 'open' filter is not evidence of absence. THE LIVE READ (/api/diag/alpaca_open_orders, read_state=orders_read, 2026-09-09T08:22Z): alpaca_portfolio holds TLT SHORT 75 against a resting buy-75 STOP @ 82.40, status `held`, submitted 2026-09-08T18:49:44Z — FULLY COVERED, 75 of 75. The naked window opened 2026-09-08T13:37:36Z and closed ~5h later the same day. Against the standing operator decision (72 shares / 16-share stop, 22% covered) the position is now 75 with a 75-share stop, 100%: the 16-share stop is gone because it was REPLACED, not because protection vanished. Corroborated by partial_stop_coverage_alert_state — nothing has fired since 13:37:36Z. THE ORIGINAL '75 unprotected' FIGURE WAS A DATED LOG ROW read from /api/bot/logs?level=error and reported in the PRESENT tense, ~19h stale — the dated-snapshot-as-live-read collapse. Lane 1 caught its own error and corrected it; the manager relayed the stale version onward. ⚠️ DONE MEANS THE POSITION IS COVERED. IT DOES NOT MEAN THE MECHANISM IS PROVEN: what PLACED that stop is NOT established, the broker-naked sweep was NOT observed doing it, and an unattributed repair is not evidence a mechanism works. Part (2) of BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY stays UNCLEARED and the scoped Alpaca protective-write fix is still owed. Do not read this closure as retiring that.",
+      "state": "done"
     },
     {
       "id": "MI-180-ALPACA-CLOSE-TRADE-SCOPE",
@@ -2808,9 +2809,9 @@
     {
       "id": "MI-218-COUNT-EVERY-SURFACE-THAT-REQUIRES-CALENDAR-TIME-TO-PROVE-EDGE",
       "title": "Full sweep with a positive control: how many surfaces require calendar time before an edge verdict (operator-approved)",
-      "state": "ready",
-      "owner": null,
-      "owns_object": null,
+      "state": "in_flight",
+      "owner": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+      "owns_object": "WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE",
       "priority": "high",
       "tier": "tier_1",
       "added": "2026-09-09",
