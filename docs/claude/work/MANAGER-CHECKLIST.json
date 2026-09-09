@@ -2775,9 +2775,9 @@
     {
       "id": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
       "title": "Prop status-request pings on wall-clock age alone, so it asks about an account nothing has touched",
-      "state": "ready",
-      "owner": null,
-      "owns_object": null,
+      "state": "in_flight",
+      "owner": "session_01FoASvmUGuahCphE1cewPPs",
+      "owns_object": "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
       "priority": "medium",
       "tier": "tier_2",
       "added": "2026-09-09",

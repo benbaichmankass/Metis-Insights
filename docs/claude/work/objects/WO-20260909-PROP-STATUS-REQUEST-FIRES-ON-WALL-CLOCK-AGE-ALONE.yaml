@@ -1,0 +1,69 @@
+id: WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The prop status-request ping fires on the wall-clock age of the snapshot and nothing
+  else, so an untouched account is indistinguishable from an unreported one
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01FoASvmUGuahCphE1cewPPs
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  On the operator's Tier-2 decision on PR #TBD. Until then the change is PREPARED
+  and VALIDATED and NOT shipped.
+done_condition: >-
+  THREE PARTS, and they are different facts — say WHICH you cleared rather than
+  clearing on the easiest. (1) MERGED, on an explicit operator Tier-2 OK: the diff
+  touches src/prop/ and the ping the operator receives. An approval to change the
+  TRIGGER is not an approval to change PROP_STATUS_REQUEST_MAX_AGE_HOURS, which is
+  deliberately untouched and has four consumers. (2) DEPLOYED — /api/diag/version
+  shows the merge commit as git_sha AND git_sha_on_disk with restart_pending false.
+  A merge alone clears this NOT AT ALL. (3) OBSERVED — the ping for `breakout_1`
+  does NOT re-fire after the next cooldown window elapses, read off
+  /api/diag/log_file?name=prop_status_request (the cadence stamp stops advancing)
+  while the account is still flat. ⚠️ THAT NEEDS A POSITIVE CONTROL AND IT IS NOT
+  OPTIONAL: silence proves nothing on its own, because a module that crashed on
+  import is also silent. Establish in the same window that run_prop_status_request
+  is still being CALLED — the trader tick is alive and other prop cadence files
+  (prop_monitor_pulse, prop_sl_tp_alert) are still advancing — and report both.
+  ⚠️ IF THE OPERATOR IS PINGED ABOUT A QUIESCENT ACCOUNT AFTER THE DEPLOY, that
+  does NOT clear this row and is the more valuable finding — record it and keep
+  the row open. ⚠️ IF THE OPERATOR DECIDES the wall-clock ask should stay, this
+  row does NOT clear — it CHANGES: that is a legitimate decision and must be
+  RECORDED as one rather than left looking like a fix about to land.
+
+why: >-
+  OPERATOR-RAISED 2026-09-09, verbatim: "This ping in the prop channel is
+  unessacry, the account snapshot is updated when a trade closes, if there are no
+  prop trades than the account state didn't change." Pinging about an account
+  nothing has touched trains the operator to ignore the ping that matters — the
+  desensitized-alarm P1. ⚠️ THE OPERATOR'S PREMISE IS HALF FALSE AND THE FALSE
+  HALF DOES NOT CHANGE THE ANSWER. MEASURED 2026-09-09T09:54Z via
+  /api/bot/prop/fills?limit=500 and /api/bot/prop/status (direct over the Caddy
+  host): breakout_1's newest snapshot is id 19 at 2026-08-30T19:33:29Z and its
+  newest fill is id 41 at 2026-08-30T19:39:00Z — the last close is 5.5 minutes
+  NEWER than the snapshot it supposedly produced, so "a close updates the
+  snapshot" is false AS A MECHANISM. The conclusion still holds, for a stronger
+  reason: zero fills in the 230h since, zero open positions, zero unacted tickets.
+  ⚠️ AND A REPORTED FILL IS DELIBERATELY NOT A TRIGGER: prop_reconcile.
+  reconstruct_equity is asymmetric — an unplaceable LOSS is always applied, an
+  unplaceable GAIN is withheld and counted — so a reported fill can only make the
+  cushion CONSERVATIVE, never optimistic. Fill 41 is exactly that (+35.28 withheld;
+  the panel shows an $87.34 cushion where the true one is ~$122.62). The
+  2026-08-14 static-DD purpose is PRESERVED and now OBSERVED rather than assumed,
+  via a trigger on a real non-suppressed ticket taken against the cushion.
+
+source: >-
+  operator (conversational), routed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+blocked_on:
+  - kind: operator_decision
+    ref: MI-214 Tier-2 approval to ship the trigger change
+    since: 2026-09-09
+blocked_on_basis: >-
+  ASSESSED 2026-09-09. The code is written, validated and mutation-tested; the
+  ONLY thing between it and landing is the Tier-2 OK, because the diff is in
+  src/prop/ and changes what the operator receives. Nothing technical blocks it.
+
+captured_by: MI-214 session_01FoASvmUGuahCphE1cewPPs
