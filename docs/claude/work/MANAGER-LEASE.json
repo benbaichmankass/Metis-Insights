@@ -22,13 +22,13 @@
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-09T01:52:28Z",
-  "expires_at": "2026-09-09T03:22:28Z",
+  "heartbeat_at": "2026-09-09T02:46:57Z",
+  "expires_at": "2026-09-09T04:16:57Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 01:52:28Z, tool-stamped. QUEUE CLEAR — every PR opened tonight has landed: #11337 (Tier-3 Alpaca, 0862f8ac), #11469, #11472, #11474, #11477 (the digest unblock), #11473 (47f5a981, MI-205b's deliverable) and #11479 (e0c833ab). Verified on main rather than from the merge notices: 208 checklist items, MI-208 present, and `digest-liveness: OK state=fresh last_digest_age=0.84h`. || ⚠️ THE DIGEST CLEARANCE EXPIRES ~07:04Z and four stuck receipt PRs remain (#11442 #11445 #11452 #11465); MI-208 is the durable fix and is ROUTED, not taken. || ⚠️ R13 SERIALIZES IN PRACTICE EVEN THOUGH ITS OWN TEXT SAYS IT DOES NOT: every landing PR rewrites the single `merge_slot` key, so #11477's claim and then #11473's each collided with the heartbeat branch and forced a rebase — THREE rebases in one hour. Rebase, never merge: main carried scripts/, tests/ and .github/workflows/ changes by the third, and a merge commit's first-parent diff would have attributed those to the manager under R2."
+  "note": "Heartbeat 02:46:57Z, tool-stamped (54 min gap, ttl 90). QUIET PASS — queue clear, zero non-automation PRs open, no sub-sessions running. || FILED THIS PASS: BL-20260909-RESET-HARD-ORIGIN-MAIN-ON-A-FEATURE-BRANCH-TWICE-IN-50-MINUTES-AND-THE-WRITTEN-REMINDER-DID-NOT-HOLD. ⚠️ THE ROW IS ABOUT THE FIX FAILING, NOT THE MISTAKE: between the two instances I wrote the reminder into THIS FILE and it merged to main, and the behaviour recurred 50 minutes later. Its resolution_criteria therefore REFUSES to close on another reminder, and refuses to close on 'no further instances' — the second instance was harmless only because that branch's PR had already merged, so absence of damage is not absence of the behaviour. The mechanism-level answer is that `git reset --hard <target>` never names the branch it moves, so it cannot be made safe by care; `git checkout main && git pull --ff-only` names its branch and refuses a non-fast-forward. THIS PASS USED THAT IDIOM. || ⚠️ THE DIGEST CLEARANCE STILL EXPIRES ~07:04Z, after which digest-liveness reds every PR again; four stuck receipt PRs remain (#11442 #11445 #11452 #11465) and MI-208 is the durable fix, ROUTED not taken."
 }

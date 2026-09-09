@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0155-20260909",
-  "claimed_at": "2026-09-09T01:52:28Z",
-  "purpose": "Heartbeat 01:52:28Z; MI-205 to landed_unproven after #11473 merged; MI-205b's session row closed on merged output."
+  "branch": "claude/mgr-heartbeat-0250-20260909",
+  "claimed_at": "2026-09-09T02:46:57Z",
+  "purpose": "Heartbeat 02:46:57Z and the reset-hard recurrence row. Quiet pass — queue clear, nothing in flight."
  },
  "active_sessions": [
   {
