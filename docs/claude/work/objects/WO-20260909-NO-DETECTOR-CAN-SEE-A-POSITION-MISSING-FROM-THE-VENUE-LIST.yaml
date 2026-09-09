@@ -34,10 +34,37 @@ operator_directive:
 
 why:
   motivating_incident: >-
-    bybit_2 (REAL MONEY) held ETHUSDT 0.04 long, unprotected, for five days.
-    Journal trade 5471 records it opened 2026-09-04T14:04:14 with
-    stop_loss 2451.59428571, and then records status='closed' exit_reason='sl'.
-    The venue never closed it. The operator found it on their terminal.
+    CORRECTED 2026-09-09T13:30Z. THE ORIGINAL TEXT OF THIS FIELD ASSERTED A
+    MECHANISM THAT IS NOT ESTABLISHED, AND IT MUST NOT BE RE-QUOTED. It read:
+    "bybit_2 (REAL MONEY) held ETHUSDT 0.04 long, unprotected, for five days ...
+    The venue never closed it." The manager wrote that from a PARTIAL read of
+    trade 5471 -- status and exit_reason without closed_at, and without any
+    venue read to compare against. That is a RULE ONE failure and the row is
+    corrected rather than deleted so the failure stays visible.
+    WHAT IS ACTUALLY OBSERVED, and the two observations are NOT YET RECONCILED:
+      (1) The OPERATOR reports a live ETHUSDT 0.04 position on bybit_2, visible
+          on the Bybit platform, carrying no TP/SL. Operator directive
+          2026-09-09: "Do not tell me that the trade does not exist ... you
+          might not be seeing it ... it's on the platform." THE OPERATOR'S
+          READ IS THE PRIMARY SOURCE HERE AND OUR API READ IS NOT.
+      (2) MEASURED 2026-09-09T13:14:59Z on /api/diag/bybit_raw_positions:
+          our read returns NO ETHUSDT row for bybit_2 -- both books explicitly
+          size 0.0, size_parsed true. And journal 5471's closed_at
+          (2026-09-08T13:37:13.873Z) equals the venue ETH long book's
+          updated_time to the MILLISECOND.
+    ⚠️ (2) IS EVIDENCE ABOUT OUR READ, NOT ABOUT THE ACCOUNT. The manager
+    reported it to the operator as "there is no ETH trade" and that was the
+    SAME error a second time, in the opposite direction: an empty result
+    reported as a fact about the world. An instrument's silence is a fact
+    about the instrument.
+    WHAT IS ESTABLISHED ABOUT THE READ, and it is a real integration defect:
+    every Bybit position read passes a HARDCODED settleCoin="USDT"
+    (clients.py:1374, :1892), cross-checks only the four symbols in the account
+    config, and pins one category from market_type. No position read anywhere
+    passes baseCoin. And the key is NOT looking at the wrong account -- it
+    returns the operator's XRP position with the operator's exact bracket
+    levels (TP 1.5535 / SL 1.3463), so it reads that book correctly and omits
+    the ETH row from it. Under investigation on MI-221.
 
   the_structural_fact: >-
     Every protective sweep in the system anchors to one of exactly TWO lists,
