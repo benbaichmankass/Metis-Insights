@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-route-two-lanes-20260909T2152",
-  "claimed_at": "2026-09-09T21:53:00Z",
-  "purpose": "Manager: land the registry rows and checklist items for the two lanes spawned onto the approved decisions (MI-227, MI-228)"
+  "branch": "claude/mgr-lease-hb-20260909T2226",
+  "claimed_at": "2026-09-09T22:26:30Z",
+  "purpose": "Manager: lease heartbeat + fresh supervision record for the two live lanes. Supersedes the GHOST claim left on claude/mgr-route-two-lanes-20260909T2152, which merged as 42d3310be (BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST)"
  },
  "active_sessions": [
   {
