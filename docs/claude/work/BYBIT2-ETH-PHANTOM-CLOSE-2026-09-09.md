@@ -981,7 +981,16 @@ trade 5471, and the answer is that trade 5471 had brackets the entire time.**
    a **second, independent endpoint** that never touches `position/list`. The close was the venue's stop
    filling — it is **not** our monitor stamping a label on a position it had lost.
 
-### Against the three pre-registered outcomes — the answer is NONE of them
+### Against the three pre-registered outcomes — ⚠️ THIS SUBSECTION IS CORRECTED IN § 19
+
+⚠️ **The heading below read "the answer is NONE of them" and the argument that follows is WITHDRAWN as a
+quibble** — see § 19's closing subsection. The manager graded this **outcome (a)**, and (a) is right: `UNKNOWN`
+is Bybit's normal value for an order that was never cancelled, and `order_status` carries the fact. The two
+records now agree. The paragraph is preserved rather than deleted because the one precision inside it does
+survive and is the substantive point: **the stop FILLED rather than being cleared**, which is why
+`exit_reason='sl'` is corroborated rather than merely consistent.
+
+### The original argument, preserved as written
 
 The manager pre-registered (a) legs consumed at the close, (b) a cancel days earlier, (c) could-not-look.
 **The result is a fourth thing, and it must not be filed as (a):** (a) describes legs *cancelled* by a
@@ -1046,3 +1055,104 @@ Every call in this section was a **GET**. **No order was placed, modified or can
 account.** No Tier-2/3 change was enacted. `BYBIT_GRADED_COVERAGE_MODE` is untouched and its arming remains
 **held** on the operator's 2026-09-02 decision — a single reconstructed case is not the soak, and this section
 is not one either.
+
+---
+
+## § 19 — Branch (B): the terminal-display hypothesis, its MECHANISM confirmed, its UI half still open
+
+§ 18 closed branch (A) and dissolved question (B). What it left is a sighting with no subject: the
+operator saw an ETHUSDT row carrying no brackets, and trade 5471 — the only `bybit_2` ETHUSDT journal row
+open in that window — was protected end to end. **This section is about the leading candidate for that
+sighting, and about how far it is and is NOT established.**
+
+### The hypothesis is the manager's, and it is recorded as theirs
+
+Raised by the manager session (`session_01HrmZ1RRNM4UnEUaFdrPEjj`) at 2026-09-09T17:14Z, and explicitly
+labelled by them as *"a HYPOTHESIS, NOT A FINDING, BECAUSE I HAVE NOT VERIFIED BYBIT'S UI"*:
+
+> Under `BYBIT_TPSL_MODE=partial` the protective levels live on the LEGS and the POSITION row carries
+> nothing. If Bybit's terminal renders its TP/SL column from the position-level fields — the natural thing
+> for it to read — then a **fully protected** Partial-mode position **displays as bracketless / "+ Add"**.
+
+If that holds, the operator's sighting is a display consequence of **our own** `BYBIT_TPSL_MODE=partial`
+choice, not a missing bracket.
+
+### The MECHANISM is now MEASURED, not inferred — my own read
+
+`/api/diag/bybit_open_orders?account_id=bybit_2`, **2026-09-09T17:19:49Z**, `read_state: orders_read`,
+`count: 1`. This is a first-hand read, not a relay of the manager's:
+
+```
+positions[0]   XRPUSDT  Buy 58.5 @ 1.4121   position_idx 1
+               stop_loss: null    take_profit: null    tpsl_mode: null
+orders[0]      PartialTakeProfit  Sell 58.5  trigger 1.5535  reduce_only  Untriggered  tpsl_mode "Partial"
+orders[1]      PartialStopLoss    Sell 58.5  trigger 1.3463  reduce_only  Untriggered  tpsl_mode "Partial"
+```
+
+**Both sides covered — stop leg qty 58.5 against position size 58.5, target leg qty 58.5 against the same
+58.5 — and all three protection fields on the position row are `null`.**
+
+⚠️ **POPULATION: ONE position, ONE read, on ONE account.** That is deliberately not a rate and must not be
+quoted as one — it is a claim about the SHAPE of the row, which one counter-example would refute and which
+no number of further reads would strengthen. What it establishes is that the empty position row and full
+leg coverage **can co-occur**, which is exactly what the hypothesis needs and all it needs.
+
+So the hypothesis's premise is not a guess: under Partial mode the venue genuinely puts nothing on the
+position row. Anything that reads position-level fields sees an unprotected position.
+
+**Corroborated independently by Bybit's own API documentation**, which describes the same split without
+being asked about it — `bybit-exchange.github.io/docs/v5/position/trading-stop`:
+
+> Full position mode: *"This API can be used to **modify** the parameters of existing TP/SL orders."*
+> Partial position mode: *"This API can only **add** partial position TP/SL orders."*
+> …*"Passing these parameters will create **conditional orders** by the system internally."*
+
+Full mode mutates state ON the position; Partial mode creates separate conditional ORDERS. Bybit's help
+centre likewise tells users that untriggered TP/SL orders are checked **from the Current Orders record**.
+
+### ⚠️ WHAT IS STILL NOT ESTABLISHED, AND I DID NOT GUESS IT
+
+**Whether Bybit's web UI reads position-level or leg-level for that column.** Two sessions have now failed
+to establish it: the manager could not, and neither the API reference nor the help-centre article settles
+what the *positions table* renders. That is still the one question that decides the operator's sighting.
+
+**It is answerable in one look, by the operator, at no cost:** the `bybit_2` XRPUSDT position measured
+above is **fully protected on both sides right now**. If its TP/SL column shows the 1.3463 / 1.5535
+levels, the hypothesis is dead. If it shows nothing or "+ Add", the hypothesis is confirmed on a position
+we have independently proven is covered. **That is a positive control, not a leading question** — we know
+the answer the venue holds, so either outcome is informative.
+
+⚠️ **It is NOT a non-issue even if confirmed.** It would mean the operator cannot distinguish a genuinely
+naked position from a fully protected one by looking at the terminal, **on a real-money account**. That is
+a monitoring defect in its own right, and arguably the most valuable thing this investigation produced.
+
+### The defect I CAN state, bounded honestly
+
+Independent of what Bybit renders, our own position row has the same expressive gap:
+`_bybit_position_row` (`src/units/accounts/clients.py`) maps position-level `stopLoss` / `takeProfit` /
+`tpSlMode` straight through, so under Partial mode **it emits `null` for all three at once**. `stop_loss:
+null` therefore means *unprotected* and *protected on the legs* indistinguishably, and `tpsl_mode` — the
+field that should discriminate — is `null` too. **The row cannot state its own protection status.**
+
+⚠️ **And here is the half that stops this being a live bug, which I checked rather than assumed:** both
+callers of `_bybit_position_row` are inside `account_bybit_open_orders`, which **always ships the resting
+legs in the same payload**. So a consumer of that route can tell, and **no consumer of ours is blind
+today**. The row is safe only because of a property of its one current caller — not because it is
+well-formed. Filed as `BL-20260909-A-BYBIT-POSITION-ROW-CANNOT-STATE-ITS-OWN-PROTECTION-UNDER-PARTIAL-MODE`.
+
+⚠️ **Do not read this as "our surfaces are blind too."** An earlier draft of this section said that, and it
+was wrong in the direction that manufactures alarm.
+
+### One correction to § 18, applied in place
+
+§ 18 argued this payload was *"none of (a)/(b)/(c)"* rather than outcome (a), because (a)'s wording called
+for a venue-side `cancel_type` on both legs while the stop reads `cancel_type UNKNOWN` / `Filled`. **That
+objection is withdrawn as a quibble.** `UNKNOWN` is Bybit's normal value for an order that was never
+cancelled, and `order_status` carries the fact — so this is **outcome (a)**, as the manager graded it, and
+the two records now agree. The one precision that survives is the substantive one: the stop **filled**
+rather than being cleared, which is why `exit_reason='sl'` is corroborated rather than merely consistent.
+
+Also pinned, because the two relays state it differently and a later reader would trip: the stop was
+created **3 ms after the entry order was CREATED** (`…13.935Z` → `…13.938Z`) and **0 ms after that entry
+FILLED** (`updated_time …13.938Z`). Both are true of different anchors; the protection-relevant one is the
+fill, because that is when there was a position to protect.
