@@ -1,0 +1,74 @@
+id: WO-20260909-REQUIRED-GUARDS-WITH-NO-PROVEN-FAILURE-PATH
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Make every guard in the REQUIRED merge context prove it can turn red, and build the
+  instrument that measures which ones cannot
+stage: INTEGRITY
+lifecycle: in_flight
+owner: MI-226 (unassigned at creation; set on spawn)
+opened_at: 2026-09-09
+review_trigger: >-
+  The deliverable is a guard OBSERVED FAILING on a planted violation, plus a
+  ratcheting instrument. A green guard is not evidence; that is the whole finding.
+
+done_condition: >-
+  THREE PARTS, and they are different facts -- say WHICH you delivered rather than
+  closing on the easiest.
+  (1) THE INSTRUMENT (F-01): scripts/ci/check_guard_selftest_coverage.py whose
+  DENOMINATOR IS THE FILESYSTEM GLOB (scripts/check_*.py + scripts/ci/check_*.py),
+  never the self-test registry -- measuring the registry rather than the population
+  is the exact defect check_selftest_wiring.py has (F-61: 8 of 74 guards invisible
+  to it, including 4 that ship a --self-test run_guards.py never invokes). It must
+  print covered/total so the DENOMINATOR IS VISIBLE IN THE LOG, carry a named+dated
+  exemption file, and ratchet upward only. HARD RULE: a guard reachable from
+  run_guards.py may NOT be exemption-listed when its blast radius is accounting or
+  money-at-risk.
+  (2) THE FOUR WITH NOTHING (F-05): check_provenance_consumers, check_strategy_coverage,
+  check_news_feed_coverage, check_workflow_failure_swallow each gain a failure path
+  that is RUN and OBSERVED FAILING on a planted violation. provenance-consumer-guard
+  is the load-bearing one -- promoted to REQUIRED on 2026-07-30 precisely because a
+  write-only provenance signal let a +$247,683.78 manufactured-PnL figure accumulate,
+  and it has never been shown capable of turning red on that axis.
+  (3) THE FOUR THAT SHIP A SELF-TEST NOBODY INVOKES (F-61): check_cost_model_single_owner,
+  check_role_pack_operating_layer, check_tp_venue_cap_single_owner,
+  check_workflow_trigger_reachability -- self-test code present, invoked=0.
+  !! A PASSING SELF-TEST IS NOT THE CRITERION. The criterion is the guard OBSERVED
+  RETURNING NON-ZERO on a violation you planted, then passing once you remove it.
+  Per F-01's own note, each self-test must assert on main([...])'s return or a
+  subprocess return code -- a self-test that prints and always exits 0 is the
+  presence-only failure this repo already paid for with the # data-wiring: marker.
+  !! DO NOT CLOSE ON THE 21. The audit states its own limit: 21 guards have a pytest
+  file naming them but it was NOT verified that any plants a violation. They are
+  UNPROVEN, NOT DISPROVEN. Either verify them and say so with the count, or leave
+  them explicitly out of scope -- never fold them into a covered number.
+  !! NEVER SKIP, DISABLE OR WEAKEN A GUARD to make this tractable. If a guard cannot
+  be made to fail, that is the finding and it gets FILED, not worked around.
+
+why: >-
+  From the MI-225 /full-system-audit (#11571, landed 566c0ff4c), findings F-01, F-05
+  and F-61 -- F-05 is the audit's own "sharpest Phase 0 finding". The audit's
+  INADMISSIBLE GREENS table exists because a required gate whose green has never been
+  shown capable of turning red is not evidence, and later phases may not accept it as
+  such. The repo's OWN stated standard, quoted from branch-protection-sync.yml's
+  promotion comment for diagnostic-provenance-guard, is that "the workflow SELF-TESTS
+  its own failure path on every run" -- so this is not a new bar, it is a bar four
+  required guards were promoted past without meeting. Tier-1 throughout (CI/tooling),
+  so it needs no operator approval; it was chosen as the ONE routed lane because the
+  WIP ceiling stood at 7 of 8 when the audit landed.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager on routing. Nothing blocks it: the guards are in
+  the repo, run_guards.py is the population, and planting a violation is local work
+  needing no VM, no credential and no operator decision. What it needs is care, not
+  access.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed audit)
+
+limits: >-
+  Stated at creation so the lane does not have to discover them: the audit's n=4 for
+  F-05 rests on a grep of tests/ for the guard's module name, which OVER-credits (a
+  file naming a guard need not exercise it) and therefore UNDER-reports the true gap.
+  The 21 are the visible residue of exactly that. And F-01's own detector cannot see a
+  guard invoked by a path other than run_guards.py.

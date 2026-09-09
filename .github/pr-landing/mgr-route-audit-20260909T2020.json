@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager routing writes only: one new work object, the sub-session registry row, the checklist close/open, and one backlog row filed through backlog_append. No src/, tests/, config/, deploy/ or workflow path."
+}
