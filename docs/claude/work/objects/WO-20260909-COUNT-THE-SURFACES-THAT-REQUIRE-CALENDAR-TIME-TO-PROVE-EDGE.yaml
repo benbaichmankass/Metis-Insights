@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   How many operating-layer surfaces require CALENDAR TIME to pass before an EDGE verdict is possible? One is confirmed; nobody has counted the rest
 stage: EVIDENCE
-lifecycle: in_flight
+lifecycle: done
 owner: session_01KSZCUtFKze3k7ZvxnTnD4T
 opened_at: 2026-09-09
-closed_at: null
+closed_at: 2026-09-09
 review_trigger: >-
   Operator-approved as a full sweep. Re-read if the count comes back zero, which
   would itself need explaining given a known instance exists. DISCHARGED 2026-09-09: #11529 landed on main as
