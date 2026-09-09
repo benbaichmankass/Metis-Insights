@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The prop status-request pings on wall-clock age alone, so a genuinely quiet account is indistinguishable from one that moved and was never reported
 stage: DECIDED
-lifecycle: in_flight
+lifecycle: done
 owner: session_01FoASvmUGuahCphE1cewPPs
 opened_at: 2026-09-09
-closed_at: null
+closed_at: 2026-09-09
 review_trigger: >-
   Operator-raised. Re-read if the prop bridge changes shape or if breakout_1 is
   retired; otherwise it stays ready until owned.
@@ -106,3 +106,30 @@ manager_blocked_on_basis_preserved: >-
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
 continued_by: MI-214 session_01FoASvmUGuahCphE1cewPPs (PR #11530)
+
+verification: >-
+  OBSERVED 2026-09-09T22:52Z by the owner session. THE HALF THE OPERATOR ASKED
+  FOR IS PROVEN ON THE FLEET; THE REGRESSION HALF IS NOT, AND THAT RESIDUAL IS
+  CARRIED BY OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED,
+  NOT BY THIS OBJECT — read that row for the full evidence. In short: the running
+  process was confirmed to carry 07c2d12e by merge-base --is-ancestor; breakout_1's
+  `last_request` was still 2026-09-09T07:47:07Z, 3.10h past its 19:47Z due time,
+  while `last_verdict: quiescent` with `last_assessed_at` 22 seconds before the
+  read proved the module RAN and CHOSE not to ask. The counterfactual holds
+  (`last_age_hours` 243.32 against a 24h threshold, /api/bot/prop/status grading
+  `status_freshness: stale`), so the old trigger WOULD have fired. The 07:47Z ask
+  a concurrent audit cited is NOT evidence about this change: it fired 3h43m
+  before #11530 (ffd13fa2, 11:30:09Z) existed.
+  ⚠️ NOT OBSERVED, AND DELIBERATELY NOT CLAIMED: the ask FIRING for a real
+  trigger. breakout_1 held no open position and no exposing ticket across the
+  whole window, so the population is EMPTY — an absent denominator, not a
+  negative result. A change that silenced everything would look identical to
+  success on what was observed.
+  ⚠️ AND ONE CONSEQUENCE IS RECORDED RATHER THAN LEFT IMPLIED: with the
+  suppression working, nothing chases breakout_1's snapshot while it is flat, so
+  the escalation half of BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED
+  is now MORE load-bearing, not less — the account sits $87.34 from its static DD
+  floor with day_pnl_state 'realized_unreported'.
+  ⚠️ done_condition clause (a) is NOT met as literally written; see
+  divergence_from_done_condition and operator_decision above, where that was
+  raised and ruled on rather than quietly satisfied.
