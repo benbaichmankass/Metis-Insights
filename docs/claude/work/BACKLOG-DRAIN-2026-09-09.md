@@ -155,7 +155,7 @@ These make the next session's job cheaper and are the honest alternative to a fa
 
 | row | what today established |
 |---|---|
-| `…ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY` | **(1) CLEARED** — detector observed on the named surface (`position 72.0 … stop for only 16.0 — 56 unprotected`), and **discriminating** (also fired on two new USO positions). **(2) NOT cleared — the exhibit WORSENED to 75.0 vs 0.0**; see §6 |
+| `…ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY` | **(1) CLEARED** — detector observed on the named surface (`position 72.0 … stop for only 16.0 — 56 unprotected`, 2026-09-08T11:08:10Z), and **discriminating** (also fired on two new USO positions). **(2) NOT cleared** — but see §6: the exhibit went 72/16 → 75/0 on 09-08 and is **75/75 covered on the live 09-09 read**, so the naked condition closed rather than worsening. Part (2) still wants an *attributed* disposition, which nobody has established |
 | `…ALPACA-ACCEPTS-THE-CANCEL-WITH-A-2XX…` | INSTANCE clause cleared — `cancel_accepted_ineffective` observed in the live ledger and in 6 real `close_failure` bodies. 3 clauses remain |
 | `…WEDGE-LEDGERS-VANISH-CLOCK…` | Mechanism re-confirmed in code; `last_seen` **7.5 h stale while the sweep runs every pass**. `observation_gap_at` is NOT the fix. Dated prediction due 2026-09-11 |
 | `…BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN` | **Third** absent read; criterion (c) re-classification now DUE. Positive control: 44 of 46 siblings present |
@@ -169,11 +169,32 @@ These make the next session's job cheaper and are the honest alternative to a fa
 
 Neither re-opens a standing decision; both report that facts moved under one.
 
-1. **The TLT exhibit worsened.** The standing decision *"the 56 naked TLT shares on trade 5414 stay
-   naked"* was made against a **72-share position carrying a 16-share stop**. As of
-   2026-09-08T13:37:36Z the feed reads **`position 75.0 carries a resting stop for only 0.0 — 75
-   unprotected`**: the 16-share stop is gone, so trade 5266's bracket has vanished too and the whole
-   short is naked. Recorded, not acted on. (`alpaca_portfolio` is a paper margin book.)
+1. **The TLT exhibit — CORRECTED 2026-09-09T08:22Z, and the correction is the point.**
+   ⚠️ **An earlier version of this section said "the whole short is naked" in the PRESENT tense. That was
+   WRONG, and wrong in the way this document is otherwise about.** The evidence behind it was **dated log
+   rows from 2026-09-08** (`alpaca_partial_stop_coverage detected: alpaca_portfolio/TLT: position 75.0
+   carries a resting stop for only 0.0 — 75 unprotected`, at 2026-09-08T13:37:36.743503Z) reported as
+   though it described the fleet now. That is a **DATED SNAPSHOT read as a live read** — the exact
+   collapse `check_trainer_capture_watch.py` prints a standing warning about, made in a session whose
+   central finding is provenance discipline. State the population; I did not, on this one.
+   **THE LIVE READ** (`/api/diag/alpaca_open_orders`, `read_state: orders_read`, 2026-09-09T08:22Z):
+   `alpaca_portfolio` holds TLT **short 75** against a resting **buy-75 stop @ 82.40** (`held`,
+   submitted **2026-09-08T18:49:44Z**) — **fully covered, 75 of 75.** The naked window opened at
+   13:37:36Z and closed roughly five hours later, on 09-08; my report of it was ~19h stale.
+   So the standing decision's premise DID move, but the other way: it was made against 72 shares with a
+   16-share stop (22% covered); the position is now 75 and the 16-share stop is gone, **replaced by a
+   75-share stop covering the whole position** (100%). The `partial_stop_coverage_alert_state` latch
+   corroborates — `sev=56` last fired 2026-09-08T11:08:10Z, `sev=75` last fired 2026-09-08T13:37:36Z,
+   and **nothing has fired since**.
+   ⚠️ **NOT ESTABLISHED: what placed that stop.** The Alpaca broker-naked sweep re-arming is the obvious
+   candidate and was NOT observed. An unattributed repair is not evidence a mechanism works — this repo
+   has already been bitten by crediting one (the `PROTECTION_REASSERT_MODE` exhibit that vanished).
+   Nothing was acted on either way. (`alpaca_portfolio` is a paper margin book.)
+   ⚠️ **A route discrepancy, reported and NOT filed as a defect:** `/api/bot/positions` at
+   2026-09-09T07:44:55Z returned only `bybit_2` XRPUSDT and no TLT, while `/api/diag/alpaca_open_orders`
+   shows TLT open on TWO Alpaca accounts (`alpaca_paper` short 707, `alpaca_portfolio` short 75) at
+   08:22Z. Both reads are honest; the `/api/bot/positions` route does not surface these accounts.
+   Whether that scoping is deliberate is NOT established, which is why this is an observation.
 2. **`/api/bot/db/tables` serves the money DB's tables and rows to anyone on the internet, today.**
    ⚠️ **This is NOT the closed diag-token question and must not be filed under it.** That decision
    concerns `/api/diag/*`, which is read-only and at least **bearer-gated**. This is a *different*
