@@ -1,0 +1,113 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+
+id: WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Three order packages are closed while holding four open legs, one on real-money bybit_2 -
+  operator answered: detector as a FAIL, and re-attach the legs
+stage: INTEGRITY
+lifecycle: ready
+owner: null
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD
+  plus a Tier-2 writeback that must be shown to the operator first. RE-READ THE FOUR LEGS LIVE
+  before acting - the 16:47Z reading is a dated observation and one or more may have closed
+  since.
+
+done_condition: >-
+  BOTH, and they are different facts - say WHICH you delivered. (a) DETECTOR:
+  package_leg_coverage.verdict in {stranded, divergent}, RESTRICTED TO LIVE LEGS, is promoted
+  into system_invariants.py so it lands in the suite's exit code rather than only in a latch
+  file, and it is OBSERVED failing on a planted stranded live leg and passing once removed. (b)
+  RE-ATTACH: all four legs - 4347, 5265, 5474, 5475 - have a managing package again, verified by
+  reading them back off /api/bot/positions AND the journal, not from the change that made it. !!
+  (b) IS A JOURNAL REPAIR: the venue positions are NOT to be touched, and a leg that has closed
+  at the venue in the meantime is reconciled as closed rather than re-attached. !! A CONTINUING
+  ZERO FROM THE PROMOTED DETECTOR IS NOT EVIDENCE until it has been seen failing on a planted
+  case - the latch it replaces was quiet for the same reason nobody read it.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the four legs are named with
+  their accounts and ids, the detector already exists and needs promoting rather than writing,
+  and the operator has answered. !! `ready` means answered and buildable, NEVER in progress, and
+  the re-attach half additionally owes the operator its exact diff before it is applied.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS
+    question: >-
+      Three order packages are CLOSED in the journal while still holding four OPEN legs the
+      monitor cannot manage, one of them trade 5474 on real-money bybit_2 - the one real-money
+      position in the whole book. Promote package_leg_coverage.verdict in {stranded, divergent},
+      restricted to live legs, into system_invariants.py as a FAIL, and/or re-attach the four
+      standing legs? Tier-2.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-39. pkg-32a5162bbbdd4ef6 SPY 'package closed (exchange_flat_reconciled) with 1
+      open leg' -> 4347 alpaca_paper; pkg-785d9a600c894c81 TLT same shape -> 5265 alpaca_paper;
+      pkg-293021e2e84a48db XRPUSDT 'package closed (reconciler_filled) with 2 open legs' -> 5474
+      bybit_2 (REAL MONEY, open since 2026-09-08) and 5475 bybit_portfolio. All four confirmed
+      still open on /api/bot/positions?include_paper=true at 2026-09-09T16:47Z. Today the
+      verdict lands only in a latch file whose LIVE rows are 15% of its contents, so it never
+      reaches the suite's exit code.
+    options:
+      - key: detector_and_reattach
+        label: Detector as a FAIL, and re-attach the four legs
+        implication: >-
+          Ship the invariant promotion AND put the four standing legs back under monitor
+          management. JOURNAL / state repair only - no order placed, modified or cancelled on
+          any account, least of all bybit_2. The re-attach is itself a Tier-2 DB writeback and
+          the exact change comes back before it is applied.
+      - key: detector_only
+        label: Detector as a FAIL only
+        implication: >-
+          Cheapest and lowest-risk; this class fails the suite from now on. Consequence: trade
+          5474 stays live on real money with no managing package until something else picks it
+          up, and nothing today is scheduled to.
+      - key: investigate_first
+        label: Investigate 5474 first, detector after
+        implication: >-
+          Establish how the package closed as reconciler_filled while two legs stayed open,
+          before changing any detector. Slower; the detector stays unable to fail the suite
+          meanwhile.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:33Z. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE STANDING REQUEST
+        WAS 'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. These two are the LAST of the audit's six: four were answered at
+        21:15Z (landed e1518aecd) and these two had never been put to the operator at all.
+      chosen: detector_and_reattach
+      free_text: >-
+        Operator chose BOTH on 2026-09-09: promote the detector to a FAIL and re-attach the four
+        standing legs. This is the Tier-2 approval. !! THE SCOPE LIMIT IS PART OF THE APPROVAL,
+        NOT A MANAGER'S GLOSS - it was stated in the option the operator selected: this is a
+        JOURNAL / STATE repair ONLY. NO order may be placed, modified or cancelled on any
+        account, and emphatically not on bybit_2. !! AND THE RE-ATTACH IS NOT PRE-APPROVED AS A
+        DIFF: it is a Tier-2 DB writeback and the exact change comes back to the operator before
+        it is applied. A lane that reads this as licence to touch trade 5474 at the venue has
+        misread it. !! THE STANDING PROHIBITION HOLDS: do not remediate by cancelling resting
+        legs - the one prior attempt at that cancelled the leg that MATCHED the journal
+        (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG).
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:33:00Z'
+      note: >-
+        Manager session. The last of the six the full-system audit filed and did not take.
