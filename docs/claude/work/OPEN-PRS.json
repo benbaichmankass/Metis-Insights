@@ -62,25 +62,6 @@
         "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
       },
       "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
-    },
-    {
-      "pr": 11546,
-      "title": "Name the prop balance refusal, and make MI-214's QUIESCENT verdict observable (MI-214b, Tier-2, HELD)",
-      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
-      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
-      "tier": "tier_2",
-      "state": "held_awaiting_operator",
-      "draft": true,
-      "opened_at": "2026-09-09T11:5xZ",
-      "blocker": "Tier-2 operator OK. Two files under src/. Auto-merge NOT armed, no merge slot claimed.",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The operator approved 'fix it next, as its own PR' for BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED — i.e. the CLASS of work, as a separate PR, NOT this diff. ⚠️ AND THE APPROVED PREMISE TURNED OUT TO BE FALSE, which is why this is not recorded as a plain `approved`: they were told the refusal 'reaches nobody', and it does not — silent_refusal_alert already reads the same rows. A successor must not read the earlier approval as covering this diff unread; what it covers is that SOME fix in this area was wanted.",
-        "scope": "Separate PR from #11530, must not widen it. Does NOT authorise a CAUSE_MIN_ROWS override (deliberately not added — the event has never occurred, so there is nothing to size a lowered floor from), and does NOT authorise routing the sizing branch to _emit_execution_failure_ping (withdrawn: enqueue_execution_failure has no rate limiting, so it would ping per-signal per-tick — the alarm fatigue #11530 just removed).",
-        "decided_on": "2026-09-09",
-        "text": "Operator chose 'Fix it next, as its own PR' from a popup, over 'Leave it filed for now' and 'No alert needed — record the decision'. The manager's routine independently relayed the same: 'Start it as a SEPARATE PR once #11530 lands — the operator explicitly chose fix it next over fix it inside #11530.' ⚠️ Both were given the ORIGINAL, INCORRECT diagnosis. The correction is on the PR and in the backlog row."
-      },
-      "note": "⚠️ THIS PR IS SMALLER THAN WHAT WAS AUTHORISED, BECAUSE MY OWN DIAGNOSIS WAS WRONG AND IS CORRECTED IN IT. Measured 2026-09-09T11:3xZ from /api/diag/journal?table=trades&limit=1000: the 4 rows my backlog row cited as prop sizing refusals are `balance() returned None` on ib_paper/alpaca_paper/alpaca_portfolio — the NON-prop branch, a different cause on different accounts; breakout_1 has ZERO rows and zero rows anywhere contain 'prop_balance', so the prop refusal has NEVER FIRED. And 'reaches nobody' is false: log_rejection_to_journal writes to `trades`, which silent_refusal_alert reads. || WHAT A REVIEWER MUST CHECK, in order of consequence: (1) THE CADENCE-FILE SHAPE CHANGED and the live VM holds the OLD bare-string shape RIGHT NOW — misreading it would re-ask the whole fleet on the first tick after deploy, silently resetting the cooldown #11530 exists to bound. Two tests pin it; a mutant that drops the string branch fails both. (2) The QUIESCENT path must NOT stamp `last_request`, or every tick restarts the 12h cooldown and a genuine ask is suppressed forever. Mutation-tested. (3) The cause-rule ORDERING is the actual fix — the journalled reason contains BOTH tokens and first-match-wins — so a test asserts the tuple index, not just the outcome. || It also fixes a defect in #11530 itself: QUIESCENT was logged at DEBUG, so the suppression left no trace (zero prop_status_request mentions in 400 journal lines while the tick was alive with 24 heartbeat mentions), which BLOCKS #11530's own done_condition (3). || No order decision changes: no sizing, no routing, no gate, no threshold."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1957,10 +1938,33 @@
       "merge_sha": "ffd13fa2521588adaa56711d3460f35701c33222",
       "observed_at": "2026-09-09T12:29:17Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11546,
+      "title": "Name the prop balance refusal, and make MI-214's QUIESCENT verdict observable (MI-214b, Tier-2, HELD)",
+      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "tier": "tier_2",
+      "state": "held_awaiting_operator",
+      "draft": true,
+      "opened_at": "2026-09-09T11:5xZ",
+      "blocker": "Tier-2 operator OK. Two files under src/. Auto-merge NOT armed, no merge slot claimed.",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The operator approved 'fix it next, as its own PR' for BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED — i.e. the CLASS of work, as a separate PR, NOT this diff. ⚠️ AND THE APPROVED PREMISE TURNED OUT TO BE FALSE, which is why this is not recorded as a plain `approved`: they were told the refusal 'reaches nobody', and it does not — silent_refusal_alert already reads the same rows. A successor must not read the earlier approval as covering this diff unread; what it covers is that SOME fix in this area was wanted.",
+        "scope": "Separate PR from #11530, must not widen it. Does NOT authorise a CAUSE_MIN_ROWS override (deliberately not added — the event has never occurred, so there is nothing to size a lowered floor from), and does NOT authorise routing the sizing branch to _emit_execution_failure_ping (withdrawn: enqueue_execution_failure has no rate limiting, so it would ping per-signal per-tick — the alarm fatigue #11530 just removed).",
+        "decided_on": "2026-09-09",
+        "text": "Operator chose 'Fix it next, as its own PR' from a popup, over 'Leave it filed for now' and 'No alert needed — record the decision'. The manager's routine independently relayed the same: 'Start it as a SEPARATE PR once #11530 lands — the operator explicitly chose fix it next over fix it inside #11530.' ⚠️ Both were given the ORIGINAL, INCORRECT diagnosis. The correction is on the PR and in the backlog row."
+      },
+      "note": "⚠️ THIS PR IS SMALLER THAN WHAT WAS AUTHORISED, BECAUSE MY OWN DIAGNOSIS WAS WRONG AND IS CORRECTED IN IT. Measured 2026-09-09T11:3xZ from /api/diag/journal?table=trades&limit=1000: the 4 rows my backlog row cited as prop sizing refusals are `balance() returned None` on ib_paper/alpaca_paper/alpaca_portfolio — the NON-prop branch, a different cause on different accounts; breakout_1 has ZERO rows and zero rows anywhere contain 'prop_balance', so the prop refusal has NEVER FIRED. And 'reaches nobody' is false: log_rejection_to_journal writes to `trades`, which silent_refusal_alert reads. || WHAT A REVIEWER MUST CHECK, in order of consequence: (1) THE CADENCE-FILE SHAPE CHANGED and the live VM holds the OLD bare-string shape RIGHT NOW — misreading it would re-ask the whole fleet on the first tick after deploy, silently resetting the cooldown #11530 exists to bound. Two tests pin it; a mutant that drops the string branch fails both. (2) The QUIESCENT path must NOT stamp `last_request`, or every tick restarts the 12h cooldown and a genuine ask is suppressed forever. Mutation-tested. (3) The cause-rule ORDERING is the actual fix — the journalled reason contains BOTH tokens and first-match-wins — so a test asserts the tuple index, not just the outcome. || It also fixes a defect in #11530 itself: QUIESCENT was logged at DEBUG, so the suppression left no trace (zero prop_status_request mentions in 400 journal lines while the tick was alive with 24 heartbeat mentions), which BLOCKS #11530's own done_condition (3). || No order decision changes: no sizing, no routing, no gate, no threshold.",
+      "terminal": "merged",
+      "merge_sha": "07c2d12e4f1307c10a8b3981c6c06344b8a114b9",
+      "observed_at": "2026-09-09T15:59:41Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-09T12:29:17Z",
-  "last_reconciled_sha": "d2a8f4ad07273bf781779132d98b375db5386848",
+  "last_reconciled_at": "2026-09-09T15:59:41Z",
+  "last_reconciled_sha": "07c2d12e4f1307c10a8b3981c6c06344b8a114b9",
   "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
