@@ -109,7 +109,7 @@ a divergence* — violated **inside the reader every sweep is built on**. It is 
 every consumer.
 
 **It has now blocked root-cause on two real-money P1s one day apart**, on two different
-functions: `BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-…` records
+functions: `BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED` records
 *"No repo surface exposes the raw get_positions payload; saying which would be a guess"*,
 and MI-221 § 4c hit the identical wall. That makes it an **instrument gap, not a per-site
 nit**.
