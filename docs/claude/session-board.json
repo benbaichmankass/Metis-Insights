@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-dispatch-landing-lane-0530-20260909",
-  "claimed_at": "2026-09-09T05:45:39Z",
-  "purpose": "Land the dispatch record for the landing-machinery lane (MI-208 + MI-207), operator-approved."
+  "branch": "claude/mgr-dispatch-lane2-0610-20260909",
+  "claimed_at": "2026-09-09T06:10:30Z",
+  "purpose": "Land the lane-2 dispatch record (active management). Held briefly — two worker lanes are live and R13 serialises this slot."
  },
  "active_sessions": [
   {

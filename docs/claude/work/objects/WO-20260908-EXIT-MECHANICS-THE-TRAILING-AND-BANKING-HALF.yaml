@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Exit mechanics: the trailing and banking half, which the ship-blocked matrix never covered
 stage: EVIDENCE
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01JuznkKwm1oYm7bUFc9v23w
 opened_at: 2026-09-08
 closed_at: null
 review_trigger: >-
