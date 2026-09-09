@@ -2034,52 +2034,83 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
 
 
 def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """The RAW Bybit ``get_positions`` rows — un-deduped, un-filtered, zero-size
-    rows INCLUDED — or ``None`` when we could not look.
+    """An EXHAUSTIVE, un-reduced sweep of Bybit's position surface — every
+    category, both settle coins, per-base and per-symbol, cursor followed, plus
+    the raw wallet block — or ``None`` when we could not look.
 
     ⚠️ **THIS IS A DISCRIMINATING INSTRUMENT, NOT A CONVENIENCE READ.** Every
     other Bybit position reader in this repo REDUCES the venue's answer before
-    anyone sees it, and the two reductions are the same two on both:
+    anyone sees it, and the reductions are the same on both:
 
     * ``account_open_positions._emit`` — ``if size <= 0: return`` then
       ``if sym in seen: return`` (dedupe by SYMBOL, no ``position_idx``).
     * ``account_bybit_open_orders`` — the identical ``size <= 0`` skip and
       symbol dedupe.
 
-    So *"the venue is genuinely flat on this symbol"*, *"the venue returned a
-    ZERO-SIZE row"* (the hedge-mode sibling book, routine since
-    ``BYBIT_HEDGE_MODE_SYMBOLS`` was armed 2026-08-30) and *"the venue returned
-    no row for this symbol at all"* are ONE observation to every existing
-    reader. That collapse blocked root-cause on TWO real-money P1
-    investigations one day apart —
-    ``BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED``
-    ("NOT ESTABLISHED: which of ``_flat``'s two triggers fired … No repo
-    surface exposes the raw get_positions payload; saying which would be a
-    guess") and MI-221, where the question *does the VENUE not return it, or
-    does the BOT drop it?* could not be answered at all. This function exists
-    to answer exactly that question and nothing else.
+    So *"genuinely flat"*, *"a ZERO-SIZE row"* (the hedge-mode sibling book,
+    routine since ``BYBIT_HEDGE_MODE_SYMBOLS`` was armed 2026-08-30) and *"no
+    row at all"* are ONE observation to every existing reader.
 
-    **It reduces NOTHING.** No dedupe, no zero-size skip, no side filter. Rows
-    from the ``settleCoin`` page and from each symbol-scoped cross-check are
-    ALL returned, each tagged with the query that produced it, so a symbol
-    present in one and absent from the other is visible rather than merged
-    away.
+    ⚠️ **WIDENED 2026-09-09 (MI-221), AND THE REASON IS A CORRECTION.** The
+    first version sent exactly the same two queries the production readers send
+    — ``settleCoin="USDT"`` on the account's single configured ``category``,
+    then the configured symbol roster — so it could discriminate *how a row was
+    dropped* but was **blind to any book those filters never ask about**. It
+    returned "no ETH row" for an account whose operator was looking at an ETH
+    position on the Bybit web UI at that moment, and that emptiness was reported
+    as a fact about the venue. **An empty read is evidence about the READ.**
+    Three filters, all still live in the production readers, each able to hide a
+    real position:
+
+    1. ``settleCoin`` is HARDCODED ``"USDT"`` (``clients.py`` position reads), so
+       a **USDC-settled** contract — same ``linear`` category — is excluded.
+    2. ``category`` comes from ``_bybit_category``'s single ``market_type``
+       (``bybit_2`` is pinned ``linear``), so **inverse / spot / option are never
+       queried at all**.
+    3. The per-symbol cross-check iterates only the configured roster, so a
+       symbol outside it is never asked for. **No position read anywhere passes
+       ``baseCoin``** — verified by grep across ``src/``: the only ``baseCoin``
+       occurrences are ``marketUnit="baseCoin"`` on the ORDER path.
+
+    ``baseCoin`` is the decisive one: on ``/v5/position/list`` it matches every
+    contract on that base regardless of settlement, so it reaches USDT, USDC and
+    inverse books in one call.
+
+    ⚠️ **AND NOTHING IN THIS REPO FOLLOWED ``nextPageCursor``** — grep for it
+    across ``src/`` returns zero hits, so every position read was page-1-only and
+    a truncated page was indistinguishable from a complete one. This follows the
+    cursor, bounded, and REPORTS both the cursor it saw and the pages it read, so
+    "we followed it" is checkable rather than asserted.
+
+    **It reduces NOTHING.** No dedupe, no zero-size skip, no side filter. Every
+    row is tagged with the query that produced it, so a symbol present in one
+    view and absent from another is visible rather than merged away. The counts
+    are therefore **ROWS, NOT POSITIONS** — one position seen by four queries is
+    four rows, and a reader who treats the counter as a position count will
+    multiply every position. Read ``source_query`` before counting.
 
     ``size`` is reported TWICE on purpose: ``size_raw`` is the venue's own
     string, ``size`` the float. ``_f`` coerces an unparseable value to ``0.0``,
-    which would silently manufacture the very "flat" reading this instrument
-    exists to distinguish, so ``size_parsed`` says whether the float is a
-    reading or a fallback.
+    which would silently manufacture the very "flat" reading this exists to
+    distinguish, so ``size_parsed`` says whether the float is a reading or a
+    fallback.
 
     Per-query state is three-way and never collapsed:
 
     * ``rows_returned`` — the venue answered with at least one row.
     * ``no_rows`` — the venue answered with an EMPTY list. A real, positive
-      measurement of the venue's view.
-    * ``could_not_look`` — the call raised. Says nothing about the world.
+      measurement of the venue's view **for that query only**.
+    * ``could_not_look`` — the call raised. Says nothing about the world. An
+      unsupported ``(category, param)`` pair lands here, which is why an error
+      is NEVER folded into ``no_rows``.
 
-    Top-level ``read_state`` ∈ ``not_bybit`` / ``could_not_look`` /
-    ``raw_read``. Counts are ``None``, never ``0``, when we could not look.
+    ``wallet`` carries the raw UNIFIED balance block — every coin, plus
+    ``totalEquity`` / ``totalPositionIM`` / ``totalOrderIM`` /
+    ``totalAvailableBalance`` **including when they come back EMPTY**, since an
+    empty string is the venue declining to compute, not a zero. This is the
+    **filter-independent** check: initial margin in excess of what the visible
+    positions require proves a position exists that no list returned, whatever
+    any query says.
 
     Read-only: grades nothing, re-arms nothing, opens no order path, cannot
     refuse a trade. Never raises — a failure is a ``None`` or a per-query
@@ -2093,22 +2124,23 @@ def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, A
     client = bybit_client_for(account)
     if client is None:
         return None
+
+    # The account's DECLARED category, recorded for contrast — it is no longer
+    # what bounds the sweep. Resolve failure is not fatal here: the whole point
+    # is that we no longer trust one configured category to name the book.
     try:
         from src.units.accounts.execute import _bybit_category
-        category = _bybit_category(account)
-    except Exception as exc:  # noqa: BLE001  # allow-silent: None = "could not look", the documented degraded state
+        declared_category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: recorded below; the sweep does not depend on it
         logger.warning(
-            "account_bybit_raw_positions(%s): category resolve failed: %s", aid, exc)
-        return None
-    if category == "spot":
-        # Spot carries no derivative position rows, so there is no raw
-        # position payload to discriminate — mirrors both siblings.
-        return None
+            "account_bybit_raw_positions(%s): declared category resolve failed: %s",
+            aid, exc)
+        declared_category = None
 
     queries: list = []
     rows: list = []
 
-    def _shape(p: Dict[str, Any], source: str) -> Dict[str, Any]:
+    def _shape(p: Dict[str, Any], source: str, category: str) -> Dict[str, Any]:
         raw_size = p.get("size")
         parsed = True
         try:
@@ -2118,72 +2150,190 @@ def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, A
             parsed = False
         return {
             "source_query": source,
+            "category": category,
             "symbol": p.get("symbol"),
             "side": p.get("side"),
             "size": size,
             "size_raw": None if raw_size is None else str(raw_size),
             "size_parsed": parsed,
             "position_idx": p.get("positionIdx"),
+            "settle_coin": p.get("settleCoin") or None,
             "avg_price": _bybit_venue_price(p.get("avgPrice")),
             "mark_price": _bybit_venue_price(p.get("markPrice")),
             "stop_loss": _bybit_venue_price(p.get("stopLoss")),
             "take_profit": _bybit_venue_price(p.get("takeProfit")),
             "tpsl_mode": p.get("tpslMode") or None,
             "unrealised_pnl": _bybit_venue_price(p.get("unrealisedPnl")),
+            "position_im": _bybit_venue_price(p.get("positionIM")),
+            "leverage": p.get("leverage") or None,
             "created_time": p.get("createdTime"),
             "updated_time": p.get("updatedTime"),
         }
 
-    def _run(source: str, **kwargs: Any) -> None:
-        try:
-            resp = client.get_positions(category=category, **kwargs)
-        except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look on THIS query; the others still answer
-            logger.warning(
-                "account_bybit_raw_positions(%s): %s query failed: %s",
-                aid, source, exc,
-            )
-            queries.append({
-                "query": source,
-                "query_state": "could_not_look",
-                "row_count": None,
-                "error": f"{type(exc).__name__}: {exc}",
-            })
-            return
-        raw = ((resp or {}).get("result") or {}).get("list") or []
-        for p in raw:
-            if isinstance(p, dict):
-                rows.append(_shape(p, source))
+    def _run(source: str, category: str, **kwargs: Any) -> None:
+        """One logical query, following ``nextPageCursor`` to the end.
+
+        The page cap is a SAFETY BOUND on a live read path, not a belief about
+        how many pages exist: if it is ever hit, ``pages_truncated`` says so, so
+        a truncated sweep can never read as a complete one.
+        """
+        collected = 0
+        cursor: Optional[str] = None
+        pages = 0
+        cursors_seen: list = []
+        max_pages = 10
+        while True:
+            call_kwargs = dict(kwargs)
+            if cursor:
+                call_kwargs["cursor"] = cursor
+            try:
+                resp = client.get_positions(category=category, **call_kwargs)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look on THIS query; every other query still answers
+                logger.warning(
+                    "account_bybit_raw_positions(%s): %s [%s] failed: %s",
+                    aid, source, category, exc,
+                )
+                queries.append({
+                    "query": source,
+                    "category": category,
+                    "query_state": "could_not_look",
+                    "row_count": None,
+                    "pages_read": pages,
+                    "next_page_cursor_seen": cursors_seen or None,
+                    "pages_truncated": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+                return
+            result = (resp or {}).get("result") or {}
+            raw = result.get("list") or []
+            pages += 1
+            for p in raw:
+                if isinstance(p, dict):
+                    rows.append(_shape(p, source, category))
+                    collected += 1
+            cursor = result.get("nextPageCursor") or None
+            if cursor:
+                cursors_seen.append(cursor)
+            if not cursor or pages >= max_pages:
+                break
         queries.append({
             "query": source,
-            "query_state": "rows_returned" if raw else "no_rows",
-            "row_count": len(raw),
+            "category": category,
+            "query_state": "rows_returned" if collected else "no_rows",
+            "row_count": collected,
+            "pages_read": pages,
+            # Reported even when absent, so "we followed the cursor" is
+            # checkable rather than asserted.
+            "next_page_cursor_seen": cursors_seen or None,
+            "pages_truncated": bool(cursor) and pages >= max_pages,
             "error": None,
         })
 
-    _run("settle_coin_usdt", settleCoin="USDT")
-    # EVERY configured symbol is queried, whether or not the settleCoin page
-    # already returned it — the point is to SHOW the disagreement between the
-    # two views, which a `sym in seen` skip would hide. Resolved through
-    # _bybit_configured_symbols so a caller handing in a reduced cfg still gets
-    # the full denominator (its sibling account_bybit_open_orders reads
-    # account['symbols'] directly and silently no-ops on such a cfg).
+    # ---- the raw wallet block (filter-independent) -------------------------
+    wallet: Optional[Dict[str, Any]] = None
+    wallet_state = "could_not_look"
+    wallet_error = None
+    try:
+        wresp = client.get_wallet_balance(accountType="UNIFIED")
+        wlist = ((wresp or {}).get("result") or {}).get("list") or []
+        acct_block = wlist[0] if wlist and isinstance(wlist[0], dict) else {}
+        coins = []
+        for c in (acct_block.get("coin") or []):
+            if not isinstance(c, dict):
+                continue
+            coins.append({
+                "coin": c.get("coin"),
+                # Raw venue strings, NOT floats: an EMPTY string is the venue
+                # declining to compute, which is not a zero and must not be
+                # coerced into one.
+                "equity": c.get("equity"),
+                "wallet_balance": c.get("walletBalance"),
+                "usd_value": c.get("usdValue"),
+                "unrealised_pnl": c.get("unrealisedPnl"),
+                "total_position_im": c.get("totalPositionIM"),
+                "total_order_im": c.get("totalOrderIM"),
+                "available_to_withdraw": c.get("availableToWithdraw"),
+            })
+        wallet = {
+            "account_type": acct_block.get("accountType"),
+            "total_equity": acct_block.get("totalEquity"),
+            "total_position_im": acct_block.get("totalInitialMargin"),
+            "total_maintenance_margin": acct_block.get("totalMaintenanceMargin"),
+            "total_available_balance": acct_block.get("totalAvailableBalance"),
+            "total_margin_balance": acct_block.get("totalMarginBalance"),
+            "total_wallet_balance": acct_block.get("totalWalletBalance"),
+            "coins": coins,
+            # Every coin the wallet knows about, INCLUDING zero balances --
+            # this is what the baseCoin sweep is widened from, so a base we
+            # never configured is still reached.
+            "coins_seen": [c["coin"] for c in coins if c.get("coin")],
+        }
+        wallet_state = "wallet_read"
+    except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look; the position sweep is independent of it
+        logger.warning(
+            "account_bybit_raw_positions(%s): wallet read failed: %s", aid, exc)
+        wallet_error = f"{type(exc).__name__}: {exc}"
+
+    # ---- bases to sweep ----------------------------------------------------
+    # The configured roster is a FLOOR, never the denominator: the roster is one
+    # of the three filters that hid the position, so bounding the sweep by it
+    # would reproduce the defect. Wallet coins are unioned in so a base nobody
+    # configured is still reached.
+    bases: list = []
     for sym in _bybit_configured_symbols(account):
-        if isinstance(sym, str) and sym:
-            _run(f"symbol:{sym}", symbol=sym)
+        if not isinstance(sym, str) or not sym:
+            continue
+        for quote in ("USDT", "USDC", "USD"):
+            if sym.endswith(quote):
+                b = sym[: -len(quote)]
+                if b and b not in bases:
+                    bases.append(b)
+                break
+    for coin in ((wallet or {}).get("coins_seen") or []):
+        if isinstance(coin, str) and coin and coin.upper() not in ("USDT", "USDC", "USD", "DAI"):
+            if coin not in bases:
+                bases.append(coin)
+
+    # ---- the sweep ---------------------------------------------------------
+    # EVERY category, not the one configured. An unsupported (category, param)
+    # pair raises and is recorded as could_not_look -- which is a real and
+    # useful answer, and is why it is never folded into no_rows.
+    for category in ("linear", "inverse", "spot", "option"):
+        if category in ("linear",):
+            _run("settle_coin_usdt", category, settleCoin="USDT")
+            _run("settle_coin_usdc", category, settleCoin="USDC")
+        for b in bases:
+            _run(f"base_coin:{b}", category, baseCoin=b)
+        if category in ("linear", "inverse"):
+            for sym in _bybit_configured_symbols(account):
+                if isinstance(sym, str) and sym:
+                    _run(f"symbol:{sym}", category, symbol=sym)
 
     graded = [r for r in rows if r["size_parsed"]]
+    could_not_look = [q for q in queries if q["query_state"] == "could_not_look"]
     return {
-        "category": category,
+        "declared_category": declared_category,
+        "categories_swept": ["linear", "inverse", "spot", "option"],
+        "bases_swept": bases,
         "queries": queries,
         "rows": rows,
-        # The three counts a reader needs to tell the collapsed states apart.
-        # `zero_size_rows` is the one no other surface can report: a row the
-        # venue DID return that every existing reader discards.
+        "wallet": wallet,
+        "wallet_state": wallet_state,
+        "wallet_error": wallet_error,
+        # ⚠️ ROWS, NOT POSITIONS. One position reached by four queries is four
+        # rows. Read `source_query` before counting anything as a position.
         "row_count": len(rows),
         "nonzero_size_rows": sum(1 for r in graded if (r["size"] or 0.0) > 0),
         "zero_size_rows": sum(1 for r in graded if (r["size"] or 0.0) <= 0),
         "unparseable_size_rows": sum(1 for r in rows if not r["size_parsed"]),
-        "symbols_queried": [q["query"] for q in queries],
+        # The DENOMINATOR. A sweep with queries we could not run is not a clean
+        # negative, and this is what stops it being reported as one.
+        "queries_run": len(queries),
+        "queries_could_not_look": len(could_not_look),
+        "distinct_nonzero_symbols": sorted({
+            str(r["symbol"]) for r in graded if (r["size"] or 0.0) > 0 and r["symbol"]
+        }),
+        "symbols_queried": [f"{q['category']}:{q['query']}" for q in queries],
     }
 
 

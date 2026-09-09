@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP · lane4 hand-run (sweeper not on main)",
-  "branch": "automation/work-digest-34355107317-1",
-  "claimed_at": "2026-09-09T14:27:43Z",
-  "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
+  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
+  "branch": "claude/mi-221-exhaustive-bybit-sweep",
+  "claimed_at": "2026-09-09T14:46:13Z",
+  "purpose": "MI-221 URGENT (PR #11555) — the exhaustive Bybit sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block. Tier-2 by path; auto-merge armed by benbaichmankass 2026-09-09T13:55:35Z. Read-only; no production reader changes, no order path touched. SECOND conflict resolution on this branch, both caused by another commit rewriting merge_slot while this PR waited on CI (#11556 mine, then #11557 automation) — the churn BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION already describes. Displaced claims are SPENT: #11556 merged 7a2a8c7b4, #11557 merged f058af3ad, both verified in the log."
  },
  "active_sessions": [
   {
