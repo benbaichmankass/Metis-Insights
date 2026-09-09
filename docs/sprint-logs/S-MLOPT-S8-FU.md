@@ -1,6 +1,6 @@
 # Sprint Log: S-MLOPT-S8-FU
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-06-06

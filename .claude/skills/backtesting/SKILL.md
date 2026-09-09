@@ -3,7 +3,7 @@ name: backtesting
 description: Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_trend.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps (the M5 `/test` consumer was REMOVED 2026-08-20). Use when the operator says "backtest <strategy>", "run a sweep", "validate this config on history", or asks where backtest code/data/outputs live. NOT for live tuning of config/strategies.yaml params (Tier-3) — this is the evidence-gathering step that precedes that.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /backtesting — run and read ICT strategy backtests
 

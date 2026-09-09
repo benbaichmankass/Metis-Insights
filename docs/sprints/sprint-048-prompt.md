@@ -1,6 +1,6 @@
 # Sprint S-048 — M1 comms infrastructure deep audit (telegram-bot vs new workplan)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Type:** roadmap (auto-claude). M1 reopen.
 > **Tier (expected average):** Tier 1 (read-only audit + docs). Any code change

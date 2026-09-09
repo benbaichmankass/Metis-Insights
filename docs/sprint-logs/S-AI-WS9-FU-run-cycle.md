@@ -1,6 +1,6 @@
 # S-AI-WS9-FU — `run_training_cycle.sh` (body of `ict-trainer.service`)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS9.md`](S-AI-WS9.md), [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md)

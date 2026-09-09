@@ -1,6 +1,6 @@
 # The strategy-review packet grades nothing, on eight consecutive days — and the window/floor pair may be the wrong lever
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 **Unit:** `WO-20260901-PHASE-F` (C3, decision preparation) · session `session_01DUBXxiaZ3PMERcAfcJce7P` · 2026-09-09.
 **Nothing here was enacted.** No `config/`, no `src/`, no order path, no window change, no floor change. This

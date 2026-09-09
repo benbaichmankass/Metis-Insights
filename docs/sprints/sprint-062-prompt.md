@@ -1,6 +1,6 @@
 # S-062 — Dashboard build-out: Sprint B — Models tab + Time & Price tab
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** auto-claude (M6 dashboard UI).
 > **Risk tier:** Tier 1 (read-only consumer of existing

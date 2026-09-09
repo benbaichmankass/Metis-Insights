@@ -1,6 +1,6 @@
 # Deployment ops
 
-> **Doc status:** `live` · category `unknown` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Telegram command surface has changed (PR #1933, 2026-05-25).** The
 > verification commands referenced below (`/halt`, `/resume`, `/set_keys`,

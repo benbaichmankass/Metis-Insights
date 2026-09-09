@@ -1,6 +1,6 @@
 # MetaCopier → Breakout (DXtrade) bridge — DESIGN (2026-06-16)
 
-> **Doc status:** `closed_unfinished` · category `architecture` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `closed_unfinished` · category `architecture` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **The design doc is Tier-1** (analysis only). The *build* it describes is
 > **Tier-2/3** — it adds a new live execution path (a prop account that routes

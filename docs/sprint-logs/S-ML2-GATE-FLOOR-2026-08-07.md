@@ -1,6 +1,6 @@
 # S-ML2-GATE-FLOOR-2026-08-07 — the ML2 cell verdicts were instrument artifacts; the gate had no sample floor
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 

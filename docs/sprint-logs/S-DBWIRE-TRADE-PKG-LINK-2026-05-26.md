@@ -1,6 +1,6 @@
 # Sprint Log: S-DBWIRE-TRADE-PKG-LINK-2026-05-26
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-05-26 11:00 UTC

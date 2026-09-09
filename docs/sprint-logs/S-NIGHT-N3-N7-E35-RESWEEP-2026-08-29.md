@@ -1,6 +1,6 @@
 # Sprint Log: S-NIGHT-N3-N7-E35-RESWEEP-2026-08-29
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-08-29T21:30Z

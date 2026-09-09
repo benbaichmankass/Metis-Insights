@@ -1,6 +1,6 @@
 # Sprint Log: S-E35-SHIP-REVERSED-GEOMETRY-2026-08-30
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-08-30T05:40Z

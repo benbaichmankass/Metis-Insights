@@ -1,6 +1,6 @@
 # Bot API reference — routes, response shapes, and their caveats
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `lookup` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **What this is.** The per-endpoint reference for the FastAPI on `:8001`
 > (`ict-web-api.service`): every route's return shape, the file or table it

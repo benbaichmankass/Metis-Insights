@@ -1,6 +1,6 @@
 # Architecture — Canonical (v2)
 
-> **Doc status:** `live` · category `architecture` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `architecture` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
 
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
 > **Repo:** `benbaichmankass/ict-trading-bot` — **renamed to `benbaichmankass/Metis-Insights`

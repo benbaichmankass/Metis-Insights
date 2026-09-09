@@ -1,6 +1,6 @@
 # MGC remediation — ABORTED, and the attribution the approval rests on is contradicted by the venue
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 Session object: [`WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE`](objects/WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE.yaml).
 Under `IN-20260903-TRADING-SYSTEM-HEALTH`.

@@ -1,6 +1,6 @@
 # S-061 — Dashboard build-out: Sprint A — land PR #5 + close #556 contract loop
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** auto-claude (M6 dashboard UI + M2 backend contract follow-up).
 > **Risk tier:** Tier 1 (read-path bot endpoints; read-only dashboard types).

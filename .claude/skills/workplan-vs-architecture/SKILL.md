@@ -3,7 +3,7 @@ name: workplan-vs-architecture
 description: Reconcile what the project INTENDED to build (the operator's workplan/goals + ROADMAP milestones) against what is ACTUALLY built (ARCHITECTURE-CANONICAL.md + the code/config on disk). Use when the operator asks "are we building what we set out to build?", "what drifted from the plan?", "does the architecture match the roadmap?", or during a periodic governance/audit pass. Produces a drift report: intent items with no implementation, implemented subsystems the plan never described, and stale doc claims. NOT a code review (use `review`) and NOT a runtime health check (use `health-review`).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /workplan-vs-architecture — reconcile intent against reality
 

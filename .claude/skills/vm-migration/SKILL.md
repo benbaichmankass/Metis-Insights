@@ -3,7 +3,7 @@ name: vm-migration
 description: Migrate or decommission a production OCI VM (live trader, trainer, or IB gateway) — provision a candidate, cut over, retire the old box — without leaving loose ends. Use when the operator says "migrate the VM", "move the live trader", "resize the VM", "decommission/terminate the old box", or any change that swaps a VM's identity or public IP. Wraps the runbook + the 2026-06-14 live→Ampere retrospective: its hard lesson is that the *environment contract* (egress IP → broker allowlists, host references, storage topology, decommission hygiene) breaks, not the box copy. Composes with vm-ops, git-actions, diag-data, credentials-and-vm-mutations.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /vm-migration — move or retire a production VM cleanly
 

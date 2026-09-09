@@ -3,7 +3,7 @@ name: new-strategy
 description: Wiring checklist + scaffold for adding a new live trading strategy to the ICT bot. Use when the operator says "add a new strategy", "wire up <strategy-name>", "create a strategy adapter", or asks how to plug a strategy into the execution layer / intent multiplexer. Covers the strategy unit module, signal builder, intent-layer registration, risk allocation, YAML config, account routing, tests, and the activation gate. NOT for tuning an existing strategy's parameters — those are config-only edits to `config/strategies.yaml`.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /new-strategy — wire a new trading strategy through the execution layer
 

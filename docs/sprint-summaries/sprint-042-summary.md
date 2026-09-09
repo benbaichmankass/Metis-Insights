@@ -1,6 +1,6 @@
 # Sprint S-042 Summary — M1: Verify and close the ClaudeBot one-way notification channel
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint:** S-042 | **Milestone:** M1 — Comms infrastructure
 **Type:** auto-claude (roadmap) | **Date:** 2026-05-06

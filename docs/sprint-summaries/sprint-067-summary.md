@@ -1,6 +1,6 @@
 # Sprint S-067 — Silent-empty error path audit & hardening
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Status:** CLOSED ✅ | **Date:** 2026-05-10 | **Branches:** `claude/bot-S-067-cp{2,3,3-borderline,4,5}-*`
 **Predecessor:** `S-066` (Janitor M1 P2 hygiene close-out) | **Successor:** S-047 T6 (queued)

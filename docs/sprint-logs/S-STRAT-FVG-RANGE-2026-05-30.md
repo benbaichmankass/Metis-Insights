@@ -1,6 +1,6 @@
 # S-STRAT-FVG-RANGE — FVG range strategy + system/portfolio backtester
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Date:** 2026-05-30
 > **Branch:** `claude/fvg-range-mean-reversion-h5XUB`

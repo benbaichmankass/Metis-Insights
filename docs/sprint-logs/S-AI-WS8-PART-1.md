@@ -1,6 +1,6 @@
 # S-AI-WS8-PART-1 — Shadow predictions inspector CLI
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-10
 **Authority:** [`docs/AI-TRADERS-ROADMAP.md`](../AI-TRADERS-ROADMAP.md), [`docs/sprint-logs/S-AI-WS7-PART-2.md`](S-AI-WS7-PART-2.md)

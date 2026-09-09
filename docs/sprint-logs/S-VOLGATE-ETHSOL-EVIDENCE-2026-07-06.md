@@ -1,6 +1,6 @@
 # S-VOLGATE-ETHSOL-EVIDENCE-2026-07-06 — ETH/SOL vol-gate go-live evidence (honest negative) + harness vol-replay regression fix
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-07-06

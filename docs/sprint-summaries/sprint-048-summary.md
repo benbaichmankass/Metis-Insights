@@ -1,6 +1,6 @@
 # Sprint S-048 — M1 Comms Infrastructure Deep Audit (fresh re-issue)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Closed:** 2026-05-08 | **Checkpoint:** `CP-2026-05-07-17-s048-fresh-m1-audit`
 **Type:** roadmap (auto-claude) | **Tier:** 1 (audit) + Tier 1/2 (P1 follow-ups)

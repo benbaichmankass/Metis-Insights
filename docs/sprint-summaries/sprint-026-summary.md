@@ -1,6 +1,6 @@
 # Sprint 026 — Decouple position sizing from strategies + audit-log "unknown" attribution
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Dates:** 2026-05-02 (single-session sprint; PRs #281 → #287 + this summary)
 **Checkpoints:** CP-2026-05-02-19 → CP-2026-05-02-22

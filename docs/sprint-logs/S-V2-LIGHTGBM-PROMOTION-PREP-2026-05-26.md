@@ -1,6 +1,6 @@
 # Sprint Log: S-V2-LIGHTGBM-PROMOTION-PREP-2026-05-26
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-05-26 15:15 UTC (immediately after PR #2053 merged into main)

@@ -3,7 +3,7 @@ name: db-wiring
 description: Verify every part of the system that produces data is wired into the canonical store so there is one uncompromised single source of truth. Use when adding a writer/logger, when adding a strategy or account, when data "isn't showing up" in the dashboard/journal, when you suspect a stray/duplicate DB, or as a periodic integrity check. Composes with diag-data and the health-review skill.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /db-wiring — keep one uncompromised single source of truth
 

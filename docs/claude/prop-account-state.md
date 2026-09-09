@@ -1,6 +1,6 @@
 # Prop account state — configuration & gating
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **`/accounts_status` no longer exists (PR #1933, 2026-05-25).** The
 > trader bot is menu-driven; see [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md).

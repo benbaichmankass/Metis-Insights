@@ -1,6 +1,6 @@
 # Sprint Log: S-RECOMB-SWEEP-2026-06-18
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-06-18 (single session; continues S-CROSS-ASSET-DIVERSIFY).

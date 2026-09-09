@@ -1,6 +1,6 @@
 # Sprint Log: S-M28-VALUE-CONSTRUCTION-D4D5-20260727
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-27 (single session; research-driver, continuation of S-M28-VALUE-CONSTRUCTION-P4).

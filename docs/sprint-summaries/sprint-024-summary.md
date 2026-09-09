@@ -1,6 +1,6 @@
 # Sprint 024 — Telegram bot debug + UI overhaul + repo cleanup
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Dates:** 2026-05-02 (single-day autonomous sprint; PRs #265 → #273)
 **Checkpoints:** CP-2026-05-02-03 → CP-2026-05-02-13

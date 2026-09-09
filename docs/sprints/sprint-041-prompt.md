@@ -1,6 +1,6 @@
 # Sprint S-041 — Verify-before-trusting-done: workplan reconciliation sweep
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint type:** Roadmap (docs-only) | **Risk tier:** Tier 1 (all self-merge)
 **Created:** 2026-05-06 | **Branch:** `claude/reconcile-sprint-workplan-CBUWc`

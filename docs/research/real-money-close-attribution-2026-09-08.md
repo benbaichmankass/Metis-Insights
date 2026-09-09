@@ -1,6 +1,6 @@
 # Real-money close attribution — what actually closed the losing trades
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `research` · created `2026-09-08` · MI-200 ·
 > object `WO-20260908-REAL-MONEY-IS-0-FOR-13-AND` · intent `IN-20260903-TRADING-SYSTEM-HEALTH`
 > · cycle priority `CY-20260906-TRADING-TRUTH`
 

@@ -1,4 +1,4 @@
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > ⚠️ **S-041 STATUS NOTE (2026-05-06 — verify-before-trusting-done sweep):**
 > Sprint filed under old `M-S-015` framing; kickoff T0 done (CP-2026-05-06-S-015-01,

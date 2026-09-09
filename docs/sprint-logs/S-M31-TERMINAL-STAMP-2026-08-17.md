@@ -1,6 +1,6 @@
 # S-M31-TERMINAL-STAMP — finality becomes a stored fact
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 - **Sprint ID:** S-M31-TERMINAL-STAMP-2026-08-17
 - **Milestone:** M31 (position telemetry) — **P5 precondition 1**

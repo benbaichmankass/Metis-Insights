@@ -1,6 +1,6 @@
 # Sprint Log: S-E35-RESWEEP-DISPOSITION-2026-08-31
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-31 (single session, ~16:00–17:00Z). Successor to
