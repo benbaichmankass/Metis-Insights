@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register writes only under docs/claude/**, plus the R13 merge_slot claim. Records an evidenced disposition for a closed PR, records two blocked PRs in the merge queue, and executes an operator-decided reword-then-remove on one OPEN-ITEMS row. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
