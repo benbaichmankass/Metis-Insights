@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-hb-0841-20260909",
-  "claimed_at": "2026-09-09T08:41:01Z",
-  "purpose": "manager heartbeat + lane supervision record — displace freely, R13 does not serialize"
+  "branch": "claude/mgr-record-11517-decision-20260909",
+  "claimed_at": "2026-09-09T09:00:58Z",
+  "purpose": "record the operator's Tier-2 approval of #11517 and its accepted cost"
  },
  "active_sessions": [
   {

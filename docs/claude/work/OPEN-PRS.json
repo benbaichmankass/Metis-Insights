@@ -1815,6 +1815,25 @@
       "merged_at": "2026-09-08T07:13:00Z",
       "merge_sha": "e0c264981b09dad97f08ac735f9af2f216c6b414",
       "terminal_basis": "squash e0c26498, the merge call's own return"
+    },
+    {
+      "pr": 11517,
+      "title": "Gate /api/bot/db/* behind require_session (Tier-2)",
+      "owner_session": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
+      "checklist_item": "MI-213-LANE-5-GATE-API-BOT-DB",
+      "tier": 2,
+      "opened_at": "2026-09-09",
+      "terminal": "merged",
+      "settled_at": "2026-09-09T08:57:00Z",
+      "merged_as": "284cbc6c",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "/api/bot/db/* ONLY — the two routes GET /api/bot/db/tables and GET /api/bot/db/table/{table}. The operator chose this NARROW gate OVER full Phase H on 2026-09-09 when the work was first put to them, and that scope was not widened at merge. This approval does NOT license gating any other read route.",
+        "decided_on": "2026-09-09",
+        "text": "Operator typed '11517 approved'. Because that word alone could not distinguish 'approved to merge' from the earlier 'approved to do the work', it was put back to them as an explicit four-option decision carrying the lane's measured blockers: (1) the SPA CANNOT send a bearer — one fetch call site sending only Accept: application/json, zero matches for Authorization|Bearer|login|jwt across all 40 webapp source files, no login screen, no token store; (2) the host CANNOT mint one — POST /api/auth/login returns 500 auth_unavailable because ALLOWED_EMAIL and WEBAPP_PASSWORD_SHA256 are unset on the VM. They were told merging therefore BREAKS the SPA's Data Explorer tab with no way back in until SPA login ships, and what was exposed unauthenticated: /db/table/trades serving REAL ROWS (5589 across 41 columns incl. account_id, broker_order_id, entry_price, exit_price), signals 2,639,949, order_packages 4,500. They chose: 'Merge now, accept losing the tab.' THE BROKEN DATA EXPLORER IS A KNOWINGLY ACCEPTED COST, NOT A REGRESSION — it must not be reverted, and the gate must not be weakened to restore the tab."
+      },
+      "manager_note": "MERGED IS NOT GATED, and the distinction was measured rather than assumed. At 2026-09-09T08:57:59Z, immediately after the merge, /api/bot/db/tables still returned HTTP 200 / 10,494 bytes with no bearer, and /api/diag/version read git_sha aef42ddb, git_sha_on_disk 5c4d601f, restart_pending TRUE — the running web-api predated the merge. deploy_pull_restart.sh restarts ict-web-api.service only when HEAD advances, so the gate goes live on the next git-sync tick. Verification armed at 09:11Z and the owning lane poked to confirm 401 first-hand on BOTH routes. Do not read this row as evidence the surface is closed."
     }
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
