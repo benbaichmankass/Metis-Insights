@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: records the operator's typed Tier-2 decision on #11517 in OPEN-PRS.json, moves MI-213 to landed_unproven, and adds the lane-5 supervision observation. Plus the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
