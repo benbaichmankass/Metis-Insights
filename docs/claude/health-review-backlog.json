@@ -34620,6 +34620,17 @@
       "owner": null,
       "resolution_criteria": "check_soak_doctrine.py is OBSERVED failing on a PLANTED violation on the strategy-review surface -- a positive control -- and passing once it is removed. ⚠️ A GREEN RUN CLEARS NOTHING HERE: green is the state the guard has been in for the entire eight days the rule was being contradicted, so 'the guard passes' is the symptom, not the evidence. ⚠️ AND FIRST ESTABLISH WHETHER IT REACHES THE SURFACE AT ALL: the measured fact is zero TEXTUAL references to strategy_review or MIN_CLOSED, which is not the same as no code path reaching it. Report which of the two you established.",
       "tier": "3 — Tier-3 where it changes what a KILL/DEMOTE verdict rests on; the guard half is Tier-1"
+    },
+    {
+      "id": "BL-20260909-THE-MANAGER-SCOPE-CARVE-OUT-ADMITS-A-MERGE-SLOT-CLAIM-BUT-CANNOT-EXPRESS-A-RELEASE",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "area": "ci-guards",
+      "tier": "1 — CI guard logic only",
+      "summary": "check_manager_scope.py R2 admits a manager commit to docs/claude/session-board.json for EXACTLY one thing: a `merge_slot` claim naming the branch being landed. It cannot express a RELEASE (held_by -> null). OBSERVED 2026-09-09: the manager wrote a release after #11524 merged and R2 refused it with 'merge_slot.branch is None, not this branch'. So a manager who has finished landing has only two moves, and both are bad: leave a STALE claim naming a merged branch, or violate R2. THE STALE-CLAIM BRANCH IS NOT HYPOTHETICAL AND IT HAS A MEASURED COST: earlier the same day the slot sat held for claude/mgr-dispatch-lane2-refill-20260909 for ~25 minutes after its PR #11511 had merged, and lane 2 had to announce and DISPLACE it before it could land #11514. That lane handled it correctly, which is the point - the cost landed on someone else. ⚠️ THIS IS A GAP IN THE CARVE-OUT, NOT AN ARGUMENT TO WIDEN R2. Releasing is a LANDING act by exactly the same reasoning that admits the claim, so the narrow fix is to admit a transition to a null/released slot BY THE SESSION THAT HOLDS IT - never a general permission to write session-board.json, which would re-open the hole the carve-out exists to close. ⚠️ AND NOTE THE MITIGATION THAT ALREADY EXISTS, so this is not urgent: R13 does not serialize (its own docstring says so) and slots are displaced freely, so a stale claim delays rather than blocks. Entry point: scripts/ci/check_manager_scope.py R2, the merge_slot carve-out.",
+      "resolution_criteria": "check_manager_scope.py is OBSERVED passing a manager commit that sets merge_slot.held_by to null where the PRIOR value on origin/main named that same session, AND still FAILING a commit that writes any other session-board.json key or another branch's claim - both halves demonstrated, since a fix that only relaxes is a widening. ⚠️ A manager simply stopping writing releases does NOT clear this: that is the stale-claim branch of the same defect, and its cost is paid by the next session rather than by the manager.",
+      "status": "open",
+      "owner": null
     }
   ]
 }
