@@ -383,3 +383,78 @@ detector can see it either**, and the answer moves to STEP 2: find the key or th
 context that does return it. **That is the honest limit of this proposal and it must not be
 oversold** — a detector that cannot see the motivating instance is not a fix for it, and
 saying otherwise would be the "shipped ≠ working" failure this repo keeps paying for.
+
+---
+
+## 11. AMENDMENT — a THIRD anchor that is blind to neither failing list
+
+⚠️ **§ 10's detector reads the venue POSITION LIST, so it cannot see this position either.** That
+limit was stated when it was written and is now **CONFIRMED, not hypothetical**: a symbol-scoped
+`get_positions(category, symbol="ETHUSDT")` on `bybit_2` returned no `size > 0` row on three
+separate reads (2026-09-09 at 11:27:53Z, 11:28:38Z, 12:20:40Z; all `error: null`, i.e. clean reads).
+A detector anchored on any position read is therefore **not a fix for the motivating instance**, and
+§ 10 must not be shipped as if it were.
+
+**This amendment proposes an anchor that does not read the position list at all.**
+
+### The wallet's own margin accounting is a third, independent source
+
+Bybit reports, per coin, `equity` / `totalPositionIM` / `totalOrderIM` — **what the account has
+PLEDGED**. That is a different endpoint and a different question from *"list my positions"*:
+
+> **If the venue is holding initial margin that the positions we know about do not account for,
+> then a position exists that we cannot see — whether or not the position list returns it.**
+
+**This is not a new technique here; it is already validated in this repo.**
+`src/units/accounts/execute.py::_derive_available_from_coin_block` (docstring, 2026-08-13,
+`BL-20260813-ICTSCALP-BTC-BYBIT2-BALANCE-REJECTS`) records that the venue's own `totalPositionIM`
+sat **0.22%** from a modelled notional/leverage reconstruction, and reproduced a journal
+reconstruction from open legs to **0.05%** ($226.69 vs $226.80). So *modelled IM vs venue IM* is a
+comparison this system has already shown agrees to a fraction of a percent.
+
+### The detector
+
+1. Read the wallet ONCE per account (`equity`, `totalPositionIM`, `totalOrderIM` from **one**
+   response — they must come from the same read or the subtraction is unsound).
+2. Model the IM the positions we KNOW about should pledge: `Σ (notional / leverage)` over the
+   venue rows we can see, plus the journal-open rows.
+3. `residual = venue_totalPositionIM − modelled_IM`.
+4. A residual materially above the tolerance band means **unaccounted pledged margin** — a position
+   is held that no list returned.
+
+### Why this survives the exact failure that defeats everything else
+
+Both failing anchors are enumerations of *things*: the venue's position list (A) and the journal's
+open rows (B). This is an **aggregate** the venue computes over its own book. A position missing
+from a listing still consumes margin, so it cannot hide from the sum. **It is blind to neither list
+because it reads neither.**
+
+Applied to this incident: ETH 0.04 at ~2454 on 3× isolated is **≈32.8 USDT** of IM. `bybit_2`'s
+whole equity is ~259, so an unaccounted ETH would move `totalPositionIM` by **~12.7%** — an order of
+magnitude outside the 0.22% agreement the technique has already demonstrated. **This detector would
+have fired.**
+
+### What it does NOT do — stated before anyone builds it
+
+- ⚠️ **It detects EXISTENCE, not IDENTITY.** It says *"~33 USDT of margin is pledged that nothing
+  explains"*, never *which symbol*. That is still the difference between a loud alarm and the
+  five days of silence this incident actually got, but a design that promises symbol attribution
+  from this signal is overselling it.
+- ⚠️ **It cannot itself re-arm anything.** With no symbol it has nothing to pass to
+  `set_trading_stop`. It is the DETECTOR half; the repair still needs an identity, which is why
+  STEP 1's raw read stays the critical path rather than being superseded by this.
+- ⚠️ **The tolerance band is a real design problem and is not solved here.** Leverage and
+  margin-mode assumptions make the model approximate; cross-margin, a mid-flight order's
+  `totalOrderIM`, and funding all move it. The 0.05%/0.22% figures above are **n = 2 observations
+  on one account on one day** — a precedent that the approach works, *not* a calibrated band. Any
+  build must measure the residual's distribution across accounts and days FIRST and set the band
+  from that, or it becomes the desensitised alarm this repo already calls a P1.
+- **Cost:** one wallet read per account per cadence window — the same call
+  `/api/diag/broker_account_status` already makes. **No per-position broker call**, so it is not
+  the June 2026 wedge shape.
+
+### Honest status
+
+**PROPOSED, not shipped, and not yet costed against real data.** It is Tier-2 (a new alarm on the
+live tick). It is offered because § 10's detector demonstrably cannot see the case that motivated
+it, and shipping only that one would be the "shipped ≠ working" failure this repo keeps paying for.
