@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-11517-decision-20260909",
-  "claimed_at": "2026-09-09T09:00:58Z",
-  "purpose": "record the operator's Tier-2 approval of #11517 and its accepted cost"
+  "branch": "claude/mgr-record-review-packet-verdict-20260909",
+  "claimed_at": "2026-09-09T09:33:00Z",
+  "purpose": "record the operator's rejection of DEC-20260909 and route MI-215"
  },
  "active_sessions": [
   {
