@@ -906,7 +906,7 @@ itself the axis's result: **the coherence guard is sound and its coverage is nar
 
 ### F-47 · `AUD-20260909-claude-md-declares-a-landed-money-path-fix-as-not-applied` — 🔴 stale in the dangerous direction
 
-- **claim:** `CLAUDE.md`'s `BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-…` row states *"Both fixes are Tier-2, written out in the evidence doc and NOT applied."* **Both are applied**, and have been since 2026-09-08.
+- **claim:** `CLAUDE.md`'s `BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED` row states *"Both fixes are Tier-2, written out in the evidence doc and NOT applied."* **Both are applied**, and have been since 2026-09-08.
 - **evidence — the field:**
   ```
   FIX 1 — book selection:
@@ -1179,7 +1179,7 @@ A/Bs that gated them, then measured over history on the population the promise w
 **Population: 1611 rows across the three review backlogs; 859 open or kept_open.**
 **Burn-down this pass: 4 closeable now + 2 partially = 4/859 = 0.47%.** *That is the honest number, and it is far below the fill rate the prior review measured (~15:1 file-to-close).*
 
-**CLOSEABLE NOW (4):** `BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1` (3 journal rows now exist) · `BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN` (**close as not-a-defect with the diagnosis**: the transient branch `return`s before `cooldown_admits`, so the empty file is correct) · `BL-20260902-DIAG-BASE-URL-STILL-NAMES-THE-TERMINATED-MICRO` (it names the **live** VM; file a narrower successor for the plain-HTTP residual) · one of the two duplicate `DIAG-LOG-FILE-IS-TAIL-ONLY` rows filed 3 days apart — **merge**.
+**CLOSEABLE NOW (4):** `BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1` (3 journal rows now exist) · `BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN` (**close as not-a-defect with the diagnosis**: the transient branch `return`s before `cooldown_admits`, so the empty file is correct) · `BL-20260902-DIAG-BASE-URL-STILL-NAMES-THE-TERMINATED-MICRO-AND-CLAUDE-MD-STILL-ROUTES-TO-THE-RELAY` (it names the **live** VM; file a narrower successor for the plain-HTTP residual) · one of the two duplicate `DIAG-LOG-FILE-IS-TAIL-ONLY` rows filed 3 days apart — **merge**.
 **PARTIAL (2):** the netting-soak discriminator row (schema clause closed, population clause open) and the two `STRAY-OCA-SWEEP` rows (`stray_oca_soak` now holds **19 rows, was 8** on 2026-09-08, including two `acted: true / verify_state: verified`).
 **MUST NOT BE CLOSED — re-affirmed WORSE (3):** the prop-risk-soak row (now **10.0 days**, still 0 enforce rows) · `BL-20260809-DIAG-BOTLOG-TARGET-ABSENT` · the ADAUSDT over-cover row, **alarming live at 16:25:38Z today at 179%**.
 
