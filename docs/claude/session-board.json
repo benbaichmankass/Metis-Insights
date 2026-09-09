@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-fix-prohibition-shaped-guards-20260909",
-  "claimed_at": "2026-09-09T10:11:00Z",
-  "purpose": "retract the prohibition-shaped guard framing on operator instruction"
+  "branch": "claude/mgr-record-three-operator-decisions-20260909",
+  "claimed_at": "2026-09-09T10:34:00Z",
+  "purpose": "record three operator decisions taken as popups"
  },
  "active_sessions": [
   {

@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T10:11:00Z",
+  "updated_at": "2026-09-09T10:34:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3809,12 +3809,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T09:51:00Z",
       "last_observed": {
-        "at": "2026-09-09T10:11:00Z",
+        "at": "2026-09-09T10:34:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + poke",
+        "source": "pull_request_read + poke",
         "session_status": "SESSION_STATUS_RUNNING",
         "status_bucket": "working",
-        "manager_note": "RUNNING, building the guard (task_summary: guard tests failing 4/15). ⚠️ POKED 10:08:50Z with a BRIEF CORRECTION, delivery confirmed (cse_ suffix matched the target): the brief's 'DO NOT RE-ASK THE WINDOW/FLOOR QUESTION' is RETRACTED on operator instruction. It was told to carry the evidence MODEL instead (edge offline / live=mechanics / slow accrual is a feature / fewer legs does not raise trades-per-leg), to make its guard enforce the RULE rather than ban a phrase, and to push back if it thinks the framing is wrong."
+        "manager_note": "#11529 read mergeable_state=dirty at 10:26Z — CONFLICT CAUSED BY THE MANAGER (#11531 filed two rows into health-review-backlog.json while this branch was open on the same file). Poked 10:26:03Z, delivery confirmed: told to stop hunting a docs-only skip trap, resolve as a VERIFIED UNION, and that its §5 premise correction is the most valuable thing in the PR. ⚠️ ITS PROPOSAL IS NOW OPERATOR-APPROVED — build_producer + no_offline_evidence, taken as a popup 2026-09-09; recorded as DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and MI-216/217."
       }
     },
     {
