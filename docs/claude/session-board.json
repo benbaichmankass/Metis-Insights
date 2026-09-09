@@ -4,10 +4,10 @@
   "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
- "merge_slot": {
-  "held_by": "github-actions[bot] · session-reaper run 34345103699",
-  "branch": "automation/session-reaper-34345103699-1",
-  "claimed_at": "2026-09-09T11:21:57Z",
+  "merge_slot": {
+  "held_by": "github-actions[bot] · session-reaper run 34346202485",
+  "branch": "automation/session-reaper-34346202485-1",
+  "claimed_at": "2026-09-09T11:34:17Z",
   "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
@@ -57,13 +57,6 @@
    "branch": "claude/mi195-tp-decisions-and-examine",
    "started_at": "2026-09-08T09:59:45Z",
    "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
-  },
-  {
-   "session_id": "session_012kfL8m9T7xW3XkAv71To27",
-   "branch": "claude/mi-209c-partial-close-producer-20260909",
-   "intent": "MI-209c (lane 2, research): why the partial-close producer has never fired — WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND. Measurement+docs, PR #11514. SLOT RELEASED and auto-merge DISARMED 2026-09-09T11:35Z on the manager's instruction; the manager merges it when green. This lane no longer contends for merge_slot.",
-   "started_at": "2026-09-09T07:33:00Z",
-   "updated_at": "2026-09-09T11:35:00Z"
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
