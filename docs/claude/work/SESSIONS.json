@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T09:52:15Z",
+  "updated_at": "2026-09-09T10:11:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3807,7 +3807,15 @@
       "why": "Operator-directed 2026-09-09. Re-point the packet's edge verdict at OFFLINE backtest evidence, and establish whether check_soak_doctrine.py reaches that surface at all, with a positive control.",
       "note": "DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR was REJECTED AS MALFORMED by the operator; the answer block on WO-20260901-PHASE-F carries their wording verbatim.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-09T09:51:00Z"
+      "confirmed_at": "2026-09-09T09:51:00Z",
+      "last_observed": {
+        "at": "2026-09-09T10:11:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session + poke",
+        "session_status": "SESSION_STATUS_RUNNING",
+        "status_bucket": "working",
+        "manager_note": "RUNNING, building the guard (task_summary: guard tests failing 4/15). ⚠️ POKED 10:08:50Z with a BRIEF CORRECTION, delivery confirmed (cse_ suffix matched the target): the brief's 'DO NOT RE-ASK THE WINDOW/FLOOR QUESTION' is RETRACTED on operator instruction. It was told to carry the evidence MODEL instead (edge offline / live=mechanics / slow accrual is a feature / fewer legs does not raise trades-per-leg), to make its guard enforce the RULE rather than ban a phrase, and to push back if it thinks the framing is wrong."
+      }
     },
     {
       "session_id": "session_01FoASvmUGuahCphE1cewPPs",
