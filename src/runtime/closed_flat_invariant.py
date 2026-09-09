@@ -80,7 +80,16 @@ from src.utils.paths import runtime_logs_dir
 logger = logging.getLogger(__name__)
 
 _DEFAULT_VIOLATIONS_LOG = runtime_logs_dir() / "invariant_violations.jsonl"
-_DEFAULT_COVERAGE_LOG = runtime_logs_dir() / "closed_flat_coverage.jsonl"
+#: Declared as a constant so `test_every_declared_soak_log_has_a_read_surface`
+#: DERIVES this soak's read-surface requirement rather than relying on whoever
+#: adds it remembering to allowlist it — the recurrence detector for
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE, whose
+#: fourth instance is why a derived probe replaced an enumerated one. F-13 is
+#: that exact class, so this soak opts INTO the detector on the commit that
+#: creates it.
+SOAK_LOG_NAME = "closed_flat_coverage.jsonl"
+
+_DEFAULT_COVERAGE_LOG = runtime_logs_dir() / SOAK_LOG_NAME
 
 # Anything <= this absolute residual qty is treated as exchange-flat.
 # Bybit occasionally returns dust like 1e-9 on a fully-flattened
