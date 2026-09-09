@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager dispatch record for lane 1 (backlog drain). Registers under docs/claude/work/** only. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}

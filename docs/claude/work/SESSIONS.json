@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T07:09:11Z",
+  "updated_at": "2026-09-09T07:13:36Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3659,6 +3659,19 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "why": "Operator-directed 2026-09-09: 'we start working on our active management'. The TARGET half of the exit thesis closed 2026-09-07; the trailing/banking half is the standing debt and has never been measured on the same footing. Parented to the cycle's own intent IN-20260903-TRADING-SYSTEM-HEALTH, so it needs no priority exception — this IS the cycle.",
       "confirmed_at": "2026-09-09T06:09:55Z"
+    },
+    {
+      "session_id": "session_01Hw9mp8cEeZqF1KSGZHyHui",
+      "registry_key": "pending-20260909T071304Z",
+      "state": "working",
+      "title": "Lane 1 (ops) — backlog drain: 765 unresolved health rows, and it grew by 49 while a review ran over it",
+      "owns_object": "WO-20260909-THE-HEALTH-BACKLOG-GREW-BY-49-WHILE",
+      "spawned_at": "2026-09-09T07:13:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/metis-insights",
+      "why": "Operator-directed 2026-09-09: 'there's tons of backlog work'. Also the unmet fourth clause of WO-20260908-SYSTEM-REVIEW, whose review half landed (report committed, index disagreement explained) while the DRAIN half did not. Parents to IN-20260903-TRADING-SYSTEM-HEALTH — the cycle's own intent — so no priority exception is needed.",
+      "observed_source_url": "https://github.com/benbaichmankass/metis-insights",
+      "confirmed_at": "2026-09-09T07:13:36Z"
     },
     {
       "session_id": "session_01DUBXxiaZ3PMERcAfcJce7P",
