@@ -1,0 +1,10 @@
+MI-227 follow-through record. Tier-1, landing: self.
+
+docs/claude/OPEN-ITEMS.json: OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-
+LEG-HAS-BEEN-OBSERVED-RESIZED gets verified_at 2026-09-09 and an observation
+recording that clause (1) MERGED (#11604 -> 7b8b6b51d, human click 23:39:57Z,
+verified by reading the blobs on main) and clause (2) DEPLOYED (/api/diag/version
+23:49:11Z: git_sha AND git_sha_on_disk both 7b8b6b51d, restart_pending false,
+ancestry checked with merge-base --is-ancestor). Clause (3) -- a leg read back off
+the venue at its new size after a real reduce -- remains UNOBSERVED and the row
+stays open on it. Plus the regenerated CLAUDE.md SESSION-BRIEF block.

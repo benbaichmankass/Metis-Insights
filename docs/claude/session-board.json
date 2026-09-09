@@ -5,10 +5,13 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01FoASvmUGuahCphE1cewPPs",
-  "branch": "claude/mi214-claude-md-reaches-nobody",
-  "claimed_at": "2026-09-09T23:27:58Z",
-  "purpose": "MI-214 session-end doc-freshness (Tier-1, CLAUDE.md one-sentence correction)"
+  "held_by": "session_0178Pn128KK71u6nCzLeVH6w",
+  "branch": "claude/mi227-deploy-observed",
+  "pr": null,
+  "claimed_at": "2026-09-09T23:52:00Z",
+  "purpose": "MI-227 follow-through record (Tier-1: OPEN-ITEMS.json observation + verified_at, and the regenerated CLAUDE.md SESSION-BRIEF)",
+  "found_stale": "Claimed over a STALE holder, recorded rather than quietly taken: the slot read session_01FoASvmUGuahCphE1cewPPs / claude/mi214-claude-md-reaches-nobody claimed 2026-09-09T23:27:58Z, whose PR #11613 MERGED at 2026-09-09T23:38:35Z without release. Verified against GitHub (search_pull_requests on that head branch: closed, merged_at 23:38:35Z), not inferred from main's commit subject.",
+  "concurrent_sibling": "SAME SESSION HOLDS AN ARMED SIBLING: claude/mi227-work-object-waiting (PR #11616) carries its own claim on its own branch and may merge before or after this one. That is R13 behaving as documented, NOT a slot violation: the guard buys an attributable timestamped claim on the arming route and DOES NOT SERIALIZE, because merge_slot lives in a committed file and a claim reaches nobody until its branch merges (BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE). Whichever lands last leaves its own claim standing, so the slot must be RELEASED after both land. Concurrent-merge safety rests where it already rested: branch-protection required checks. Recorded so a reader does not mistake one session's two back-to-back Tier-1 records for two sessions racing."
  },
  "active_sessions": [
   {
