@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-hb-20260909T1826",
-  "claimed_at": "2026-09-09T18:25:52Z",
-  "purpose": "Manager: lease heartbeat + supervision reconciliation"
+  "branch": "claude/mgr-wo-motivating-correction-20260909T1840",
+  "claimed_at": "2026-09-09T18:34:42Z",
+  "purpose": "Manager: correct the venue-truth work object's refuted premise"
  },
  "active_sessions": [
   {
