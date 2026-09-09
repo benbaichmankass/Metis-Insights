@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-route-mi214-mi215-20260909",
-  "claimed_at": "2026-09-09T09:53:00Z",
-  "purpose": "register the MI-214 and MI-215 spawns"
+  "branch": "claude/mgr-fix-prohibition-shaped-guards-20260909",
+  "claimed_at": "2026-09-09T10:11:00Z",
+  "purpose": "retract the prohibition-shaped guard framing on operator instruction"
  },
  "active_sessions": [
   {
