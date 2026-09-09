@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0345-20260909",
-  "claimed_at": "2026-09-09T03:40:35Z",
-  "purpose": "Heartbeat 03:40:35Z. Quiet pass — queue clear, nothing in flight, ~3.4h to the digest expiry."
+  "branch": "claude/mgr-heartbeat-0410-20260909",
+  "claimed_at": "2026-09-09T04:08:21Z",
+  "purpose": "Heartbeat 04:08:21Z; a dangling-reference finding appended to the existing open row rather than filed as a duplicate."
  },
  "active_sessions": [
   {
