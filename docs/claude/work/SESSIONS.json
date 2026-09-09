@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T18:25:52Z",
+  "updated_at": "2026-09-09T18:39:35Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3940,6 +3940,24 @@
       "status": "working",
       "last_observed_at": "2026-09-09T18:25:52Z",
       "observation": "RUNNING 17:24:23Z, phase 0 closed, wave 2 (7 agents) verifying critical findings; draft PR #11571 open."
+    },
+    {
+      "session_id": "session_01AkZzA4Gq9J2pfx5sRB1ZUB",
+      "registry_key": "pending-20260909T183832Z",
+      "state": "working",
+      "title": "MI-225 LANDING — land the completed full-system audit (#11571): resolve the register conflict, un-draft, drive to green",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T18:38:32Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit"
+      ],
+      "why": "The audit is COMPLETE — 7 axes, 68 findings, 2249 lines across 13 files including a 1364-line audit doc, 208 backlog lines and a full report — and it is STRANDED. Its author (session_017windcijwZp3qttYNWCwYP) is IDLE and DISCONNECTED since 2026-09-09T17:46:09Z with status_category=need_input, blocked on exactly this conflict. The work IS pushed to origin/claude/mi225-full-system-audit (head 877a13fff), so nothing is lost, but #11571 is a DRAFT that conflicts with main and its author cannot act. I CANNOT resolve it myself: main brings THREE worker-path files since the branch's base (src/units/accounts/clients.py, src/web/api/routers/diag.py, tests/test_accounts_clients_position_read_observability.py), and check_manager_scope R2 reads a merge commit's FIRST-PARENT diff, so a manager resolving this would be attributed every one of them. The branch also touches CLAUDE.md, which is explicitly not a management surface. Routing rather than reaching for a manager-scope-exception, which is the cheap wrong answer.",
+      "note": "Registered BEFORE the spawn — the first time today I have got that order right; the three prior registrations this session were all after the fact, which is the MI-15 recurrence.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T18:39:35Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
