@@ -9,8 +9,8 @@ title: >-
   intent_reduce leaves a stop up to 101.8x the row it protects - operator answered: resize the
   leg AND add the per-row invariant
 stage: DECISION
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: session_0178Pn128KK71u6nCzLeVH6w
 opened_at: '2026-09-09'
 closed_at: null
 
