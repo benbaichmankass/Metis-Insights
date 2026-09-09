@@ -2033,6 +2033,142 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
     }
 
 
+def account_bybit_raw_closed_pnl(
+    account: Dict[str, Any],
+    *,
+    symbol: str,
+    start_ms: int,
+    end_ms: int,
+) -> Optional[Dict[str, Any]]:
+    """The RAW Bybit ``get_closed_pnl`` records for *symbol* in a window —
+    un-matched, un-filtered — or ``None`` when we could not look.
+
+    ⚠️ **THE SECOND, INDEPENDENT VENUE ENDPOINT, and until now it had no read
+    surface anywhere.** Every other question about whether a position closed
+    goes through ``/v5/position/list``, whose answer this repo has now been
+    wrong about twice in two days. ``/v5/position/closed-pnl`` is a DIFFERENT
+    endpoint answering a DIFFERENT question — *did the venue book a realised
+    close?* — so it can confirm or refute a close without sharing a single
+    filter, dedupe, cursor or ``size`` field with the position path.
+
+    ⚠️ **ITS ONLY EXISTING CALLER REDUCES IT TO ONE RECORD.**
+    ``_bybit_closed_pnl_lookup`` is a MATCHER: it scores records against a
+    trade's side, qty, entry price and time and returns the single best one,
+    dropping the rest and counting them only as ``rej_*`` locals that never
+    leave the function. So *"the venue booked no close"*, *"it booked one we
+    could not match"* and *"we could not ask"* are ONE observation to every
+    consumer — the same collapse ``account_bybit_raw_positions`` exists to
+    break, one endpoint over.
+
+    **It reduces NOTHING.** Every record in the window is returned in venue
+    order, with ``nextPageCursor`` followed and REPORTED, so a truncated page
+    can never read as a complete one.
+
+    ``query_state`` is three-way and never collapsed: ``rows_returned`` /
+    ``no_rows`` (the venue answered with an EMPTY list — a real measurement) /
+    ``could_not_look`` (the call raised; says nothing about the world).
+
+    Read-only: grades nothing, matches nothing, opens no order path. Never
+    raises — a failure is a ``None``, never an exception into the caller.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "bybit":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = bybit_client_for(account)
+    if client is None:
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: None = "could not look", the documented degraded state
+        logger.warning(
+            "account_bybit_raw_closed_pnl(%s): category resolve failed: %s", aid, exc)
+        return None
+    if category == "spot":
+        # Spot books no derivative realised-pnl record, so there is nothing
+        # for this endpoint to answer -- mirrors its siblings.
+        return None
+
+    records: list = []
+    cursor: Optional[str] = None
+    pages = 0
+    cursors_seen: list = []
+    max_pages = 10
+    while True:
+        kwargs: Dict[str, Any] = {
+            "category": category,
+            "symbol": symbol,
+            "startTime": int(start_ms),
+            "endTime": int(end_ms),
+            "limit": 100,
+        }
+        if cursor:
+            kwargs["cursor"] = cursor
+        try:
+            resp = client.get_closed_pnl(**kwargs)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look; never an exception into the caller
+            logger.warning(
+                "account_bybit_raw_closed_pnl(%s): %s failed: %s", aid, symbol, exc)
+            return {
+                "category": category,
+                "symbol": symbol,
+                "start_ms": int(start_ms),
+                "end_ms": int(end_ms),
+                "query_state": "could_not_look",
+                "record_count": None,
+                "pages_read": pages,
+                "next_page_cursor_seen": cursors_seen or None,
+                "pages_truncated": False,
+                "records": [],
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        result = (resp or {}).get("result") or {}
+        raw = result.get("list") or []
+        pages += 1
+        for rec in raw:
+            if not isinstance(rec, dict):
+                continue
+            records.append({
+                # The venue's own strings are preserved beside the floats:
+                # coercing an unreadable value would manufacture a reading.
+                "order_id": rec.get("orderId"),
+                "side": rec.get("side"),
+                "qty": rec.get("qty"),
+                "order_price": rec.get("orderPrice"),
+                "avg_entry_price": rec.get("avgEntryPrice"),
+                "avg_exit_price": rec.get("avgExitPrice"),
+                "closed_pnl": rec.get("closedPnl"),
+                "cum_entry_value": rec.get("cumEntryValue"),
+                "cum_exit_value": rec.get("cumExitValue"),
+                "leverage": rec.get("leverage"),
+                "exec_type": rec.get("execType"),
+                "created_time": rec.get("createdTime"),
+                "updated_time": rec.get("updatedTime"),
+            })
+        cursor = result.get("nextPageCursor") or None
+        if cursor:
+            cursors_seen.append(cursor)
+        if not cursor or pages >= max_pages:
+            break
+    return {
+        "category": category,
+        "symbol": symbol,
+        "start_ms": int(start_ms),
+        "end_ms": int(end_ms),
+        "query_state": "rows_returned" if records else "no_rows",
+        "record_count": len(records),
+        "pages_read": pages,
+        "next_page_cursor_seen": cursors_seen or None,
+        # A safety bound on a live read path, never a belief about how many
+        # pages exist -- so hitting it must stay VISIBLE.
+        "pages_truncated": bool(cursor) and pages >= max_pages,
+        "records": records,
+        "error": None,
+    }
+
+
 def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """An EXHAUSTIVE, un-reduced sweep of Bybit's position surface — every
     category, both settle coins, per-base and per-symbol, cursor followed, plus
