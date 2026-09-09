@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only - this reproduces a ONE-OFF reachability measurement whose
+# answer is a NULL (the mechanism is correctly dormant; see section 6 of the doc).
+# Scheduling it would mean scheduling a re-read of a question that is answered,
+# which is the exact re-dispatch waste this unit filed as
+# BL-20260909-PARTIAL-CLOSE-QUESTION-RE-DISPATCHED-TWICE-IN-TWO-DAYS-AFTER-IT-WAS-ANSWERED.
+# Run it by hand to re-verify the null if the routing or execution mode changes.
 """Why has the partial-close producer never fired? — MI-209c reproduce script.
 
 Reproduces every figure in
@@ -169,7 +175,7 @@ def main() -> int:
     # -- 1. census -----------------------------------------------------------
     n_trades = count("trades")
     n_pkgs = count("order_packages")
-    print(f"\n[1] CENSUS (complete, not a tail read)")
+    print("\n[1] CENSUS (complete, not a tail read)")
     print(f"    trades          n = {n_trades}")
     print(f"    order_packages  n = {n_pkgs}")
 
@@ -201,8 +207,8 @@ def main() -> int:
     # -- 3. the sole producer ------------------------------------------------
     ts_trades = count("trades", "strategy_name", "eq", "turtle_soup")
     ts_pkgs = count("order_packages", "strategy_name", "eq", "turtle_soup")
-    print(f"\n[3] THE SOLE PRODUCER — turtle_soup (only site in src/ emitting "
-          f"close_qty_pct)")
+    print("\n[3] THE SOLE PRODUCER — turtle_soup (only site in src/ emitting "
+          "close_qty_pct)")
     print(f"    trades         {ts_trades} of {n_trades} "
           f"({100.0*ts_trades/n_trades:.3f}%)")
     print(f"    order_packages {ts_pkgs} of {n_pkgs} "
@@ -223,7 +229,7 @@ def main() -> int:
     accts = A if isinstance(A, list) else [dict(v, name=k) for k, v in A.items()]
     S = cfg["strategies"]
     legs = S if isinstance(S, list) else [dict(v, name=k) for k, v in S.items()]
-    ts = next((l for l in legs if l.get("name") == "turtle_soup"), {})
+    ts = next((leg for leg in legs if leg.get("name") == "turtle_soup"), {})
     print(f"\n[4] WHY IT CANNOT RUN — live /api/bot/config, as_of {cfg.get('as_of')}")
     print(f"    turtle_soup enabled   = {ts.get('enabled')}")
     print(f"    turtle_soup execution = {ts.get('execution')!r}   "
@@ -241,7 +247,7 @@ def main() -> int:
 
     # -- 5. the margin: would a 1.0R TP1 even be reachable? ------------------
     pt = rows("position_telemetry", 500)
-    print(f"\n[5] THE MARGIN — is the TP1 threshold reachable at all?")
+    print("\n[5] THE MARGIN — is the TP1 threshold reachable at all?")
     print(f"    NOTE: turtle_soup has {sum(1 for r in pt if r.get('strategy')=='turtle_soup')} "
           f"rows here, so this is the FLEET's excursion distribution used as a "
           f"PROXY — it is not turtle_soup's own and must not be quoted as such.")
