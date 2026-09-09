@@ -458,3 +458,225 @@ have fired.**
 **PROPOSED, not shipped, and not yet costed against real data.** It is Tier-2 (a new alarm on the
 live tick). It is offered because § 10's detector demonstrably cannot see the case that motivated
 it, and shipping only that one would be the "shipped ≠ working" failure this repo keeps paying for.
+
+---
+
+## § 12 — STEP 1 RESULT: the raw payload, and BOTH pre-registered branches are falsified
+
+**Measured 2026-09-09T13:12:31Z** via `/api/diag/bybit_raw_positions`, on live sha `d87db750`
+(`git_sha == git_sha_on_disk`, `restart_pending: false` — verified before the read, so this is the
+new code and not a stale process). **Population: 5 queries** on `bybit_2` (one `settleCoin=USDT`
+page + one symbol-scoped read for each of the 4 configured symbols), then the same instrument
+across **all 3 Bybit accounts**. Zero query errors — every `query_state` read `rows_returned`, so
+there is no `could_not_look` hiding in this result.
+
+### The answer
+
+`symbol:ETHUSDT` on `bybit_2` returned **`row_count: 2`** — *both* hedge books:
+
+| book | `size_raw` | `size_parsed` | `side` | `avg_price` | `updated_time` |
+|---|---|---|---|---|---|
+| `position_idx: 1` (hedge-long) | `"0"` | true | `""` | `null` | **2026-09-08T13:37:13.873Z** |
+| `position_idx: 2` (hedge-short) | `"0"` | true | `""` | `null` | 2026-09-03T13:34:01.018Z |
+
+**I pre-registered two branches before this read and the result is NEITHER. I am recording that
+rather than retro-fitting the outcome to whichever branch it most resembles.**
+
+- ❌ **"`zero_size_rows ≥ 1` ⇒ the position is on a hedge book our readers discard, so the fix is a
+  filter/book-selection change."** There ARE zero-size ETH rows, so this branch's *trigger* fired —
+  but its *consequence is false*. `size_raw` is the literal string `"0"`, `avg_price` is `null` and
+  `side` is empty. That is not a live book we filter out; it is the venue stating FLAT. Had I read
+  only `zero_size_rows ≥ 1` and stopped, I would have shipped a book-selection fix for a position
+  that is not on either book.
+- ❌ **"no ETHUSDT row at all ⇒ nothing in our code can see it."** Rows ARE returned. Bybit is
+  answering about ETH to this key.
+
+**The third outcome: the queries WE SENT return ETHUSDT FLAT on both `bybit_2` books, and have
+since 2026-09-08T13:37:13.873Z.** That timestamp is the close instant this investigation was opened
+about — so the venue's own book agrees the close happened then, and records nothing since.
+`bybit_portfolio`'s ETH long book stamps **13:37:13.868Z**, 5 ms earlier: the paper mirror closing
+in the same action, which is the roster-sync invariant behaving.
+
+### Across every Bybit account this system holds keys for
+
+| account | class | UID | open ETHUSDT |
+|---|---|---|---|
+| `bybit_1` | paper | 553832447 | **none** (idx1 flat 09-09T04:46:38Z, idx2 flat 09-09T12:46:36Z) |
+| `bybit_2` | **real money** | 553829655 | **none** (above) |
+| `bybit_portfolio` | paper | 576206494 | **none** |
+
+Three distinct UIDs, `shared_uid_groups: {}`, `unread_bybit_accounts: []`.
+
+### What this means — and it is NOT a manual-fix hand-off
+
+The operator's directive stands and is not being routed around: *the bot must fix its own trades.*
+The finding is that **on every book the bot's credentials can reach, ETH is flat** — so there is no
+unprotected position here for the bot to re-arm, and § 10 / § 11's detectors would correctly stay
+silent. The defect this exposes is one level up and is still the bot's to fix:
+
+> **Nothing in this system verifies that the set of books its keys can READ equals the set of books
+> the operator's capital is actually ON.** Every protective sweep, every detector in § 10 and § 11,
+> and the whole two-list class in § 9 are scoped to books we can see. A position on a book outside
+> that set is not merely unprotected — it is outside the coverage of every mechanism we have,
+> including the ones proposed to fix this incident. That gap has never been measured.
+
+That is a **coverage assertion**, mechanisable and automatic — not a request for the operator to
+check trades by hand.
+
+### ⚠️ A reporting trap in my own instrument
+
+`nonzero_size_rows: 2` on `bybit_2` is **ONE position (XRPUSDT 58.5) seen by TWO queries** — the
+settleCoin page and the symbol-scoped read. The instrument deliberately does not dedupe, because
+dedupe is exactly what destroyed the evidence in the readers it was built to replace. Correct for
+its purpose, but **the counter is rows, not positions**, and a reader who treats it as a position
+count will double every position. Read `source_query` before counting.
+
+### WHAT I DID NOT ESTABLISH
+
+1. **Where the operator's ETH position actually is. Untested, not refuted.** Three live candidates:
+   (a) a **different UID / sub-account** — `is_sub_account` reads `None`, which is *we could not
+   look*, **never** *no*; (b) a **different product category** — every read in this document is
+   `category: "linear"`, so an `inverse` or Unified/spot-margin ETH book is invisible to all of it;
+   (c) the terminal was stale when screenshotted.
+2. **Whether the 13:37:13Z close was CORRECT.** The venue confirms a close *occurred*; that says
+   nothing about whether `exit_reason='sl'` describes it truthfully. Trade 5471's stated reason
+   remains unvalidated against the actual fill — do not read § 12 as clearing it.
+3. **The margin residual.** `/api/diag/broker_account_status` returns only the DERIVED
+   `available_usd` (232.20, `coin_derived`), not the `totalPositionIM` / equity components § 11's
+   detector needs, so the third anchor is still uncomputed here.
+4. **The operator's own arithmetic still does not close** — `0.04 × (2457.59 − 2453.97) = +0.1448`
+   against a reported `+0.6464`. This is now *more* interesting, not less: it is consistent with the
+   numbers coming from a book none of these reads cover. It is **not** a reason to doubt the report.
+
+**The one question that discriminates (1) and is answerable only outside this repo:** which Bybit
+**UID** is the operator's terminal signed into, and is that ETH row on the **linear perp** book?
+`bybit_2` is UID **553829655**. This is an identification question, not a repair instruction.
+
+---
+
+## § 13 — Incidental, and it is about a LOUD UNFIXED REAL-MONEY bug: what `rows[0]` actually returns
+
+Not part of MI-221's mandate. Recorded because the STEP 1 instrument can measure the exposure of
+`OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT`
+directly, and "not my task" is not a valid disposition in this repo.
+
+That row's root cause is `src/runtime/order_monitor.py:8821` — `pos = rows[0]` on a symbol-scoped
+`get_positions`, with no zero-size skip and no book selection. What it leaves open is *when* `rows[0]`
+hands you the wrong book. **Measured 2026-09-09T13:12Z, population: 14 symbol-scoped queries across all
+3 Bybit accounts, 11 of which returned two rows.**
+
+### 1. The venue's row order is NOT `positionIdx`-ascending
+
+13 of 14 queries returned idx 1 before idx 2 — and **`bybit_1` / `ETHUSDT` returned idx 2 first**. Any
+reasoning of the form *"`rows[0]` is the long book"* is therefore false, and one counter-example is
+enough to establish that.
+
+### 2. The order is consistent with `updated_time` DESC — 9 discriminating observations, 9 consistent
+
+Of the 11 two-row queries, **2 are timestamp ties and discriminate nothing**, so they are excluded rather
+than counted as support. The remaining 9 all order newest-first, and the single non-idx1-first case is
+exactly the one whose idx 2 was touched more recently (`09-09T12:46:36Z` vs `09-09T04:46:38Z`).
+
+**So `rows[0]` returns the MOST RECENTLY UPDATED book, not the live one.**
+
+### 3. Which makes the trigger concrete, and it is not exotic
+
+> A live position on one book **+ any more-recent touch on its flat sibling** ⇒ `rows[0]` is the flat
+> row ⇒ `size 0`, `side ''`, empty `sl_leg_ids` ⇒ the position reads FLAT.
+
+Flat books demonstrably do get touched: `bybit_1`/ETHUSDT's flat idx 2 was updated **8 hours after** its
+flat idx 1, with no position on either. This is not a narrow race; it is a matter of time.
+
+### 4. Currently live and NOT firing — by luck, not by safety
+
+All 3 open positions sit at `rows[0]` right now (`bybit_1` ADA idx 0, `bybit_2` XRP idx 1,
+`bybit_portfolio` XRP idx 1). Nothing is being mis-read at this moment. **That is the ordering happening
+to favour us, not the code being correct**, and it must not be cited as evidence the path is sound.
+
+### WHAT THIS DOES NOT ESTABLISH
+
+- **Bybit documents no ordering guarantee, and 9 consistent observations at one instant are not a
+  contract.** That is the finding, not a caveat to route around: `rows[0]` depends on an ordering the
+  venue never promised, so it can change with no notice and no deploy on our side.
+- **I did not observe the bug fire.** No mis-read close was caught in the act.
+- **Whether `updated_time` is the actual sort key** — any key correlated with recency fits these 9 equally
+  well. The remedy does not depend on knowing which: select the book **explicitly by `positionIdx`**.
+
+### Disposition — NOT fixed here
+
+**Tier-2, declaring `hold`.** `order_monitor.py:8821` is a live real-money order path and MI-221's
+constraints are reads-only. This is measurement handed to whoever owns `OI-20260908`. It sharpens that
+row's `clears_when`: a fix must select on `positionIdx` explicitly, and **must not be validated by "the
+live row came back first"** — that condition holds today and proves nothing.
+
+
+---
+
+## § 14 — CORRECTION to § 12: I reported my own instrument's silence as a fact about the venue
+
+**Operator, 2026-09-09, looking at the position on the Bybit platform while § 12 was being written**
+(verbatim, relayed): *"Do not tell me that the trade does not exist. That is false... you might not be
+seeing it... it might be an issue with how we've built our API integration, but it's on the platform.
+There's no way that you cannot pull that data. Figure it out, make it happen."*
+
+**They are right.** § 12's headline read *"the venue **truthfully** reports ETHUSDT FLAT"*. That word
+asserts the venue told us the whole truth, which is not something an empty read can establish — and
+the reading it was based on came from an instrument that, I now know, **sent the same two queries the
+production readers send**. It could discriminate HOW a row was dropped and was blind to any book those
+filters never ask about. **An empty read is evidence about the READ.** The § 12 sentence is corrected
+in place above; this section records why, rather than letting the edit pass silently.
+
+### What was actually wrong with the instrument
+
+Three filters, live in the production readers, each able to hide a real position — and the first
+version of the raw route inherited all three:
+
+1. **`settleCoin` hardcoded `"USDT"`** (`clients.py:1374`, `clients.py:1892`). A **USDC-settled**
+   contract is the SAME `linear` category and is excluded.
+2. **`category` from a single configured `market_type`** (`bybit_2` is pinned `linear`), so
+   **inverse / spot / option were never queried at all**.
+3. **The per-symbol cross-check iterates only the configured roster**, and **no position read anywhere
+   passes `baseCoin`** — verified by grep across `src/`, whose only `baseCoin` occurrences are
+   `marketUnit="baseCoin"` on the ORDER path. On `/v5/position/list`, `baseCoin` matches every contract
+   on that base regardless of settlement, so it is the one call that reaches USDT, USDC and inverse at
+   once.
+
+**And a fourth, found while fixing those:** `grep -rn "nextPageCursor" src/` returns **zero hits**. The
+client is `pybit.unified_trading.HTTP`, one request per call with no auto-pagination, so **every
+position read in this repo was page-1-only** and a truncated page was indistinguishable from a complete
+one.
+
+### What SURVIVES § 12 and what does NOT
+
+Stated explicitly, because a finding that quietly keeps a falsified exhibit is worse than no finding.
+
+**SURVIVES — it rests on CODE, read this session, not on the ETH instance:**
+
+- § 9's structural claim: every protective sweep anchors on either the venue-position list or the
+  journal-open list, and a position in neither is invisible. Verified with line numbers.
+- § 13's measurement of what `rows[0]` returns (`order_monitor.py:8821`) — a separate, still-unfixed
+  real-money defect, measured across 14 queries.
+- The three filters above and the missing cursor — all four are code facts, and all four are the reason
+  the instance could not be seen.
+- `BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON`.
+  This row was filed BEFORE the correction and is **strengthened** by it: it named exactly this gap.
+
+**DOES NOT SURVIVE:**
+
+- Any reading of § 12 as *"there is no ETH position"*. It never said that in its NOT-ESTABLISHED list,
+  but its headline implied it, and the implication is withdrawn.
+- The framing that the remaining explanation was *identification* (which UID is the operator on).
+  Hypothesis 4 (**wrong ACCOUNT**) is **refuted** on evidence: `/api/diag/bybit_open_orders` returns the
+  operator's XRP position with their exact brackets (TP 1.5535 / SL 1.3463, qty 58.5), so our key and
+  their screen are on the same book. ⚠️ **That refutes wrong-ACCOUNT and NOT wrong-or-partial KEY
+  SCOPE** — a key can be correctly bound and still be scoped so `/v5/position/list` omits books it is
+  not permissioned for, and `is_sub_account` still reads `None` (*we did not look*). Weakened, not
+  closed.
+
+### The sharpened question
+
+**On an account our key demonstrably reads correctly, why does `/v5/position/list` not return a position
+the web UI shows?** The widened sweep exists to answer that, and if every widened query comes back empty
+**and** the wallet's initial margin is fully explained by the visible XRP position, then the answer is a
+**key/permission scoping** problem — reported with the UID and the margin numbers, **never** as "no
+position exists."
