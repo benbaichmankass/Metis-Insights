@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only — one work-object field, one SESSIONS row, the lease heartbeat and its supervision record. Consolidates #11583 and #11584, which were both dirty on the merge slot. No src/, config/, scripts/, workflow or order path."
+}

@@ -1,0 +1,389 @@
+{
+  "report_id": "RPT-20260909-171500-audit",
+  "window": "audit",
+  "reviewer": "claude/full-system-audit (MI-225, ops lane, session_017windcijwZp3qttYNWCwYP)",
+  "prior_report_id": "RPT-20260908-112000-since-last",
+  "reviewed_at": "2026-09-09T17:15:00+00:00",
+  "window_start": "2026-09-08T11:20:00+00:00",
+  "window_end": "2026-09-09T17:15:00+00:00",
+  "overall_assessment": "FULL-SYSTEM AUDIT, all seven axes + the mandatory system review. 68 findings, each with evidence, a stated population and a detector. THE HEADLINE IS A POSITIVE RESULT AND IT IS MEASURED: no live position is naked - all 24 (account,symbol) groups across the open book carry a resting stop >= position size, on instruments proven first (system_invariants 28/28, exit_path_coverage 19/19, both with planted controls). main is green across all 92 guards when run ungated. WHAT IS WRONG IS AT THE SEAMS AND IN THE INSTRUMENTS, not in the guards. Three subsystems graded HARMED or null against their own quoted promises: the M20 60s exit-eval promise was BREACHED on 2026-09-07 and today's margin is 48.8ms against the 15.0s recorded on 2026-08-25; the M22 pairs sleeve runs 44.0% live against a promised OOS 58-60%; and the M28 macro tick still runs on every live tick 44 days after its own roadmap declared value construction closed, with zero placements in its life. The structural finding is that the observe-first doctrine's WRITING half works and its READING half does not: four armed real-money gates have soaks that cannot settle the decisions they were armed for. Nothing was remediated; every finding is FILED for the operator to decide.",
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "68 findings across 7 axes. NO LIVE POSITION IS NAKED (24/24 groups, 3 venues, measured). main green across all 92 guards ungated. But: apply_intent_reduce_partial_close decrements a row and never resizes that row's own venue leg, leaving a stop 101.8x the row it protects and causing 64 of the 112 operator ERROR rows; the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a registry holding 16 of 55 strategies, so exercising it silently stops 35 of 45 live legs; the closed-flat invariant reads a FAILED exchange read as flat, covers ~half its own timeline by arithmetic, and pages at a level that never reaches the operator - its 14.7-day zero is not evidence; the M20 60s exit-eval promise was breached 2026-09-07 with 48.8ms of margin left today; and 509 of 741 resolved backlog findings leave no named detector, which is the treadmill quantified.",
+    "operator_priorities": [
+      {
+        "title": "PROP IS $87.34 FROM ITS PERMANENT-KILL FLOOR ON A 237.4-HOUR-STALE SNAPSHOT - FIFTH CONSECUTIVE REVIEW",
+        "detail": "distance_to_dd_floor_usd 87.34, status_freshness stale, and day_pnl_state realized_unreported - so the daily-loss half is UNMEASURED, not zero. The ask DID fire today (prop_status_request stamp 2026-09-09T07:47:07) and went unanswered. ONE MESSAGE FIXES IT: send 'bal <balance> <equity>' to the prop bot. This is 30.5h worse than the fourth review said."
+      },
+      {
+        "title": "TIER-2 DECISION: the intent-reduce path orphans an oversized protective leg (money-at-risk)",
+        "detail": "bybit_1/ADAUSDT live: trade 5417 position_size 628.0 with a venue stop of 63943.0 - 101.82x. The symbol reconciles EXACTLY (79227+628=79855), which is why every symbol-level check passes. Class incidence 21 of 1000 journal rows including 3 on real-money bybit_2. Fix is to resize the row's own tracked leg on reduce, plus INV-PROTECT-LEG-MATCHES-ROW in system_invariants. PROPOSED, not enacted."
+      },
+      {
+        "title": "TIER-3 DECISION: _UNKNOWN_STRATEGY_PRIORITY=10 now WINS arbitration against 45 of 50 declared legs",
+        "detail": "Five execution:live legs are absent from DEFAULT_PRIORITIES and resolve to 10, while 45 of 50 mapped legs sit below it. Live contention on SLV across three accounts (slv_trend_1h=0 vs slv_pullback_1d=ABSENT->10). The constant's own comment says it was picked to sit BELOW the roster; its effect is the exact inverse. The transferable fix is a distribution assertion: fail if the fallback is not strictly below min(DEFAULT_PRIORITIES.values())."
+      },
+      {
+        "title": "The sanctioned intent-layer rollback is a 78% capability outage",
+        "detail": "MULTI_STRATEGY_INTENT_LAYER=false routes to pipeline._STRATEGY_BUILDERS, which holds 16 of 55 strategies. 35 of 45 execution:live legs would be silently skipped as a logger.warning. No test asserts the two registries agree. The fix is to DELETE the second registry rather than sync it."
+      },
+      {
+        "title": "Arm the two runtime instruments that already exist and already work",
+        "detail": "system_invariants.py (7 invariants, self-test 28/28) and exit_path_coverage.py (self-test 19/19) both pass their planted-control self-tests and NEITHER HAS A SCHEDULED CALLER. This is the audit's highest-leverage change and it is not new code. broker_bracket_reconcile.yml is the template."
+      },
+      {
+        "title": "Page the soak read surface - the cheapest change with the widest reach",
+        "detail": "/api/diag/log_file caps at 1000 lines. 17 of 54 present soaks are truncated, 6 under 5% auditable, audit is 0.0% of 826MB. bybit_coverage_soak is readable back 7.24h while its own clears_when demands 3 distinct UTC days - unsatisfiable by construction. The system writes evidence faster than anyone can read it back."
+      }
+    ],
+    "backlog_summary": {
+      "note": "Net GROWTH, stated honestly. 19 rows filed, 4 identified as closeable now plus 2 partially. The burn-down is 4 of 859 unresolved = 0.47%, far below the fill rate. Inflating the close count with thin resolutions would defeat the point. The structural finding is that 509 of 741 RESOLVED rows leave no named detector and the detector field the audit skill calls mandatory exists on 3 of 1630 rows - so the backlog cannot be used to detect recurrence mechanically, which is why the same classes return.",
+      "population": "1630 rows across 4 backlogs (health 1388->1404, performance 114->117, ml 109, research 19); 872 open or kept_open; 132 open >30d (LOWER BOUND - 43 rows have no parseable open date); 13 open critical, 277 open high.",
+      "filed_this_session": 19,
+      "closeable_identified": 4,
+      "partially_closeable": 2,
+      "burn_down_pct_of_unresolved": 0.47
+    },
+    "monitoring": [
+      {
+        "item_id": "m20-exit-eval-margin-collapsed",
+        "domain": "health",
+        "category": "degrading",
+        "detail": "The 60s exit-eval requirement was BREACHED 2026-09-07 (recorded in exit_loop_health_alert_state.requirement_breach_process, a field written only on a real breach). Today max interval 59951.2ms = 48.8ms of margin, against 45034ms / 15.0s on 2026-08-25 at the same n and window shape. The distribution BODY is unchanged - only the tail moved - so this is a fat tail, not general slowdown. Breach history is UNCOUNTABLE: the alert never writes outcomes.jsonl (third instance of that class)."
+      },
+      {
+        "item_id": "four-armed-gates-with-soaks-that-cannot-settle-them",
+        "domain": "health",
+        "category": "awaiting-evidence",
+        "detail": "PROP_TICKET_RISK_GATE_MODE=enforce: 2 rows, both annotate, span 0.00h, 10 days - ZERO rows ever written under the arm. ALPACA_CASH_SETTLEMENT on alpaca_live: 31 rows, 0 on the allowlisted account. CONVICTION_SIZING: 186 apply rows, 0 join keys, 77% unattributable. BYBIT_GRADED_COVERAGE: readable 7.24h against a 3-day criterion. Four for four."
+      },
+      {
+        "item_id": "alpaca-live-silent-refusal-latch-frozen-19-days",
+        "domain": "health",
+        "category": "false-alarm",
+        "detail": "alerting:true since 2026-08-21T12:38:38 with updated_at unmoved for 19 days while all 7 sibling accounts advanced to today. It lacks priority_causes/alerting_basis (added 2026-08-25), confirming it has not been rewritten. CLAUDE.md records this exact latch as a false alarm fixed by refusing_by_declaration - it is frozen at the PRE-FIX state and reports a false alarm to every review indefinitely."
+      },
+      {
+        "item_id": "registers-stale-on-main-while-workflows-report-success",
+        "domain": "health",
+        "category": "degrading",
+        "detail": "commit-to-main cannot open its PR (GraphQL rate limit, user 119055177), so 164 automation/* branches stand unmerged and DUE.md/READOUT.md/PROBES.json are stale on main. PROBES.json generated_at 2026-09-07. The CLAUDE.md SESSION BRIEF every session reads is rendered from these files. Verified three ways including the audit lead hitting the identical limit."
+      }
+    ],
+    "services": [
+      {
+        "name": "ict-trader-live",
+        "state": "active",
+        "detail": "Heartbeat live. restart_pending: true at 16:55Z on a process started 16:42Z - a second deploy outstanding."
+      },
+      {
+        "name": "trainer VM",
+        "state": "active",
+        "detail": "Mirror age 128s, down:false, load_1m 0.051, 2 cycles/24h, 0 failed builds, disk 86.1%->85.7%. replay-pregate-nightly still fails 3 of 3 scheduled runs; the OOM CAUSE COULD NOT BE RE-MEASURED - no reachable surface carries trainer memory."
+      },
+      {
+        "name": "diag/Caddy",
+        "state": "active",
+        "detail": "Direct path works from a web session: diag_fetch.sh served ~75 calls via https://ict-bot.duckdns.org. The issue relay was not needed."
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "assessed": true,
+        "basis": "RE-ESTABLISHED",
+        "summary": "Roster re-read live: bybit_2 now 6 legs - ada_pullback_2h GONE, fvg_range_15m present, ict_scalp_5m absent (confirming the 2026-09-06 Tier-3 demote). 30d real-money publishes POSITIVE expectancyR (+0.1399) on a LOSING book (-$7.857, PF 0.8989, 12/41 contaminated), so NO promote/demote is taken off performance - that would be a verdict from a broken instrument, which is this cycle's stated priority. All 10/10 sunset candidates ARE dispositioned (repair, review_by 2026-11-03, 0 expired, 0 undispositioned). Two decisions ARE due: splg_trend_long_1d is structurally dead (1000/1000 insufficient candles) and the mes-regime-15m-lgbm-v2 shadow->advisory gate has been parked 49 days (CITED)."
+      },
+      "ml_training_health": {
+        "assessed": true,
+        "basis": "CITED + RE-ESTABLISHED",
+        "summary": "CITED to RPT-20260908-112000-since-last for cycles and dataset builds. RE-ESTABLISHED: trainer alive (mirror age 128s, load_1m 0.051, 2 cycles/24h, 0 failed builds, disk 85.7%), registry stages {advisory 3, candidate 63, shadow 29, research_only 1}. replay-pregate-nightly red on 3 of 3 scheduled runs. NOT RE-ESTABLISHED and stated as such: the OOM cause - no reachable surface carries trainer memory, it needs the trainer-vm-diag relay."
+      },
+      "soak_status": [
+        {
+          "soak": "prop_ticket_risk_soak",
+          "state": "stalled",
+          "detail": "2 rows, both mode=annotate, both ts 2026-08-30T16:16:27, span 0.00h, age 10.0 days, 100% auditable. ZERO rows under the enforce arm that has been live since 2026-08-31."
+        },
+        {
+          "soak": "cash_settlement_soak",
+          "state": "stalled_on_target",
+          "detail": "31 rows, 100% auditable, 0 for alpaca_live - the ONLY allowlisted account. 27 of 31 are not_allowlisted, proving non-allowlisted accounts ARE measured, so this is not a scoping artifact."
+        },
+        {
+          "soak": "bybit_coverage_soak",
+          "state": "accruing_but_unauditable",
+          "detail": "2.30 rows/min, but readable back only 7.24h (2.5% of file) against its own clears_when of 3 distinct UTC days. Unsatisfiable by construction."
+        },
+        {
+          "soak": "advisory_decisions",
+          "state": "dead",
+          "detail": "275 rows, 100% auditable, last write 2026-06-25 = 76.4 days, while the registry carries 3 advisory-stage models and REGIME_ML_VERDICT_MODE=use gates real-money BTC routing."
+        },
+        {
+          "soak": "stray_oca_soak",
+          "state": "accruing",
+          "detail": "19 rows (was 8 on 2026-09-08), including two decision=stray_unkeyed / acted=true / verify_state=verified. Healthy."
+        },
+        {
+          "soak": "POPULATION",
+          "state": "measured",
+          "detail": "All 57 allowlisted log_file names enumerated: 54 present, 3 absent, 17 truncated at the 1000-line cap, 6 under 5% auditable, 7 stale >7d."
+        }
+      ],
+      "flags_raised": [
+        "PROP IS $87.34 FROM ITS PERMANENT-KILL FLOOR on a 237.4h-stale snapshot - FIFTH consecutive review, 30.5h worse than the fourth. day_pnl_state realized_unreported means the daily-loss half is UNMEASURED, not zero. The ask fired today at 07:47:07 and went unanswered. One 'bal <balance> <equity>' message fixes it.",
+        "NO LIVE POSITION IS NAKED - 24 of 24 (account,symbol) groups carry a resting stop >= position size, across IB, Bybit and Alpaca. Raised as a flag because it is the single most important thing to state and it is measured, not assumed.",
+        "SHIPPED AND ARMED NOWHERE - four instruments that work and run nowhere: scripts/ops/system_invariants.py (7 invariants, self-test 28/28 with planted controls) and scripts/ops/exit_path_coverage.py (self-test 19/19) both pass and NEITHER HAS A SCHEDULED CALLER; scripts/ci/check_guard_glob_coverage.py passes its own planted-violation self-test and is in zero workflows and zero registries; scripts/ops/uncarried_specs.py measures 102 of 123 specs un-carried and reports to nobody. Arming the first two is this audit's highest-leverage change and it is not new code.",
+        "UNEXERCISED FIXES - three mechanisms are DEPLOYED and have never been shown acting, which is a standing risk and not a status line: the prop-status activity trigger's SUPPRESSION (its own positive control is absent from the live file, so OI-20260909 clause (1) cannot be cleared honestly); the netting_attributed key in the re-adopt flap guard (present in the SQL, no observed suppression); and the PROP_TICKET_RISK enforce arm, whose soak holds zero rows under the arm after 10 days.",
+        "MONEY-AT-RISK: apply_intent_reduce_partial_close leaves a protective leg 101.8x the row it protects; 21 of 1000 journal rows in the class including 3 on real-money bybit_2; it is the root cause of 64 of the 112 operator ERROR rows.",
+        "MONEY-AT-RISK: the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false would silently stop 35 of 45 execution:live legs (78%).",
+        "MONEY-AT-RISK: the closed-flat invariant - the only mechanism that can independently contradict 'this trade is closed' - reads a FAILED exchange read as flat, covers <=59% of its own timeline by arithmetic, writes to a log on no read surface, and pages at WARN which never reaches Telegram. Its 14.7-day zero is not evidence of anything.",
+        "The M20 60s exit-eval promise was BREACHED on 2026-09-07 and today's margin is 48.8ms. The breach history is uncountable because the alert never writes outcomes.jsonl - the third instance of a class CLAUDE.md already documents twice.",
+        "Three order packages are closed while holding four open legs, one on real-money bybit_2 (trade 5474, the only real-money position in the book).",
+        "The netting-attribution class is still closing real-money positions on unreadable book state, newest TODAY 15:40Z. The position_idx/exchange_read_source discriminators now EXIST in the schema and are None on 12 of 13 zero-qty rows - the remediation is present but inert.",
+        "The operator ERROR channel is 91% standing repeats: 102 of 112 rows on 26 standing conditions, top one x22 over 5 days. The durable latch is working correctly; these are conditions standing for days with no escalation path.",
+        "509 of 741 resolved backlog findings leave no named detector; 94 are critical/high and 45 carry money-path keywords. The detector field the audit skill calls mandatory exists on 3 of 1630 rows.",
+        "NOT REACHED, stated so it is not read as clean: the dashboard and android repos were not attached and hop 12 of the pipeline trace is UNGRADED; trainer memory is unmeasurable from any reachable surface; the prop venue reads positions:null (unread, not flat); live branch protection was not read (403 at the proxy)."
+      ],
+      "backlog_drive": {
+        "assessed": true,
+        "summary": "Population 1630 rows / 872 unresolved. FILED 19 new rows with tier + resolution_criteria + detector. IDENTIFIED 4 closeable now with the closing evidence (trend_donchian_sol now journals 3 rows; the builder-exception latch is correct-by-design and closes as not-a-defect; DIAG_BASE_URL names the LIVE VM not the terminated micro; and two DIAG-LOG-FILE rows filed 3 days apart are duplicates to merge) plus 2 partially closeable. Burn-down 4/859 = 0.47%, stated rather than inflated. Three rows re-affirmed WORSE and must NOT be closed."
+      },
+      "since_last_build_verification": {
+        "count_shipped": 8,
+        "note": "Capabilities shipped since RPT-20260908-112000-since-last, each given a verdict. 'wired_not_yet_exercised' is used where the code is demonstrably reached but the specific condition it exists for has not been observed - that is a different fact from 'running' and is not collapsed into it.",
+        "items": [
+          {
+            "name": "scripts/ops/system_invariants.py",
+            "verdict": "UNWIRED",
+            "reason": "Exists, 7 invariants, self-test 28/28 with planted controls and the REAL ib_client classifier imported. Live result on the full book: 0 FAIL, 6 pass, 1 NOT-MEASURED. No scheduled caller anywhere."
+          },
+          {
+            "name": "scripts/ops/exit_path_coverage.py",
+            "verdict": "UNWIRED",
+            "reason": "Exists, self-test 19/19. Graded 21 of 25 open trades this pass (11 price_only, 1 decision_exit_live). No scheduled caller."
+          },
+          {
+            "name": "scripts/ci/check_guard_glob_coverage.py",
+            "verdict": "UNWIRED",
+            "reason": "Written 2026-08-23, passes its own planted-violation self-test, referenced in zero workflows and zero registries. Also unarmable as written: main() returns 1 on a verdict its own message labels 'LEAD, not a verdict'."
+          },
+          {
+            "name": "scripts/ops/uncarried_specs.py",
+            "verdict": "UNWIRED",
+            "reason": "Declared '# wiring: manual-only', in no guard and no workflow. Measures 102 of 123 specs (82.9%) un-carried over a 381-artifact denominator and reports it to nobody. This settles OI-20260906's clause (1) and leaves clause (2) open."
+          },
+          {
+            "name": "bybit_position_book.select_position_row (MI-204 book selection)",
+            "verdict": "running",
+            "reason": "Called at order_monitor.py:8909; refuses when not selection.is_usable. CLAUDE.md's row saying this fix is 'NOT applied' is stale."
+          },
+          {
+            "name": "netting_attributed in the re-adopt flap guard allowlist (MI-204)",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "Present in the SQL at order_monitor.py:2663, not only the docstring. No re-adopt suppression on that key has been OBSERVED, so it is reached-but-unexercised rather than proven."
+          },
+          {
+            "name": "prop_status_request activity trigger (#11530, ffd13fa2)",
+            "verdict": "wired_not_yet_exercised",
+            "reason": "Deployed and verified on /api/diag/version. The SUPPRESSION has never been observed, and OI-20260909's own positive control (last_verdict: quiescent) is ABSENT from the live file, so clause (1) cannot be cleared honestly yet."
+          },
+          {
+            "name": "/api/diag/bybit_raw_closed_pnl (#11560)",
+            "verdict": "unverifiable",
+            "reason": "Held by a concurrent session (MI-221) and deliberately not touched by this audit. It shipped raising TypeError on every request via a positional-only executor hop; the fix is in unmerged #11565. Reported, not re-measured, because the file is another lane's."
+          }
+        ]
+      },
+      "backlog_classes": {
+        "total_open_reviewed": 872,
+        "note": "All 1630 rows across four backlogs were PARSED, not sampled; 872 are open or kept_open. Classes below each have >=2 members and a structural fix that would retire the class rather than the instance.",
+        "classes": [
+          {
+            "class": "A detector is built, proven by its own planted-control self-test, and armed nowhere",
+            "member_ids": [
+              "BL-20260909-A-PROVEN-DETECTOR-FOR-A-MEASURED-CLASS-WAS-BUILT-AND-ARMED-NOWHERE-AND-IS-UNARMABLE-AS-WRITTEN",
+              "AUD-20260909-uncarried-specs-instrument-is-itself-uncarried",
+              "AUD-20260909-system-invariants-has-no-scheduled-caller",
+              "AUD-20260909-exit-path-coverage-has-no-scheduled-caller"
+            ],
+            "structural_fix": "A CI check that every scripts/ci/check_*.py and every committed instrument with a passing --self-test is either registered in run_guards.py / a workflow, or listed on a NAMED, DATED exemption that must state which register carries its re-run. The '# wiring: manual-only' marker currently obliges nobody and expires never - that marker is the gap."
+          },
+          {
+            "class": "A guard's path scope is narrower than the concept it protects, so research or the order path drifts under a green guard",
+            "member_ids": [
+              "BL-20260909-SILENT-EMPTY-GUARD-READS-13-PERCENT-OF-ITS-CLASS-AND-55-SUPPRESSIONS-SIT-WHERE-IT-CANNOT-FIRE",
+              "AUD-20260909-guard-scope-narrower-than-concept-three-cases-PROVEN-BY-PERTURBATION",
+              "BL-20260909-DAILY-LOSS-PCT-IS-A-FRACTION-IN-PRODUCTION-AND-A-PERCENT-IN-NINE-HARNESSES"
+            ],
+            "structural_fix": "Each guard declares CONCEPT_DOMAIN (the paths where the rule ought to bind) beside its scan scope; a meta-guard fails when CONCEPT_DOMAIN minus scan_scope is non-empty without a dated, reasoned exemption. check_api_tier_policy.py already models the answer. Cheapest single detector for this class: fail when a '# allow-silent:' marker appears in a file the guard cannot scan - a suppression for a guard that cannot fire is proof of the mismatch, and it surfaced 55 today."
+          },
+          {
+            "class": "An alert is emitted but never reaches outcomes.jsonl, so it pages nobody",
+            "member_ids": [
+              "AUD-20260909-the-exit-eval-breach-history-is-uncountable",
+              "AUD-20260909-invariant-violations-has-no-read-surface-and-its-alert-never-pages",
+              "BL-20260816-IB-STOPS-OVER-COVER-IN-DISJOINT-OCA-GROUPS"
+            ],
+            "structural_fix": "A CI check that every _send-style alert module also writes outcomes.jsonl. This is the THIRD instance: CLAUDE.md already documents the identical delivery defect twice (ib_stop_over_cover, bybit_over_cover), which is exactly why those two appear in the ERROR feed and the exit-eval breach does not."
+          },
+          {
+            "class": "An armed gate's soak cannot settle the decision the arming exists to inform",
+            "member_ids": [
+              "BL-20260909-THE-CASH-SETTLEMENT-SOAK-HAS-ZERO-ROWS-ON-THE-ONLY-ACCOUNT-IT-BINDS",
+              "AUD-20260909-prop-risk-gate-soak-has-zero-enforce-rows",
+              "AUD-20260909-conviction-soak-cannot-settle-the-gate-it-was-armed-for",
+              "AUD-20260909-seventeen-soaks-unreadable-past-their-tail"
+            ],
+            "structural_fix": "Two checks. (1) ARMING LIVENESS: for every *_MODE env at enforce/apply read off /proc/<MainPID>/environ, assert its declared soak holds >=1 row carrying that same global_mode with a ts AFTER the arming date, grading never_observed_under_arm distinctly from no_rows. (2) CRITERION FEASIBILITY: fail when a log named in an OPEN-ITEMS clears_when demanding N days cannot be read back that far through /api/diag/log_file. Both are cheap and neither exists."
+          },
+          {
+            "class": "A hand-maintained registry holds facts the source of truth already contains, so a change can be half-applied",
+            "member_ids": [
+              "BL-20260909-THE-SANCTIONED-INTENT-LAYER-ROLLBACK-IS-A-78-PERCENT-CAPABILITY-OUTAGE",
+              "BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+              "AUD-20260909-strategy-add-touches-ten-underived-registries",
+              "AUD-20260909-roster-pinned-tests-broke-main-and-the-pattern-persists"
+            ],
+            "structural_fix": "Derive, do not maintain. The natural experiment is already in the data: strategy_descriptions.json is guarded and 55/55 complete; strategy_changelog.json is the same shape, unguarded, and 28/55 - memory's measured failure rate here is 49%. docs/strategy-coverage-matrix.md is already GENERATED; extend that pattern, and add a distribution assertion so a fallback constant can never again drift above the roster it claims to sit under."
+          }
+        ]
+      },
+      "structural_health": {
+        "population": "The WHOLE history, not the review window: 4563 commits (clone fully unshallowed and verified with git rev-parse --is-shallow-repository = false), all 1630 rows across four backlogs parsed rather than sampled, all 79 guard scripts inventoried with 54 self-tests EXECUTED, all 92 run_guards registry entries, all 57 allowlisted soak logs enumerated live, 1096 test files, 547 scripts/**.py, 401 src/**.py, and 488 regime_hard_gate events paged to exhaustion.",
+        "findings": [
+          {
+            "finding": "Resolved findings leave no permanent detector, so the same classes return",
+            "measured": "509 of 741 resolved rows (68.7%) name no test, guard or script in ANY resolution-bearing field. 94 of the 509 are critical/high and 45 carry money-path keywords. The `detector` field the audit skill declares mandatory ('no exceptions') is populated on 3 of 1630 rows = 0.18%. Real ghost detectors: 0 - when this repo names a detector, it exists.",
+            "trend": "first_measurement",
+            "structural_fix": "backlog_append.py::append_row is already the single chokepoint and already refuses duplicates. Add one more refusal: a row whose status is 'resolved' must carry a non-empty detector, where free text 'no detector possible because X' counts."
+          },
+          {
+            "finding": "Runtime instruments are built and not armed, while merge-time instruments keep being added",
+            "measured": "186 runnerless tools (94 of 538 under scripts/, 92 of 371 under src/). 2 of 2 committed runtime invariant suites pass their planted-control self-tests (28/28 and 19/19) and have ZERO scheduled callers. Against 92 CI guard entries operating on diffs at merge time, of which main passes all 92 ungated.",
+            "trend": "first_measurement",
+            "structural_fix": "Schedule system_invariants.py and exit_path_coverage.py behind a receipt that lands on main, using broker_bracket_reconcile.yml as the template (cron + dispatch, 0 unwired). Add the ungated whole-tree step to unwired-artifact-guard behind a RATCHET on the current 186 so it fails on an increase - a bare --all would red every PR on day one, which is the desensitized-alarm P1."
+          },
+          {
+            "finding": "The observe-first doctrine's writing half works and its reading half does not",
+            "measured": "4 of 4 armed real-money gates have soaks that cannot settle the decision they were armed for. 17 of 54 present soak logs are truncated at the 1000-line read cap and 6 are under 5% auditable; `audit` is 0.0% of 826 MB. bybit_coverage_soak is readable back 7.24h against its own clears_when of 3 distinct UTC days.",
+            "trend": "first_measurement",
+            "structural_fix": "Add offset/since paging to /api/diag/log_file. This is the single cheapest change in the report with the widest reach, because it is the shared bottleneck under every soak-gated decision."
+          },
+          {
+            "finding": "Defects cluster at seams between individually-correct components, and no instrument watches a seam",
+            "measured": "The money-at-risk findings this pass are seam defects without exception: a reduce that decrements a row and does not resize that row's leg (both functions correct in isolation; symbol-level arithmetic still reconciles EXACTLY, which is why every symbol-level check passes); a rollback registry that drifted from 16 to 55 while its sibling grew; a falsifier whose input documents a None sentinel its consumer collapses to 0.0. 3 of 3 journal-read helpers on the intent path fail permissive to a falsy value and 0 of 3 emit a durable read-state.",
+            "trend": "flat",
+            "structural_fix": "Per-ROW invariants rather than per-symbol ones (INV-PROTECT-LEG-MATCHES-ROW is the worked example and is strictly stronger than the existing symbol-level over-cover check), and registration of every three-state contract at the point the states are defined rather than by later enrolment."
+          }
+        ],
+        "hypothesis_tested": {
+          "hypothesis": "The defects that keep recurring are caused by guards that do not work - i.e. the CI guard suite produces greens that are not evidence, and tightening the guards is therefore the highest-leverage fix.",
+          "verdict": "refuted",
+          "evidence": "main is GREEN across all 92 run_guards entries when run ungated (PASS 90 - FAIL 2 - SKIP 0, both failures environmental: lint-imports absent, and pr-landing's documented pre-declaration state). 54 of 79 guard scripts carry a failure-path self-test and ALL 54 were EXECUTED this pass and exited 0; bucket (b) - 'mentions a self-test but only exercises the happy path' - is EMPTY by measurement, not by assumption. Two named defect classes were verified genuinely SWEPT with working positive controls: order_packages.id declarers 0 over 90 files (control: 42 files DO match the probe), and the one-sided-coverage class 1 surviving occurrence of 5, that one being the documented-legitimate carve-out. So the guards are real and largely proven. The defects instead cluster at SEAMS and in UNARMED RUNTIME INSTRUMENTS: the two committed invariant suites both pass planted-control self-tests and neither has a scheduled caller. REFUTING this hypothesis is the most useful output of the pass, because it redirects effort away from adding CI guards - which is what the repo has been doing - and toward arming instruments that already exist. A SECOND hypothesis was also tested: CLAUDE.md's assertion that 'every recorded repeated-mistake class has an executable prevention' - it is SUPPORTED, 5 of 5 classes name a prevention and all 7 named script paths exist AND are referenced in run_guards.py - and it is VACUOUS, because the load-bearing word is 'recorded': 85 backlog rows self-declare a recurrence and ZERO cite a ledger class."
+        }
+      },
+      "ml_output_actionability": {
+        "cycles_in_window": 2,
+        "outputs_consumed_by": [
+          "The Design-A regime vol gate consumes the advisory head's P(volatile) for real-money BTC routing - MEASURED as 41 vol-axis gating decisions in the entire 73-day life of enforced vol gating, all on BTCUSDT, with the ML label attributable for 12 of them.",
+          "Shadow-stage heads auto-wire onto strategy predictor lists and write to shadow_predictions.jsonl (accruing, 3.33 rows/min).",
+          "NOT consumed by any audit trail: advisory_decisions.jsonl is DEAD 76.4 days (last write 2026-06-25, over a 100%-auditable file) while the registry carries 3 advisory-stage models."
+        ],
+        "verdict": "unverifiable",
+        "detail": "Deliberately NOT graded 'actionable'. The output IS consumed - 12 ML-attributable gate decisions is real consumption, not zero - but at 0.56 decisions/day on ONE symbol the mechanism cannot reach statistical power, and the A/B that justified it compared two BOOKS while live has one, so there is no counterfactual arm. The live agreement log the A/B itself nominated as its evidence channel is 89.6% ungradeable (agree: None 896, True 67, False 37) because the frozen detector returns unknown 84.4% of the time. Grading this 'producing_but_unused' would be wrong (it is used) and 'actionable' would be wrong (its effect is unmeasurable). The honest verdict is that the question cannot currently be answered, and what would settle it is stated in the OUTCOME ledger."
+      },
+      "research_results_disposition": {
+        "assessed": true,
+        "population": "research-review-backlog.json: 19 rows, 13 open, 6 resolved, 4 of the 6 resolved naming a detector that verifiably exists. Plus the spec corpus: 381 artifacts under docs/research and docs/design, of which 123 classify as specs under a stated tier-A/B classifier.",
+        "summary": "MEASURED, and the headline is that research output is produced faster than it is dispositioned. 102 of 123 specs (82.9%) are UN-CARRIED - no register points at them - measured by scripts/ops/uncarried_specs.py, which is itself armed nowhere and reported this to nobody until this audit invoked it. That settles clause (1) of OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING (the count is now measured with a stated classifier and a stated denominator) and leaves clause (2) OPEN: the mechanism exists but requires a session to think of it, which is the row's own failure mode reproduced one level up. The row was NOT cleared.",
+        "actions": "Filed, not fixed: the structural fix is to add uncarried_specs.py as a step on an existing scheduled workflow that already lands a receipt on main, ratcheted at 102 so an increase pages and the standing 102 does not."
+      },
+      "test_execution_verification": {
+        "assessed": true,
+        "summary": "Tests and guards were EXECUTED this pass, not assumed. run_guards.py --all: PASS 90 - FAIL 2 - SKIP 0, and both failures were traced to the environment rather than the tree (layer-guard exited 127 because lint-imports was absent - installed, then 'Contracts: 6 kept, 0 broken', exit 0; pr-landing-guard is the documented pre-declaration state on this branch). All 54 guard self-tests were RUN with a 120s timeout and all 54 exited 0. guard_selftests.py --all exited 0. tests/test_check_backlog_refs.py 23 passed. check_register_ids.py OK.",
+        "caveat": "\u26a0\ufe0f A clean-tree run of run_guards.py reports PASS 53 - FAIL 0 - SKIP 39 and exercises 53 of 92 guards, because 39 are diff-scoped and inert on a tree with no diff. The summary line is IDENTICAL in both modes. An audit must use --all, as the runner's own docstring instructs, and this report's numbers are from the --all run. I made that mistake myself before catching it and it is filed as a finding.",
+        "not_verified": "It was NOT verified that the 21 pytest files naming a guard actually PLANT a violation - only that a file naming the guard exists. Those 21 greens are therefore treated as UNPROVEN, not disproven, and are on the inadmissible-greens list."
+      },
+      "execution_capture": {
+        "assessed": true,
+        "basis": "CITED for the bars-held ratios; RE-ESTABLISHED for exit-path coverage.",
+        "summary": "The per-strategy bars_held_p90 vs backtested-horizon RATIO was NOT recomputed this pass and is CITED to RPT-20260908-112000-since-last. What WAS re-established live is the exit-path half: scripts/ops/exit_path_coverage.py (self-test 19/19 with planted controls) graded 21 of 25 open non-backtest trades - decision_exit_live 1, price_only 11, no_exit_path 0, unknown 9. So nothing is wholly unclosable, and exactly one open trade has a live decision-driven exit; the other 11 can close only at a level fixed at entry. Long holds observed among them: 5483 qqq_pullback_1h at 4.9d (openR -0.25, stall 12) and 5417 trend_donchian_ada_4h at 6.1d.",
+        "per_strategy": [],
+        "anomalies": [],
+        "coverage_gap": "\u26a0\ufe0f 21 of the TRUE 25 open trades. Trades 4350, 4347, 4195 and 4194 fall outside the 1000-row journal read cap and were NOT graded. Stated as a gap rather than folded into the clean count. per_strategy and anomalies are empty because the ratio was not measured this pass - NOT because it was measured and found clean."
+      },
+      "account_reachability": {
+        "assessed": true,
+        "summary": "NO DECLARED-LIVE ACCOUNT IS UNREACHABLE. account_reachability_alert reports no latched-down account and no non-zero consecutive_down; trainer_reachability_alert reports down:false with a mirror age of 128s. What would have counted as a finding: a latched down:true, a non-zero consecutive-down counter, or a live account whose positions read failed across the pass - none occurred.",
+        "accounts_reading_null": [
+          "ib_live (mode: dry_run)",
+          "oanda_practice (shelved)",
+          "breakout_1 (prop - no broker API by design)"
+        ],
+        "caveat": "\u26a0\ufe0f Those three read positions: null, which is 'we did not look', NOT 'flat'. They are EXCLUDED from every journal-vs-exchange claim in this report rather than counted as agreeing. /api/diag/exchange_positions carries no read_state field, so 'not a position venue', 'gated dry_run' and 'credential failure' are one indistinguishable value - filed as its own finding.",
+        "silent_refusal_note": "alpaca_live's silent-refusal latch reads alerting:true and has NOT been re-assessed in 19 days (updated_at frozen at 2026-08-21T12:38:38 while all 7 siblings advanced to today). It is a FALSE alarm frozen at the pre-fix state, not a reachability failure - the account is reachable and its refusals are arithmetic."
+      },
+      "unexercised_fixes": [
+        {
+          "fix": "bybit_position_book.select_position_row (MI-204 book selection)",
+          "verdict": "exercised",
+          "evidence": "Called at order_monitor.py:8909 and demonstrably acting: stray_oca_soak now holds 19 rows (was 8 on 2026-09-08) including two with decision=stray_unkeyed, acted=true, verify_state=verified, both legs confirmed_gone - one ib_paper/MGC and one ib_paper/MHG at 2026-09-08T01:55:01Z."
+        },
+        {
+          "fix": "PROTECTION_REASSERT apply path",
+          "verdict": "exercised",
+          "evidence": "protection_reassert_soak holds 17 rows of which TWO are mode=apply, apply_scope=allowlisted, acted=true: ib_paper/MES at 2026-08-23T13:54:32Z and ib_paper/MGC trade 5531 at 2026-09-07T11:55:19Z with applied_state=both_legs_resting and ocaGroup oca-protect-t5531. \u26a0\ufe0f The second is NOT a clean success story - it re-armed a 43-lot bracket for a journal row the broker does not back, which is the mechanism working correctly on bad input."
+        },
+        {
+          "fix": "netting_attributed in the re-adopt flap guard allowlist (MI-204)",
+          "verdict": "still_unexercised",
+          "evidence": "Present in the SQL at order_monitor.py:2663, not merely the docstring - so it is deployed, not proposed. No re-adopt suppression keyed on it has been OBSERVED. Deployed and working are different facts."
+        },
+        {
+          "fix": "prop_status_request activity trigger (#11530, deployed as ffd13fa2)",
+          "verdict": "still_unexercised",
+          "evidence": "Deploy verified on /api/diag/version. The SUPPRESSION has never been observed, and clause (1) of OI-20260909 CANNOT be cleared honestly because the positive control it names (last_verdict: quiescent) is ABSENT from the live prop_status_request file, which contains only the bare account key - #11546 is not deployed. Without that control, silence is indistinguishable from a crashed import."
+        },
+        {
+          "fix": "PROP_TICKET_RISK_GATE_MODE=enforce on breakout_1 (armed 2026-08-31)",
+          "verdict": "still_unexercised",
+          "evidence": "prop_ticket_risk_soak holds 2 rows over 100% of the file, both mode=annotate, both timestamped 2026-08-30T16:16:27 - i.e. both PREDATE the arming. Zero rows have ever been written under the enforce arm in 10 days. OI-20260831 cannot be graded even in principle from this."
+        },
+        {
+          "fix": "ALPACA_CASH_SETTLEMENT_MODE=apply on alpaca_live",
+          "verdict": "still_unexercised",
+          "evidence": "31 soak rows over 100% of the file, ZERO for alpaca_live - the only allowlisted account - while 27 of 31 are not_allowlisted, which proves non-allowlisted accounts ARE measured and this is not a scoping artifact. It also cannot be exercised until the account can size a share (40 of 40 signals refused over 27 days)."
+        },
+        {
+          "fix": "The netting-soak position_idx / exchange_read_source discriminators",
+          "verdict": "regressed",
+          "evidence": "The remediation is PRESENT IN THE SCHEMA and INERT: position_idx is None on 13 of 13 zero-qty rows and exchange_read_source is None on 12 of 13, including a real-money bybit_2 attribution and two on hedge-armed bybit_1 symbols - exactly where the wrong-book read bites. Graded 'regressed' rather than 'still_unexercised' because the field shipped to close this gap and the gap is still open with the field present, which is a worse state than before: a reader now sees a discriminator and assumes it discriminates."
+        }
+      ]
+    }
+  },
+  "health": {
+    "overall_assessment": "See consolidated. The full 68-finding record with evidence, population and detector per finding is docs/audits/full-system-audit-2026-09-09.md.",
+    "findings": {
+      "NO LIVE POSITION IS NAKED (the headline, and it is measured)": "All 24 (account,symbol) groups across 25 open journal rows carry a resting stop >= position size, across IB, Bybit and Alpaca. Instruments proven first: system_invariants --self-test 28/28 with the real classifier imported, exit_path_coverage 19/19. IB ib_paper MHG 30/30/30, MGC 32/32/32, MES 15/15/15 - 3/3 two-sided. Alpaca 16/16 symbols at exactly 1.00x on BOTH sides, computed from raw order rows rather than read off a verdict. ib_live is reported UNGRADEABLE, not passed.",
+      "intent_reduce orphans an oversized protective leg (money-at-risk, Tier-2)": "apply_intent_reduce_partial_close decrements trades.position_size and never resizes that row's own tracked venue legs. Live: bybit_1/ADAUSDT trade 5417 position_size 628.0 against a venue stop of 63943.0 = 101.82x; the symbol reconciles EXACTLY (79227+628=79855), which is why every symbol-level check passes. Class incidence 21 of 1000 journal rows including 3 on real-money bybit_2; 7 of 8 pairs with a reduce later paged over-cover, and the one pair without a reduce is exactly sized (the negative control). It is the root cause of 64 of the 112 operator ERROR rows.",
+      "The sanctioned intent-layer rollback is a 78% capability outage": "MULTI_STRATEGY_INTENT_LAYER=false routes to pipeline._STRATEGY_BUILDERS, which holds 16 of 55 strategies. 35 of 45 execution:live legs would be silently skipped as a logger.warning at pipeline.py:506. No parity test exists. Re-verified from AST by the audit lead rather than taken from a sub-agent. Fix is to DELETE the second registry, not sync it.",
+      "The independent falsifier cannot falsify (money-at-risk, Tier-2)": "closed_flat_invariant.py:243 returns 0.0 - flat, no violation - on a FAILED exchange read, while its own input documents a None sentinel for exactly that case; 5 of 5 early-return sites collapse. Its 60s window runs against a tick period measured >=101.9s (n=140 gaps, 0 of 140 <=60s), so >=41% of every period is examined by nobody BY ARITHMETIC. Its log is not on the diag allowlist and it pages at WARN, which outcomes.py excludes from Telegram. Its 14.7-day zero is not evidence of anything.",
+      "The M20 60s exit-eval promise was BREACHED on 2026-09-07": "exit_loop_health_alert_state carries requirement_breach_process 2026-09-07T22:48:54 - a field written ONLY on a real breach. Today's max interval is 59951.2ms = 48.8ms of margin, against 45034ms / 15.0s recorded on 2026-08-25 at the same n and window shape. The distribution BODY is unchanged (mean 29879->29880.6, median 29970->29993.1) - only the tail moved. And the breach history is UNCOUNTABLE: 0 EXIT-EVAL rows in a 113-row untruncated ERROR feed spanning the breach date, because the alert never writes outcomes.jsonl - the third instance of a class CLAUDE.md documents twice.",
+      "_UNKNOWN_STRATEGY_PRIORITY is inverted and now live-contended (Tier-3)": "45 of 50 mapped legs sit below the fallback of 10, and five execution:live legs are ABSENT from the map, so omission WINS arbitration - the exact inverse of the constant's stated purpose. Live contention on SLV across three accounts. Re-verified by AST by the audit lead.",
+      "Four armed real-money gates have soaks that cannot settle them": "PROP_TICKET_RISK enforce: 2 rows, both annotate, both predating the arm, 10 days. ALPACA_CASH_SETTLEMENT on alpaca_live: 31 rows, 0 on the allowlisted account. CONVICTION_SIZING: 186 apply rows, 0 join keys, 77% unattributable. BYBIT_GRADED_COVERAGE: readable 7.24h against a 3-day criterion - unsatisfiable by construction. Four for four, and the shared bottleneck is the 1000-line read cap on /api/diag/log_file.",
+      "509 of 741 resolved findings leave no named detector": "68.7% of resolved rows name no test, guard or script; 94 are critical/high and 45 carry money-path keywords. The detector field the audit skill calls mandatory exists on 3 of 1630 rows. Real ghost detectors: 0 - when this repo names one, it exists. The recurrence ledger has no intake: 85 rows self-declare a recurrence and ZERO cite a ledger class.",
+      "Four guards in the REQUIRED merge context have no failure-path evidence": "provenance-consumer-guard, strategy-coverage, news-feed-coverage and workflow-failure-swallow have neither a self-test nor any test file. provenance-consumer-guard has gated merges since 2026-07-30 as the declared preventer of the fabricated-PnL class. Extended by the recurrence pass to 8 of 74 registered guards.",
+      "Registers are stale on main while their workflows report success": "commit-to-main cannot open its PR (GraphQL rate limit), so 164 automation/* branches stand unmerged - all 164 - and PROBES.json on main is stamped 2026-09-07. The CLAUDE.md SESSION BRIEF every session reads is rendered from these files. Verified three ways, including the audit lead hitting the identical limit this session.",
+      "What was NOT reached (stated so it is not read as clean)": "The dashboard and android repos were not attached, so hop 12 of the pipeline trace is UNGRADED. Trainer memory is unmeasurable from any reachable surface, so the replay-pregate OOM cause is carried, not re-established. The prop venue reads positions:null - unread, not flat - so the prop bridge is NOT GRADED. Live branch protection was not read (403 at the proxy). Per-trade grading is CITED to the 2026-09-08 review."
+    }
+  },
+  "performance": null,
+  "ml": null,
+  "artifacts": {
+    "audit_doc": "docs/audits/full-system-audit-2026-09-09.md",
+    "pr": "https://github.com/benbaichmankass/Metis-Insights/pull/11571"
+  },
+  "claude_channel_ping": null
+}
