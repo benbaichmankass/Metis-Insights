@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-dispatch-lane2-refill-20260909",
-  "claimed_at": "2026-09-09T07:40:10Z",
-  "purpose": "land the lane-2 refill dispatch record"
+  "held_by": "session_012kfL8m9T7xW3XkAv71To27",
+  "branch": "claude/mi-209c-partial-close-producer-20260909",
+  "claimed_at": "2026-09-09T08:00:00Z",
+  "purpose": "MI-209c PR #11514 (Tier-1, measurement+docs). Taken from a STALE claim: prior holder's PR #11511 merged 2026-09-09T07:42:51Z and the slot was never released; announced on board #11336."
  },
  "active_sessions": [
   {
@@ -57,6 +57,13 @@
    "branch": "claude/mi195-tp-decisions-and-examine",
    "started_at": "2026-09-08T09:59:45Z",
    "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
+  },
+  {
+   "session_id": "session_012kfL8m9T7xW3XkAv71To27",
+   "branch": "claude/mi-209c-partial-close-producer-20260909",
+   "intent": "MI-209c (lane 2, research): why the partial-close producer has never fired. WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND. Measurement + docs only, Tier-1 self-land. PR #11514 (draft). QUEUED for merge_slot -- NOT claiming it, the manager holds it for claude/mgr-dispatch-lane2-refill-20260909.",
+   "started_at": "2026-09-09T07:33:00Z",
+   "updated_at": "2026-09-09T08:05:00Z"
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",

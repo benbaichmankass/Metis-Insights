@@ -22,12 +22,22 @@ between 07:35Z and 07:46Z**.
 
 ## 0. Two corrections to my own dispatch, before anything else
 
-**(a) The work object does not exist.** I was dispatched to "read
+**(a) The work object did not exist when I was dispatched — it landed mid-session,
+and I have now read it.** I was told to "read
 `WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND` first — its `done_condition`
-is the contract." **There is no such file on `origin/main`** (checked at `ba5fccc`;
-`docs/claude/work/objects/` contains only two `20260909` objects, neither of them
-this one). I worked to the done-condition as stated in the dispatch prompt. I am
-saying so rather than implying I read an object I could not open.
+is the contract." At `ba5fccc` there was no such file: `docs/claude/work/objects/`
+carried two `20260909` objects, neither of them this one. So the first two thirds of
+this unit were worked against the done-condition **as quoted in the dispatch prompt**,
+not against the object. It landed at `e9754ca` (PR #11511, 2026-09-09T10:42:50+03:00)
+**while this work was in progress**, and I read it before finalising.
+
+**Having read it, the contract is unchanged and this answer meets it.** The object's
+`done_condition` is the same four-clause text the prompt quoted; § 1 answers clause
+**(b)** and names the config and the accounts, and § 5 supplies the distribution
+clause (a) would have wanted. `owner` on the object reads this session, so the
+dispatch and the object agree on who holds it. I am recording the sequence rather
+than quietly writing "as the object requires", because for most of this unit I could
+not have known that.
 
 **(b) The question had already been answered — the day before I was dispatched.**
 My brief said MI-209b "left a sharper question standing". It did not.
@@ -307,7 +317,10 @@ can honestly conclude. Filed as
 
 Stated plainly, because the absence of these is part of the result:
 
-- **I did not read the work object** — it does not exist on `main` (§ 0a).
+- **I did not work from the work object for most of this unit** — it did not exist
+  when I started and landed at `e9754ca` mid-session (§ 0a). I read it before
+  finalising and its `done_condition` is the text the prompt had quoted, so the
+  contract did not move; but the bulk of the measurement predates my reading it.
 - **I did not fire the partial path**, in a harness or otherwise. The done-condition
   rules a harness out, and I did not build one.
 - **I did not measure turtle_soup's own excursion distribution.** It has zero
