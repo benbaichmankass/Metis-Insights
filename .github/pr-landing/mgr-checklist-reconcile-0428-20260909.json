@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager supervision pass. Registers under docs/claude/** only: MANAGER-CHECKLIST.json (six in_flight rows reconciled to done against verified merged output), SESSIONS.json (24 last_observed refreshed, structure preserved), one health-review-backlog row, the tool-stamped lease heartbeat, and the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
