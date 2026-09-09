@@ -171,7 +171,8 @@ first; `_emit` emits `("ETHUSDT","short")` and drops the long; the long row's te
 `("ETHUSDT","long") in positions_cache` is `False`; the row closes.
 
 ⚠️ **This is a DIFFERENT SITE from
-`BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-...`**, which is
+`BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED`**,
+which is
 `_bybit_position_protection` at `order_monitor.py:8821` taking `rows[0]`, feeding the
 **netting** reconciler. This one is `clients.py::_emit` feeding the **order-status**
 reconciler. Same class, two independent sites, two different consumers — so fixing that row
@@ -203,7 +204,8 @@ zero-size row (the hedge-book sibling)"** and **"venue returned no row"** a sing
 observation, with no counter and no log line.
 
 **This is a recurrence, one day apart, and it blocked root-cause BOTH times.**
-`BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-...-ROWS0` records verbatim: *"NOT
+`BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED`
+records verbatim: *"NOT
 ESTABLISHED: which of `_flat`'s two triggers fired — `not rows` or `rows[0].size <= 0`. No
 repo surface exposes the raw get_positions payload; saying which would be a guess."* I hit
 the identical wall on a different function in a different P1. **That the same missing

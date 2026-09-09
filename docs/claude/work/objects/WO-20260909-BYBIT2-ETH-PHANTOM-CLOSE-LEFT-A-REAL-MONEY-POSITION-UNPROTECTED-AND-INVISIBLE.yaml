@@ -69,9 +69,10 @@ findings:
     row" are ONE value. Both are "the venue says flat" (which is why the q2
     conclusion holds), but WHICH is unestablished — and that is exactly what
     separates hedge-book masking from a venue/account mismatch. Filed as
-    BL-20260909-NO-REPO-SURFACE-EXPOSES-THE-RAW-BYBIT-GET-POSITIONS-PAYLOAD-...
+    BL-20260909-NO-REPO-SURFACE-EXPOSES-THE-RAW-BYBIT-GET-POSITIONS-PAYLOAD-AND-THIS-HAS-NOW-BLOCKED-ROOT-CAUSE-ON-TWO-REAL-MONEY-P1S
     It is a RECURRENCE: the same missing observation stopped
-    BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-...-ROWS0 one day earlier.
+    BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED
+    one day earlier.
   third_defect: >-
     CONFIRMED, and STRONGER than the "latent" the done_condition assumed. It sits
     directly on a live real-money CLOSE decision, because _exchange_position_set
@@ -81,7 +82,7 @@ findings:
     (_bybit_position_protection at order_monitor.py:8821, feeding the NETTING
     reconciler); this is clients.py::_emit feeding the ORDER-STATUS reconciler, so
     fixing that row does not fix this one. Filed as
-    BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-...
+    BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW
   manager_premises_checked:
     - premise_1_terminal_is_bybit_2: >-
         CONFIRMED, and now positively rather than by absence. bybit_portfolio
