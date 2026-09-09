@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-checklist-refresh-20260909",
-  "claimed_at": "2026-09-09T08:10:08Z",
-  "purpose": "refresh MANAGER-CHECKLIST with today's four lanes — displace freely, R13 does not serialize"
+  "held_by": "github-actions[bot] · work-digest run 34327540243",
+  "branch": "automation/work-digest-34327540243-1",
+  "claimed_at": "2026-09-09T08:21:01Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {
