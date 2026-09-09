@@ -1,0 +1,30 @@
+id: WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The partial-close producer is BUILT and has fired ZERO times across a complete census — establish why before anything else is built on top
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_012kfL8m9T7xW3XkAv71To27
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The reason the partial-close path has never fired is ESTABLISHED and stated with its population, not guessed. It is one of: (a) a gate/threshold no live trade has ever satisfied, named, with the DISTRIBUTION of the quantity it tests against that threshold so the margin is visible; (b) reachable in principle but unreachable as configured, naming the config and the account(s); (c) called, with its result discarded downstream, named at the call site; or (d) the census itself is wrong, in which case THAT is the finding and it supersedes MI-209b. A NULL IS AN ANSWER: if partial banking is genuinely never appropriate under the current geometry, say so with the evidence and recommend stopping there. NOT SUFFICIENT: reading the code and concluding it looks reachable, or a synthetic test that fires it in a harness -- a harness is exactly what cannot tell you why LIVE trades never did. Propose, never enact: any strategy, param or threshold change is Tier-3 and goes to the operator with the exact change.
+
+why: >-
+  MI-209b (#11501) corrected two premises this manager had wrong and left a sharper question standing. The zero-partials figure is a COMPLETE CENSUS, not a tail-bound read (trades n=5589, order_packages n=4500), AND the partial-close producer IS built. Those two facts together are the finding: a mechanism that exists, is wired, and has never once fired on a fleet that has closed thousands of trades. Active management is the cycle's named work, and partial banking is the half of it that is supposed to bank. Building more exit machinery on top of a path that has never executed would be building on an unmeasured foundation, which is the order the cycle priority forbids: repair the MEASUREMENT before acting on what it says.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, lane 2 refill after MI-209b closed, 2026-09-09
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
