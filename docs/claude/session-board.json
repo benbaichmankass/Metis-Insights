@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-rows0-ordering",
-  "claimed_at": "2026-09-09T13:34:38Z",
-  "purpose": "MI-221 follow-up: section 13 (what rows[0] actually returns) + the same measurement spliced into OI-20260908's observation. Tier-1, landing: self. DISPLACES a SPENT claim, recorded not erased: session_01KSZCUtFKze3k7ZvxnTnD4T on claude/mi218-closeout, whose PR #11553 is MERGED to main as 3a19593b4 — verified in the log, not assumed. Per check_pr_landing.py R13's own docstring this field does not serialize, so displacing it holds no one up; R13 REQUIRES the arming branch to carry it. ⚠️ FOURTH consecutive claim in ~2h that had to displace a stale holder (two github-actions[bot] runs at 11:08:18Z and 11:21:57Z whose branches are gone, then mi218 twice). Carried forward rather than quietly re-taken; it is a pattern someone should measure."
+  "branch": "claude/mi-221-correct-s12",
+  "claimed_at": "2026-09-09T13:53:31Z",
+  "purpose": "MI-221: correct § 12's overstatement + file the auto-merge disarm gap observed on #11555. Tier-1 docs + one backlog row."
  },
  "active_sessions": [
   {

@@ -491,7 +491,7 @@ rather than retro-fitting the outcome to whichever branch it most resembles.**
 - ❌ **"no ETHUSDT row at all ⇒ nothing in our code can see it."** Rows ARE returned. Bybit is
   answering about ETH to this key.
 
-**The third outcome: the venue truthfully reports ETHUSDT FLAT on both `bybit_2` books, and has
+**The third outcome: the queries WE SENT return ETHUSDT FLAT on both `bybit_2` books, and have
 since 2026-09-08T13:37:13.873Z.** That timestamp is the close instant this investigation was opened
 about — so the venue's own book agrees the close happened then, and records nothing since.
 `bybit_portfolio`'s ETH long book stamps **13:37:13.868Z**, 5 ms earlier: the paper mirror closing
@@ -608,3 +608,75 @@ to favour us, not the code being correct**, and it must not be cited as evidence
 constraints are reads-only. This is measurement handed to whoever owns `OI-20260908`. It sharpens that
 row's `clears_when`: a fix must select on `positionIdx` explicitly, and **must not be validated by "the
 live row came back first"** — that condition holds today and proves nothing.
+
+
+---
+
+## § 14 — CORRECTION to § 12: I reported my own instrument's silence as a fact about the venue
+
+**Operator, 2026-09-09, looking at the position on the Bybit platform while § 12 was being written**
+(verbatim, relayed): *"Do not tell me that the trade does not exist. That is false... you might not be
+seeing it... it might be an issue with how we've built our API integration, but it's on the platform.
+There's no way that you cannot pull that data. Figure it out, make it happen."*
+
+**They are right.** § 12's headline read *"the venue **truthfully** reports ETHUSDT FLAT"*. That word
+asserts the venue told us the whole truth, which is not something an empty read can establish — and
+the reading it was based on came from an instrument that, I now know, **sent the same two queries the
+production readers send**. It could discriminate HOW a row was dropped and was blind to any book those
+filters never ask about. **An empty read is evidence about the READ.** The § 12 sentence is corrected
+in place above; this section records why, rather than letting the edit pass silently.
+
+### What was actually wrong with the instrument
+
+Three filters, live in the production readers, each able to hide a real position — and the first
+version of the raw route inherited all three:
+
+1. **`settleCoin` hardcoded `"USDT"`** (`clients.py:1374`, `clients.py:1892`). A **USDC-settled**
+   contract is the SAME `linear` category and is excluded.
+2. **`category` from a single configured `market_type`** (`bybit_2` is pinned `linear`), so
+   **inverse / spot / option were never queried at all**.
+3. **The per-symbol cross-check iterates only the configured roster**, and **no position read anywhere
+   passes `baseCoin`** — verified by grep across `src/`, whose only `baseCoin` occurrences are
+   `marketUnit="baseCoin"` on the ORDER path. On `/v5/position/list`, `baseCoin` matches every contract
+   on that base regardless of settlement, so it is the one call that reaches USDT, USDC and inverse at
+   once.
+
+**And a fourth, found while fixing those:** `grep -rn "nextPageCursor" src/` returns **zero hits**. The
+client is `pybit.unified_trading.HTTP`, one request per call with no auto-pagination, so **every
+position read in this repo was page-1-only** and a truncated page was indistinguishable from a complete
+one.
+
+### What SURVIVES § 12 and what does NOT
+
+Stated explicitly, because a finding that quietly keeps a falsified exhibit is worse than no finding.
+
+**SURVIVES — it rests on CODE, read this session, not on the ETH instance:**
+
+- § 9's structural claim: every protective sweep anchors on either the venue-position list or the
+  journal-open list, and a position in neither is invisible. Verified with line numbers.
+- § 13's measurement of what `rows[0]` returns (`order_monitor.py:8821`) — a separate, still-unfixed
+  real-money defect, measured across 14 queries.
+- The three filters above and the missing cursor — all four are code facts, and all four are the reason
+  the instance could not be seen.
+- `BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON`.
+  This row was filed BEFORE the correction and is **strengthened** by it: it named exactly this gap.
+
+**DOES NOT SURVIVE:**
+
+- Any reading of § 12 as *"there is no ETH position"*. It never said that in its NOT-ESTABLISHED list,
+  but its headline implied it, and the implication is withdrawn.
+- The framing that the remaining explanation was *identification* (which UID is the operator on).
+  Hypothesis 4 (**wrong ACCOUNT**) is **refuted** on evidence: `/api/diag/bybit_open_orders` returns the
+  operator's XRP position with their exact brackets (TP 1.5535 / SL 1.3463, qty 58.5), so our key and
+  their screen are on the same book. ⚠️ **That refutes wrong-ACCOUNT and NOT wrong-or-partial KEY
+  SCOPE** — a key can be correctly bound and still be scoped so `/v5/position/list` omits books it is
+  not permissioned for, and `is_sub_account` still reads `None` (*we did not look*). Weakened, not
+  closed.
+
+### The sharpened question
+
+**On an account our key demonstrably reads correctly, why does `/v5/position/list` not return a position
+the web UI shows?** The widened sweep exists to answer that, and if every widened query comes back empty
+**and** the wallet's initial margin is fully explained by the visible XRP position, then the answer is a
+**key/permission scoping** problem — reported with the UID and the margin numbers, **never** as "no
+position exists."
