@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Corrects a FALSE STATEMENT this session landed on main in #11510 (c4994812): docs/claude/work/BACKLOG-DRAIN-2026-09-09.md §6 and the BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY update both say the alpaca_portfolio/TLT short is naked, in the present tense, on the strength of a DATED log row from 2026-09-08T13:37:36Z. The live read (/api/diag/alpaca_open_orders, read_state=orders_read, 2026-09-09T08:22Z) shows TLT short 75 against a resting buy-75 stop @ 82.40 submitted 2026-09-08T18:49:44Z — fully covered. This is a fresh branch off main because #11510 is MERGED and a merged PR must not be reused; the correction commit lost the auto-merge race by ~3 minutes. Docs + one JSON register only; config/, src/ and every order path untouched, no position acted on."
+}
