@@ -10,7 +10,7 @@
 
 decision: approved
 approved_by: operator (ben.baichmankass) — in conversation, directly
-approved_at: 2026-09-08
+approved_at: 2026-09-09
 # ⚠️ These fields carry the MOST RECENT approval (2026-09-08, the three-lane
 #    structure). The 2026-09-03 approval that opened this file is NOT erased —
 #    it is the first `reason` block below and still covers its own six objects.
@@ -28,6 +28,8 @@ covers:
   - WO-20260908-MEASURE-HOW-ACTIVE-MANAGEMENT-ACTUALLY-BEHAVES-FROM
   - WO-20260901-PHASE-F
   - WO-20260901-PHASE-D
+  # -- added 2026-09-09, the landing-machinery lane (see the block at the end) --
+  - WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -305,3 +307,37 @@ phase_d_addendum_2026_09_08:
     and it is not trading work. It is admitted because the operator chose it
     knowing that, not because the gate was inconvenient. The exception is still
     NOT a standing grant and still expires with the objects it names.
+
+# ============================================================================
+# 2026-09-09 — THE LANDING-MACHINERY LANE (WO-20260909-THE-LANDING-MACHINERY-…)
+# ============================================================================
+#
+# ASKED AND ANSWERED DIRECTLY. The manager reported that all four lanes from the
+# 2026-09-08 dispatch had emptied — every lane session idle, last dispatch of any
+# kind seven hours earlier — and proposed one lane on MI-208 + MI-207. The
+# operator answered, verbatim: "yes do that". That is the approval this block
+# records; it is not inferred from a busy adjacent task.
+#
+# WHY IT DISPLACES RATHER THAN WAITS. The cycle is CY-20260906-TRADING-TRUTH, and
+# repairing the MEASUREMENT before acting on it is exactly what this is: the
+# defect makes the repo's own landing instruments assert success they did not
+# achieve. Eleven automation producers write the pr-landing arming file and never
+# the merge_slot claim R13 requires beside it, so every receipt PR is structurally
+# unmergeable; the un-landed digest receipt then goes stale on a 6h clock and a
+# repo-wide TIME-BASED guard reds ALL 42 open PRs — including any trading PR. The
+# manager has hand-cleared this twice (01:04Z and, expected, 06:40Z) and it returns
+# on the next run, so the trading side cannot land work reliably while it stands.
+#
+# ⚠️ AND THE MANAGER CANNOT FIX IT. Both halves are worker paths —
+# .github/workflows/ and scripts/ — that check_manager_scope R2 bars a manager from
+# authoring, which is why this needs a session and not another hand-push. Filing a
+# manager-scope-exception instead was considered and REFUSED: the cheapest way past
+# that guard must remain routing the work to a session.
+#
+# SCOPE — two objects' worth of work, ONE object named. MI-201 / MI-202 / MI-203
+# stay `ready` and unassigned and are NOT covered here. A blanket exception naming
+# nothing is a permanent priority-suspension wearing an exception's clothes.
+#
+# ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
+

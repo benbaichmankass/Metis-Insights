@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01YP3DnuFmSbvtLgBQiuCHso",
   "branch": "claude/wo-landing-records-20260909",
-  "claimed_at": "2026-09-09T06:17:58Z",
-  "purpose": "Tier-1 records for MI-208/MI-207: one OPEN-ITEMS monitoring row and one health-backlog correction. Claimed on the coordination board (#11336) before this push."
+  "claimed_at": "2026-09-09T06:18:43Z",
+  "purpose": "Tier-1 records for MI-208/MI-207. Re-asserted over main after a merge-slot conflict with #11495 (which merged 1 min after this branch pushed and touched ONLY the board) — the same resolution commit-to-main now performs for automation."
  },
  "active_sessions": [
   {
