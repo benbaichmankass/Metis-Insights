@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-checklist-refresh-20260909",
-  "claimed_at": "2026-09-09T08:10:08Z",
-  "purpose": "refresh MANAGER-CHECKLIST with today's four lanes — displace freely, R13 does not serialize"
+  "held_by": "session_01Hw9mp8cEeZqF1KSGZHyHui",
+  "branch": "claude/backlog-drain-20260909",
+  "claimed_at": "2026-09-09T08:17:40Z",
+  "purpose": "Land PR #11510 — backlog-drain, Tier-1, docs + one JSON register. Re-asserted over main after the routine four-line merge_slot conflict the pr-landing README describes: main's board taken WHOLESALE first so every other lane's active_sessions edit is preserved, then this claim spliced back. The claim it replaces is SPENT — session_01HrmZ1RRNM4UnEUaFdrPEjj held it for claude/mgr-checklist-refresh-20260909, whose PR #11516 merged as 2142a425, and whose own text reads 'displace freely, R13 does not serialize'."
  },
  "active_sessions": [
   {
