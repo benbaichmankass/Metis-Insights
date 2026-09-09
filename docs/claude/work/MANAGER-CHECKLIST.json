@@ -2887,6 +2887,17 @@
       },
       "note": "MI-218 (#11538) found S3: agreement() refuses a verdict when n_live < MIN_LIVE_N = 30 -- roughly 25 weeks per leg -- while its OWN docstring says it exists because falling back to live trades 'caps every decision at reality's clock'. The instrument built to stop the clock gating decisions is itself clock-gated, and it sits UPSTREAM of whether backtest evidence is admissible at all. OPERATOR APPROVED the offline-only basis: establish trustworthiness from walk-forward folds and out-of-sample structure -- evidence that exists on day one -- and demote live agreement to a CROSS-CHECK that may later CONTRADICT a verdict but is never a PRECONDITION for having one. ⚠️ Do not silently discard live agreement; it stays as a falsifier. ⚠️ State the population of legs whose evidence this changes, before and after.",
       "updated_at": "2026-09-09T13:40:00Z"
+    },
+    {
+      "id": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "state": "in_flight",
+      "owner": "session_01GXpHkCHCx3bLrDGVNkVPrP",
+      "opened": "2026-09-09",
+      "priority": "p1",
+      "object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "title": "Run the /full-system-audit on the ops lane — agreed 2026-09-08, dropped, restarted 2026-09-09",
+      "note": "Operator-agreed 2026-09-08. The manager proposed running /system-review FIRST to scope it; the review landed (MI-192B, comms/reports/since-last/20260908T112000Z/) and THE AUDIT WAS NEVER REGISTERED OR SPAWNED. Measured 2026-09-09T13:45Z: every 'full-system-audit' string in the registers is an opened_by provenance from a PAST audit (2026-07-26 / 07-31 / 08-13); zero rows carried it as work. The manager was the carrier and the manager dropped it. ⚠️ THE SHAPE IS THE GENERAL FINDING: 'do X first so we can scope Y' leaves Y owed by NOBODY, and X completing hands Y to no one — routed into the audit's own RECURRENCE pass. ⚠️ The skill's Phase 3.10 says the audit CARRIES the system review and is not deferred; we sequenced them the other way, so the lane must still deliver 3.10's coverage and mark each item CITED or RE-ESTABLISHED.",
+      "updated_at": "2026-09-09T13:45:00Z"
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
