@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager merge-queue pass. Registers under docs/claude/** only: MERGE-QUEUE.json (corrected digest-clearance procedure + a 42-PR census read from the complete open-PR list), SESSIONS.json live-reconcile note, the tool-stamped lease heartbeat, and the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}

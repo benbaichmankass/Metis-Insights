@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0410-20260909",
-  "claimed_at": "2026-09-09T04:08:21Z",
-  "purpose": "Heartbeat 04:08:21Z; a dangling-reference finding appended to the existing open row rather than filed as a duplicate."
+  "branch": "claude/mgr-queue-digest-correction-0416-20260909",
+  "claimed_at": "2026-09-09T04:16:41Z",
+  "purpose": "Merge-queue duty: the digest clearance procedure I carried was wrong and named the wrong artifact; corrected and recorded, plus a full 42-PR census."
  },
  "active_sessions": [
   {
