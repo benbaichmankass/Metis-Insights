@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T19:44:00Z",
+  "updated_at": "2026-09-09T20:31:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3937,9 +3937,9 @@
       "why": "Attempts #1-#4 all failed at the SAME point and none of them was the child's fault: the prompt did not resolve the repo-identity ambiguity (remote is Metis-Insights, 244 in-repo files say ict-trading-bot, and CLAUDE.md warns that hardcoding either name is a trap), so a session obeying RULE ONE dead-ends asking which repo it is in. Attempt #5's prompt states the resolution up front. Registered AFTER the spawn, which is the MI-15 recurrence this registry exists to catch — recorded rather than tidied.",
       "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
       "state": "working",
-      "status": "idle",
-      "last_observed_at": "2026-09-09T19:44:00Z",
-      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected since 19:12:14Z, review_ready. Still on claude/mi225-full-system-audit - the SAME branch as the landing lane above. The double-occupancy I recorded at 19:12 has resolved on its own and is recorded as resolved rather than left looking live: the landing lane merged and armed on this author's behalf, the author rewrote the PR body, neither overwrote the other. STANDING RULE if both wake again: the LANDING LANE stands down, because the author owns the branch."
+      "status": "completed",
+      "last_observed_at": "2026-09-09T20:31:00Z",
+      "observation": "The audit's AUTHOR. Its work is on main as 566c0ff4c (#11571). Superseding the 19:44Z row, which recorded it as idle with the PR unlanded. The double-occupancy of claude/mi225-full-system-audit resolved with neither lane overwriting the other, and is now moot: the branch is merged. Both MI-225 rows are closed on OUTPUT, not on a status field."
     },
     {
       "session_id": "session_01AkZzA4Gq9J2pfx5sRB1ZUB",
@@ -3958,9 +3958,27 @@
       "note": "Registered BEFORE the spawn — the first time today I have got that order right; the three prior registrations this session were all after the fact, which is the MI-15 recurrence.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T18:39:35Z",
-      "status": "idle",
-      "last_observed_at": "2026-09-09T19:44:00Z",
-      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, branch claude/mi225-full-system-audit, status_category=review_ready, status_detail \"PR merged clean, CI re-fired; awaiting guards + pytest-run\". CORROBORATED INDEPENDENTLY rather than taken on its word: #11571 check-runs read 19:39Z show CI RESTARTED at 2026-09-09T19:33:43Z on NEW run ids (34395781952/63/64, 34395782100) - guards SUCCESS 19:35:42Z, pytest-collect SUCCESS, repo-inventory SUCCESS, open-and-automerge SUCCESS, pytest-run in_progress since 19:34:18Z. A restart on new run ids is what a clean re-merge of main looks like, so the lane did the union work it was routed for. Auto-merge armed. IT HAS NOT LANDED: origin/main head read 19:39Z is 6295bce38 (#11588), not the audit. Idle-with-armed-auto-merge is the CORRECT resting state here, not a stall."
+      "status": "completed",
+      "last_observed_at": "2026-09-09T20:31:00Z",
+      "observation": "Live get_session 20:30Z: SESSION_STATUS_IDLE, status_bucket COMPLETED - \"PR #11571 merged (566c0ff4c); full-system audit (1364 lines) on main; all registers balanced; slot released\". CORROBORATED by the manager reading origin/main rather than by the lane's claim: head 566c0ff4c and docs/audits/full-system-audit-2026-09-09.md present. This row previously said the audit had NOT landed; that was true at 19:44Z and is superseded here rather than left to mislead a cold manager. The lane also re-merged main unprompted at 19:55:30Z after #11589 - it did the job it was routed for without a poke."
+    },
+    {
+      "session_id": "session_01DMQJewWwFDbMsUEFq98j7J",
+      "registry_key": "pending-20260909T202010Z",
+      "state": "working",
+      "title": "MI-226 — make every REQUIRED guard prove it can turn red (audit F-01 / F-05 / F-61)",
+      "owns_object": "WO-20260909-REQUIRED-GUARDS-WITH-NO-PROVEN-FAILURE-PATH",
+      "checklist_item": "MI-226-REQUIRED-GUARDS-WITH-NO-PROVEN-FAILURE-PATH",
+      "spawned_at": "2026-09-09T20:20:10Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Routed from the MI-225 full-system audit, landed 566c0ff4c. F-05 is the audit's own sharpest Phase 0 finding: four guards in the REQUIRED merge context have neither a self-test nor any test file, so their greens have never been shown capable of turning red. The load-bearing one is provenance-consumer-guard, promoted to required on 2026-07-30 precisely because a write-only provenance signal let a +$247,683.78 manufactured-PnL figure accumulate. F-61 extends it to 8. Tier-1 throughout, so no operator approval is needed - which is why this is the ONE lane routed: the WIP ceiling read 7 of 8 when the audit landed and this object takes it to exactly 8.",
+      "note": "Registered BEFORE the spawn (the MI-15 order). Second time today I have got that order right.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T20:24:00Z",
+      "status": "working",
+      "last_observed_at": "2026-09-09T20:31:00Z",
+      "observation": "Live get_session 20:30Z: SESSION_STATUS_RUNNING, connected, branch claude/mi226-required-guards-failure-path, task_summary \"F-61 audit claim refuted; verifying pytest path\". Board START posted 20:25:32Z, ninety seconds after spawn - observed independently, as a declaring branch named in the scope-overlap audit on the manager's own PR #11590, not taken from the lane's self-report. !! THE F-61 REFUTATION IS AN IN-FLIGHT task_summary AND IS NOT ESTABLISHED. It is recorded here as CLAIMED and UNLANDED. Nothing may cite it until it is on main with its evidence; a task_summary freezes at a turn boundary and this repo has been burned by treating one as a result. If it holds it is the right outcome - the audit's own rule is that you verify your own output, and F-61's author had already corrected one denominator in place."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

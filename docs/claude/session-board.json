@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01AkZzA4Gq9J2pfx5sRB1ZUB · MI-225 landing lane",
-  "branch": "claude/mi225-full-system-audit",
-  "claimed_at": "2026-09-09T18:44:54Z",
-  "purpose": "Landing #11571 (MI-225 /full-system-audit Phase 0) on behalf of its disconnected author. Arming IS the merge (R13)."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-hb-2032-20260909",
+  "claimed_at": "2026-09-09T20:30:11Z",
+  "purpose": "Manager: lease heartbeat + supervision record (5 sub-sessions, MI-226 included)"
  },
  "active_sessions": [
   {
