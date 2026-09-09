@@ -28,3 +28,104 @@ blocked_on_basis: >-
   amending a stop on bybit_2 is a real-money order path.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+findings:
+  investigated_by: session_01CwHNLSX6gMjPoKUWHoYj7q
+  investigated_at: 2026-09-09
+  evidence_doc: docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md
+  headline: >-
+    THE TWO QUESTIONS HAVE ONE COMMON CAUSE, which the done_condition framed as
+    separate. The reconciler's "is the position still open?" test and every
+    position reader call the SAME function — clients.py::account_open_positions.
+    The journal closed 5471 BECAUSE that function reported no ETHUSDT long, and
+    no reader can see the position today for the identical reason. There is no
+    second, independent failure to find.
+  q1_why_the_journal_closed_it: >-
+    ANSWERED, site named. It was NOT an inferred SL cross — the close acted on a
+    Bybit closed-pnl record. Chain: order_monitor.py:4336-4343 builds
+    positions_cache from account_open_positions; :4348 tests
+    `(sym, side) in positions_cache` and ETHUSDT/long was ABSENT, so the row fell
+    through; :4371-4388 the netting-guard 2-observation confirm PASSED (the flat
+    persisted, so it was not a single-tick blip); :4392 -> :6194
+    _close_trade_from_order_status; :6260-6275 account_closed_pnl_for_trade
+    returned a real record (avg_exit_price 2451.27, closed_pnl -0.25284115);
+    _classify_broker_exit (~:6018) graded long px 2451.27 <= sl 2451.59428571 as
+    'sl'. THE CLASSIFICATION IS CORRECT GIVEN ITS INPUTS and is not the defect.
+    The gating decision is :4348.
+  q2_why_no_reader_can_see_it: >-
+    ANSWERED on the evidence: THE VENUE IS NOT RETURNING IT TO THIS API KEY; the
+    bot is NOT dropping it after the read. All three preconditions for the
+    symbol-scoped cross-check were verified: ETHUSDT is in bybit_2.symbols;
+    list_accounts preserves `symbols` (data_loaders.py:259); and no cross-check
+    failure warning appears in the trader journal window 11:25:53Z-11:29:35Z that
+    brackets both reads — with a POSITIVE CONTROL that the probe is not vacuously
+    quiet (the same 1000 lines carry OVER-COVER TRIP errors at 11:27:26Z and
+    11:29:31Z). So a symbol-scoped get_positions for ETHUSDT ran, succeeded, and
+    returned no row with size > 0.
+  raw_get_positions_response: >-
+    COULD NOT BE PRODUCED, and that is itself a defect that blocked this
+    investigation. _emit does `if size <= 0: return` with no counter and no log,
+    so "Bybit returned an ETHUSDT row with size 0" and "Bybit returned no ETHUSDT
+    row" are ONE value. Both are "the venue says flat" (which is why the q2
+    conclusion holds), but WHICH is unestablished — and that is exactly what
+    separates hedge-book masking from a venue/account mismatch. Filed as
+    BL-20260909-NO-REPO-SURFACE-EXPOSES-THE-RAW-BYBIT-GET-POSITIONS-PAYLOAD-AND-THIS-HAS-NOW-BLOCKED-ROOT-CAUSE-ON-TWO-REAL-MONEY-P1S
+    It is a RECURRENCE: the same missing observation stopped
+    BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED
+    one day earlier.
+  third_defect: >-
+    CONFIRMED, and STRONGER than the "latent" the done_condition assumed. It sits
+    directly on a live real-money CLOSE decision, because _exchange_position_set
+    (order_monitor.py:2884-2905) keys on (symbol, normalised_side) and :4348 tests
+    that set. If the dropped book is the one the journal row is on, the row reads
+    flat and CLOSES. DISTINCT SITE from the 2026-09-08 rows[0] row
+    (_bybit_position_protection at order_monitor.py:8821, feeding the NETTING
+    reconciler); this is clients.py::_emit feeding the ORDER-STATUS reconciler, so
+    fixing that row does not fix this one. Filed as
+    BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW
+  manager_premises_checked:
+    - premise_1_terminal_is_bybit_2: >-
+        CONFIRMED, and now positively rather than by absence. bybit_portfolio
+        holds XRPUSDT 11903.8 @ 1.4119 (different size, demo key BYBIT_API_KEY_3);
+        bybit_1's ETH is Sell 41.11 @ 2492.67. Only bybit_2 matches 58.5 @ 1.4121.
+        bybit_identity_summary.shared_uid_groups is empty; UID 553829655. My own
+        competing hypothesis — that the ETH row belonged to bybit_portfolio
+        sharing a UID — is REFUTED.
+    - premise_6_not_a_roster_scope_explanation: >-
+        CONFIRMED. ETHUSDT is in config/accounts.yaml::bybit_2.symbols, and I
+        additionally verified the key survives into the caller's cfg.
+    - operator_numbers_do_not_reconcile: >-
+        FLAGGED, NOT RESOLVED, and NOT a basis for dismissing the report. Reported
+        0.04 ETH, entry 2453.97, PnL +0.6464 (+1.97%), mark 2457.59. But
+        0.04*(2457.59-2453.97) = +0.1448, not +0.6464; +0.6464 on 0.04 implies a
+        mark near 2470.13. The PnL and the +1.97% agree with each other (ROI on 3x
+        margin) but neither agrees with the stated mark. This is the only
+        quantitative handle on whether the terminal view is current and should be
+        put to the operator.
+  not_established:
+    - >-
+      WHETHER THE VENUE ACTUALLY HOLDS THE POSITION. Three independent venue
+      reads (settleCoin page, symbol-scoped read, closed-pnl ledger) say flat; the
+      operator says open. UNRECONCILED. I found no mechanism by which our reads
+      could be wrong in the specific way required — a total absence, not a masked
+      sibling, since there is no second ETH book today for _emit to hide behind.
+    - >-
+      Whether the symbol-dedupe defect caused THIS close. It needs a second
+      non-zero ETHUSDT book at 2026-09-08T13:37Z and no read exists from that
+      moment. Asserting it would be a guess.
+    - >-
+      Whether bybit_2's API key and the operator's terminal are the same account
+      context. A different WALLET within one UID (UTA vs Classic/Copy-Trading)
+      would reconcile every observation at once, but I have NO evidence for it —
+      it is a hypothesis, not a finding.
+    - >-
+      Whether the closed-pnl record matched to 5471 was genuinely 5471's close or
+      a partial close of a larger netted long book that account_closed_pnl_for_trade
+      attributed to it. Under netting several journal rows share one exchange book
+      (_cascade_close_netted_siblings exists for this), so mis-attribution could
+      not be excluded.
+  remediation_disposition: >-
+    HOLD. Every candidate fix (keying the dedupe on positionIdx, re-pointing the
+    reconciler's flat test) changes what the reconciler considers open on a live
+    order path — Tier-2/3. Proposed in the backlog rows' resolution_criteria, NOT
+    applied. No order was placed, modified or cancelled on bybit_2 in this session.
