@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-checklist-reconcile-0428-20260909",
-  "claimed_at": "2026-09-09T04:26:57Z",
-  "purpose": "Supervision duty: 12 checklist rows read in_flight while every observed session is IDLE; six reconciled to done on verified merged output."
+  "branch": "claude/mgr-checksuite-append-0435-20260909",
+  "claimed_at": "2026-09-09T04:34:36Z",
+  "purpose": "Append a second axis to an existing open row rather than filing a duplicate: the check-suite trap is structural in our own two-push landing flow."
  },
  "active_sessions": [
   {
