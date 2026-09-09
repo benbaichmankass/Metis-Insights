@@ -1,0 +1,1 @@
+Tier-1 self-land. Corrects a false statement about live position protection that landed on main in #11510. PR opened by hand first so claude-pr-automerge adopts rather than creates.
