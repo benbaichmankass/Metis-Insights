@@ -35011,6 +35011,18 @@
         "PR #11578",
         "BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION"
       ]
+    },
+    {
+      "id": "BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "status": "open",
+      "area": "research-evidence",
+      "tier": "1 — tooling/cadence; arming a trigger touches .github/ only",
+      "summary": "scripts/ops/build_strategy_evidence.py (MI-216) ships `# wiring: manual-only`, so a per-leg offline edge record in comms/strategy_evidence/ goes STALE SILENTLY the moment that leg's config changes. The record carries a `config_fingerprint` precisely so a moved config is DETECTABLE -- but nothing currently COMPARES it. Detectable and detected are different facts, and only the first shipped. ⚠️ THIS IS THE SAME FAILURE CLASS THE PRODUCER EXISTS TO FIX, ONE LEVEL UP: MI-215 found the M7 gate grading edge off live closes because no offline artifact existed; an offline artifact that quietly describes a configuration the leg no longer has would be worse, because it reads as evidence. ⚠️ AND THE NATURAL TRIGGER IS NOT A CLOCK. An edge record does not decay with time -- the underlying history only grows -- it decays when config/strategies.yaml moves. A nightly cron would refetch a year of candles for 52 legs to keep records nobody had yet asked for, while STILL missing a config change made five minutes after it ran.",
+      "detail": "DEFERRED DELIBERATELY, not overlooked: the consumer that will say how fresh a record must be is MI-217 (the packet emitting `no_offline_evidence` instead of `hold`), and it does not exist yet. Wiring a cadence before its consumer sets a freshness policy nobody has a requirement for. CANDIDATE SHAPES, none applied: (a) a CI check that recomputes config_fingerprint for every committed record and fails a PR that moves a leg's config without refreshing (or explicitly invalidating) its record -- this is the config-change trigger, is free, and needs no candle fetch; (b) a workflow_dispatch + issue-label runner so a session can regenerate on demand on a free runner rather than the trainer VM (docs/claude/vm-resource-management.md); (c) the consumer treats a fingerprint mismatch as `no_offline_evidence` and never as a pass -- which makes staleness fail CLOSED and may make (a) belt-and-braces rather than required. ⚠️ (c) IS THE CHEAPEST AND SHOULD BE COSTED FIRST; do not reach for the cron. NOT MEASURED: how often a leg's config actually moves. Someone should count it over config/strategies.yaml's history before choosing between (a) and (b), because if legs move monthly the answer is different from if they move hourly.",
+      "resolution_criteria": "A record whose leg's config has MOVED is OBSERVED being refused or refreshed rather than read as current -- demonstrated on a real fingerprint mismatch, not asserted from the code. ⚠️ A GREEN CI RUN CLEARS NOTHING: green is the state today, with no comparison happening at all. The evidence is a PLANTED mismatch (edit a leg's config, leave its record) producing a refusal, and passing once the record is refreshed -- the positive-control shape MI-215 and MI-218 both used. ⚠️ AND IF THE OPERATOR DECIDES records may be consumed regardless of fingerprint, this row does NOT clear -- it CHANGES: that is a legitimate decision and must be RECORDED as one, with the consequence stated, rather than left looking like a trigger about to be built.",
+      "filed_by": "MI-216 (session_01MrTjuoRpBb7spyQLydXmmT)"
     }
   ]
 }

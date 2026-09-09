@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+# wiring: manual-only - run deliberately, because a CADENCE is not yet a
+# decision anyone has made and arming one now would be premature in both
+# directions. An edge record goes stale when a leg's CONFIG moves, not on a
+# clock, so the natural trigger is a change to config/strategies.yaml rather
+# than a timer; and the consumer that will say how fresh a record must be
+# (MI-217, the packet emitting `no_offline_evidence`) does not exist yet.
+# Wiring a nightly sweep before its consumer would fetch a year of candles
+# for 52 legs on every run to keep records nobody reads.
+# !! THIS IS A DEFERRAL, NOT A DISPOSAL, AND IT HAS A ROW: without a trigger
+# these records go stale silently the moment a config changes, which is the
+# exact failure class this producer exists to fix one level up. Tracked by
+# BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER.
 """MI-216 — build the PER-LEG OFFLINE EDGE RECORD the M7 review gate can read.
 
 WHY THIS EXISTS
@@ -94,7 +106,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 #: Repo root. This file lives at scripts/ops/, so parents[2] -- NOT parents[1],
 #: which is what scripts/check_soak_doctrine.py uses because it sits one level up.
