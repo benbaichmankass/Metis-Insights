@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T09:20:00Z",
+  "updated_at": "2026-09-09T09:32:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3697,13 +3697,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/metis-insights",
       "confirmed_at": "2026-09-09T07:13:36Z",
       "last_observed": {
-        "at": "2026-09-09T08:40:39Z",
+        "at": "2026-09-09T09:32:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + PR state",
-        "session_status": "IDLE",
-        "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:20:00Z",
-        "manager_note": "lane 1: PR #11510 MERGED. Acted on the manager correction — stripped the false operator_asked_to_hold, armed, landed. Its three-population burn-down (765 start / 766 main / 764 branch) CONFIRMED the manager's premise rather than quietly correcting it."
+        "manager_note": "Lane closed, but left branch claude/tlt-read-correction-20260909 with no PR — the contradictory TLT read is UNRESOLVED and now unowned."
       }
     },
     {
@@ -3719,13 +3719,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/metis-insights",
       "confirmed_at": "2026-09-09T07:09:11Z",
       "last_observed": {
-        "at": "2026-09-09T08:40:39Z",
+        "at": "2026-09-09T09:32:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + PR state",
-        "session_status": "RUNNING",
-        "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:00:00Z",
-        "manager_note": "lane 3: #11508 and #11513 both MERGED. Its slot claim on main is what disproved this manager's belief that R13 serialises."
+        "manager_note": "BLOCKED ~95min on DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR and the manager did not surface it — that lag is the manager's failure, not the lane's. Now ANSWERED: the operator rejected all four options as malformed. Do NOT resume this lane on window/floor; the question is void and the work is re-pointed as MI-215."
       }
     },
     {
@@ -3741,13 +3741,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T07:33:30Z",
       "last_observed": {
-        "at": "2026-09-09T08:40:39Z",
+        "at": "2026-09-09T09:32:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + PR state",
-        "session_status": "RUNNING",
-        "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:03:08Z",
-        "manager_note": "lane 2: PR #11514 open, mergeable_state dirty (its own to resolve). ANSWERED the object with a NULL: _apply_partial_close's only producer is turtle_soup.monitor(), routed to 0 of 11 accounts and pinned execution: shadow, so the TP1 branch has never been evaluated once. ⚠️ It also established that the question was ALREADY ANSWERED by MI-188b (09-08) and MI-209 (09-09) — ~2/3 of the unit was re-derivation caused by THIS MANAGER dispatching without checking the evidence docs. Second such misdispatch today. It further had to take a merge slot this manager left stale after #11511 merged, which it did correctly: evidence read, announced on the board, release offered."
+        "manager_note": "#11514 guards GREEN, auto-merge armed, head 65543e26. §6 read by the manager and recorded on the #11514 OPEN-PRS row as an OPTION, not a pending decision."
       }
     },
     {
@@ -3763,13 +3763,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T07:54:06Z",
       "last_observed": {
-        "at": "2026-09-09T08:40:39Z",
+        "at": "2026-09-09T09:32:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + PR state",
-        "session_status": "RUNNING",
-        "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:40:06Z",
-        "manager_note": "lane 4: sweeper in #11519 (draft, held); reports 15 PRs needing dispositions and 7 needing rescue. Its headline condition (repo-wide red) cleared incidentally at ~08:07 via #11513, NOT by this lane — it was corrected within minutes and the class work stands."
+        "manager_note": "#11519 reported green on b198aa6 but is still DRAFT and held by the manager. Its own framing says ~25 automation PRs; the measured figure is 51."
       }
     },
     {
@@ -3785,13 +3785,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T07:56:42Z",
       "last_observed": {
-        "at": "2026-09-09T09:00:34Z",
+        "at": "2026-09-09T09:32:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "PR state + live curl",
-        "session_status": "RUNNING",
-        "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:40:01Z",
-        "manager_note": "lane 5: #11517 operator-APPROVED and MERGED by the manager as 284cbc6c. Its report-before-shipping was correct and load-bearing — it refused to inherit the dispatch brief's false premise (mine) that the SPA already holds a session, and measured that it cannot send a bearer at all. That measurement is what let the operator decide on facts. Poked to verify 401 first-hand on both routes once the deploy restarts the web-api."
+        "manager_note": "Lane closed. Its measurement is what let the operator decide #11517 on facts; gate verified live 09:12:45Z (both routes 401, positive control 200)."
       }
     }
   ],
