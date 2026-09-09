@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot MEASUREMENT answering MI-218 ("how many
+# operating-layer surfaces require calendar time to reach an EDGE verdict?").
+# There is no cadence at which it should fire: the count it produces is a
+# finding to be acted on once, not a condition to be re-graded hourly, and the
+# standing enforcement of the rule it measures is check_soak_doctrine.py's
+# check D, which IS wired into run_guards.py on every PR. Re-run it by hand
+# when a gate surface is added or when check D is widened.
+# ⚠️ It cannot run at all until #11529 lands: it IMPORTS check D's detector and
+# refuses (exit 2) rather than reporting a count without it.
+# Its invariants ARE wired — tests/test_calendar_edge_census.py pins the
+# refusal path, the positive control and the widened predicate, because those
+# do not move even though the tree it measures does.
 """Census: how many operating-layer surfaces require CALENDAR TIME to reach an EDGE verdict?
 
 Answers the question MI-218 was opened to answer, with a stated classifier and a

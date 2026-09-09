@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T10:47:00Z",
+  "updated_at": "2026-09-09T11:16:18Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3839,6 +3839,21 @@
         "status_bucket": "review_ready",
         "manager_note": "#11530 green on guards+audit, pytest-run running, correctly HELD (landing: hold, no arming file, no slot claimed) — verified in the branch rather than trusted from the PR body. Poked 10:43:23Z with the operator APPROVAL and the follow-on (MI-220). It measured the operator premise and found it half false, reporting that plainly; that is why the approval could be given on facts."
       }
+    },
+    {
+      "session_id": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+      "title": "MI-218 — count the surfaces that require calendar time to prove edge",
+      "owns_object": "WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE",
+      "checklist_item": "MI-218-COUNT-EVERY-SURFACE-THAT-REQUIRES-CALENDAR-TIME-TO-PROVE-EDGE",
+      "spawned_at": "2026-09-09T11:16:18Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi218-count-calendar-time-edge-surfaces"
+      ],
+      "why": "Operator 2026-09-09: 'our overall operation is clearly not built to suit the system's structure.' One instance (M7) was confirmed; nobody had counted the others, and that count decides whether this is a fix or a redesign.",
+      "note": "SELF-REGISTERED by the worker: the manager's spawn prompt named registry_key pending-20260909T105249Z, and no row carrying that key is on main — so the row exists in the manager's tree or was never written, and session-registry-guard REFUSED. Registering here rather than leaving the guard red, because a session the registry does not name is, to a manager arriving cold, a session that does not exist (MI-15, twice). If the manager's row lands too, this is a duplicate to reconcile, not a divergent record.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
