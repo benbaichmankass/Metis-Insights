@@ -680,3 +680,97 @@ the web UI shows?** The widened sweep exists to answer that, and if every widene
 **and** the wallet's initial margin is fully explained by the visible XRP position, then the answer is a
 **key/permission scoping** problem — reported with the UID and the margin numbers, **never** as "no
 position exists."
+
+---
+
+## § 15 — The exhaustive sweep RAN, and the finding is about OUR READS, not about the operator's account
+
+**Measured 2026-09-09T15:11:41Z** on live sha `f8480e7e` (`git_sha == git_sha_on_disk`, `restart_pending: false`,
+verified BEFORE the read), with the widened instrument merged as `b34124e6c` (#11555). **26 queries** on
+`bybit_2`.
+
+### ⚠️ A SENTENCE I WITHDREW BEFORE IT REACHED THIS DOCUMENT
+
+On first reporting the sweep I wrote that the position was *"either **stale**, or on an account this key does
+not read."* **That is withdrawn.** Leading with *stale* doubts the operator's report, which the operator had
+already rejected in terms (*"Do not tell me that the trade does not exist. That is false"*). The margin
+arithmetic below is a fact about **what this key can read**; it is not a fact about the operator's account,
+and it must never be written as one. This is the same error class as § 14's — reporting our own instrument's
+output as a statement about the world — caught one level earlier this time.
+
+### Coverage, and the one query that did not run
+
+| category | query | state |
+|---|---|---|
+| `linear` | `settleCoin=USDT` | `rows_returned` (1: XRP), 2 pages |
+| `linear` | `settleCoin=USDC` | **`no_rows`** — ran, genuinely empty |
+| `linear` | `baseCoin` ×4 | **`could_not_look`** |
+| `linear` | `symbol` ×4 | `rows_returned` (3 each), 2 pages |
+| `inverse` | `baseCoin` ×4 | `no_rows` |
+| `inverse` | `symbol` ×4 | `rows_returned` (1 each, all size 0) |
+| `spot` | `baseCoin` ×4 | **`could_not_look`** |
+| `option` | `baseCoin` ×4 | `no_rows` |
+
+**8 of 26 queries could not look, and that is reported as the denominator rather than buried.**
+
+⚠️ **The `linear baseCoin` failure is the three-state design earning its keep.** It was called the single most
+decisive query, and it **did not execute** — `InvalidRequestError: Missing some parameters that must be filled
+in, symbol or settleCoin (ErrCode: 10001)`. A two-state design would have recorded it as `no_rows` and I would
+have built a conclusion on a query that never ran.
+
+⚠️ **It is NOT a coverage hole, and saying so requires the venue's own words, not our inference.** Bybit's
+error names the rule: for `linear`, `symbol` **or** `settleCoin` is required. Linear settles **only** in USDT
+or USDC and **both ran**. The `spot` refusal is explicit for the same reason — *"category only support linear
+or option"* — and spot holdings are coin balances, which the wallet block covers.
+
+### The cursor fix found rows nothing had ever seen
+
+`pages_truncated` is **`false` on all 26** — no cursor was left unfollowed. Five queries returned a cursor and
+all five were followed to exhaustion. `symbol:ETHUSDT` returned **3** rows where every page-1-only read in this
+repo's history saw 2. The third is `positionIdx: 0`, `size "0"`, empty `created_time`/`updated_time` — a
+one-way placeholder. **A real row, and empty**: the fix works, and what it surfaced is not the position.
+
+### THE FILTER-INDEPENDENT NUMBER
+
+| | |
+|---|---|
+| wallet USDT `totalPositionIM` | **27.56624038** |
+| XRP position row's own `positionIM` | **27.56624038** |
+
+**Identical to 8 decimal places.** Cross-check: 58.5 × 1.4121 = 82.6078 notional ÷ **leverage 3** — read off the
+position row, not assumed — = 27.53595, the +0.030 residual being Bybit's fee buffer. An ETH 0.04 @ 2453.97 at
+the same leverage adds **32.72**, which would put `totalPositionIM` near **60.29**.
+
+**This reads the WALLET, not any position list** — no filter, no dedupe, no cursor, no `size` field. And
+`coins_seen` is **`["BTC", "USDT"]`**: BTC is $0.00063 of dust, and there is **no USDC block and no ETH block**.
+A USDC-settled, inverse, or spot ETH holding each require their own coin block.
+
+### THE FINDING
+
+> **The operator's capital is on a book this system's keys cannot reach.** Our inability to read it is a defect
+> in OUR integration, not a fact about their account.
+
+That is the structural defect this lane already filed —
+`BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON` — and the
+sweep is evidence FOR that row, not against the operator.
+
+### The three candidates, read-states stated SEPARATELY
+
+- **(a) Different UID / sub-account — `UNTESTED`.** `is_sub_account` reads `None` = *we could not look*, never
+  *no*. This key reads UID **553829655**. **Not refuted.**
+- **(b) Different product category — `TESTED`, and cleared for THIS KEY on THIS account** (subject to the
+  `linear baseCoin` caveat above, which the settle-coin queries cover).
+- **(c) Stale terminal — `UNTESTED`, and not ours to assert.** The operator reported it from their terminal and
+  that report stands.
+
+### STILL NOT ESTABLISHED
+
+1. **Where the ETH row the operator sees is served from.** The open question is for the operator: which Bybit
+   UID is the terminal signed into, and is that row on the linear perp book.
+2. **Whether trade 5471's close was CORRECT.** `exit_reason='sl'` is still unvalidated against the fill, and
+   **there is still no read surface for venue closed-PnL** — `account_closed_pnl_for_trade` exists in
+   `clients.py` with no route. A second, independent endpoint that bypasses `position/list` entirely cannot be
+   asked from any surface today.
+3. **`total_position_im` at the ACCOUNT level is EMPTY** (`""`), so the figure above is the **USDT coin-level**
+   one. That is the right number here precisely because no other coin block exists — but it is a per-coin
+   reading and the distinction is stated rather than smoothed over.
