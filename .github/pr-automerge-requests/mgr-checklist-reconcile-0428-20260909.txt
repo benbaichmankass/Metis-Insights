@@ -1,0 +1,1 @@
+supervision: 12 in_flight vs all-idle; 6 reconciled on verified output; heartbeat 04:26:57Z
