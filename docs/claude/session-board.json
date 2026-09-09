@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01Hw9mp8cEeZqF1KSGZHyHui",
   "branch": "claude/backlog-drain-20260909",
-  "claimed_at": "2026-09-09T08:11:00Z",
-  "purpose": "Land PR #11510 — backlog-drain: 3 rows closed on verified criteria, 1 filed, 9 re-verified. Tier-1, docs + one JSON register only. Displaces a SPENT claim: session_01DUBXxiaZ3PMERcAfcJce7P's #11513 merged as d9059a0f, and its own claim text reads 'Displace freely; per check_pr_landing.py's own docstring R13 does not serialize.' My manager's precondition is also met — it said take the slot once #11511 merged, and #11511 merged as e9754ca3."
+  "claimed_at": "2026-09-09T08:17:40Z",
+  "purpose": "Land PR #11510 — backlog-drain, Tier-1, docs + one JSON register. Re-asserted over main after the routine four-line merge_slot conflict the pr-landing README describes: main's board taken WHOLESALE first so every other lane's active_sessions edit is preserved, then this claim spliced back. The claim it replaces is SPENT — session_01HrmZ1RRNM4UnEUaFdrPEjj held it for claude/mgr-checklist-refresh-20260909, whose PR #11516 merged as 2142a425, and whose own text reads 'displace freely, R13 does not serialize'."
  },
  "active_sessions": [
   {
