@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register refresh: adds today's four lane items to docs/claude/work/MANAGER-CHECKLIST.json, plus the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}

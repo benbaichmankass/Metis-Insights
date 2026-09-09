@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-wip-reconcile-20260909",
-  "claimed_at": "2026-09-09T08:03:27Z",
-  "purpose": "reconcile the WIP ceiling + record the lane-4/lane-5 dispatches — YIELDS to lane 4, whose PR unblocks the repo-wide red"
+  "branch": "claude/mgr-checklist-refresh-20260909",
+  "claimed_at": "2026-09-09T08:10:08Z",
+  "purpose": "refresh MANAGER-CHECKLIST with today's four lanes — displace freely, R13 does not serialize"
  },
  "active_sessions": [
   {
