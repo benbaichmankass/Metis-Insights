@@ -139,60 +139,77 @@ blocked_on_basis: >-
   nothing did. The build ran to completion and the question is answered.
 
 decision_requests:
+  # ⚠️ EVERY OPTION CARRIES A `key`, AND THAT IS NOT COSMETIC. `key` is what a
+  # submission NAMES, so `work_decisions.normalise_option` DROPS an option
+  # without one rather than synthesising a key that would let a submission
+  # select something the author never wrote down. Both of these requests were
+  # first written with `name:` instead, and the effect was precisely the failure
+  # this store exists to prevent: the questions read as filed while being
+  # UNANSWERABLE from the Telegram/SPA decision channel. Caught by
+  # tests/test_work_decisions.py::test_the_committed_store_declares_at_least_one_real_decision_request.
   - id: DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW
-    asked_by: session_01ML8uLRrKLMmzR9fFywTWv5
+    urgency: routine
+    asked_on: '2026-09-08'
+    asked_by:
+      session_id: session_01ML8uLRrKLMmzR9fFywTWv5
     question: >-
       OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST
       is a `loud` row whose clears_when has three clauses. (2) and (3) are met in full and its
       own text says a NULL closes it. Clause (1) says "scripts/backtest_system.py grows an
       N-book mode", and the capability was built as a parity-asserted SIBLING instead, for the
       landing-surface reason in `deviation_from_done_condition`. Should the row be removed?
+    context: >-
+      The row is left OPEN with a full `observation` recording exactly what was built, measured
+      and deviated from, so whoever decides is deciding on the evidence rather than on a
+      summary. Removing a `loud` row is a judgement about a deviation from a written condition,
+      and a sub-session that cannot put the deviation to anyone should not make it silently.
     options:
-      - name: remove_the_row
+      - key: reword_clause_1_then_remove
+        label: Reword clause (1) to name the CAPABILITY, then remove the row
+        implication: >-
+          Makes the next reader's test the one that matters - does the capability exist and is
+          it drift-proof - rather than which file it lives in, and then closes an answered
+          question. RECOMMENDED.
+      - key: remove_the_row
+        label: Remove the row as it stands
         implication: >-
           The register stops carrying an answered question. Correct if the substance is what
           clears_when meant. The evidence is committed and the write-up is linked from the
           design file, so nothing is lost by removal.
-      - name: keep_it_open_until_backtest_system_itself_carries_the_mode
+      - key: keep_it_open_until_backtest_system_itself_carries_the_mode
+        label: Keep it open until scripts/backtest_system.py itself carries the mode
         implication: >-
           Reads the clause literally. Costs an open `loud` row that every session must report
-          on while the question behind it is answered — the alarm-fatigue shape this repo
+          on while the question behind it is answered - the alarm-fatigue shape this repo
           treats as its own P1.
-      - name: reword_clause_1_to_name_the_capability_rather_than_the_file
-        implication: >-
-          Keeps the row until someone edits it, but makes the next reader's test the one that
-          matters (does the capability exist and is it drift-proof) rather than which file it
-          lives in.
-    recommendation: reword_clause_1_then_remove
-    why_not_taken_autonomously: >-
-      Removing a `loud` row is a judgement about a deviation from a written condition, and a
-      sub-session that cannot put the deviation to anyone should not make it silently. The row
-      is left OPEN with a full `observation` recording exactly what was built, measured and
-      deviated from, so whoever decides is deciding on the evidence rather than on a summary.
 
   - id: DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE
-    asked_by: session_01ML8uLRrKLMmzR9fFywTWv5
+    urgency: routine
+    asked_on: '2026-09-08'
+    asked_by:
+      session_id: session_01ML8uLRrKLMmzR9fFywTWv5
     question: >-
       check_pr_landing.py's TIER1_SURFACE allows scripts/{ci,ops,research,reports}/** but not
       scripts/*.py, so the repo's research harnesses (scripts/backtest_*.py) cannot be touched
-      by a self-landing Tier-1 PR even though they are research tooling that alters no live
-      path — which the canonical Tier-1 examples list explicitly ("Backtest tooling that does
-      not alter live runtime behavior"). This shaped a real design decision this session.
-      Should scripts/backtest_*.py join TIER1_SURFACE?
+      by a self-landing Tier-1 PR - even though the canonical Tier-1 examples list explicitly
+      names "Backtest tooling that does not alter live runtime behavior". This shaped a real
+      design decision this session. Should scripts/backtest_*.py join TIER1_SURFACE?
+    context: >-
+      Editing check_pr_landing.py is LANDING_MACHINERY, so R12 holds such a change for a human
+      by design and it cannot ride the PR that surfaced it, whatever its merit.
     options:
-      - name: add_it
+      - key: add_it
+        label: Add scripts/backtest_*.py to TIER1_SURFACE
         implication: >-
           Research-harness work self-lands like the rest of the research surface, matching the
-          canonical Tier-1 example list. Widens an allowlist whose whole polarity is
-          fail-closed, so it deserves a deliberate read.
-      - name: leave_it
+          canonical Tier-1 example list. It widens an allowlist whose whole polarity is
+          fail-closed, so it deserves a deliberate read rather than a nod.
+      - key: leave_it
+        label: Leave the allowlist as it is
         implication: >-
-          Every harness change keeps needing a human, and sessions keep routing around it — the
-          costlier failure being that they route around it by DUPLICATING the harness, which is
-          the drift this repo has already paid for twice.
-    why_not_taken_autonomously: >-
-      Editing check_pr_landing.py is LANDING_MACHINERY: R12 holds such a change for a human by
-      design, so it cannot ride this PR whatever its merit.
+          Every harness change keeps needing a human. The costlier failure is not the delay:
+          it is that sessions route around it by DUPLICATING the harness, which is the drift
+          this repo has already paid for twice.
 
 context: >-
   CONFIDENCE HAS BEEN THE LIVE PRIMARY RANKING KEY ON REAL MONEY SINCE 2026-08-31 (PR #10544)

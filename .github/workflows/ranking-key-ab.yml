@@ -284,6 +284,15 @@ jobs:
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # ⚠️ WITHOUT THIS the step exits 0 the moment the PR is OPENED, so a
+          # push that never merges reads as a success and the evidence is
+          # unreachable — the exact shape
+          # BL-20260830-TWELVE-OF-THIRTEEN-COMMIT-TO-MAIN-CALLERS-NEVER-CHECK-THEIR-ROWS-LANDED
+          # records, and what makes an "evidence landed" claim checkable at all.
+          # The job's 240m budget clears the action's 30m wait with room for the
+          # replay itself; the wait is the ACTION's to own, so this caller must
+          # not pass its own `verify-timeout-minutes`.
+          verify-merged: "true"
           paths: ${{ env.DEST }}
           message: "research: ranking-key A/B arms + report (run ${{ github.run_id }})"
           pr-title: "research: ranking-key A/B results (run ${{ github.run_id }})"
