@@ -2033,6 +2033,160 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
     }
 
 
+def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The RAW Bybit ``get_positions`` rows — un-deduped, un-filtered, zero-size
+    rows INCLUDED — or ``None`` when we could not look.
+
+    ⚠️ **THIS IS A DISCRIMINATING INSTRUMENT, NOT A CONVENIENCE READ.** Every
+    other Bybit position reader in this repo REDUCES the venue's answer before
+    anyone sees it, and the two reductions are the same two on both:
+
+    * ``account_open_positions._emit`` — ``if size <= 0: return`` then
+      ``if sym in seen: return`` (dedupe by SYMBOL, no ``position_idx``).
+    * ``account_bybit_open_orders`` — the identical ``size <= 0`` skip and
+      symbol dedupe.
+
+    So *"the venue is genuinely flat on this symbol"*, *"the venue returned a
+    ZERO-SIZE row"* (the hedge-mode sibling book, routine since
+    ``BYBIT_HEDGE_MODE_SYMBOLS`` was armed 2026-08-30) and *"the venue returned
+    no row for this symbol at all"* are ONE observation to every existing
+    reader. That collapse blocked root-cause on TWO real-money P1
+    investigations one day apart —
+    ``BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED``
+    ("NOT ESTABLISHED: which of ``_flat``'s two triggers fired … No repo
+    surface exposes the raw get_positions payload; saying which would be a
+    guess") and MI-221, where the question *does the VENUE not return it, or
+    does the BOT drop it?* could not be answered at all. This function exists
+    to answer exactly that question and nothing else.
+
+    **It reduces NOTHING.** No dedupe, no zero-size skip, no side filter. Rows
+    from the ``settleCoin`` page and from each symbol-scoped cross-check are
+    ALL returned, each tagged with the query that produced it, so a symbol
+    present in one and absent from the other is visible rather than merged
+    away.
+
+    ``size`` is reported TWICE on purpose: ``size_raw`` is the venue's own
+    string, ``size`` the float. ``_f`` coerces an unparseable value to ``0.0``,
+    which would silently manufacture the very "flat" reading this instrument
+    exists to distinguish, so ``size_parsed`` says whether the float is a
+    reading or a fallback.
+
+    Per-query state is three-way and never collapsed:
+
+    * ``rows_returned`` — the venue answered with at least one row.
+    * ``no_rows`` — the venue answered with an EMPTY list. A real, positive
+      measurement of the venue's view.
+    * ``could_not_look`` — the call raised. Says nothing about the world.
+
+    Top-level ``read_state`` ∈ ``not_bybit`` / ``could_not_look`` /
+    ``raw_read``. Counts are ``None``, never ``0``, when we could not look.
+
+    Read-only: grades nothing, re-arms nothing, opens no order path, cannot
+    refuse a trade. Never raises — a failure is a ``None`` or a per-query
+    ``could_not_look``, never an exception into the caller.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "bybit":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = bybit_client_for(account)
+    if client is None:
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: None = "could not look", the documented degraded state
+        logger.warning(
+            "account_bybit_raw_positions(%s): category resolve failed: %s", aid, exc)
+        return None
+    if category == "spot":
+        # Spot carries no derivative position rows, so there is no raw
+        # position payload to discriminate — mirrors both siblings.
+        return None
+
+    queries: list = []
+    rows: list = []
+
+    def _shape(p: Dict[str, Any], source: str) -> Dict[str, Any]:
+        raw_size = p.get("size")
+        parsed = True
+        try:
+            size = float(raw_size)
+        except (TypeError, ValueError):
+            size = None
+            parsed = False
+        return {
+            "source_query": source,
+            "symbol": p.get("symbol"),
+            "side": p.get("side"),
+            "size": size,
+            "size_raw": None if raw_size is None else str(raw_size),
+            "size_parsed": parsed,
+            "position_idx": p.get("positionIdx"),
+            "avg_price": _bybit_venue_price(p.get("avgPrice")),
+            "mark_price": _bybit_venue_price(p.get("markPrice")),
+            "stop_loss": _bybit_venue_price(p.get("stopLoss")),
+            "take_profit": _bybit_venue_price(p.get("takeProfit")),
+            "tpsl_mode": p.get("tpslMode") or None,
+            "unrealised_pnl": _bybit_venue_price(p.get("unrealisedPnl")),
+            "created_time": p.get("createdTime"),
+            "updated_time": p.get("updatedTime"),
+        }
+
+    def _run(source: str, **kwargs: Any) -> None:
+        try:
+            resp = client.get_positions(category=category, **kwargs)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look on THIS query; the others still answer
+            logger.warning(
+                "account_bybit_raw_positions(%s): %s query failed: %s",
+                aid, source, exc,
+            )
+            queries.append({
+                "query": source,
+                "query_state": "could_not_look",
+                "row_count": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+            return
+        raw = ((resp or {}).get("result") or {}).get("list") or []
+        for p in raw:
+            if isinstance(p, dict):
+                rows.append(_shape(p, source))
+        queries.append({
+            "query": source,
+            "query_state": "rows_returned" if raw else "no_rows",
+            "row_count": len(raw),
+            "error": None,
+        })
+
+    _run("settle_coin_usdt", settleCoin="USDT")
+    # EVERY configured symbol is queried, whether or not the settleCoin page
+    # already returned it — the point is to SHOW the disagreement between the
+    # two views, which a `sym in seen` skip would hide. Resolved through
+    # _bybit_configured_symbols so a caller handing in a reduced cfg still gets
+    # the full denominator (its sibling account_bybit_open_orders reads
+    # account['symbols'] directly and silently no-ops on such a cfg).
+    for sym in _bybit_configured_symbols(account):
+        if isinstance(sym, str) and sym:
+            _run(f"symbol:{sym}", symbol=sym)
+
+    graded = [r for r in rows if r["size_parsed"]]
+    return {
+        "category": category,
+        "queries": queries,
+        "rows": rows,
+        # The three counts a reader needs to tell the collapsed states apart.
+        # `zero_size_rows` is the one no other surface can report: a row the
+        # venue DID return that every existing reader discards.
+        "row_count": len(rows),
+        "nonzero_size_rows": sum(1 for r in graded if (r["size"] or 0.0) > 0),
+        "zero_size_rows": sum(1 for r in graded if (r["size"] or 0.0) <= 0),
+        "unparseable_size_rows": sum(1 for r in rows if not r["size_parsed"]),
+        "symbols_queried": [q["query"] for q in queries],
+    }
+
+
 def account_alpaca_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Alpaca resting orders + open positions, or ``None``.
 

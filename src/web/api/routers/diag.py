@@ -2887,6 +2887,109 @@ async def get_bybit_open_orders(
     }
 
 
+@router.get("/bybit_raw_positions")
+async def get_bybit_raw_positions(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """The RAW Bybit ``get_positions`` payload — **un-deduped, un-filtered,
+    zero-size rows INCLUDED**, every row carrying ``position_idx`` and ``size``.
+
+    ⚠️ **THIS EXISTS TO ANSWER ONE QUESTION THAT NO OTHER SURFACE CAN:
+    does the VENUE not return a position, or does the BOT drop it after the
+    read?** Every other Bybit position reader answers a REDUCED version — both
+    ``account_open_positions`` and ``account_bybit_open_orders`` skip
+    ``size <= 0`` and dedupe by SYMBOL — so *"genuinely flat"*, *"a zero-size
+    hedge-mode sibling book was returned"* and *"no row was returned at all"*
+    are ONE observation to every consumer in the system.
+
+    That collapse is not theoretical and it is not new: it blocked root-cause
+    on **two real-money P1 investigations one day apart**.
+    ``BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-...``
+    records verbatim *"NOT ESTABLISHED: which of `_flat`'s two triggers fired …
+    No repo surface exposes the raw get_positions payload; saying which would
+    be a guess"*, and MI-221 hit the identical wall on a different function.
+    An instrument gap that has stopped two investigations at the same step will
+    stop the third.
+
+    **It reduces NOTHING.** The ``settleCoin=USDT`` page AND a symbol-scoped
+    read for every configured symbol are BOTH run — even for symbols the page
+    already returned, because the disagreement between the two views is the
+    finding (``BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND``), and a ``sym in seen``
+    skip would hide exactly that. Each row is tagged with the query that
+    produced it, so a duplicate is visible rather than merged.
+
+    ``size`` is reported twice: ``size_raw`` (the venue's string) beside the
+    float, with ``size_parsed`` saying which. ``_f``-style coercion turns an
+    unparseable size into ``0.0``, which would MANUFACTURE the flat reading
+    this route exists to distinguish.
+
+    Per-query ``query_state`` is three-way and never collapsed —
+    ``rows_returned`` / ``no_rows`` (the venue answered EMPTY: a real positive
+    measurement) / ``could_not_look`` (the call raised: says nothing about the
+    world). Per-account ``read_state`` ∈ ``not_bybit`` / ``could_not_look`` /
+    ``raw_read``; counts are ``null``, never ``0``, when we could not look.
+
+    Grades nothing, re-arms nothing, opens no order path, cannot refuse a
+    trade, and returns no credential material. Tier 1 — read-only, token-gated,
+    best-effort per account.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_bybit_raw_positions
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_bybit_raw_positions: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
+        logger.warning("get_bybit_raw_positions: list_accounts failed: %s", exc)
+        accounts = []
+
+    out: list[dict[str, Any]] = []
+    for acc in accounts:
+        aid = (acc or {}).get("account_id")
+        if account_id and aid != account_id:
+            continue
+        is_bybit = ((acc or {}).get("exchange") or "unknown").lower() == "bybit"
+        result: Any = None
+        err: str | None = None
+        if is_bybit:
+            try:
+                result = await run_account_read(account_bybit_raw_positions, acc)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + result=null), logged; one account must not fail the call
+                err = f"{type(exc).__name__}: {exc}"
+                logger.warning("get_bybit_raw_positions: %s raised %s", aid, exc)
+        ok = isinstance(result, dict)
+        out.append({
+            "account_id": aid,
+            "exchange": (acc or {}).get("exchange"),
+            "mode": (acc or {}).get("mode"),
+            "account_class": (acc or {}).get("account_class"),
+            "read_state": (
+                "not_bybit" if not is_bybit
+                else "raw_read" if ok
+                else "could_not_look"
+            ),
+            "result": result,
+            "row_count": (result.get("row_count") if ok else None),
+            "nonzero_size_rows": (result.get("nonzero_size_rows") if ok else None),
+            "zero_size_rows": (result.get("zero_size_rows") if ok else None),
+            "error": err,
+        })
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
+
+
 @router.get("/alpaca_open_orders")
 async def get_alpaca_open_orders(
     request: Request,

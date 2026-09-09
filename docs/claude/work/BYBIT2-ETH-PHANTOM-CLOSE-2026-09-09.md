@@ -274,3 +274,112 @@ adopts it, and it reaches no operator surface. It was found only because a human
 the exchange.
 
 **Any fix that re-arms a stop without explaining the invisibility has fixed nothing.**
+
+---
+
+# ADDENDUM — 2026-09-09, after the operator directive
+
+> **Operator, verbatim:** *"absolutely not - the bot opened the trade with brackets, the bot
+> needs to fix this. the system cannot and will not rely on me manually checking and fixing
+> every trade - that is a recipe for disaster and will ensure that never have useable data
+> for analysis and improvement"*
+
+**§ 6 of this document routed the remedy to the operator. That framing was wrong and is
+withdrawn.** "What would settle it" listed *a screenshot refresh* and *confirmation of which
+wallet the terminal shows* as if a human check were a step in the repair. It is not a step in
+the repair; the repair is the bot's. What § 6 still validly contains is the list of READS
+that discriminate the cause — kept, and re-scoped as instrumentation rather than as a hand-off.
+
+## 8. The real finding is a CLASS, and it is bigger than this trade
+
+Every protective sweep in this system is anchored to one of exactly **two** lists. There is
+no third path.
+
+| | list | who reads it | what anchors it |
+|---|---|---|---|
+| **A** | the **VENUE** position list | `_reconcile_orphan_exchange_positions` (`order_monitor.py:2979`) → adopt → `_rearm_broker_protection_after_recovery` (`:7575`) → `_attempt_naked_autoprotect` (`:7692`) | `account_open_positions(cfg)` at `order_monitor.py:3128` |
+| **B** | the **JOURNAL-OPEN** list | `_check_broker_naked_bybit_positions` (`:9716`), and the DB-driven `_check_naked_positions` | `SELECT … FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0` (`order_monitor.py:9845`) — **verified this session, not inherited** |
+
+**A position in NEITHER list is permanently invisible to every safety mechanism the system
+has.** Trade 5471 is exactly that: `status='closed'` removes it from B, and the venue read
+does not return it, which removes it from A. Nothing is broken in the repair chain — it is
+never *reached*.
+
+⚠️ **THE REPAIR CHAIN ITSELF IS ALREADY BUILT, UNCONDITIONAL, AND VENUE-CORRECT** — verified
+in the code this session, not assumed. `_attempt_naked_autoprotect`'s Bybit branch
+(`order_monitor.py:7706`) calls `client.set_trading_stop(tpslMode="Full", stopLoss=…,
+takeProfit=…)`, is hedge-aware through `position_idx_for`, and has **no enable gate** (the
+Prime Directive's "no third gate"). Full mode REPLACES rather than adds, so a re-arm can
+never grow the leg count toward Bybit's 20-leg cap. **If either list had contained this
+position, the bot would have re-protected it by itself, with nothing new built.** So the
+deliverable is not a repair — it is a **third anchor**.
+
+## 9. STEP 1 SHIPPED — the discriminating instrument
+
+`GET /api/diag/bybit_raw_positions` (this PR) returns the raw `get_positions` payload
+un-deduped and un-filtered, zero-size rows included, every row carrying `position_idx` and
+both `size_raw` and `size`. It exists to answer the one question that decides STEP 2 —
+**does the venue not return it, or does the bot drop it?** — which no surface could answer,
+on two real-money P1s one day apart.
+
+**It is an instrument, not the answer.** The answer requires reading it against the live
+venue after deploy, and this document must not be read as containing it.
+
+## 10. STEP 3 — the DETECTOR for the class, PROPOSED (Tier-2, not shipped)
+
+The requirement is a cross-check that **does not read through either failing list**, so a
+position in neither is still found.
+
+### The proposal: a venue-anchored residual sweep, on the cadence that already exists
+
+**The third anchor is the venue's own `settleCoin` position page, read WHOLE.** It is
+neither list A (which is that page *after* `_emit`'s dedupe and zero-size filter) nor list B
+(the journal). Concretely, in the existing Bybit sweep:
+
+1. Take the raw rows for the account (the new accessor — **no dedupe, no size filter**).
+2. Keep every row with `size > 0`. That is the venue's own claim about what it holds.
+3. Subtract what the journal accounts for: the open rows on that `(account, symbol,
+   direction)`.
+4. **A venue position with non-zero size that no open journal row explains is the finding** —
+   `unattributed_venue_position`. Trade 5471's ETH would land here on its first pass.
+5. Route it into the **existing** adopt path (`_reconcile_orphan_exchange_positions`), which
+   already re-arms protection. Nothing new is built for the repair.
+
+### Cost per tick, stated rather than waved at
+
+- **Broker calls added: ZERO.** The sweep at `order_monitor.py:9716` is already cadence-gated
+  by `IB_BROKER_NAKED_CHECK_SECONDS`-style pacing and already fetches Bybit positions per
+  account. The residual is computed from rows **already in hand**, plus one journal `SELECT`
+  the same pass already runs.
+- ⚠️ **An unbounded per-position broker call is the June 2026 wedge shape and is deliberately
+  NOT what this proposes.** If the design ever needs a per-symbol confirm, it must ride the
+  existing cadence gate, never the per-tick path.
+- **Compute:** one set-difference over the account's symbols — the same order as the coverage
+  sum already computed beside it.
+
+### Three refusals that keep it safe
+
+1. **DETECT-ONLY FIRST, and the reason is measured, not cautious-by-default.** The one prior
+   auto-remediation of an adjacent class **cancelled the leg that MATCHED the journal**
+   (`BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG`), and the netting
+   reconciler reading a hedge book wrong closed a live real-money position
+   (`BL-20260908-…-ROWS0`). A detector that pages and a repair that acts should not land in
+   the same change.
+2. **`unreadable` must never present as `unattributed`.** A failed venue read means *we did
+   not look*; treating it as "the venue holds something the journal does not" would
+   manufacture phantom adoptions on every transient API error. Three states —
+   `attributed` / `unattributed` / `unreadable` — registered with `collapsed-state-guard`.
+3. **It must be side- and book-aware from the start.** The residual is per `(symbol,
+   position_idx)`, not per symbol, or it reintroduces the exact hedge-book collapse that
+   caused this incident.
+
+### What this does NOT cover, stated plainly
+
+It closes the case where **the venue reports the position and the journal does not**. It does
+**not** close the case where the **venue itself does not return the position to this API
+key** — which, on the three reads in § 3, is what `bybit_2`/ETHUSDT currently looks like. If
+STEP 1's raw read confirms the venue genuinely returns nothing, then **no venue-anchored
+detector can see it either**, and the answer moves to STEP 2: find the key or the account
+context that does return it. **That is the honest limit of this proposal and it must not be
+oversold** — a detector that cannot see the motivating instance is not a fix for it, and
+saying otherwise would be the "shipped ≠ working" failure this repo keeps paying for.
