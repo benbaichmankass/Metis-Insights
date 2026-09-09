@@ -305,3 +305,34 @@ class TestFindingReachesAHumanSurface:
             out = account_open_positions(bybit_account)
 
         assert len(out) == 2, "a soak failure must not change the return value"
+
+
+def test_soak_name_is_on_the_diag_allowlist():
+    """Shipped in the SAME commit as the writer, and pinned here so a refactor
+    cannot silently drop it.
+
+    A soak that is written and cannot be READ is a write-only log — the
+    ``VALIDATION_LOG_PATH`` failure this repo already paid for, and the
+    ``exit_loop_health`` #8778 shape. It matters more than usual here: this file
+    is the ONLY evidence that could ever justify the Tier-3 behaviour change the
+    operator deliberately held back, and the OPEN-ITEMS row that governs it
+    (``OI-20260909-POSITION-READ-STATE-SOAK-…``) names this exact route in its
+    ``clears_when``. Without the entry that row is unfollowable by construction.
+
+    I shipped the writer without the allowlist entry on the first pass; no guard
+    caught it and it was found by reading a sibling row's ``probe_absent_reason``.
+    Hence a test rather than a habit.
+    """
+    pytest.importorskip("fastapi")
+    from src.web.api.routers import diag
+
+    from src.units.accounts.clients import POSITION_READ_SOAK_FILENAME
+
+    assert "position_read_state_soak" in diag._LOG_FILES
+    # The route name and the file the writer actually opens must agree — two
+    # constants drifting apart is how a live route starts serving 404 for a log
+    # that is being written perfectly well.
+    assert (
+        diag._LOG_FILES["position_read_state_soak"].name
+        == POSITION_READ_SOAK_FILENAME
+    )
