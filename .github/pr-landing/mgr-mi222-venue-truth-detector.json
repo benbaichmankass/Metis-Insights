@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "manager register writes only — one work object, one MANAGER-CHECKLIST item, the SESSIONS.json spawn row, the lease heartbeat and the R13 merge-slot claim. No src/, tests/, scripts/, workflows, config/ or deploy/ path; no runtime, order path or strategy config touched. Files and routes the operator-directed MI-222 build; the build itself is the spawned lane's, not the manager's."
+}
