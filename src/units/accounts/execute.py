@@ -2067,7 +2067,11 @@ def apply_intent_reduce_partial_close(
         if parent_qty <= eps:
             continue
         consumed = min(remaining, parent_qty)
-        if consumed >= parent_qty - eps:
+        # Bound once and read twice, so the allocation bookkeeping below can
+        # never disagree with the branch that was actually taken.
+        fully_consumed = consumed >= parent_qty - eps
+        new_size: Optional[float] = None
+        if fully_consumed:
             # Fully consumed → close this parent chunk. PnL deferred (NULL).
             # package-cascade: KNOWN GAP, and the LARGEST of the three. This
             # closes the parent trade without closing its linked
@@ -2126,17 +2130,13 @@ def apply_intent_reduce_partial_close(
             db.update_trade(parent_id, {
                 "position_size": new_size,
             })
-        allocations.append({"parent_id": parent_id, "consumed": consumed})
-        if consumed < parent_qty - eps:
-            allocations[-1]["closed"] = False
-            allocations[-1]["new_size"] = new_size
+        alloc = {"parent_id": parent_id, "consumed": consumed,
+                 "closed": fully_consumed, "new_size": new_size}
+        allocations.append(alloc)
+        if not fully_consumed:
             pending_resizes.append(
-                (parent_id, new_size, parent_sl_leg, parent_tp_leg,
-                 allocations[-1])
+                (parent_id, new_size, parent_sl_leg, parent_tp_leg, alloc)
             )
-        else:
-            allocations[-1]["closed"] = True
-            allocations[-1]["new_size"] = None
         remaining -= consumed
 
     # ------------------------------------------------------------------
