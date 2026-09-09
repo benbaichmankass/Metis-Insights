@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-funding-test",
-  "claimed_at": "2026-09-09T16:04:43Z",
-  "purpose": "MI-221 § 16: the pre-registered 16:00 funding test and its result. Tier-1 docs only."
+  "branch": "claude/mi-221-soak-readback-cap",
+  "claimed_at": "2026-09-09T16:32:06Z",
+  "purpose": "MI-221: file the coverage-soak read-back cap (blocks question B). Tier-1, one backlog row."
  },
  "active_sessions": [
   {
