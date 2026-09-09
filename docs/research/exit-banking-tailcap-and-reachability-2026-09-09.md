@@ -185,6 +185,36 @@ Asked for explicitly. Stated as three separate outcomes, never collapsed.
   finding holds across the whole file or only the last 9 days.
 - Anything before 2026-06-18 (53 % of packages carry no entry-time stop).
 
+## 6. Incidental — this document's own PR is a fresh instance of the zero-check trap
+
+Recorded because it is a **measurement about the landing machinery**, and because I
+tried to avoid it deliberately and lost a race.
+
+`CLAUDE.md` documents that a PR opened by `claude-pr-automerge` under `GITHUB_TOKEN`
+fires no `pull_request` event, so it is born carrying **one** check run — the
+workflow's own `open-and-automerge` — which is green, while real CI never ran. It hit
+**six PRs on 2026-09-08**. The stated remedy is to open the PR by hand first, then push
+the arming pair as a **second** commit.
+
+**MI-209 (PR #11498) did exactly that and it worked** — 5 check runs, all green,
+`started_at` after the arming push. **MI-209b did not**, because I committed the arming
+pair *together with* the content and pushed once: the workflow opened PR **#11501** at
+`06:43:51Z`, and a `search_pull_requests` a few seconds earlier had returned
+`total_count: 0`, so my own hand-open attempt lost by seconds and failed
+`A pull request already exists`. Measured on #11501 immediately after:
+**`total_count: 1`, `open-and-automerge`, `success`** — the trap, with auto-merge armed.
+
+**The operative detail, and it is not in `CLAUDE.md`'s description:** the remedy is not
+just *"open it by hand"*, it is *"**the arming file must be in a LATER push than the
+content**"*. Putting them in one commit hands the workflow the arming signal at the same
+instant the branch first appears, and there is no window to open the PR yourself. That is
+a two-push ordering requirement, not a two-step one — and it is what separates #11498
+from #11501.
+
+Not filed as a new row: `CLAUDE.md` already carries this trap and MI-193 already filed it
+against `claude-pr-automerge`. What is added here is the ordering detail and a seventh
+dated instance.
+
 ## Reproducing
 
 ```bash
