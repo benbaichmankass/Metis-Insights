@@ -551,3 +551,60 @@ count will double every position. Read `source_query` before counting.
 **The one question that discriminates (1) and is answerable only outside this repo:** which Bybit
 **UID** is the operator's terminal signed into, and is that ETH row on the **linear perp** book?
 `bybit_2` is UID **553829655**. This is an identification question, not a repair instruction.
+
+---
+
+## § 13 — Incidental, and it is about a LOUD UNFIXED REAL-MONEY bug: what `rows[0]` actually returns
+
+Not part of MI-221's mandate. Recorded because the STEP 1 instrument can measure the exposure of
+`OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT`
+directly, and "not my task" is not a valid disposition in this repo.
+
+That row's root cause is `src/runtime/order_monitor.py:8821` — `pos = rows[0]` on a symbol-scoped
+`get_positions`, with no zero-size skip and no book selection. What it leaves open is *when* `rows[0]`
+hands you the wrong book. **Measured 2026-09-09T13:12Z, population: 14 symbol-scoped queries across all
+3 Bybit accounts, 11 of which returned two rows.**
+
+### 1. The venue's row order is NOT `positionIdx`-ascending
+
+13 of 14 queries returned idx 1 before idx 2 — and **`bybit_1` / `ETHUSDT` returned idx 2 first**. Any
+reasoning of the form *"`rows[0]` is the long book"* is therefore false, and one counter-example is
+enough to establish that.
+
+### 2. The order is consistent with `updated_time` DESC — 9 discriminating observations, 9 consistent
+
+Of the 11 two-row queries, **2 are timestamp ties and discriminate nothing**, so they are excluded rather
+than counted as support. The remaining 9 all order newest-first, and the single non-idx1-first case is
+exactly the one whose idx 2 was touched more recently (`09-09T12:46:36Z` vs `09-09T04:46:38Z`).
+
+**So `rows[0]` returns the MOST RECENTLY UPDATED book, not the live one.**
+
+### 3. Which makes the trigger concrete, and it is not exotic
+
+> A live position on one book **+ any more-recent touch on its flat sibling** ⇒ `rows[0]` is the flat
+> row ⇒ `size 0`, `side ''`, empty `sl_leg_ids` ⇒ the position reads FLAT.
+
+Flat books demonstrably do get touched: `bybit_1`/ETHUSDT's flat idx 2 was updated **8 hours after** its
+flat idx 1, with no position on either. This is not a narrow race; it is a matter of time.
+
+### 4. Currently live and NOT firing — by luck, not by safety
+
+All 3 open positions sit at `rows[0]` right now (`bybit_1` ADA idx 0, `bybit_2` XRP idx 1,
+`bybit_portfolio` XRP idx 1). Nothing is being mis-read at this moment. **That is the ordering happening
+to favour us, not the code being correct**, and it must not be cited as evidence the path is sound.
+
+### WHAT THIS DOES NOT ESTABLISH
+
+- **Bybit documents no ordering guarantee, and 9 consistent observations at one instant are not a
+  contract.** That is the finding, not a caveat to route around: `rows[0]` depends on an ordering the
+  venue never promised, so it can change with no notice and no deploy on our side.
+- **I did not observe the bug fire.** No mis-read close was caught in the act.
+- **Whether `updated_time` is the actual sort key** — any key correlated with recency fits these 9 equally
+  well. The remedy does not depend on knowing which: select the book **explicitly by `positionIdx`**.
+
+### Disposition — NOT fixed here
+
+**Tier-2, declaring `hold`.** `order_monitor.py:8821` is a live real-money order path and MI-221's
+constraints are reads-only. This is measurement handed to whoever owns `OI-20260908`. It sharpens that
+row's `clears_when`: a fix must select on `positionIdx` explicitly, and **must not be validated by "the
+live row came back first"** — that condition holds today and proves nothing.
