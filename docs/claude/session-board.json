@@ -5,10 +5,11 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-mi214-approval-20260909",
-  "claimed_at": "2026-09-09T10:47:00Z",
-  "purpose": "record the MI-214 Tier-2 approval and its follow-on"
+  "held_by": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+  "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+  "pr": 11538,
+  "claimed_at": "2026-09-09T11:30:00Z",
+  "purpose": "MI-218 \u2014 the calendar-time-to-edge census (Tier-1, landing: self). Taken over from session_01HrmZ1RRNM4UnEUaFdrPEjj, whose claim on claude/mgr-record-mi214-approval-20260909 is SPENT: PR #11533 merged to main as 8175e30c6 \u2014 verified in the log, not assumed. Per check_pr_landing.py R13's own docstring this claim does NOT serialize (each branch carries its own copy and it reaches nobody until merge), so it holds no one up; it is the attributable record R13 requires. Mirrored by the \ud83d\udd12 MERGE SLOT CLAIM comment on the live board, which is the authoritative claim."
  },
  "active_sessions": [
   {
