@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
   "branch": "claude/mi-221-exhaustive-bybit-sweep",
-  "claimed_at": "2026-09-09T14:11:23Z",
-  "purpose": "MI-221 URGENT (PR #11555) — the exhaustive Bybit sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block for the account-level margin check. Tier-2 by path (src/units/accounts/clients.py); auto-merge armed by benbaichmankass 2026-09-09T13:55:35Z, which is the approval expressed as an action. Read-only: no production reader changes and no order path is touched. Reclaimed after resolving a conflict caused by my own #11556 landing first; that PR's claim is SPENT (merged as 7a2a8c7b4, verified in the log)."
+  "claimed_at": "2026-09-09T14:46:13Z",
+  "purpose": "MI-221 URGENT (PR #11555) — the exhaustive Bybit sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block. Tier-2 by path; auto-merge armed by benbaichmankass 2026-09-09T13:55:35Z. Read-only; no production reader changes, no order path touched. SECOND conflict resolution on this branch, both caused by another commit rewriting merge_slot while this PR waited on CI (#11556 mine, then #11557 automation) — the churn BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION already describes. Displaced claims are SPENT: #11556 merged 7a2a8c7b4, #11557 merged f058af3ad, both verified in the log."
  },
  "active_sessions": [
   {
