@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
   "branch": "claude/mi-221-soak-readback-cap",
-  "claimed_at": "2026-09-09T16:32:06Z",
-  "purpose": "MI-221: file the coverage-soak read-back cap (blocks question B). Tier-1, one backlog row."
+  "claimed_at": "2026-09-09T16:43:25Z",
+  "purpose": "MI-221: coverage-soak read-back cap finding. Tier-1, one backlog row. Re-claimed after merge-slot churn."
  },
  "active_sessions": [
   {
