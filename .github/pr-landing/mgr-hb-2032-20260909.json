@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: lease heartbeat and a supervision record from live get_session reads. No src/, tests/, config/, deploy/ or workflow path."
+}
