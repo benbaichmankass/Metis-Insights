@@ -34,6 +34,8 @@ covers:
   - WO-20260901-PHASE-F
   # -- added 2026-09-09, the landing lane (see the block at the end) --
   - WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED
+  # -- added 2026-09-09, the security gate (operator-approved directly) --
+  - WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -408,3 +410,33 @@ phase_d_addendum_2026_09_08:
 #
 # NOT A STANDING GRANT. It expires with this object. The cycle priority remains
 # CY-20260906-TRADING-TRUTH.
+
+# ============================================================================
+# 2026-09-09 (fourth) — THE SECURITY GATE (WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB)
+# ============================================================================
+#
+# THE OPERATOR ASKED FOR THIS DIRECTLY, which this file's own guidance says is the
+# 30-second case. Put to them as a decision pop-up on 2026-09-09 with four options
+# (gate /api/bot/db/* now, do full Phase H, accept and record, or measure the blast
+# radius first). They chose: "Gate /api/bot/db/* now".
+#
+# THE EVIDENCE IS THE MANAGER'S OWN READ, not a relayed claim. GET
+# https://ict-bot.duckdns.org/api/bot/db/tables returned HTTP 200 / 10,494 bytes
+# with NO bearer at 2026-09-09T07:43:31Z, serving table names, row counts and full
+# column schemas for trade_journal.db - the money DB - and trainer_store.db.
+#
+# ONE HALF IS UNVERIFIED AND IS FLAGGED AS SUCH RATHER THAN ASSERTED. A lane
+# reports /api/bot/db/table/{name} serving actual ROWS unauthenticated. The manager
+# did NOT confirm it: the sandbox refused to pull live trade rows and that refusal
+# was not worked around. The session must establish it first.
+#
+# THIS IS NOT THE CLOSED DIAG-TOKEN QUESTION. That surface is bearer-gated and its
+# exposure is a DECIDED, accepted risk that must not be re-raised. This one has no
+# credential of any kind. Filing them together would reopen a closed decision.
+#
+# WHY IT DISPLACES. It is an unauthenticated read of the production money DB, and
+# the operator chose to act on it now. The narrow gate was chosen OVER full Phase H
+# deliberately, so the scope is /api/bot/db/* and nothing wider.
+#
+# SCOPE - ONE object. NOT a standing grant, and it does not license Phase H.
+# The cycle priority remains CY-20260906-TRADING-TRUTH.

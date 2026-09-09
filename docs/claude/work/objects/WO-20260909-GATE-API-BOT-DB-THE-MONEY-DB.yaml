@@ -1,0 +1,30 @@
+id: WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Gate /api/bot/db/* — the money DB's schema and rows answer with no credential at all
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01RvQbaZmEoH7V9VYpJiX7ZW
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  /api/bot/db/tables and /api/bot/db/table/{name} REFUSE an unauthenticated request -- verified by an actual credential-free HTTP call against the live host returning 401/403, not by reading the route decorator. State the population: enumerate every /api/bot/db/* route and show each one gated. The SPA's Data Explorer must still work, using the session it already holds for other gated routes -- verify that, do not assume it. ⚠️ SCOPE IS /api/bot/db/* ONLY: the operator chose the narrow gate over full Phase H, so do NOT widen to other read routes in this change. If you find that gating breaks a consumer path nobody enumerated, that is a finding to report BEFORE shipping, not a reason to widen or to abandon. A row in docs/api-tier-policy.md is required or CI fails.
+
+why: >-
+  OPERATOR-APPROVED 2026-09-09, asked directly as a decision and answered 'Gate /api/bot/db/* now'. VERIFIED BY THE MANAGER, not relayed: GET https://ict-bot.duckdns.org/api/bot/db/tables returned HTTP 200 / 10,494 bytes with NO bearer at 2026-09-09T07:43:31Z, serving table names, row counts and full column schemas for trade_journal.db (the money DB) and trainer_store.db. A lane additionally reports /api/bot/db/table/{name} serving actual ROWS unauthenticated; the manager did NOT verify that half -- the sandbox blocked pulling live trade rows and that block was not worked around -- so treat it as an unverified claim to be established first. ⚠️ THIS IS NOT THE CLOSED DIAG-TOKEN QUESTION and must not be filed against it: that surface is bearer-gated and its exposure is an accepted, DECIDED risk. This one has no credential of any kind. Do not raise the diag-token question.
+
+source: >-
+  operator decision 2026-09-09 via manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
