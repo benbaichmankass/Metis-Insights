@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T09:31:00Z",
+  "updated_at": "2026-09-09T09:52:30Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2764,8 +2764,8 @@
     {
       "id": "MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
       "title": "The strategy-review packet grades edge off live in-window n, which the binding promotion-evidence rule forbids",
-      "state": "ready",
-      "owner": null,
+      "state": "in_flight",
+      "owner": "session_01MrTjuoRpBb7spyQLydXmmT",
       "owns_object": "WO-20260901-PHASE-F",
       "priority": "high",
       "tier": "tier_3",

@@ -2,68 +2,87 @@ id: WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE
 type: commitment
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
-  The prop status-request ping fires on the wall-clock age of the snapshot and nothing
-  else, so an untouched account is indistinguishable from an unreported one
-stage: CAPABILITY
+  The prop status-request pings on wall-clock age alone, so a genuinely quiet account is indistinguishable from one that moved and was never reported
+stage: DECIDED
 lifecycle: in_flight
 owner: session_01FoASvmUGuahCphE1cewPPs
 opened_at: 2026-09-09
 closed_at: null
 review_trigger: >-
-  On the operator's Tier-2 decision on PR #TBD. Until then the change is PREPARED
-  and VALIDATED and NOT shipped.
+  Operator-raised. Re-read if the prop bridge changes shape or if breakout_1 is
+  retired; otherwise it stays ready until owned.
 done_condition: >-
-  THREE PARTS, and they are different facts — say WHICH you cleared rather than
-  clearing on the easiest. (1) MERGED, on an explicit operator Tier-2 OK: the diff
-  touches src/prop/ and the ping the operator receives. An approval to change the
-  TRIGGER is not an approval to change PROP_STATUS_REQUEST_MAX_AGE_HOURS, which is
-  deliberately untouched and has four consumers. (2) DEPLOYED — /api/diag/version
-  shows the merge commit as git_sha AND git_sha_on_disk with restart_pending false.
-  A merge alone clears this NOT AT ALL. (3) OBSERVED — the ping for `breakout_1`
-  does NOT re-fire after the next cooldown window elapses, read off
-  /api/diag/log_file?name=prop_status_request (the cadence stamp stops advancing)
-  while the account is still flat. ⚠️ THAT NEEDS A POSITIVE CONTROL AND IT IS NOT
-  OPTIONAL: silence proves nothing on its own, because a module that crashed on
-  import is also silent. Establish in the same window that run_prop_status_request
-  is still being CALLED — the trader tick is alive and other prop cadence files
-  (prop_monitor_pulse, prop_sl_tp_alert) are still advancing — and report both.
-  ⚠️ IF THE OPERATOR IS PINGED ABOUT A QUIESCENT ACCOUNT AFTER THE DEPLOY, that
-  does NOT clear this row and is the more valuable finding — record it and keep
-  the row open. ⚠️ IF THE OPERATOR DECIDES the wall-clock ask should stay, this
-  row does NOT clear — it CHANGES: that is a legitimate decision and must be
-  RECORDED as one rather than left looking like a fix about to land.
+  The prop status-request's TRIGGER keys on whether anything has HAPPENED since the last snapshot, not on wall-clock age alone, AND the ask still fires (a) on any fill reported since the last snapshot and (b) before a new ticket is sized. ⚠️ BEFORE ANY OF THAT, THE OPERATOR'S PREMISE IS MEASURED AND REPORTED EITHER WAY: over the 228h window on breakout_1, the count of `prop_fills` rows against the count of `prop_account_status` rows. If fills occurred with no snapshot following, the premise is FALSE in the dangerous direction and the ping was doing its job — that is the more valuable finding and it CHANGES this object rather than completing it. ⚠️ NOT SUFFICIENT: restoring the pre-2026-08-14 flat bail (that is a Tier-2 operator-approved decision protecting the account-level static DD floor and re-adding it re-opens the hole); or raising PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold — the ask, the fill-ack nudge, prop_balance.max_age_hours() sizing gate, and the /api/bot/prop/status freshness verdict — and one definition of "too old to trust" is deliberate, so sizing can never run off a balance the safety panel has written off). CHANGE THE TRIGGER, NOT THE THRESHOLD.
 
 why: >-
-  OPERATOR-RAISED 2026-09-09, verbatim: "This ping in the prop channel is
-  unessacry, the account snapshot is updated when a trade closes, if there are no
-  prop trades than the account state didn't change." Pinging about an account
-  nothing has touched trains the operator to ignore the ping that matters — the
-  desensitized-alarm P1. ⚠️ THE OPERATOR'S PREMISE IS HALF FALSE AND THE FALSE
-  HALF DOES NOT CHANGE THE ANSWER. MEASURED 2026-09-09T09:54Z via
-  /api/bot/prop/fills?limit=500 and /api/bot/prop/status (direct over the Caddy
-  host): breakout_1's newest snapshot is id 19 at 2026-08-30T19:33:29Z and its
-  newest fill is id 41 at 2026-08-30T19:39:00Z — the last close is 5.5 minutes
-  NEWER than the snapshot it supposedly produced, so "a close updates the
-  snapshot" is false AS A MECHANISM. The conclusion still holds, for a stronger
-  reason: zero fills in the 230h since, zero open positions, zero unacted tickets.
-  ⚠️ AND A REPORTED FILL IS DELIBERATELY NOT A TRIGGER: prop_reconcile.
-  reconstruct_equity is asymmetric — an unplaceable LOSS is always applied, an
-  unplaceable GAIN is withheld and counted — so a reported fill can only make the
-  cushion CONSERVATIVE, never optimistic. Fill 41 is exactly that (+35.28 withheld;
-  the panel shows an $87.34 cushion where the true one is ~$122.62). The
-  2026-08-14 static-DD purpose is PRESERVED and now OBSERVED rather than assumed,
-  via a trigger on a real non-suppressed ticket taken against the cushion.
+  Operator-raised 2026-09-09 on a live ping, verbatim: "This ping in the prop channel is unessacry, the account snapshot is updated when a trade closes, if there are no prop trades than the account state didn't change". The ping quoted was breakout_1 with no open positions and a snapshot 228h (9.5d) old. The operator is right that the trigger is wrong: it fires on the AGE of the last snapshot and nothing else, so it cannot distinguish an account nothing has touched from one that moved and was never reported — and pinging about the first trains the operator to ignore the second, which is the desensitized-alarm failure this repo has already paid for.
 
 source: >-
-  operator (conversational), routed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+  operator, in conversation, 2026-09-09; relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+measurement_result: >-
+  MEASURED 2026-09-09T09:54Z by MI-214, and REPORTED EITHER WAY as the
+  done_condition requires. Locators: /api/bot/prop/fills?limit=500 and
+  /api/bot/prop/status, read direct over https://ict-bot.duckdns.org.
+  THE PREMISE IS HALF FALSE. breakout_1's newest prop_account_status is id 19 at
+  2026-08-30T19:33:29Z; its newest prop_fills row is id 41 at
+  2026-08-30T19:39:00Z — the last close is 5.5 MINUTES NEWER than the snapshot
+  it supposedly produced. So "the account snapshot is updated when a trade
+  closes" is FALSE AS A MECHANISM: a close PROMPTS a snapshot (a fill ack with a
+  folded balance nudge, or a screenshot that may or may not also yield an
+  account_status) and never guarantees one. THE COUNTS the done_condition asks
+  for, over the window from that snapshot to the read: prop_account_status rows
+  = 0 (that is the window definition), prop_fills rows = 1 (id 41, SOLUSDT
+  closed, +35.28). POSITIVE CONTROL, so the near-zero is not a broken probe: the
+  same reader returns 41 fills lifetime, oldest 2026-06-22. Also 0 open
+  positions (derived through prop_position_identity.position_key, which collapses
+  buy->long — a naive key reports a phantom ETHUSDT 'buy' open from 2026-07-05
+  and that reading is WRONG) and 0 unacted tickets.
+  ⚠️ THE ONE FILL IS NOT EVIDENCE THE PING WAS DOING ITS JOB, and this is the
+  finding that decided the design: prop_reconcile.reconstruct_equity is
+  ASYMMETRIC BY DESIGN — an unplaceable LOSS is always applied, an unplaceable
+  GAIN is withheld and counted (fills_withheld_unplaceable_gain). So a REPORTED
+  fill can only ever make the cushion CONSERVATIVE, never optimistic; the
+  dangerous direction is closed by construction. Fill 41 is exactly that case:
+  the live panel reads distance_to_dd_floor_usd 87.34 with
+  fills_withheld_unplaceable_gain 1, where the true cushion is ~122.62.
+
+divergence_from_done_condition: >-
+  ⚠️ RAISED, NOT SILENTLY RESOLVED — the manager's done_condition above is
+  PRESERVED VERBATIM and this is a PROPOSAL against it, for the manager or the
+  operator to rule on. Clause (a) says the ask must still fire "on any fill
+  reported since the last snapshot". PR #11530 DOES NOT IMPLEMENT CLAUSE (a),
+  deliberately, and the reason is the measurement above: fill id 41 postdates the
+  snapshot, so a trigger written to clause (a) WOULD STILL FIRE ON breakout_1
+  TODAY and would not have silenced the ping the operator complained about. It
+  would also fire on precisely the case that cannot be unsafe, because
+  reconstruct_equity has already absorbed it conservatively. What #11530
+  implements instead, covering the same safety ground: ASK_POSITION_OPEN (an open
+  position, whose UNREALIZED drawdown is invisible to the cushion and is the one
+  genuinely unsafe case), ASK_TICKET_SINCE_SNAPSHOT (a real non-suppressed ticket
+  created after the snapshot — which is clause (b), "before a new ticket is
+  sized", OBSERVED rather than assumed), ASK_NO_SNAPSHOT, and UNKNOWN (we could
+  not look). QUIESCENT is the only verdict that suppresses. IF THE MANAGER OR
+  OPERATOR WANTS CLAUSE (a) AS WRITTEN, it is a one-line change to
+  assess_activity and this object should be re-opened rather than closed — but
+  the ping the operator objected to will come back.
 
 blocked_on:
   - kind: operator_decision
-    ref: MI-214 Tier-2 approval to ship the trigger change
+    ref: >-
+      MI-214 / PR #11530 — Tier-2 OK to ship the trigger change. Also carries the
+      divergence above for a ruling.
     since: 2026-09-09
 blocked_on_basis: >-
-  ASSESSED 2026-09-09. The code is written, validated and mutation-tested; the
-  ONLY thing between it and landing is the Tier-2 OK, because the diff is in
-  src/prop/ and changes what the operator receives. Nothing technical blocks it.
+  ASSESSED 2026-09-09 by MI-214, superseding the manager's pre-work assessment
+  (preserved directly above this block in spirit: nothing blocked STARTING, and
+  nothing did). The premise measurement is DONE and reported either way; the code
+  is written, validated and mutation-tested. The only thing between it and
+  landing is the Tier-2 OK, because the diff is in src/prop/ and changes what the
+  operator receives. Nothing technical blocks it.
 
-captured_by: MI-214 session_01FoASvmUGuahCphE1cewPPs
+manager_blocked_on_basis_preserved: >-
+  ASSESSED 2026-09-09 by the manager: nothing blocks starting this. The premise measurement (fills vs snapshots over the 228h window) is a read of trade_journal.db that needs no decision, no deploy and no operator input, and it is the first step. The Tier-2 half (changing the trigger in src/prop/) needs one operator OK to SHIP, which is a gate on landing rather than a blocker on the work.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+continued_by: MI-214 session_01FoASvmUGuahCphE1cewPPs (PR #11530)
