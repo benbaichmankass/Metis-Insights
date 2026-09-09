@@ -19,6 +19,7 @@ Failure modes:
 """
 from __future__ import annotations
 
+import functools
 import hmac
 import json
 import logging
@@ -290,6 +291,16 @@ _ICT_SCALP_EXIT_HEAD_SOAK_LOG = (
 #: (and, for a gate specifically, the stray-OCA row filed the same day:
 #: BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT).
 _BYBIT_COVERAGE_SOAK_LOG = runtime_logs_dir() / "bybit_coverage_soak.jsonl"
+#: MI-222 — the position-read three-state soak. Allowlisted in the SAME commit
+#: as its writer (`clients.py::_record_position_read_observation`), because a
+#: soak that is written and cannot be read is the
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+#: — and, one level worse here, this file is the ONLY evidence that could ever
+#: justify the Tier-3 behaviour change the operator deliberately held back. Its
+#: own OPEN-ITEMS row (OI-20260909-POSITION-READ-STATE-SOAK-…) names this route
+#: in `clears_when`, so without the entry that row is unfollowable by
+#: construction.
+_POSITION_READ_STATE_SOAK_LOG = runtime_logs_dir() / "position_read_state_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 #: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
 #: commit as its writer: a soak that is written and cannot be read is the
@@ -487,6 +498,7 @@ _LOG_FILES: dict[str, Path] = {
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
     "ict_scalp_exit_head_soak": _ICT_SCALP_EXIT_HEAD_SOAK_LOG,
     "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
+    "position_read_state_soak": _POSITION_READ_STATE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator
@@ -2884,6 +2896,210 @@ async def get_bybit_open_orders(
         "requested_account_id": account_id,
         "count": len(out),
         "accounts": out,
+    }
+
+
+@router.get("/bybit_raw_order_history")
+async def get_bybit_raw_order_history(
+    request: Request,
+    account_id: str,
+    symbol: str,
+    start_ms: int,
+    end_ms: int,
+) -> dict[str, Any]:
+    """The RAW Bybit ``get_order_history`` records for one symbol and window.
+
+    ⚠️ **THIS ANSWERS THE ONE QUESTION NO SURFACE COULD ASK: when was a
+    protective leg cancelled, and why?** ``trades.sl_order_id`` /
+    ``tp_order_id`` record that a leg WAS placed at entry, and
+    ``/api/diag/bybit_open_orders`` shows what rests NOW. Between them there
+    was no way to ask what became of a leg that no longer rests — consumed at
+    the close (the position was protected throughout) or cancelled days earlier
+    (it ran naked). On a real-money position those are OPPOSITE findings and
+    nothing could tell them apart.
+
+    ⚠️ Its nearest existing caller, ``account_order_status``, NORMALISES the
+    answer away: it returns ``{order_id, status, filled_qty, avg_price,
+    exec_time}`` and drops ``createdTime``, ``updatedTime``, ``cancelType``,
+    ``triggerPrice`` and ``stopOrderType`` — exactly the fields that answer
+    *when* and *why*. It is also per-orderId, so it cannot surface a leg the
+    journal never recorded.
+
+    ``cancel_type`` is the load-bearing field: Bybit distinguishes a user
+    cancel from a venue-side clear (e.g. the Partial legs being cleared when
+    the position closes), which is the whole difference between the two
+    findings above.
+
+    Three-state, never collapsed: ``rows_returned`` / ``no_rows`` (the venue
+    answered EMPTY — a real positive measurement) / ``could_not_look`` (the
+    call raised — says nothing about the world), with ``record_count``
+    **`null`, never `0`**, on the last. ``pages_truncated`` reports a spent
+    page bound so a truncated read can never present as complete.
+
+    Read-only, token-gated. Places no order; grades nothing.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_bybit_raw_order_history
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_bybit_raw_order_history: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
+        logger.warning("get_bybit_raw_order_history: list_accounts failed: %s", exc)
+        accounts = []
+
+    acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
+    if acc is None:
+        return {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "read_state": "unknown_account",
+            "result": None,
+            "error": None,
+        }
+    if ((acc.get("exchange") or "unknown").lower() != "bybit"):
+        return {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "read_state": "not_bybit",
+            "result": None,
+            "error": None,
+        }
+    result: Any = None
+    err: str | None = None
+    try:
+        # `run_account_read(fn, *args)` is POSITIONAL-ONLY (it forwards to
+        # loop.run_in_executor, which takes no kwargs), so the keyword-only
+        # window is bound with functools.partial BEFORE the hop. Passing them
+        # as kwargs raises TypeError at REQUEST time and never at import or in
+        # an accessor-level test --
+        # BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT.
+        result = await run_account_read(
+            functools.partial(
+                account_bybit_raw_order_history,
+                symbol=symbol, start_ms=start_ms, end_ms=end_ms,
+            ),
+            acc,
+        )
+    except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the row (error + result=null), logged
+        err = f"{type(exc).__name__}: {exc}"
+        logger.warning("get_bybit_raw_order_history: %s raised %s", account_id, exc)
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "account_id": account_id,
+        "mode": acc.get("mode"),
+        "account_class": acc.get("account_class"),
+        # `could_not_look` is NEVER folded into an empty result: a read we
+        # could not make is not a venue with no record.
+        "read_state": "order_history_read" if isinstance(result, dict) else "could_not_look",
+        "result": result if isinstance(result, dict) else None,
+        "error": err,
+    }
+
+
+@router.get("/bybit_raw_closed_pnl")
+async def get_bybit_raw_closed_pnl(
+    request: Request,
+    account_id: str,
+    symbol: str,
+    start_ms: int,
+    end_ms: int,
+) -> dict[str, Any]:
+    """The RAW Bybit ``get_closed_pnl`` records for one symbol and window.
+
+    ⚠️ **THE SECOND, INDEPENDENT VENUE ENDPOINT.** Every existing question
+    about whether a position closed goes through ``/v5/position/list``, and
+    this repo has been wrong about that endpoint's answer twice in two days
+    (``BL-20260908-...-ROWS0`` and MI-221). ``/v5/position/closed-pnl`` asks a
+    DIFFERENT question of the venue — *did it book a realised close?* — sharing
+    no filter, dedupe, cursor or ``size`` field with the position path, so it
+    can confirm or refute a close independently.
+
+    ⚠️ **Its only existing caller REDUCES it to one record.**
+    ``_bybit_closed_pnl_lookup`` scores records against a trade's side, qty,
+    entry price and time and returns the single best match, dropping the rest.
+    So *"the venue booked no close"*, *"it booked one we could not match"* and
+    *"we could not ask"* are ONE observation to every consumer today.
+
+    Three-state, never collapsed: ``rows_returned`` / ``no_rows`` (the venue
+    answered EMPTY — a real measurement) / ``could_not_look`` (the call raised;
+    says nothing about the world). ``record_count`` is ``None``, never ``0``,
+    when we could not look. ``pages_truncated`` reports a spent page bound so a
+    truncated read can never present as complete.
+
+    Read-only, token-gated. Places no order; matches nothing; grades nothing.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_bybit_raw_closed_pnl
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_bybit_raw_closed_pnl: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = list_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
+        logger.warning("get_bybit_raw_closed_pnl: list_accounts failed: %s", exc)
+        accounts = []
+
+    acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
+    if acc is None:
+        return {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "read_state": "unknown_account",
+            "result": None,
+            "error": None,
+        }
+    if ((acc.get("exchange") or "unknown").lower() != "bybit"):
+        return {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "read_state": "not_bybit",
+            "result": None,
+            "error": None,
+        }
+    result: Any = None
+    err: str | None = None
+    try:
+        # `run_account_read(fn, *args)` is POSITIONAL-ONLY -- it forwards to
+        # loop.run_in_executor, which takes no kwargs. The accessor's window
+        # arguments are keyword-only, so they are bound with functools.partial
+        # BEFORE the hop rather than passed through it.
+        # BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT:
+        # the first version passed them as kwargs, which raises TypeError at
+        # REQUEST time and never at import or in an accessor-level test.
+        result = await run_account_read(
+            functools.partial(
+                account_bybit_raw_closed_pnl,
+                symbol=symbol, start_ms=start_ms, end_ms=end_ms,
+            ),
+            acc,
+        )
+    except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the row (error + result=null), logged
+        err = f"{type(exc).__name__}: {exc}"
+        logger.warning("get_bybit_raw_closed_pnl: %s raised %s", account_id, exc)
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "account_id": account_id,
+        "mode": acc.get("mode"),
+        "account_class": acc.get("account_class"),
+        # `could_not_look` is NEVER folded into an empty result: a read we
+        # could not make is not a venue that booked nothing.
+        "read_state": "closed_pnl_read" if isinstance(result, dict) else "could_not_look",
+        "result": result if isinstance(result, dict) else None,
+        "error": err,
     }
 
 

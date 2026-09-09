@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only — the two operator decisions of 2026-09-09 recorded into MANAGER-CHECKLIST.json (the operator-feedback-becomes-canon duty), the MI-225 re-spawn registered through session_registry.py, and the merge-slot claim. No src/, tests/, scripts/, workflow, config/ or deploy/ path."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "One backlog row's ownership fields, on a fresh branch off main (the MI-215 PR merged as d535343b and a merged PR is finished, so it is not reused). Corrects a field that was stale in the dangerous direction: the row read `Tier-3 decision pending` after the operator had ALREADY answered it in #11532, so a session reading it would re-ask a settled question. No code, no config, no src/, no scripts/. The row deliberately stays `open` — its resolution_criteria require an observed committed index deriving an edge verdict from offline evidence, and a decision to build the producer is not the producer.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "APPROVAL SOUGHT: one merge click from the manager holding the lease (session_01HrmZ1RRNM4UnEUaFdrPEjj). As on the parent PR, the typed reason is the NEAREST AVAILABLE and is not exact: this is Tier-1 by docs/CLAUDE-RULES-CANONICAL.md's own definition and the tier field says 1. The hold is not a tier judgement -- it is that HOLD_REASONS carries no value for `Tier-1 work a human should glance at`, the gap filed as BL-20260909-PR-LANDING-HOLD-REASONS-HAS-NO-VALUE-FOR-TIER-1-ON-AN-UNCERTIFIABLE-PATH. Holding rather than self-landing also keeps this branch out of the R13 merge_slot collision set, which matters while several lanes are writing to this same backlog file -- that file has already conflicted twice today."
+}

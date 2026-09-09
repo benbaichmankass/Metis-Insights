@@ -1,0 +1,223 @@
+id: WO-20260909-NO-DETECTOR-CAN-SEE-A-POSITION-MISSING-FROM-THE-VENUE-LIST
+kind: object
+title: >-
+  Build the venue-truth position detector: nothing in the system can find a live
+  position that is absent from the account-wide venue list AND from the journal's
+  open rows
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+lifecycle: ready
+owner: unassigned
+created: "2026-09-09"
+priority: p1
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_note: >-
+  Nothing blocks starting. The COMPARISON side, the roster enumeration, the
+  read-state discipline and the routing design are all buildable today. One
+  design choice — which venue read the detector issues — is pending the (A)
+  observation on MI-221 (does a SYMBOL-SCOPED bybit position read return
+  bybit_2/ETHUSDT when the account-wide list does not). That is a dependency on
+  ONE parameter, not on starting.
+
+operator_directive:
+  date: "2026-09-09"
+  text: >-
+    "absolutely not - the bot opened the trade with brackets, the bot needs to
+    fix this. the system cannot and will not rely on me manually checking and
+    fixing every trade - that is a recipe for disaster and will ensure that never
+    have useable data for analysis and improvement" ... "if this isn't a
+    capability we've already built, then building is the next action item"
+  reading: >-
+    The operator is not asking for this one position to be repaired. They are
+    ruling out the class of remedy in which a human notices. A detector that
+    only fires when someone happens to look is the thing being rejected.
+
+why:
+  motivating_incident: >-
+    CORRECTED 2026-09-09T13:30Z. THE ORIGINAL TEXT OF THIS FIELD ASSERTED A
+    MECHANISM THAT IS NOT ESTABLISHED, AND IT MUST NOT BE RE-QUOTED. It read:
+    "bybit_2 (REAL MONEY) held ETHUSDT 0.04 long, unprotected, for five days ...
+    The venue never closed it." The manager wrote that from a PARTIAL read of
+    trade 5471 -- status and exit_reason without closed_at, and without any
+    venue read to compare against. That is a RULE ONE failure and the row is
+    corrected rather than deleted so the failure stays visible.
+    WHAT IS ACTUALLY OBSERVED, and the two observations are NOT YET RECONCILED:
+      (1) The OPERATOR reports a live ETHUSDT 0.04 position on bybit_2, visible
+          on the Bybit platform, carrying no TP/SL. Operator directive
+          2026-09-09: "Do not tell me that the trade does not exist ... you
+          might not be seeing it ... it's on the platform." THE OPERATOR'S
+          READ IS THE PRIMARY SOURCE HERE AND OUR API READ IS NOT.
+      (2) MEASURED 2026-09-09T13:14:59Z on /api/diag/bybit_raw_positions:
+          our read returns NO ETHUSDT row for bybit_2 -- both books explicitly
+          size 0.0, size_parsed true. And journal 5471's closed_at
+          (2026-09-08T13:37:13.873Z) equals the venue ETH long book's
+          updated_time to the MILLISECOND.
+    ⚠️ (2) IS EVIDENCE ABOUT OUR READ, NOT ABOUT THE ACCOUNT. The manager
+    reported it to the operator as "there is no ETH trade" and that was the
+    SAME error a second time, in the opposite direction: an empty result
+    reported as a fact about the world. An instrument's silence is a fact
+    about the instrument.
+    WHAT IS ESTABLISHED ABOUT THE READ, and it is a real integration defect:
+    every Bybit position read passes a HARDCODED settleCoin="USDT"
+    (clients.py:1374, :1892), cross-checks only the four symbols in the account
+    config, and pins one category from market_type. No position read anywhere
+    passes baseCoin. And the key is NOT looking at the wrong account -- it
+    returns the operator's XRP position with the operator's exact bracket
+    levels (TP 1.5535 / SL 1.3463), so it reads that book correctly and omits
+    the ETH row from it. Under investigation on MI-221.
+
+  reconciliation_2026_09_09_1840: >-
+    THE TWO OBSERVATIONS ABOVE ARE NOW RECONCILED, AND THE FIELD ABOVE STILL
+    SAYS "NOT YET RECONCILED" -- READ THIS FIRST. Settled by MI-221 section 18
+    (PR #11576, merged 25f1346b3), from the venue's OWN order-history record
+    read at 2026-09-09T17:09:38Z off /api/diag/bybit_raw_order_history with the
+    deploy verified before the read.
+    TRADE 5471's PROTECTIVE LEGS WERE NEVER CANCELLED -- THE STOP FILLED.
+    Order 1a3490f9-b98c-4477-bbcb-39c7eb8830f7 (PartialStopLoss, trigger
+    2451.59, qty 0.04, reduceOnly) was created 2026-09-04T14:04:13.938Z --
+    the SAME millisecond the entry filled -- rested 3d 23:32:59, and shows
+    order_status FILLED at avg_price 2451.27, which equals journal 5471's
+    exit_price EXACTLY. Its sibling 048623a7-2498-47f8-85f8-08096d732aa4
+    (PartialTakeProfit) shows cancel_type CancelByTpSlTsClear at the same
+    millisecond -- Bybit's own OCO clear because the stop consumed the
+    position, not a cancel by us. pages_read was 2 and the stop's disposition
+    was NOT on page 1.
+    SO OBSERVATION (2) WAS CORRECT, NOT A DEFECT. Our read returned no
+    ETHUSDT row for bybit_2 because there was no position to return. The
+    position was protected for 100% of its life and naked for ZERO seconds.
+    ⚠️ THE LINE ABOVE READING "it reads that book correctly and OMITS THE ETH
+    ROW from it" MUST NOT BE RE-QUOTED AS A DEFECT. "Omits" implies a row that
+    should have been returned and was not. There was no row.
+    ⚠️ OBSERVATION (1) WAS SUPERSEDED BY THE OPERATOR THEMSELVES at
+    2026-09-09T16:03Z, who reported that the ETH trade had already closed
+    "longer ago than I realized". It was retired by the primary source, not
+    overruled by our instrument -- which is the correct order, given that
+    reporting our empty read as "there is no ETH trade" was the manager's
+    second RULE ONE failure on this row.
+    ⚠️ WHAT THIS DOES AND DOES NOT DO TO THIS OBJECT. It does NOT invalidate
+    it: `the_structural_fact` below is a statement about the CODE -- two
+    anchors, no third path -- and is untouched by any of this. It DOES remove
+    the object's strongest evidence, because the priority was argued from a
+    live unprotected real-money position and there was never one. The case for
+    building the detector is now STRUCTURAL plus the operator's standing
+    directive, and it must be argued that way. Anyone re-reading `priority: p1`
+    should know it was set under the refuted premise and has not been
+    re-derived.
+    ⚠️ NOT RETRACTED WITH THE PREMISE: the hardcoded settleCoin="USDT", the
+    four-symbol cross-check, the absent baseCoin, the missing nextPageCursor
+    follower and the rows[0] ordering are all real and independently filed. An
+    investigation whose premise is refuted does not retract the defects found
+    on the way.
+
+  the_structural_fact: >-
+    Every protective sweep in the system anchors to one of exactly TWO lists,
+    and this position is in NEITHER, so no code path can reach it.
+      (a) the reverse reconciler (_reconcile_orphan_exchange_positions, adopt +
+          re-arm) enumerates the ACCOUNT-WIDE venue list via
+          account_open_positions(cfg) -> bybit get_positions(category=...,
+          settleCoin="USDT"). The ETH is not in that list.
+      (b) the bybit broker-naked sweep (_check_broker_naked_bybit_positions)
+          enumerates "SELECT ... FROM trades WHERE status='open'". Trade 5471 is
+          status='closed'.
+    There is no third path. A position outside both is permanently invisible and
+    stays that way regardless of how correct the downstream repair machinery is.
+
+  the_repair_chain_is_not_the_gap: >-
+    _reconcile_orphan_exchange_positions -> adopt ->
+    _rearm_broker_protection_after_recovery -> _attempt_naked_autoprotect ->
+    the bybit branch calls client.set_trading_stop(tpslMode="Full", stopLoss=...,
+    takeProfit=...). It is venue-correct, hedge-aware via position_idx_for, and
+    carries NO enable gate. Read from source on 2026-09-09; NOT observed firing.
+    If this chain reached the position it would arm the bracket by itself. So the
+    build here is a DETECTOR, not a repair.
+
+what_already_exists_and_why_it_is_not_this:
+  artifact: scripts/ops/journal_venue_audit.py
+  built: "2026-09-08 (MI-177), 323 lines, read-only"
+  two_independent_reasons_it_does_not_cover_this_class:
+    - id: not_run
+      text: >-
+        Nothing invokes it. Its own header declares "manual-only ... deliberately
+        NOT on a cadence", and docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md
+        already records "journal_venue_audit.py exists and nothing re-runs it".
+        Whether to schedule it was left as an OPEN QUESTION that session was
+        scoped out of deciding. The operator has now decided it.
+    - id: structurally_blind
+      text: >-
+        THIS IS THE MORE IMPORTANT ONE AND IT IS NOT FIXED BY A SCHEDULE. It
+        reads the venue via _diag("exchange_positions") (line 128), which serves
+        account_open_positions — list (a) above, the exact list this position is
+        missing from. Had it been on an hourly cadence since it was written, it
+        would have reported bybit_2 CLEAN on every run while the position sat
+        unprotected. A detector built one day ago for this class cannot see this
+        case.
+  conclusion: >-
+    The capability does NOT exist. What exists compares two lists, one of which
+    is blind in precisely the way that produced the incident. Scheduling it would
+    buy a green light over an unread book, which is worse than no detector.
+  what_to_reuse: >-
+    Its JOURNAL side is correct and hard-won — the two silent read caps
+    (/api/diag/journal LIMIT 1000; /api/bot/positions hardcoded LIMIT 50 with no
+    truncation flag) and the cross-check of per-account notional against
+    /api/diag/exposure's UNCAPPED SQL SUM, which is what makes
+    journal_read_state=complete an assertion rather than a hope. Reuse that
+    wholesale. Do not re-derive it and do not build a second copy.
+
+the_design_constraint:
+  text: >-
+    The new read must not depend on either failed list. The only enumeration
+    available that is complete BY CONSTRUCTION rather than by observation is the
+    account's own declared roster, config/accounts.yaml::<account>.symbols —
+    config, not a venue answer and not a journal answer. ETHUSDT IS in
+    bybit_2.symbols, so this position is inside a roster-driven sweep's domain
+    while being outside both existing ones.
+  cost_bound: >-
+    A roster sweep is len(symbols) reads per account per cadence — bounded,
+    known ahead of time, and cadence-gated like IB_BROKER_NAKED_CHECK_SECONDS.
+    An UNBOUNDED per-position broker call on a live tick is the June 2026 wedge
+    shape and must be refused.
+  open_parameter: >-
+    Whether a SYMBOL-SCOPED bybit position read returns bybit_2/ETHUSDT when the
+    account-wide list does not. MI-221 clause (A) settles it. If YES the sweep is
+    symbol-scoped position reads. If NO the roster sweep must reach for a source
+    further from the position endpoint (wallet / transaction-log / closed-pnl
+    reconciliation) and the build is larger. Do not assume YES.
+
+must_not:
+  - Do not put the detector's own remedy behind an enable gate. A live position
+    with no stop is a state the system must always correct (Prime Directive); a
+    default-off flag in front of a required capability is the stranded-MES class.
+  - Do not report a could-not-read as a clean book. Three states minimum, never
+    collapsed - we did not look / we looked and found nothing / we found a
+    divergence.
+  - Do not have the detector place, modify or cancel any order itself. It routes
+    into the EXISTING repair chain, which already owns that and is already
+    baseline. A second order path is not wanted.
+  - Do not schedule journal_venue_audit.py as the answer to this object. That is
+    the green-light-over-an-unread-book failure named above.
+
+done_condition:
+  text: >-
+    ALL of the following, and they are different facts - say which you cleared.
+    (1) A detector exists whose position enumeration is independent of BOTH
+        account_open_positions and "trades WHERE status='open'", with its source
+        named and its per-cadence read cost stated as a number.
+    (2) It is RUN BY SOMETHING - a timer, a workflow, or the trader tick - not by
+        a session choosing to. Name the carrier and read its run history, never
+        its schedule declaration. This repo has merged, enabled, correct
+        schedules that fire hours late or not at all.
+    (3) It is exercised against the KNOWN POSITIVE: run against a book containing
+        the bybit_2 ETHUSDT 0.04 (or, once that is repaired, a planted control of
+        the same shape) and OBSERVED reporting it. A detector that has only ever
+        reported clean has not been shown to be able to report anything else.
+    (4) Its finding reaches a human surface that is not a session transcript -
+        outcomes.jsonl / Telegram / the notifications banner. A logger.error goes
+        to the systemd journal and NOWHERE else; that exact gap kept the Bybit
+        over-cover page invisible for ten days.
+  explicitly_not_sufficient:
+    - A green test suite. A harness cannot reach a venue.
+    - A scheduled run that reports clean. Clean is what the blind detector
+      already reports; clause (3) is what separates them.
+    - Merging the PR. A merge is not a deploy and a deploy is not a run.
+    - Repairing the ETH position. That is MI-221 and it settles one trade, not
+      the class.

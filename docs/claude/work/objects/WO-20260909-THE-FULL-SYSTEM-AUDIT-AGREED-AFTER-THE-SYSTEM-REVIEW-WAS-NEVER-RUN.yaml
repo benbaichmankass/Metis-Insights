@@ -1,0 +1,78 @@
+id: WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN
+kind: object
+title: >-
+  Run the /full-system-audit on the ops lane — agreed 2026-09-08 to follow the
+  system review that would scope it, then dropped
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+lifecycle: ready
+owner: unassigned
+created: "2026-09-09"
+priority: p1
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_note: >-
+  Nothing blocks it. Its declared scoping precondition — the /system-review —
+  COMPLETED 2026-09-08T11:20Z (MI-192B, report at
+  comms/reports/since-last/20260908T112000Z/). The audit has been runnable for
+  a day and was not run because nobody wrote it down.
+
+how_it_was_lost:
+  text: >-
+    OPERATOR-AGREED 2026-09-08: run the full-system audit on the ops lane. The
+    manager proposed running /system-review FIRST so the audit could be scoped
+    by it. The review ran and landed. THE AUDIT WAS NEVER REGISTERED AND NEVER
+    SPAWNED. Operator, 2026-09-09: "we were gonna run [it] in the morning, and
+    then you said, let's do the system review first so that we can scope out
+    the audit, and then we never ran the audit."
+  measured: >-
+    Searched 2026-09-09T13:45Z: MANAGER-CHECKLIST.json, OPEN-ITEMS.json and
+    every docs/claude/work/objects/*.yaml. EVERY "full-system-audit" hit is an
+    `opened_by` provenance string from a PAST audit (2026-07-26, 2026-07-31,
+    2026-08-13). Zero rows carry it as work. No work object, no checklist item,
+    no session.
+  class: >-
+    This is OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING with
+    the manager as the carrier that failed. The commitment lived in one
+    conversation and in no register, so when the session's attention moved to
+    the P1 it ceased to exist. ⚠️ NOTE THE SHAPE: the scoping step is what
+    consumed it. "Do X first so we can scope Y" creates a gap in which Y is
+    owed by nobody, and X completing does not automatically hand Y to anyone.
+
+scope_input:
+  text: >-
+    The audit is scoped BY the 2026-09-08 system review, which is why it was
+    sequenced second. Read comms/reports/since-last/20260908T112000Z/report.md
+    and its report.json FIRST and let its findings target the passes.
+  caveat: >-
+    ⚠️ THE SKILL'S PHASE 3.10 SAYS THE AUDIT CARRIES THE SYSTEM REVIEW AND IT IS
+    "NOT DEFERRED TO A SEPARATE SESSION". We did the opposite by sequencing them.
+    That is NOT a licence to skip 3.10: the audit still owes its COVERAGE —
+    promotion/demotion readiness, ML training + soak health, flags raised,
+    backlog drive. Cite yesterday's review where it still holds, and RE-ESTABLISH
+    anything that has moved since (several things have, including two real-money
+    investigations opened today). Say which of the two you did for each item.
+
+must_not:
+  - Do not report a clean axis without saying what you looked at and what would
+    have counted as a finding. The skill's own header records that its previous
+    version "kept returning clean".
+  - Do not defer Phase 3.10 to another session on the grounds that a review ran
+    yesterday — see scope_input.caveat.
+  - Do not take Tier-2/Tier-3 remediations. File them with severity, tier and
+    resolution_criteria; the operator decides.
+  - Do not treat an empty probe as a negative finding. Every zero needs a
+    positive control of the same shape.
+
+done_condition:
+  text: >-
+    (1) The audit REPORT exists per the skill's Phase 5 binding format, committed.
+    (2) Every one of the SEVEN axes is either reported on or explicitly declared
+        out of coverage WITH ITS REASON — an axis silently absent is a failure,
+        not a pass.
+    (3) Phase 3.10's coverage is present, each item marked CITED (from the
+        2026-09-08 review) or RE-ESTABLISHED (measured this run).
+    (4) Findings are filed with severity + tier + resolution_criteria, and the
+        backlog drive reports a burn-down number with its population.
+  explicitly_not_sufficient:
+    - A clean report. The skill exists because clean reports were the failure.
+    - Passing CI. The audit asserts things CI cannot reach.

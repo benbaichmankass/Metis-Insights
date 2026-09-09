@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T11:26:17Z",
+  "updated_at": "2026-09-09T19:12:06Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3753,7 +3753,7 @@
     {
       "session_id": "session_01NcYsS6kFNrzxEKcrNy9eXP",
       "registry_key": "pending-20260909T075327Z",
-      "state": "working",
+      "state": "idle",
       "title": "Lane 4 (landing) — the repo is red on a stale receipt whose fix is stuck in an unmergeable automation PR",
       "owns_object": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
       "spawned_at": "2026-09-09T07:53:27Z",
@@ -3770,7 +3770,11 @@
         "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:40:06Z",
         "manager_note": "#11519 reported green on b198aa6 but is still DRAFT and held by the manager. Its own framing says ~25 automation PRs; the measured figure is 51."
-      }
+      },
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "IDLE 17:14:01Z. Lane 4; #11519 still DRAFT.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T18:25:52Z"
     },
     {
       "session_id": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
@@ -3820,7 +3824,7 @@
     {
       "session_id": "session_01FoASvmUGuahCphE1cewPPs",
       "registry_key": "pending-20260909T095132Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-214 — the prop status-request fires on wall-clock age alone",
       "owns_object": "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
       "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
@@ -3838,7 +3842,9 @@
         "session_status": "SESSION_STATUS_IDLE",
         "status_bucket": "review_ready",
         "manager_note": "#11530 green on guards+audit, pytest-run running, correctly HELD (landing: hold, no arming file, no slot claimed) — verified in the branch rather than trusted from the PR body. Poked 10:43:23Z with the operator APPROVAL and the follow-on (MI-220). It measured the operator premise and found it half false, reporting that plainly; that is why the approval could be given on facts."
-      }
+      },
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "IDLE 13:06:31Z, completed: #11530 shipped+deployed, #11546 green AWAITING MY MERGE CLICK."
     },
     {
       "session_id": "session_01KSZCUtFKze3k7ZvxnTnD4T",
@@ -3865,7 +3871,96 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-reported 2026-09-09 from the Bybit terminal. Real-money, no TP/SL, open since 2026-09-04. Two independent bot readers do not return it.",
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
+      "state": "working",
+      "observed_at": "2026-09-09T16:28:00Z",
+      "observation": "IDLE 17:54:40Z, completed. Landed #11565/#11576/#11578/#11580.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T19:12:06Z"
+    },
+    {
+      "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
+      "title": "MI-222 BUILD: venue-truth position detector",
+      "owns_object": "WO-20260909-NO-DETECTOR-CAN-SEE-A-POSITION-MISSING-FROM-THE-VENUE-LIST",
+      "checklist_item": "MI-222-BUILD-THE-VENUE-TRUTH-POSITION-DETECTOR",
+      "spawned_at": "2026-09-09T12:13:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi-222-venue-truth-detector"
+      ],
+      "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
+      "state": "blocked",
+      "observed_at": "2026-09-09T16:28:00Z",
+      "observation": "IDLE 17:22:52Z, delivered. #11566 merged 985375d3f.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T19:12:06Z"
+    },
+    {
+      "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
+      "title": "OPS LANE — /full-system-audit",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T13:44:16Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit-20260909"
+      ],
+      "why": "Operator-agreed 2026-09-08 to run after the system review that would scope it; the review landed and the audit was never registered or spawned",
+      "state": "blocked",
+      "observed_at": "2026-09-09T16:28:00Z",
+      "observation": "⚠️ RE-AUTHORISATION FAILED — POKING THIS SESSION DOES NOT WORK. I fired a full scope+authorisation message at 15:50:49Z (cse id matched, so it was delivered). get_session at 16:27Z: it WOKE (updated_at 15:51:31Z), consumed 64,367 context tokens, and went IDLE again with the IDENTICAL needs_action — 'confirm: is benbaichmankass/Metis-Insights yours, and do you want me on it?' — and status_bucket BLOCKED. So it read the authorisation and refused it; a fourth poke would be the reminder-is-not-a-mechanism non-fix. THE FULL-SYSTEM AUDIT HAS NOW BEEN LOST THREE TIMES: dropped by me 2026-09-08, stalled on a spawn prompt that carried no authorisation 2026-09-09T13:44Z, and now unrecoverable by poke. REMEDY: re-spawn as a NEW session with the authorisation in the ORIGINAL spawn prompt, registered through session_registry.py, and stand this one down. Do not poke again."
+    },
+    {
+      "session_id": "session_01L2xaQxxSktSaRWHqpSkrPJ",
+      "title": "OPS LANE — /full-system-audit (MI-225, re-spawn #2; the prior session stalled on authorisation twice)",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T16:31:14Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Re-spawn after session_01GXpHkCHCx3bLrDGVNkVPrP proved unrecoverable: it woke on a full authorisation poke (cse id matched, updated_at 15:51:31Z), consumed 64367 tokens, and went idle again with the identical needs_action. The authorisation is in THIS session's original spawn prompt.",
+      "note": "Third attempt at the operator-agreed full-system audit. Predecessor stood down, not archived; do not poke it again.",
       "state": "working"
+    },
+    {
+      "session_id": "session_017windcijwZp3qttYNWCwYP",
+      "title": "OPS LANE — /full-system-audit (MI-225, attempt #5; repo-identity ambiguity resolved in-prompt)",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T17:00:45Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit"
+      ],
+      "why": "Attempts #1-#4 all failed at the SAME point and none of them was the child's fault: the prompt did not resolve the repo-identity ambiguity (remote is Metis-Insights, 244 in-repo files say ict-trading-bot, and CLAUDE.md warns that hardcoding either name is a trap), so a session obeying RULE ONE dead-ends asking which repo it is in. Attempt #5's prompt states the resolution up front. Registered AFTER the spawn, which is the MI-15 recurrence this registry exists to catch — recorded rather than tidied.",
+      "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
+      "state": "working",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T19:12:06Z",
+      "observation": "IDLE/disconnected since 17:46:09Z, status_category need_input. Its work is NOT lost: 877a13fff on origin carries all 68 findings. Superseded by the landing lane; do not poke."
+    },
+    {
+      "session_id": "session_01AkZzA4Gq9J2pfx5sRB1ZUB",
+      "registry_key": "pending-20260909T183832Z",
+      "state": "working",
+      "title": "MI-225 LANDING — land the completed full-system audit (#11571): resolve the register conflict, un-draft, drive to green",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T18:38:32Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit"
+      ],
+      "why": "The audit is COMPLETE — 7 axes, 68 findings, 2249 lines across 13 files including a 1364-line audit doc, 208 backlog lines and a full report — and it is STRANDED. Its author (session_017windcijwZp3qttYNWCwYP) is IDLE and DISCONNECTED since 2026-09-09T17:46:09Z with status_category=need_input, blocked on exactly this conflict. The work IS pushed to origin/claude/mi225-full-system-audit (head 877a13fff), so nothing is lost, but #11571 is a DRAFT that conflicts with main and its author cannot act. I CANNOT resolve it myself: main brings THREE worker-path files since the branch's base (src/units/accounts/clients.py, src/web/api/routers/diag.py, tests/test_accounts_clients_position_read_observability.py), and check_manager_scope R2 reads a merge commit's FIRST-PARENT diff, so a manager resolving this would be attributed every one of them. The branch also touches CLAUDE.md, which is explicitly not a management surface. Routing rather than reaching for a manager-scope-exception, which is the cheap wrong answer.",
+      "note": "Registered BEFORE the spawn — the first time today I have got that order right; the three prior registrations this session were all after the fact, which is the MI-15 recurrence.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T18:39:35Z",
+      "status": "working",
+      "last_observed_at": "2026-09-09T19:12:06Z",
+      "observation": "Spawned 18:39:29Z to land #11571. RUNNING at 18:42:12Z, branch claude/mi225-full-system-audit, task_summary \"Identifying which registers changed on each side\" - the verified-union work it was scoped to."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

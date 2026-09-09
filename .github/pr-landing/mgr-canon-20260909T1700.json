@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only — docs/claude/work/{SESSIONS,MANAGER-CHECKLIST,MANAGER-LEASE}.json. No src/, no config/, no scripts/, no .github/workflows/, no order path. Registering a spawn and heartbeating the lease are management acts, not builds."
+}

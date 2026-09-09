@@ -1,15 +1,15 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-09T05:15:42Z",
+  "generated_at": "2026-09-09T16:53:15Z",
   "read_state": "measured",
-  "population": "ALL 45 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 36,
-  "worst_hours": 21.3,
+  "population": "ALL 55 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 46,
+  "worst_hours": 32.9,
   "threshold_hours": 6.0,
   "by_state": {
     "active": 9,
-    "waiting": 36
+    "waiting": 46
   },
   "rows": [
     {
@@ -17,9 +17,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34201971618-1",
       "draft": false,
-      "quiet_hours": 21.3,
+      "quiet_hours": 32.9,
       "state": "waiting",
-      "why": "open and unmerged with no push for 21.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 32.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T07:58:01Z"
     },
     {
@@ -27,9 +27,9 @@
       "title": "chore(m7): strategy review packets (auto)",
       "head_ref": "automation/strategy-reviews-34207987310-1",
       "draft": false,
-      "quiet_hours": 20.2,
+      "quiet_hours": 31.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 20.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 31.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T09:05:00Z"
     },
     {
@@ -37,9 +37,9 @@
       "title": "chore(ops): refresh the due-list (auto)",
       "head_ref": "automation/due-list-34213610709-1",
       "draft": false,
-      "quiet_hours": 19.2,
+      "quiet_hours": 30.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 19.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 30.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T10:06:18Z"
     },
     {
@@ -47,9 +47,9 @@
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34213399205-1",
       "draft": false,
-      "quiet_hours": 19.2,
+      "quiet_hours": 30.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 19.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 30.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T10:03:57Z"
     },
     {
@@ -57,9 +57,9 @@
       "title": "chore(ops): refresh probe results (auto)",
       "head_ref": "automation/probes-34212052493-1",
       "draft": false,
-      "quiet_hours": 19.2,
+      "quiet_hours": 30.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 19.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 30.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T10:02:42Z"
     },
     {
@@ -67,9 +67,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34219925632-1",
       "draft": false,
-      "quiet_hours": 17.8,
+      "quiet_hours": 29.4,
       "state": "waiting",
-      "why": "open and unmerged with no push for 17.8h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 29.4h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T11:28:30Z"
     },
     {
@@ -77,9 +77,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34210131957-1",
       "draft": false,
-      "quiet_hours": 17.2,
+      "quiet_hours": 28.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 17.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 28.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T12:05:43Z"
     },
     {
@@ -87,9 +87,9 @@
       "title": "chore(m28): valuation snapshots (auto)",
       "head_ref": "automation/valuation-snapshots-34224748936-1",
       "draft": false,
-      "quiet_hours": 16.9,
+      "quiet_hours": 28.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 16.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 28.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T12:22:32Z"
     },
     {
@@ -97,9 +97,9 @@
       "title": "chore(ops): PR-queue watcher receipt (auto)",
       "head_ref": "automation/data-commit-34222223698-1",
       "draft": false,
-      "quiet_hours": 16.6,
+      "quiet_hours": 28.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 16.6h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 28.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T15:41:34Z"
     },
     {
@@ -107,39 +107,39 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34229131291-1",
       "draft": false,
-      "quiet_hours": 16.3,
+      "quiet_hours": 27.9,
       "state": "waiting",
-      "why": "open and unmerged with no push for 16.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 27.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T12:58:27Z"
-    },
-    {
-      "pr": 11397,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34231187245-1",
-      "draft": false,
-      "quiet_hours": 15.6,
-      "state": "waiting",
-      "why": "open and unmerged with no push for 15.6h (threshold 6.0h).",
-      "last_push_utc": "2026-09-08T13:39:26Z"
     },
     {
       "pr": 11399,
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34232586514-1",
       "draft": false,
-      "quiet_hours": 15.5,
+      "quiet_hours": 27.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 15.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 27.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T13:43:21Z"
+    },
+    {
+      "pr": 11397,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34231187245-1",
+      "draft": false,
+      "quiet_hours": 27.2,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 27.2h (threshold 6.0h).",
+      "last_push_utc": "2026-09-08T13:39:26Z"
     },
     {
       "pr": 11402,
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34235343822-1",
       "draft": false,
-      "quiet_hours": 15.1,
+      "quiet_hours": 26.7,
       "state": "waiting",
-      "why": "open and unmerged with no push for 15.1h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 26.7h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T14:10:06Z"
     },
     {
@@ -147,9 +147,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34233737135-1",
       "draft": false,
-      "quiet_hours": 14.8,
+      "quiet_hours": 26.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 14.8h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 26.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T14:24:45Z"
     },
     {
@@ -157,9 +157,9 @@
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34240271904-1",
       "draft": false,
-      "quiet_hours": 14.3,
+      "quiet_hours": 26.0,
       "state": "waiting",
-      "why": "open and unmerged with no push for 14.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 26.0h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T14:55:36Z"
     },
     {
@@ -167,59 +167,59 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34248606039-1",
       "draft": false,
-      "quiet_hours": 13.2,
+      "quiet_hours": 24.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 13.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 24.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T16:02:51Z"
-    },
-    {
-      "pr": 11422,
-      "title": "chore(ops): session-reaper observations (auto)",
-      "head_ref": "automation/session-reaper-34252169275-1",
-      "draft": false,
-      "quiet_hours": 12.5,
-      "state": "waiting",
-      "why": "open and unmerged with no push for 12.5h (threshold 6.0h).",
-      "last_push_utc": "2026-09-08T16:48:12Z"
     },
     {
       "pr": 11420,
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34251131074-1",
       "draft": false,
-      "quiet_hours": 12.5,
+      "quiet_hours": 24.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 12.5h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 24.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T16:43:44Z"
     },
     {
-      "pr": 11428,
-      "title": "chore(ops): refresh the A1 constraint readout (auto)",
-      "head_ref": "automation/constraint-readout-34258004068-1",
+      "pr": 11422,
+      "title": "chore(ops): session-reaper observations (auto)",
+      "head_ref": "automation/session-reaper-34252169275-1",
       "draft": false,
-      "quiet_hours": 11.5,
+      "quiet_hours": 24.1,
       "state": "waiting",
-      "why": "open and unmerged with no push for 11.5h (threshold 6.0h).",
-      "last_push_utc": "2026-09-08T17:45:43Z"
+      "why": "open and unmerged with no push for 24.1h (threshold 6.0h).",
+      "last_push_utc": "2026-09-08T16:48:12Z"
     },
     {
       "pr": 11429,
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34258329049-1",
       "draft": false,
-      "quiet_hours": 11.4,
+      "quiet_hours": 23.1,
       "state": "waiting",
-      "why": "open and unmerged with no push for 11.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 23.1h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T17:49:00Z"
+    },
+    {
+      "pr": 11428,
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "head_ref": "automation/constraint-readout-34258004068-1",
+      "draft": false,
+      "quiet_hours": 23.1,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 23.1h (threshold 6.0h).",
+      "last_push_utc": "2026-09-08T17:45:43Z"
     },
     {
       "pr": 11432,
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34261525395-1",
       "draft": false,
-      "quiet_hours": 10.9,
+      "quiet_hours": 22.6,
       "state": "waiting",
-      "why": "open and unmerged with no push for 10.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 22.6h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T18:19:16Z"
     },
     {
@@ -227,9 +227,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34264356054-1",
       "draft": false,
-      "quiet_hours": 10.3,
+      "quiet_hours": 21.9,
       "state": "waiting",
-      "why": "open and unmerged with no push for 10.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 21.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T19:00:22Z"
     },
     {
@@ -237,9 +237,9 @@
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34266075616-1",
       "draft": false,
-      "quiet_hours": 10.1,
+      "quiet_hours": 21.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 10.1h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 21.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T19:07:42Z"
     },
     {
@@ -247,9 +247,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-34268151823-1",
       "draft": false,
-      "quiet_hours": 9.9,
+      "quiet_hours": 21.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 9.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 21.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T19:23:13Z"
     },
     {
@@ -257,9 +257,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34268696291-1",
       "draft": false,
-      "quiet_hours": 9.6,
+      "quiet_hours": 21.2,
       "state": "waiting",
-      "why": "open and unmerged with no push for 9.6h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 21.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T19:40:50Z"
     },
     {
@@ -267,9 +267,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-34270301690-1",
       "draft": false,
-      "quiet_hours": 9.2,
+      "quiet_hours": 20.8,
       "state": "waiting",
-      "why": "open and unmerged with no push for 9.2h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.8h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:04:23Z"
     },
     {
@@ -277,9 +277,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34273419525-1",
       "draft": false,
-      "quiet_hours": 8.9,
+      "quiet_hours": 20.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:23:15Z"
     },
     {
@@ -287,9 +287,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34271806871-1",
       "draft": false,
-      "quiet_hours": 8.9,
+      "quiet_hours": 20.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:21:16Z"
     },
     {
@@ -297,9 +297,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-34274857233-1",
       "draft": false,
-      "quiet_hours": 8.7,
+      "quiet_hours": 20.3,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.7h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.3h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:35:08Z"
     },
     {
@@ -307,9 +307,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34274857100-1",
       "draft": false,
-      "quiet_hours": 8.4,
+      "quiet_hours": 20.0,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.0h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:54:22Z"
     },
     {
@@ -317,9 +317,9 @@
       "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
       "head_ref": "automation/reconcile-open-prs-34274857146-1",
       "draft": false,
-      "quiet_hours": 8.4,
+      "quiet_hours": 20.0,
       "state": "waiting",
-      "why": "open and unmerged with no push for 8.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 20.0h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T20:51:25Z"
     },
     {
@@ -327,9 +327,9 @@
       "title": "chore(ops): PR-queue watcher receipt (auto)",
       "head_ref": "automation/data-commit-34280346857-1",
       "draft": false,
-      "quiet_hours": 7.9,
+      "quiet_hours": 19.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 7.9h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 19.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T21:24:01Z"
     },
     {
@@ -337,9 +337,9 @@
       "title": "chore(ops): trainer capture-watch receipt (auto)",
       "head_ref": "automation/data-commit-34279587599-1",
       "draft": false,
-      "quiet_hours": 7.8,
+      "quiet_hours": 19.5,
       "state": "waiting",
-      "why": "open and unmerged with no push for 7.8h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 19.5h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T21:26:14Z"
     },
     {
@@ -347,9 +347,9 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34278909916-1",
       "draft": false,
-      "quiet_hours": 7.7,
+      "quiet_hours": 19.3,
       "state": "waiting",
-      "why": "open and unmerged with no push for 7.7h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 19.3h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T21:35:48Z"
     },
     {
@@ -357,9 +357,9 @@
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34283576013-1",
       "draft": false,
-      "quiet_hours": 7.3,
+      "quiet_hours": 18.9,
       "state": "waiting",
-      "why": "open and unmerged with no push for 7.3h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 18.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T22:00:12Z"
     },
     {
@@ -367,9 +367,9 @@
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-34287149932-1",
       "draft": false,
-      "quiet_hours": 6.4,
+      "quiet_hours": 18.0,
       "state": "waiting",
-      "why": "open and unmerged with no push for 6.4h (threshold 6.0h).",
+      "why": "open and unmerged with no push for 18.0h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T22:52:49Z"
     },
     {
@@ -377,100 +377,193 @@
       "title": "chore(ops): session-reaper observations (auto)",
       "head_ref": "automation/session-reaper-34290392610-1",
       "draft": false,
-      "quiet_hours": 5.7,
-      "state": "active",
-      "why": "a push landed 5.7h ago -- being worked, not queued.",
+      "quiet_hours": 17.3,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 17.3h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T23:33:47Z"
-    },
-    {
-      "pr": 11470,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34292272058-1",
-      "draft": false,
-      "quiet_hours": 5.3,
-      "state": "active",
-      "why": "a push landed 5.3h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-08T23:58:58Z"
     },
     {
       "pr": 11471,
       "title": "chore(ops): queue the daily work digest (auto)",
       "head_ref": "automation/work-digest-34292272110-1",
       "draft": false,
-      "quiet_hours": 5.3,
-      "state": "active",
-      "why": "a push landed 5.3h ago -- being worked, not queued.",
+      "quiet_hours": 16.9,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 16.9h (threshold 6.0h).",
       "last_push_utc": "2026-09-08T23:59:36Z"
     },
     {
-      "pr": 11475,
-      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
-      "head_ref": "automation/econ-calendar-34295203763-1",
+      "pr": 11470,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34292272058-1",
       "draft": false,
-      "quiet_hours": 4.6,
-      "state": "active",
-      "why": "a push landed 4.6h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-09T00:39:46Z"
+      "quiet_hours": 16.9,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 16.9h (threshold 6.0h).",
+      "last_push_utc": "2026-09-08T23:58:58Z"
     },
     {
       "pr": 11476,
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34295451633-1",
       "draft": false,
-      "quiet_hours": 4.7,
-      "state": "active",
-      "why": "a push landed 4.7h ago -- being worked, not queued.",
+      "quiet_hours": 16.3,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 16.3h (threshold 6.0h).",
       "last_push_utc": "2026-09-09T00:32:57Z"
     },
     {
-      "pr": 11478,
-      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
-      "head_ref": "automation/reconcile-open-prs-34297684128-1",
+      "pr": 11475,
+      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
+      "head_ref": "automation/econ-calendar-34295203763-1",
       "draft": false,
-      "quiet_hours": 4.2,
-      "state": "active",
-      "why": "a push landed 4.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-09T01:04:45Z"
-    },
-    {
-      "pr": 11487,
-      "title": "chore(ops): session-reaper observations (auto)",
-      "head_ref": "automation/session-reaper-34311893227-1",
-      "draft": false,
-      "quiet_hours": 0.6,
-      "state": "active",
-      "why": "a push landed 0.6h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-09T04:41:16Z"
-    },
-    {
-      "pr": 11488,
-      "title": "chore(ops): trainer capture-watch receipt (auto)",
-      "head_ref": "automation/data-commit-34312725937-1",
-      "draft": false,
-      "quiet_hours": 0.4,
-      "state": "active",
-      "why": "a push landed 0.4h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-09T04:53:58Z"
+      "quiet_hours": 16.2,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 16.2h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T00:39:46Z"
     },
     {
       "pr": 11489,
       "title": "chore(ops): refresh the error-feed digest (auto)",
       "head_ref": "automation/error-feed-digest-34314012772-1",
       "draft": false,
+      "quiet_hours": 11.7,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 11.7h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T05:13:43Z"
+    },
+    {
+      "pr": 11493,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34317101000-1",
+      "draft": false,
+      "quiet_hours": 10.9,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 10.9h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T06:00:14Z"
+    },
+    {
+      "pr": 11512,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34324964033-1",
+      "draft": false,
+      "quiet_hours": 9.0,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 9.0h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T07:50:48Z"
+    },
+    {
+      "pr": 11518,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34327540243-1",
+      "draft": false,
+      "quiet_hours": 8.4,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 8.4h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T08:31:11Z"
+    },
+    {
+      "pr": 11525,
+      "title": "chore(m7): strategy review packets (auto)",
+      "head_ref": "automation/strategy-reviews-34333147933-1",
+      "draft": false,
+      "quiet_hours": 7.5,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 7.5h (threshold 6.0h).",
+      "last_push_utc": "2026-09-09T09:20:28Z"
+    },
+    {
+      "pr": 11519,
+      "title": "WO-20260909: an automation PR has no owner after its producing run exits — the class, not the one red",
+      "head_ref": "claude/lane4-stale-automation-landing-20260909",
+      "draft": true,
+      "quiet_hours": 1.2,
+      "state": "active",
+      "why": "a push landed 1.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T15:40:31Z"
+    },
+    {
+      "pr": 11536,
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "head_ref": "automation/work-digest-34343009855-1",
+      "draft": false,
+      "quiet_hours": 5.7,
+      "state": "active",
+      "why": "a push landed 5.7h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T11:08:53Z"
+    },
+    {
+      "pr": 11537,
+      "title": "Record that the MI-215 Tier-3 decision was ANSWERED, not still pending",
+      "head_ref": "claude/mi215-followup-record-the-answered-decision",
+      "draft": false,
+      "quiet_hours": 5.9,
+      "state": "active",
+      "why": "a push landed 5.9h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T10:59:39Z"
+    },
+    {
+      "pr": 11541,
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "head_ref": "automation/reconcile-open-prs-34345891620-1",
+      "draft": false,
+      "quiet_hours": 5.2,
+      "state": "active",
+      "why": "a push landed 5.2h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T11:40:43Z"
+    },
+    {
+      "pr": 11547,
+      "title": "MI-222: file the venue-truth position detector — and correct two falsified claims of my own before they land",
+      "head_ref": "claude/mgr-mi222-venue-truth-detector",
+      "draft": false,
+      "quiet_hours": 2.4,
+      "state": "active",
+      "why": "a push landed 2.4h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T14:28:55Z"
+    },
+    {
+      "pr": 11564,
+      "title": "MI-221: fix the closed-PnL route — kwargs cannot cross a positional-only executor hop (defect I shipped in #11560)",
+      "head_ref": "claude/mi-221-fix-closed-pnl-route",
+      "draft": false,
+      "quiet_hours": 0.6,
+      "state": "active",
+      "why": "a push landed 0.6h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T16:18:23Z"
+    },
+    {
+      "pr": 11565,
+      "title": "MI-221: expose the RAW Bybit order history — when was a protective leg cancelled, and why (supersedes #11564)",
+      "head_ref": "claude/mi-221-raw-order-history",
+      "draft": false,
+      "quiet_hours": 0.1,
+      "state": "active",
+      "why": "a push landed 0.1h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T16:49:23Z"
+    },
+    {
+      "pr": 11566,
+      "title": "MI-222 Tier-2: make the collapsed position read countable — return value byte-identical (HELD for operator merge)",
+      "head_ref": "claude/mi-222-collapsed-read-observable",
+      "draft": false,
+      "quiet_hours": 0.5,
+      "state": "active",
+      "why": "a push landed 0.5h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-09T16:21:08Z"
+    },
+    {
+      "pr": 11570,
+      "title": "Record the two operator decisions of 2026-09-09, and register the MI-225 re-spawn",
+      "head_ref": "claude/mgr-canon-20260909T1635",
+      "draft": false,
       "quiet_hours": 0.0,
       "state": "active",
       "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-09T05:13:43Z"
+      "last_push_utc": "2026-09-09T16:51:06Z"
     }
   ],
   "runs": [
-    {
-      "at": "2026-09-02T18:20:44Z",
-      "read_state": "measured",
-      "waiting": 6,
-      "worst_hours": 110.5,
-      "escalated": true
-    },
     {
       "at": "2026-09-02T21:16:40Z",
       "read_state": "measured",
@@ -603,9 +696,16 @@
       "waiting": 36,
       "worst_hours": 21.3,
       "escalated": true
+    },
+    {
+      "at": "2026-09-09T16:53:15Z",
+      "read_state": "measured",
+      "waiting": 46,
+      "worst_hours": 32.9,
+      "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-09T05:15:42Z",
-  "last_band": 960,
-  "last_page_reason": "the worst wait crossed into a new band (480 → 960 min) — materially worse is new information even inside the cooldown."
+  "last_paged_at": "2026-09-09T16:53:15Z",
+  "last_band": 1920,
+  "last_page_reason": "the worst wait crossed into a new band (960 → 1920 min) — materially worse is new information even inside the cooldown."
 }
