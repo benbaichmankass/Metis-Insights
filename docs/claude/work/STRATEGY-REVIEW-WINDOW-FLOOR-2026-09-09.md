@@ -99,9 +99,10 @@ act on — but the magnitude is a rolling 7-day window, not a standing total.
 ## 3 · Would waiting help? The generator already answers this, and the answer is mostly no
 
 ⚠️ **I did not build this. `strategy_review_packet.py` already publishes a per-leg `evidence_horizon` block and
-an `evidence_horizon_summary`,** and it is more careful than anything I would have written — a leg with zero
-observed closes gets **no** projected rate, only a 95%-confidence *optimistic lower bound*, with the basis
-spelled out (*"Zero observed is not a rate of zero"*). Identical on 09-07 and 09-08:
+an `evidence_horizon_summary`,** and it is more careful than anything I would have written — each of the 24 legs (of 52) with zero
+observed closes in the window gets **no** projected rate — only an optimistic lower bound at a 95% confidence
+level, with the basis spelled out (*"Zero observed is not a rate of zero"*). ⚠️ That 95% is a CONFIDENCE
+LEVEL, not a measured share of anything. Identical on 09-07 and 09-08:
 
 | horizon class | legs | what it means |
 |---|---:|---|
