@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager dispatch record. Registers under docs/claude/work/** only: the new work object moved to in_flight with its owner, two MANAGER-CHECKLIST rows moved ready->in_flight, the SESSIONS.json registry row, the spawn-priority exception recording the operator's approval, the tool-stamped lease heartbeat, and the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched — the fixes themselves are what the dispatched session will author."
+}
