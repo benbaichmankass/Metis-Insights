@@ -208,6 +208,36 @@ decision_requests:
       error one level up. If chosen, it should be paired with a weaker action class than KILL/DEMOTE
       rather than lowering the bar for the existing one.
   allows_free_text: true
+  answer:
+    chosen: null
+    free_text: >-
+      REJECTED AS MALFORMED BY THE OPERATOR, 2026-09-09. None of the four options is the right answer,
+      because all four presume live closes are the evidence basis for grading a STRATEGY. They are not.
+      Operator, verbatim: "None of these are the right answer - we have built EXTENSIVE BACKETESTING
+      INFRA FOR EXACTLY THIS REASON!!!!!! We do NOT rely on live soaking for validating strategies, only
+      mechanics, and if it takes time to accrue live trades to analyze real world performance, that is
+      not a barrier that needs to be overcome, just a feature of the system. Less legs doesn't help this
+      - it's about how many trades each leg executes, and less legs shouldn't mean more trades (at least
+      on the paper accounts). I don't know how many more times I can explain this to various cluades,
+      but our overall operation is clearly not built to suit the system's structure".
+      THREE THINGS THIS SETTLES. (1) Edge is proven OFFLINE; a live window proves MECHANICS only, so a
+      packet that withholds a verdict for want of live n is asking a question live data was never meant
+      to answer. (2) Slow live accrual is a FEATURE, not a barrier to overcome - so `none_gradeable` is
+      not a defect to engineer around. (3) `too_many_legs` is WRONG and the manager's recommendation of
+      it was wrong: the quantity is trades PER LEG, and retiring legs does not raise it, least of all on
+      paper accounts where every leg runs regardless.
+      THIS IS NOT NEW CANON - IT IS EXISTING CANON THE SURFACE CONTRADICTS. docs/CLAUDE-RULES-CANONICAL.md
+      "Promotion evidence - offline edge, live mechanics" has been BINDING since 2026-07-26, says all
+      three of the above, states its scope is STRATEGY legs and not only ML heads, and names this exact
+      failure: "Never frame an alt-leg paper-soak as a calendar-time wait to see if the edge holds - that
+      is the recurring drift this rule kills."
+      SO THE QUESTION IS VOID AND THE INSTRUMENT IS THE DEFECT. Do NOT re-ask it in another form and do
+      NOT tune window/floor: `MIN_CLOSED_FOR_ACTION` applied to a LIVE window is a calendar-accrual gate
+      for edge, which clause 3 of that rule forbids outright. Routed as MI-215.
+    answered_at: '2026-09-09T09:30:00Z'
+    answered_by: operator_in_conversation
+    committed_by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    submission_id: null
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md

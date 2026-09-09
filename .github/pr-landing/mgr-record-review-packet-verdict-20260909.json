@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: records the operator's rejection of DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR into the Phase F work object, files two backlog rows, adds MI-215 to route the fix, writes five supervision observations into SESSIONS.json, and the lease heartbeat. Plus the R13 merge_slot claim naming this branch. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched -- the packet fix itself is Tier-3 and is ROUTED, not enacted."
+}
