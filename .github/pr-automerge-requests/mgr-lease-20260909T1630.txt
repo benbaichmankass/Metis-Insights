@@ -1,0 +1,1 @@
+arm auto-merge for the 16:26Z lease heartbeat (#11568)
