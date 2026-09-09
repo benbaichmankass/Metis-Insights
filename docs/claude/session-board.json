@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-route-mi229-20260909T2307",
-  "claimed_at": "2026-09-09T23:07:30Z",
-  "purpose": "Manager: register the MI-229 spawn (F-28 rollback registry collapse) after WIP fell to 7 of 8"
+  "branch": "claude/mgr-lease-hb-20260909T2326",
+  "claimed_at": "2026-09-09T23:26:30Z",
+  "purpose": "Manager: lease heartbeat + live supervision on all three lanes"
  },
  "active_sessions": [
   {
