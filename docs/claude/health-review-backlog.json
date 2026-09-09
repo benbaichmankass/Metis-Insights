@@ -34509,7 +34509,7 @@
     },
     {
       "id": "BL-20260909-THIRTEEN-GENERATED-REGISTERS-CARRY-NO-GENERATED-AT-SO-SUPERSESSION-IS-UNDECIDABLE",
-   "resolution_criteria": "`python3 scripts/ops/sweep_stale_automation_prs.py --open-prs <live list>` reports ZERO PRs in state `undated_payload` across two consecutive runs, because each of docs/claude/DUE.md, docs/claude/ERROR-FEED-DIGEST.md, docs/claude/READOUT.md, comms/strategy_reviews/<date>/INDEX.json, comms/macro/valuation_snapshots.jsonl and comms/macro/econ_calendar_captures/*.json now carries a machine-readable generation timestamp its generator wrote. ⚠️ NOT satisfied by widening the sweeper's DATE_FIELDS or defaulting an absent date — that converts 'we could not tell' into 'safe', which is the failure this row exists to prevent.",
+      "resolution_criteria": "`python3 scripts/ops/sweep_stale_automation_prs.py --open-prs <live list>` reports ZERO PRs in state `undated_payload` across two consecutive runs, because each of docs/claude/DUE.md, docs/claude/ERROR-FEED-DIGEST.md, docs/claude/READOUT.md, comms/strategy_reviews/<date>/INDEX.json, comms/macro/valuation_snapshots.jsonl and comms/macro/econ_calendar_captures/*.json now carries a machine-readable generation timestamp its generator wrote. ⚠️ NOT satisfied by widening the sweeper's DATE_FIELDS or defaulting an absent date — that converts 'we could not tell' into 'safe', which is the failure this row exists to prevent.",
       "opened": "2026-09-09",
       "severity": "medium",
       "tier": 1,
@@ -34520,7 +34520,7 @@
     },
     {
       "id": "BL-20260909-TWENTY-SEVEN-SUPERSEDED-AUTOMATION-PRS-ARE-OPEN-AND-EACH-NEEDS-A-RECORDED-DISPOSITION",
-   "resolution_criteria": "`python3 scripts/ops/open_pr_record.py --strict --open-prs <live list>` exits 0 with completeness=`recorded`, AND the sweeper's live triage reports zero PRs in `superseded_older` / `superseded_identical` / `superseded_by_open_pr`, because each has been closed with a `closed_unmerged` row carrying a non-empty `disposition`. ⚠️ For the seven carrying a pending-pings row (#11442/#11445/#11452/#11465/#11471/#11493/#11512) the row must additionally name WHERE the rescued ping landed on main and record that it was verified present AFTER that merge — the #10974 pattern. A close without that evidence does not satisfy this row.",
+      "resolution_criteria": "`python3 scripts/ops/open_pr_record.py --strict --open-prs <live list>` exits 0 with completeness=`recorded`, AND the sweeper's live triage reports zero PRs in `superseded_older` / `superseded_identical` / `superseded_by_open_pr`, because each has been closed with a `closed_unmerged` row carrying a non-empty `disposition`. ⚠️ For the seven carrying a pending-pings row (#11442/#11445/#11452/#11465/#11471/#11493/#11512) the row must additionally name WHERE the rescued ping landed on main and record that it was verified present AFTER that merge — the #10974 pattern. A close without that evidence does not satisfy this row.",
       "opened": "2026-09-09",
       "severity": "medium",
       "tier": 1,
@@ -34531,7 +34531,7 @@
     },
     {
       "id": "BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER",
-   "resolution_criteria": "A `stale-automation-sweep` run is OBSERVED refreshing at least one real stranded branch and that PR subsequently MERGES — i.e. the post-run half is proven end to end on a live branch, not only by self-test. Until then the row stays open and the mechanism is DEPLOYED, NOT OBSERVED. ⚠️ Closing this row is NOT a decision to widen `verify-timeout-minutes`: the producer-side bound is a recorded choice, and the row ends when the sweeper is shown to cover it, or when a measurement shows it does not.",
+      "resolution_criteria": "A `stale-automation-sweep` run is OBSERVED refreshing at least one real stranded branch and that PR subsequently MERGES — i.e. the post-run half is proven end to end on a live branch, not only by self-test. Until then the row stays open and the mechanism is DEPLOYED, NOT OBSERVED. ⚠️ Closing this row is NOT a decision to widen `verify-timeout-minutes`: the producer-side bound is a recorded choice, and the row ends when the sweeper is shown to cover it, or when a measurement shows it does not.",
       "opened": "2026-09-09",
       "severity": "medium",
       "tier": 1,
