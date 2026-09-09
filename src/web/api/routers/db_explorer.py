@@ -1,8 +1,9 @@
 """Read-only DB explorer — GET /api/bot/db/tables, /api/bot/db/table/{name}.
 
-Tier-1 read surface for the dashboard's Data Explorer tab. Browses the
-**federated canonical store**: the live trader's ``trade_journal.db`` AND
-the trainer-store sidecar ``trainer_store.db`` (trainer/ML lifecycle data
+**Tier-2 session-gated** read surface for the dashboard's Data Explorer tab
+(gated 2026-09-09; it was Tier-1 and fully unauthenticated until then — see the
+Authentication contract below). Browses the **federated canonical store**:
+the live trader's ``trade_journal.db`` AND ``trainer_store.db`` (trainer/ML lifecycle data
 ingested from the trainer mirror — see ``src/units/db/trainer_store.py``).
 Together they make every producer — live trader and trainer — queryable
 from one place.
@@ -29,6 +30,32 @@ Safety contract (read-only, injection-free):
   * Results are capped (``MAX_LIMIT``) and paginated; list views return
     ``total`` so the UI can page.
 
+Authentication contract (added 2026-09-09 — the AUTHORIZATION layer below is
+not a substitute for it, and never was):
+  * Both routes attach ``Depends(require_session)``. A request with no
+    ``Authorization: Bearer`` header gets **401** before any DB is opened.
+  * ⚠️ **Why this had to change.** The exposure contract below decides WHICH
+    tables a caller may reach; it never decided WHETHER a caller may reach any.
+    Until this gate landed, every allowlisted table was world-readable on a
+    public host: measured 2026-09-09, an unauthenticated
+    ``GET /api/bot/db/table/trades`` returned real rows against ``total: 5589``
+    over 41 columns, and ``/db/tables`` returned 21 tables with full schemas.
+    ``WO-20260901-PHASE-H`` states the distinction directly: *"a route gate is
+    authentication, not authorization: one token would otherwise open all 22
+    tables."* The two are complementary and neither substitutes for the other.
+    (``BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS``.)
+  * ⚠️ **The gate fails CLOSED when auth is unconfigured, and that is
+    deliberate.** ``require_session`` rejects a missing/malformed bearer with
+    401 *before* it reads ``ALLOWED_EMAIL``, so a host with no auth env set
+    serves 401 here rather than falling open. The cost is that such a host
+    cannot mint a token either (``POST /api/auth/login`` → 500
+    ``auth_unavailable``), i.e. the Data Explorer is unreachable until the auth
+    envs are set. Failing closed on a money DB is the right side to err on, but
+    it is a real operational precondition — do not deploy this gate expecting
+    the tab to work before ``JWT_SIGNING_KEY`` / ``ALLOWED_EMAIL`` /
+    ``WEBAPP_PASSWORD_SHA256`` are present on the host AND the SPA can send a
+    bearer.
+
 Exposure contract (default-deny — added 2026-09-01, operator decision):
   * **Table allowlist.** Only tables named in ``_TABLE_ALLOWLIST`` are listed
     or readable. ⚠️ **The inversion is the point:** a table added to the
@@ -50,10 +77,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.units.db.trainer_store import build_if_stale
 from src.utils.paths import trade_journal_db_path, trainer_store_db_path
+from src.web.api.auth import require_session
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +254,9 @@ def _resolve_table_db(table: str, db: Optional[str]) -> Optional[Tuple[str, Path
 
 
 @router.get("/db/tables")
-def db_tables() -> Dict[str, Any]:
+def db_tables(
+    _session: dict = Depends(require_session),
+) -> Dict[str, Any]:
     """List every table across the federated store (trade_journal +
     trainer_store) with its columns + row count + owning ``db``."""
     dbs = _federated_dbs()
@@ -273,6 +303,7 @@ def db_table(
     filter_col: Optional[str] = Query(None, max_length=64),
     filter_op: str = Query("eq"),
     filter_val: Optional[str] = Query(None, max_length=256),
+    _session: dict = Depends(require_session),
 ) -> Dict[str, Any]:
     """Return one page of *table* from whichever federated DB owns it.
 
