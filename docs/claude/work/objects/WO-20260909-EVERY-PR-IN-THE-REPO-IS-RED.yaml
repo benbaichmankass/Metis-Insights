@@ -17,6 +17,83 @@ done_condition: >-
 why: >-
   MEASURED 2026-09-09T07:48Z. check_trainer_capture_watch.py exits 1 on CLEAN MAIN -- 'newest recorded run is 15.1h old (window 15h)'. It is repo-wide: every open PR is red on it. The refreshed receipt EXISTS, in automation PR #11488 (opened 04:54Z), which has been unmergeable since. So a guard that watches a cadence is now reporting the failure of the LANDING path rather than of the cadence, and nobody can clear it by fixing the watcher. The manager cannot land #11488: its branch is ~3h stale, so bringing main in creates a merge commit whose FIRST-PARENT diff carries scripts/ and tests/, which check_manager_scope R2 attributes to the manager as doing an item. That is MI-184 / BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT exactly, hit live. #11494 fixed the R13 half of the automation deadlock and #11500 proved it, and #11509 fixed a second content half -- this is a THIRD, distinct cause: an automation PR that goes STALE cannot self-heal, because nothing re-bases it and its author is a bot that will never come back.
 
+findings: >-
+  THE CLASS ANSWER IS (a), AND THE FIX CANNOT LIVE WHERE (a) IMPLIES. The
+  producing workflow already does everything (a) asks: all 25 of 25
+  `commit-to-main` call sites set `verify-merged: true` (measured by parsing
+  every workflow that references the action -- an earlier grep-based count of 7
+  was a `-A12` window artefact and is retracted), and `refresh-stale-branch`
+  merges main in and DOES work -- #11499's head is a `Merge main so the required
+  checks re-run` commit. But every bit of that lives inside the PRODUCING RUN'S
+  OWN LIFETIME: one `verify-timeout-minutes` window (default 30), one refresh
+  attempt. When the job exits the branch has NO OWNER, and any blocker outliving
+  that window strands it permanently while the producer's next cron opens
+  another that strands identically. So the fix is a CADENCE JOB that outlives
+  the producer, not another input to it -- `.github/workflows/stale-automation-sweep.yml`
+  + `scripts/ops/sweep_stale_automation_prs.py`, 2h, refresh-only.
+  (b) IS REFUSED AS NOT IMPLEMENTABLE: `main` is branch-protected and rejects a
+  direct workflow push (GH006) -- that is the documented reason `commit-to-main`
+  exists at all. "Land receipts directly" means removing branch protection from
+  the path that writes to main most often, i.e. creating an unguarded lane, the
+  polarity failure this repo already paid for with `new-table-wiring-guard`.
+  (c) IS REFUSED AS WRONG ON PURPOSE: a time-based guard reading the freshest
+  receipt across OPEN PRs would grade an unlanded receipt as if it had landed,
+  so a watcher whose output can never merge would read `fresh` forever -- the
+  guard going quiet in exactly the state it exists to announce. It would also
+  make a required check depend on live GitHub API state at CI time, so the same
+  commit grades differently on re-run.
+  AND THE NULL IS REFUSED TOO, with evidence: the receipts SHOULD keep gating
+  every PR. The guard did its job -- it went red at 07:44:31Z and the condition
+  was visible repo-wide within minutes. What failed is that the REMEDY path is
+  not as automatic as the alarm.
+
+what_was_established: >-
+  (1) `check_trainer_capture_watch.py` exits 1 on clean main was TRUE at
+  07:4x-07:5xZ and is now FALSE: verified exit 0 on a clean `origin/main`
+  checkout. Main was red for 12 minutes, 07:44:31Z -> 07:56:53Z.
+  (2) IT WAS NOT #11488 THAT LANDED THE RECEIPT. Commit d9059a0 (#11513), an
+  unrelated SESSION PR, carried `docs/claude/work/TRAINER-CAPTURE-WATCH.json` in
+  as a side-effect; the bytes are identical to #11488's. So #11488 is
+  SUPERSEDED, not pending -- verified byte-identical against origin/main -- and
+  the WO's own rule says close it with a recorded reason rather than merge it.
+  (3) #11488 WAS NEVER RED ON `trainer-capture-watch`. Its guards run
+  (34312758346) reads `PASS 53 - FAIL 1` and the 1 is `pr-landing-guard` on
+  R13, reproduced locally on the real branch name. It was opened 04:54:00Z;
+  MI-208/#11494 taught the action to write the claim at 06:37:54Z. A pre-fix
+  branch.
+  (4) THE THREE CAUSES ARE ONE RELAY ON ONE QUEUE, each becoming the blocker as
+  the previous is fixed: R13 until 06:37:54Z (#11494); `session-registry-guard`
+  06:38Z->~07:36Z (#11509); `trainer-capture-watch` 07:44:31Z->07:56:53Z
+  (#11513, by side-effect).
+  (5) POPULATION 50 open `automation/*` PRs of 52 open PRs. 47 carry no R13
+  claim; the cut is exact and confirms #11494 works (#11493 opened 06:00:16Z has
+  none, #11499 opened 06:38:14Z has one).
+  (6) FOUR always-run guards grade a dated receipt that must LAND on main --
+  check_digest_liveness (6h), check_trainer_capture_watch (15h),
+  check_pr_queue_watch (30h), check_manager_queue_watch. The same trap is live
+  on a second one now: #11490 carries a PR-queue-watch receipt that cannot land.
+
+what_was_not_done: >-
+  NOT DONE, explicitly. (1) NO PR WAS CLOSED. 27 `superseded_older` PRs still
+  need closing with a recorded `disposition`, and 7 more
+  (#11442/#11445/#11452/#11465/#11471/#11493/#11512) each carry a
+  `pending-pings.jsonl` row absent from main and need the rescue-by-value #10974
+  did BEFORE any close -- filed as
+  BL-20260909-TWENTY-SEVEN-SUPERSEDED-AUTOMATION-PRS-ARE-OPEN-AND-EACH-NEEDS-A-RECORDED-DISPOSITION.
+  (2) 13 PRs could not be triaged mechanically because their payloads carry no
+  `generated_at` -- filed as
+  BL-20260909-THIRTEEN-GENERATED-REGISTERS-CARRY-NO-GENERATED-AT-SO-SUPERSESSION-IS-UNDECIDABLE.
+  (3) THE SWEEPER HAS NOT RUN AGAINST LIVE BRANCHES WITH `--apply`. It is
+  DEPLOYED, NOT OBSERVED: the classifier is proven by 12 planted self-test cases
+  and 11 tests, and the triage was run live in dry-run, but no branch has been
+  pushed by it. Its first scheduled run is the observation.
+  (4) The producer-side refresh bound in `commit-to-main` is UNCHANGED, by
+  choice -- filed as
+  BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER.
+  (5) ⚠️ THE CLOCK IS RE-ARMED: main goes red on this guard again at
+  2026-09-09T19:53:57Z unless a fresh receipt lands. The sweeper is what is meant
+  to prevent that; it has not yet been seen doing so.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 

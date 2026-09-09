@@ -34506,6 +34506,36 @@
       "evidence": "`manager_lease.py status` on main at 08:05:10Z: state=held_fresh, heartbeat_at=2026-09-09T07:34:57Z (landed via #11511), claimable=False, 30 min elapsed of a 90 min TTL. `scripts/ci/check_trainer_capture_watch.py` exits 1 on a clean main checkout ('newest recorded run is 15.1h old, window 15h') -- reproduced against clean main, not inferred from a PR. PR #11515 carries the three later heartbeats and is red on that guard. Root of the red: the refreshed receipt exists in automation PR #11488, itself unmergeable (BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD is a sibling cause in the same automation-landing family).",
       "resolution_criteria": "A manager heartbeat can reach `main` while `main` is red on a guard unrelated to the lease -- OBSERVED, not argued. Candidate designs, and the row does not pick one: (a) the lease file lands through a path that is not gated on the full guard set, the way receipts do; (b) the lease TTL is suspended, with the reason recorded, while main is red, so the register says 'could not refresh' rather than silently reading expired -- the three-state discipline this repo uses everywhere else, since `expired` and `could not refresh` are different facts and only one of them means nobody is managing; or (c) a slot/lease store not gated on merging at all, which is the same artifact `check_pr_landing.py`'s R13 docstring says the real-time half needs. ⚠️ NOT ACCEPTABLE AS A FIX: disabling, skipping or bypassing the failing guard to let a heartbeat through, or widening the TTL so the problem is less likely to be hit. Widening hides the coupling rather than removing it and makes the eventual failure rarer and more surprising. ⚠️ A green repo does NOT clear this row -- that is the condition being absent, not the coupling being removed, and it is the reading most likely to be mistaken for a fix.",
       "source": "manager session_01HrmZ1RRNM4UnEUaFdrPEjj, hit live while its own lease was 59 min from expiry, 2026-09-09"
+    },
+    {
+      "id": "BL-20260909-THIRTEEN-GENERATED-REGISTERS-CARRY-NO-GENERATED-AT-SO-SUPERSESSION-IS-UNDECIDABLE",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ops/landing",
+      "status": "open",
+      "title": "13 of 50 open automation PRs cannot be triaged mechanically because the files they regenerate carry no `generated_at`",
+      "detail": "MEASURED 2026-09-09T08:1xZ, population = the 50 open `automation/*` PRs of 52 open PRs total. `scripts/ops/sweep_stale_automation_prs.py` decides whether a stranded automation PR should be refreshed or is superseded by comparing its payload's own generation timestamp against main's. THIRTEEN PRs grade `undated_payload` — the file differs from main and carries no comparable timestamp, so newer/older CANNOT BE DETERMINED and the sweeper correctly refuses to guess. The undated files are `docs/claude/DUE.md`, `docs/claude/ERROR-FEED-DIGEST.md`, `docs/claude/READOUT.md`, `CLAUDE.md`'s rendered brief block, `comms/strategy_reviews/<date>/INDEX.json`, `comms/macro/valuation_snapshots.jsonl`, `comms/macro/econ_calendar_captures/*.json` and `automation/board-results/*.txt`. Their JSON siblings (TRAINER-CAPTURE-WATCH.json, PR-QUEUE-WATCH.json, OPEN-PRS.json, WORK-DIGEST.json, REAPER-OBSERVATIONS.json) all DO stamp `generated_at` and grade cleanly. REMEDY: have each generator stamp its output — a front-matter or sibling `.meta.json` for the Markdown ones. ⚠️ NOT a sweeper defect: `undated_payload` is the honest reading and must not be softened into a default, which is how a 'we could not tell' becomes a 'safe'. The cost is that those 13 stay a hand triage."
+    },
+    {
+      "id": "BL-20260909-TWENTY-SEVEN-SUPERSEDED-AUTOMATION-PRS-ARE-OPEN-AND-EACH-NEEDS-A-RECORDED-DISPOSITION",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ops/landing",
+      "status": "open",
+      "title": "27 open automation PRs would REWIND main if landed and must be closed with a recorded `disposition`, which nothing does automatically",
+      "detail": "MEASURED 2026-09-09T08:1xZ by `scripts/ops/sweep_stale_automation_prs.py --open-prs`, population = the 50 open `automation/*` PRs. Verdicts: refresh 1 (#11490), superseded_identical 1 (#11488), superseded_older 27, superseded_by_open_pr 1 (#11458), carries_append_only 7, undated_payload 13. The 27 `superseded_older` carry a register OLDER than main's, so landing them would REWIND main — they must be CLOSED, not merged. ⚠️ The sweeper deliberately does NOT close them: a `closed_unmerged` row with no `disposition` grades `undispositioned` in `open_pr_record.py`, which is precisely how the 2026-09-09 06:38→07:36Z window of this same incident happened (fixed by #11509). So each close needs a session to write the row. ⚠️ AND SEVEN MORE ARE NOT SAFE TO CLOSE AT ALL YET: #11442/#11445/#11452/#11465/#11471/#11493/#11512 each carry one `docs/claude/pending-pings.jsonl` row absent from main, and closing drops the operator notification — the hazard `OPEN-PRS.json`'s #10902/#10908/#10914 rows already record. Those need the rescue-by-value that #10974 did. ⚠️ AN EARLIER PASS OF THIS TRIAGE WAS WRONG IN THE DANGEROUS DIRECTION: classifying by the newest dated register alone called 22 PRs cleanly superseded when the true figure was 15, and would have dropped all seven pings."
+    },
+    {
+      "id": "BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "tier": 1,
+      "area": "ci/landing",
+      "status": "open",
+      "title": "`commit-to-main`'s stale-branch refresh is at most ONE attempt inside one `verify-timeout-minutes` window, so any blocker lasting longer strands the branch permanently",
+      "detail": "MEASURED 2026-09-09. `.github/actions/commit-to-main` refreshes a non-progressing branch by merging main in, but the attempt is bounded twice: at most once per run, and only within `verify-timeout-minutes` (default 30). All 25 of 25 call sites DO set `verify-merged: true` (verified by parsing every workflow that references the action — an earlier grep-based count of 7 was a `-A12` window artefact and is retracted), so the refresh is reachable everywhere and DOES work: #11499's head is a `Merge main so the required checks re-run against the current base` commit. It simply cannot reach a blocker that outlives the run. The R13 blocker of 2026-09-09 lasted from ~2026-09-08 through 06:37:54Z and stranded 47 PRs. `.github/workflows/stale-automation-sweep.yml` now covers the post-run half on a 2h cadence. ⚠️ THE PRODUCER-SIDE BOUND IS UNCHANGED and is left that way deliberately — widening the in-run wait costs a runner-hour per producer per run for a case the sweeper handles for free. Filed so the bound is a recorded choice rather than an oversight."
     }
   ]
 }

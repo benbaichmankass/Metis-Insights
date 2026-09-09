@@ -282,6 +282,19 @@ LANDING_MACHINERY = [
     # fires on a change TO the route and not on every branch that uses it.
     ".github/actions/commit-to-main/action.yml",
     "scripts/ops/claim_merge_slot.py",
+    # ⚠️ ADDED 2026-09-09 (WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED). A FOURTH
+    # landing route, listed for exactly the reason `commit-to-main` was: it
+    # pushes merge commits to `automation/*` branches that already have
+    # auto-merge ARMED and re-asserts their R13 merge-slot claims, so a mistake
+    # in it LANDS a pull request rather than merely failing to. A change to it
+    # must not be approved by the route it changes.
+    #
+    # ⚠️ Safe to list for the same reason those two are, and NOT the trap
+    # SESSION_BOARD above documents: no ordinary branch MODIFIES these files, it
+    # is only ever swept BY them. R12 grades the diff, so this fires on a change
+    # TO the sweeper and not on every branch the sweeper touches.
+    ".github/workflows/stale-automation-sweep.yml",
+    "scripts/ops/sweep_stale_automation_prs.py",
 ]
 
 HOLD_REASONS = {
