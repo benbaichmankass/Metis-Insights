@@ -45,7 +45,9 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import sys
+import tempfile
 from typing import Dict, List, Tuple
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -109,10 +111,107 @@ def _consumer_patterns(key: str) -> List[re.Pattern]:
     ]
 
 
-def main() -> int:
+def self_test() -> int:
+    """Plant a write-only provenance key and require main() to REFUSE it.
+
+    WHY THIS EXISTS, AND WHY ITS ABSENCE WAS THE POINT
+    --------------------------------------------------
+    This guard was promoted into the REQUIRED `guards` merge context on
+    2026-07-30 precisely because a provenance signal that is WRITTEN and never
+    READ let a manufactured-PnL figure accumulate unnoticed. It was promoted
+    with no self-test and no test file, so for the whole of that time its green
+    had never been shown capable of turning red — a guard against write-only
+    signals that was itself an unexercised signal (F-05 of the 2026-09-09
+    full-system audit, the audit's own sharpest Phase-0 finding).
+
+    The bar is NOT that these controls print. It is that `main()` RETURNS
+    NON-ZERO on a violation planted here, and zero once that violation is
+    removed. Both halves are asserted; control 1 alone would be satisfied by a
+    guard that always fails.
+
+    The plant is a throwaway tree in $TMPDIR, reached by pointing the module's
+    own `_REPO_ROOT` at it for the duration. Nothing under the real `src/` is
+    written, and the original root is restored in a `finally`.
+    """
+    global _REPO_ROOT
+    fails: List[str] = []
+
+    def check(label: str, got, want) -> None:
+        if got != want:
+            fails.append(f"  FAIL - {label}: got {got!r}, want {want!r}")
+        else:
+            print(f"  PASS - {label}")
+
+    try:
+        from src.runtime.provenance import PROVENANCE_KEYS
+    except Exception as exc:  # noqa: BLE001
+        print(f"self-test: cannot import PROVENANCE_KEYS: {exc}", file=sys.stderr)
+        return 2
+    # Pick a key the guard has no generic-consumer escape hatch for, so the
+    # plant tests the ordinary path rather than the exception.
+    key = next((k for k in PROVENANCE_KEYS if k != "exit_price_source"), None)
+    if key is None:
+        print("self-test: PROVENANCE_KEYS holds no non-default key to plant with",
+              file=sys.stderr)
+        return 2
+
+    real_root = _REPO_ROOT
+    tmp = tempfile.mkdtemp(prefix="provenance_selftest_")
+    try:
+        src = os.path.join(tmp, "src")
+        os.makedirs(src, exist_ok=True)
+        planted = os.path.join(src, "planted_writer.py")
+        _REPO_ROOT = tmp
+
+        # 1. THE PLANT: a file that WRITES the key and nothing that reads it.
+        with open(planted, "w", encoding="utf-8") as fh:
+            fh.write(f'def w(row):\n    row["{key}"] = "local_compute"\n')
+        check(f"a write-only '{key}' makes main() return 1", main([]), 1)
+
+        # 2. A CONSUMER RESCUES IT. Without this half, a guard that returned 1
+        #    unconditionally would pass control 1 and look healthy.
+        with open(os.path.join(src, "planted_reader.py"), "w", encoding="utf-8") as fh:
+            fh.write(f'def r(row):\n    if row.get("{key}") == "local_compute":\n'
+                     f'        return 1\n    return 0\n')
+        check("...and adding a consumer makes main() return 0", main([]), 0)
+
+        # 3. REMOVE THE WRITER: no writer, no claim, no violation. This is the
+        #    control that separates "found the plant" from "trips on any tree".
+        os.remove(planted)
+        os.remove(os.path.join(src, "planted_reader.py"))
+        check("an empty tree returns 0", main([]), 0)
+
+        # 4. THE MARKER MUST NOT BE PRESENCE-ONLY. A file that merely MENTIONS
+        #    the key in a comment is not a consumer -- that is the
+        #    `new-table-wiring-guard` failure this repo already paid for, where
+        #    the cheapest way to silence a real finding was a marker naming
+        #    something that did not exist.
+        with open(planted, "w", encoding="utf-8") as fh:
+            fh.write(f'def w(row):\n    row["{key}"] = "local_compute"\n')
+        with open(os.path.join(src, "planted_mention.py"), "w", encoding="utf-8") as fh:
+            fh.write(f'# we should really look at {key} one day\n')
+        check("a bare MENTION of the key does not count as a consumer",
+              main([]), 1)
+    finally:
+        _REPO_ROOT = real_root
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    if fails:
+        print("\n".join(fails))
+        print("\nSELF-TEST FAILED")
+        return 1
+    print("\nALL PASS")
+    return 0
+
+
+def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--verbose", action="store_true")
-    args = ap.parse_args()
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the planted-failure controls and exit")
+    args = ap.parse_args(argv)
+    if args.self_test:
+        return self_test()
 
     try:
         from src.runtime.provenance import PROVENANCE_KEYS
