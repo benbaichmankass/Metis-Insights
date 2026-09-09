@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0100-20260909",
-  "claimed_at": "2026-09-09T00:58:30Z",
-  "purpose": "Heartbeat 00:58:30Z and the finding that digest-liveness-guard was deadlocking the whole merge queue. THIRD rebase onto main: every landing PR rewrites this one key, so each concurrent PR collides here — #11477's claim, then #11473's, each requiring a rebase. Recorded because R13's own text says it does NOT serialize, and in practice the shared key serializes anyway, through conflicts."
+  "branch": "claude/mgr-heartbeat-0155-20260909",
+  "claimed_at": "2026-09-09T01:52:28Z",
+  "purpose": "Heartbeat 01:52:28Z; MI-205 to landed_unproven after #11473 merged; MI-205b's session row closed on merged output."
  },
  "active_sessions": [
   {

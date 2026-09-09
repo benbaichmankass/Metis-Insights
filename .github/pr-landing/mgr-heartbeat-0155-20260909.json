@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass. Registers only, all under docs/claude/**: the tool-stamped lease heartbeat, MI-205 moved to landed_unproven after #11473 merged as 47f5a981, and MI-205b's session row closed on merged output. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}
