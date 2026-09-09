@@ -83,25 +83,6 @@
       "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
     },
     {
-      "pr": 11528,
-      "title": "Route MI-214 and MI-215 to sessions",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED + MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
-      "tier": "tier_1",
-      "state": "green_awaiting_self_land",
-      "draft": false,
-      "opened_at": "2026-09-09T09:54:00Z",
-      "blocker": null,
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Tier-1 manager spawn records: SESSIONS.json rows, one new work object, two checklist transitions, the merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path.",
-        "decided_on": "2026-09-09",
-        "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
-      },
-      "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's."
-    },
-    {
       "pr": 11530,
       "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
       "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
@@ -1926,10 +1907,33 @@
         "text": "Operator typed '11517 approved'. Because that word alone could not distinguish 'approved to merge' from the earlier 'approved to do the work', it was put back to them as an explicit four-option decision carrying the lane's measured blockers: (1) the SPA CANNOT send a bearer — one fetch call site sending only Accept: application/json, zero matches for Authorization|Bearer|login|jwt across all 40 webapp source files, no login screen, no token store; (2) the host CANNOT mint one — POST /api/auth/login returns 500 auth_unavailable because ALLOWED_EMAIL and WEBAPP_PASSWORD_SHA256 are unset on the VM. They were told merging therefore BREAKS the SPA's Data Explorer tab with no way back in until SPA login ships, and what was exposed unauthenticated: /db/table/trades serving REAL ROWS (5589 across 41 columns incl. account_id, broker_order_id, entry_price, exit_price), signals 2,639,949, order_packages 4,500. They chose: 'Merge now, accept losing the tab.' THE BROKEN DATA EXPLORER IS A KNOWINGLY ACCEPTED COST, NOT A REGRESSION — it must not be reverted, and the gate must not be weakened to restore the tab."
       },
       "manager_note": "MERGED IS NOT GATED, and the distinction was measured rather than assumed. At 2026-09-09T08:57:59Z, immediately after the merge, /api/bot/db/tables still returned HTTP 200 / 10,494 bytes with no bearer, and /api/diag/version read git_sha aef42ddb, git_sha_on_disk 5c4d601f, restart_pending TRUE — the running web-api predated the merge. deploy_pull_restart.sh restarts ict-web-api.service only when HEAD advances, so the gate goes live on the next git-sync tick. Verification armed at 09:11Z and the owning lane poked to confirm 401 first-hand on BOTH routes. Do not read this row as evidence the surface is closed."
+    },
+    {
+      "pr": 11528,
+      "title": "Route MI-214 and MI-215 to sessions",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED + MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
+      "tier": "tier_1",
+      "state": "green_awaiting_self_land",
+      "draft": false,
+      "opened_at": "2026-09-09T09:54:00Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 manager spawn records: SESSIONS.json rows, one new work object, two checklist transitions, the merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
+      },
+      "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's.",
+      "terminal": "merged",
+      "merge_sha": "91df4153663e8ec6da567a14158f0183552a7254",
+      "observed_at": "2026-09-09T10:58:09Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-09T08:58:05Z",
-  "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
+  "last_reconciled_at": "2026-09-09T10:58:09Z",
+  "last_reconciled_sha": "d535343b62c81a4c9c46eaed1932f6d0d1fd2de6",
   "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

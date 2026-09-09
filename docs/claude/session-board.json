@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-route-mi218-and-correct-tlt-20260909",
-  "claimed_at": "2026-09-09T10:55:00Z",
-  "purpose": "route MI-218 and correct the manager's false TLT-naked claim"
+  "held_by": "github-actions[bot] · reconcile-open-prs run 34343009888",
+  "branch": "automation/reconcile-open-prs-34343009888-1",
+  "claimed_at": "2026-09-09T11:08:18Z",
+  "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
  },
  "active_sessions": [
   {
