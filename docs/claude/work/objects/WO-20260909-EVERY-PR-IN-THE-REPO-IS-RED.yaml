@@ -550,6 +550,53 @@ the_outage_is_4h47m_and_that_changes_the_diagnosis: >-
   the REMEDY is not as automatic as the ALARM, and six manual interventions in
   an afternoon is that sentence measured.
 
+the_landing_path_RECOVERED_and_that_clears_nothing: >-
+  MEASURED 2026-09-09T19:46Z. THE LANDING PATH IS WORKING AGAIN, established
+  from the artifact rather than from a quiet queue.
+
+  PR #11586 landed a WORK-DIGEST receipt of 18:53:58Z at 18:56:17Z, and NO
+  SESSION OPENED IT BY HAND. Its head is automation/work-digest-34391729884-1,
+  its body is `commit-to-main`'s own template ("Automated daily work digest
+  (Phase B) ... Generated artifact only; auto-merge"), it carries ONE commit,
+  and it went from created 18:54:01Z to merged 18:56:18Z -- 2m17s open-to-merge,
+  which is auto-merge firing on green. That is the whole producer path working
+  end to end: push, `gh pr create`, `gh pr merge --auto`, land.
+
+  SO THE OUTAGE WINDOW IS 13:08:18Z -> somewhere in (17:55:08Z, 18:54:01Z].
+  Last observed failure 17:55:08Z; first observed success 18:54:01Z. At least
+  4h47m, recovering within the following hour.
+
+  ⚠️ THIS CLEARS NOTHING, AND THE FILED ROW SAYS SO IN ITS OWN CRITERIA. Nothing
+  was fixed: the quota recovered. `commit-to-main` still fails the same way the
+  next time the shared per-user limit is exhausted, and the six hand rescues
+  today were needed precisely because nothing else covers that window.
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR
+  stays OPEN, and its clause -- "a quiet day clears nothing; establish it
+  against a run that actually hit the limit" -- is exactly this situation.
+
+a_defect_in_MY_OWN_scan_method: >-
+  ⚠️ AND I NEARLY MISREAD THE RECOVERY AS SILENCE, THROUGH A FLAW IN MY OWN
+  MEASUREMENT. Every check-in this session I have scanned
+  `origin/automation/*` branches for one pushed since the last look, treating a
+  new branch as evidence that a run reached the push step. At 19:46Z that scan
+  returned ZERO branches pushed since 18:39Z and I wrote "no run reached the
+  push step; `gh pr create` untested since 17:55Z".
+
+  THAT INFERENCE IS INVALID. A branch that SUCCESSFULLY lands is DELETED on
+  merge. So counting surviving branches measures STRANDS, never ATTEMPTS, and
+  "zero new branches" is equally consistent with "no run fired" and with "runs
+  fired and every one of them succeeded" -- opposite facts. The scan is a
+  perfectly good strand detector and a useless liveness probe, and I had been
+  using it as both.
+
+  WHAT DISTINGUISHES THEM is the RECEIPT ON MAIN: main's digest had moved
+  17:54:05Z -> 18:53:58Z with no action from me, which is only possible if a
+  producer landed one. Read the receipt, then attribute it to a commit
+  (`git log origin/main -- docs/claude/work/WORK-DIGEST.json`), then read the PR
+  to see whether a human or the action opened it. That is the sequence that
+  actually answers "is the producer working", and it is what a successor should
+  use instead of the branch scan.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
