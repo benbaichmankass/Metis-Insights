@@ -5,12 +5,22 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP · lane4 hand-run of the sweeper (it is not on main yet)",
-  "branch": "automation/data-commit-34314147723-1",
-  "claimed_at": "2026-09-09T12:59:10Z",
-  "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
+  "held_by": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+  "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+  "claimed_at": "2026-09-09T11:30:00Z",
+  "purpose": "MI-218 \u2014 the calendar-time-to-edge census (Tier-1, landing: self). Taken over from session_01HrmZ1RRNM4UnEUaFdrPEjj, whose claim on claude/mgr-record-mi214-approval-20260909 is SPENT: PR #11533 merged to main as 8175e30c6 \u2014 verified in the log, not assumed. Per check_pr_landing.py R13's own docstring this claim does NOT serialize (each branch carries its own copy and it reaches nobody until merge), so it holds no one up; it is the attributable record R13 requires. Mirrored by the \ud83d\udd12 MERGE SLOT CLAIM comment on the live board, which is the authoritative claim. \u26a0\ufe0f THIS DISPLACES a claim main carried from github-actions[bot] \u00b7 reconcile-open-prs run 34343009888 on branch automation/reconcile-open-prs-34343009888-1, claimed 2026-09-09T11:08:18Z \u2014 recorded here rather than silently erased. R13 REQUIRES the arming branch to hold this field in its own diff, so a self-landing PR cannot leave another holder in place; per R13's own docstring the field does not serialize (each branch carries its own copy and it reaches nobody until merge), so displacing it blocks no one. SECOND DISPLACEMENT, same class, recorded too: github-actions[bot] \u00b7 session-reaper run 34345103699 on branch automation/session-reaper-34345103699-1, claimed 2026-09-09T11:21:57Z, whose branch is likewise gone from the remote. Two automation runs took this field inside 15 minutes while a human-scale PR was mid-landing, which is worth someone measuring rather than each session quietly re-taking it."
  },
  "active_sessions": [
+  {
+   "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+   "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+   "repo": "benbaichmankass/Metis-Insights",
+   "status": "working",
+   "started_at": "2026-09-09T10:55:00Z",
+   "ended_at": null,
+   "scope": "MI-218 \u2014 Tier-1 MEASUREMENT ONLY. New: scripts/ops/calendar_edge_census.py, tests/test_calendar_edge_census.py, docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md, the WO yaml. Record edits: health-review-backlog.json, MANAGER-CHECKLIST.json (MI-218 row), SESSIONS.json, DOCUMENT-INDEX.md, session-board.json.",
+   "note": "Changes NO gate, threshold or config. READS scripts/check_soak_doctrine.py (MI-215 check D, landing in #11529) and imports its detector; does not edit it. \u26a0\ufe0f Contended: docs/claude/health-review-backlog.json (5 rows, 55 insertions / 0 deletions). Any conflict there resolved as a VERIFIED UNION over id sets, never by taking a side."
+  },
   {
    "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
    "branch": "claude/mi205b-ranking-key-harness",
