@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-system audit report</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>Full-system audit report</h1>
+<p class="meta">Generated 2026-09-09T17:15:00+00:00 · window 2026-09-08T11:20:00+00:00 → 2026-09-09T17:15:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>68 findings across 7 axes. NO LIVE POSITION IS NAKED (24/24 groups, 3 venues, measured). main green across all 92 guards ungated. But: apply_intent_reduce_partial_close decrements a row and never resizes that row&#x27;s own venue leg, leaving a stop 101.8x the row it protects and causing 64 of the 112 operator ERROR rows; the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a registry holding 16 of 55 strategies, so exercising it silently stops 35 of 45 live legs; the closed-flat invariant reads a FAILED exchange read as flat, covers ~half its own timeline by arithmetic, and pages at a level that never reaches the operator - its 14.7-day zero is not evidence; the M20 60s exit-eval promise was breached 2026-09-07 with 48.8ms of margin left today; and 509 of 741 resolved backlog findings leave no named detector, which is the treadmill quantified.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>PROP IS $87.34 FROM ITS PERMANENT-KILL FLOOR ON A 237.4-HOUR-STALE SNAPSHOT - FIFTH CONSECUTIVE REVIEW</b> <span class="pill">— · T—</span><br><span class='muted'>distance_to_dd_floor_usd 87.34, status_freshness stale, and day_pnl_state realized_unreported - so the daily-loss half is UNMEASURED, not zero. The ask DID fire today (prop_status_request stamp 2026-09-09T07:47:07) and went unanswered. ONE MESSAGE FIXES IT: send &#x27;bal &lt;balance&gt; &lt;equity&gt;&#x27; to the prop bot. This is 30.5h worse than the fourth review said.</span></li>
+<li><b>TIER-2 DECISION: the intent-reduce path orphans an oversized protective leg (money-at-risk)</b> <span class="pill">— · T—</span><br><span class='muted'>bybit_1/ADAUSDT live: trade 5417 position_size 628.0 with a venue stop of 63943.0 - 101.82x. The symbol reconciles EXACTLY (79227+628=79855), which is why every symbol-level check passes. Class incidence 21 of 1000 journal rows including 3 on real-money bybit_2. Fix is to resize the row&#x27;s own tracked leg on reduce, plus INV-PROTECT-LEG-MATCHES-ROW in system_invariants. PROPOSED, not enacted.</span></li>
+<li><b>TIER-3 DECISION: _UNKNOWN_STRATEGY_PRIORITY=10 now WINS arbitration against 45 of 50 declared legs</b> <span class="pill">— · T—</span><br><span class='muted'>Five execution:live legs are absent from DEFAULT_PRIORITIES and resolve to 10, while 45 of 50 mapped legs sit below it. Live contention on SLV across three accounts (slv_trend_1h=0 vs slv_pullback_1d=ABSENT-&gt;10). The constant&#x27;s own comment says it was picked to sit BELOW the roster; its effect is the exact inverse. The transferable fix is a distribution assertion: fail if the fallback is not strictly below min(DEFAULT_PRIORITIES.values()).</span></li>
+<li><b>The sanctioned intent-layer rollback is a 78% capability outage</b> <span class="pill">— · T—</span><br><span class='muted'>MULTI_STRATEGY_INTENT_LAYER=false routes to pipeline._STRATEGY_BUILDERS, which holds 16 of 55 strategies. 35 of 45 execution:live legs would be silently skipped as a logger.warning. No test asserts the two registries agree. The fix is to DELETE the second registry rather than sync it.</span></li>
+<li><b>Arm the two runtime instruments that already exist and already work</b> <span class="pill">— · T—</span><br><span class='muted'>system_invariants.py (7 invariants, self-test 28/28) and exit_path_coverage.py (self-test 19/19) both pass their planted-control self-tests and NEITHER HAS A SCHEDULED CALLER. This is the audit&#x27;s highest-leverage change and it is not new code. broker_bracket_reconcile.yml is the template.</span></li>
+<li><b>Page the soak read surface - the cheapest change with the widest reach</b> <span class="pill">— · T—</span><br><span class='muted'>/api/diag/log_file caps at 1000 lines. 17 of 54 present soaks are truncated, 6 under 5% auditable, audit is 0.0% of 826MB. bybit_coverage_soak is readable back 7.24h while its own clears_when demands 3 distinct UTC days - unsatisfiable by construction. The system writes evidence faster than anyone can read it back.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">— open</div></div>
+</div>
+<h2>System &amp; technical health <span class="grade"> See consolidated. The full 68-finding record with evidence, population and detector per finding is docs/audits/full-system-audit-2026-09-09.md.</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>—</td><td>active/—</td><td>—</td></tr>
+<tr><td>—</td><td>active/—</td><td>—</td></tr>
+<tr><td>—</td><td>active/—</td><td>—</td></tr>
+</table></div>
+<p class="section-empty">No health findings in this report.</p>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>m20-exit-eval-margin-collapsed</code></td><td>health</td><td>• degrading</td><td>The 60s exit-eval requirement was BREACHED 2026-09-07 (recorded in exit_loop_health_alert_state.requirement_breach_process, a field written only on a real breach). Today max interval 59951.2ms = 48.8ms of margin, against 45034ms / 15.0s on 2026-08-25 at the same n and window shape. The distribution BODY is unchanged - only the tail moved - so this is a fat tail, not general slowdown. Breach history is UNCOUNTABLE: the alert never writes outcomes.jsonl (third instance of that class).</td><td>—</td></tr>
+<tr><td><code>four-armed-gates-with-soaks-that-cannot-settle-them</code></td><td>health</td><td>• awaiting-evidence</td><td>PROP_TICKET_RISK_GATE_MODE=enforce: 2 rows, both annotate, span 0.00h, 10 days - ZERO rows ever written under the arm. ALPACA_CASH_SETTLEMENT on alpaca_live: 31 rows, 0 on the allowlisted account. CONVICTION_SIZING: 186 apply rows, 0 join keys, 77% unattributable. BYBIT_GRADED_COVERAGE: readable 7.24h against a 3-day criterion. Four for four.</td><td>—</td></tr>
+<tr><td><code>alpaca-live-silent-refusal-latch-frozen-19-days</code></td><td>health</td><td>• false-alarm</td><td>alerting:true since 2026-08-21T12:38:38 with updated_at unmoved for 19 days while all 7 sibling accounts advanced to today. It lacks priority_causes/alerting_basis (added 2026-08-25), confirming it has not been rewritten. CLAUDE.md records this exact latch as a false alarm fixed by refusing_by_declaration - it is frozen at the PRE-FIX state and reports a false alarm to every review indefinitely.</td><td>—</td></tr>
+<tr><td><code>registers-stale-on-main-while-workflows-report-success</code></td><td>health</td><td>• degrading</td><td>commit-to-main cannot open its PR (GraphQL rate limit, user 119055177), so 164 automation/* branches stand unmerged and DUE.md/READOUT.md/PROBES.json are stale on main. PROBES.json generated_at 2026-09-07. The CLAUDE.md SESSION BRIEF every session reads is rendered from these files. Verified three ways including the audit lead hitting the identical limit.</td><td>—</td></tr>
+</table></div>
+<footer>report_id RPT-20260909-171500-audit · reviewer claude/full-system-audit (MI-225, ops lane, session_017windcijwZp3qttYNWCwYP) · prior RPT-20260908-112000-since-last · ICT Trading Bot full-system-audit</footer></div></body></html>
