@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass. Registers only, all under docs/claude/**: the tool-stamped lease heartbeat, the finding that digest-liveness-guard was deadlocking the whole merge queue because work-digest.yml arms a landing route it never claims a merge slot for, and MI-208 routing the durable workflow fix to a session. No src/, tests/, scripts/, workflows, config or deploy path is touched."
+}
