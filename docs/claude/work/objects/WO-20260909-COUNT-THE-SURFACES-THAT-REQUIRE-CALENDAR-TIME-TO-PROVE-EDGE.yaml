@@ -1,0 +1,42 @@
+id: WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Count the operating-layer surfaces that require calendar time to elapse before an EDGE verdict becomes possible
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_01KSZCUtFKze3k7ZvxnTnD4T
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Re-read when #11529 lands: the census's Pass A/B cannot run without check D,
+  and its committed test for the check-D-present control is SKIPPED until then.
+done_condition: >-
+  A COUNT is reported with the CLASSIFIER stated and the POPULATION defined, and a POSITIVE CONTROL is shown FIRST — the probe must rediscover the known M7 instance (scripts/ml/strategy_review_packet.py::decide) WITHOUT being told the file or the function name, or no count may be printed at all. Zero is an acceptable answer only with that control shown; a list with no denominator does not satisfy this. Each surface is graded on TWO questions, and only the first makes it a finding: does it decide EDGE or MECHANICS, and does it require calendar time to reach a verdict.
+
+why: >-
+  Operator, 2026-09-09: "our overall operation is clearly not built to suit the system's structure." The system establishes EDGE offline — the backtesting infrastructure exists for exactly that — and uses live data for MECHANICS, which per CLAUDE-RULES-CANONICAL.md § "Promotion evidence" needs 1-2 executed trades rather than calendar time. Slow live accrual is a FEATURE of the system, not a barrier to engineer around. ONE instance was confirmed (the M7 packet withholding all 52 leg verdicts for want of live in-window closes, MI-215) and NOBODY HAD COUNTED THE OTHERS. Whether this is a fix or a redesign turned on that count.
+
+source: >-
+  manager session_01HrmZ1RRNM4UnEUaFdrPEjj, MI-218, registry key pending-20260909T105249Z
+
+outcome: >-
+  ANSWERED 2026-09-09. FOUR confirmed surfaces plus one conditional, of which THREE are new (M7 was the control). Population: 1,058 Python files / 8,464 functions across scripts+src+ml, 0 parse failures; 66 OPEN-ITEMS rows, 4 backlogs, 32 skills. Positive control FOUND. It is a FIX, not a redesign — three surfaces out of 8,464 functions is not a systemic pattern — but the three are the daily strategy-review gate, the ML promotion gate and the backtest-trust calibrator, i.e. nearly every edge decision passes through one of them. ⚠️ THE COUNT IS A `lower_bound`, NOT `measured`, AND THAT IS THE MOST IMPORTANT RESULT: the largest new finding (the default GateThresholds profile's required 7-day shadow_soak and 200 LIVE min_trades) was found by READING, because check D detects accrual-gated CONTROL FLOW and this gate is a DATA FIELD (`required=th.require_shadow_soak`). Neither automated pass can see that shape, so how much was missed cannot be bounded from inside the instrument. Full report: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md. Probe: scripts/ops/calendar_edge_census.py. Five findings FILED, none taken (Tier-1 measurement scope).
+
+blocked_on:
+  - kind: pr
+    ref: "#11529"
+    since: 2026-09-09
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the owning session, on a surface it read rather than
+  inferred. This is a TRUE edge, not a migration placeholder: the census
+  IMPORTS `find_accrual_gated_verdicts` from scripts/check_soak_doctrine.py
+  (reuse is the design — a keyword matcher would have missed six of the seven
+  M7 branches), and that symbol does not exist on main until #11529 lands.
+  Verified in this tree, not assumed: run against main the census prints
+  `detector_state: absent`, `control found: None`, refuses to report any count
+  and exits 2 — and its committed test for the check-D-present control is
+  SKIPPED. The measurement itself is COMPLETE (produced against the #11529
+  file at 914f915e) and is NOT blocked; what is blocked is the probe running
+  green in CI and being re-runnable by a later session. ⚠️ Scope of the edge,
+  stated so it is not read too widely: it blocks RE-RUNNING, never the answer.
