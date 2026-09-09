@@ -2725,7 +2725,8 @@
       "owns_object": "WO-20260909-THE-HEALTH-BACKLOG-GREW-BY-49-WHILE",
       "priority": "P1_CYCLE",
       "tier": "1",
-      "note": "PR #11510 open, RED on three guards (backlog-refs 4 unresolved ids, session-brief introduced_registers_changed, pr-landing R11/R13). All three reproduced locally on its head and poked to the lane; they are its own PR content, not routed to the manager. ⚠️ Its substantive finding is the valuable half and must not be lost in the guard noise: net -2 is thin, but three candidate explanations for the pile were TESTED AND REFUTED (duplication 1/765; retirable classes 0/765; staleness — every mechanically-checkable row still failing), and a hand-adjudicated n=18 sample put ~78% behind a decision, a Tier-2/3 change or a research run. Its conclusion: the constraint is BEHIND the backlog, not in front of it."
+      "note": "PR #11510 open, RED on three guards (backlog-refs 4 unresolved ids, session-brief introduced_registers_changed, pr-landing R11/R13). All three reproduced locally on its head and poked to the lane; they are its own PR content, not routed to the manager. ⚠️ Its substantive finding is the valuable half and must not be lost in the guard noise: net -2 is thin, but three candidate explanations for the pile were TESTED AND REFUTED (duplication 1/765; retirable classes 0/765; staleness — every mechanically-checkable row still failing), and a hand-adjudicated n=18 sample put ~78% behind a decision, a Tier-2/3 change or a research run. Its conclusion: the constraint is BEHIND the backlog, not in front of it.",
+      "added": "2026-09-09"
     },
     {
       "id": "MI-211-LANE-2-PARTIAL-CLOSE-NEVER-FIRED",
@@ -2735,7 +2736,8 @@
       "owns_object": "WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND",
       "priority": "P1_CYCLE",
       "tier": "1",
-      "note": "Refill after the lane went IDLE at 06:57Z having closed its exit-mechanics audit. MI-209b (#11501) established BOTH premises: the zero-partials figure is a COMPLETE CENSUS (trades n=5589, order_packages n=4500), not tail-bound, AND the producer IS built. A null answers it. Told explicitly not to take MI-209b's numbers on faith, and that a harness cannot say why LIVE trades never fired. Propose-never-enact; be_floor_r stays NONE."
+      "note": "Refill after the lane went IDLE at 06:57Z having closed its exit-mechanics audit. MI-209b (#11501) established BOTH premises: the zero-partials figure is a COMPLETE CENSUS (trades n=5589, order_packages n=4500), not tail-bound, AND the producer IS built. A null answers it. Told explicitly not to take MI-209b's numbers on faith, and that a harness cannot say why LIVE trades never fired. Propose-never-enact; be_floor_r stays NONE.",
+      "added": "2026-09-09"
     },
     {
       "id": "MI-212-LANE-4-STALE-AUTOMATION-LANDING",
@@ -2745,7 +2747,8 @@
       "owns_object": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
       "priority": "P1_OPERATING",
       "tier": "1",
-      "note": "⚠️ ITS HEADLINE CONDITION CLEARED WITHIN MINUTES OF DISPATCH AND NOT BY THIS LANE — #11513 landed carrying a refreshed TRAINER-CAPTURE-WATCH.json (generated_at 04:53:57Z), so the guard exits 0 on main again. The lane was corrected immediately. THE CLASS STANDS: a repo-wide red was cleared by an unrelated PR happening to carry the payload, and luck is not a mechanism. Sharper lead handed over: the landed receipt's run_url is run 34312725937, the SAME id as #11488's own branch, so that PR's content reached main by another route while it sits open — the automation queue is partly phantom. Routed rather than taken because merging main into a stale bot branch puts scripts/ and tests/ in a first-parent diff R2 attributes to the manager (MI-184, hit live)."
+      "note": "⚠️ ITS HEADLINE CONDITION CLEARED WITHIN MINUTES OF DISPATCH AND NOT BY THIS LANE — #11513 landed carrying a refreshed TRAINER-CAPTURE-WATCH.json (generated_at 04:53:57Z), so the guard exits 0 on main again. The lane was corrected immediately. THE CLASS STANDS: a repo-wide red was cleared by an unrelated PR happening to carry the payload, and luck is not a mechanism. Sharper lead handed over: the landed receipt's run_url is run 34312725937, the SAME id as #11488's own branch, so that PR's content reached main by another route while it sits open — the automation queue is partly phantom. Routed rather than taken because merging main into a stale bot branch puts scripts/ and tests/ in a first-parent diff R2 attributes to the manager (MI-184, hit live).",
+      "added": "2026-09-09"
     },
     {
       "id": "MI-213-LANE-5-GATE-API-BOT-DB",
@@ -2755,7 +2758,8 @@
       "owns_object": "WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB",
       "priority": "P1_OPERATOR",
       "tier": "2",
-      "note": "OPERATOR-APPROVED directly from a four-option decision; they chose the NARROW gate over full Phase H, so scope is /api/bot/db/* and the lane is told not to widen it. VERIFIED BY THE MANAGER: GET https://ict-bot.duckdns.org/api/bot/db/tables -> HTTP 200, 10,494 bytes, no bearer, at 2026-09-09T07:43:31Z, serving schemas and row counts for trade_journal.db and trainer_store.db. ⚠️ The rows half is UNVERIFIED — the sandbox blocked pulling live trade rows and that was not worked around; the lane establishes it first. ⚠️ NOT the closed diag-token question: that surface is bearer-gated and DECIDED. Tier-2 — approval is to do the work, not to deploy unreviewed."
+      "note": "OPERATOR-APPROVED directly from a four-option decision; they chose the NARROW gate over full Phase H, so scope is /api/bot/db/* and the lane is told not to widen it. VERIFIED BY THE MANAGER: GET https://ict-bot.duckdns.org/api/bot/db/tables -> HTTP 200, 10,494 bytes, no bearer, at 2026-09-09T07:43:31Z, serving schemas and row counts for trade_journal.db and trainer_store.db. ⚠️ The rows half is UNVERIFIED — the sandbox blocked pulling live trade rows and that was not worked around; the lane establishes it first. ⚠️ NOT the closed diag-token question: that surface is bearer-gated and DECIDED. Tier-2 — approval is to do the work, not to deploy unreviewed.",
+      "added": "2026-09-09"
     }
   ],
   "as_of": "2026-09-09T08:09:49Z",
