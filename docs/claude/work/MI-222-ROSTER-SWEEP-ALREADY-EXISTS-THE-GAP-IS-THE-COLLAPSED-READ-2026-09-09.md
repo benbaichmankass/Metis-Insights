@@ -209,6 +209,70 @@ detector that reports only "divergence found" and stays silent on "could not rea
 re-created the collapse one layer up. `report()` carries arbitrary structured kwargs, so the
 state can travel as a field rather than being encoded in whether a call happens at all.
 
+## 6b. ⚠️ AMENDMENT 2026-09-09T14:4xZ — three corrections to THIS document, one of them the same error I caught in my own brief
+
+Written after MI-221 landed §§ 12-14 (PRs #11552, #11554, #11556) and the manager released this
+lane's hold. Corrected in place rather than left standing, because a document that keeps a
+falsified exhibit is worse than no document.
+
+### (1) My § 6 "proposed next action" IS ALREADY BUILT. I nearly repeated the exact mistake this whole lane exists to correct.
+
+§ 6 proposes exposing the raw `get_positions` payload including zero-size rows and `positionIdx`.
+**That shipped while this branch was open.** On `origin/main` today:
+`src/units/accounts/clients.py:2036::account_bybit_raw_positions` and the route
+`src/web/api/routers/diag.py:2890 @router.get("/bybit_raw_positions")`.
+
+The symmetry is worth stating plainly rather than burying: **this lane's finding was that its brief
+directed it to build a mechanism that already existed, and its own proposed next action was a
+mechanism that already existed.** The habit that catches both is the same one — check `origin/main`
+before proposing, not only before building. § 6 stands as a record of the reasoning; it must not be
+actioned as future work.
+
+### (2) The open parameter is SETTLED, and the answer discriminates two of my three collapsed states
+
+MI-221 § 12, measured **2026-09-09T13:12:31Z** on verified-deployed sha `d87db750`
+(`git_sha == git_sha_on_disk`, `restart_pending: false`, checked before the read).
+**Population: 5 queries on `bybit_2`** — one `settleCoin=USDT` page plus one symbol-scoped read for
+each of the 4 configured symbols — with **zero query errors**, every `query_state` reading
+`rows_returned`, so no `could_not_look` is hiding in the result.
+
+`symbol:ETHUSDT` on `bybit_2` returned **`row_count: 2`** — *both* hedge books:
+
+| book | `size_raw` | `size_parsed` | `side` | `avg_price` | `updated_time` |
+|---|---|---|---|---|---|
+| `position_idx: 1` | `"0"` | true | `""` | `null` | 2026-09-08T13:37:13.873Z |
+| `position_idx: 2` | `"0"` | true | `""` | `null` | 2026-09-03T13:34:01.018Z |
+
+**So for this instance the answer is "the venue returned zero-size rows", NOT "the venue returned no
+row at all".** That is precisely the discrimination § 3 of this document says cannot be made — and
+it is now makeable, because the instrument was built. **§ 3's claim must therefore be read
+narrowly:** the collapse is real and unchanged **in `account_open_positions`**, which is what every
+production sweep still calls; it is no longer true of the system as a whole, which now has one route
+that can tell the states apart.
+
+That distinction is the entire point rather than a technicality: the *production readers* are still
+blind, and a detector built on them still inherits the collapse.
+
+### (3) ⚠️ A FLAT READ IS EVIDENCE ABOUT THE READ, NOT ABOUT THE VENUE — and nothing here says the operator is wrong
+
+MI-221 § 14 retracts § 12's word "truthfully" for asserting that an empty read establishes what the
+venue holds. It cannot. The operator was looking at the position on the platform at the time, and
+the raw instrument sends **the same two queries the production readers send**, so its silence is
+evidence about our integration, not about the account.
+
+**Nothing in this document — § 3, § 6b(2), or the tests — may be cited as evidence that the
+operator's ETHUSDT position does not exist.** The reads and the operator disagree; that disagreement
+is unresolved and is a defect in our integration until shown otherwise.
+
+### (4) A third anchor is PROPOSED elsewhere, and it does not contradict § 2's count
+
+MI-221 § 11 proposes an anchor that reads no position list at all: the wallet's own per-coin
+`equity` / `totalPositionIM` / `totalOrderIM`, on the reasoning that margin pledged beyond what the
+known positions account for implies a position we cannot see. **That is a proposal, not shipped
+code.** § 2 of this document counts **8 position-enumerating sites across 2 sources in
+`order_monitor.py`** — a statement about the sweeps that exist today, which the proposal does not
+contradict. Both records stand; they are answering different questions.
+
 ## 7. What is NOT established
 
 1. **Whether the venue holds the ETH position.** Three independent venue reads say flat;
