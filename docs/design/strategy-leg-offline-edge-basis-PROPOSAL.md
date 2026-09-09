@@ -81,10 +81,35 @@ and building on it would produce a re-pointing exercise with nothing to point at
 
 **So the root cause is not that the gate looks in the wrong place. It is that there is
 nowhere per-leg to look.** The gate grades off live closes because live closes are the
-only per-leg quantity it has. The raw material exists — the `scripts/backtest_*.py`
-family, `strategy_tune_sweep.py`, the trainer's `trainer_mirror/backtests/<date>/`
-publications — but **no normalised, machine-readable, per-leg offline edge record**
-exists for a gate to consume.
+only per-leg quantity it has.
+
+⚠️ **SHARPENED 2026-09-09 after a manager challenge, and the challenge was right.** An
+earlier draft of this section could be read as *the offline capability does not exist for
+strategy legs*. **It does**, and the correction matters because it changes §4 from "build
+an evidence engine" to "normalise and wire one that already runs." Measured here rather
+than accepted:
+
+- **15 harness entry points** (`scripts/backtest_*.py` + `src/backtest/run_backtest*.py`),
+  spanning 13 families: `chop_scalp`, `fade`, `funding_carry`, `fvg_range`, `ict_scalp`,
+  `orb`, `pairs`, `pullback`, `squeeze`, `system`, `trend`, `vol_target`,
+  `xsec_momentum`.
+- **51 of the 52 enabled legs — 98.1% — match a harness family by name**
+  (`trend` 21, `pullback` 19, `ict_scalp` 8, `fade`/`fvg_range`/`squeeze` 1 each).
+- The **one** leg matching nothing is **`turtle_soup`** — which is also, precisely, the
+  single leg whose `backtest_anchor` is non-null. The leg with no harness is the only one
+  with a sweep pointer, and the 51 with harnesses have `null`. That inversion is the
+  wiring gap in one line.
+
+⚠️ **State the limit of that measurement:** it is a **name match**, so it is an UPPER
+BOUND on coverage. That a `trend` harness exists and 21 legs carry `trend` in their names
+does not establish that it accepts each of those legs' parameters and emits a comparable
+net-R. It establishes that the capability is present, not that the wiring is free.
+
+**So the honest framing is a WIRING gap, not absent infrastructure** — with the caveat
+that the wiring is not merely connecting two live endpoints: one end (the harness) runs,
+and the other end (a normalised, config-fingerprinted, per-leg record with a stable
+schema) **has to be built**. **No normalised, machine-readable, per-leg offline edge
+record exists for a gate to consume**, and that remains the blocking fact.
 
 *(One limit stated: the `all_metrics.json` shape claim is the repo's own statement in
 that docstring. This session could not read the trainer mirror to confirm it — the
@@ -139,8 +164,9 @@ anyway), and it does **not** enact the repair (Tier-3 — §6 puts it to the ope
 
 ## 4. What is proposed
 
-**A per-leg offline edge record, produced off historical data, that the gate reads
-instead of `headline`.** The shape, stated so it can be argued with:
+**A per-leg offline edge record, produced by the harnesses that already exist, that the
+gate reads instead of `headline`.** Per §2 this is a normalisation-and-wiring job over 15
+live entry points covering 98.1% of enabled legs — not a new evidence engine. The shape, stated so it can be argued with:
 
 ```
 comms/strategy_evidence/<leg>.json
