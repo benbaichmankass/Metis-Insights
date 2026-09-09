@@ -100,6 +100,25 @@
         "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
       },
       "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's."
+    },
+    {
+      "pr": 11530,
+      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
+      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "tier": "tier_2",
+      "state": "approved_cleared_to_land",
+      "draft": false,
+      "opened_at": "2026-09-09T10:12:05Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "#11530 ONLY — the prop status-request TRIGGER in src/prop/prop_status_request.py. NOT a licence to raise PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold, including prop_balance.max_age_hours()'s SIZING gate) and NOT a licence to restore the pre-2026-08-14 flat bail.",
+        "decided_on": "2026-09-09",
+        "text": "Selected \"Approve — ship it\" in a popup at 10:44Z, having been shown the load-bearing claim and explicitly offered \"I disagree with the asymmetry claim — don't land it\" and \"Approve, but keep asking while flat\". Chose neither. ⚠️ THE APPROVAL RESTS ON ONE CLAIM: prop_reconcile.reconstruct_equity is ASYMMETRIC by design (unplaceable LOSS always applied, unplaceable GAIN withheld), so a reported fill can only make the cushion CONSERVATIVE, never optimistic. If that is ever falsified this approval falls with it."
+      },
+      "note": "⚠️ A SUCCESSOR MUST NOT READ THIS AS A BLANKET OK FOR THE PROP PING PATH. It clears one trigger change. The lane MEASURED the operator's own premise and found it HALF FALSE — breakout_1's newest snapshot (id 19, 2026-08-30T19:33:29Z) is 5.5 minutes OLDER than its newest fill (id 41, 19:39:00Z), so a close PROMPTS a snapshot and never guarantees one. The operator's conclusion held for a stronger reason: 0 fills / 0 open positions / 0 unacted tickets in 230h, against a positive control of 41 lifetime fills. PAIRED FOLLOW-ON, ALSO APPROVED (MI-220): the sizing refusal that makes going-quiet-while-flat safe reaches NOBODY. Operator chose \"fix it next\" over folding it in, so it is a separate Tier-2 PR."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1911,6 +1930,6 @@
   ],
   "last_reconciled_at": "2026-09-09T08:58:05Z",
   "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
-  "updated_at": "2026-09-09T09:17:00Z",
+  "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
