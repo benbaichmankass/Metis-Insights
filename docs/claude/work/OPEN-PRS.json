@@ -43,84 +43,7 @@
   "as_of": "2026-09-08T14:22:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [
-    {
-      "pr": 11337,
-      "opened_at": "2026-09-08T05:36:34Z",
-      "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold — the venue CAN express it)",
-      "owner_session": "session_01GYsNAhP6SpKe1vyn2tBc94",
-      "checklist_item": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
-      "draft": false,
-      "tier": "3",
-      "state": "approved_ready_to_merge",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "condition": "The OPERATION change is approved and the CONFIRMATION is not — they are different facts and a successor must not collapse them. What the operator approved on 2026-09-08 is trade-scoping the Alpaca close, chosen over ruling whole-symbol close intended. The approval EXPLICITLY DOES NOT FORCE the change if the venue cannot express it; that condition is SATISFIED and the evidence is in the PR — DELETE /v2/positions/{symbol} documents a `qty` parameter, read from the Alpaca API reference 2026-09-08. ⚠️ WHAT IS NOT APPROVED IS THE CLOSE-CONFIRMATION MEASUREMENT FOR ALPACA. #11279's own approval scope says 'EXPLICITLY NOT Alpaca — Alpaca's mirror defect is decided separately on #11312', and that decision has not been made. The PR declares its choice: the whole-symbol path KEEPS its strict flatness gate untouched, and only the NEW partial path measures the trade's own quantity delta. The partial-FILL rule is `strict`, which is the same answer the operator already gave for IB on #11279 rather than a new choice. ⚠️ MI-140 IS HELD UNTIL THIS LANDS and the operator confirmed that hold on 2026-09-08; the dependency runs THAT way, so do not read this PR as blocked on MI-140. || ⚠️ SECTION 3(b) IS NOW ANSWERED — APPROVED, 2026-09-08, put to the operator as its own Tier-3 question by the manager after this PR asked it. The ordering argument is ACCEPTED, and the reasoning is recorded so it survives its authors: BL-20260707's hazard requires the confirmation to be loosened AHEAD of the operation; this one is loosened only for a path whose OPERATION was narrowed in the SAME COMMIT, and the pre-existing whole-symbol path keeps its strict flatness gate untouched. A partial close can never satisfy a flatness gate, so demanding one would make it retry forever, eating the sibling's position a slice at a time. ⚠️ THE LIMIT OF THAT APPROVAL IS PART OF IT: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered. Do not re-open or re-scope this.",
-        "scope": "The Alpaca close OPERATION (AlpacaClient.close, _close_extended_hours) and AlpacaClient.modify_protective, plus their execute.py call sites. EXPLICITLY NOT the Alpaca close CONFIRMATION on the pre-existing whole-symbol path, which is untouched. EXPLICITLY NOT MI-140 — no change to account capability gating, config/accounts.yaml or side_filter, so alpaca_live's inability to place orders is exactly as it was. EXPLICITLY NOT `partial_close` in the Alpaca capability set, which gates the exit-ladder's scale-out and stays unwired. No live position was touched.",
-        "decided_on": "2026-09-08",
-        "text": "Operator was asked on 2026-09-08 whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to TRADE-SCOPE THE CLOSE, with the approval explicitly not forcing the change if the venue cannot express it, and with MI-140's remediation HELD until this lands. Recorded from the dispatch that carried it; the conversational original is not in this repo. ⚠️ NOT VERIFIED BY THIS SESSION AGAINST THE OPERATOR — read `owner_session` as the implementer, not the witness."
-      },
-      "blocker": "NONE remaining on the decision side — approved 2026-09-08 including section 3(b). It needs a MERGE CLICK: R4 bars `landing: self` for any Tier-3 diff whatever its approval state, so this PR correctly declares `landing: hold` and cannot land itself. The manager merges.",
-      "note": "Rebased onto main after #11315 (MI-176, Unit B) landed and also touched alpaca_client.py; alpaca_client.py auto-merged, and _leg_qty was then aligned with the NOT-abs() rule #11315 shipped. The health-review-backlog.json conflict was resolved by taking main's file and re-appending this session's two rows through backlog_append.py — `git checkout --theirs` during a rebase gives the REPLAYED side and would have silently deleted two other sessions' rows. Verified after resolution that no row on main is missing. || ⚠️ ANSWER TO THE MANAGER'S 2026-09-08T05:53Z QUESTION, PUT HERE BECAUSE THIS IS THE MANAGER'S OWN HANDOFF SURFACE AND THE PR BODY CANNOT BE EDITED (update_pull_request, add_issue_comment and create_pull_request all 403 for this session; board #6927 is at the 2500-comment cap). SCOPING `place_protective` IS A SEPARATE UNIT (MI-187), NOT THIS DIFF, and nothing in this diff changed in response. Dispatch it knowing three things. (1) The operator's ruling 'place_protective should honour oca_key on Alpaca as it already does on IB' is NOT directly implementable as worded: IB's oca_key works because an OCA GROUP is a nameable venue concept, and Alpaca has none — verified from the Alpaca reference 2026-09-08, client_order_id is ORDER-level and the nested take_profit/stop_loss objects carry only price fields, so no per-leg client id exists at submission. Honouring it means INVENTING a handle (set client_order_id on the OCO parent, read children back with nested=true, persist those ids) — an entry/persistence change. (2) A PRECONDITION IS UNVERIFIED AND I DID NOT LOOK: whether the post-#11315 naked sweep even reaches place_protective for a partially-naked symbol. MI-179 measured it gating on a symbol-wide boolean; if that still holds, scoping place_protective changes nothing observable and would be a deploy, not a fix. Settle that first. (3) A STAGED OPTION exists before the handle does: qty-matching fits this verb BETTER than it fits modify_protective, because place_protective runs when a trade is NAKED — it cancels nothing, the sibling's legs survive, and a repeat re-arm still replaces its own OCO. On the live TLT book that is exactly right. ⚠️ But its refusal case leaves a position NAKED rather than a row open, so it needs its own operator read and must NOT inherit this PR's approval. Full reasoning: the work object's `scope_judgement_place_protective`. || ⚠️ MERGE-RESOLUTION CORRECTION, 2026-09-08: the dispatch that asked for this merge said 'OPEN-PRS.json on main now carries a row for #11337 with the typed operator decision — keep it and do not rewrite its operator_decision block.' THAT PREMISE IS FALSE, checked against all three merge stages: main's `open_prs` is EMPTY (#11349 moved 11279 and 11312 into `settled_prs`) and no 11337 row exists in either list on that side. This branch is the ONLY place the row exists, so there was nothing of main's to preserve — and following the instruction literally would have left the section-3(b) approval recorded NOWHERE. It is therefore APPENDED to this row's `condition` rather than left out. ⚠️ ALSO: `open_prs` was NOT resolved as a blind union. A blind union would have resurrected 11279 and 11312 into `open_prs` while they simultaneously sit in `settled_prs` — two lists disagreeing about the same PR. The union rule is right for the append-only BACKLOG and wrong here; open_prs is a live set whose rows are REMOVED on settlement."
-    },
-    {
-      "pr": 11344,
-      "opened_at": "2026-09-08T06:58:17Z",
-      "tier": 1,
-      "draft": false,
-      "state": "open_ci_running",
-      "title": "pr-landing R13: the arming route takes the merge slot",
-      "owner_session": "session_01LSfhSog9oxATpMUUPBfTN9",
-      "checklist_item": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Tier-1 CI-guard + docs. No src/, no config/, no deploy/, no order path.",
-        "decided_on": "2026-09-08",
-        "text": "Tier-1 does not require an operator decision. The SPAWN was operator-approved (round 2, decision (h): spawn sessions for both the coordination-board cap and the R6/merge-slot conflict)."
-      },
-      "note": "⚠️ IT REFUTED ITS OWN WORK ORDER, WHICH IS THE FINDING. The dispatch said R6 and the merge-slot guard are mutually unsatisfiable; the session measured that they are NOT in conflict — the merge-slot hook matches only mcp__github__merge_pull_request/enable_pr_auto_merge, and the R6 arming route uses none of them (Bash/Write/push_files/create_or_update_file all return False against the shipping matcher). So the slot guard is not weakened by R6; it was never ON that road. That is a LARGER hole than BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE, which is 'the guard does not load on the web' — this one holds in CLI and desktop too. ⚠️ AND IT NAMES MI-182 AS THE PROXIMATE CAUSE: the claim that would serialize the arming route is a comment on #6927, which is at the 2500-comment cap and 403s. So the board cap is not a parked side-nuisance. ⚠️ It CANNOT demonstrate its own done-condition: it edits check_pr_landing.py, which is LANDING_MACHINERY, so R12 forbids it self-landing. Needs a follow-on docs-only PR after this merges. Manager has NOT verified any of this — it is the session's report."
-    },
-    {
-      "pr": 11346,
-      "opened_at": "2026-09-08T06:58:56Z",
-      "tier": 1,
-      "draft": false,
-      "state": "open_automation_automerge",
-      "title": "chore(ops): queue the daily work digest (auto)",
-      "owner_session": null,
-      "checklist_item": null,
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Generated artifact only — queues one rolled-up summary onto pending-pings.jsonl. No src/, no config/, no order path.",
-        "decided_on": "2026-09-08",
-        "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
-      },
-      "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY."
-    },
-    {
-      "pr": 11390,
-      "title": "MI-199 (2/2): stop re-attempting a close we have PROVED cannot succeed",
-      "owner_session": "session_011PHmZzVy92M6zjNopAMy51",
-      "checklist_item": "MI-199-GLD-CLOSE-WEDGE",
-      "tier": 2,
-      "state": "approved_awaiting_rebase",
-      "draft": true,
-      "opened_at": "2026-09-08",
-      "blocker": "Draft + mergeable_state dirty (was stacked on #11389, now merged). MI-199 must rebase linearly, mark ready.",
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": "#11390 only — the close-retry suppression in src/runtime/order_monitor.py. Asked and answered as its OWN decision, separate from the earlier 'ok on gld' that covered #11389.",
-        "decided_on": "2026-09-08",
-        "text": "Operator chose 'Approve now' from an explicit three-way choice (approve now / wait for #11389's result / reject), with the tradeoff stated in the question: it changes WHEN a live close is attempted and the code path is shared with real-money Alpaca."
-      },
-      "note": "⚠️ THE POINT OF THIS ROW IS THE SCOPE LIMIT, NOT THE PR. A successor reading 'the operator approved the GLD fix' could reasonably conclude both halves are cleared; they are not, and the two differ in exactly the way that matters. #11389 (MERGED bdccf226) places, cancels, amends and defers NOTHING differently — only what we conclude and which channel the alert takes. #11390 changes WHEN a close is attempted, which is a real order-path behaviour change on a live account. That distinction is why they were split into two PRs and why they were put to the operator as two questions. ⚠️ A half-informed successor is the dangerous case here: one knowing nothing re-asks (safe); one knowing 'GLD was approved' could arm this (not safe). Do NOT arm it, and do NOT fold any part of it into another PR — the clean separation is what made #11389 cheap to approve.",
-      "disposition": "superseded by #11406 — the SAME commit cherry-picked linearly onto current `main`, merged 2026-09-08T16:27:09Z. This branch could not land as it stood: #11389 squash-merged, so its history stopped being an ancestor of `main` and its head was a merge commit, whose first-parent diff `pr-landing-guard` R2 would have attributed `main`'s src/ changes to this PR; a rebase in place needed a force-push that session was prohibited from doing. ⚠️ NO WORK WAS LOST AND THAT IS THE POINT OF RECORDING IT — `superseded`, `the operator refused it` and `the author gave up` are opposite next actions, and #11406's merge is what tells them apart here. The operator_decision above travels with this row unchanged; it was honoured, on #11406.",
-      "superseded_by": 11406
-    }
-  ],
+  "open_prs": [],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -1817,6 +1740,98 @@
       "terminal_basis": "squash e0c26498, the merge call's own return"
     },
     {
+      "pr": 11337,
+      "opened_at": "2026-09-08T05:36:34Z",
+      "title": "Trade-scope the Alpaca close OPERATION and modify_protective (Tier-3, landing: hold — the venue CAN express it)",
+      "owner_session": "session_01GYsNAhP6SpKe1vyn2tBc94",
+      "checklist_item": "WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND",
+      "draft": false,
+      "tier": "3",
+      "state": "approved_ready_to_merge",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "condition": "The OPERATION change is approved and the CONFIRMATION is not — they are different facts and a successor must not collapse them. What the operator approved on 2026-09-08 is trade-scoping the Alpaca close, chosen over ruling whole-symbol close intended. The approval EXPLICITLY DOES NOT FORCE the change if the venue cannot express it; that condition is SATISFIED and the evidence is in the PR — DELETE /v2/positions/{symbol} documents a `qty` parameter, read from the Alpaca API reference 2026-09-08. ⚠️ WHAT IS NOT APPROVED IS THE CLOSE-CONFIRMATION MEASUREMENT FOR ALPACA. #11279's own approval scope says 'EXPLICITLY NOT Alpaca — Alpaca's mirror defect is decided separately on #11312', and that decision has not been made. The PR declares its choice: the whole-symbol path KEEPS its strict flatness gate untouched, and only the NEW partial path measures the trade's own quantity delta. The partial-FILL rule is `strict`, which is the same answer the operator already gave for IB on #11279 rather than a new choice. ⚠️ MI-140 IS HELD UNTIL THIS LANDS and the operator confirmed that hold on 2026-09-08; the dependency runs THAT way, so do not read this PR as blocked on MI-140. || ⚠️ SECTION 3(b) IS NOW ANSWERED — APPROVED, 2026-09-08, put to the operator as its own Tier-3 question by the manager after this PR asked it. The ordering argument is ACCEPTED, and the reasoning is recorded so it survives its authors: BL-20260707's hazard requires the confirmation to be loosened AHEAD of the operation; this one is loosened only for a path whose OPERATION was narrowed in the SAME COMMIT, and the pre-existing whole-symbol path keeps its strict flatness gate untouched. A partial close can never satisfy a flatness gate, so demanding one would make it retry forever, eating the sibling's position a slice at a time. ⚠️ THE LIMIT OF THAT APPROVAL IS PART OF IT: a future change that loosens an Alpaca confirmation WITHOUT narrowing its operation in the same commit is NOT covered. Do not re-open or re-scope this.",
+        "scope": "The Alpaca close OPERATION (AlpacaClient.close, _close_extended_hours) and AlpacaClient.modify_protective, plus their execute.py call sites. EXPLICITLY NOT the Alpaca close CONFIRMATION on the pre-existing whole-symbol path, which is untouched. EXPLICITLY NOT MI-140 — no change to account capability gating, config/accounts.yaml or side_filter, so alpaca_live's inability to place orders is exactly as it was. EXPLICITLY NOT `partial_close` in the Alpaca capability set, which gates the exit-ladder's scale-out and stays unwired. No live position was touched.",
+        "decided_on": "2026-09-08",
+        "text": "Operator was asked on 2026-09-08 whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to TRADE-SCOPE THE CLOSE, with the approval explicitly not forcing the change if the venue cannot express it, and with MI-140's remediation HELD until this lands. Recorded from the dispatch that carried it; the conversational original is not in this repo. ⚠️ NOT VERIFIED BY THIS SESSION AGAINST THE OPERATOR — read `owner_session` as the implementer, not the witness."
+      },
+      "blocker": "NONE remaining on the decision side — approved 2026-09-08 including section 3(b). It needs a MERGE CLICK: R4 bars `landing: self` for any Tier-3 diff whatever its approval state, so this PR correctly declares `landing: hold` and cannot land itself. The manager merges.",
+      "note": "Rebased onto main after #11315 (MI-176, Unit B) landed and also touched alpaca_client.py; alpaca_client.py auto-merged, and _leg_qty was then aligned with the NOT-abs() rule #11315 shipped. The health-review-backlog.json conflict was resolved by taking main's file and re-appending this session's two rows through backlog_append.py — `git checkout --theirs` during a rebase gives the REPLAYED side and would have silently deleted two other sessions' rows. Verified after resolution that no row on main is missing. || ⚠️ ANSWER TO THE MANAGER'S 2026-09-08T05:53Z QUESTION, PUT HERE BECAUSE THIS IS THE MANAGER'S OWN HANDOFF SURFACE AND THE PR BODY CANNOT BE EDITED (update_pull_request, add_issue_comment and create_pull_request all 403 for this session; board #6927 is at the 2500-comment cap). SCOPING `place_protective` IS A SEPARATE UNIT (MI-187), NOT THIS DIFF, and nothing in this diff changed in response. Dispatch it knowing three things. (1) The operator's ruling 'place_protective should honour oca_key on Alpaca as it already does on IB' is NOT directly implementable as worded: IB's oca_key works because an OCA GROUP is a nameable venue concept, and Alpaca has none — verified from the Alpaca reference 2026-09-08, client_order_id is ORDER-level and the nested take_profit/stop_loss objects carry only price fields, so no per-leg client id exists at submission. Honouring it means INVENTING a handle (set client_order_id on the OCO parent, read children back with nested=true, persist those ids) — an entry/persistence change. (2) A PRECONDITION IS UNVERIFIED AND I DID NOT LOOK: whether the post-#11315 naked sweep even reaches place_protective for a partially-naked symbol. MI-179 measured it gating on a symbol-wide boolean; if that still holds, scoping place_protective changes nothing observable and would be a deploy, not a fix. Settle that first. (3) A STAGED OPTION exists before the handle does: qty-matching fits this verb BETTER than it fits modify_protective, because place_protective runs when a trade is NAKED — it cancels nothing, the sibling's legs survive, and a repeat re-arm still replaces its own OCO. On the live TLT book that is exactly right. ⚠️ But its refusal case leaves a position NAKED rather than a row open, so it needs its own operator read and must NOT inherit this PR's approval. Full reasoning: the work object's `scope_judgement_place_protective`. || ⚠️ MERGE-RESOLUTION CORRECTION, 2026-09-08: the dispatch that asked for this merge said 'OPEN-PRS.json on main now carries a row for #11337 with the typed operator decision — keep it and do not rewrite its operator_decision block.' THAT PREMISE IS FALSE, checked against all three merge stages: main's `open_prs` is EMPTY (#11349 moved 11279 and 11312 into `settled_prs`) and no 11337 row exists in either list on that side. This branch is the ONLY place the row exists, so there was nothing of main's to preserve — and following the instruction literally would have left the section-3(b) approval recorded NOWHERE. It is therefore APPENDED to this row's `condition` rather than left out. ⚠️ ALSO: `open_prs` was NOT resolved as a blind union. A blind union would have resurrected 11279 and 11312 into `open_prs` while they simultaneously sit in `settled_prs` — two lists disagreeing about the same PR. The union rule is right for the append-only BACKLOG and wrong here; open_prs is a live set whose rows are REMOVED on settlement.",
+      "terminal": "merged",
+      "merge_sha": "0862f8ac2a304eef23dc753ce3afb4183b8fe399",
+      "observed_at": "2026-09-09T08:58:05Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11344,
+      "opened_at": "2026-09-08T06:58:17Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_ci_running",
+      "title": "pr-landing R13: the arming route takes the merge slot",
+      "owner_session": "session_01LSfhSog9oxATpMUUPBfTN9",
+      "checklist_item": "MI-183b-PR-LANDING-R6-VS-MERGE-SLOT-FRESH-CONTAINER",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 CI-guard + docs. No src/, no config/, no deploy/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 does not require an operator decision. The SPAWN was operator-approved (round 2, decision (h): spawn sessions for both the coordination-board cap and the R6/merge-slot conflict)."
+      },
+      "note": "⚠️ IT REFUTED ITS OWN WORK ORDER, WHICH IS THE FINDING. The dispatch said R6 and the merge-slot guard are mutually unsatisfiable; the session measured that they are NOT in conflict — the merge-slot hook matches only mcp__github__merge_pull_request/enable_pr_auto_merge, and the R6 arming route uses none of them (Bash/Write/push_files/create_or_update_file all return False against the shipping matcher). So the slot guard is not weakened by R6; it was never ON that road. That is a LARGER hole than BL-20260819-MERGE-SLOT-GUARD-DOES-NOT-FIRE, which is 'the guard does not load on the web' — this one holds in CLI and desktop too. ⚠️ AND IT NAMES MI-182 AS THE PROXIMATE CAUSE: the claim that would serialize the arming route is a comment on #6927, which is at the 2500-comment cap and 403s. So the board cap is not a parked side-nuisance. ⚠️ It CANNOT demonstrate its own done-condition: it edits check_pr_landing.py, which is LANDING_MACHINERY, so R12 forbids it self-landing. Needs a follow-on docs-only PR after this merges. Manager has NOT verified any of this — it is the session's report.",
+      "terminal": "merged",
+      "merge_sha": "a0ec22ce177c307a2e3f80f6ef72c51c777300be",
+      "observed_at": "2026-09-09T08:58:05Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11346,
+      "opened_at": "2026-09-08T06:58:56Z",
+      "tier": 1,
+      "draft": false,
+      "state": "open_automation_automerge",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "owner_session": null,
+      "checklist_item": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Generated artifact only — queues one rolled-up summary onto pending-pings.jsonl. No src/, no config/, no order path.",
+        "decided_on": "2026-09-08",
+        "text": "Tier-1 automation output. No human decision is attached to it; it carries auto-merge and lands on green."
+      },
+      "note": "NOT A SESSION'S PR — opened by the work-digest workflow (branch automation/work-digest-34197048382-1) and carries auto-merge, so it needs no manager action. Recorded ONLY so the register is complete: an open PR with no row is the completeness half that open_pr_record.py --strict grades, and a successor reading a short list would conclude the queue was emptier than it is. ⚠️ DO NOT read its existence as clearing OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE: that row's clause (1) wants a work-digest run with event=push observed completing AND its receipt on main carrying trigger=\"push\" and that run's generated_at. A PR existing is not a receipt, and QUEUING is not DELIVERY.",
+      "terminal": "merged",
+      "merge_sha": "df31fa6d44636ee6edc097bb02e5846dc38b4dca",
+      "observed_at": "2026-09-09T08:58:05Z",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 11390,
+      "title": "MI-199 (2/2): stop re-attempting a close we have PROVED cannot succeed",
+      "owner_session": "session_011PHmZzVy92M6zjNopAMy51",
+      "checklist_item": "MI-199-GLD-CLOSE-WEDGE",
+      "tier": 2,
+      "state": "approved_awaiting_rebase",
+      "draft": true,
+      "opened_at": "2026-09-08",
+      "blocker": "Draft + mergeable_state dirty (was stacked on #11389, now merged). MI-199 must rebase linearly, mark ready.",
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "#11390 only — the close-retry suppression in src/runtime/order_monitor.py. Asked and answered as its OWN decision, separate from the earlier 'ok on gld' that covered #11389.",
+        "decided_on": "2026-09-08",
+        "text": "Operator chose 'Approve now' from an explicit three-way choice (approve now / wait for #11389's result / reject), with the tradeoff stated in the question: it changes WHEN a live close is attempted and the code path is shared with real-money Alpaca."
+      },
+      "note": "⚠️ THE POINT OF THIS ROW IS THE SCOPE LIMIT, NOT THE PR. A successor reading 'the operator approved the GLD fix' could reasonably conclude both halves are cleared; they are not, and the two differ in exactly the way that matters. #11389 (MERGED bdccf226) places, cancels, amends and defers NOTHING differently — only what we conclude and which channel the alert takes. #11390 changes WHEN a close is attempted, which is a real order-path behaviour change on a live account. That distinction is why they were split into two PRs and why they were put to the operator as two questions. ⚠️ A half-informed successor is the dangerous case here: one knowing nothing re-asks (safe); one knowing 'GLD was approved' could arm this (not safe). Do NOT arm it, and do NOT fold any part of it into another PR — the clean separation is what made #11389 cheap to approve.",
+      "disposition": "superseded by #11406 — the SAME commit cherry-picked linearly onto current `main`, merged 2026-09-08T16:27:09Z. This branch could not land as it stood: #11389 squash-merged, so its history stopped being an ancestor of `main` and its head was a merge commit, whose first-parent diff `pr-landing-guard` R2 would have attributed `main`'s src/ changes to this PR; a rebase in place needed a force-push that session was prohibited from doing. ⚠️ NO WORK WAS LOST AND THAT IS THE POINT OF RECORDING IT — `superseded`, `the operator refused it` and `the author gave up` are opposite next actions, and #11406's merge is what tells them apart here. The operator_decision above travels with this row unchanged; it was honoured, on #11406.",
+      "superseded_by": 11406,
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "observed_at": "2026-09-09T08:58:05Z",
+      "settled_by": "reconciler"
+    },
+    {
       "pr": 11517,
       "title": "Gate /api/bot/db/* behind require_session (Tier-2)",
       "owner_session": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
@@ -1836,8 +1851,8 @@
       "manager_note": "MERGED IS NOT GATED, and the distinction was measured rather than assumed. At 2026-09-09T08:57:59Z, immediately after the merge, /api/bot/db/tables still returned HTTP 200 / 10,494 bytes with no bearer, and /api/diag/version read git_sha aef42ddb, git_sha_on_disk 5c4d601f, restart_pending TRUE — the running web-api predated the merge. deploy_pull_restart.sh restarts ict-web-api.service only when HEAD advances, so the gate goes live on the next git-sync tick. Verification armed at 09:11Z and the owning lane poked to confirm 401 first-hand on BOTH routes. Do not read this row as evidence the surface is closed."
     }
   ],
-  "last_reconciled_at": "2026-09-08T05:02:08Z",
-  "last_reconciled_sha": "fcc77cd217561a0a6c0d545460961d6b778efbbd",
+  "last_reconciled_at": "2026-09-09T08:58:05Z",
+  "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
   "updated_at": "2026-09-08T08:30:00Z",
   "updated_by": "session_01GYsNAhP6SpKe1vyn2tBc94"
 }
