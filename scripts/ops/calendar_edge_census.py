@@ -532,8 +532,9 @@ def report(census: Census, as_json: bool = False) -> int:
         print(f"     scope searched : {census.files_walked} python file(s), "
               f"{census.funcs_walked} function(s)")
         print(f"     detector_state : {census.detector_state}")
-        print("     A probe that misses M7 is broken, and a silent probe is")
-        print("     indistinguishable from a clean result.")
+        print(f"     A probe that misses M7 is broken; across those "
+              f"{census.files_walked} file(s) a silent probe is "
+              "indistinguishable from a clean result.")
         return 2
     print()
     print("POPULATION")
