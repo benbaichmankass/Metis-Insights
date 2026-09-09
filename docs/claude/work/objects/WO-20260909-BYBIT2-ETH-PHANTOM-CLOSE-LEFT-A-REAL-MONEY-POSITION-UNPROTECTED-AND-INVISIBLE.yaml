@@ -1,0 +1,30 @@
+id: WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE-LEFT-A-REAL-MONEY-POSITION-UNPROTECTED-AND-INVISIBLE
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  REAL MONEY, UNPROTECTED, 5 DAYS: bybit_2 ETHUSDT 0.04 long is live on the venue with no TP/SL while journal trade 5471 records it CLOSED on `sl`, and two independent bot readers do not return it
+stage: EVIDENCE
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  P1. Operator-reported from the Bybit terminal. Re-read on any change to the
+  Bybit position readers or the close-detection path.
+done_condition: >-
+  BOTH halves are established, and they are different questions. (1) WHY THE JOURNAL CLOSED IT: trade 5471 (bybit_2 ETHUSDT long 0.04, opened 2026-09-04T14:04:14) carries status=closed with exit_reason='sl' while the venue still holds the position. Establish which code path wrote that close and on what evidence — a broker read, an inferred SL cross, or a reconciler decision — naming the site. (2) WHY THE READERS CANNOT SEE IT: `account_open_positions` queries `client.get_positions(category=..., settleCoin="USDT")`, which is NOT journal-scoped and should return every USDT position, yet `/api/diag/exchange_positions?account_id=bybit_2` and `/api/diag/bybit_open_orders?account_id=bybit_2` BOTH return XRPUSDT only. Establish whether the venue is not returning it to this API key (a different UID/sub-account) or the bot is dropping it after the read. ⚠️ REPORT THE RAW `get_positions` RESPONSE for bybit_2, because that is the one observation that separates the two. ⚠️ A THIRD DEFECT IS ALREADY IDENTIFIED AND MUST NOT BE LOST EVEN IF IT IS NOT THE CAUSE HERE: `account_open_positions`'s bybit branch dedupes by SYMBOL (`if sym in seen: return`) and emits no `position_idx`, so under HEDGE mode — armed on bybit_2/ETHUSDT — a symbol carrying two non-zero books silently reports only the first. File it whatever the outcome. ⚠️ NOT SUFFICIENT: re-arming a stop and calling it fixed. The position being protected is the OPERATOR's action; this object is about why the system lost it.
+
+why: >-
+  A real-money position has been open and unprotected for five days and the system did not know it existed. The journal believes it closed on its stop, so no naked-position sweep considers it, no reconciler adopts it, and it appears on no operator surface — it was found only because the operator looked at the Bybit terminal. This is the most dangerous shape this system can produce: not a protection failure that alarms, but a position that is invisible to the thing that protects it. It also sits directly on the cycle priority, which is to make the instruments trustworthy before acting on what they say.
+
+source: >-
+  operator, 2026-09-09, screenshot of the Bybit terminal showing ETHUSDT Perp 0.04 with "+ Add" in the TP/SL column beside XRPUSDT 58.5 which does carry 1.5535/1.3463; manager session_01HrmZ1RRNM4UnEUaFdrPEjj measured the journal and reader state
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager: nothing blocks the INVESTIGATION. Every
+  read needed is available on the diag surface with the bearer this session
+  holds. The REMEDIATION is a separate matter and is operator-gated: placing or
+  amending a stop on bybit_2 is a real-money order path.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
