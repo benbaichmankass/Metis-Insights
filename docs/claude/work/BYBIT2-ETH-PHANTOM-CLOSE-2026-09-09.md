@@ -1110,6 +1110,14 @@ being asked about it — `bybit-exchange.github.io/docs/v5/position/trading-stop
 Full mode mutates state ON the position; Partial mode creates separate conditional ORDERS. Bybit's help
 centre likewise tells users that untriggered TP/SL orders are checked **from the Current Orders record**.
 
+### ⚠️ THIS SUBSECTION IS SUPERSEDED — SEE § 20. The hypothesis was REFUTED 26 minutes after it was raised.
+
+⚠️ **Everything below in this subsection was written before the manager retracted the hypothesis at
+2026-09-09T17:35:59Z with counter-evidence that had been in the record the whole time.** It is preserved,
+not deleted, because the positive control it proposes is the thing that turned out to be already half
+answered — and a session must be able to see what was proposed and why it did not survive. **Read § 20
+before acting on any of it, and do NOT put the control below to the operator: half of it is spent.**
+
 ### ⚠️ WHAT IS STILL NOT ESTABLISHED, AND I DID NOT GUESS IT
 
 **Whether Bybit's web UI reads position-level or leg-level for that column.** Two sessions have now failed
@@ -1156,3 +1164,87 @@ Also pinned, because the two relays state it differently and a later reader woul
 created **3 ms after the entry order was CREATED** (`…13.935Z` → `…13.938Z`) and **0 ms after that entry
 FILLED** (`updated_time …13.938Z`). Both are true of different anchors; the protection-relevant one is the
 fill, because that is when there was a position to protect.
+
+
+---
+
+## § 20 — The display hypothesis is REFUTED, by evidence that was in the record before it was raised
+
+**§ 19 recorded the terminal-display hypothesis as branch (B)'s leading candidate. It is refuted.** This
+section supersedes § 19's framing of it. § 19 is corrected in place with a pointer rather than edited away,
+because what was proposed and why it failed is itself the record.
+
+### Who refuted it, and how — recorded as theirs
+
+The manager session (`session_01HrmZ1RRNM4UnEUaFdrPEjj`) raised the hypothesis at 17:14Z, went and measured
+against it, found its refutation, and retracted it **unprompted at 17:35:59Z**:
+
+> I sent you a hypothesis with its own refutation sitting in the evidence, and a lane writing that up on my
+> say-so would be my error propagating into the record.
+
+### The falsifier
+
+The hypothesis predicted: *the terminal renders POSITION-level fields, so a fully protected Partial-mode
+position displays as bracketless.*
+
+**The operator's screenshot showed the XRPUSDT row carrying `TP/SL 1.5535`.** `1.5535` is the
+`PartialTakeProfit` **LEG's** trigger price. The position-level value is `null` — measured, repeatedly. So
+the terminal reads **leg level**, at least for that field, and the hypothesis predicts *the opposite of what
+was observed*. It does not survive.
+
+⚠️ **THAT SCREENSHOT IS THE MANAGER'S READING OF THE OPERATOR'S EVIDENCE. I have not seen it and it is not
+recorded here as something I measured.** It is decisive and it is second-hand; both facts stated.
+
+### What SURVIVES, narrowly
+
+- **Position-level `stopLoss`/`takeProfit`/`tpSlMode` are `null` on every Bybit position we hold under
+  `BYBIT_TPSL_MODE=partial`.** MEASURED — the manager over **n = 3 accounts** (`bybit_2` XRPUSDT,
+  `bybit_1` ADAUSDT, `bybit_portfolio` XRPUSDT), every position read at 17:36Z; me on `bybit_2` at
+  17:19:49Z and again at **17:46:51Z**, unchanged. § 19's measurement stands; only the INFERENCE from it
+  is withdrawn.
+- **`BL-20260909-A-BYBIT-POSITION-ROW-CANNOT-STATE-ITS-OWN-PROTECTION-UNDER-PARTIAL-MODE` is NOT retracted.**
+  It never depended on the UI: it says the ROW cannot state its own protection, which is true of our own
+  payload whatever any terminal does. The row is now better evidenced (n = 3 accounts, not 1) and its
+  bound is unchanged — no consumer of ours is blind today.
+- **The XRP position is protected.** Verified twice by me, most recently 17:46:51Z: `PartialStopLoss`
+  1.3463 and `PartialTakeProfit` 1.5535, **58.5 each against a 58.5 position**, both `Untriggered`.
+
+### The question that remains, and it is smaller than § 19's
+
+Not *"does the column render anything"* — it rendered 1.5535. It is:
+
+> **Does that XRPUSDT row show BOTH `1.5535` and `1.3463`, or only the take-profit?**
+
+Both → nothing is wrong and the line closes. Only the TP → the question is **why the stop leg does not
+render**, which is a DISPLAY question either way, because the stop is confirmed resting at 1.3463 against
+the full size. ⚠️ **Whichever it is, the position's protection is not in doubt** — and § 19's control must
+not be put to the operator as written, because half of it is already spent.
+
+### And this coherently explains the ORIGINAL ETH sighting, with no defect anywhere
+
+Three facts, **two of them not mine**:
+
+1. The terminal renders **leg-level** values — *manager, from the operator's screenshot*.
+2. Trade 5471's legs were **consumed at its close**, 2026-09-08T13:37:13.873Z: the stop filled, the target
+   cleared by `CancelByTpSlTsClear` — *MEASURED, § 18*.
+3. *"i see the the eth trade closed, longer ago than i realized"* — *the operator, 2026-09-09T16:03Z*.
+
+A closed position has no resting legs; a leg-rendering terminal therefore shows nothing for it. **The
+sighting is what a correctly closed trade looks like on that terminal.** Nothing was naked, and there is
+nothing to fix on that row.
+
+⚠️ **This is a coherent EXPLANATION, not an established fact** — it rests on (1) and (3), which are other
+people's observations. Recorded with that stated rather than absorbed into our own voice, which is the
+error § 14 already corrected once in this document.
+
+⚠️ **IT DOES NOT REOPEN § 18.** Trade 5471 is settled on the venue's own order record and its own
+closed-PnL record. The display question concerns a **different position on a different symbol**, and
+keeping the two apart is precisely why § 18 states what it does not establish.
+
+### What this episode is worth as a lesson
+
+A hypothesis was raised, propagated to another session, written into a merged document as a leading
+candidate, and refuted — all within about half an hour — **by evidence that predated it**. What kept it
+from becoming settled fiction was not a guard: it was that § 19 labelled it a hypothesis, attributed it,
+recorded what it did NOT establish, and proposed a control instead of a conclusion. **The mechanism that
+worked here was refusing to state it more strongly than it was known.**
