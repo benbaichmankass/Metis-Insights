@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T09:31:00Z",
+  "updated_at": "2026-09-09T10:10:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2764,20 +2764,20 @@
     {
       "id": "MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
       "title": "The strategy-review packet grades edge off live in-window n, which the binding promotion-evidence rule forbids",
-      "state": "ready",
-      "owner": null,
+      "state": "in_flight",
+      "owner": "session_01MrTjuoRpBb7spyQLydXmmT",
       "owns_object": "WO-20260901-PHASE-F",
       "priority": "high",
       "tier": "tier_3",
       "added": "2026-09-09",
-      "note": "OPERATOR-DIRECTED 2026-09-09, rejecting DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR as MALFORMED. Verbatim: \"we have built EXTENSIVE BACKETESTING INFRA FOR EXACTLY THIS REASON!!!!!! We do NOT rely on live soaking for validating strategies, only mechanics, and if it takes time to accrue live trades to analyze real world performance, that is not a barrier that needs to be overcome, just a feature of the system.\" ⚠️ DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM. All four options offered presumed live closes are the evidence basis for a STRATEGY verdict; that premise is the defect. Lowering the floor and widening the window both KEEP the prohibited instrument and merely re-scale it. ⚠️ AND DO NOT ROUTE THIS TO THE SUNSET PASS. The manager recommended `too_many_legs` and the operator rejected it explicitly: the quantity is trades PER LEG, retiring legs does not raise it, and on paper accounts every leg runs regardless. Retiring a leg is Tier-3 and is NOT the answer here. THE RULE ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), whose scope is explicitly STRATEGY legs, whose clause 3 reads 'No gate may require calendar-time accrual to prove edge', and which already names this as 'the recurring drift this rule kills'. So this is NOT new canon — it is a surface contradicting canon. THE WORK: (a) re-point the packet's edge verdict at the OFFLINE evidence the repo already has (purged walk-forward oos_edge, replay_pregate_fleet, the backfills), leaving live rows to prove MECHANICS only; (b) establish whether scripts/check_soak_doctrine.py can reach this surface at all and close the hole WITH A POSITIVE CONTROL, since a guard silent because it scans nothing looks exactly like a guard silent because all is well. Both filed as BL-20260909 rows. ⚠️ READ THE OPERATOR'S LAST SENTENCE AS THE REAL FINDING: \"I don't know how many more times I can explain this to various cluades, but our overall operation is clearly not built to suit the system's structure.\" This has now been explained to multiple sessions. A further prose reminder is a NON-FIX — the prevention must be executable, which is why (b) matters at least as much as (a). Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Manager does not take this — ROUTE IT."
+      "note": "OPERATOR-DIRECTED 2026-09-09. ⚠️ THIS NOTE WAS REWRITTEN THE SAME DAY BECAUSE ITS FIRST VERSION WAS THE WRONG SHAPE. It read \"DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM\", and the operator rejected that framing outright: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question... it's that you don't understand how the system works. that's what we need to fix here, not the question\". THE PROHIBITION IS RETRACTED. Ask whatever you need to, window and floor included. Banning a question suppresses the symptom and leaves the misunderstanding intact, so the next session fails in a NEW way instead of asking a better question. THE THING TO CARRY IS THE MODEL, NOT A RULE: (1) EDGE is established OFFLINE — this repo has extensive backtesting infrastructure built for exactly that (purged walk-forward CV, replay_pregate_fleet, the point-in-time backfills), and that is where 'does this strategy work' is answered. (2) LIVE data establishes MECHANICS ONLY — that executions match the simulator — which canon says needs 1-2 executed trades, not calendar time. (3) SLOW LIVE ACCRUAL IS A FEATURE OF THE SYSTEM, NOT A BARRIER TO OVERCOME: a leg closing ~1.2 trades a week is not a problem to engineer around, and `none_gradeable` on a live window is not a defect. (4) Fewer legs does NOT raise trades-per-leg, and on paper accounts every leg runs regardless — the manager recommended that lever and the operator rejected it. WHAT THE WORK ACTUALLY IS: the review/validation layer is built on a LIVE-ACCRUAL model of evidence while the system's real evidence engine is the BACKTEST infrastructure. MIN_CLOSED_FOR_ACTION is a symptom of that mismatch, not the defect. The operator's own framing: \"our overall operation is clearly not built to suit the system's structure.\" THE RULE THIS CONTRADICTS ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), scope explicitly STRATEGY legs, clause 3 'No gate may require calendar-time accrual to prove edge', and it already names this as 'the recurring drift this rule kills'. THE GUARD HALF MUST ENFORCE THE RULE, NOT A PHRASE: a gate producing a STRATEGY verdict must source its edge from offline evidence. A guard that greps for forbidden words is the same wrong shape one level down. Keep the positive control — a guard silent because it scans nothing is indistinguishable from one silent because all is well. Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Retiring a strategy leg is Tier-3 and is not the answer here. Manager does not take this — it is ROUTED to session_01MrTjuoRpBb7spyQLydXmmT, which has been sent this correction directly."
     },
     {
       "id": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
       "title": "Prop status-request pings on wall-clock age alone, so it asks about an account nothing has touched",
-      "state": "ready",
-      "owner": null,
-      "owns_object": null,
+      "state": "in_flight",
+      "owner": "session_01FoASvmUGuahCphE1cewPPs",
+      "owns_object": "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
       "priority": "medium",
       "tier": "tier_2",
       "added": "2026-09-09",

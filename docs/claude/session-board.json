@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-review-packet-verdict-20260909",
-  "claimed_at": "2026-09-09T09:33:00Z",
-  "purpose": "record the operator's rejection of DEC-20260909 and route MI-215"
+  "branch": "claude/mgr-fix-prohibition-shaped-guards-20260909",
+  "claimed_at": "2026-09-09T10:11:00Z",
+  "purpose": "retract the prohibition-shaped guard framing on operator instruction"
  },
  "active_sessions": [
   {

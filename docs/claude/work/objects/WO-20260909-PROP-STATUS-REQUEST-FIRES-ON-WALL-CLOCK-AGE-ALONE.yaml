@@ -1,0 +1,32 @@
+id: WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The prop status-request pings on wall-clock age alone, so a genuinely quiet account is indistinguishable from one that moved and was never reported
+stage: DECIDED
+lifecycle: in_flight
+owner: session_01FoASvmUGuahCphE1cewPPs
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Operator-raised. Re-read if the prop bridge changes shape or if breakout_1 is
+  retired; otherwise it stays ready until owned.
+done_condition: >-
+  The prop status-request's TRIGGER keys on whether anything has HAPPENED since the last snapshot, not on wall-clock age alone, AND the ask still fires (a) on any fill reported since the last snapshot and (b) before a new ticket is sized. ⚠️ BEFORE ANY OF THAT, THE OPERATOR'S PREMISE IS MEASURED AND REPORTED EITHER WAY: over the 228h window on breakout_1, the count of `prop_fills` rows against the count of `prop_account_status` rows. If fills occurred with no snapshot following, the premise is FALSE in the dangerous direction and the ping was doing its job — that is the more valuable finding and it CHANGES this object rather than completing it. ⚠️ NOT SUFFICIENT: restoring the pre-2026-08-14 flat bail (that is a Tier-2 operator-approved decision protecting the account-level static DD floor and re-adding it re-opens the hole); or raising PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold — the ask, the fill-ack nudge, prop_balance.max_age_hours() sizing gate, and the /api/bot/prop/status freshness verdict — and one definition of "too old to trust" is deliberate, so sizing can never run off a balance the safety panel has written off). CHANGE THE TRIGGER, NOT THE THRESHOLD.
+
+why: >-
+  Operator-raised 2026-09-09 on a live ping, verbatim: "This ping in the prop channel is unessacry, the account snapshot is updated when a trade closes, if there are no prop trades than the account state didn't change". The ping quoted was breakout_1 with no open positions and a snapshot 228h (9.5d) old. The operator is right that the trigger is wrong: it fires on the AGE of the last snapshot and nothing else, so it cannot distinguish an account nothing has touched from one that moved and was never reported — and pinging about the first trains the operator to ignore the second, which is the desensitized-alarm failure this repo has already paid for.
+
+source: >-
+  operator, in conversation, 2026-09-09; relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager: nothing blocks starting this. The premise
+  measurement (fills vs snapshots over the 228h window) is a read of
+  trade_journal.db that needs no decision, no deploy and no operator input, and
+  it is the first step. The Tier-2 half (changing the trigger in src/prop/) needs
+  one operator OK to SHIP, which is a gate on landing rather than a blocker on
+  the work.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
