@@ -35273,6 +35273,22 @@
       "notes": "Filed by the MI-226 sub-session. The 1 remaining `none` is scripts/ci/check_guard_glob_coverage.py, which is a DIFFERENT and larger finding -- it is not reachable from run_guards.py at all (audit F-02, 'structurally unarmable as written') -- and is exemption-listed in scripts/ci/guard_selftest_exemptions.json with that reasoning, dated, and reported by name under declared_but_never_invoked on every run so it cannot go quiet behind the exemption."
     },
     {
+      "id": "BL-20260909-A-MANAGER-TRUNCATED-A-BACKLOG-ID-FOUR-TIMES-IN-ONE-SESSION-AND-ONLY-A-GUARD-EVER-CAUGHT-IT",
+      "title": "Four times in one session an identifier was elided or line-wrapped into a reference that resolves to nothing, and prose discipline did not hold",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "opened": "2026-09-09",
+      "owner": "unassigned",
+      "area": "process / CI tooling",
+      "summary": "MEASURED on session_01HrmZ1RRNM4UnEUaFdrPEjj, 2026-09-09, n=4 in roughly two hours. (1) textwrap.fill broke BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG across two lines inside a YAML folded scalar, which rejoins with a SPACE, so the parsed value named a row that does not exist -- caught by artifact-validity-guard on #11597. (2) The same wrap split INV-PROTECT-LEG-MATCHES-ROW and INV-PROTECT-OVERCOVER inside the done_condition that defines what an operator's Tier-2 order-path approval requires -- caught by my own sweep, NOT by any guard. (3) Three backlog ids written with a '...' elision in a closed_by_manager block -- caught by artifact-validity-guard on #11598. (4) BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST written without its tail in session-board.json -- caught by artifact-validity-guard on the lease heartbeat PR. !! THE PATTERN IS NOT CARELESSNESS ABOUT ONE ID: long ids are routinely shortened for readability and the shortened form is indistinguishable from a real one at the point of writing. The 2026-07-30 operator directive the guard cites is exactly this -- a doc saying 'tracked by BL-X' where BL-X was never filed reads as TRACKED while being tracked by NOBODY. !! NOT A DUPLICATE OF BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY, which the appender's similarity probe surfaced at overlap 0.73 and which I read before re-filing: that row is about CONCURRENT SESSIONS COLLIDING on one shared JSON array. This row is about a REFERENCE TO A ROW being written in a form that does not resolve. The overlap is lexical (both say backlog/json/row) and the probe is token overlap with no semantics, exactly as it warns.",
+      "evidence": "artifact-validity-guard failures on PR #11597 and PR #11598 (job 102653641966 named it in the FAILING GUARDS block; the log TAIL does not name the guard, which cost a second log fetch). Case (2) was found only by grepping '[A-Z0-9]-$' over the changed files after case (1) -- no guard reads a folded scalar's REJOINED value, so an identifier split across lines inside one is invisible to check_backlog_refs when neither half is itself an id.",
+      "resolution_criteria": "EITHER (a) a check that reads YAML/JSON VALUES rather than raw lines, so an identifier split by a folded scalar and rejoined with a space is caught -- the class case (2) proves is currently undetected; OR (b) an explicit recorded decision that prose discipline is the only control here, with the reasoning. !! DO NOT close this on 'the author will be more careful' -- that is the remedy MI-15 applied twice before it was made machinery, and it failed both times. !! AND NOTE WHAT ALREADY WORKS: check_backlog_refs caught 3 of the 4 and is not the gap. The gap is case (2)'s shape -- an identifier that is not a backlog id, split inside a folded scalar.",
+      "notes": [
+        "Filed by the manager as the act of NOT taking the item: the fix is under scripts/, a worker path the manager may not author (check_manager_scope R2)."
+      ]
+    },
+    {
       "id": "BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER",
       "opened": "2026-09-09",
       "severity": "medium",

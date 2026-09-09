@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat, a live get_session supervision record for all three lanes, and the merge-slot claim. Re-cut onto a fresh branch because claude/mgr-lease-hb-20260909T2326 received ZERO pull_request workflow runs across a PR creation and an arming push (measured via actions_list, event=pull_request, total_count 0 after four minutes) — the second occurrence tonight of the same wedge, after #11605. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ path. No order was placed, modified or cancelled on any account."
+}

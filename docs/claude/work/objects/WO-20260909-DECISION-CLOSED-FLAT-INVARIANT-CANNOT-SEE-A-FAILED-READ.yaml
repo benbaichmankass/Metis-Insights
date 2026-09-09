@@ -1,0 +1,151 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+
+id: WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The closed-flat invariant reads a FAILED exchange read as flat - operator answered: fix all
+  three, F-11 + F-12 + F-13
+stage: INTEGRITY
+lifecycle: in_flight
+owner: session_01UFEDvWwTCMqAsBoQCh9Kz1
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD.
+  Do not re-measure - the evidence is in the audit at F-11, F-12 and F-13. !! THE BUILD IS IN
+  FLIGHT as of 2026-09-09 (MI-228, session_01UFEDvWwTCMqAsBoQCh9Kz1) and is NOT done: the code
+  is written and held for a human merge click, and NOT ONE OF THE THREE PARTS IS OBSERVED ON
+  THE FLEET. A merge is not a deploy and a deploy is not an observation.
+
+build_note_2026_09_09: >-
+  !! A FOURTH BLINDNESS WAS FOUND WHILE BUILDING THE FIX, AND IT SUBSUMES THE OTHER THREE AS AN
+  EXPLANATION OF THE 14.7-DAY ZERO. _residual_from_positions read the position size from
+  `p.get("qty") or p.get("contracts")`, and clients.py::account_open_positions normalises EVERY
+  venue branch - bybit, interactive_brokers, alpaca, oanda, 4 of 4 - to
+  {symbol, side, size, entry_price, unrealised_pnl}; IBClient.positions's own docstring pins
+  that shape. So `float(None or None or 0) == 0.0`, and a live residual graded FLAT on every
+  account, from the module's first commit. VERIFIED EMPIRICALLY, not by reading: a 26.05
+  ETHUSDT row in the exact production dict shape returned 0.0. Every fixture in
+  tests/test_closed_flat_invariant.py uses `qty`, so 15 tests were green throughout while
+  exercising a shape production never produces - the Generation-Discipline Rule 3 case
+  ("green tests are not compliance") in its purest form. !! THIS MATTERS FOR HOW THE ZERO IS
+  READ: F-13 says the zero "is not evidence of anything", which is right; the stronger and now
+  established fact is that the zero was GUARANTEED BY CONSTRUCTION, independent of failed
+  reads, window coverage and read surfaces. Fixed in the same PR. The audit's three
+  measurements were re-read against the code and NONE of them was found wrong.
+
+done_condition: >-
+  THREE PARTS, and they are different facts - say WHICH you delivered. (1) F-11:
+  closed_flat.residual_state is REGISTERED in check_collapsed_states.py::CONTRACTS with flat /
+  residual / could_not_look, the producer emits all three, and a real consumer BRANCHES on
+  could_not_look - a failed read must not clear the invariant. (2) F-12: the lookback is DERIVED
+  from the caller's own cadence rather than the 60s constant, published on a
+  closed_flat_coverage soak, with a CI test that fails any check() invocation whose window is
+  not cadence-derived. (3) F-13: invariant_violations is on diag._LOG_FILES and the alert
+  reaches a level outcomes forwards to Telegram. !! A GREEN TEST SUITE CLEARS NONE OF THESE: the
+  whole finding is that a harness cannot reach a failed exchange read on the fleet. !! AND A
+  CONTINUED ZERO AFTER THE FIX IS NOT A PASS until a planted violation has been OBSERVED being
+  reported - the audit notes there is no planted-violation self-test and no controls_ok, which
+  is why the 14.7-day zero proved nothing in the first place.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: all three are measured, each
+  names its own detector, and the operator has now answered. What gated it was the decision, and
+  that gate is discharged. !! `ready` means answered and buildable, NEVER in progress.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+built_by: worker session_01UFEDvWwTCMqAsBoQCh9Kz1 (MI-228, 2026-09-09)
+
+decision_requests:
+  - id: DEC-20260909-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ
+    question: >-
+      The closed->exchange-flat invariant - the one mechanism that can independently contradict
+      'this trade is closed' - returns 0.0 (flat, no violation) when the exchange read FAILS, at
+      5 of 5 early-return sites. It composes with F-12 (60s lookback against a >=101.9s
+      invocation period, so >=41% of the timeline is examined by nobody) and F-13 (writes to a
+      log on no read surface, pages at WARN which outcomes excludes from Telegram). Its 14.7-day
+      zero is not evidence of anything. Tier-2.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-11 + F-12 + F-13. F-11: closed_flat_invariant.py:243-244 `if not positions: return
+      0.0`, whose input clients.py::account_open_positions returns None BY CONTRACT so callers
+      can distinguish 'no positions' from 'could not read' - including an empty IB snapshot from
+      a Gateway not verified logged-in. _exchange_residual_qty also returns 0.0 at :210, :223,
+      :232 (account unresolvable; account_open_positions raised; fetcher() raised), and the
+      caller reads residual == 0.0 as no violation. POSITIVE CONTROL that the convention is
+      honoured elsewhere: hourly_report.py:335 `open_count = len(positions) if
+      isinstance(positions, list) else None`. Of the 2 consumers of account_open_positions in
+      src/ outside order_monitor, 1 is correct and 1 collapses. F-12: window
+      DEFAULT_WINDOW_SECONDS = 60 at :62, never overridden (1 of 1 call sites), against a
+      measured period of >=101.9s - two independent measurements, /api/diag/tick_cost implying
+      124.3s mean and a durable 888-row WARN feed over 14.7 days whose once-per-tick
+      inter-arrival gaps are n=140 with a MINIMUM of 101.9s and 0 of 140 at or under 60s. Only
+      that minimum is a sound bound and that is what the claim uses. F-13:
+      invariant_violations.jsonl is on no diag allowlist (57 names scanned vs 23 writers; 6
+      unreadable, of which 4 have an alternate surface and this one has none) and the alert is
+      Level.WARN while outcomes.py:76 restricts Telegram to ERROR and CRITICAL.
+    options:
+      - key: all_three
+        label: Fix all three - F-11 + F-12 + F-13
+        implication: >-
+          Register closed_flat.residual_state (flat / residual / could_not_look) so a failed
+          read grades unknown and does NOT clear the invariant; derive the lookback from the
+          caller's own cadence so consecutive checks tile the timeline; put
+          invariant_violations.jsonl on the diag allowlist and raise the alert to a level that
+          reaches Telegram. The composition IS the finding. The guard F-11 needs already exists
+          and already fails on a state no consumer branches on, so that half is a REGISTRATION,
+          not a new instrument.
+      - key: f11_only
+        label: F-11 only, then soak
+        implication: >-
+          Smallest correct step. The invariant would then see a failed read but still miss ~41%
+          of its own timeline and still write where nobody looks, so it would remain unable to
+          produce evidence anyone could act on.
+      - key: f13_first
+        label: F-13 first - make it readable
+        implication: >-
+          Visibility before logic. It would then reliably report a number still blind to failed
+          reads and still covering ~half the timeline - a readable figure that is not
+          trustworthy, which this repo treats as worse than an unreadable one.
+      - key: record_only
+        label: Nothing yet - record the decision
+        implication: >-
+          All three stay filed as a deliberate decision rather than an omission, so the 14.7-day
+          zero is never re-quoted as evidence the book is clean.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:33Z. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE STANDING REQUEST
+        WAS 'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. These two are the LAST of the audit's six: four were answered at
+        21:15Z (landed e1518aecd) and these two had never been put to the operator at all.
+      chosen: all_three
+      free_text: >-
+        Operator chose the FULL fix on 2026-09-09: F-11 + F-12 + F-13 together. This is the
+        Tier-2 approval for all three. !! WHAT IT DOES NOT AUTHORISE: nothing here touches an
+        order path, and no position may be placed, modified or closed on the strength of a
+        violation this invariant reports - a falsifier that can finally speak is an input to a
+        decision, never the decision. !! AND THE FIRST VIOLATION IT REPORTS MUST NOT BE READ AS
+        A REGRESSION: today's zero is uninformative by construction, so the count going from 0
+        to non-zero is the mechanism starting to work, not the book getting worse. Say which of
+        the three you delivered rather than closing on the easiest - they are different facts.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:33:00Z'
+      note: >-
+        Manager session. One of the two the full-system audit filed that had never been put to
+        the operator at all.
