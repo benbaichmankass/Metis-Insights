@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP · lane4 hand-run of the sweeper (it is not on main yet)",
-  "branch": "automation/data-commit-34314147723-1",
-  "claimed_at": "2026-09-09T12:59:10Z",
-  "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
+  "held_by": "github-actions[bot] · work-digest run 34355107317",
+  "branch": "automation/work-digest-34355107317-1",
+  "claimed_at": "2026-09-09T13:08:16Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {
