@@ -643,6 +643,10 @@ def execute_pkg(
         pkg, account_cfg, order, trade_id=trade_id, is_dry=is_dry,
         intent_reduce=reduce_only,
         sl_order_id=sl_order_id, tp_order_id=tp_order_id,
+        # MI-227 / audit F-36: only the reduce branch consumes this, to resize
+        # each shrunk parent's own tracked protective leg. Every other insert
+        # path ignores it, so no non-reduce journal write changes.
+        exchange_client=exchange_client,
     )
 
     # P3 observe-only exit-ladder soak: for a live OPENING order (reduce-only
@@ -1756,6 +1760,182 @@ def _log_170134_diagnostic(
 # removed 2026-05-18) and the "render null, never a guessed 0" rule.
 
 
+# ---------------------------------------------------------------------------
+# MI-227 / audit F-36 — resize a reduced row's OWN tracked protective leg
+# ---------------------------------------------------------------------------
+#
+# `apply_intent_reduce_partial_close` shrank `trades.position_size` and never
+# touched the venue leg that row's `sl_order_id` / `tp_order_id` points at, so
+# a reduce-only stop kept the size it was placed with. MEASURED LIVE (audit
+# F-36, `docs/audits/full-system-audit-2026-09-09.md`, 2026-09-09T16:47Z,
+# `bybit_1`/ADAUSDT): trade 5417 `position_size` 628.0 with its tracked stop
+# resting at 63,943.0 — 101.82x the row it protects — while trade 5479's
+# 79,227.0 leg matched its row exactly.
+#
+# ⚠️ THE SYMBOL RECONCILED PERFECTLY WHILE THIS WAS TRUE, and that is the whole
+# reason it survived: journal 79227.0 + 628.0 = 79855.0 equalled the exchange
+# position to the unit, so every SYMBOL-LEVEL check passed. `63943 - 63315 =
+# 628` — exactly 5417's post-reduce size — is the arithmetic that identifies
+# the cause: the leg is stuck at the PRE-reduce size.
+#
+# ⚠️ A LATER TRAILING AMEND DOES NOT REPAIR IT. `modify_open_order` amends the
+# tracked id's trigger PRICE and leaves its qty alone, so the wrong size is
+# faithfully preserved: the leg was still 63,943.0 after an amend on
+# 2026-09-08.
+#
+# Operator-approved 2026-09-09 (`WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-
+# PROTECTIVE-LEG`, option `resize_and_invariant`). ⚠️ THE APPROVAL IS FOR THE
+# CODE PATH THAT RESIZES ON THE NEXT REDUCE, PLUS THE DETECTOR. It does NOT
+# authorise cancelling any currently-resting leg — the one prior attempt at
+# remediating an over-covered book by cancelling cancelled the leg that MATCHED
+# the journal (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-
+# LEG). Nothing here cancels anything: `amend_order` is an in-place resize, and
+# the position's protection is never absent for an instant.
+
+# Five states, never collapsed (docs/CLAUDE-RULES-CANONICAL.md § "Collapsed
+# states"). The three non-acting ones are DIFFERENT FACTS and folding them into
+# one "skipped" would hide exactly the case a reader needs:
+#
+#   resized          the venue accepted the in-place amend.
+#   failed           the venue refused, or the call raised. The leg is STILL
+#                    oversized — a loud, recorded failure, never a silent one.
+#   no_tracked_id    we could act and this row has no leg id to act on
+#                    (pre-migration row, or an ambiguous entry-time capture).
+#                    ⚠️ NOT "nothing to fix": such a row's leg, if one rests,
+#                    stays oversized and is owned by the legacy add-a-leg path.
+#   not_applicable   the venue model has no per-row leg to resize at all —
+#                    non-Bybit (IB re-arms a whole OCA bracket), spot (no
+#                    exchange-side stop), or `BYBIT_TPSL_MODE=full`, where the
+#                    stop lives on the POSITION row and already covers the
+#                    netted size by construction.
+#   not_attempted    WE DID NOT LOOK — no exchange client, or a dry run. It is
+#                    emphatically not evidence that the leg is correctly sized.
+#
+# ⚠️ DELIBERATELY NOT REGISTERED WITH `collapsed-state-guard`, for the reason
+# `bybit_position_mode` is not: the states are RECORDED (in the reduce audit
+# row's notes) rather than BRANCHED ON by a consumer, so registering today
+# would either fail that guard or invite the decorative branch it exists to
+# prevent. What checks the OUTCOME is `INV-PROTECT-LEG-MATCHES-ROW` in
+# `scripts/ops/system_invariants.py`, which reads the venue and never reads
+# this field — an independent instrument, which is the point.
+LEG_RESIZE_STATES = (
+    "resized", "failed", "no_tracked_id", "not_applicable", "not_attempted",
+)
+
+
+def resize_tracked_protective_legs(
+    exchange_client: Any,
+    account_cfg: Optional[dict],
+    *,
+    symbol: str,
+    new_qty: float,
+    sl_order_id: Optional[str] = None,
+    tp_order_id: Optional[str] = None,
+    trade_id: Optional[Any] = None,
+) -> dict:
+    """Amend this trade's OWN tracked Bybit Partial-tpsl leg(s) to *new_qty*.
+
+    Returns ``{"sl": {...}, "tp": {...}}``, each leg carrying
+    ``{"state": <one of LEG_RESIZE_STATES>, "order_id": <str|None>,
+    "qty_sent": <str|None>, "error": <str|None>}``.
+
+    ⚠️ **It resizes ONLY the ids it is handed** — a leg belonging to any other
+    trade is not reachable from here, which is what makes this per-ROW rather
+    than per-symbol and is why it cannot repeat
+    BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+
+    ⚠️ **Never raises.** It runs on the order path immediately after a journal
+    write that has already happened, so an exception escaping here would be
+    strictly worse than the oversized leg: the caller's fallback would re-book
+    the reduce. Every failure is a recorded state.
+    """
+    out = {
+        "sl": {"state": "not_attempted", "order_id": sl_order_id,
+               "qty_sent": None, "error": None},
+        "tp": {"state": "not_attempted", "order_id": tp_order_id,
+               "qty_sent": None, "error": None},
+    }
+
+    def _all(state: str, error: Optional[str] = None) -> dict:
+        for leg in out.values():
+            leg["state"] = state
+            leg["error"] = error
+        return out
+
+    try:
+        if exchange_client is None:
+            return _all("not_attempted", "no exchange_client")
+        cfg = account_cfg or {}
+        if str(cfg.get("exchange") or "bybit").lower() != "bybit":
+            # IB re-arms a whole OCA bracket at its own sizes and Alpaca
+            # PATCHes a bracket leg; neither is addressed by a Bybit orderId,
+            # and neither writes `trades.sl_order_id` in the first place.
+            return _all("not_applicable", "not a bybit account")
+        try:
+            category = _bybit_category(cfg)
+        except Exception as exc:  # noqa: BLE001
+            return _all("not_attempted", f"category unresolved: {exc}")
+        if category == "spot":
+            return _all("not_applicable", "spot has no exchange-side SL/TP")
+        if _bybit_tpsl_mode() != "partial":
+            # Full mode: the stop is a field on the POSITION row, sized to the
+            # netted position by construction, so there is no per-row leg that
+            # could disagree with a row's size.
+            return _all("not_applicable", "BYBIT_TPSL_MODE is not partial")
+        try:
+            size = float(new_qty)
+        except (TypeError, ValueError):
+            return _all("not_attempted", f"unusable new_qty {new_qty!r}")
+        if size <= 0:
+            # A resize to zero is a CANCEL wearing an amend's clothes, and
+            # cancelling is exactly what this change is forbidden to do. The
+            # shrink path never produces one (it fires only on a residual
+            # strictly greater than eps); refuse rather than trust that.
+            return _all("not_attempted", f"non-positive new_qty {size!r}")
+
+        # The wire string comes from the seam, never from a local `str(qty)`:
+        # a raw journal residual can be an IEEE-754 artifact
+        # ("33.299999999999955") that Bybit refuses outright (MI-139).
+        # `unchanged` / `not_graded` return `str(float(qty))` byte-for-byte.
+        from src.units.accounts.qty_legalize import snap_artifact_qty
+        _snapped, qty_str, _snap_state = snap_artifact_qty(
+            size, account_cfg=cfg, symbol=symbol, client=exchange_client,
+        )
+
+        for key, order_id in (("sl", sl_order_id), ("tp", tp_order_id)):
+            if not order_id:
+                out[key]["state"] = "no_tracked_id"
+                continue
+            res = _amend_partial_tpsl_leg(
+                exchange_client, category, symbol, str(order_id), qty=qty_str,
+            )
+            out[key]["qty_sent"] = qty_str
+            out[key]["state"] = "resized" if res.get("ok") else "failed"
+            out[key]["error"] = res.get("error")
+            if res.get("ok"):
+                logger.info(
+                    "resize_tracked_protective_legs: account=%s symbol=%s "
+                    "trade=%s %s leg %s resized to %s",
+                    cfg.get("account_id"), symbol, trade_id, key,
+                    order_id, qty_str,
+                )
+            else:
+                logger.error(
+                    "resize_tracked_protective_legs: account=%s symbol=%s "
+                    "trade=%s %s leg %s COULD NOT be resized to %s — it is "
+                    "still sized for the PRE-reduce position: %s",
+                    cfg.get("account_id"), symbol, trade_id, key,
+                    order_id, qty_str, res.get("error"),
+                )
+        return out
+    except Exception as exc:  # noqa: BLE001 — never crash the order path
+        logger.warning(
+            "resize_tracked_protective_legs: raised for symbol=%s trade=%s: %s",
+            symbol, trade_id, exc,
+        )
+        return _all("failed", f"{type(exc).__name__}: {exc}")
+
+
 def apply_intent_reduce_partial_close(
     db: Any,
     *,
@@ -1765,6 +1945,8 @@ def apply_intent_reduce_partial_close(
     reduce_qty: float,
     fill_price: Optional[float],
     closed_at_iso: str,
+    exchange_client: Any = None,
+    account_cfg: Optional[dict] = None,
 ) -> dict:
     """Apply an intent-mode reduce as a FIFO partial close of the parent.
 
@@ -1781,14 +1963,41 @@ def apply_intent_reduce_partial_close(
     Returns a dict describing the allocation::
 
         {
-            "allocations": [{"parent_id": <int>, "consumed": <float>}, ...],
+            "allocations": [{"parent_id": <int>, "consumed": <float>,
+                             "closed": <bool>, "new_size": <float|None>,
+                             "leg_resize": {...}|None}, ...],
             "leftover": <float>,          # reduce qty with no parent to absorb
             "no_parent_position": <bool>, # True when there were zero open parents
+            "legs_left_resting_on_closed_rows": [   # the KNOWN, UNFIXED gap
+                {"parent_id": <int>, "sl_order_id": <str|None>,
+                 "tp_order_id": <str|None>}, ...],
         }
 
     No new ``status='open'`` row is created here — that is the whole point of
     the fix (the phantom opposite-direction open is what created the churn).
     The single audit row is written by the caller.
+
+    **Venue leg resize (MI-227, audit F-36 — operator-approved 2026-09-09).**
+    When ``exchange_client`` and ``account_cfg`` are supplied, each PARTIALLY
+    consumed parent has its OWN tracked protective leg(s) amended in place to
+    its new ``position_size`` via :func:`resize_tracked_protective_legs`. Both
+    default to ``None``, and with them absent this function is byte-for-byte
+    what it was: the resize is additive, never a precondition.
+
+    ⚠️ **Ordering is load-bearing and the DB comes FIRST.** Every venue call
+    happens after the last journal write, so a venue failure cannot leave the
+    journal half-applied. The failure mode it degrades to — a leg still sized
+    for the pre-reduce position — is exactly today's behaviour, so this cannot
+    regress anything; it can only fail to improve it, loudly.
+
+    ⚠️ **A FULLY consumed parent's legs are NOT touched, and that gap is
+    RETURNED rather than hidden.** Its row closes at size 0, and there is no
+    resize for zero — clearing such a leg would be a CANCEL, which the
+    operator's approval explicitly does not authorise
+    (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG).
+    Those rows are listed in ``legs_left_resting_on_closed_rows`` so the
+    residual is countable instead of invisible; see
+    ``BL-20260909-INTENT-REDUCE-FULLY-CONSUMED-PARENT-LEAVES-ITS-TRACKED-LEG-RESTING``.
     """
     # Parent = the side being reduced = opposite of the reduce leg's direction.
     rd = (reduce_direction or "").strip().lower()
@@ -1802,15 +2011,38 @@ def apply_intent_reduce_partial_close(
             f"{reduce_direction!r}"
         )
 
+    # The tracked leg ids come back with the row because the resize below must
+    # target THIS row's own leg and nothing else. Older journals predate those
+    # columns, so an OperationalError falls back to the pre-MI-227 projection
+    # rather than failing the reduce: a missing column must cost the leg
+    # resize, never the partial close.
     conn = db.connect()
     try:
-        rows = conn.execute(
-            "SELECT id, position_size FROM trades "
-            "WHERE account_id = ? AND symbol = ? AND direction = ? "
-            "AND status = 'open' AND COALESCE(is_backtest, 0) = 0 "
-            "ORDER BY id ASC",
-            (account_id, symbol, parent_side),
-        ).fetchall()
+        try:
+            rows = [
+                (r[0], r[1], r[2], r[3]) for r in conn.execute(
+                    "SELECT id, position_size, sl_order_id, tp_order_id FROM trades "
+                    "WHERE account_id = ? AND symbol = ? AND direction = ? "
+                    "AND status = 'open' AND COALESCE(is_backtest, 0) = 0 "
+                    "ORDER BY id ASC",
+                    (account_id, symbol, parent_side),
+                ).fetchall()
+            ]
+        except Exception as exc:  # noqa: BLE001 — schema-shape fallback, logged
+            logger.warning(
+                "apply_intent_reduce_partial_close: leg-id projection failed "
+                "(%s); falling back to the id/size-only read — the venue leg "
+                "resize will report no_tracked_id for every row", exc,
+            )
+            rows = [
+                (r[0], r[1], None, None) for r in conn.execute(
+                    "SELECT id, position_size FROM trades "
+                    "WHERE account_id = ? AND symbol = ? AND direction = ? "
+                    "AND status = 'open' AND COALESCE(is_backtest, 0) = 0 "
+                    "ORDER BY id ASC",
+                    (account_id, symbol, parent_side),
+                ).fetchall()
+            ]
     finally:
         conn.close()
 
@@ -1818,12 +2050,19 @@ def apply_intent_reduce_partial_close(
     eps = 1e-9
     allocations: list[dict] = []
     no_parent_position = (len(rows) == 0)
+    # (parent_id, new_size, sl_order_id, tp_order_id, allocation-dict) for each
+    # SHRUNK row. Collected in the loop and acted on only AFTER every journal
+    # write below — see the docstring's ordering note.
+    pending_resizes: list[tuple] = []
+    legs_left_resting_on_closed_rows: list[dict] = []
 
     for row in rows:
         if remaining <= eps:
             break
         parent_id = int(row[0])
         parent_qty = float(row[1] or 0.0)
+        parent_sl_leg = row[2] if len(row) > 2 else None
+        parent_tp_leg = row[3] if len(row) > 3 else None
         if parent_qty <= eps:
             continue
         consumed = min(remaining, parent_qty)
@@ -1848,6 +2087,16 @@ def apply_intent_reduce_partial_close(
                 "pnl": None,
                 "pnl_percent": None,
             })
+            if parent_sl_leg or parent_tp_leg:
+                # ⚠️ NOT REPAIRED — RECORDED. This row is now size 0, and the
+                # only thing that would clear its leg is a CANCEL, which the
+                # 2026-09-09 approval explicitly withholds. Counting it is what
+                # keeps the residual from being invisible.
+                legs_left_resting_on_closed_rows.append({
+                    "parent_id": parent_id,
+                    "sl_order_id": parent_sl_leg,
+                    "tp_order_id": parent_tp_leg,
+                })
         else:
             # Partially consumed → shrink the row, leave it open. Status is
             # NOT passed so update_trade fires no close ping.
@@ -1872,16 +2121,54 @@ def apply_intent_reduce_partial_close(
             # genuine 33.35 on a 0.1 step survives it untouched; that is
             # `qty_legalize.snap_artifact_qty`'s job at the wire. This only
             # stops us MANUFACTURING an illegal value in the first place.
+            new_size = round(parent_qty - consumed, 8)
             db.update_trade(parent_id, {
-                "position_size": round(parent_qty - consumed, 8),
+                "position_size": new_size,
             })
         allocations.append({"parent_id": parent_id, "consumed": consumed})
+        if consumed < parent_qty - eps:
+            allocations[-1]["closed"] = False
+            allocations[-1]["new_size"] = new_size
+            pending_resizes.append(
+                (parent_id, new_size, parent_sl_leg, parent_tp_leg,
+                 allocations[-1])
+            )
+        else:
+            allocations[-1]["closed"] = True
+            allocations[-1]["new_size"] = None
         remaining -= consumed
+
+    # ------------------------------------------------------------------
+    # MI-227 / audit F-36 — the VENUE half, and it runs LAST on purpose.
+    #
+    # Every journal write above has already committed, so nothing here can
+    # leave the journal half-applied. The whole block is best-effort twice
+    # over (the helper never raises, and this wrapper catches anyway) because
+    # an exception escaping this function makes the caller fall back to the
+    # LEGACY reduce-row insert — which would double-book a reduce that has
+    # already been applied. A resize that fails leaves the leg exactly as
+    # oversized as it is today: no regression is reachable from here.
+    # ------------------------------------------------------------------
+    if pending_resizes:
+        try:
+            for parent_id, new_size, sl_leg, tp_leg, alloc in pending_resizes:
+                alloc["leg_resize"] = resize_tracked_protective_legs(
+                    exchange_client, account_cfg,
+                    symbol=symbol, new_qty=new_size,
+                    sl_order_id=sl_leg, tp_order_id=tp_leg,
+                    trade_id=parent_id,
+                )
+        except Exception as exc:  # noqa: BLE001 — never crash the order path
+            logger.warning(
+                "apply_intent_reduce_partial_close: leg-resize pass raised "
+                "(account=%s symbol=%s): %s", account_id, symbol, exc,
+            )
 
     return {
         "allocations": allocations,
         "leftover": max(remaining, 0.0),
         "no_parent_position": no_parent_position,
+        "legs_left_resting_on_closed_rows": legs_left_resting_on_closed_rows,
     }
 
 
@@ -1903,6 +2190,7 @@ def _log_trade_to_journal(
     extra_notes: Optional[dict] = None,
     sl_order_id: Optional[str] = None,
     tp_order_id: Optional[str] = None,
+    exchange_client: Any = None,
 ) -> bool:
     """Insert a row into ``trade_journal.db::trades`` for an executor event.
 
@@ -2018,6 +2306,13 @@ def _log_trade_to_journal(
                     reduce_qty=reduce_qty,
                     fill_price=float(pkg.entry) if pkg.entry is not None else None,
                     closed_at_iso=datetime.now(timezone.utc).isoformat(),
+                    # MI-227 / audit F-36 — lets the partial close resize each
+                    # SHRUNK parent's OWN tracked venue leg. Withheld on a DRY
+                    # run: a dry reduce placed no order, so amending a live leg
+                    # to match a book the venue never moved would be the one
+                    # way this change could touch a real position it must not.
+                    exchange_client=(None if is_dry else exchange_client),
+                    account_cfg=account_cfg,
                 )
                 # One audit row recording the reduce. status='closed' so
                 # insert_trade fires NO trade_opened ping (it only fires for
@@ -2028,6 +2323,13 @@ def _log_trade_to_journal(
                     audit_notes["over_reduce_leftover"] = reduce_result["leftover"]
                 if reduce_result["no_parent_position"]:
                     audit_notes["no_parent_position"] = True
+                # The known, unfixed residual (MI-227): a fully-consumed
+                # parent's leg is left resting because clearing it is a cancel.
+                # Recorded on the audit row so the count is readable off the
+                # journal instead of having to be re-derived from the venue.
+                if reduce_result.get("legs_left_resting_on_closed_rows"):
+                    audit_notes["legs_left_resting_on_closed_rows"] = \
+                        reduce_result["legs_left_resting_on_closed_rows"]
                 audit_notes["pnl_source"] = "deferred_intent_reduce"
                 now_iso = datetime.now(timezone.utc).isoformat()
                 db.insert_trade({
@@ -2428,9 +2730,10 @@ def _bybit_open_missing_sl_leg(exchange_client: Any, category: str, symbol: str)
 
 def _amend_partial_tpsl_leg(
     exchange_client: Any, category: str, symbol: str, order_id: str,
-    *, trigger_price: float,
+    *, trigger_price: Optional[float] = None, qty: Optional[str] = None,
 ) -> dict:
-    """Amend one specific Bybit Partial-tpsl leg's trigger price IN PLACE.
+    """Amend one specific Bybit Partial-tpsl leg IN PLACE — its trigger PRICE,
+    its SIZE, or both.
 
     The structural fix's core call (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP):
     once a leg's own ``orderId`` is known (see
@@ -2438,11 +2741,31 @@ def _amend_partial_tpsl_leg(
     ``/v5/order/amend`` — NOT ``set_trading_stop``, which Bybit's own V5
     docs describe as ADD-only under Partial mode. No new leg is created; the
     symbol's leg count never grows from a modify.
+
+    ``qty`` is the **wire string**, already legalized by the caller through
+    ``qty_legalize.snap_artifact_qty`` — this helper deliberately resolves no
+    venue lot rule of its own (``qty-legalization-guard``: the seam is the only
+    module permitted to, and a second copy of "what is this symbol's step" is
+    the exact bug class that guard exists to end).
+
+    ⚠️ **``trigger_price`` became OPTIONAL on 2026-09-09 (MI-227) and the
+    behaviour change is narrow but real**: it previously sent
+    ``triggerPrice=str(trigger_price)`` unconditionally, so a caller passing
+    ``None`` put the literal string ``"None"`` on the wire for the venue to
+    refuse. It now refuses locally instead, still as ``ok: False``. Passing a
+    real price is byte-unchanged.
     """
+    fields: dict = {}
+    if trigger_price is not None:
+        fields["triggerPrice"] = str(trigger_price)
+    if qty is not None:
+        fields["qty"] = str(qty)
+    if not fields:
+        return {"ok": False, "exchange_response": None,
+                "error": "nothing to amend (no trigger_price and no qty)"}
     try:
         resp = exchange_client.amend_order(
-            category=category, symbol=symbol, orderId=order_id,
-            triggerPrice=str(trigger_price),
+            category=category, symbol=symbol, orderId=order_id, **fields,
         )
         ret_code = (resp or {}).get("retCode")
         ok = ret_code in (0, "0", None)
