@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01Hw9mp8cEeZqF1KSGZHyHui",
-  "branch": "claude/backlog-drain-20260909",
-  "claimed_at": "2026-09-09T08:17:40Z",
-  "purpose": "Land PR #11510 — backlog-drain, Tier-1, docs + one JSON register. Re-asserted over main after the routine four-line merge_slot conflict the pr-landing README describes: main's board taken WHOLESALE first so every other lane's active_sessions edit is preserved, then this claim spliced back. The claim it replaces is SPENT — session_01HrmZ1RRNM4UnEUaFdrPEjj held it for claude/mgr-checklist-refresh-20260909, whose PR #11516 merged as 2142a425, and whose own text reads 'displace freely, R13 does not serialize'."
+  "branch": "claude/tlt-read-correction-20260909",
+  "claimed_at": "2026-09-09T08:27:16Z",
+  "purpose": "Land the TLT read correction — #11510 landed a false present-tense claim that a live position was unprotected; the live read shows it fully covered. Tier-1 docs + one JSON register. Displaces freely per R13's own docstring."
  },
  "active_sessions": [
   {
