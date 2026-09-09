@@ -81,25 +81,6 @@
         "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
       },
       "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
-    },
-    {
-      "pr": 11530,
-      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
-      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
-      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
-      "tier": "tier_2",
-      "state": "approved_cleared_to_land",
-      "draft": false,
-      "opened_at": "2026-09-09T10:12:05Z",
-      "blocker": null,
-      "operator_decision": {
-        "verdict": "approved",
-        "condition": null,
-        "scope": "#11530 ONLY — the prop status-request TRIGGER in src/prop/prop_status_request.py. NOT a licence to raise PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold, including prop_balance.max_age_hours()'s SIZING gate) and NOT a licence to restore the pre-2026-08-14 flat bail.",
-        "decided_on": "2026-09-09",
-        "text": "Selected \"Approve — ship it\" in a popup at 10:44Z, having been shown the load-bearing claim and explicitly offered \"I disagree with the asymmetry claim — don't land it\" and \"Approve, but keep asking while flat\". Chose neither. ⚠️ THE APPROVAL RESTS ON ONE CLAIM: prop_reconcile.reconstruct_equity is ASYMMETRIC by design (unplaceable LOSS always applied, unplaceable GAIN withheld), so a reported fill can only make the cushion CONSERVATIVE, never optimistic. If that is ever falsified this approval falls with it."
-      },
-      "note": "⚠️ A SUCCESSOR MUST NOT READ THIS AS A BLANKET OK FOR THE PROP PING PATH. It clears one trigger change. The lane MEASURED the operator's own premise and found it HALF FALSE — breakout_1's newest snapshot (id 19, 2026-08-30T19:33:29Z) is 5.5 minutes OLDER than its newest fill (id 41, 19:39:00Z), so a close PROMPTS a snapshot and never guarantees one. The operator's conclusion held for a stronger reason: 0 fills / 0 open positions / 0 unacted tickets in 230h, against a positive control of 41 lifetime fills. PAIRED FOLLOW-ON, ALSO APPROVED (MI-220): the sizing refusal that makes going-quiet-while-flat safe reaches NOBODY. Operator chose \"fix it next\" over folding it in, so it is a separate Tier-2 PR."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1930,10 +1911,33 @@
       "merge_sha": "91df4153663e8ec6da567a14158f0183552a7254",
       "observed_at": "2026-09-09T10:58:09Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11530,
+      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
+      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "tier": "tier_2",
+      "state": "approved_cleared_to_land",
+      "draft": false,
+      "opened_at": "2026-09-09T10:12:05Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "approved",
+        "condition": null,
+        "scope": "#11530 ONLY — the prop status-request TRIGGER in src/prop/prop_status_request.py. NOT a licence to raise PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold, including prop_balance.max_age_hours()'s SIZING gate) and NOT a licence to restore the pre-2026-08-14 flat bail.",
+        "decided_on": "2026-09-09",
+        "text": "Selected \"Approve — ship it\" in a popup at 10:44Z, having been shown the load-bearing claim and explicitly offered \"I disagree with the asymmetry claim — don't land it\" and \"Approve, but keep asking while flat\". Chose neither. ⚠️ THE APPROVAL RESTS ON ONE CLAIM: prop_reconcile.reconstruct_equity is ASYMMETRIC by design (unplaceable LOSS always applied, unplaceable GAIN withheld), so a reported fill can only make the cushion CONSERVATIVE, never optimistic. If that is ever falsified this approval falls with it."
+      },
+      "note": "⚠️ A SUCCESSOR MUST NOT READ THIS AS A BLANKET OK FOR THE PROP PING PATH. It clears one trigger change. The lane MEASURED the operator's own premise and found it HALF FALSE — breakout_1's newest snapshot (id 19, 2026-08-30T19:33:29Z) is 5.5 minutes OLDER than its newest fill (id 41, 19:39:00Z), so a close PROMPTS a snapshot and never guarantees one. The operator's conclusion held for a stronger reason: 0 fills / 0 open positions / 0 unacted tickets in 230h, against a positive control of 41 lifetime fills. PAIRED FOLLOW-ON, ALSO APPROVED (MI-220): the sizing refusal that makes going-quiet-while-flat safe reaches NOBODY. Operator chose \"fix it next\" over folding it in, so it is a separate Tier-2 PR.",
+      "terminal": "merged",
+      "merge_sha": "ffd13fa2521588adaa56711d3460f35701c33222",
+      "observed_at": "2026-09-09T11:30:29Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-09T10:58:09Z",
-  "last_reconciled_sha": "d535343b62c81a4c9c46eaed1932f6d0d1fd2de6",
+  "last_reconciled_at": "2026-09-09T11:30:29Z",
+  "last_reconciled_sha": "ffd13fa2521588adaa56711d3460f35701c33222",
   "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
