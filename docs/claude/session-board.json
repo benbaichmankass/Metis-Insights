@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "branch": "claude/mgr-wip-reconcile-20260909",
-  "claimed_at": "2026-09-09T07:47:15Z",
-  "purpose": "reconcile 5 stale in_flight objects and 5 IDLE session rows — the ceiling was full of dead owners"
+  "claimed_at": "2026-09-09T08:03:27Z",
+  "purpose": "reconcile the WIP ceiling + record the lane-4/lane-5 dispatches — YIELDS to lane 4, whose PR unblocks the repo-wide red"
  },
  "active_sessions": [
   {
