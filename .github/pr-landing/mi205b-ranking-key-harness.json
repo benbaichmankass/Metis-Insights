@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement tooling only. Adds three research scripts under scripts/research/, one dispatchable workflow, two test modules, and docs — plus one field on an OPEN-ITEMS row and one work object. It TOUCHES NO ORDER PATH: src/runtime/intents.py, config/strategies.yaml and every live file are unchanged on disk, and the ranking-key arm is installed by patching a module attribute for the duration of a replay and restoring it unconditionally (the technique scripts/backtest_system.py already uses for _decision_vol_regime and _REGIME_POLICY_PATH). Measuring the question is not answering it; flipping the live ranking key would be Tier-3 and is explicitly NOT proposed — the result is a NULL and the write-up says so. The one drift risk this change creates (a second portfolio engine beside backtest_system.py) is closed by an executable parity assertion: at N=1 with the full roster the new engine reproduces run_system_backtest TRADE-FOR-TRADE, and that test fails rather than going vacuous if its fixture stops producing trades."
+}

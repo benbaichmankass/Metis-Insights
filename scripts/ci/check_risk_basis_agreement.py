@@ -86,6 +86,10 @@ FILE_UNITS: Dict[str, str] = {
     "scripts/backtest_system.py": UNIT_PERCENT,
     "scripts/research/build_backtest_panel.py": UNIT_PERCENT,
     "scripts/research/allocator_multisymbol_backtest.py": UNIT_PERCENT,
+    # VERIFIED against the code, not inferred from the flag name: `_risk_qty`
+    # computes `bal * (rpct / 100.0)`, the same expression backtest_system uses
+    # (it mirrors it deliberately so an N=1 run is comparable trade-for-trade).
+    "scripts/research/nbook_portfolio.py": UNIT_PERCENT,
     "scripts/walkforward_flip_policy.py": UNIT_PERCENT,
     "scripts/prop/evaluate_prop.py": UNIT_PERCENT,
     "scripts/ml/record_harness_trades.py": UNIT_PERCENT,
@@ -106,6 +110,9 @@ KNOWN_DIVERGENCES: Dict[str, Tuple[float, str]] = {
     "scripts/backtest_system.py": (0.2, "0.3% vs live 1.5% — the fleet default"),
     "scripts/research/build_backtest_panel.py": (0.2, "0.3%; passes through to backtest_system"),
     "scripts/research/allocator_multisymbol_backtest.py": (0.2, "0.3%"),
+    "scripts/research/nbook_portfolio.py": (0.2, "0.3% vs live 1.5% — inherits "
+                                            "backtest_system's fleet default deliberately, so "
+                                            "the N=1 parity assertion compares like with like"),
     "scripts/walkforward_flip_policy.py": (0.2, "0.3%"),
     "scripts/prop/evaluate_prop.py": (0.2, "0.3%; prop rulesets size separately"),
     "scripts/ml/record_harness_trades.py": (0.6667, "1.0%"),

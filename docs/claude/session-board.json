@@ -5,12 +5,23 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "automation/work-digest-34297202160-1",
-  "claimed_at": "2026-09-09T01:04:00Z",
-  "purpose": "MERGE-QUEUE UNBLOCK. work-digest.yml arms the landing route but never writes a merge_slot claim, so its receipt PR fails R13 and can NEVER merge; the receipt then never lands, digest-liveness goes stale after 6h, and EVERY PR in the repo goes red. Five such PRs are open. The manager writes the claim this one workflow cannot write for itself. The durable fix is a .github/workflows change and is routed to a session, not authored here (R2)."
+  "held_by": "session_01ML8uLRrKLMmzR9fFywTWv5",
+  "branch": "claude/mi205b-ranking-key-harness",
+  "pr": 11473,
+  "claimed_at": "2026-09-09T01:27:00Z",
+  "note": "MI-205b - the N-book ranking-key harness (WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS), PR #11473. Tier-1 measurement build; no order path, no live config; the result is a NULL and nothing live is proposed. || THIRD AND FINAL SLOT RESOLUTION, AND THIS ONE IS A THANK-YOU, NOT A COMPLAINT. The claim overwritten here is automation/work-digest-34297202160-1 (session_01HrmZ1RRNM4UnEUaFdrPEjj, 01:04:00Z), written to UNBLOCK the merge queue after I flagged the deadlock on board #11336 - and IT WORKED: #11477 merged, the digest receipt landed, and digest-liveness on main now grades `fresh` (last_digest_age=0.44h, measured in a clean origin/main worktree at 01:26Z) after 6.17h stale. That manager note also CONFIRMS the cause I could only partly establish: work-digest.yml arms the landing route and never writes a merge_slot claim, so its receipt PR fails R13 and can never merge. Checked before overwriting, as with the previous two: that branch has NO OPEN PR (list_pull_requests state=open head=automation/work-digest-34297202160-1 -> [], 01:27Z), so its work has landed and the claim is a spent leftover."
  },
  "active_sessions": [
+  {
+   "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
+   "branch": "claude/mi205b-ranking-key-harness",
+   "repo": "Metis-Insights",
+   "started_at": "2026-09-08T22:20:00+00:00",
+   "ended_at": null,
+   "status": "active",
+   "scope": "MI-205b - the RE-DISPATCH of MI-205 (which was seeded against the wrong repository and was interrupted). Builds the N-book ranking-key A/B harness and runs the four declared arms. Touches scripts/research/, .github/workflows/, tests/research/, docs/research/, docs/claude/work/objects/, and ONE field on ONE OPEN-ITEMS row.",
+   "note": "MI-205's board START (comment 5592584424) is SUPERSEDED and released. MEASURED against `git diff --stat origin/main...4b6840eb`: its branch carried TWO files / 32 insertions, both board-post relay artifacts, so no harness work existed to recover and nothing is duplicated."
+  },
   {
    "session": "session_018aKyS3",
    "branch": "claude/metis-lane-0-decisions-7jgnjz",
