@@ -7,7 +7,7 @@
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "branch": "claude/mgr-oprs-11390-disposition-20260909",
-  "claimed_at": "2026-09-09T07:21:54Z",
+  "claimed_at": "2026-09-09T07:31:57Z",
   "purpose": "record #11390's disposition — one missing field blocks every reconcile-open-prs PR"
  },
  "active_sessions": [
