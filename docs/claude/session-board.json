@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "branch": "claude/mgr-dispatch-lane2-refill-20260909",
-  "claimed_at": "2026-09-09T07:34:57Z",
-  "purpose": "land the lane-2 refill dispatch record — a branch, not a stash"
+  "claimed_at": "2026-09-09T07:40:10Z",
+  "purpose": "land the lane-2 refill dispatch record"
  },
  "active_sessions": [
   {
