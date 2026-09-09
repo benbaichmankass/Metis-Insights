@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "branch": "claude/mgr-dispatch-lane1-0713-20260909",
-  "claimed_at": "2026-09-09T07:13:50Z",
-  "purpose": "Land the lane-1 dispatch record (backlog drain). Four worker lanes now live; R13 serialises this slot."
+  "claimed_at": "2026-09-09T07:18:00Z",
+  "purpose": "manager dispatch record for lane 1 (ops/backlog drain) — PR #11505"
  },
  "active_sessions": [
   {
