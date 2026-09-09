@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T10:10:00Z",
+  "updated_at": "2026-09-09T10:33:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2782,6 +2782,50 @@
       "tier": "tier_2",
       "added": "2026-09-09",
       "note": "OPERATOR-RAISED 2026-09-09, verbatim: \"This ping in the prop channel is unessacry, the account snapshot is updated when a trade closes, if there are no prop trades than the account state didn't change.\" The ping quoted was breakout_1, no open positions, snapshot 228h (9.5d) old. ⚠️ DO NOT SIMPLY REVERT TO THE PRE-2026-08-14 BEHAVIOUR — THAT IS A TIER-2 OPERATOR-APPROVED DECISION AND IT WAS MADE FOR A STATED REASON. src/prop/prop_status_request.py used to bail on `if not positions: return []`; it was changed BECAUSE the static DD floor (breakout.yaml drawdown_type: static, $4,700 on $5,000) is an ACCOUNT-level line that binds while FLAT, and flat is exactly when the next ticket gets sized against a cushion nobody has measured. Re-adding the flat bail re-opens that hole. The operator is not asking for that; they are saying the TRIGGER is wrong. WHAT IS ACTUALLY WRONG: the trigger is WALL-CLOCK AGE of the last snapshot and nothing else, so a genuinely quiet account is indistinguishable from one that moved and was never reported. The operator's refinement — key on whether anything has HAPPENED since the last snapshot — preserves the 08-14 purpose while removing the noise, provided the ask still fires (a) on any fill since the last snapshot and (b) before a new ticket is sized. ⚠️ VERIFY THE PREMISE BEFORE BUILDING ON IT — DO NOT INHERIT IT. \"The snapshot is updated when a trade closes\" is a claim, not an established fact: the snapshot lands only when the OPERATOR reports numbers back. A close produces a FILL report; telegram_report_handler.account_status_nudge only APPENDS a balance nudge to the fill ack, and a screenshot may or may not yield an account_status alongside the fill. So a close PROMPTS a snapshot and does not guarantee one. Measure it: over the 228h window, count prop_fills rows against prop_account_status rows for breakout_1 and report BOTH numbers. If fills happened and no snapshot followed, the operator's premise is false in the dangerous direction and the ping was doing its job — say so plainly. ⚠️ AND NOTE FOUR CONSUMERS SHARE THIS THRESHOLD, so changing PROP_STATUS_REQUEST_MAX_AGE_HOURS is NOT a local edit: the ask, the folded balance nudge, prop_balance.max_age_hours() (the SIZING freshness gate) and the status_freshness verdict on /api/bot/prop/status. One definition of \"too old to trust\" is deliberate — sizing must never run off a balance the safety panel has written off. Change the TRIGGER, not the threshold. Tier-2 (src/ + prop bridge). Manager does not take this — ROUTE IT."
+    },
+    {
+      "id": "MI-216-BUILD-THE-PER-LEG-OFFLINE-EDGE-RECORD",
+      "title": "Build the per-leg offline edge producer the review gate can read (operator-approved Tier-3)",
+      "state": "ready",
+      "owner": null,
+      "owns_object": "WO-20260901-PHASE-F",
+      "priority": "high",
+      "tier": "tier_3",
+      "added": "2026-09-09",
+      "note": "OPERATOR DECISION 2026-09-09, taken as a popup (AskUserQuestion), recorded verbatim as the option text they selected. ⚠️ A TIER-3 APPROVAL THAT LIVES ONLY IN CHAT IS LOST — this row IS the record. CHOSEN: \"Build it\". The producer writes comms/strategy_evidence/<leg>.json carrying net_r_oos, n_trades_oos, folds, basis (purged_walkforward | live_faithful_replay), generated_at, source_run, and a config_fingerprint. THE FINGERPRINT IS LOAD-BEARING, not decoration: an edge record is evidence about the leg AS CONFIGURED, so if the config block moved the record is STALE and the honest verdict is `no_offline_evidence` — never a silently-wrong pass. The gate's EDGE verdict then reads net_r_oos and NO live count appears in any branch that assigns a verdict; live rows drop to proving MECHANICS only (1-2 executed trades, per canon). ⚠️ SEQUENCING IS PART OF THE DECISION: the PRODUCER COMES FIRST. Re-pointing decide() before any record exists replaces a gate that holds everything with a gate that reads null everywhere — the same 52/52 outcome, harder to see. ⚠️ THIS IS THE WIRING GAP, NOT MISSING INFRASTRUCTURE. The 13 scripts/backtest_*.py per-leg harnesses exist (verified by the manager 2026-09-09); what is absent is anything writing a per-leg result the gate can read. Do not re-derive that as 'we have no backtest infra' — that is false and the operator will correct it. Spec: docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md §4. Tier-3 APPROVED IN PRINCIPLE; the concrete diff still returns to the operator before it ships. Manager does not take this — ROUTE IT."
+    },
+    {
+      "id": "MI-217-PACKET-EMITS-NO-OFFLINE-EVIDENCE-INSTEAD-OF-HOLD",
+      "title": "Until an edge record exists the M7 packet emits `no_offline_evidence`, not `hold` (operator-approved)",
+      "state": "ready",
+      "owner": null,
+      "owns_object": "WO-20260901-PHASE-F",
+      "priority": "high",
+      "tier": "tier_3",
+      "added": "2026-09-09",
+      "note": "OPERATOR DECISION 2026-09-09, taken as a popup (AskUserQuestion), recorded verbatim as the option text they selected. ⚠️ A TIER-3 APPROVAL THAT LIVES ONLY IN CHAT IS LOST — this row IS the record. CHOSEN: \"`no_offline_evidence`\". A FOURTH state, distinct from pass, fail, and could-not-read. It says 'this leg is running with no offline proof', which per docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence' means THE GAP IS THE MISSING BACKTEST, NOT MORE SOAK TIME. ⚠️ THE POINT IS WHAT SILENCE MEANS, and that is the substance of the repair rather than a presentational detail: today's 52/52 `hold` reads as 'the fleet is fine' when it means 'we could not look' — the collapsed state this repo has a whole guard family for. ⚠️ IT WILL MAKE ~52 LEGS READ AS UNPROVEN ON DAY ONE AND THAT IS THE HONEST READING, NOT A REGRESSION. Do not soften it, do not stage it behind a flag that defaults to `hold`, and do not treat the count as an alarm to suppress. ⚠️ AND IT IS NOT A COMPLAINT THAT LEGS TRADE SLOWLY: it is a statement about the EVIDENCE. Slow live accrual is a FEATURE of this system per the operator, 2026-09-09. Pairs with MI-216 and should land with or after it. Tier-3: propose the diff, do not enact. ROUTE IT."
+    },
+    {
+      "id": "MI-218-COUNT-EVERY-SURFACE-THAT-REQUIRES-CALENDAR-TIME-TO-PROVE-EDGE",
+      "title": "Full sweep with a positive control: how many surfaces require calendar time before an edge verdict (operator-approved)",
+      "state": "ready",
+      "owner": null,
+      "owns_object": null,
+      "priority": "high",
+      "tier": "tier_1",
+      "added": "2026-09-09",
+      "note": "OPERATOR DECISION 2026-09-09, taken as a popup (AskUserQuestion), recorded verbatim as the option text they selected. ⚠️ A TIER-3 APPROVAL THAT LIVES ONLY IN CHAT IS LOST — this row IS the record. CHOSEN: \"Full sweep, with a positive control\". Sweep the named candidates — promotion/demotion gates, the soak language across docs/claude/OPEN-ITEMS.json `clears_when` texts, the review-skill rubrics, and EVERY `MIN_*` / `*_MIN_N` constant applied to a LIVE window — and report a COUNT with the classifier STATED and the population DEFINED. ⚠️ THE POSITIVE CONTROL IS NOT OPTIONAL AND IS THE FIRST DELIVERABLE: demonstrate the probe finds the KNOWN M7 strategy-review instance before trusting anything it says. A probe that misses M7 is broken, and a silent probe is indistinguishable from a clean result — which is the exact failure `check_soak_doctrine.py` just exhibited for eight days. ⚠️ ZERO IS AN ACCEPTABLE ANSWER ONLY WITH THAT CONTROL SHOWN. A list with no denominator does NOT satisfy this — 'we found some' is the state it is already in. ⚠️ THIS IS A MEASUREMENT, NOT A LICENCE TO CHANGE GATES. Report the count and the list; each fix is its own scoped decision, and anything touching what a promotion or KILL rests on is Tier-3. Carries BL-20260909-WHERE-ELSE-DOES-THE-OPERATING-LAYER-ASSUME-LIVE-ACCRUAL-PROVES-EDGE-NOBODY-HAS-COUNTED. Manager does not take this — ROUTE IT."
+    },
+    {
+      "id": "MI-219-DECISIONS-GO-TO-THE-OPERATOR-AS-POPUPS",
+      "title": "Standing operator preference: put decisions to the operator as popups, not buried in prose",
+      "state": "ready",
+      "owner": null,
+      "owns_object": null,
+      "priority": "medium",
+      "tier": "tier_1",
+      "added": "2026-09-09",
+      "note": "OPERATOR DIRECTIVE 2026-09-09, verbatim: \"give me decisions as popups\". It was given after three decisions had been described in prose status updates across ~40 minutes and none had been ASKED — the Tier-3 producer question, MI-214's Tier-2 OK, and the audit scope. A decision narrated in a paragraph is not a decision put to anyone; the operator has to notice it, extract it, and reply in free text. WHAT THIS MEANS IN PRACTICE: when work is blocked on an operator call, use AskUserQuestion with concrete options and a stated recommendation, rather than describing the choice in a report and waiting. Batch several into one popup where they are ready. ⚠️ THIS DOES NOT MEAN ASK MORE OFTEN — asking the operator NEVER means waiting for the answer, and a manager that blocks becomes an extra decision gate in front of the operator, which IS the measured constraint. It means: when a decision genuinely is theirs, put it in the form they can act on in one click instead of in a paragraph. ⚠️ AND DO NOT PUT UP A QUESTION THAT IS NOT READY. On 2026-09-09 a four-option popup was built on a premise that was false and the operator had to reject the whole question; and MI-214's Tier-2 OK was deliberately NOT asked in this round because its lane had not yet measured the premise it rests on. A popup asking something ill-formed is worse than a paragraph. THE DURABLE HOME IS CANONICAL PROSE (docs/CLAUDE-RULES-CANONICAL.md session-discipline section), which R2 makes a worker path — the manager cannot author it. ROUTE the canonical edit; this row is the interim record."
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
