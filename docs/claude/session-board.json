@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-lease-20260909T1630",
-  "claimed_at": "2026-09-09T16:27:14Z",
-  "purpose": "Manager: 16:26Z lease heartbeat + supervision record (MI-225 unrecoverable by poke)"
+  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
+  "branch": "claude/mi-221-soak-readback-cap",
+  "claimed_at": "2026-09-09T16:43:25Z",
+  "purpose": "MI-221: coverage-soak read-back cap finding. Tier-1, one backlog row. Re-claimed after merge-slot churn."
  },
  "active_sessions": [
   {
