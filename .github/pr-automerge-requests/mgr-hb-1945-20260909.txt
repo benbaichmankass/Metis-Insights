@@ -1,0 +1,1 @@
+Manager lease heartbeat + supervision record. Tier-1, register writes only. PR #11589.
