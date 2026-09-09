@@ -146,6 +146,7 @@ SUPERSEDED_BY_OPEN_PR = "superseded_by_open_pr"
 CARRIES_APPEND_ONLY = "carries_append_only"
 UNDATED_PAYLOAD = "undated_payload"
 NO_PAYLOAD = "no_payload"
+ABSENT_ON_MAIN = "absent_on_main"
 
 #: The ONLY state this file acts on. Everything else is reported and left alone.
 ACTIONABLE = (REFRESH,)
@@ -202,6 +203,42 @@ def extra_rows(ref: str, path: str, main: str,
     return len(theirs - ours)
 
 
+def looks_appended(main_blob: Optional[str], head_blob: Optional[str]) -> bool:
+    """Is `main`'s content a strict PREFIX of this branch's — i.e. an APPEND?
+
+    ⚠️ WHY THIS EXISTS BESIDE `APPEND_ONLY`, WHICH IS A HARDCODED PATH LIST.
+    MEASURED 2026-09-09 by hand-triaging #11475, a PR the list does not cover:
+    `comms/macro/econ_calendar_snapshots.jsonl` on that branch is `main` plus
+    **427 rows main does not have**, and the branch also carries a
+    point-in-time capture (`econ_calendar_captures/US-...fxstreet.json`) that is
+    ABSENT FROM MAIN ENTIRELY. A PIT capture is forward-only; nothing
+    re-derives it. So the queue holds a SECOND append-only payload class and
+    the list knew about one.
+
+    It graded `undated_payload` and was therefore never actionable — but only
+    BY ACCIDENT, because JSONL does not parse as a JSON object so `dated_at`
+    returned None. Had that generator stamped `generated_at` the file would
+    have been graded on its REGISTER and become closable, dropping 427 rows.
+    ⚠️ AND STAMPING `generated_at` IS EXACTLY THE REMEDY THIS SESSION FILED for
+    the 13 undated PRs — so the filed fix would have ARMED this bug. That is
+    why the detection is now a PROPERTY of the content and not a list somebody
+    has to remember to extend.
+
+    ⚠️ IT ONLY EVER MOVES A PR TOWARD "a human must look", never toward
+    actionable — `carries_append_only` is not in `ACTIONABLE`. A regenerated
+    register that merely happens to grow by appending is therefore graded
+    conservatively, which is the accepted cost and the safe direction.
+
+    ⚠️ IT DOES NOT REPLACE `APPEND_ONLY`. A branch that REWRITES a known
+    append-only file breaks the prefix relation, and that is precisely the
+    dangerous case — so a path in the set stays append-only whatever its
+    content does.
+    """
+    if not main_blob or not head_blob:
+        return False
+    return len(head_blob) > len(main_blob) and head_blob.startswith(main_blob)
+
+
 def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
              cwd: Optional[Path] = None) -> Dict[str, Any]:
     """Grade ONE pr dict ({'number', 'ref'}) against `main`.
@@ -215,13 +252,25 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
         head = pr["ref"]
     files = payload_files(main, head, cwd=cwd)
     buckets: Dict[str, List[str]] = {
-        "same": [], "older": [], "newer": [], "undated": [], "append_only": []}
+        "same": [], "older": [], "newer": [], "undated": [], "append_only": [],
+        "absent": []}
     for path in files:
         _, changed = git("diff", "--name-only", main, head, "--", path, cwd=cwd)
         if not changed.strip():
             buckets["same"].append(path)
             continue
-        if path in APPEND_ONLY:
+        main_blob = _blob(main, path, cwd=cwd)
+        head_blob = _blob(head, path, cwd=cwd)
+        # ⚠️ ABSENT is asked BEFORE the date comparison, because `dated_at` on a
+        # file that does not exist returns None for the same reason it returns
+        # None on an undated one — and those are DIFFERENT FACTS. Reporting
+        # "no comparable timestamp" for a file `main` has never had names a
+        # cause no code path tested, which is the UNPROVENANCED DIAGNOSTIC
+        # OUTPUT class this repo has a guard for. Branch on the real stage.
+        if main_blob is None:
+            buckets["absent"].append(path)
+            continue
+        if path in APPEND_ONLY or looks_appended(main_blob, head_blob):
             n = extra_rows(head, path, main, cwd=cwd)
             buckets["append_only"].append(f"{path} (+{n} row(s) not on main)")
             continue
@@ -237,6 +286,12 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
     # correction described in this module's docstring.
     if buckets["append_only"]:
         state, why = CARRIES_APPEND_ONLY, "; ".join(buckets["append_only"])
+    elif buckets["absent"]:
+        state, why = ABSENT_ON_MAIN, (
+            f"{len(buckets['absent'])} payload file(s) do NOT EXIST on main, so "
+            f"this PR is their only copy — a point-in-time capture is "
+            f"forward-only and nothing re-derives it: "
+            + ", ".join(buckets["absent"][:3]))
     elif buckets["undated"]:
         state, why = UNDATED_PAYLOAD, (
             f"{len(buckets['undated'])} payload file(s) differ from main with no "
@@ -454,8 +509,8 @@ def run(main: str, apply: bool, held_by: str,
     print("\nTRIAGE")
     print("=" * 72)
     for state in (REFRESH, SUPERSEDED_IDENTICAL, SUPERSEDED_OLDER,
-                  SUPERSEDED_BY_OPEN_PR, CARRIES_APPEND_ONLY, UNDATED_PAYLOAD,
-                  NO_PAYLOAD):
+                  SUPERSEDED_BY_OPEN_PR, CARRIES_APPEND_ONLY, ABSENT_ON_MAIN,
+                  UNDATED_PAYLOAD, NO_PAYLOAD):
         if counts.get(state):
             print(f"  {state:24} {counts[state]}")
     print("=" * 72)
@@ -470,7 +525,8 @@ def run(main: str, apply: bool, held_by: str,
             print(f"  #{e['pr']} {e['state']:24} {e['why'][:150]}")
 
     needs_human = [e for e in entries
-                   if e["state"] in (CARRIES_APPEND_ONLY, UNDATED_PAYLOAD)]
+                   if e["state"] in (CARRIES_APPEND_ONLY, ABSENT_ON_MAIN,
+                                     UNDATED_PAYLOAD)]
     if needs_human:
         print(f"\n⚠️ {len(needs_human)} PR(s) NEED A HUMAN READ and were not "
               f"touched. This sweeper never closes a PR: a `closed_unmerged` row "

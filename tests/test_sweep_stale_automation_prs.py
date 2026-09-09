@@ -157,7 +157,7 @@ def test_refresh_is_the_only_actionable_state() -> None:
     assert sweep.ACTIONABLE == (sweep.REFRESH,)
     for state in (sweep.SUPERSEDED_OLDER, sweep.SUPERSEDED_IDENTICAL,
                   sweep.SUPERSEDED_BY_OPEN_PR, sweep.CARRIES_APPEND_ONLY,
-                  sweep.UNDATED_PAYLOAD, sweep.NO_PAYLOAD):
+                  sweep.ABSENT_ON_MAIN, sweep.UNDATED_PAYLOAD, sweep.NO_PAYLOAD):
         assert state not in sweep.ACTIONABLE
 
 
@@ -191,6 +191,94 @@ def test_the_workflow_pushes_with_the_pat_not_github_token() -> None:
         "against the wrong tree — a CONFIDENT wrong answer, not an error")
     assert "on:\n  schedule:" in wf and "\n  push:" not in wf, (
         "a push trigger would retrigger this workflow on its own refresh pushes")
+
+
+# ---------------------------------------------------------------------------
+# THE SECOND APPEND-ONLY CLASS, planted. Found on 2026-09-09 by HAND-TRIAGING
+# #11475 -- a PR the `APPEND_ONLY` path list does not cover. Its
+# `comms/macro/econ_calendar_snapshots.jsonl` is `main` plus 427 rows main does
+# not have, and it also carries a point-in-time capture absent from main
+# entirely. It graded `undated_payload` and so was never actionable -- but only
+# BY ACCIDENT, because JSONL does not parse as a JSON object. Stamping
+# `generated_at` on that generator is EXACTLY the remedy this session filed for
+# the 13 undated PRs, and it would have ARMED the bug.
+# ---------------------------------------------------------------------------
+def test_an_appended_payload_outside_the_list_is_still_append_only(
+        repo: Path) -> None:
+    """The list is a memory aid; the PREFIX RELATION is the actual property."""
+    _branch(repo, "automation/appended", {
+        "feed.jsonl": '{"t":"a"}\n',
+    })
+    # main gains the file first, then the branch appends to it
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True)
+    (repo / "feed.jsonl").write_text('{"t":"a"}\n')
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True,
+                   capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "feed"],
+                   check=True, capture_output=True)
+    _branch(repo, "automation/appended2", {"feed.jsonl": '{"t":"a"}\n{"t":"b"}\n'})
+    entry = _classify(repo, 1, "automation/appended2")
+    assert entry["state"] == sweep.CARRIES_APPEND_ONLY
+    assert entry["state"] not in sweep.ACTIONABLE
+    assert "feed.jsonl" not in sweep.APPEND_ONLY, (
+        "this test is worthless if the path was simply added to the list — the "
+        "point is that the PROPERTY is detected, not the name"
+    )
+
+
+def test_the_append_test_is_asked_BEFORE_the_register_comparison() -> None:
+    """⚠️ THE DANGEROUS DIRECTION, asserted on the SOURCE and not on behaviour,
+    because I could not construct the behavioural case and say so rather than
+    fake it.
+
+    A file that is BOTH dated and a strict byte-prefix append is close to
+    unconstructible for a JSON object: two valid JSON dicts are not prefixes of
+    one another, `_blob` strips, and a JSONL append does not parse as a dict so
+    `dated_at` already returns None. So there is no fixture that proves the
+    precedence at runtime today.
+
+    What CAN be asserted is the precedence itself: in `classify`, the append
+    test is reached before `dated_at` is consulted. If a future generator ever
+    produces a dated append — and stamping `generated_at` on these generators is
+    EXACTLY the remedy this session filed for the 13 undated PRs — the append
+    must win, or the stamp arms the row-dropping bug.
+    """
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def classify(")[1].split("\nclass ")[0]
+    assert body.index("looks_appended(") < body.index("dated_at(head"), (
+        "the append test must be asked BEFORE the register comparison, or a "
+        "dated append is closable on its timestamp"
+    )
+
+
+def test_a_payload_absent_from_main_is_its_own_state(repo: Path) -> None:
+    """`main has never had this file` and `neither side carries a date` both
+    make `dated_at` return None, and they are DIFFERENT FACTS."""
+    _branch(repo, "automation/pit",
+            {"captures/US-20260909T002929Z.json": '{"generated_at": "2026-09-09T00:29:29Z"}'})
+    entry = _classify(repo, 1, "automation/pit")
+    assert entry["state"] == sweep.ABSENT_ON_MAIN
+    assert entry["state"] != sweep.UNDATED_PAYLOAD, (
+        "it carries a perfectly good timestamp — reporting 'no comparable "
+        "timestamp' would name a cause no code path tested"
+    )
+    assert entry["state"] not in sweep.ACTIONABLE
+    assert "do NOT EXIST on main" in entry["why"]
+
+
+def test_classify_consults_the_structural_append_detector() -> None:
+    """A later edit that drops back to the bare path list must fail here."""
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def classify(")[1].split("\nclass ")[0]
+    assert "looks_appended(" in body, (
+        "classify() must test the PREFIX RELATION, not only `path in "
+        "APPEND_ONLY` — the list covered one of the two append-only payload "
+        "classes actually present in the live queue"
+    )
+    assert "main_blob is None" in body, (
+        "classify() must ask whether main HAS the file before asking how it is "
+        "dated"
+    )
 
 
 # ---------------------------------------------------------------------------

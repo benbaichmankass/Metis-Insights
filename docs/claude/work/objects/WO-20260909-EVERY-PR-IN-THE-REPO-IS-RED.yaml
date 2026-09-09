@@ -154,8 +154,7 @@ done_condition_met: >-
   port proves a human-equivalent actor was watching; this proves the mechanism
   works without one.
   ⚠️ THE SWEEPER IS NOW OBSERVED, NOT MERELY DEPLOYED -- for sub-case (i) ONLY.
-  Sub-case (ii) (a DATA conflict between two generator runs) is still
-  unobserved and still unfixable by this file, by design.
+  Sub-case (ii) (a DATA conflict between two generator runs) is now OBSERVED -- ⚠️ THIS SENTENCE PREVIOUSLY READ "still unobserved" AND IS CORRECTED, see `sub_case_ii_is_now_OBSERVED_correcting_this_object` -- and remains unfixable by this file, by design.
   ⚠️ AND ITS FIRST LIVE RUN REPORTED A SUCCESS IT DID NOT ACHIEVE. `refresh()`
   used `git commit --no-edit`, which no-ops on the no-conflict path because
   `git merge` has already committed; the exit code was discarded; the push
@@ -250,6 +249,84 @@ sweeper_first_verified_unstrand: >-
   `2026-09-08T16:50:32Z` against `check_pr_queue_watch.py`'s 30h window, so main
   would have gone red repo-wide on a SECOND receipt guard at about
   2026-09-09T22:50Z. #11490 is the receipt that prevents it.
+
+gap_found_in_my_own_class_fix_and_closed: >-
+  ⚠️ THE HAND-TRIAGE FOUND A LATENT DEFECT IN THE SWEEPER ITSELF, AND THE
+  DEFECT WOULD HAVE BEEN ARMED BY THIS SESSION'S OWN FILED REMEDY. Recording it
+  because a fix nobody stress-tested against the live queue is exactly what this
+  WO is about.
+
+  `APPEND_ONLY` was a HARDCODED PATH LIST holding one entry,
+  `docs/claude/pending-pings.jsonl`. Hand-triaging #11475 (econ-calendar PIT
+  snapshots) showed the live queue holds a SECOND append-only payload class the
+  list did not know about: `comms/macro/econ_calendar_snapshots.jsonl` on that
+  branch is `main` PLUS 427 rows main does not have (verified as a strict
+  line-prefix relation, 17540 -> 17967), and the branch also carries
+  `comms/macro/econ_calendar_captures/US-20260909T002929Z.fxstreet.json`, which
+  is ABSENT FROM MAIN ENTIRELY -- a point-in-time capture is forward-only and
+  nothing re-derives it.
+
+  ⚠️ IT GRADED `undated_payload`, SO NOTHING WAS DROPPED -- BUT ONLY BY
+  ACCIDENT, and the accident is the finding. JSONL does not parse as a JSON
+  object, so `dated_at` returned None and the file fell into the "we could not
+  tell" bucket. Had that generator stamped `generated_at`, the file would have
+  been graded on its REGISTER and become closable. AND STAMPING `generated_at`
+  ON THESE GENERATORS IS EXACTLY THE REMEDY THIS SESSION FILED for the 13
+  undated PRs -- so the filed fix would have ARMED the row-dropping bug the
+  sweeper exists to prevent.
+
+  FIXED, not filed. (1) The append check is now a PROPERTY of the content --
+  `looks_appended()` asks whether main's bytes are a strict prefix of the
+  branch's -- consulted BEFORE the register comparison, and it can only ever
+  move a PR toward `carries_append_only`, which is not in ACTIONABLE. The named
+  `APPEND_ONLY` set is KEPT beside it, because a branch that REWRITES a known
+  append-only file breaks the prefix relation and that is the dangerous case a
+  content test cannot see. (2) A payload file absent from main gets its own
+  state, `absent_on_main`: `dated_at` returns None for TWO different reasons and
+  reporting "no comparable timestamp" for a file main has never had names a
+  cause no code path tested -- UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A,
+  whose remedy in this repo is to branch on the real stage rather than reword
+  the label.
+
+  Both protections are MUTATION-CHECKED: dropping `looks_appended` from
+  `classify` fails 3 tests, dropping the absent check fails 2. ⚠️ One test is
+  deliberately a SOURCE-LEVEL assertion and says so -- a file that is both dated
+  and a byte-prefix append is close to unconstructible for a JSON object, so the
+  precedence is asserted on the code rather than faked with a fixture.
+
+  EFFECT ON THE LIVE QUEUE, re-triaged 2026-09-09T13:30Z (population: 53 of the
+  54 open PRs, 48 with automation/* head refs; #11553 opened after the
+  observation and is not in it): `superseded_older` 25 · `carries_append_only`
+  10 · `absent_on_main` 2 (#11361, #11525 -- each a
+  comms/strategy_reviews/<date>/INDEX.json main lacks) · `undated_payload` 11 ·
+  `refresh` 0. #11475 moved undated -> carries_append_only carrying "+427
+  row(s) not on main". `refresh` is 0 because #11490 merged; nothing is
+  actionable and that is the correct reading, not an idle sweeper.
+
+sub_case_ii_is_now_OBSERVED_correcting_this_object: >-
+  ⚠️ THIS OBJECT SAID SUB-CASE (ii) "REMAINS UNOBSERVED". THAT IS NO LONGER
+  TRUE -- do not re-quote it. Observed live on #11386 (m28 valuation snapshots)
+  at 2026-09-09T13:32Z.
+
+  `comms/macro/valuation_snapshots.jsonl` holds 432 rows on BOTH sides. Nine
+  rows are unique to the branch and nine are unique to `main` -- neither is a
+  superset, so this is not an append and no merge rule settles it. `git merge
+  origin/main` on that branch exits 1 with `comms/macro/valuation_snapshots.jsonl`
+  as the ONLY conflicted path.
+
+  The divergence is two generator runs measuring the same slot at different
+  times: same symbol, same metric, e.g. GLD `real_yield_10y` reads 2.42 on the
+  branch and 2.43 on main, with the derived `cheap_score` and `z_score` moving
+  with it. NEITHER IS WRONG. There is no rule that picks one, which is precisely
+  why the sweeper refuses -- it grades the PR `undated_payload`, never
+  actionable, and leaves it for a human.
+
+  So the fourth mechanism now has BOTH sub-cases observed: (i) a slot-file-only
+  conflict, which the sweeper resolves and did twice (#11543, #11490, the second
+  from a genuinely conflicted start); and (ii) a DATA conflict between generator
+  runs, which it correctly refuses. (ii) is a STATED LIMIT of this fix and not a
+  defect in it -- but it is no longer hypothetical, and a successor should read
+  it as a live class rather than a caveat.
 
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
