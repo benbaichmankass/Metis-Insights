@@ -1482,6 +1482,30 @@
    "WO-20260908-REAL-MONEY-IS-0-FOR-13-AND",
    "docs/research/real-money-close-attribution-2026-09-08.md"
   ]
+ },
+ {
+  "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
+  "kind": "monitoring",
+  "loud": true,
+  "opened": "2026-09-09",
+  "opened_at": "2026-09-09",
+  "verified_at": null,
+  "check_every_days": 2,
+  "probe_absent_reason": "A PROBE CANNOT CLEAR THIS ROW TODAY, and that is the finding rather than a gap in tooling. The evidence is an ABSENCE — the ask not firing — and until #11546 lands, absence has THREE indistinguishable causes: the module ran and correctly stayed quiet, the module crashed on import, or the 12h cooldown simply had not elapsed. MEASURED 2026-09-09T11:3xZ, minutes after the deploy: /api/diag/journalctl?unit=ict-trader-live&lines=400 carried ZERO `prop_status_request` mentions while the tick was demonstrably alive (24 heartbeat mentions), because #11530 shipped the QUIESCENT verdict at DEBUG. #11546 records the verdict durably in the cadence file, which is what makes a probe possible AT ALL. Until it lands a session must read the stamp and reason about the cooldown by hand.",
+  "title": "MI-214's activity trigger is deployed on the fleet and its SUPPRESSION has never been observed",
+  "summary": "PR #11530 merged 2026-09-09 as ffd13fa2 (squash), Tier-2, operator-approved UNCONDITIONAL, and is DEPLOYED — /api/diag/version read 2026-09-09T11:35:33Z shows git_sha == git_sha_on_disk == b0dd0d67 with restart_pending false, and b0dd0d67 carries ffd13fa2 (verified with merge-base --is-ancestor, not by eye). It changes WHEN the prop account-status ping fires: from the wall-clock age of the last snapshot to whether anything has HAPPENED since it. MERGED, DEPLOYED and OBSERVED are three different facts and only the first two hold. [!] THE OPERATOR RAISED THIS BECAUSE THEY WERE BEING PINGED ABOUT NOTHING, so if the suppression does not work they will keep being pinged and may reasonably stop reading the channel — the desensitized-alarm P1 the change exists to end.",
+  "observation": "2026-09-09: DEPLOYED, NOT OBSERVED, AND THE OBSERVATION WAS NOT YET AVAILABLE WHEN THIS ROW WAS OPENED — stated plainly rather than left as an implied pass. The cadence file read {\"breakout_1\": \"2026-09-09T07:47:07.098843+00:00\"} at 11:35Z; PROP_STATUS_REQUEST_COOLDOWN_HOURS is 12, so the next ask was not due until ~19:47Z and 'the suppression works' was indistinguishable from 'the cooldown has not elapsed'. [!] AND MY FIRST TWO POSITIVE CONTROLS WERE INADEQUATE: I read prop_monitor_pulse and prop_sl_tp_alert expecting them to prove the tick was calling this module, and BOTH read `{}` — they are empty whenever nothing is open, so they prove nothing at all. Recorded so the next session does not repeat it.",
+  "clears_when": "BOTH, and they are different facts — say WHICH you cleared rather than clearing the row on the easier one. (1) SUPPRESSION OBSERVED: after a full cooldown window has elapsed past the stamp, /api/diag/log_file?name=prop_status_request shows breakout_1's `last_request` UNCHANGED while the account is flat, i.e. the ask did not fire. [!] THIS REQUIRES A POSITIVE CONTROL AND IT IS NOT OPTIONAL: silence alone is also what a crashed import looks like. Once #11546 is deployed the control is in the SAME file — `last_verdict: quiescent` with a `last_assessed_at` inside the window proves the module ran and chose not to ask. BEFORE #11546 there is no such control and clause (1) CANNOT be cleared honestly; do not clear it on the stamp alone. (2) THE ASK STILL FIRES WHEN IT SHOULD: an ask is observed for a real trigger — an open prop position, a real (non-suppressed) ticket after the snapshot, or an unreadable read. A change that silences EVERYTHING is a regression that looks identical to success on clause (1), and this clause is the only thing separating them. [!] IF THE OPERATOR IS PINGED ABOUT A QUIESCENT ACCOUNT AFTER THE DEPLOY, that does NOT clear this row and is the more valuable finding — write it into observation and keep the row open. [!] IF THE OPERATOR DECIDES the wall-clock ask should return, this row does NOT clear — it CHANGES: that is a legitimate Tier-2 decision and must be RECORDED as one rather than left looking like an observation about to happen.",
+  "why_it_matters": "It governs whether the operator is told that a REAL-MONEY-adjacent prop account's breach cushion is unmeasured. breakout_1 is mode:live on a $5,000 account with a $4,700 STATIC DD FLOOR that binds while the book is FLAT. Going quiet is safe only because (a) prop_reconcile.reconstruct_equity is asymmetric — unplaceable losses are always applied and unplaceable gains withheld — so a reported fill can only make the cushion CONSERVATIVE, and (b) sizing hard-refuses on a stale balance. If either premise is wrong, the change trades a noisy alarm for a silent one, and the silent one is worse.",
+  "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+  "refs": [
+   "PR #11530",
+   "PR #11546",
+   "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
+   "MI-214",
+   "BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED",
+   "BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED"
+  ]
  }
 ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",

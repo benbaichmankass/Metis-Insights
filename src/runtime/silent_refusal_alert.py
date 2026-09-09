@@ -105,6 +105,17 @@ _CAUSE_PATTERNS: Tuple[Tuple[str, str], ...] = (
     ("venue_max_qty", r"max[_ ]?qty|110007|qty exceeds"),
     ("below_min_qty", r"rejected_too_small|below_venue_min_qty|min[_ ]?qty"),
     ("risk_refused", r"risk_refus|daily_loss|drawdown|exposure"),
+    # ⚠️ ORDER IS LOAD-BEARING: this MUST precede the generic `sizing_failed`
+    # rule below, because the coordinator journals a prop refusal as
+    # "REJECTED: sizing_failed: RuntimeError: prop_balance_stale: ...". First
+    # match wins, so with the rules the other way round every prop-balance
+    # refusal buckets as `sizing_failed` and the operator is told the size
+    # computation failed when the actionable fact is "send a fresh `bal`".
+    # That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (the label names
+    # something no code path established) and it is what this rule fixes.
+    # A test pins the ordering, because a later edit that reorders the tuple
+    # would silently re-collapse the two and nothing else would notice.
+    ("prop_balance_unreported", r"prop_balance_(stale|absent|unreadable)"),
     ("sizing_failed", r"sizing_failed"),
 )
 
