@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only: one OPEN-ITEMS.json row and one health-review-backlog.json correction row. docs/** is on the Tier-1 surface; no src/, no config/, no scripts/, no workflows, no order path, no risk caps. Nothing here changes behaviour — it records what two other PRs (#11494, #11496) changed and what remains unproven on the fleet."
+}
