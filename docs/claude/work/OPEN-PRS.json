@@ -83,23 +83,23 @@
       "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
     },
     {
-      "pr": 11528,
-      "title": "Route MI-214 and MI-215 to sessions",
-      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED + MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
-      "tier": "tier_1",
-      "state": "green_awaiting_self_land",
+      "pr": 11530,
+      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
+      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "tier": "tier_2",
+      "state": "approved_cleared_to_land",
       "draft": false,
-      "opened_at": "2026-09-09T09:54:00Z",
+      "opened_at": "2026-09-09T10:12:05Z",
       "blocker": null,
       "operator_decision": {
-        "verdict": "not_required",
+        "verdict": "approved",
         "condition": null,
-        "scope": "Tier-1 manager spawn records: SESSIONS.json rows, one new work object, two checklist transitions, the merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path.",
+        "scope": "#11530 ONLY — the prop status-request TRIGGER in src/prop/prop_status_request.py. NOT a licence to raise PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold, including prop_balance.max_age_hours()'s SIZING gate) and NOT a licence to restore the pre-2026-08-14 flat bail.",
         "decided_on": "2026-09-09",
-        "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
+        "text": "Selected \"Approve — ship it\" in a popup at 10:44Z, having been shown the load-bearing claim and explicitly offered \"I disagree with the asymmetry claim — don't land it\" and \"Approve, but keep asking while flat\". Chose neither. ⚠️ THE APPROVAL RESTS ON ONE CLAIM: prop_reconcile.reconstruct_equity is ASYMMETRIC by design (unplaceable LOSS always applied, unplaceable GAIN withheld), so a reported fill can only make the cushion CONSERVATIVE, never optimistic. If that is ever falsified this approval falls with it."
       },
-      "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's."
+      "note": "⚠️ A SUCCESSOR MUST NOT READ THIS AS A BLANKET OK FOR THE PROP PING PATH. It clears one trigger change. The lane MEASURED the operator's own premise and found it HALF FALSE — breakout_1's newest snapshot (id 19, 2026-08-30T19:33:29Z) is 5.5 minutes OLDER than its newest fill (id 41, 19:39:00Z), so a close PROMPTS a snapshot and never guarantees one. The operator's conclusion held for a stronger reason: 0 fills / 0 open positions / 0 unacted tickets in 230h, against a positive control of 41 lifetime fills. PAIRED FOLLOW-ON, ALSO APPROVED (MI-220): the sizing refusal that makes going-quiet-while-flat safe reaches NOBODY. Operator chose \"fix it next\" over folding it in, so it is a separate Tier-2 PR."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1909,6 +1909,29 @@
       "manager_note": "MERGED IS NOT GATED, and the distinction was measured rather than assumed. At 2026-09-09T08:57:59Z, immediately after the merge, /api/bot/db/tables still returned HTTP 200 / 10,494 bytes with no bearer, and /api/diag/version read git_sha aef42ddb, git_sha_on_disk 5c4d601f, restart_pending TRUE — the running web-api predated the merge. deploy_pull_restart.sh restarts ict-web-api.service only when HEAD advances, so the gate goes live on the next git-sync tick. Verification armed at 09:11Z and the owning lane poked to confirm 401 first-hand on BOTH routes. Do not read this row as evidence the surface is closed."
     },
     {
+      "pr": 11528,
+      "title": "Route MI-214 and MI-215 to sessions",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED + MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
+      "tier": "tier_1",
+      "state": "green_awaiting_self_land",
+      "draft": false,
+      "opened_at": "2026-09-09T09:54:00Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 manager spawn records: SESSIONS.json rows, one new work object, two checklist transitions, the merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
+      },
+      "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's.",
+      "terminal": "merged",
+      "merge_sha": "91df4153663e8ec6da567a14158f0183552a7254",
+      "observed_at": "2026-09-09T10:58:09Z",
+      "settled_by": "reconciler"
+    },
+    {
       "pr": 11488,
       "opened_at": "2026-09-09T04:54:00Z",
       "title": "chore(ops): trainer capture-watch receipt (auto)",
@@ -1932,8 +1955,8 @@
       "disposition": "superseded — the entire payload was already byte-identical on main (its content having been DELIBERATELY PORTED into #11513 by session_01DUBXxiaZ3PMERcAfcJce7P in commit fcd152b9 under the drive-to-green rule, after that session verified the receipt was genuine measured data and not a fabricated freshness stamp — NOT an incidental side-effect, which is how I first recorded it) (verified twice, at d9059a0 and c499481), having arrived at 07:56:53Z as a side-effect of the unrelated session PR #11513 rather than through the landing path; merging would have changed nothing and nothing was dropped. It could never merge itself because it is a pre-#11494 branch that arms the landing route with no R13 merge-slot claim, and nothing rebases a bot-authored branch."
     }
   ],
-  "last_reconciled_at": "2026-09-09T08:58:05Z",
-  "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
-  "updated_at": "2026-09-09T09:17:00Z",
+  "last_reconciled_at": "2026-09-09T10:58:09Z",
+  "last_reconciled_sha": "d535343b62c81a4c9c46eaed1932f6d0d1fd2de6",
+  "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

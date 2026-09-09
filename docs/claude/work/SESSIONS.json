@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T10:11:00Z",
+  "updated_at": "2026-09-09T10:53:41Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3809,12 +3809,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T09:51:00Z",
       "last_observed": {
-        "at": "2026-09-09T10:11:00Z",
+        "at": "2026-09-09T10:34:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + poke",
+        "source": "pull_request_read + poke",
         "session_status": "SESSION_STATUS_RUNNING",
         "status_bucket": "working",
-        "manager_note": "RUNNING, building the guard (task_summary: guard tests failing 4/15). ⚠️ POKED 10:08:50Z with a BRIEF CORRECTION, delivery confirmed (cse_ suffix matched the target): the brief's 'DO NOT RE-ASK THE WINDOW/FLOOR QUESTION' is RETRACTED on operator instruction. It was told to carry the evidence MODEL instead (edge offline / live=mechanics / slow accrual is a feature / fewer legs does not raise trades-per-leg), to make its guard enforce the RULE rather than ban a phrase, and to push back if it thinks the framing is wrong."
+        "manager_note": "#11529 read mergeable_state=dirty at 10:26Z — CONFLICT CAUSED BY THE MANAGER (#11531 filed two rows into health-review-backlog.json while this branch was open on the same file). Poked 10:26:03Z, delivery confirmed: told to stop hunting a docs-only skip trap, resolve as a VERIFIED UNION, and that its §5 premise correction is the most valuable thing in the PR. ⚠️ ITS PROPOSAL IS NOW OPERATOR-APPROVED — build_producer + no_offline_evidence, taken as a popup 2026-09-09; recorded as DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and MI-216/217."
       }
     },
     {
@@ -3830,7 +3830,30 @@
       "why": "Operator-raised 2026-09-09 on a live ping. Change the TRIGGER to key on whether anything happened since the last snapshot; measure the operator's premise first.",
       "note": "MEASURE THE PREMISE FIRST: prop_fills vs prop_account_status over the 228h window on breakout_1. If fills happened with no snapshot after, the operator's premise is false in the dangerous direction and the ping was working.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-09T09:52:15Z"
+      "confirmed_at": "2026-09-09T09:52:15Z",
+      "last_observed": {
+        "at": "2026-09-09T10:47:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "pull_request_read + poke",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "review_ready",
+        "manager_note": "#11530 green on guards+audit, pytest-run running, correctly HELD (landing: hold, no arming file, no slot claimed) — verified in the branch rather than trusted from the PR body. Poked 10:43:23Z with the operator APPROVAL and the follow-on (MI-220). It measured the operator premise and found it half false, reporting that plainly; that is why the approval could be given on facts."
+      }
+    },
+    {
+      "session_id": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+      "registry_key": "pending-20260909T105249Z",
+      "state": "working",
+      "title": "MI-218 — count the operating-layer surfaces that require calendar time to prove EDGE",
+      "owns_object": "WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE",
+      "checklist_item": "MI-218-COUNT-EVERY-SURFACE-THAT-REQUIRES-CALENDAR-TIME-TO-PROVE-EDGE",
+      "spawned_at": "2026-09-09T10:52:49Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-approved 2026-09-09 as a FULL SWEEP with a positive control. The M7 packet is one confirmed instance; nobody has counted the rest.",
+      "note": "The positive control is the FIRST deliverable: prove the probe finds the known M7 instance before trusting any silence it produces.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T10:53:41Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
