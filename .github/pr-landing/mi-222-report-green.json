@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "board-post relay carrier only -- automation/board-posts + its results receipt. No src/, tests/, config/, deploy/ or workflow path touched; no runtime, order path or strategy config."
+}

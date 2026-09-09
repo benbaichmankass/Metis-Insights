@@ -1,0 +1,7 @@
+{
+  "head": "claude/mi-222-report-green",
+  "base": "main",
+  "draft": false,
+  "title": "MI-222: board report that #11566 is green (relay carrier, Tier-1)",
+  "body": "**Tier-1 · `landing: \"self\"` · auto-merge armed.**\n\nCarrier for one coordination-board post: the MI-222 report that #11566's `pytest-run` was fixed and all four checks went green. #11566 is now **merged** (`e38855b8`, merged 2026-09-09T17:40:33Z).\n\n### Why this is a separate branch\n\nPosting on #11566's own branch would have landed `board-post.yml`'s `github-actions[bot]` results commit as that PR's head and **re-buried its green checks** — the trap documented in `CLAUDE.md` for both relay workflows. Verified it worked: the results commit `e0a57b09` landed here, and #11566 stayed 4/4 green through the post and merged on those checks.\n\n### Contents\n\n- `automation/board-posts/mi-222-pytest-run-fixed.md` — the post\n- `automation/board-results/mi-222-pytest-run-fixed.txt` — the relay receipt, [issue #11336 comment 5606175880](https://github.com/benbaichmankass/Metis-Insights/issues/11336#issuecomment-5606175880)\n- `.github/pr-landing/mi-222-report-green.json` — this declaration\n\nNo `src/`, `tests/`, `config/`, `deploy/` or workflow path is touched. **No order was placed, modified or cancelled on any account.**\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01WmFdLwfq4U5aLLjFRDDy6b\n"
+}
