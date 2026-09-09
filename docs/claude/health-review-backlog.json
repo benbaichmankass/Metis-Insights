@@ -34962,6 +34962,22 @@
         "docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md",
         "BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED"
       ]
+    },
+    {
+      "id": "BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT",
+      "opened_at": "2026-09-09",
+      "opened_by": "MI-221 session_01CwHNLSX6gMjPoKUWHoYj7q",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — tooling/tests",
+      "area": "api",
+      "title": "An accessor-level test suite cannot reach a diag route's executor-hop wiring, so a route that raises TypeError on EVERY request shipped green",
+      "detail": "OBSERVED ON THE FIRST LIVE REQUEST 2026-09-09T16:06:02Z. /api/diag/bybit_raw_closed_pnl (shipped in #11560, merged 0ff2afba) returned read_state 'could_not_look' with error 'TypeError: run_account_read() got an unexpected keyword argument symbol'. The route called run_account_read(fn, acc, symbol=..., start_ms=..., end_ms=...); run_account_read(fn, *args) is POSITIONAL-ONLY because it forwards to loop.run_in_executor, which takes no kwargs. So the route raised on EVERY request and could never have returned a record. || WHY IT SHIPPED GREEN, and this is the finding rather than the typo: 7 accessor assertions in tests/test_bybit_raw_closed_pnl_accessor.py all passed, because they call the accessor DIRECTLY. An accessor-level test cannot reach the route's wiring BY CONSTRUCTION -- the seam between the route and the executor hop is exactly what it does not exercise. Nor could import-time checks: the signature mismatch is only raised when the call executes. `guards` was green and `pytest-run` was green. || THE THREE-STATE DESIGN CONTAINED THE BLAST RADIUS AND SHOULD BE CREDITED HONESTLY: because a raised call is recorded as could_not_look and NEVER folded into no_rows/empty records, the broken route reported 'we could not look' instead of 'the venue booked no close'. On this investigation that distinction was load-bearing -- an empty result would have been read as the venue having no record of trade 5471's close, which is the OPPOSITE finding and a P1 of its own. The state design worked; the wiring did not. || REPRODUCED AND FIXED IN-SESSION: a standalone reproduction of run_account_read's contract raises the identical TypeError with kwargs and returns the bound window correctly via functools.partial. Fix binds the keyword-only window with functools.partial BEFORE the hop. || THE GAP IS GENERAL, NOT SPECIFIC TO THIS ROUTE: any diag route whose accessor takes keyword-only arguments has the same seam, and the repo's own test convention splits accessor tests from route tests precisely because route tests need FastAPI's TestClient, 'which does not import in every environment' -- so the sandbox where accessors are validated is structurally the one that cannot validate wiring.",
+      "resolution_criteria": "A route-level test exists for EVERY /api/diag/* route whose accessor takes keyword-only parameters, asserting the accessor receives those parameters through a run_account_read stub that accepts POSITIONAL ARGS ONLY -- i.e. a stub that reproduces loop.run_in_executor's contract, so a kwargs regression raises in the test exactly as it does live. Verified by a POSITIVE CONTROL: revert the functools.partial in one such route and observe the test FAIL; a suite that stays green under that revert has not been fixed, it has been re-verified as blind. NOT SUFFICIENT: accessor-level tests (they cannot reach the seam by construction, which is the finding); a green `guards` or `pytest-run` (both were green while the route raised on every request); or fixing this one route (tests/test_diag_closed_pnl_route_wiring.py covers it, and the class remains open for every other route with a keyword-only accessor).",
+      "refs": [
+        "docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md",
+        "tests/test_diag_closed_pnl_route_wiring.py"
+      ]
     }
   ]
 }
