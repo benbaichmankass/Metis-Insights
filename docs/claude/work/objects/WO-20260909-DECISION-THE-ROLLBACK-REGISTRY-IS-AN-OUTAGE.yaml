@@ -16,7 +16,7 @@ closed_at: null
 
 review_trigger: >-
   PICKED UP 2026-09-09 by MI-229 (session_01TM8XjkvVpvMxH4EcLtTsvP). The BUILD is written and
-  is on PR #PR_NUMBER, `landing: hold` / `tier_2_3_needs_approval` — it needs a MERGE CLICK,
+  is on PR #11615, `landing: hold` / `tier_2_3_needs_approval` — it needs a MERGE CLICK,
   not another approval. Re-read `build` below before touching this; the DECISION is discharged
   and re-asking the operator would be re-asking a settled question.
 
@@ -113,7 +113,7 @@ decision_requests:
 build:
   by: MI-229 · session_01TM8XjkvVpvMxH4EcLtTsvP (worker; manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
   built_on: '2026-09-09'
-  pr: '#PR_NUMBER'
+  pr: '#11615'
   landing: hold / tier_2_3_needs_approval — auto-merge NOT armed, no merge slot claimed.
   done_condition_grading: >-
     BOTH halves delivered. (1) `pipeline._STRATEGY_BUILDERS` NO LONGER EXISTS — deleted, not
