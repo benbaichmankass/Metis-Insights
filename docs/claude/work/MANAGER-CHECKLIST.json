@@ -2947,7 +2947,8 @@
       "state": "in_flight",
       "owner": "session_0178Pn128KK71u6nCzLeVH6w",
       "notes": [
-        "2026-09-09T21:50Z manager: SPAWNED. Registered before the spawn (pending-20260909T214948Z) and confirmed after. Operator answered `resize_and_invariant` 2026-09-09; the object WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG carries the answer and its scope limits. ⚠️ THE APPROVAL COVERS THE CODE PATH THAT RESIZES ON THE NEXT REDUCE PLUS THE INVARIANT — it does NOT authorise cancelling any currently-resting leg, and no order may be placed, modified or cancelled on any account. Chosen first because it is real money (3 of 21 rows on bybit_2) AND the root cause of 64 of the 112 rows in the operator ERROR feed."
+        "2026-09-09T21:50Z manager: SPAWNED. Registered before the spawn (pending-20260909T214948Z) and confirmed after. Operator answered `resize_and_invariant` 2026-09-09; the object WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG carries the answer and its scope limits. ⚠️ THE APPROVAL COVERS THE CODE PATH THAT RESIZES ON THE NEXT REDUCE PLUS THE INVARIANT — it does NOT authorise cancelling any currently-resting leg, and no order may be placed, modified or cancelled on any account. Chosen first because it is real money (3 of 21 rows on bybit_2) AND the root cause of 64 of the 112 rows in the operator ERROR feed.",
+        "2026-09-09T22:26Z manager: #11604's guards check FAILED at 22:19:51Z. NOT touched — worker path. The lane was RUNNING at 22:25:02Z ('wiring resize + audit row gap'), so it owns the red and knows about it."
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
@@ -2959,11 +2960,24 @@
       "state": "in_flight",
       "owner": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
       "notes": [
-        "2026-09-09T21:51Z manager: SPAWNED. Registered before the spawn (pending-20260909T215040Z) and confirmed after. Operator answered `all_three` 2026-09-09; the object WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ carries the answer. This is CY-20260906-TRADING-TRUTH exactly — repair the MEASUREMENT before acting on what it says. ⚠️ Nothing here touches an order path, and the first violation it reports must NOT be read as a regression: today's zero is uninformative by construction. ⚠️ Deliberately disjoint from MI-227, which is adding INV-PROTECT-LEG-MATCHES-ROW to system_invariants.py — F-39's fix lands in the same file, which is why F-39 was NOT paired here."
+        "2026-09-09T21:51Z manager: SPAWNED. Registered before the spawn (pending-20260909T215040Z) and confirmed after. Operator answered `all_three` 2026-09-09; the object WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ carries the answer. This is CY-20260906-TRADING-TRUTH exactly — repair the MEASUREMENT before acting on what it says. ⚠️ Nothing here touches an order path, and the first violation it reports must NOT be read as a regression: today's zero is uninformative by construction. ⚠️ Deliberately disjoint from MI-227, which is adding INV-PROTECT-LEG-MATCHES-ROW to system_invariants.py — F-39's fix lands in the same file, which is why F-39 was NOT paired here.",
+        "2026-09-09T22:36Z manager: POKED. #11603's pytest-run FAILED at 22:33:54Z (1 failed / 15970 passed) on test_every_allowlisted_log_file_is_documented — closed_flat_coverage and invariant_violations are reachable via diag._LOG_FILES but undocumented in CLAUDE.md or docs/reference/bot-api-reference.md. That failure IS the lane's own F-13 fix working: it made the surfaces reachable and a coherence guard requires reachable to imply findable. The lane had gone IDLE at 22:17:33Z with post_turn_summary 'review_ready' written BEFORE CI reported. Poked via create_trigger + fire_trigger (trigger_id alone, no text); returned session id matched the target and get_session confirmed IDLE -> RUNNING at 22:35:53Z with task_summary 'pytest-run: 1 test failed (doc guard), fixing now'. The manager did NOT touch the branch: src/ and tests/ are worker paths under check_manager_scope R2."
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
       "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ"
+    },
+    {
+      "id": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
+      "title": "F-28: the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a second builder registry holding 16 of 55 strategies, so exercising it would silently stop 35 of 45 live legs (78%) — operator-approved Tier-2 (COLLAPSE, not a parity test)",
+      "state": "in_flight",
+      "owner": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "opened_at": "2026-09-09",
+      "tier": 2,
+      "work_object": "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE",
+      "notes": [
+        "2026-09-09T23:07Z manager: SPAWNED. Registered before the spawn (pending-20260909T230624Z), confirmed after. Routed once WIP fell to 7 of 8 on #11603 merging. ⚠️ DELETING THE SECOND REGISTRY IS THE POINT — the operator was offered a parity test alone and chose the collapse over it, so a test-only delivery is not this item. ⚠️ Scoped OFF src/units/accounts/execute.py and scripts/ops/system_invariants.py, where MI-227 is live resolving a conflict."
+      ]
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
