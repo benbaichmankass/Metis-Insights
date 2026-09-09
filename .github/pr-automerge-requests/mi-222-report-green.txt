@@ -1,0 +1,1 @@
+MI-222 board-report carrier — Tier-1, landing: self. Arms native auto-merge; GitHub merges only on green required checks.
