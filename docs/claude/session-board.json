@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-11517-decision-20260909",
-  "claimed_at": "2026-09-09T09:00:58Z",
-  "purpose": "record the operator's Tier-2 approval of #11517 and its accepted cost"
+  "branch": "claude/mgr-observe-mi213-and-open-rows-20260909",
+  "claimed_at": "2026-09-09T09:21:00Z",
+  "purpose": "MI-213 observed, open-PR ownership rows, MI-214 filed. Supersedes the #11524 claim (merged c0d17d32)."
  },
  "active_sessions": [
   {
