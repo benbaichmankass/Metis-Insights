@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "github-actions[bot] · work-digest run 34404236760",
-  "branch": "automation/work-digest-34404236760-1",
-  "claimed_at": "2026-09-09T20:59:29Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-record-audit-decisions-20260909T2115",
+  "claimed_at": "2026-09-09T21:04:38Z",
+  "purpose": "Manager: record four operator decisions on the full-system-audit findings (F-29, F-36, F-28, F-50)"
  },
  "active_sessions": [
   {

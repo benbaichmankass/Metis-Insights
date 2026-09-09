@@ -1,0 +1,110 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The unlisted-strategy arbitration fallback WINS instead of losing - operator answered: fix
+  the constant AND map the five legs
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-3
+  BUILD. Do not re-ask the operator and do not re-derive the histogram - it is in the audit at
+  F-29.
+
+done_condition: >-
+  Both halves landed and OBSERVED: (a) _UNKNOWN_STRATEGY_PRIORITY is strictly below
+  min(DEFAULT_PRIORITIES.values()), (b) the five absent live legs carry entries, and (c) BOTH
+  detectors exist - check_strategy_coverage's fourth invariant AND the distribution assertion
+  on the constant, which is the transferable one. !! A passing test is not the criterion for
+  (a)/(b): read the constant and the map on main.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
+  detector is named in the audit, and the operator has now answered. What gated it was the
+  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
+  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
+  and buildable, NEVER in progress.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-UNKNOWN-STRATEGY-PRIORITY
+    question: >-
+      _UNKNOWN_STRATEGY_PRIORITY = 10 is documented as 'deliberately below the in-scope
+      strategies', but 45 of 50 mapped legs now sit BELOW 10 - so an unlisted strategy WINS
+      arbitration instead of losing it. Five declared live legs are absent from the map, with live
+      SLV contention on three accounts. Tier-3.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-29, re-verified by the audit lead by AST over intents.py + strategies.yaml.
+      DEFAULT_PRIORITIES n=50; histogram {0: 41, 1: 1, 2: 1, 3: 1, 5: 1, 10: 1, 20: 1, 30: 1, 40:
+      1, 50: 1}; legs strictly below the fallback 10: 45 of 50. Live legs ABSENT from the map:
+      gdx_pullback_1d, iaum_pullback_1d, scha_trend_long_1d, slv_pullback_1d, splg_trend_long_1d.
+      Contention is LIVE, not hypothetical - alpaca_options_paper, alpaca_paper and
+      alpaca_portfolio each hold SLV with slv_trend_1h at 0 against slv_pullback_1d resolving to
+      the fallback 10. The constant's own comment says it was 'picked deliberately below the in-
+      scope strategies so a misconfigured new strategy never silently overrides Turtle Soup /
+      VWAP'; its actual effect is the inverse. !! THE CONTENDED ACCOUNTS ARE PAPER-CLASS, so no
+      real money rides this specific instance - the MECHANISM is account-agnostic. !! THIS IS F-32
+      FROM THE 2026-08-20 AUDIT UNREMEDIATED, escalated from theoretical to live.
+    options:
+      - key: fix_constant_and_map_legs
+        label: Fix the constant AND map the five legs
+        implication: >-
+          Closes the instance and the class. Tier-3: it changes arbitration for unlisted legs.
+      - key: fix_constant_only
+        label: Fix the constant only
+        implication: >-
+          Restores the stated intent generically, but leaves five live legs unmapped and relying on
+          the fallback.
+      - key: map_the_five_only
+        label: Map the five legs only
+        implication: >-
+          Fixes today's SLV contention, changes no constant. The next unlisted leg re-opens it - which
+          is exactly how the 2026-08-20 finding recurred.
+      - key: detector_only
+        label: Detector only, no routing change
+        implication: >-
+          Ships the CI invariant and the distribution assertion; nothing moves on routing and the
+          inversion stands.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager session
+        session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:1xZ. NOT via the transit log, so
+        commit_work_decisions.py has nothing to replay and this answer is written BY HAND — the
+        README's 'or a session doing the same thing by hand' path. !! THE OPERATOR ASKED 'give me
+        any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent recorded in
+        WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means RENDER THEM IN THE
+        CHAT, and that a manager who built Telegram delivery instead made the operator ask twice.
+        That precedent was read first and followed. The Telegram channel was separately VERIFIED
+        healthy the same minute (sweep receipt 21:01:23Z: destination=claude,
+        poll_state=polled_with_handler, token_from=TELEGRAM_CLAUDE_BOT_SECRET; write gate open) — it
+        was not the blocker, and these six were simply never declared as decision_requests at all.
+      chosen: fix_constant_and_map_legs
+      free_text: >-
+        Operator chose BOTH halves on 2026-09-09: lower _UNKNOWN_STRATEGY_PRIORITY below
+        min(DEFAULT_PRIORITIES.values()) AND add the five absent live legs. This is the Tier-3
+        approval the audit's must_not reserved to the operator. !! IT AUTHORISES THE CHANGE, NOT A
+        SHORTCUT: the build still needs both detectors, and the distribution assertion is the one
+        that prevents recurrence - a default whose fail-safety depends on a distribution that has
+        since moved.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:15:00Z'
+      note: >-
+        Manager session. This is one of the six Tier-2/Tier-3 proposals the full-system audit FILED
+        and deliberately did not take, carried by OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-
+        TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING.
