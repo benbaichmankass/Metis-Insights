@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01DUBXxiaZ3PMERcAfcJce7P (Phase F, follow-up)",
-  "branch": "claude/document-index-write-second-instance",
-  "claimed_at": "2026-09-09T07:45:00Z",
-  "purpose": "Land PR #11513 — the second-instance record on BL-20260908-DOCUMENT-INDEX-WRITE-STAMPS-A-FALSE-LAST-VERIFIED-ON-436-DOCS-AND-THE-GUARD-TELLS-YOU-TO-RUN-IT, one backlog line. Tier-1. Displaces my own spent claim from PR #11508, which merged as da6c2b89. Displace freely; per check_pr_landing.py's own docstring R13 does not serialize."
+  "held_by": "github-actions[bot] · reconcile-open-prs run 34324964056",
+  "branch": "automation/reconcile-open-prs-34324964056-1",
+  "claimed_at": "2026-09-09T07:58:52Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {
