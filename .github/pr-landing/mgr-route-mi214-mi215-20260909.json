@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager spawn records only: registers the MI-214 and MI-215 sub-sessions in SESSIONS.json via session_registry.py, creates one work object for MI-214, moves both checklist rows to in_flight with their owners, and claims the R13 merge_slot for this branch. Spawning and registering are management acts. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched -- both items are ROUTED, not worked."
+}
