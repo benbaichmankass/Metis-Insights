@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "github-actions[bot] · reconcile-open-prs run 34319949504",
   "branch": "automation/reconcile-open-prs-34319949504-1",
-  "claimed_at": "2026-09-09T06:38:12Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+  "claimed_at": "2026-09-09T06:48:21Z",
+  "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
  },
  "active_sessions": [
   {
