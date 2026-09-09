@@ -1,0 +1,22 @@
+{
+  "_doc": "Exception ledger for scripts/check_soak_doctrine.py CHECK D. A decision gate must not make a verdict control-dependent on live-outcome or calendar accrual (docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics', clause 3). This file declares the branches that ALREADY do, so the check can be armed today without failing CI on a repair that is Tier-3 and therefore not a session's to make. IT IS A RATCHET, NOT A WAIVER: the count must match EXACTLY — one more fails as a new violation, one fewer fails as a stale ledger — so the number can only be walked DOWN. Every entry is VERIFIED: backlog_row must name a row that actually exists in a review backlog, because a ledger cheaper to lie to than to satisfy is worse than no ledger.",
+  "_how_to_lower": "Land the Tier-3 repair, re-run `python3 scripts/check_soak_doctrine.py`, and set known_accrual_gated_branches to the number it reports. The guard fails until the ledger matches, so the count cannot be left behind.",
+  "_how_to_raise": "Do not, without an operator decision. Raising it declares a NEW branch that contradicts binding canon. It needs a reason recorded here, an existing backlog row, and the operator's call — it is not a way to get a PR green.",
+  "surfaces": {
+    "scripts/ml/strategy_review_packet.py": {
+      "known_accrual_gated_branches": 7,
+      "backlog_row": "BL-20260909-STRATEGY-REVIEW-PACKET-GRADES-EDGE-OFF-A-LIVE-WINDOW-WHICH-THE-PROMOTION-EVIDENCE-RULE-FORBIDS",
+      "declared_on": "2026-09-09",
+      "declared_by": "MI-215",
+      "functions": ["decide"],
+      "reason": "The M7 daily strategy-review gate grades every leg's verdict off live in-window closes. Six branches select a threshold tier from `n` (bound from `headline.n_closed`) — including the `n < MIN_CLOSED_FOR_ACTION` floor that forces HOLD — and Override 4 is a literal `shadow_soak_days < 14` promotion gate, the 'N days at stage' construct clause 3 names verbatim as 'a policy artifact, not evidence'. Measured effect: 52 of 52 legs graded `hold` on eight consecutive days (2026-09-01..09-08), actionable 0 every day.",
+      "why_not_fixed_here": "Changing these branches changes what a KILL/DEMOTE/PROMOTE verdict rests on, which is Tier-3 (operator-approved). MI-215 proposes the repair in docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md and does not enact it.",
+      "blocked_on": {
+        "kind": "operator_decision",
+        "ref": "docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md",
+        "since": "2026-09-09"
+      },
+      "not_a_fix": "Lowering MIN_CLOSED_FOR_ACTION or widening the window would REDUCE none of these seven — the branches remain, re-scaled. The count falls only when a verdict stops being control-dependent on accrual at all. The operator rejected the window/floor framing outright on 2026-09-09; do not reopen it."
+    }
+  }
+}

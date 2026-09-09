@@ -433,6 +433,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/design/operating-model-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/position-telemetry-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/strategy-demote-and-tune-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md` | plan | live | — | 2026-09-09 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/tp-sentinel-cap-venue-scope-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/exit-coverage-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
 | `docs/github-actions-workflows.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
