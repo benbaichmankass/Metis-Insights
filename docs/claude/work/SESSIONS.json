@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T08:40:39Z",
+  "updated_at": "2026-09-09T09:20:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3785,13 +3785,13 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T07:56:42Z",
       "last_observed": {
-        "at": "2026-09-09T08:40:39Z",
+        "at": "2026-09-09T09:00:34Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session + PR state",
+        "source": "PR state + live curl",
         "session_status": "RUNNING",
         "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
         "platform_updated_at": "2026-09-09T08:40:01Z",
-        "manager_note": "lane 5: PR #11517 open as DRAFT and explicitly titled HELD — do not merge on green. Correct: the operator approved the WORK, not a deploy of a live API auth change (Tier-2)."
+        "manager_note": "lane 5: #11517 operator-APPROVED and MERGED by the manager as 284cbc6c. Its report-before-shipping was correct and load-bearing — it refused to inherit the dispatch brief's false premise (mine) that the SPA already holds a session, and measured that it cannot send a bearer at all. That measurement is what let the operator decide on facts. Poked to verify 401 first-hand on both routes once the deploy restarts the web-api."
       }
     }
   ],
