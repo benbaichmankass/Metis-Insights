@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-route-audit-20260909T2020",
-  "claimed_at": "2026-09-09T20:21:15Z",
-  "purpose": "Manager: route the landed full-system audit (MI-226 object + registry + checklist + R13 backlog row)"
+  "branch": "claude/mgr-hb-2032-20260909",
+  "claimed_at": "2026-09-09T20:30:11Z",
+  "purpose": "Manager: lease heartbeat + supervision record (5 sub-sessions, MI-226 included)"
  },
  "active_sessions": [
   {
