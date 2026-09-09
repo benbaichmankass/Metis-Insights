@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260909-171500-audit",
+      "window": "audit",
+      "generated_at": "2026-09-09T17:15:00+00:00",
+      "window_start": "2026-09-08T11:20:00+00:00",
+      "window_end": "2026-09-09T17:15:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "68 findings across 7 axes. NO LIVE POSITION IS NAKED (24/24 groups, 3 venues, measured). main green across all 92 guards ungated. But: apply_intent_reduce_partial_close decrements a row and never resizes that row's own venue leg, leaving a stop 101.8x the row it protects and causing 64 of the 112 operator ERROR rows; the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a registry holding 16 of 55 strategies, so exercising it silently stops 35 of 45 live legs; the closed-flat invariant reads a FAILED exchange read as flat, covers ~half its own timeline by arithmetic, and pages at a level that never reaches the operator - its 14.7-day zero is not evidence; the M20 60s exit-eval promise was breached 2026-09-07 with 48.8ms of margin left today; and 509 of 741 resolved backlog findings leave no named detector, which is the treadmill quantified.",
+      "html_path": "comms/reports/audit/20260909T171500Z/report.html",
+      "json_path": "comms/reports/audit/20260909T171500Z/report.json",
+      "md_path": "comms/reports/audit/20260909T171500Z/report.md"
+    },
+    {
       "id": "RPT-20260908-112000-since-last",
       "window": "since-last",
       "generated_at": "2026-09-08T11:20:00+00:00",
