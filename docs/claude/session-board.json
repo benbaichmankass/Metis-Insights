@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-dispatch-lane2-0610-20260909",
-  "claimed_at": "2026-09-09T06:10:30Z",
-  "purpose": "Land the lane-2 dispatch record (active management). Held briefly — two worker lanes are live and R13 serialises this slot."
+  "held_by": "session_01YP3DnuFmSbvtLgBQiuCHso",
+  "branch": "claude/wo-landing-records-20260909",
+  "claimed_at": "2026-09-09T06:18:43Z",
+  "purpose": "Tier-1 records for MI-208/MI-207. Re-asserted over main after a merge-slot conflict with #11495 (which merged 1 min after this branch pushed and touched ONLY the board) — the same resolution commit-to-main now performs for automation."
  },
  "active_sessions": [
   {
