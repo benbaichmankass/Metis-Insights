@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/runtime/closed_flat_invariant.py and src/runtime/_closed_flat_wiring.py run on the live monitor tick, and src/web/api/routers/diag.py gains two read-surface entries. The operator's Tier-2 approval for the CHANGE is already recorded (WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ, chosen: all_three, 2026-09-09); the manager's spawn prompt for MI-228 says explicitly 'Do NOT arm auto-merge', so this holds for a human merge click, not for a further approval. Do not re-ask for the approval.",
+  "why": "The closed->exchange-flat invariant is alert-only and this PR keeps it that way -- nothing here places, modifies or closes a position, which is the operator's own recorded guardrail. But it is on the live tick path, so it is Tier-2 by path and lands by a human click."
+}
