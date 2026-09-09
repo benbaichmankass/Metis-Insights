@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-bybit2-eth-phantom-close",
-  "claimed_at": "2026-09-09T11:43:24Z",
-  "purpose": "MI-221 P1 real-money: root-cause the bybit_2 ETHUSDT phantom close (docs-only investigation, remediation HELD)"
+  "held_by": "github-actions[bot] · reconcile-open-prs run 34351273616",
+  "branch": "automation/reconcile-open-prs-34351273616-1",
+  "claimed_at": "2026-09-09T12:29:18Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {
