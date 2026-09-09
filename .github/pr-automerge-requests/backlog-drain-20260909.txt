@@ -1,0 +1,3 @@
+Tier-1 self-land. PR #11510 was opened BY HAND first, so claude-pr-automerge adopts it
+rather than creating it — which is what gives it a real pull_request event and normal CI
+instead of the single-check zero-CI window a workflow-created PR gets.
