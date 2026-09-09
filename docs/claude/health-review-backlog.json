@@ -34471,7 +34471,7 @@
     {
       "id": "BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD",
       "opened": "2026-09-09",
-      "severity": "P2",
+      "severity": "medium",
       "tier": 1,
       "area": "ops/registers",
       "status": "open",
