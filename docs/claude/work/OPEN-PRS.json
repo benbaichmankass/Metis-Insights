@@ -103,22 +103,22 @@
     },
     {
       "pr": 11530,
-      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2, HELD)",
+      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2)",
       "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
       "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
       "tier": "tier_2",
-      "state": "approved_awaiting_merge",
-      "draft": true,
+      "state": "approved_cleared_to_land",
+      "draft": false,
       "opened_at": "2026-09-09T10:12:05Z",
       "blocker": null,
       "operator_decision": {
         "verdict": "approved",
         "condition": null,
-        "scope": "Ship the trigger change as written in #11530. UNCONDITIONAL — no account scoping, no staging and no soak was asked for or given, and a successor must not invent one. ⚠️ THE APPROVAL IS SPECIFICALLY OF THE LOAD-BEARING CLAIM it was put on: that a REPORTED fill can only ever make the prop cushion CONSERVATIVE (prop_reconcile.reconstruct_equity always applies unplaceable losses and withholds unplaceable gains), so the bot may go quiet about a stale balance while the book is FLAT. It is NOT an approval to change PROP_STATUS_REQUEST_MAX_AGE_HOURS (untouched, four consumers) and NOT an approval to restore the pre-2026-08-14 flat bail (not restored).",
+        "scope": "#11530 ONLY — the prop status-request TRIGGER in src/prop/prop_status_request.py. NOT a licence to raise PROP_STATUS_REQUEST_MAX_AGE_HOURS (four consumers share that threshold, including prop_balance.max_age_hours()'s SIZING gate) and NOT a licence to restore the pre-2026-08-14 flat bail.",
         "decided_on": "2026-09-09",
-        "text": "Asked directly, with the asymmetry claim stated as the thing being approved and with the alternative offered. Operator chose 'Yes — ship it'. ⚠️ THE SAME ANSWER IS ALSO THE RULING ON THE DIVERGENCE, and that is why it is recorded here rather than left open: the option 'Ship, but also fire on any fill since the snapshot' — the manager's done_condition clause (a) as literally written — was presented alongside, with the measurement that it would STILL fire on breakout_1 today, and was NOT chosen. So clause (a) is DECLINED on the evidence, not overlooked. Reversal condition: if a prop fill is ever observed making the cushion OPTIMISTIC (which would falsify reconstruct_equity's asymmetry), this decision must be re-put."
+        "text": "Selected \"Approve — ship it\" in a popup at 10:44Z, having been shown the load-bearing claim and explicitly offered \"I disagree with the asymmetry claim — don't land it\" and \"Approve, but keep asking while flat\". Chose neither. ⚠️ THE APPROVAL RESTS ON ONE CLAIM: prop_reconcile.reconstruct_equity is ASYMMETRIC by design (unplaceable LOSS always applied, unplaceable GAIN withheld), so a reported fill can only make the cushion CONSERVATIVE, never optimistic. If that is ever falsified this approval falls with it."
       },
-      "note": "APPROVED 2026-09-09 and merged on that approval. ⚠️ WHAT A REVIEWER MUST ACTUALLY DECIDE IS ONE CLAIM, NOT THE DIFF SIZE: this change makes the bot go QUIET about a stale prop balance while the book is FLAT. That is safe only if a stale snapshot cannot hide a SHRINKING cushion, and the argument is that prop_reconcile.reconstruct_equity is ASYMMETRIC BY DESIGN — an unplaceable LOSS is always applied, an unplaceable GAIN is withheld and counted — so a REPORTED fill can only ever make the cushion conservative, never optimistic. If you disagree with that, this should not land. || NEITHER PROHIBITED MOVE WAS MADE: the pre-2026-08-14 flat bail is NOT restored (Tier-2 operator-approved, protects the account-level $4,700 static DD floor which binds while flat), and PROP_STATUS_REQUEST_MAX_AGE_HOURS is NOT changed (four consumers share it, including prop_balance.max_age_hours()'s SIZING gate). || ⚠️ THE PREMISE THE OPERATOR GAVE IS HALF FALSE AND IT IS RECORDED THAT WAY, not softened: MEASURED 2026-09-09T09:54Z via /api/bot/prop/fills?limit=500 and /api/bot/prop/status, breakout_1's newest snapshot is id 19 at 2026-08-30T19:33:29Z and its newest fill is id 41 at 2026-08-30T19:39:00Z — the last close is 5.5 minutes NEWER than the snapshot it supposedly produced, so a close PROMPTS a snapshot and never guarantees one. The conclusion holds anyway: 0 fills in the 230h since, 0 open positions, 0 unacted tickets, positive control 41 fills lifetime. || ⚠️ THE OBJECT CARRIES AN UNRESOLVED DIVERGENCE FROM ITS OWN done_condition, raised not buried: clause (a) says the ask must still fire on ANY fill since the snapshot; #11530 deliberately does NOT implement that, because fill 41 postdates the snapshot and clause (a) would therefore STILL FIRE on breakout_1 today and would not have silenced the ping the operator complained about. See divergence_from_done_condition in the work object. A ruling is wanted; it is a one-line change either way. || RESIDUAL FILED NOT FIXED: BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED — going quiet while flat is only safe because sizing hard-refuses on a stale balance, and that refusal reaches nobody."
+      "note": "⚠️ A SUCCESSOR MUST NOT READ THIS AS A BLANKET OK FOR THE PROP PING PATH. It clears one trigger change. The lane MEASURED the operator's own premise and found it HALF FALSE — breakout_1's newest snapshot (id 19, 2026-08-30T19:33:29Z) is 5.5 minutes OLDER than its newest fill (id 41, 19:39:00Z), so a close PROMPTS a snapshot and never guarantees one. The operator's conclusion held for a stronger reason: 0 fills / 0 open positions / 0 unacted tickets in 230h, against a positive control of 41 lifetime fills. PAIRED FOLLOW-ON, ALSO APPROVED (MI-220): the sizing refusal that makes going-quiet-while-flat safe reaches NOBODY. Operator chose \"fix it next\" over folding it in, so it is a separate Tier-2 PR."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -1930,6 +1930,6 @@
   ],
   "last_reconciled_at": "2026-09-09T08:58:05Z",
   "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
-  "updated_at": "2026-09-09T09:17:00Z",
+  "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

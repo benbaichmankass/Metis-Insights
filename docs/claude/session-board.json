@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-fix-prohibition-shaped-guards-20260909",
-  "claimed_at": "2026-09-09T10:11:00Z",
-  "purpose": "retract the prohibition-shaped guard framing on operator instruction"
+  "branch": "claude/mgr-record-mi214-approval-20260909",
+  "claimed_at": "2026-09-09T10:47:00Z",
+  "purpose": "record the MI-214 Tier-2 approval and its follow-on"
  },
  "active_sessions": [
   {

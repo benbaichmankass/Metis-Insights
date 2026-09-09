@@ -137,6 +137,59 @@ scope_split:
     this class alive the two previous times it was fixed.
 
 decision_requests:
+- id: DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS
+  question: >-
+    There is no per-leg offline edge record anywhere: load_backtest_anchor carries no edge number by
+    design and reads null on 51 of 52 committed packets. Build the producer? And until it exists, does
+    the M7 packet emit `no_offline_evidence` or keep emitting `hold`?
+  urgency: blocking
+  asked_on: '2026-09-09'
+  asked_by:
+    session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    recorded_at: '2026-09-09T10:31:00Z'
+    note: >-
+      Asked as a POPUP (AskUserQuestion) on the operator's standing instruction of the same day,
+      "give me decisions as popups". Basis: docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md,
+      produced by session_01MrTjuoRpBb7spyQLydXmmT on MI-215.
+  context: >-
+    Supersedes DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which the operator rejected as malformed
+    because all four of its options assumed live closes grade strategies. The MI-215 lane then
+    corrected the manager's replacement premise too: the manager briefed "the repo already has what
+    is needed (oos_edge, replay_pregate_fleet, the backfills)", and MEASURED those are ML-HEAD scoped
+    (22 heads, per their own docstrings), not per-leg. The 13 scripts/backtest_*.py per-leg harnesses
+    DO exist (verified independently by the manager), so this is a WIRING gap and NOT missing
+    infrastructure -- do not restate it as the latter.
+  options:
+  - key: build_producer
+    label: Build the per-leg offline edge record the gate reads
+    implication: >-
+      comms/strategy_evidence/<leg>.json with net_r_oos, n_trades_oos, folds, basis and a
+      config_fingerprint. Edge verdict reads that; live rows prove MECHANICS only. Producer first --
+      re-pointing decide() beforehand yields 52/52 null, the same outcome harder to see.
+  - key: denominator_report
+    label: Keep the packet a denominator report and record that as the decision
+    implication: >-
+      Legitimate, cheapest, and leaves the in-window losing legs with no surface that can act.
+  - key: build_later
+    label: Agree it is the right fix and park it behind current priorities
+    implication: >-
+      The interim-verdict question still applies; the guard ratchet stops the violation count growing.
+  allows_free_text: true
+  answer:
+    chosen: build_producer
+    free_text: >-
+      OPERATOR ANSWERED VIA POPUP 2026-09-09. Selected "Build it". SECOND, SEPARATE ANSWER in the same
+      popup: until an edge record exists the packet emits `no_offline_evidence` rather than `hold` --
+      a FOURTH state distinct from pass, fail and could-not-read. The operator was told plainly that
+      this makes ~52 legs read as unproven on day one and accepted that as the honest reading rather
+      than a regression. THIRD, SEPARATE ANSWER: the wider audit runs as a FULL SWEEP with a positive
+      control (MI-218). Recorded as MI-216 (producer), MI-217 (interim verdict) and MI-218 (sweep).
+      TIER-3 APPROVED IN PRINCIPLE ONLY -- the concrete diff still returns to the operator before it
+      ships, and this answer licenses no config, order-path or exit-matrix change.
+    answered_at: '2026-09-09T10:32:00Z'
+    answered_by: operator_popup
+    committed_by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    submission_id: null
 - id: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
   question: >-
     The daily strategy-review packet has graded 52 of 52 legs `hold` on eight consecutive days and
