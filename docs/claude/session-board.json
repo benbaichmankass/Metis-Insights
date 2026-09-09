@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-s18-order-history-result",
-  "claimed_at": "2026-09-09T17:16:51Z",
-  "purpose": "MI-221 § 18: record the order-history result (trade 5471's stop FIRED) and correct § 15 in place. Tier-1 docs, PR #11576."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-mi222-approval-record-20260909T1728",
+  "claimed_at": "2026-09-09T17:31:55Z",
+  "purpose": "Manager: record the MI-222 operator approval (unblocks #11566). Rebased once."
  },
  "active_sessions": [
   {
