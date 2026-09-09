@@ -40,6 +40,15 @@ four review backlogs (`snoozed_until` + `clears_when`), and all **32** `.claude/
 **Probe:** [`scripts/ops/calendar_edge_census.py`](../../scripts/ops/calendar_edge_census.py).
 Re-run with `python3 scripts/ops/calendar_edge_census.py [--json]`.
 
+✅ **Re-measured against MERGED check D.** The first run was made against check D as it
+stood on the MI-215 branch (`914f915e`), while #11529 was still open. #11529 has since
+landed on `main` as **`d535343b6`**, and the census was re-run against it: `detector_state:
+available`, control **found**, Pass A **7**, Pass B **14**, population **1,058 / 8,464**,
+0 parse failures — **identical**. So every number here is measured against the detector
+that is actually in the tree, not against a branch that might have changed before merging.
+The suite's check-D-present control, which was `SKIPPED` while #11529 was open, now RUNS
+(13 passed, 0 skipped) and confirms check D still misses the name-target verdict.
+
 ---
 
 ## The classifier, stated

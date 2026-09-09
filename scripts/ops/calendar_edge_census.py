@@ -91,7 +91,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -530,7 +530,7 @@ def report(census: Census, as_json: bool = False) -> int:
     print("CALENDAR-TIME-TO-EDGE CENSUS")
     print("=" * 78)
     print(f"detector_state            : {census.detector_state}")
-    print(f"  (check D imported from  : scripts/check_soak_doctrine.py)")
+    print("  (check D imported from  : scripts/check_soak_doctrine.py)")
     print()
     print("POSITIVE CONTROL — the probe must rediscover the known M7 instance")
     print(f"  target : {POSITIVE_CONTROL[0]}::{POSITIVE_CONTROL[1]}")
