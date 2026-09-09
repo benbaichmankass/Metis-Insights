@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-last-two-decisions-20260909T2145",
-  "claimed_at": "2026-09-09T21:46:00Z",
-  "purpose": "Manager: record the last two operator decisions (F-11, F-39) and narrow the loud carrier row"
+  "branch": "claude/mgr-route-two-lanes-20260909T2152",
+  "claimed_at": "2026-09-09T21:53:00Z",
+  "purpose": "Manager: land the registry rows and checklist items for the two lanes spawned onto the approved decisions (MI-227, MI-228)"
  },
  "active_sessions": [
   {
