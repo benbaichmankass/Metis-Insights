@@ -46,7 +46,7 @@ would have re-attributed every pre-existing row to this PR.
 
 Each close names which clauses were **verified** and which were **inferred**.
 
-1. **`BL-20260908-THE-ALPACA-OVER-CLOSE-IS-UNPINNED-ON-MAIN…`** — criterion (a), both halves, read
+1. **`BL-20260908-THE-ALPACA-OVER-CLOSE-IS-UNPINNED-ON-MAIN-ITS-TESTS-ARE-ON-AN-UNMERGED-BRANCH`** — criterion (a), both halves, read
    from `origin/main` rather than the working tree. `tests/test_close_confirm_trade_scope.py` is on
    main (503 lines) and `git grep` for the test name returns five paths **including a `tests/`
    path**, where the row's own 2026-09-08 measurement found exactly one — the backlog JSON itself.
@@ -132,7 +132,7 @@ later; every row filed as prose needs a full session forever.
 
 ## 4. One row filed, and why a closing-only session filed it
 
-`BL-20260909-NO-WRITER-SIDE-GUARD-STOPS-A-PAGING-INPUT-SHIPPING-WITHOUT-A-READ-SURFACE-…`
+`BL-20260909-NO-WRITER-SIDE-GUARD-STOPS-A-PAGING-INPUT-SHIPPING-WITHOUT-A-READ-SURFACE-AND-ITS-ONLY-CARRIER-IS-A-RESOLVED-ROW`
 
 Closing `BL-20260901-OPERATOR-ALERTS-HAS-NO-READ-SURFACE` on its clause (A) would have **deleted**
 its clause (B): the class fix's only other carrier,
