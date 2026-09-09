@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T18:39:35Z",
+  "updated_at": "2026-09-09T19:12:06Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3873,9 +3873,9 @@
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
       "state": "working",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "IDLE 17:54:40Z, work COMPLETED. Landed #11565 (raw order-history instrument), #11576 (S18), #11578 (S19), #11580 (S20). Its own summary: stop #5471 confirmed via 3 independent endpoints, created 0ms after entry fill, fired after 3.8d rest, no unprotected window. 622,931 tokens, $218.23.",
+      "observation": "IDLE 17:54:40Z, completed. Landed #11565/#11576/#11578/#11580.",
       "status": "idle",
-      "last_observed_at": "2026-09-09T18:25:52Z"
+      "last_observed_at": "2026-09-09T19:12:06Z"
     },
     {
       "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
@@ -3891,9 +3891,9 @@
       "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
       "state": "blocked",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "IDLE 17:22:52Z after pushing e38855b8. Its PR #11566 went 4/4 green and I MERGED it 17:41Z as 985375d3f. Work delivered.",
+      "observation": "IDLE 17:22:52Z, delivered. #11566 merged 985375d3f.",
       "status": "idle",
-      "last_observed_at": "2026-09-09T18:25:52Z"
+      "last_observed_at": "2026-09-09T19:12:06Z"
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
@@ -3937,9 +3937,9 @@
       "why": "Attempts #1-#4 all failed at the SAME point and none of them was the child's fault: the prompt did not resolve the repo-identity ambiguity (remote is Metis-Insights, 244 in-repo files say ict-trading-bot, and CLAUDE.md warns that hardcoding either name is a trap), so a session obeying RULE ONE dead-ends asking which repo it is in. Attempt #5's prompt states the resolution up front. Registered AFTER the spawn, which is the MI-15 recurrence this registry exists to catch — recorded rather than tidied.",
       "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
       "state": "working",
-      "status": "working",
-      "last_observed_at": "2026-09-09T18:25:52Z",
-      "observation": "RUNNING 17:24:23Z, phase 0 closed, wave 2 (7 agents) verifying critical findings; draft PR #11571 open."
+      "status": "idle",
+      "last_observed_at": "2026-09-09T19:12:06Z",
+      "observation": "IDLE/disconnected since 17:46:09Z, status_category need_input. Its work is NOT lost: 877a13fff on origin carries all 68 findings. Superseded by the landing lane; do not poke."
     },
     {
       "session_id": "session_01AkZzA4Gq9J2pfx5sRB1ZUB",
@@ -3957,7 +3957,10 @@
       "why": "The audit is COMPLETE — 7 axes, 68 findings, 2249 lines across 13 files including a 1364-line audit doc, 208 backlog lines and a full report — and it is STRANDED. Its author (session_017windcijwZp3qttYNWCwYP) is IDLE and DISCONNECTED since 2026-09-09T17:46:09Z with status_category=need_input, blocked on exactly this conflict. The work IS pushed to origin/claude/mi225-full-system-audit (head 877a13fff), so nothing is lost, but #11571 is a DRAFT that conflicts with main and its author cannot act. I CANNOT resolve it myself: main brings THREE worker-path files since the branch's base (src/units/accounts/clients.py, src/web/api/routers/diag.py, tests/test_accounts_clients_position_read_observability.py), and check_manager_scope R2 reads a merge commit's FIRST-PARENT diff, so a manager resolving this would be attributed every one of them. The branch also touches CLAUDE.md, which is explicitly not a management surface. Routing rather than reaching for a manager-scope-exception, which is the cheap wrong answer.",
       "note": "Registered BEFORE the spawn — the first time today I have got that order right; the three prior registrations this session were all after the fact, which is the MI-15 recurrence.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-09T18:39:35Z"
+      "confirmed_at": "2026-09-09T18:39:35Z",
+      "status": "working",
+      "last_observed_at": "2026-09-09T19:12:06Z",
+      "observation": "Spawned 18:39:29Z to land #11571. RUNNING at 18:42:12Z, branch claude/mi225-full-system-audit, task_summary \"Identifying which registers changed on each side\" - the verified-union work it was scoped to."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
