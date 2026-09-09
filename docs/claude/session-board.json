@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0521-20260909",
-  "claimed_at": "2026-09-09T05:21:20Z",
-  "purpose": "Heartbeat to cover the 06:40Z digest wake, plus the re-measured digest cadence gap that makes dispatch the expected path."
+  "held_by": "session_01YP3DnuFmSbvtLgBQiuCHso",
+  "branch": "claude/wo-landing-records-20260909",
+  "claimed_at": "2026-09-09T06:17:58Z",
+  "purpose": "Tier-1 records for MI-208/MI-207: one OPEN-ITEMS monitoring row and one health-backlog correction. Claimed on the coordination board (#11336) before this push."
  },
  "active_sessions": [
   {
