@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0025-20260909",
-  "claimed_at": "2026-09-09T00:23:26Z",
-  "purpose": "Correct a false record: MI-205b was called a stall at 23:50Z and had in fact delivered #11473. Heartbeat 00:23:26Z; the manager-inference defect filed to the health backlog."
+  "branch": "automation/work-digest-34297202160-1",
+  "claimed_at": "2026-09-09T01:04:00Z",
+  "purpose": "MERGE-QUEUE UNBLOCK. work-digest.yml arms the landing route but never writes a merge_slot claim, so its receipt PR fails R13 and can NEVER merge; the receipt then never lands, digest-liveness goes stale after 6h, and EVERY PR in the repo goes red. Five such PRs are open. The manager writes the claim this one workflow cannot write for itself. The durable fix is a .github/workflows change and is routed to a session, not authored here (R2)."
  },
  "active_sessions": [
   {
