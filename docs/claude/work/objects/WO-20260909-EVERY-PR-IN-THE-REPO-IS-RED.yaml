@@ -125,6 +125,50 @@ fourth_mechanism_measured_after_the_fix: >-
   open `automation/*` queue went 50 -> 51 (two opened, #11518 and #11525; one
   closed, #11488, closed BY HAND). It grows faster than hand-triage drains it.
 
+done_condition_met: >-
+  ⚠️ MET 2026-09-09T12:28:57Z, AND BY THE MECHANISM RATHER THAN BY HAND — which
+  is the distinction this whole object turns on. VERIFIED on a clean
+  `origin/main` worktree with the exit code read directly, not inferred:
+  `python3 scripts/ci/check_trainer_capture_watch.py` -> `liveness: fresh /
+  newest recorded run is 1.0h old (window 15h)` / EXIT=0. `main` carries
+  `generated_at 2026-09-09T11:35:03Z`, landed by commit d2a8f4a as PR #11543.
+  The clock reset from 19:53:57Z to 2026-09-10T02:35:03Z (7.6h -> 14.0h of
+  headroom).
+  THE SEQUENCE, because the causal chain is the finding and not the timestamp:
+  (1) the 11:23Z scheduled run (#46) fired 11 min late -- inside the observed
+  4.53h-7.63h jitter, so the CRON DID NOT MISS and OI-20260903 is not what
+  happened here; (2) it opened #11543 with a fresh receipt, a valid R13 claim
+  and the arming pair; (3) #11543 went GREEN on all four required checks at
+  11:54:09Z with auto-merge ARMED, and then sat unmerged for 27 minutes,
+  conflicted with `main` on `docs/claude/session-board.json` ALONE -- the
+  fourth mechanism, reproduced on the very receipt this WO is about, in its
+  refreshable sub-case (i); (4) run #46 was CANCELLED at its 40-minute job wall
+  rather than failing, because `commit-to-main`'s refresh RESETS the verify
+  deadline on success and pushed the wait 12 seconds past the job timeout, so
+  `Report the verdict` was SKIPPED and the failure was SILENT; (5)
+  `sweep_stale_automation_prs.py --apply` refreshed it; (6) it merged.
+  ⚠️ CONTRAST WITH THE 07:56:53Z CLEARANCE, which is why this one counts: that
+  receipt reached `main` because session_01DUBXxiaZ3PMERcAfcJce7P PORTED it BY
+  HAND into an unrelated session PR. This one reached `main` through the
+  automation PR's OWN landing route, after the sweeper unstranded it. A hand
+  port proves a human-equivalent actor was watching; this proves the mechanism
+  works without one.
+  ⚠️ THE SWEEPER IS NOW OBSERVED, NOT MERELY DEPLOYED -- for sub-case (i) ONLY.
+  Sub-case (ii) (a DATA conflict between two generator runs) is still
+  unobserved and still unfixable by this file, by design.
+  ⚠️ AND ITS FIRST LIVE RUN REPORTED A SUCCESS IT DID NOT ACHIEVE. `refresh()`
+  used `git commit --no-edit`, which no-ops on the no-conflict path because
+  `git merge` has already committed; the exit code was discarded; the push
+  carried the merge commit alone; and it returned `refreshed and pushed` for a
+  claim it never wrote. #11490 came back STILL FAILING R13 while the output
+  said it was fixed -- the exact class `commit-to-main`'s docstring names, "a
+  step that reports success for something it did not achieve", committed by the
+  file written to end it. Fixed in 6f36b27 (`-m`, exit code checked, and the
+  EFFECT verified against the merge-base before pushing), with three
+  mutation-checked tests. The second run refreshed both PRs and the claims were
+  verified by running check_pr_landing.py against each branch rather than by
+  trusting the sweeper's own report.
+
 what_was_not_done: >-
   NOT DONE, explicitly. (1) NO PR WAS CLOSED. 27 `superseded_older` PRs still
   need closing with a recorded `disposition`, and 7 more
