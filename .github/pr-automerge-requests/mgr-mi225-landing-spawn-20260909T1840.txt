@@ -1,0 +1,2 @@
+Tier-1 manager register write: the MI-225 landing-lane spawn row. PR #11584,
+opened by hand FIRST so a real pull_request event fires and CI actually runs.
