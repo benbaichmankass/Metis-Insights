@@ -745,19 +745,43 @@ the same leverage adds **32.72**, which would put `totalPositionIM` near **60.29
 `coins_seen` is **`["BTC", "USDT"]`**: BTC is $0.00063 of dust, and there is **no USDC block and no ETH block**.
 A USDC-settled, inverse, or spot ETH holding each require their own coin block.
 
-### THE FINDING
+### THE FINDING — ⚠️ SUPERSEDED 2026-09-09T16:03Z, CORRECTED IN PLACE, NOT DELETED
 
-> **The operator's capital is on a book this system's keys cannot reach.** Our inability to read it is a defect
-> in OUR integration, not a fact about their account.
+The headline this section carried is struck through below rather than removed, because a session reading the
+sweep needs to see what was concluded from it AND why that conclusion did not survive:
 
-That is the structural defect this lane already filed —
-`BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON` — and the
-sweep is evidence FOR that row, not against the operator.
+> ~~**The operator's capital is on a book this system's keys cannot reach.**~~ Our inability to read it is a
+> defect in OUR integration, not a fact about their account.
+
+**What superseded it is the OPERATOR'S OWN EVIDENCE, not a measurement of ours.** At 2026-09-09T16:03Z the
+operator reported, verbatim: *"i see the the eth trade closed, longer ago than i realized"*. So **there was no
+live ETH position on an unreachable book.** The ETHUSDT row on their terminal was a **closed** trade, and the
+sweep's silence about ETH is exactly what a closed position produces — the same reading, an entirely
+different cause. **The margin arithmetic below is unchanged and still correct**; what changes is the
+inference drawn from it, which reached for an unreachable-book explanation when a closed-position one was
+available and is the one the operator's evidence supports.
+
+⚠️ **The second sentence is NOT struck and still stands**: our inability to read something is a fact about
+our integration, never about the operator's account. That is the rule this section was written to obey and
+it was obeyed — the error was in the FIRST sentence, which asserted a positive fact about where the
+capital was, from an absence.
+
+⚠️ **The structural backlog row is NOT retracted with the headline.**
+`BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON` stands on
+its own evidence: nothing in this system checks that the books our keys enumerate are all the books the
+capital is on, and `is_sub_account` still reads `None`. That defect is real whether or not it explains this
+trade. What is withdrawn is using this incident as its exhibit.
 
 ### The three candidates, read-states stated SEPARATELY
 
-- **(a) Different UID / sub-account — `UNTESTED`.** `is_sub_account` reads `None` = *we could not look*, never
-  *no*. This key reads UID **553829655**. **Not refuted.**
+- **(a) Different UID / sub-account — `REFUTED (operator evidence, 2026-09-09T14:35Z and 14:41Z, restated
+  16:03Z)`, and NOT by anything we measured.** When written this read `UNTESTED … Not refuted`, which was
+  the honest state of OUR instruments and still is: `is_sub_account` reads `None` = *we could not look*, never
+  *no*, and this key reads UID **553829655** — we never enumerated a second UID and we cannot. What refutes
+  the candidate is the **operator's own report** that the ETH trade had already CLOSED, which removes the live
+  position the candidate exists to locate. ⚠️ **Record it as refuted ON OPERATOR EVIDENCE, dated and
+  attributed — never as a measurement of ours.** The UID-enumeration gap it exposed is untouched by this and
+  is carried by the backlog row above.
 - **(b) Different product category — `TESTED`, and cleared for THIS KEY on THIS account** (subject to the
   `linear baseCoin` caveat above, which the settle-coin queries cover).
 - **(c) Stale terminal — `UNTESTED`, and not ours to assert.** The operator reported it from their terminal and
@@ -767,10 +791,14 @@ sweep is evidence FOR that row, not against the operator.
 
 1. **Where the ETH row the operator sees is served from.** The open question is for the operator: which Bybit
    UID is the terminal signed into, and is that row on the linear perp book.
-2. **Whether trade 5471's close was CORRECT.** `exit_reason='sl'` is still unvalidated against the fill, and
-   **there is still no read surface for venue closed-PnL** — `account_closed_pnl_for_trade` exists in
-   `clients.py` with no route. A second, independent endpoint that bypasses `position/list` entirely cannot be
-   asked from any surface today.
+2. **Whether trade 5471's close was CORRECT.** ✅ **SETTLED IN § 18 — this item is CLOSED and the text
+   below is preserved as the record of what was open at 15:11Z.** ~~`exit_reason='sl'` is still unvalidated
+   against the fill, and **there is still no read surface for venue closed-PnL** —
+   `account_closed_pnl_for_trade` exists in `clients.py` with no route. A second, independent endpoint that
+   bypasses `position/list` entirely cannot be asked from any surface today.~~ Both halves were closed the
+   same day: `/api/diag/bybit_raw_closed_pnl` (#11560) and `/api/diag/bybit_raw_order_history` (#11565)
+   shipped the surfaces, and the order-history read at 17:09:38Z validated the close against the venue's own
+   fill. See § 18.
 3. **`total_position_im` at the ACCOUNT level is EMPTY** (`""`), so the figure above is the **USDT coin-level**
    one. That is the right number here precisely because no other coin block exists — but it is a per-coin
    reading and the distinction is stated rather than smoothed over.
@@ -826,5 +854,195 @@ exit sits **0.324 below** the declared stop `2451.59428571`, consistent with a s
 ⚠️ **This establishes that the recorded PnL has the right SHAPE for a real fill. It does NOT establish that
 the venue booked the close.** Only `/v5/position/closed-pnl` can do that — a second endpoint sharing no
 filter, dedupe, cursor or `size` field with the position path. That instrument is written and tested
-(`account_bybit_raw_closed_pnl` + `/api/diag/bybit_raw_closed_pnl`) and is **held at `landing: hold` pending a
-merge click**, so the question *"did the venue book a realised close for 5471?"* is **still unanswered**.
+(`account_bybit_raw_closed_pnl` + `/api/diag/bybit_raw_closed_pnl`), so the question *"did the venue book a
+realised close for 5471?"* is **still unanswered**.
+
+⚠️ **CORRECTED 2026-09-09T16:30Z — this paragraph said that instrument was "held at `landing: hold` pending a
+merge click", and that was STALE WITHIN THE HOUR.** #11560 was merged at 15:53Z as `0ff2afba` (operator
+approved it Tier-2) and DEPLOYED. What is true instead is worse and is recorded rather than quietly swapped
+in: **the route was deployed and BROKEN.** Its first live call at 2026-09-09T16:06:02Z returned
+`read_state: "could_not_look"` with `TypeError: run_account_read() got an unexpected keyword argument
+'symbol'` — `run_account_read(fn, *args)` (`src/web/api/_account_read_executor.py:56`) is POSITIONAL-ONLY
+because it forwards to `loop.run_in_executor`, which takes no kwargs. So the question above is still
+unanswered, but for a different reason than the sentence claimed, and the difference matters: *waiting on a
+merge* and *shipped and raising on every request* are not the same state. Fixed on
+`claude/mi-221-fix-closed-pnl-route` and folded into #11565; see § 17.
+
+---
+
+## § 17 — The sibling-coverage hypothesis: REFUTED for 5471, real as a CLASS, and narrower than first read
+
+**The operator's hypothesis, 2026-09-09T16:26Z, verbatim:** *"it's possible that there was a partial bracket
+on the position for one trade - once it closed, another trade, that never had brackets, became visibly naked
+once it wasn't hiding behind the first trade"*.
+
+It is precise and it fits this venue exactly: under netting ONE exchange position backs N journal rows, so a
+sibling's Partial leg can make the symbol look covered while a second row carries nothing of its own.
+
+### REFUTED for 5471 — population stated
+
+Measured over every `bybit_2` ETHUSDT row in the 1000-row journal window (ids **4611..5610**, read
+2026-09-09T16:26Z), **n = 12**:
+
+- **Other `bybit_2` ETHUSDT rows open at ANY point during 5471's life** (2026-09-04T14:04:14Z →
+  2026-09-08T13:37:13Z): **ZERO**.
+- Nearest prior close: trade **5403** at 2026-09-03T13:36:27Z — **1 day 0:27:47 BEFORE** 5471 opened.
+- Rows opened after 5471 closed, in window: **zero**.
+
+**5471 was alone on that netted position for its entire life.** It could not have been hiding behind
+anything, and nothing was hiding behind it. It also carries **both** leg ids
+(`sl_order_id 1a3490f9-b98c-4477-bbcb-39c7eb8830f7`, `tp_order_id 048623a7-2498-47f8-85f8-08096d732aa4`).
+
+⚠️ **This is a WINDOW, not the whole table** — ids 4611..5610, roughly 2026-08-11 onward. It brackets 5471's
+life densely (5342, 5355, 5372, 5403, 5471 all present) and exactly one `bybit_2` row is open today (XRP
+5474), so no older ETH row survives unseen — but the bound is stated rather than left implicit.
+
+### The CLASS is real on this symbol and account — and is NARROWER than "the operator's mechanism observed"
+
+Two rows closed with **`exit_reason: netting_attributed`** — the attribution path that exists ONLY because
+multiple journal rows share one netted position — and the timing is striking: **4886 closed
+2026-08-21T21:24:02.429Z, and its sibling 4808 closed on `tp_cross` 45.1 seconds later.** Verified from the
+journal, not relayed.
+
+⚠️ **BUT BOTH `netting_attributed` ROWS CARRY THEIR OWN `sl_order_id`** — 4886 `f78cd748…`, 4922
+`5cf9a71f…`. The operator's hypothesis is about a row **that never had brackets** hiding behind a sibling.
+**Neither of these is that row.** So what is demonstrated here is *netting-sharing on this symbol and
+account*, which is real; what is **NOT** demonstrated is *a row with no legs of its own being masked by a
+sibling's*. Reporting the second from this evidence would be over-claiming, and the distinction is the whole
+content of the hypothesis.
+
+⚠️ **The three NULL-leg-id ETH rows are NOT candidates either, and were checked rather than assumed:** 4730,
+5355 and 5372 are all `intent_reduce_executed` with `created_at == closed_at` to the second — reduce
+operations, not opens. Their NULLs are **correct**.
+
+**So the class is filed on its own evidence and explicitly NOT as an explanation of 5471.**
+
+### What the refutation leaves — two branches, and they are not equally cheap
+
+If 5471 was alone WITH both legs, and the operator saw an ETHUSDT row carrying "+ Add", then exactly one of:
+
+- **(A) 5471's legs were CANCELLED while it was live.** Still the primary line. The order-history lookup on
+  those two ids settles it — `cancel_type` distinguishes a venue-side clear at close from an early cancel.
+- **(B) The naked row is a position OUR JOURNAL DOES NOT RECORD AT ALL.** Worse, and consistent with
+  everything else here — § 15's margin arithmetic, § 16's frozen stamp, and `is_sub_account` reading `None`.
+
+**Both stay live. (A) must not be collapsed to merely because it is the tractable one** — that is selection
+by convenience, and it is the shape of error this document has already corrected twice.
+
+> ⚠️ **FORWARD POINTER, added after § 18 was written: branch (A) is REFUTED.** The order-history read at
+> 2026-09-09T17:09:38Z shows 5471's stop leg was never cancelled — it **filled**. Do not read the paragraph
+> above as an open question; it is preserved as the record of what was open at the time. See § 18.
+
+
+---
+
+## § 18 — THE ANSWER: trade 5471's stop was never cancelled, it FIRED. There was never an unprotected window.
+
+**This section answers the operator's question — *"we need to understand and fix the no brackets"* — for
+trade 5471, and the answer is that trade 5471 had brackets the entire time.**
+
+### Provenance of the read, stated before the result
+
+- **Read at** `2026-09-09T17:09:38Z`, direct HTTPS via `scripts/ops/diag_fetch.sh`
+  (`served by https://ict-bot.duckdns.org`).
+- **Deploy verified BEFORE the read, not assumed:** `/api/diag/version` returned `git_sha == git_sha_on_disk
+  == 02890142`, `restart_pending: false`, and `9246bc8d` (the squash of #11565, which shipped the instrument)
+  confirmed an ancestor with `git merge-base --is-ancestor` — **not by eye**.
+- **Route:** `/api/diag/bybit_raw_order_history?account_id=bybit_2&symbol=ETHUSDT`.
+- **`pages_read: 2`.** ⚠️ **The SL leg's disposition was NOT on page 1.** Every position/order read in this
+  repo's history before this lane was page-1-only (`grep -rn "nextPageCursor" src/` returned **zero** hits),
+  so the `nextPageCursor` follower is not incidental here — **it is what made this question answerable at
+  all.** The instrument earned itself on its first real use.
+- **Both of 5471's leg ids ARE present in the response**, so this is not the *we could not look* outcome. It
+  is a graded read.
+
+### The payload, verbatim on the fields that decide it
+
+| | `1a3490f9-b98c-4477-bbcb-39c7eb8830f7` | `048623a7-2498-47f8-85f8-08096d732aa4` | `c6bb2151…` |
+|---|---|---|---|
+| `stop_order_type` | **PartialStopLoss** | **PartialTakeProfit** | — (entry) |
+| `order_status` | **Filled** | Deactivated | Filled |
+| `cancel_type` | **`UNKNOWN`** | `CancelByTpSlTsClear` | `UNKNOWN` |
+| `trigger_price` | 2451.59 | 2698.81 | — |
+| `created_time` | 2026-09-04T14:04:13.938Z | 2026-09-04T14:04:13.938Z | …:13.935Z |
+| `updated_time` | 2026-09-08T13:37:13.873Z | 2026-09-08T13:37:13.873Z | …:13.938Z |
+| executed | **0.04 @ 2451.27** | 0 | 0.04 @ 2453.97 |
+
+### What that says, term by term
+
+1. **The stop was placed 0 ms after the entry filled.** The entry's `updated_time` is `…:13.938Z` and the
+   stop's `created_time` is `…:13.938Z` — the same millisecond. **There was never an unprotected window: not
+   four days, not four milliseconds.**
+2. **The stop rested `3d 23:32:59.935` and then FILLED.** `order_status: Filled`, `cancel_type: UNKNOWN` —
+   there is no cancel on this leg at any point in its life. It was consumed by doing its job.
+3. **The take-profit leg's `CancelByTpSlTsClear` is the OCO sibling standing down BECAUSE the stop filled**,
+   at the same millisecond. It is the healthy shape, not a cancellation of protection.
+4. **`avg_price 2451.27` equals the journal's `exit_price` EXACTLY.** So `exit_reason='sl'` is corroborated by
+   a **second, independent endpoint** that never touches `position/list`. The close was the venue's stop
+   filling — it is **not** our monitor stamping a label on a position it had lost.
+
+### Against the three pre-registered outcomes — the answer is NONE of them
+
+The manager pre-registered (a) legs consumed at the close, (b) a cancel days earlier, (c) could-not-look.
+**The result is a fourth thing, and it must not be filed as (a):** (a) describes legs *cancelled* by a
+venue-side clear when the position closed. The stop was not cancelled by anything. It **triggered and
+filled**. The take-profit's clear is a consequence of that fill, not the mechanism of the close. Reporting
+this as (a) would compress the one fact that matters — that the protection **worked** — into a description of
+its disposal.
+
+### What this REFUTES, explicitly
+
+- ❌ **"The position ran naked on real money for four days."** Refuted. It was protected end to end.
+- ❌ **Branch (A) — 5471's legs were cancelled while it was live.** Refuted (§ 17's forward pointer).
+- ❌ **"The close was our own reconciler/monitor stamping `exit_reason='sl'`."** Refuted by the exact
+  `avg_price` match against the venue's own fill record.
+- ❌ **The software-only-stop concern for this trade.** The stop was a real resting venue order with a
+  `trigger_price`, and it executed.
+- ✅ **Question (B) DISSOLVES.** The operator's second question — *why did the per-tick naked sweep never
+  re-arm across four days?* — has no subject. **There was nothing to re-arm.** The sweep doing nothing was
+  the sweep being **correct**. This is worth stating plainly because the question was framed as a defect and
+  a session inheriting it would otherwise hunt for a bug that is not there.
+- ✅ **All five `protection_repair_*` columns reading `NULL` is CORRECT, not a missing write.** The writer has
+  been live since `d974d2ce7` (2026-08-24), well before this trade opened. No repair was recorded because no
+  repair was needed. ⚠️ Per `CLAUDE.md`, `NULL` normally means *"no repair RECORDED"*, never *"no repair
+  happened"* — here the stronger reading is available only because the venue's own order history independently
+  accounts for both legs across the whole life of the trade.
+
+### ⚠️ WHAT THIS DOES **NOT** ESTABLISH — read this as prominently as the result
+
+1. **Nothing whatsoever about what was on the operator's screen.** This is one journal row and its two legs.
+   I never saw the terminal. **The "+ Add" sighting is not explained by this section**, and this section must
+   never be cited as explaining it.
+2. **Nothing about any other position.** The manager measured that **zero** other `bybit_2` ETHUSDT journal
+   rows were open during 5471's life — *that measurement is theirs, not mine* — so 5471 is now fully
+   accounted for, and the no-brackets sighting is left **without a subject**. That is a smaller question than
+   it was this morning, and it is still open.
+3. **Nothing about the sibling-coverage CLASS.** § 17 refuted it for 5471 and filed it as a class on its own
+   evidence (4886 and 4922 closed `netting_attributed`). **That class survives this section untouched.**
+4. **Nothing about the UID-enumeration gap.** `is_sub_account` still reads `None`. We still cannot enumerate
+   the books our keys do not reach.
+
+### ⚠️ The findings found ALONG THE WAY are NOT retracted with the premise
+
+The naked-for-four-days premise is gone. **These are independently true, were measured, and stand:**
+
+- **No `nextPageCursor` follower existed anywhere in `src/`** before this lane. Every position and order read
+  was page-1-only. This section is itself the proof that it mattered (`pages_read: 2`).
+- **`account_open_positions._emit` dedupes on symbol with no `position_idx`**, and `rows[0]` returns the
+  most-recently-updated book (§ 13) — a real, unfixed, real-money hazard under hedge mode.
+- **`covered_qty` is side-blind** in `_bybit_position_protection`.
+- **Three collapsed reads** now carry three-state grading (`rows_returned` / `no_rows` / `could_not_look`)
+  because of this lane.
+- **All five backlog rows stand**, including
+  `BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON` and
+  `BL-20260909-UNDER-NETTING-A-JOURNAL-ROW-CAN-BE-MASKED-BY-A-SIBLINGS-PROTECTIVE-LEG-AND-NOTHING-GRADES-PER-ROW-COVERAGE`.
+
+**An investigation whose premise is refuted does not retract the defects it found on the way.** The premise
+was wrong; the instruments were missing, and they were missing whether or not this trade was ever naked.
+
+### Constraints observed
+
+Every call in this section was a **GET**. **No order was placed, modified or cancelled on `bybit_2` or on any
+account.** No Tier-2/3 change was enacted. `BYBIT_GRADED_COVERAGE_MODE` is untouched and its arming remains
+**held** on the operator's 2026-09-02 decision — a single reconstructed case is not the soak, and this section
+is not one either.

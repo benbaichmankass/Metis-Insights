@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register write only — one note and two fields on the MI-222 row in docs/claude/work/MANAGER-CHECKLIST.json. No src/, config/, scripts/, workflow or order path. Recording an operator approval is a management act, not a build."
+}

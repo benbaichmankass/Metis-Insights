@@ -2033,6 +2033,150 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
     }
 
 
+def account_bybit_raw_order_history(
+    account: Dict[str, Any],
+    *,
+    symbol: str,
+    start_ms: int,
+    end_ms: int,
+) -> Optional[Dict[str, Any]]:
+    """The RAW Bybit ``get_order_history`` records for *symbol* in a window —
+    un-normalised, un-reduced — or ``None`` when we could not look.
+
+    ⚠️ **THIS ANSWERS *WHEN WAS A PROTECTIVE LEG CANCELLED, AND WHY*, WHICH NO
+    SURFACE CAN ASK TODAY.** ``trades.sl_order_id`` / ``tp_order_id`` record
+    that a leg WAS placed at entry (they are written only on the Partial
+    branch, from a before/after snapshot diff of the venue's legs), and
+    ``get_open_orders`` shows what rests NOW. Between those two there is no way
+    to ask what happened to a leg that is no longer resting — whether it was
+    consumed at the close (the position was protected throughout) or cancelled
+    days earlier (the position ran naked). Those are opposite findings about a
+    real-money position and nothing could distinguish them.
+
+    ⚠️ **ITS NEAREST EXISTING CALLER NORMALISES THE ANSWER AWAY.**
+    ``account_order_status`` returns ``{order_id, status, filled_qty,
+    avg_price, exec_time}`` — dropping ``createdTime``, ``updatedTime``,
+    ``cancelType``, ``triggerPrice``, ``stopOrderType`` and ``orderStatus``'s
+    surrounding context, which are exactly the fields that answer *when* and
+    *why*. It is also per-orderId, so it cannot show a leg the journal never
+    recorded. This returns every order in the window, in venue order.
+
+    **It reduces NOTHING.** ``nextPageCursor`` is followed and REPORTED, so a
+    truncated page can never read as a complete one.
+
+    ``query_state`` is three-way and never collapsed: ``rows_returned`` /
+    ``no_rows`` (the venue answered with an EMPTY list — a real positive
+    measurement) / ``could_not_look`` (the call raised — says nothing about the
+    world). ``record_count`` is ``None``, never ``0``, on the last.
+
+    Read-only: grades nothing, matches nothing, opens no order path. Never
+    raises — a failure is a ``None`` or a recorded ``could_not_look``.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "bybit":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = bybit_client_for(account)
+    if client is None:
+        return None
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: None = "could not look", the documented degraded state
+        logger.warning(
+            "account_bybit_raw_order_history(%s): category resolve failed: %s", aid, exc)
+        return None
+
+    records: list = []
+    cursor: Optional[str] = None
+    pages = 0
+    cursors_seen: list = []
+    max_pages = 10
+    while True:
+        kwargs: Dict[str, Any] = {
+            "category": category,
+            "symbol": symbol,
+            "startTime": int(start_ms),
+            "endTime": int(end_ms),
+            "limit": 50,
+        }
+        if cursor:
+            kwargs["cursor"] = cursor
+        try:
+            resp = client.get_order_history(**kwargs)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look; never an exception into the caller
+            logger.warning(
+                "account_bybit_raw_order_history(%s): %s failed: %s", aid, symbol, exc)
+            return {
+                "category": category,
+                "symbol": symbol,
+                "start_ms": int(start_ms),
+                "end_ms": int(end_ms),
+                "query_state": "could_not_look",
+                "record_count": None,
+                "pages_read": pages,
+                "next_page_cursor_seen": cursors_seen or None,
+                "pages_truncated": False,
+                "records": [],
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        result = (resp or {}).get("result") or {}
+        raw = result.get("list") or []
+        pages += 1
+        for rec in raw:
+            if not isinstance(rec, dict):
+                continue
+            records.append({
+                "order_id": rec.get("orderId"),
+                "order_link_id": rec.get("orderLinkId"),
+                "side": rec.get("side"),
+                "order_type": rec.get("orderType"),
+                # The protective-leg identity. A stop/target leg carries
+                # stopOrderType; an entry does not.
+                "stop_order_type": rec.get("stopOrderType") or None,
+                "order_status": rec.get("orderStatus"),
+                # WHY it left the book. Bybit distinguishes a user cancel from
+                # a venue-side one (e.g. CancelByTpSlTsClear when the position
+                # closes and its Partial legs are cleared) -- which is the
+                # whole difference between 'protected until the close' and
+                # 'cancelled days early'.
+                "cancel_type": rec.get("cancelType") or None,
+                "reduce_only": rec.get("reduceOnly"),
+                "close_on_trigger": rec.get("closeOnTrigger"),
+                "tpsl_mode": rec.get("tpslMode") or None,
+                "position_idx": rec.get("positionIdx"),
+                # Venue strings, never coerced: an empty string is the venue
+                # declining to give a value, not a zero.
+                "qty": rec.get("qty"),
+                "price": rec.get("price"),
+                "trigger_price": rec.get("triggerPrice"),
+                "trigger_direction": rec.get("triggerDirection"),
+                "cum_exec_qty": rec.get("cumExecQty"),
+                "avg_price": rec.get("avgPrice"),
+                "created_time": rec.get("createdTime"),
+                "updated_time": rec.get("updatedTime"),
+            })
+        cursor = result.get("nextPageCursor") or None
+        if cursor:
+            cursors_seen.append(cursor)
+        if not cursor or pages >= max_pages:
+            break
+    return {
+        "category": category,
+        "symbol": symbol,
+        "start_ms": int(start_ms),
+        "end_ms": int(end_ms),
+        "query_state": "rows_returned" if records else "no_rows",
+        "record_count": len(records),
+        "pages_read": pages,
+        "next_page_cursor_seen": cursors_seen or None,
+        "pages_truncated": bool(cursor) and pages >= max_pages,
+        "records": records,
+        "error": None,
+    }
+
+
 def account_bybit_raw_closed_pnl(
     account: Dict[str, Any],
     *,

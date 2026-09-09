@@ -1,0 +1,2 @@
+Tier-1 manager register write: the MI-222 operator approval. PR #11577, opened by
+hand FIRST so a real pull_request event fires and the required checks actually run.

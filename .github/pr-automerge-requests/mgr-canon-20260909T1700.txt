@@ -1,0 +1,2 @@
+Tier-1 manager register writes (SESSIONS/CHECKLIST/LEASE). PR #11575, opened by
+hand FIRST so a real pull_request event fires and CI actually runs.
