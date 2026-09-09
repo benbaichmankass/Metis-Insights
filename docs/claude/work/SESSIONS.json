@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T17:00:45Z",
+  "updated_at": "2026-09-09T18:25:52Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3772,7 +3772,9 @@
         "manager_note": "#11519 reported green on b198aa6 but is still DRAFT and held by the manager. Its own framing says ~25 automation PRs; the measured figure is 51."
       },
       "observed_at": "2026-09-09T15:28:00Z",
-      "observation": "IDLE 15:22:12Z, review_ready: PR #11519 green, awaiting R12 read; self-scheduled next check 15:38Z."
+      "observation": "IDLE 17:14:01Z. Lane 4; #11519 still DRAFT.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T18:25:52Z"
     },
     {
       "session_id": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
@@ -3871,7 +3873,9 @@
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
       "state": "working",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "RUNNING and productive. Landed §15 (#11559), §16 (#11563) and the closed-PnL route (#11560, merged by me 15:53Z on operator Tier-2 approval). §16 is the lane's best instrument: a PRE-REGISTERED funding-stamp prediction with its own positive control in the same read — XRP advanced to 16:00:00.027Z while ETHUSDT idx1 stayed frozen at 2026-09-08T13:37:13.873Z across four consecutive settlements. Blocked on nothing from me. Carrying three items: fix the broken /api/diag/bybit_raw_closed_pnl (TypeError, kwargs into a positional-only run_account_read), the order-history lookup on 5471's two leg ids, and why the naked sweep never re-armed across four days."
+      "observation": "IDLE 17:54:40Z, work COMPLETED. Landed #11565 (raw order-history instrument), #11576 (S18), #11578 (S19), #11580 (S20). Its own summary: stop #5471 confirmed via 3 independent endpoints, created 0ms after entry fill, fired after 3.8d rest, no unprotected window. 622,931 tokens, $218.23.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T18:25:52Z"
     },
     {
       "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
@@ -3887,7 +3891,9 @@
       "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
       "state": "blocked",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "REQUIRES_ACTION on a Bash permission prompt since 14:50:46Z; #11550 still at ZERO check runs. Told at 16:00Z that the ordinary-push remedy is folklore here (measured on #11547) and to move the content to a fresh branch opening the PR itself. Also holds the operator's Tier-2 observable-first approval on the collapsed read at clients.py:1379-1381, with account_open_positions' return value to stay byte-identical."
+      "observation": "IDLE 17:22:52Z after pushing e38855b8. Its PR #11566 went 4/4 green and I MERGED it 17:41Z as 985375d3f. Work delivered.",
+      "status": "idle",
+      "last_observed_at": "2026-09-09T18:25:52Z"
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
@@ -3930,7 +3936,10 @@
       ],
       "why": "Attempts #1-#4 all failed at the SAME point and none of them was the child's fault: the prompt did not resolve the repo-identity ambiguity (remote is Metis-Insights, 244 in-repo files say ict-trading-bot, and CLAUDE.md warns that hardcoding either name is a trap), so a session obeying RULE ONE dead-ends asking which repo it is in. Attempt #5's prompt states the resolution up front. Registered AFTER the spawn, which is the MI-15 recurrence this registry exists to catch — recorded rather than tidied.",
       "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
-      "state": "working"
+      "state": "working",
+      "status": "working",
+      "last_observed_at": "2026-09-09T18:25:52Z",
+      "observation": "RUNNING 17:24:23Z, phase 0 closed, wave 2 (7 agents) verifying critical findings; draft PR #11571 open."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

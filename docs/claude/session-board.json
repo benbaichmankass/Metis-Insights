@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-s20-display-hypothesis-refuted",
-  "claimed_at": "2026-09-09T17:49:19Z",
-  "purpose": "MI-221 § 20: refute the display hypothesis and supersede § 19 in place. Tier-1 docs, PR #11580."
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-hb-20260909T1826",
+  "claimed_at": "2026-09-09T18:25:52Z",
+  "purpose": "Manager: lease heartbeat + supervision reconciliation"
  },
  "active_sessions": [
   {
