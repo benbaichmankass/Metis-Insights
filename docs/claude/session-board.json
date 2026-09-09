@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-consolidated-20260909T1912",
-  "claimed_at": "2026-09-09T19:12:06Z",
-  "purpose": "Manager: consolidated register writes + lease heartbeat (supersedes #11583, #11584)"
+  "branch": "claude/mgr-hb-1945-20260909",
+  "claimed_at": "2026-09-09T19:41:22Z",
+  "purpose": "Manager: lease heartbeat + supervision record (4 sub-sessions re-observed live)"
  },
  "active_sessions": [
   {

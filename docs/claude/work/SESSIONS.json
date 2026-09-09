@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T19:12:06Z",
+  "updated_at": "2026-09-09T19:44:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3873,9 +3873,9 @@
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
       "state": "working",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "IDLE 17:54:40Z, completed. Landed #11565/#11576/#11578/#11580.",
-      "status": "idle",
-      "last_observed_at": "2026-09-09T19:12:06Z"
+      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, connected, status_category=completed - \"Stop order #5471 confirmed via 3 independent endpoints; created 0ms after entry fill, fired as designed after 3.8d rest; no defect or unprotected window found.\" Its four landings are on main (#11565 instrument, #11576 S18, #11578 S19, #11580 S20). MANAGER ACTION 19:43Z: its session TITLE still read \"P1 LIVE MONEY - bybit_2 ETHUSDT 0.04 unprotected and invisible\", which is the premise its OWN work refuted, and list_sessions is a surface a cold manager reads. Renamed to state the refutation. A stale title on a resolved P1 is a false record, not untidiness.",
+      "status": "completed",
+      "last_observed_at": "2026-09-09T19:44:00Z"
     },
     {
       "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
@@ -3891,9 +3891,9 @@
       "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
       "state": "blocked",
       "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "IDLE 17:22:52Z, delivered. #11566 merged 985375d3f.",
-      "status": "idle",
-      "last_observed_at": "2026-09-09T19:12:06Z"
+      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, status_bucket BLOCKED, needs_action \"close PR #11579 and delete claude/mi-222-report-green branch\". ACTED ON, 19:43Z: #11579 CLOSED by this manager on the author's own disposition, with a comment recording exactly what the close does and does not lose (88 lines, all automation/** relay inputs plus the receipt; no src/tests/config/deploy/workflow path; commits and branch survive a close). The board post itself is NOT lost - board-post.yml fails its run on a failed post and this one wrote a receipt naming issue #11336 comment 5606175880. I DID NOT independently re-read that comment and said so on the PR rather than implying a verification I did not perform. Root cause of the block was pr-landing R13: the branch armed without holding merge_slot, and re-slotting it would have serialised a lease heartbeat behind a relay receipt.",
+      "status": "blocked_resolved",
+      "last_observed_at": "2026-09-09T19:44:00Z"
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
@@ -3938,8 +3938,8 @@
       "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
       "state": "working",
       "status": "idle",
-      "last_observed_at": "2026-09-09T19:12:06Z",
-      "observation": "IDLE/disconnected since 17:46:09Z, status_category need_input. Its work is NOT lost: 877a13fff on origin carries all 68 findings. Superseded by the landing lane; do not poke."
+      "last_observed_at": "2026-09-09T19:44:00Z",
+      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected since 19:12:14Z, review_ready. Still on claude/mi225-full-system-audit - the SAME branch as the landing lane above. The double-occupancy I recorded at 19:12 has resolved on its own and is recorded as resolved rather than left looking live: the landing lane merged and armed on this author's behalf, the author rewrote the PR body, neither overwrote the other. STANDING RULE if both wake again: the LANDING LANE stands down, because the author owns the branch."
     },
     {
       "session_id": "session_01AkZzA4Gq9J2pfx5sRB1ZUB",
@@ -3958,9 +3958,9 @@
       "note": "Registered BEFORE the spawn — the first time today I have got that order right; the three prior registrations this session were all after the fact, which is the MI-15 recurrence.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T18:39:35Z",
-      "status": "working",
-      "last_observed_at": "2026-09-09T19:12:06Z",
-      "observation": "Spawned 18:39:29Z to land #11571. RUNNING at 18:42:12Z, branch claude/mi225-full-system-audit, task_summary \"Identifying which registers changed on each side\" - the verified-union work it was scoped to."
+      "status": "idle",
+      "last_observed_at": "2026-09-09T19:44:00Z",
+      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, branch claude/mi225-full-system-audit, status_category=review_ready, status_detail \"PR merged clean, CI re-fired; awaiting guards + pytest-run\". CORROBORATED INDEPENDENTLY rather than taken on its word: #11571 check-runs read 19:39Z show CI RESTARTED at 2026-09-09T19:33:43Z on NEW run ids (34395781952/63/64, 34395782100) - guards SUCCESS 19:35:42Z, pytest-collect SUCCESS, repo-inventory SUCCESS, open-and-automerge SUCCESS, pytest-run in_progress since 19:34:18Z. A restart on new run ids is what a clean re-merge of main looks like, so the lane did the union work it was routed for. Auto-merge armed. IT HAS NOT LANDED: origin/main head read 19:39Z is 6295bce38 (#11588), not the audit. Idle-with-armed-auto-merge is the CORRECT resting state here, not a stall."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
