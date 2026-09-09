@@ -328,6 +328,92 @@ sub_case_ii_is_now_OBSERVED_correcting_this_object: >-
   defect in it -- but it is no longer hypothetical, and a successor should read
   it as a live class rather than a caveat.
 
+fifth_mechanism_the_producing_run_never_OPENS_the_pr: >-
+  ⚠️ A FIFTH STRAND MODE, AND THE SWEEPER IS STRUCTURALLY BLIND TO IT. Found
+  2026-09-09T14:2xZ while measuring whether any receipt was stranded.
+
+  THREE branches carry a receipt NEWER than main's, and NONE of them has a pull
+  request -- not closed, NEVER OPENED. Checked individually with
+  `list_pull_requests(state=all, head=...)`, each returns `[]`:
+  automation/work-digest-34355107317-1 (WORK-DIGEST 13:08:15Z vs main's
+  11:39:00Z), automation/work-digest-34353511056-1, and
+  automation/data-commit-34347588537-1 (PR-QUEUE-WATCH 11:50:12Z vs main's
+  05:15:42Z).
+
+  CAUSE, READ FROM THE RUN LOG AND NOT INFERRED. Run 34355107317 (`work-digest`,
+  event=push, conclusion=failure, 13:07:27Z -> 13:09:23Z) pushed the branch at
+  13:08:17Z and then logged verbatim: `commit-to-main: gh pr create attempt 1/3
+  failed: GraphQL: API rate limit already exceeded for user ID 119055177`, twice
+  more, then `could not open a PR ... after 3 attempts. THE ROWS ARE NOT LOST --
+  they are pushed to <branch> and can be opened manually.` `commit-to-main`
+  behaved CORRECTLY: it retried, failed loudly, and said exactly where the rows
+  are. What it cannot do is the "manually" part, and nothing else was going to.
+
+  ⚠️ THE RATE LIMIT IS PLAUSIBLY SELF-INFLICTED AT THE ORG LEVEL AND I AM NOT
+  GOING TO PRETEND OTHERWISE: every Claude session in this repo acts as user id
+  119055177, so sessions polling CI through the MCP and `gh pr create` inside
+  `commit-to-main` draw on ONE quota. This session has been making MCP calls
+  against this repo throughout.
+
+  ⚠️ THE BLIND SPOT IS IN THE CLASS FIX ITSELF. sweep_stale_automation_prs.py
+  enumerates the OPEN-PR LIST, so a branch that never got a PR is invisible to
+  it. The premise -- "the branch has no owner once the producing run exits" --
+  is right; the INPUT SET is wrong. It should iterate BRANCHES, not PRs.
+  MEASURED: 157 origin/automation/* branches exist and 48 have an open PR. That
+  is NOT 109 strands (most are closed or merged PRs whose branch survived), but
+  the correct denominator for this mode is branches, and the sweeper never looks
+  at it. NOT FIXED HERE -- iterating branches changes what the sweeper may act
+  on and deserves its own review, so it is recorded rather than rushed.
+
+  WHAT WAS DONE: #11557 opened BY HAND for the newest stranded digest branch --
+  the step the rate limit prevented -- because check_digest_liveness (6h) had
+  main expiring at 17:39Z and this branch carries 13:08:15Z. Checked before
+  opening: newer than main's (no rewind), pr-landing OK under the REAL branch
+  name, one pending-pings row main lacks (landing PUTS it on main, which is the
+  direction those rows want), and conflicting with main on session-board.json
+  ALONE -- sub-case (i).
+
+second_defect_in_my_own_fix_append_only_blocked_LANDING: >-
+  ⚠️ AND OPENING #11557 IMMEDIATELY EXPOSED A SECOND DEFECT IN THE SWEEPER,
+  worse than the first. It graded `carries_append_only`, which is NOT in
+  ACTIONABLE -- so the sweeper REFUSED to refresh the very PR opened to save the
+  clock.
+
+  MEASURED, population = the 49 open automation/* PRs at 14:18Z: ALL TEN open
+  work-digest PRs grade `carries_append_only`, because a work digest ALWAYS
+  queues a ping row. So the sweeper could NEVER refresh a work-digest PR, and
+  check_digest_liveness (6h) is the TIGHTEST repo-wide guard, carried by exactly
+  that class. The one mechanism built to keep those clocks alive was
+  structurally unable to touch the tightest one.
+
+  THE STATE WAS RIGHT AND ITS SCOPE WAS WRONG. It exists so a PR holding an
+  unread operator ping is never CLOSED as cleanly superseded -- the motivating
+  mistake in the module docstring. It was also blocking the REFRESH, and
+  refreshing is what LANDS those rows on main. The safety property was stranding
+  precisely the PRs whose rows most needed to arrive.
+
+  FIXED: it is now an ANNOTATION applied AFTER the register verdict and exempt
+  on REFRESH, so it can still only move a PR toward "a human must look" and
+  never toward actionable. `older` is also asked BEFORE `newer`, so a PR
+  carrying one of each cannot be refreshed into a partial REWIND (0 of 49 mix
+  the two today -- the hole is closed before it is reachable). Three tests, two
+  mutation-checked; the FIRST motivating mistake is re-pinned separately, and
+  the REWIND reason now survives the annotation instead of being replaced by it.
+
+  EFFECT: #11557 moved carries_append_only -> refresh, was refreshed to
+  6cefccb4, and VERIFIED as effect -- merge-base equals main's tip, the slot file
+  is in the branch's own diff, the claim names that branch, the receipt
+  13:08:15Z and the extra ping row are both preserved, and check_pr_landing.py
+  passes in a worktree checked out UNDER THE REAL BRANCH NAME. The other nine
+  work-digest PRs correctly stay put: their registers are older than main's.
+
+  ⚠️ AND ONE OPERATIONAL LESSON FROM THE FIRST ATTEMPT, which FAILED: the
+  sweeper reported `could not check the branch out` because MY OWN working tree
+  was dirty. It reported the failure rather than claiming success -- the
+  post-false-success machinery doing its job -- but it is also an argument for
+  the sweeper living in CI, where the checkout is clean, rather than being
+  hand-run from a session's tree.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
