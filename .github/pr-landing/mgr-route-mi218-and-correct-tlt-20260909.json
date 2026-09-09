@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: registers the MI-218 spawn (operator-approved full sweep) with a new work object, and CORRECTS MI-179 -- the manager repeatedly reported the TLT short as naked and the verified read as owed, when the read had already merged as #11520 at 08:33:37Z and shows the position fully covered. Recording an operator decision and correcting a manager claim in docs/claude/work/** is management. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path."
+}

@@ -433,6 +433,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/design/operating-model-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/position-telemetry-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/strategy-demote-and-tune-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md` | plan | live | — | 2026-09-09 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/tp-sentinel-cap-venue-scope-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/exit-coverage-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
 | `docs/github-actions-workflows.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
@@ -990,6 +991,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/sprint-logs/S-MI159-ONE-LIVE-WORKPLAN-2026-09-07.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MI161-DOCUMENT-LIBRARY-2026-09-07.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-MI195-QLD-TQQQ-EXAMINED-2026-09-08.md` | history | historical | — | 2026-09-08 | `mi-195:self-measured-2026-09-08 / population-stated` | MI-195: qld/tqqq examined — routing gap not missing dataset; 175 TP cells each, zero pass, so `unexamined` becomes a measured `none`; cap_r 1.40/0.99 vs 3.14 control. Also files document_index.py --write as a 436-doc false-verification trap. |
+| `docs/sprint-logs/S-MI215-SOAK-DOCTRINE-REACHES-M7-GATE-2026-09-09.md` | history | historical | — | 2026-09-09 | `mi-215:self-measured-2026-09-09 / population-stated` | MI-215: the soak-doctrine guard reached the M7 gate by NO code path; check D (AST, alias closure) now does, positive-controlled and ratcheted at 7 known branches. Records the measured premise correction — the offline evidence infra is head-scoped, 51 of 52 packets read `backtest_anchor: null`, so no per-leg edge artifact exists to re-point at. |
 | `docs/sprint-logs/S-ML-FEATURE-GAPS-20260729.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-FORWARD-T13-RANKER-2026-07-16.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
 | `docs/sprint-logs/S-ML-REGIME-CLASSIFIER-FIX-2026-05-20.md` | history | historical | — | 2026-09-07 | `dir:sprint-logs-are-session-records / dir:record-of-a-completed-session` | — |
