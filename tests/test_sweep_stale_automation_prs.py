@@ -191,3 +191,54 @@ def test_the_workflow_pushes_with_the_pat_not_github_token() -> None:
         "against the wrong tree — a CONFIDENT wrong answer, not an error")
     assert "on:\n  schedule:" in wf and "\n  push:" not in wf, (
         "a push trigger would retrigger this workflow on its own refresh pushes")
+
+
+# ---------------------------------------------------------------------------
+# THE FALSE SUCCESS, planted. Found on the sweeper's FIRST LIVE RUN (2026-09-09):
+# `refresh()` used `git commit --no-edit`, which has no message to reuse on the
+# no-conflict path because `git merge` has already committed. The commit failed,
+# its exit code was discarded, the push carried the merge commit alone, and the
+# function returned "refreshed and pushed" for a claim it never wrote — PR #11490
+# came back still failing R13 while the sweeper reported it fixed.
+# ---------------------------------------------------------------------------
+def test_refresh_never_uses_no_edit_to_commit_the_claim() -> None:
+    """`--no-edit` silently no-ops on the path that has already committed."""
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def refresh(")[1].split("\ndef ")[0]
+    assert '"--no-edit"' not in body, (
+        "refresh() must commit the re-asserted claim with an explicit -m; "
+        "--no-edit has no message to reuse after `git merge` auto-commits, so "
+        "the commit fails and the claim is never written"
+    )
+    assert '"-m"' in body
+
+
+def test_refresh_checks_the_commit_exit_code_and_verifies_the_effect() -> None:
+    """Every step can succeed while leaving the claim absent — so check the claim."""
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def refresh(")[1].split("\ndef ")[0]
+    push_at = body.index('"push"')
+    before_push = body[:push_at]
+    assert "could not commit the re-asserted merge-slot claim" in before_push, (
+        "a failed commit must abort the refresh BEFORE the push, not fall through"
+    )
+    assert "merge-base" in before_push and "SLOT_FILE" in before_push, (
+        "refresh() must verify the slot file is in this branch's own diff "
+        "against the merge-base before pushing — verify the EFFECT, not the call"
+    )
+    assert "rides someone else's claim" in before_push, (
+        "refresh() must verify the committed claim names THIS branch"
+    )
+
+
+def test_a_failed_refresh_leaves_the_tree_clean_for_the_next_pr() -> None:
+    """A dirty tree makes the NEXT branch's checkout fail — one bad PR must not
+    take the rest of the sweep down with it. Observed live: after #11490 the tree
+    held a staged session-board.json and #11543 died on `could not check the
+    branch out`."""
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def refresh(")[1].split("\ndef ")[0]
+    assert '"reset", "--hard"' in body, (
+        "the commit-failure path must reset the working tree, or the next "
+        "refresh in the same run cannot check its branch out"
+    )

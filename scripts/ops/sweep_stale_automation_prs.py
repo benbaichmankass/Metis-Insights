@@ -331,7 +331,45 @@ def refresh(entry: Dict[str, Any], main: str, held_by: str,
         git("merge", "--abort")
         return False, f"claim_merge_slot refused: {done.stderr.strip()[:200]}"
     git("add", "--", SLOT_FILE)
-    git("commit", "-q", "--no-edit")
+    # ⚠️ `-m`, NEVER `--no-edit`. MEASURED 2026-09-09 on this file's FIRST LIVE
+    # RUN: `--no-edit` reuses a message from an in-progress merge, and on the
+    # NO-CONFLICT path `git merge` has already committed, so there is no message
+    # to reuse and the commit FAILS. Its exit code was discarded, the push then
+    # succeeded carrying the merge commit alone, and this function returned
+    # "refreshed and pushed" — a FALSE SUCCESS for a claim it never wrote. PR
+    # #11490 came back still failing R13 while the sweeper reported it fixed.
+    # That is exactly the class `commit-to-main` names in its own docstring —
+    # "a step that reports success for something it did not achieve" — committed
+    # by the file written to end it.
+    code, _ = git("commit", "-q", "-m",
+                  "Re-assert this branch's R13 merge-slot claim after merging main")
+    if code != 0:
+        git("merge", "--abort")
+        git("reset", "--hard", "HEAD")
+        return False, "could not commit the re-asserted merge-slot claim — nothing pushed"
+
+    # ⚠️ VERIFY THE EFFECT, NOT THE CALL. Every step above can report success
+    # while leaving the claim absent, which is how the false success got out. The
+    # question R13 actually asks is whether the SLOT FILE IS IN THIS BRANCH'S OWN
+    # DIFF naming THIS branch — so ask that, against the merge-base, before
+    # claiming anything.
+    code, merge_base = git("merge-base", main, "HEAD")
+    if code != 0:
+        return False, "could not resolve the merge-base to verify the claim"
+    _, changed = git("diff", "--name-only", merge_base, "HEAD", "--", SLOT_FILE)
+    if not changed.strip():
+        return False, ("the merge-slot claim is NOT in this branch's diff after "
+                       "committing — refusing to push a branch that would still "
+                       "fail R13")
+    blob = _blob("HEAD", SLOT_FILE) or ""
+    try:
+        holder = (json.loads(blob).get("merge_slot") or {}).get("branch")
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        holder = None
+    if holder != ref:
+        return False, (f"the merge-slot claim names {holder!r}, not {ref!r} — "
+                       f"refusing to push a branch that rides someone else's claim")
+
     if git("push", "origin", f"HEAD:refs/heads/{ref}")[0] != 0:
         return False, "push failed"
     return True, "refreshed and pushed — the required checks re-run on the new sha"
