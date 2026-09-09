@@ -290,6 +290,16 @@ _ICT_SCALP_EXIT_HEAD_SOAK_LOG = (
 #: (and, for a gate specifically, the stray-OCA row filed the same day:
 #: BL-20260831-STRAY-OCA-SWEEP-ANNOTATE-COMPUTES-A-VERDICT-AND-DISCARDS-IT).
 _BYBIT_COVERAGE_SOAK_LOG = runtime_logs_dir() / "bybit_coverage_soak.jsonl"
+#: MI-222 — the position-read three-state soak. Allowlisted in the SAME commit
+#: as its writer (`clients.py::_record_position_read_observation`), because a
+#: soak that is written and cannot be read is the
+#: BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE shape
+#: — and, one level worse here, this file is the ONLY evidence that could ever
+#: justify the Tier-3 behaviour change the operator deliberately held back. Its
+#: own OPEN-ITEMS row (OI-20260909-POSITION-READ-STATE-SOAK-…) names this route
+#: in `clears_when`, so without the entry that row is unfollowable by
+#: construction.
+_POSITION_READ_STATE_SOAK_LOG = runtime_logs_dir() / "position_read_state_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 #: Lane P/P3 — per-account arbitration fan-out soak. Allowlisted in the SAME
 #: commit as its writer: a soak that is written and cannot be read is the
@@ -487,6 +497,7 @@ _LOG_FILES: dict[str, Path] = {
     "stray_oca_soak": _STRAY_OCA_SOAK_LOG,
     "ict_scalp_exit_head_soak": _ICT_SCALP_EXIT_HEAD_SOAK_LOG,
     "bybit_coverage_soak": _BYBIT_COVERAGE_SOAK_LOG,
+    "position_read_state_soak": _POSITION_READ_STATE_SOAK_LOG,
     # Allocator soak (M18 P0c, portfolio capital allocator): one line per tick
     # with ≥2 actionable candidates — what a capital allocator WOULD pick (the
     # top-ranked candidate of the full opportunity set) vs what the aggregator

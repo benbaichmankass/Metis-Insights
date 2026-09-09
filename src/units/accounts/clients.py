@@ -1285,12 +1285,18 @@ def _record_position_read_observation(obs: Dict[str, Any]) -> None:
             )
             try:
                 from src.runtime.outcomes import Level, report
+                from src.utils.json_notes import dump_capped
                 report(
                     "position_read_state",
                     "hedge_book_dropped",
                     level=Level.WARN,
                     account_id=obs.get("account_id"),
-                    dropped=json.dumps(deduped, ensure_ascii=False)[:400],
+                    # NOT json.dumps(...)[:400] — character-slicing JSON cuts
+                    # mid-token and persists something that will not parse
+                    # (BL-20260618: one malformed notes blob aborted a whole
+                    # invariant query). dump_capped trims VALUES and keeps the
+                    # result valid.
+                    dropped=dump_capped(deduped, 400),
                     emitted=obs.get("emitted"),
                     rows_seen=obs.get("rows_seen"),
                 )
