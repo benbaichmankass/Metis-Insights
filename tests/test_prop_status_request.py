@@ -530,3 +530,33 @@ def test_end_to_end_open_position_still_pinged_when_stale(
     later = datetime.now(timezone.utc) + timedelta(hours=230)
     assert run_prop_status_request(now=later) == ["breakout_1"]
     assert len(captured) == 1
+
+
+def test_ticket_read_is_newest_first_so_the_cap_cannot_manufacture_quiescence(
+    isolated_env: Path,
+) -> None:
+    """`run_prop_status_request` reads `list_tickets(limit=500)` and treats an
+    empty slice for an account as "no exposing ticket since the snapshot".
+
+    That is only sound because the read is NEWEST-FIRST: a ticket created since
+    the snapshot is by definition recent, so it cannot be truncated away while
+    older rows survive. If `list_tickets` ever changed to `ORDER BY created_at
+    ASC`, the cap would silently hide recent tickets behind ancient ones and
+    QUIESCENT — the one verdict that SUPPRESSES the ask — would be reachable by
+    truncation. A comment cannot catch that change; this can.
+    """
+    from src.prop import prop_journal
+
+    for i, hours in enumerate([100.0, 50.0, 1.0]):
+        ts = datetime.now(timezone.utc) - timedelta(hours=hours)
+        prop_journal.record_ticket({
+            "ticket_id": f"prop-order-{i}", "account_id": "breakout_1",
+            "strategy": "s", "symbol": "ETHUSDT", "direction": "long",
+            "entry": 1.0, "sl": 0.9, "tp": 1.2,
+            "signal_time": ts.isoformat(), "status": "emitted",
+        })
+    rows = prop_journal.list_tickets(account_id="breakout_1", limit=500)
+    created = [str(r.get("created_at") or "") for r in rows]
+    assert created == sorted(created, reverse=True), (
+        "list_tickets must return NEWEST-FIRST — prop_status_request's "
+        "quiescence verdict depends on it")
