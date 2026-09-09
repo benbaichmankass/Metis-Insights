@@ -66,6 +66,49 @@ why:
     levels (TP 1.5535 / SL 1.3463), so it reads that book correctly and omits
     the ETH row from it. Under investigation on MI-221.
 
+  reconciliation_2026_09_09_1840: >-
+    THE TWO OBSERVATIONS ABOVE ARE NOW RECONCILED, AND THE FIELD ABOVE STILL
+    SAYS "NOT YET RECONCILED" -- READ THIS FIRST. Settled by MI-221 section 18
+    (PR #11576, merged 25f1346b3), from the venue's OWN order-history record
+    read at 2026-09-09T17:09:38Z off /api/diag/bybit_raw_order_history with the
+    deploy verified before the read.
+    TRADE 5471's PROTECTIVE LEGS WERE NEVER CANCELLED -- THE STOP FILLED.
+    Order 1a3490f9-b98c-4477-bbcb-39c7eb8830f7 (PartialStopLoss, trigger
+    2451.59, qty 0.04, reduceOnly) was created 2026-09-04T14:04:13.938Z --
+    the SAME millisecond the entry filled -- rested 3d 23:32:59, and shows
+    order_status FILLED at avg_price 2451.27, which equals journal 5471's
+    exit_price EXACTLY. Its sibling 048623a7-2498-47f8-85f8-08096d732aa4
+    (PartialTakeProfit) shows cancel_type CancelByTpSlTsClear at the same
+    millisecond -- Bybit's own OCO clear because the stop consumed the
+    position, not a cancel by us. pages_read was 2 and the stop's disposition
+    was NOT on page 1.
+    SO OBSERVATION (2) WAS CORRECT, NOT A DEFECT. Our read returned no
+    ETHUSDT row for bybit_2 because there was no position to return. The
+    position was protected for 100% of its life and naked for ZERO seconds.
+    ⚠️ THE LINE ABOVE READING "it reads that book correctly and OMITS THE ETH
+    ROW from it" MUST NOT BE RE-QUOTED AS A DEFECT. "Omits" implies a row that
+    should have been returned and was not. There was no row.
+    ⚠️ OBSERVATION (1) WAS SUPERSEDED BY THE OPERATOR THEMSELVES at
+    2026-09-09T16:03Z, who reported that the ETH trade had already closed
+    "longer ago than I realized". It was retired by the primary source, not
+    overruled by our instrument -- which is the correct order, given that
+    reporting our empty read as "there is no ETH trade" was the manager's
+    second RULE ONE failure on this row.
+    ⚠️ WHAT THIS DOES AND DOES NOT DO TO THIS OBJECT. It does NOT invalidate
+    it: `the_structural_fact` below is a statement about the CODE -- two
+    anchors, no third path -- and is untouched by any of this. It DOES remove
+    the object's strongest evidence, because the priority was argued from a
+    live unprotected real-money position and there was never one. The case for
+    building the detector is now STRUCTURAL plus the operator's standing
+    directive, and it must be argued that way. Anyone re-reading `priority: p1`
+    should know it was set under the refuted premise and has not been
+    re-derived.
+    ⚠️ NOT RETRACTED WITH THE PREMISE: the hardcoded settleCoin="USDT", the
+    four-symbol cross-check, the absent baseCoin, the missing nextPageCursor
+    follower and the rows[0] ordering are all real and independently filed. An
+    investigation whose premise is refuted does not retract the defects found
+    on the way.
+
   the_structural_fact: >-
     Every protective sweep in the system anchors to one of exactly TWO lists,
     and this position is in NEITHER, so no code path can reach it.

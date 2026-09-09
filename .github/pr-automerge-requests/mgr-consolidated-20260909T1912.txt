@@ -1,0 +1,3 @@
+Tier-1 consolidated manager register writes + lease heartbeat. PR #11588, opened
+by hand FIRST so a real pull_request event fires and the required checks run.
+Supersedes #11583 and #11584.
