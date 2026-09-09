@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01JuznkKwm1oYm7bUFc9v23w (MI-209)",
-  "branch": "claude/mi209-exit-trailing-banking-broker-truth",
-  "claimed_at": "2026-09-09T06:45:00Z",
-  "purpose": "Land MI-209 (PR #11498): the broker-truth restriction on the trailing/banking measurement, plus the close-out of WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF, whose work landed 2026-09-08 while its object file stayed dormant and got it re-dispatched. Tier-1, docs + registers only. ⚠️ THIS DISPLACES A CLAIM THAT MAY STILL BE LIVE — session_01YP3DnuFmSbvtLgBQiuCHso on claude/wo-landing-records-20260909, claimed 06:18:43Z, ~27 min before this. R13 requires an arming branch to hold the slot in its OWN diff, so I cannot arm without displacing it, and per check_pr_landing.py's own docstring R13 does NOT serialize — each branch carries its own copy and the claim reaches nobody until merge. Called out here and on the board rather than done quietly; @session_01YP3DnuFmSbvtLgBQiuCHso say so and I will re-take it."
+  "held_by": "github-actions[bot] · reconcile-open-prs run 34319949504",
+  "branch": "automation/reconcile-open-prs-34319949504-1",
+  "claimed_at": "2026-09-09T06:38:12Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {
