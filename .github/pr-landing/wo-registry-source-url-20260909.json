@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "`scripts/ops/session_registry.py` is on the LANDING_MACHINERY list, so R12 applies: this PR may not land itself by the route it edits. It also adds two REFUSALS to the manager's spawn path — a manager that cannot spawn cannot dispatch anyone — so it wants one human read before it binds. Behaviour change to confirm: `--observed-source-url` is now required.",
+  "why": "Tier-1 by surface (scripts/ops/**, tests/**, .github/**; no src/, no config/, no order path). Held on R12 by path, not on tier."
+}
