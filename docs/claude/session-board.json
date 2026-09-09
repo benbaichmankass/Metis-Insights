@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-correct-s12",
-  "claimed_at": "2026-09-09T13:53:31Z",
-  "purpose": "MI-221: correct § 12's overstatement + file the auto-merge disarm gap observed on #11555. Tier-1 docs + one backlog row."
+  "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP · lane4 hand-run (sweeper not on main)",
+  "branch": "automation/work-digest-34355107317-1",
+  "claimed_at": "2026-09-09T14:27:43Z",
+  "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
  },
  "active_sessions": [
   {
