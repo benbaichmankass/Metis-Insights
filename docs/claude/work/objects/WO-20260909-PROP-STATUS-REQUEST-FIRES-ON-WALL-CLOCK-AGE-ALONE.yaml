@@ -20,13 +20,89 @@ why: >-
 source: >-
   operator, in conversation, 2026-09-09; relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj
 
+measurement_result: >-
+  MEASURED 2026-09-09T09:54Z by MI-214, and REPORTED EITHER WAY as the
+  done_condition requires. Locators: /api/bot/prop/fills?limit=500 and
+  /api/bot/prop/status, read direct over https://ict-bot.duckdns.org.
+  THE PREMISE IS HALF FALSE. breakout_1's newest prop_account_status is id 19 at
+  2026-08-30T19:33:29Z; its newest prop_fills row is id 41 at
+  2026-08-30T19:39:00Z — the last close is 5.5 MINUTES NEWER than the snapshot
+  it supposedly produced. So "the account snapshot is updated when a trade
+  closes" is FALSE AS A MECHANISM: a close PROMPTS a snapshot (a fill ack with a
+  folded balance nudge, or a screenshot that may or may not also yield an
+  account_status) and never guarantees one. THE COUNTS the done_condition asks
+  for, over the window from that snapshot to the read: prop_account_status rows
+  = 0 (that is the window definition), prop_fills rows = 1 (id 41, SOLUSDT
+  closed, +35.28). POSITIVE CONTROL, so the near-zero is not a broken probe: the
+  same reader returns 41 fills lifetime, oldest 2026-06-22. Also 0 open
+  positions (derived through prop_position_identity.position_key, which collapses
+  buy->long — a naive key reports a phantom ETHUSDT 'buy' open from 2026-07-05
+  and that reading is WRONG) and 0 unacted tickets.
+  ⚠️ THE ONE FILL IS NOT EVIDENCE THE PING WAS DOING ITS JOB, and this is the
+  finding that decided the design: prop_reconcile.reconstruct_equity is
+  ASYMMETRIC BY DESIGN — an unplaceable LOSS is always applied, an unplaceable
+  GAIN is withheld and counted (fills_withheld_unplaceable_gain). So a REPORTED
+  fill can only ever make the cushion CONSERVATIVE, never optimistic; the
+  dangerous direction is closed by construction. Fill 41 is exactly that case:
+  the live panel reads distance_to_dd_floor_usd 87.34 with
+  fills_withheld_unplaceable_gain 1, where the true cushion is ~122.62.
+
+divergence_from_done_condition: >-
+  ⚠️ RAISED, NOT SILENTLY RESOLVED — the manager's done_condition above is
+  PRESERVED VERBATIM and this is a PROPOSAL against it, for the manager or the
+  operator to rule on. Clause (a) says the ask must still fire "on any fill
+  reported since the last snapshot". PR #11530 DOES NOT IMPLEMENT CLAUSE (a),
+  deliberately, and the reason is the measurement above: fill id 41 postdates the
+  snapshot, so a trigger written to clause (a) WOULD STILL FIRE ON breakout_1
+  TODAY and would not have silenced the ping the operator complained about. It
+  would also fire on precisely the case that cannot be unsafe, because
+  reconstruct_equity has already absorbed it conservatively. What #11530
+  implements instead, covering the same safety ground: ASK_POSITION_OPEN (an open
+  position, whose UNREALIZED drawdown is invisible to the cushion and is the one
+  genuinely unsafe case), ASK_TICKET_SINCE_SNAPSHOT (a real non-suppressed ticket
+  created after the snapshot — which is clause (b), "before a new ticket is
+  sized", OBSERVED rather than assumed), ASK_NO_SNAPSHOT, and UNKNOWN (we could
+  not look). QUIESCENT is the only verdict that suppresses. IF THE MANAGER OR
+  OPERATOR WANTS CLAUSE (a) AS WRITTEN, it is a one-line change to
+  assess_activity and this object should be re-opened rather than closed — but
+  the ping the operator objected to will come back.
+
+operator_decision: >-
+  APPROVED 2026-09-09, Tier-2, UNCONDITIONAL. The operator was asked directly,
+  with the load-bearing claim stated as the thing being approved — that a
+  REPORTED fill can only ever make the cushion CONSERVATIVE, so the bot may go
+  quiet while the book is FLAT — and chose "Yes — ship it".
+  ⚠️ THE SAME ANSWER RULES ON `divergence_from_done_condition` ABOVE, which is
+  why that block stays as the record rather than being deleted: the alternative
+  "Ship, but also fire on any fill since the snapshot" — clause (a) of this
+  object's own done_condition, as literally written — WAS OFFERED alongside,
+  together with the measurement that it would STILL fire on breakout_1 today,
+  and was NOT chosen. Clause (a) is therefore DECLINED ON THE EVIDENCE, not
+  overlooked, and this object's done_condition is satisfied by the other route
+  it names. A successor must not re-open clause (a) as unfinished work.
+  ⚠️ REVERSAL CONDITION: if a prop fill is ever observed making the cushion
+  OPTIMISTIC — which would falsify reconstruct_equity's asymmetry — this
+  decision must be re-put to the operator rather than inherited.
+  ⚠️ NOT approved: changing PROP_STATUS_REQUEST_MAX_AGE_HOURS (untouched), or
+  restoring the pre-2026-08-14 flat bail (not restored).
+
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-09 by the manager: nothing blocks starting this. The premise
-  measurement (fills vs snapshots over the 228h window) is a read of
-  trade_journal.db that needs no decision, no deploy and no operator input, and
-  it is the first step. The Tier-2 half (changing the trigger in src/prop/) needs
-  one operator OK to SHIP, which is a gate on landing rather than a blocker on
-  the work.
+  ASSESSED 2026-09-09 by MI-214. Nothing blocks it: the premise measurement is
+  done and reported either way, the code is validated and mutation-tested, and
+  the Tier-2 OK that was the single gate has been GIVEN (see operator_decision).
+  What remains is not a blocker but an OBSERVATION owed — see done_condition (3):
+  the ping must be seen NOT re-firing on a flat breakout_1, with a positive
+  control that the module is still being called. Superseding the manager's
+  pre-work assessment
+  (preserved directly above this block in spirit: nothing blocked STARTING, and
+  nothing did). The premise measurement is DONE and reported either way; the code
+  is written, validated and mutation-tested. The only thing between it and
+  landing is the Tier-2 OK, because the diff is in src/prop/ and changes what the
+  operator receives. Nothing technical blocks it.
+
+manager_blocked_on_basis_preserved: >-
+  ASSESSED 2026-09-09 by the manager: nothing blocks starting this. The premise measurement (fills vs snapshots over the 228h window) is a read of trade_journal.db that needs no decision, no deploy and no operator input, and it is the first step. The Tier-2 half (changing the trigger in src/prop/) needs one operator OK to SHIP, which is a gate on landing rather than a blocker on the work.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+continued_by: MI-214 session_01FoASvmUGuahCphE1cewPPs (PR #11530)
