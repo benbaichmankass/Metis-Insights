@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-observe-mi213-and-open-rows-20260909",
-  "claimed_at": "2026-09-09T09:21:00Z",
-  "purpose": "MI-213 observed, open-PR ownership rows, MI-214 filed. Supersedes the #11524 claim (merged c0d17d32)."
+  "branch": "claude/mgr-record-review-packet-verdict-20260909",
+  "claimed_at": "2026-09-09T09:33:00Z",
+  "purpose": "record the operator's rejection of DEC-20260909 and route MI-215"
  },
  "active_sessions": [
   {

@@ -34598,6 +34598,39 @@
         "provenance-consumer-guard (the precedent this guard should copy: 'a signal that is written and never read is worse than a missing one')"
       ],
       "status": "open"
+    },
+    {
+      "id": "BL-20260909-STRATEGY-REVIEW-PACKET-GRADES-EDGE-OFF-A-LIVE-WINDOW-WHICH-THE-PROMOTION-EVIDENCE-RULE-FORBIDS",
+      "opened": "2026-09-09",
+      "severity": "high",
+      "area": "strategy-review",
+      "summary": "The M7 strategy-review packet withholds every verdict for want of LIVE in-window closes (MIN_CLOSED_FOR_ACTION = 20 over a 7-day window), which is a CALENDAR-ACCRUAL GATE FOR EDGE. docs/CLAUDE-RULES-CANONICAL.md 'Promotion evidence - offline edge, live mechanics' has been BINDING since 2026-07-26 and its clause 3 forbids exactly that: 'No gate may require calendar-time accrual to prove edge.' Its scope is explicitly STRATEGY legs, not only ML heads, and it names this failure as 'the recurring drift this rule kills'. MEASURED 2026-09-09 over all 8 committed daily indexes (2026-09-01..09-08), all 52 enabled legs: graded 52 / actionable 0 / by_action {hold: 52} on 8 of 8 days; no leg reached 11 closes in a 7-day window on any day; 29-32 of 52 sit at zero every day. OPERATOR VERDICT 2026-09-09: the question of how to set window/floor is VOID - 'we do NOT rely on live soaking for validating strategies, only mechanics', and slow live accrual is 'a feature of the system', not a barrier. THE FIX IS NOT A TUNING: the packet must take its edge verdict from the OFFLINE backtest evidence the repo already has (purged walk-forward oos_edge, replay_pregate_fleet, the backfills) and use live rows only for MECHANICS. Do NOT lower the floor and do NOT widen the window - both keep the prohibited instrument and merely re-scale it. Entry points: scripts/ml/strategy_review_packet.py (MIN_CLOSED_FOR_ACTION), src/runtime/evidence_horizon.py, scripts/ml/evidence_floor_report.py. Tier-3 where it changes what a KILL/DEMOTE verdict rests on - propose, do not enact.",
+      "status": "open",
+      "owner": null,
+      "resolution_criteria": "A committed daily strategy-review index is OBSERVED whose edge verdict for at least one leg is derived from OFFLINE evidence (a purged walk-forward oos_edge, a replay_pregate_fleet result, or a backfill) rather than from a count of live in-window closes -- read off the committed artifact, not from the code. ⚠️ `actionable` becoming non-zero does NOT clear this on its own: the same number would appear if someone merely lowered the floor, which is the prohibited instrument re-scaled. Name the leg and the offline source. ⚠️ AND IF THE OPERATOR DECIDES the packet should stay a denominator report, this row does NOT clear -- it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like a fix in progress.",
+      "tier": "3 — Tier-3 where it changes what a KILL/DEMOTE verdict rests on; the guard half is Tier-1"
+    },
+    {
+      "id": "BL-20260909-SOAK-DOCTRINE-GUARD-DOES-NOT-REACH-THE-STRATEGY-REVIEW-PACKET-SO-THE-RULE-IT-ENFORCES-WAS-CONTRADICTED-UNSEEN",
+      "opened": "2026-09-09",
+      "severity": "high",
+      "area": "ci-guards",
+      "summary": "scripts/check_soak_doctrine.py is the CI guard for the 'Promotion evidence - offline edge, live mechanics' rule, and the M7 strategy-review packet contradicted that rule for at least 8 consecutive days without the guard firing once. MEASURED 2026-09-09: the guard file exists (5643 bytes) and contains ZERO textual references to 'strategy_review' or 'MIN_CLOSED' (grep -c = 0). STATE THE LIMIT OF THAT MEASUREMENT HONESTLY: zero textual references establishes that the guard does not NAME the packet; it does not by itself establish that no code path reaches it. Establish which before writing the fix, and report a POSITIVE CONTROL - show the guard firing on a planted violation - because a guard that is silent because it scans nothing is indistinguishable from a guard that is silent because everything passes. That distinction is the whole point. WHY THIS IS THE MORE IMPORTANT OF THE PAIR: the operator has now explained the offline-edge rule to multiple sessions ('I don't know how many more times I can explain this to various cluades'), which is the signal that PROSE HAS FAILED and the prevention must be executable. A rule with a guard that does not cover the surface where the rule is broken is worse than an unguarded rule, because the green guard reads as compliance.",
+      "status": "open",
+      "owner": null,
+      "resolution_criteria": "check_soak_doctrine.py is OBSERVED failing on a PLANTED violation on the strategy-review surface -- a positive control -- and passing once it is removed. ⚠️ A GREEN RUN CLEARS NOTHING HERE: green is the state the guard has been in for the entire eight days the rule was being contradicted, so 'the guard passes' is the symptom, not the evidence. ⚠️ AND FIRST ESTABLISH WHETHER IT REACHES THE SURFACE AT ALL: the measured fact is zero TEXTUAL references to strategy_review or MIN_CLOSED, which is not the same as no code path reaching it. Report which of the two you established.",
+      "tier": "3 — Tier-3 where it changes what a KILL/DEMOTE verdict rests on; the guard half is Tier-1"
+    },
+    {
+      "id": "BL-20260909-THE-MANAGER-SCOPE-CARVE-OUT-ADMITS-A-MERGE-SLOT-CLAIM-BUT-CANNOT-EXPRESS-A-RELEASE",
+      "opened": "2026-09-09",
+      "severity": "medium",
+      "area": "ci-guards",
+      "tier": "1 — CI guard logic only",
+      "summary": "check_manager_scope.py R2 admits a manager commit to docs/claude/session-board.json for EXACTLY one thing: a `merge_slot` claim naming the branch being landed. It cannot express a RELEASE (held_by -> null). OBSERVED 2026-09-09: the manager wrote a release after #11524 merged and R2 refused it with 'merge_slot.branch is None, not this branch'. So a manager who has finished landing has only two moves, and both are bad: leave a STALE claim naming a merged branch, or violate R2. THE STALE-CLAIM BRANCH IS NOT HYPOTHETICAL AND IT HAS A MEASURED COST: earlier the same day the slot sat held for claude/mgr-dispatch-lane2-refill-20260909 for ~25 minutes after its PR #11511 had merged, and lane 2 had to announce and DISPLACE it before it could land #11514. That lane handled it correctly, which is the point - the cost landed on someone else. ⚠️ THIS IS A GAP IN THE CARVE-OUT, NOT AN ARGUMENT TO WIDEN R2. Releasing is a LANDING act by exactly the same reasoning that admits the claim, so the narrow fix is to admit a transition to a null/released slot BY THE SESSION THAT HOLDS IT - never a general permission to write session-board.json, which would re-open the hole the carve-out exists to close. ⚠️ AND NOTE THE MITIGATION THAT ALREADY EXISTS, so this is not urgent: R13 does not serialize (its own docstring says so) and slots are displaced freely, so a stale claim delays rather than blocks. Entry point: scripts/ci/check_manager_scope.py R2, the merge_slot carve-out.",
+      "resolution_criteria": "check_manager_scope.py is OBSERVED passing a manager commit that sets merge_slot.held_by to null where the PRIOR value on origin/main named that same session, AND still FAILING a commit that writes any other session-board.json key or another branch's claim - both halves demonstrated, since a fix that only relaxes is a widening. ⚠️ A manager simply stopping writing releases does NOT clear this: that is the stale-claim branch of the same defect, and its cost is paid by the next session rather than by the manager.",
+      "status": "open",
+      "owner": null
     }
   ]
 }
