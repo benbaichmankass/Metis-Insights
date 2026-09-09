@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-wip-reconcile-20260909",
-  "claimed_at": "2026-09-09T08:03:27Z",
-  "purpose": "reconcile the WIP ceiling + record the lane-4/lane-5 dispatches — YIELDS to lane 4, whose PR unblocks the repo-wide red"
+  "held_by": "session_01Hw9mp8cEeZqF1KSGZHyHui",
+  "branch": "claude/backlog-drain-20260909",
+  "claimed_at": "2026-09-09T08:11:00Z",
+  "purpose": "Land PR #11510 — backlog-drain: 3 rows closed on verified criteria, 1 filed, 9 re-verified. Tier-1, docs + one JSON register only. Displaces a SPENT claim: session_01DUBXxiaZ3PMERcAfcJce7P's #11513 merged as d9059a0f, and its own claim text reads 'Displace freely; per check_pr_landing.py's own docstring R13 does not serialize.' My manager's precondition is also met — it said take the slot once #11511 merged, and #11511 merged as e9754ca3."
  },
  "active_sessions": [
   {
