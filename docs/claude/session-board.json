@@ -13,6 +13,16 @@
  },
  "active_sessions": [
   {
+   "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+   "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+   "repo": "benbaichmankass/Metis-Insights",
+   "status": "working",
+   "started_at": "2026-09-09T10:55:00Z",
+   "ended_at": null,
+   "scope": "MI-218 \u2014 Tier-1 MEASUREMENT ONLY. New: scripts/ops/calendar_edge_census.py, tests/test_calendar_edge_census.py, docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md, the WO yaml. Record edits: health-review-backlog.json, MANAGER-CHECKLIST.json (MI-218 row), SESSIONS.json, DOCUMENT-INDEX.md, session-board.json.",
+   "note": "Changes NO gate, threshold or config. READS scripts/check_soak_doctrine.py (MI-215 check D, landing in #11529) and imports its detector; does not edit it. \u26a0\ufe0f Contended: docs/claude/health-review-backlog.json (5 rows, 55 insertions / 0 deletions). Any conflict there resolved as a VERIFIED UNION over id sets, never by taking a side."
+  },
+  {
    "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
    "branch": "claude/mi205b-ranking-key-harness",
    "repo": "Metis-Insights",
