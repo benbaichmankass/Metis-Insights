@@ -535,7 +535,7 @@ the_outage_is_4h47m_and_that_changes_the_diagnosis: >-
   lapse; the quota is being CONTINUOUSLY RE-CONSUMED. Every Claude session in
   this repo acts as user 119055177, so `gh pr create` inside `commit-to-main`
   competes with every session's MCP traffic. The CAPACITY reading in
-  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-... is now the better-supported
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR is now the better-supported
   one, and its clearing criteria already refuse a quiet queue as evidence for
   exactly this reason.
 
