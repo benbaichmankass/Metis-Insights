@@ -211,6 +211,25 @@ instant the branch first appears, and there is no window to open the PR yourself
 a two-push ordering requirement, not a two-step one — and it is what separates #11498
 from #11501.
 
+### ⚠️ And the two zero-check causes STACKED here, which is why `mergeable_state` is read first
+
+The documented remedy for a bot-opened PR is *"push one ordinary commit"*. **I did, and
+it produced ZERO checks — not one, zero.** The sequence, measured on #11501:
+
+| head | checks | cause |
+|---|---:|---|
+| bot's open, `06:43:51Z` | **1** (`open-and-automerge`, green) | born with no `pull_request` event — the bot-open trap |
+| `ca9f0557`, an ordinary commit | **0** | `mergeable_state: dirty` — `main` had moved; GitHub builds no `pull_request` runs for a **conflicted** merge ref |
+| `954fa429`, the conflict resolved | **5**, real CI | — |
+
+So *"push an ordinary commit"* was necessary and **not sufficient**: a conflict arriving
+in between suppresses the very checks the ordinary commit was meant to arm, and the two
+states render identically as a low check count. `CLAUDE.md` already says to read
+`mergeable_state` first and that `blocked` and `dirty` have opposite remedies — **this is
+a case where BOTH applied to one PR within four minutes**, and reading the field is what
+told them apart. A session that only knew the bot-open remedy would have pushed a second
+ordinary commit and got zero checks again.
+
 Not filed as a new row: `CLAUDE.md` already carries this trap and MI-193 already filed it
 against `claude-pr-automerge`. What is added here is the ordering detail and a seventh
 dated instance.
