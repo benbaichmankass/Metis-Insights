@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T11:26:17Z",
+  "updated_at": "2026-09-09T15:28:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3753,7 +3753,7 @@
     {
       "session_id": "session_01NcYsS6kFNrzxEKcrNy9eXP",
       "registry_key": "pending-20260909T075327Z",
-      "state": "working",
+      "state": "idle",
       "title": "Lane 4 (landing) — the repo is red on a stale receipt whose fix is stuck in an unmergeable automation PR",
       "owns_object": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
       "spawned_at": "2026-09-09T07:53:27Z",
@@ -3770,7 +3770,9 @@
         "status_bucket": "idle",
         "platform_updated_at": "2026-09-09T08:40:06Z",
         "manager_note": "#11519 reported green on b198aa6 but is still DRAFT and held by the manager. Its own framing says ~25 automation PRs; the measured figure is 51."
-      }
+      },
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "IDLE 15:22:12Z, review_ready: PR #11519 green, awaiting R12 read; self-scheduled next check 15:38Z."
     },
     {
       "session_id": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
@@ -3820,7 +3822,7 @@
     {
       "session_id": "session_01FoASvmUGuahCphE1cewPPs",
       "registry_key": "pending-20260909T095132Z",
-      "state": "working",
+      "state": "idle",
       "title": "MI-214 — the prop status-request fires on wall-clock age alone",
       "owns_object": "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
       "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
@@ -3838,7 +3840,9 @@
         "session_status": "SESSION_STATUS_IDLE",
         "status_bucket": "review_ready",
         "manager_note": "#11530 green on guards+audit, pytest-run running, correctly HELD (landing: hold, no arming file, no slot claimed) — verified in the branch rather than trusted from the PR body. Poked 10:43:23Z with the operator APPROVAL and the follow-on (MI-220). It measured the operator premise and found it half false, reporting that plainly; that is why the approval could be given on facts."
-      }
+      },
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "IDLE 13:06:31Z, completed: #11530 shipped+deployed, #11546 green AWAITING MY MERGE CLICK."
     },
     {
       "session_id": "session_01KSZCUtFKze3k7ZvxnTnD4T",
@@ -3865,7 +3869,41 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-reported 2026-09-09 from the Bybit terminal. Real-money, no TP/SL, open since 2026-09-04. Two independent bot readers do not return it.",
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
-      "state": "working"
+      "state": "working",
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "RUNNING, connected, live read 15:27:33Z. Landed §12/§13/§15 (#11554, #11556, #11559). §15 is the exhaustive 26-query sweep on live f8480e7e: totalPositionIM 27.56624038 == XRP's own positionIM to 8dp, coins_seen ['BTC','USDT'] with no ETH and no USDC block. 8 of 26 queries graded could_not_look and said so. BLOCKED ON ME: PR #11560 needs a merge click and it is waiting for the UID answer, which the operator gave me at 14:35Z and I FAILED TO RELAY — I drafted that poke and deleted the trigger when the operator's same-screen argument arrived, and never re-sent the UID half. My error, relaying now."
+    },
+    {
+      "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
+      "title": "MI-222 BUILD: venue-truth position detector",
+      "owns_object": "WO-20260909-NO-DETECTOR-CAN-SEE-A-POSITION-MISSING-FROM-THE-VENUE-LIST",
+      "checklist_item": "MI-222-BUILD-THE-VENUE-TRUTH-POSITION-DETECTOR",
+      "spawned_at": "2026-09-09T12:13:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi-222-venue-truth-detector"
+      ],
+      "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
+      "state": "blocked",
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "REQUIRES_ACTION at 14:50:46Z — 'Waiting on permission: Bash'. Blocked on a permission prompt, NOT on me and NOT on the work. Received the hold-release + the Tier-2 observable-first approval on the collapsed read at clients.py:1379-1381. #11550 still has ZERO check runs (relay-opened)."
+    },
+    {
+      "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
+      "title": "OPS LANE — /full-system-audit",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T13:44:16Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit-20260909"
+      ],
+      "why": "Operator-agreed 2026-09-08 to run after the system review that would scope it; the review landed and the audit was never registered or spawned",
+      "state": "blocked",
+      "observed_at": "2026-09-09T15:28:00Z",
+      "observation": "IDLE since 13:44:25Z, disconnected, need_input: 'awaiting human confirmation on Metis-Insights work scope'. ⚠️ THE FULL-SYSTEM AUDIT STILL HAS NOT STARTED. I registered and spawned it at 13:44Z and it stalled on its first turn asking whether it should work on this repo at all — so MI-225 is in_flight in the checklist and has produced nothing. This is the SECOND time this audit has been lost: dropped once by me on 2026-09-08, and now stalled on a spawn prompt that did not carry its own authorisation. Re-spawn with the scope stated, do not just poke."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
