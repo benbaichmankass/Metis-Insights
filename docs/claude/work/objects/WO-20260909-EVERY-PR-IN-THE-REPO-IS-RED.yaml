@@ -190,6 +190,67 @@ what_was_not_done: >-
   2026-09-09T19:53:57Z unless a fresh receipt lands. The sweeper is what is meant
   to prevent that; it has not yet been seen doing so.
 
+second_mechanism_measured_1258Z: >-
+  ⚠️ THE R13 FIX IS REAL AND IT IS NOT SUFFICIENT, AND A SESSION READING ONLY
+  `what_was_established` WOULD CONCLUDE OTHERWISE. Second live sweep,
+  2026-09-09T12:58Z. POPULATION: all 60 open PRs returned by
+  `list_pull_requests(state=open, perPage=100)`, of which 53 carry an
+  `automation/*` head ref. States: `refresh` 1 (#11490) · `superseded_older` 29 ·
+  `undated_payload` 13 · `carries_append_only` 10 · `superseded_by_open_pr` 1
+  (#11458, beaten by #11490).
+
+  SEVENTEEN of those 53 are `reconcile-open-prs` PRs and EVERY ONE grades
+  `superseded_older`. Two of them -- #11499 (opened 06:38:14Z, twenty seconds
+  after #11494 landed) and #11506 -- were run through `check_pr_landing.py`
+  LOCALLY UNDER THEIR REAL BRANCH NAMES and both read
+  `pr-landing: OK — state=declared_self_land`. So they carry a valid R13 claim,
+  they COULD land, and they did not: they were SUPERSEDED WHILE WAITING. The
+  reconciler opens a PR on every merge to `main`, so a receipt goes stale faster
+  than the previous one clears the queue.
+
+  This is a SECOND mechanism, distinct from the R13 strand and from the fourth
+  mechanism above (a green armed PR stranded by a conflict auto-merge will not
+  resolve). It is ALREADY FILED as
+  BL-20260906-THE-OPEN-PRS-RECONCILER-FIRES-PER-MERGE-SO-A-BUSY-DAY-STACKS-N-STALE-PRS-FOR-ONE-DERIVED-EDIT,
+  so no new row was opened -- filing a duplicate would make the backlog worse,
+  which is the failure `backlog_append.py`'s duplicate check exists to stop. What
+  is NEW here is the measurement against a stated population, and it belongs on
+  that row rather than in a second one.
+
+  ⚠️ THE SWEEPER DOES NOT FIX THIS AND MUST NOT BE READ AS DOING SO. It refuses
+  to refresh a superseded PR on purpose -- refreshing one would REWIND `main`.
+  These 17 need CLOSING with a recorded disposition, which is a human act.
+
+sweeper_first_verified_unstrand: >-
+  #11490 (the PR-queue-watch receipt) is the first branch the sweeper unstranded
+  and then had VERIFIED end to end rather than reported. At 12:55Z it read
+  `mergeable_state: dirty` -- a merge conflict, on `docs/claude/session-board.json`
+  ALONE, which is sub-case (i) of the fourth mechanism and the one the sweeper is
+  built for. The conflict was reproduced first in a throwaway worktree
+  (`git merge --no-commit`, conflicted paths = exactly the slot file) so the
+  sub-case was MEASURED and not assumed.
+
+  `--apply` at 12:59Z: new head `ab626dd1`. Verified as EFFECT, four ways, none
+  of them the sweeper's own report -- (1) `git merge-base origin/main HEAD` now
+  equals main's tip `c11911b3`, so the conflict is gone; (2)
+  `docs/claude/session-board.json` IS in the branch's own diff against that
+  merge-base; (3) the claim names `automation/data-commit-34314147723-1`, this
+  branch, at 12:59:10Z; (4) `check_pr_landing.py`, run in a worktree checked out
+  UNDER THE REAL BRANCH NAME, reads `pr-landing: OK — state=declared_self_land`.
+  The payload receipt `2026-09-09T05:15:42Z` is preserved, still newer than
+  main's `2026-09-08T16:50:32Z`.
+
+  ⚠️ THE SWEEPER IS NOT ON `main` AND THEREFORE HAS NO CRON. It exists only on
+  this PR, which is `landing: hold` under R12 and needs one human read. Both runs
+  so far were HAND-RUN by this session from the working tree. `commit-to-main`'s
+  own words apply to the claim as much as to any step: what is observed is that
+  the SCRIPT works, not that the MECHANISM runs.
+
+  ⚠️ WHY IT MATTERED NOW: main's `docs/claude/work/PR-QUEUE-WATCH.json` reads
+  `2026-09-08T16:50:32Z` against `check_pr_queue_watch.py`'s 30h window, so main
+  would have gone red repo-wide on a SECOND receipt guard at about
+  2026-09-09T22:50Z. #11490 is the receipt that prevents it.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
