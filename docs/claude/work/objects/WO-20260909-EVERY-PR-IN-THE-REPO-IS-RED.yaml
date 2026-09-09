@@ -457,6 +457,56 @@ proposed_narrow_extension_NOT_shipped: >-
   19.6h margin does not justify a third. Write it with tests, against a stated
   population, when it is the thing being worked rather than a detour.
 
+the_fifth_mode_is_SUSTAINED_and_repo_wide_1656Z: >-
+  ⚠️ THE TRIGGER I SET AT 15:38Z FIRED, AND HARDER THAN I FRAMED IT. I asked
+  whether the NEXT pr-queue-watch run would also fail to open a PR, treating two
+  consecutive failures as a pattern. MEASURED 2026-09-09T16:56Z, population = all
+  164 origin/automation/* branches against main and against the live open-PR
+  list: SIX branches carry a receipt NEWER than main's and NONE has an open PR --
+  WORK-DIGEST 16:03:36Z / 16:39:51Z / 16:41:36Z, TRAINER-CAPTURE-WATCH 16:46:17Z,
+  PR-QUEUE-WATCH 11:50:12Z and 16:53:15Z. FIVE appeared within the preceding hour.
+
+  This is not one strand and not two consecutive failures on one workflow. It is
+  the AUTOMATION LANDING PATH BEING DOWN REPO-WIDE for at least 3.5 hours, across
+  every producer of a repo-wide liveness receipt. Cause read from run 34378237022
+  (16:41:39Z->16:42:43Z) verbatim -- `gh pr create attempt 1..3/3 failed: GraphQL:
+  API rate limit already exceeded for user ID 119055177` -- BYTE-IDENTICAL to run
+  34355107317 at 13:08Z on a different workflow.
+
+  ⚠️ AND THE QUOTA IS SHARED WITH CLAUDE SESSIONS: every session in this repo acts
+  as user 119055177, so MCP polling and `gh pr create` draw on one per-user limit.
+  That makes it a CAPACITY question about concurrent sessions as much as a
+  workflow bug, and this session was making MCP calls throughout the window.
+  Filed as
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR.
+
+  ⚠️ MY 15:38Z DECISION NOT TO LAND automation/data-commit-34347588537-1 WAS
+  CORRECT AND IS NOW MOOT FOR THE RIGHT REASON, WHICH IS NOT THE REASON I GAVE. I
+  reasoned a fresher receipt was due through the normal route; a fresher receipt
+  DID appear (16:53:15Z) but it did NOT land -- it stranded identically. So the
+  strand resolved by supersession, not by the route working, and the route has
+  not worked since 13:08Z. Do not read that call as vindicated by the outcome.
+
+  ACTED: opened #11572 (PR-QUEUE-WATCH 16:53:15Z), #11573 (WORK-DIGEST 16:41:36Z,
+  the tightest clock at +4.17h) and #11574 (TRAINER-CAPTURE-WATCH 16:46:17Z) by
+  hand -- the newest receipt of each class, each superseding the older strands.
+  All three graded `refresh`, were refreshed by the sweeper (slot-file conflict
+  only in two, none in the third) and VERIFIED as effect: merge-base equal to
+  main's tip, slot file in each branch's own diff, each claim naming its own
+  branch, `check_pr_landing.py` OK under the REAL branch name on all three, and
+  the receipts and the digest's extra ping row preserved.
+
+  ⚠️ #11573 IS THE CASE THAT WOULD HAVE BEEN UNSAVABLE THIS MORNING. It carries a
+  pending-pings row, so under the pre-fix classifier it graded
+  `carries_append_only` -- not actionable -- and the sweeper could not have
+  refreshed the carrier of the TIGHTEST repo-wide clock. The fix made earlier
+  today is what let it grade `refresh`.
+
+  ⚠️ FOUR HAND RESCUES IN ONE AFTERNOON (#11557, #11572, #11573, #11574). That is
+  the workaround, not the fix, and it does not scale -- which is the whole
+  argument of this WO restated one level up: the REMEDY is still not as automatic
+  as the ALARM.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
