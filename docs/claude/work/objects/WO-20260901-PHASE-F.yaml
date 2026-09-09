@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase F — the repairs — decision preparation and decision recording"
 stage: CAPABILITY
-lifecycle: ready
+lifecycle: waiting
 adjudicated_2026_09_06: >-
   BOOKKEEPING CORRECTION by the manager, not a verdict on the work. lifecycle read `in_flight`,
   which asserts the object is being actively worked. A LIVE list_sessions read on 2026-09-06
@@ -12,7 +12,7 @@ adjudicated_2026_09_06: >-
   ⚠️ `ready` claims only that the object is AVAILABLE TO PICK UP. It is NOT a claim that the work
   is done, and NOT a claim that it is undone — nobody read the artifact. Establishing that is the
   2026-09-06 Phase-1 observation sweep's job. The done_condition above is unchanged and still binds.
-owner: claude
+owner: session_01DUBXxiaZ3PMERcAfcJce7P
 opened_at: 2026-09-01
 closed_at: null
 review_trigger: >-
@@ -23,7 +23,23 @@ done_condition: >-
   A strategy-review packet is committed on a cadence and read, and a Tier-3
   approval lands in exactly one place.
 
-blocked_on: []   # nothing blocks this — a CLAIM, not an absence of information
+blocked_on:
+- kind: operator_decision
+  ref: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
+  since: '2026-09-09'
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by session_01DUBXxiaZ3PMERcAfcJce7P, MEASURED over all 8 committed daily
+  indexes (2026-09-01..2026-09-08, 52 enabled strategies, 7-day window). ⚠️ THIS EDGE REPLACES AN
+  EMPTY LIST THAT WAS A CLAIM, NOT AN ABSENCE — the object really did have nothing blocking it on
+  2026-09-01, and it does now. TWO of the three clears_when clauses on
+  OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED are MET
+  (a scheduled run committed an index — 3 of 7 schedule runs succeeded; and floor_state has read
+  `none_gradeable` on 7 real runs, not `unknown`). What remains is clause (3), an operator decision
+  on the window/floor pair, which is why the edge is `operator_decision` and not `capability`.
+  ⚠️ AND THE EDGE DOES NOT COVER THE WHOLE OBJECT — say which half you are reading. C4's third owed
+  item (no real consumer BRANCHES on the decision-record grade) is UNSTARTED CAPABILITY WORK, not
+  blocked on anybody; it needs src/, hence its own tier-gated change. Recording it as blocked would
+  make the constraint computation read an operator gate where there is only unstarted work.
 
 note: >-
   ⚠️ THIS IS THE ONLY PHASE THAT IS UNBLOCKED TODAY, and it is the only one
@@ -119,6 +135,162 @@ scope_split:
     whose resolution_criteria require BOTH a reconciliation AND the executable
     check — because closing the instance without the check is exactly what left
     this class alive the two previous times it was fixed.
+
+decision_requests:
+- id: DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS
+  question: >-
+    There is no per-leg offline edge record anywhere: load_backtest_anchor carries no edge number by
+    design and reads null on 51 of 52 committed packets. Build the producer? And until it exists, does
+    the M7 packet emit `no_offline_evidence` or keep emitting `hold`?
+  urgency: blocking
+  asked_on: '2026-09-09'
+  asked_by:
+    session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    recorded_at: '2026-09-09T10:31:00Z'
+    note: >-
+      Asked as a POPUP (AskUserQuestion) on the operator's standing instruction of the same day,
+      "give me decisions as popups". Basis: docs/design/strategy-leg-offline-edge-basis-PROPOSAL.md,
+      produced by session_01MrTjuoRpBb7spyQLydXmmT on MI-215.
+  context: >-
+    Supersedes DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which the operator rejected as malformed
+    because all four of its options assumed live closes grade strategies. The MI-215 lane then
+    corrected the manager's replacement premise too: the manager briefed "the repo already has what
+    is needed (oos_edge, replay_pregate_fleet, the backfills)", and MEASURED those are ML-HEAD scoped
+    (22 heads, per their own docstrings), not per-leg. The 13 scripts/backtest_*.py per-leg harnesses
+    DO exist (verified independently by the manager), so this is a WIRING gap and NOT missing
+    infrastructure -- do not restate it as the latter.
+  options:
+  - key: build_producer
+    label: Build the per-leg offline edge record the gate reads
+    implication: >-
+      comms/strategy_evidence/<leg>.json with net_r_oos, n_trades_oos, folds, basis and a
+      config_fingerprint. Edge verdict reads that; live rows prove MECHANICS only. Producer first --
+      re-pointing decide() beforehand yields 52/52 null, the same outcome harder to see.
+  - key: denominator_report
+    label: Keep the packet a denominator report and record that as the decision
+    implication: >-
+      Legitimate, cheapest, and leaves the in-window losing legs with no surface that can act.
+  - key: build_later
+    label: Agree it is the right fix and park it behind current priorities
+    implication: >-
+      The interim-verdict question still applies; the guard ratchet stops the violation count growing.
+  allows_free_text: true
+  answer:
+    chosen: build_producer
+    free_text: >-
+      OPERATOR ANSWERED VIA POPUP 2026-09-09. Selected "Build it". SECOND, SEPARATE ANSWER in the same
+      popup: until an edge record exists the packet emits `no_offline_evidence` rather than `hold` --
+      a FOURTH state distinct from pass, fail and could-not-read. The operator was told plainly that
+      this makes ~52 legs read as unproven on day one and accepted that as the honest reading rather
+      than a regression. THIRD, SEPARATE ANSWER: the wider audit runs as a FULL SWEEP with a positive
+      control (MI-218). Recorded as MI-216 (producer), MI-217 (interim verdict) and MI-218 (sweep).
+      TIER-3 APPROVED IN PRINCIPLE ONLY -- the concrete diff still returns to the operator before it
+      ships, and this answer licenses no config, order-path or exit-matrix change.
+    answered_at: '2026-09-09T10:32:00Z'
+    answered_by: operator_popup
+    committed_by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    submission_id: null
+- id: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
+  question: >-
+    The daily strategy-review packet has graded 52 of 52 legs `hold` on eight consecutive days and
+    has never proposed a single action. At a 7-day window with a floor of n>=20 closes, NO leg is
+    gradeable and none can become gradeable at any sane window. How should the window/floor pair be
+    set — or should the packet be accepted as a denominator report rather than a decision surface?
+  urgency: blocking
+  asked_on: '2026-09-09'
+  asked_by:
+    session_id: session_01DUBXxiaZ3PMERcAfcJce7P
+    recorded_at: '2026-09-09T07:30:00Z'
+    note: >-
+      Phase F clause (3). Answering this is the ONLY thing still holding
+      OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED open;
+      its other two clauses were measured MET on 2026-09-09.
+  context: >-
+    MEASURED over all 8 committed daily indexes (2026-09-01..2026-09-08), all 52 enabled strategies,
+    window 7 days, floor MIN_CLOSED_FOR_ACTION = 20. Full working:
+    docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md.
+    graded 52 / actionable 0 / by_action {hold: 52} on 8 of 8. NO leg has reached 11 closes in a
+    7-day window on ANY day measured; 29-32 of 52 legs sit at zero every day; the whole fleet closes
+    58-67 trades per window. Grading all 52 legs needs ~1040 in-window closes against ~62 observed —
+    a ~17x shortfall that is stable across every day, so it is the fleet's steady state and not a
+    quiet week. Meanwhile 16 legs are LOSING money in-window (-13,147.94 on 09-07 / -11,213.99 on
+    09-08, provenance-trusted) and the surface cannot act on any of them.
+    ⚠️ WIDENING THE WINDOW MOSTLY DOES NOT WORK, and the generator already proves it rather than my
+    asserting it: its own evidence_horizon_summary reads gradeable_now 0 · reachable 20 ·
+    unbounded_no_closes 24 · structurally_ungradeable 8, with days_to_grade_median_reachable_point
+    70.0 and days_to_grade_all_reachable_point 140.0. So (a) no window under ~70 DAYS grades even the
+    median REACHABLE leg — a 14- or 30-day widening turns actionable 0 into actionable 0; (b) 32 of
+    52 legs never become gradeable at ANY window, and for the 8 `shadow_execution_no_fills` legs that
+    is correct and permanent, since a shadow leg cannot fill by declaration; and (c) a 70-140 day
+    window spans the e35 bracket-geometry deploy (2026-08-30), hedge-mode arming (2026-08-30) and the
+    cash-settlement gate arming (2026-08-31), so a KILL resting on it would grade a leg partly on
+    geometry it no longer runs.
+    ⚠️ AND THE OBSERVATION THAT REFRAMES THE QUESTION: at 52 legs and ~62 closes/week the MEDIAN leg
+    closes ~1.2 trades per week. The floor may not be too high and the window may not be too short —
+    the fleet may simply be spread too thin to generate decision-grade evidence about itself. On that
+    reading the lever is the NUMBER OF LEGS (Phase G / E3's sunset pass, which already names 10
+    retirement candidates over 52 legs), not the statistic. Option `too_many_legs` exists so the
+    operator is not offered only window-and-floor when a third lever is on the table.
+  options:
+  - key: accept_as_denominator
+    label: Leave window 7d / floor 20, and RECORD that the fleet is deliberately ungradeable
+    implication: >-
+      Nothing changes mechanically and the packet keeps reporting `none_gradeable` correctly. The
+      packet is then explicitly a DENOMINATOR REPORT, not a decision surface, and nobody should read
+      `actionable: 0` as a clean bill of health. Legitimate — but it must be a recorded decision
+      rather than a drift, because today it reads as a decision surface that is silently inert.
+  - key: widen_to_horizon
+    label: Widen the window to ~70-90 days, keeping the floor at 20
+    implication: >-
+      Grades roughly half the 20 reachable legs and leaves 32 of 52 permanently ungradeable. Buys the
+      first real verdicts at the cost of evidence that spans three Tier-2/3 changes deployed
+      2026-08-30/31 — a KILL would rest partly on geometry the leg no longer runs. State that
+      limitation on any badge produced this way.
+  - key: too_many_legs
+    label: Treat this as a FLEET-WIDTH problem and route it to the sunset pass (Phase G / E3)
+    implication: >-
+      Retire legs so the same flow concentrates into fewer books, raising per-leg n without weakening
+      the evidence bar — the only lever that does both. Slowest, Tier-3 per retirement, and it does
+      not make the next packet gradeable. `SUNSET-DISPOSITIONS` already carries 10 candidates.
+  - key: lower_the_floor
+    label: Lower MIN_CLOSED_FOR_ACTION below 20
+    implication: >-
+      ⚠️ LISTED SO IT IS EXPLICITLY DECIDED RATHER THAN QUIETLY AVAILABLE, AND IT IS THE ONE I WOULD
+      ARGUE AGAINST. No leg exceeds 10 closes in-window, so any floor that makes something gradeable
+      is <=10, and a KILL at n<=10 is exactly the low-n hazard the floor exists to prevent — the same
+      error one level up. If chosen, it should be paired with a weaker action class than KILL/DEMOTE
+      rather than lowering the bar for the existing one.
+  allows_free_text: true
+  answer:
+    chosen: null
+    free_text: >-
+      REJECTED AS MALFORMED BY THE OPERATOR, 2026-09-09. None of the four options is the right answer,
+      because all four presume live closes are the evidence basis for grading a STRATEGY. They are not.
+      Operator, verbatim: "None of these are the right answer - we have built EXTENSIVE BACKETESTING
+      INFRA FOR EXACTLY THIS REASON!!!!!! We do NOT rely on live soaking for validating strategies, only
+      mechanics, and if it takes time to accrue live trades to analyze real world performance, that is
+      not a barrier that needs to be overcome, just a feature of the system. Less legs doesn't help this
+      - it's about how many trades each leg executes, and less legs shouldn't mean more trades (at least
+      on the paper accounts). I don't know how many more times I can explain this to various cluades,
+      but our overall operation is clearly not built to suit the system's structure".
+      THREE THINGS THIS SETTLES. (1) Edge is proven OFFLINE; a live window proves MECHANICS only, so a
+      packet that withholds a verdict for want of live n is asking a question live data was never meant
+      to answer. (2) Slow live accrual is a FEATURE, not a barrier to overcome - so `none_gradeable` is
+      not a defect to engineer around. (3) `too_many_legs` is WRONG and the manager's recommendation of
+      it was wrong: the quantity is trades PER LEG, and retiring legs does not raise it, least of all on
+      paper accounts where every leg runs regardless.
+      THIS IS NOT NEW CANON - IT IS EXISTING CANON THE SURFACE CONTRADICTS. docs/CLAUDE-RULES-CANONICAL.md
+      "Promotion evidence - offline edge, live mechanics" has been BINDING since 2026-07-26, says all
+      three of the above, states its scope is STRATEGY legs and not only ML heads, and names this exact
+      failure: "Never frame an alt-leg paper-soak as a calendar-time wait to see if the edge holds - that
+      is the recurring drift this rule kills."
+      SO THE QUESTION IS VOID AND THE INSTRUMENT IS THE DEFECT. Do NOT re-ask it in another form and do
+      NOT tune window/floor: `MIN_CLOSED_FOR_ACTION` applied to a LIVE window is a calendar-accrual gate
+      for edge, which clause 3 of that rule forbids outright. Routed as MI-215.
+    answered_at: '2026-09-09T09:30:00Z'
+    answered_by: operator_in_conversation
+    committed_by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+    submission_id: null
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md

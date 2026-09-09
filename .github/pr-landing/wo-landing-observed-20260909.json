@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One register edit: clears an OPEN-ITEMS monitoring row whose clears_when was OBSERVED (PR #11500 merged with the action's own R13 claim and one github-actions[bot] commit). docs/** is on the Tier-1 surface; no src/, no config/, no scripts/, no workflows, no order path."
+}

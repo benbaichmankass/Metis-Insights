@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   ict_scalp_5m to shadow, then establish whether it should trade real money at all
 stage: DECISION
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01X3kyzCfUdFVimATxZFE8nd
 opened_at: 2026-09-06
 closed_at: null
@@ -62,3 +62,10 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+manager_reconciliation:
+  at: 2026-09-09T07:46:27Z
+  by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+  moved: in_flight -> waiting
+  why: >-
+    session_01X3kyzCfUdFVimATxZFE8nd ended IDLE/disconnected 2026-09-06T21:56:34Z reporting 'Merged #11115/#11186'. Nothing is in flight. The manager has NOT verified that claim against main, so this is waiting on verification, not done.

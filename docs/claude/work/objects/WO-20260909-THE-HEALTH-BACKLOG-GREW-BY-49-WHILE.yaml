@@ -1,0 +1,30 @@
+id: WO-20260909-THE-HEALTH-BACKLOG-GREW-BY-49-WHILE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The health backlog grew by 49 while a system review ran over it: 765 unresolved rows and the drain has no owner
+stage: INTEGRITY
+lifecycle: in_flight
+owner: session_01Hw9mp8cEeZqF1KSGZHyHui
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The unresolved count (open + kept_open) is measurably LOWER than 765 with the population stated at both ends, and each close carries evidence rather than a re-read. ⚠️ NOT sufficient: re-counting the pile, re-tiering rows, or closing rows because they are old — a row closed without evidence is worse than an open one. ⚠️ AND the mechanism question must be answered rather than only the arithmetic: state what makes the pile grow faster than it drains, because a one-off drain that leaves that unchanged buys one week.
+
+why: >-
+  WO-20260908-SYSTEM-REVIEW's done_condition says in terms 'Backlog drive is not optional: 716 unresolved health rows (532 open + 184 kept_open) and the review must DRAIN, not just count.' Measured 2026-09-09T07:12Z: 584 open + 181 kept_open = 765 unresolved. It grew by 49 across the window in which a review ran and committed its report. The review half landed (comms/reports/since-last/20260908T112000Z rendered --strict passing, index disagreement explained down to one orphan directory); the DRAIN half did not, and nothing owns it. That is the same written-and-never-acted shape as the Phase F decision surface, one register over: a review that FILES without a counterweight that CLOSES converts every pass into net growth.
+
+source: >-
+  operator-directed 2026-09-09 ('there's tons of backlog work'); also the unmet fourth clause of WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

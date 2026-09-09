@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: records the operator's Tier-2 approval of #11530 as a typed operator_decision in OPEN-PRS.json with its load-bearing claim and its scope limits, updates MI-214, and adds MI-220 for the approved follow-on. Recording an operator decision into docs/claude/work/** is management. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path -- the approved change is the LANE's to land, not mine."
+}

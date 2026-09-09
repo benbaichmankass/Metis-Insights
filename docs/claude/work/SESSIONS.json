@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T04:26:57Z",
+  "updated_at": "2026-09-09T11:26:17Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2489,7 +2489,15 @@
       ],
       "why": "OPERATOR DECISION 2026-09-06: stop the real-money bleed, KEEP paper evidence accruing for the bracket_geometry sweep",
       "confirmed_at": "2026-09-06T11:00:41Z",
-      "observed_at": "2026-09-08T03:31:00Z"
+      "observed_at": "2026-09-08T03:31:00Z",
+      "last_observed": {
+        "at": "2026-09-09T07:46:51Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session",
+        "session_status": "IDLE",
+        "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+        "platform_updated_at": "2026-09-06T21:56:34Z"
+      }
     },
     {
       "session_id": "session_017UnyG4ArXmXKpB8rmEGv1j",
@@ -2576,7 +2584,15 @@
       "confirmed_at": null,
       "live_status_at_2026-09-06T16:50Z": "IDLE",
       "manager_disposition": "#11150 open, DRAFT — reports ML-2 REFUTED",
-      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns."
+      "⚠️_registered_retroactively": "TRUE. This row was NOT written at spawn time — it was reconstructed at 2026-09-06T16:50Z from a live list_sessions read after the completeness grade showed 4 of 16 tagged sessions absent. `confirmed_at` is null and stays null: a retroactive row is evidence the coupling FAILED, not evidence it held, and back-dating a confirmation would launder that. Recurrence of MI-15-SESSIONS-REGISTRY-INCOMPLETE (3 of 6 absent 2026-09-01; 26 of 55 absent 2026-09-02), and the pattern repeated exactly as recorded: all four absentees are the FOUR MOST RECENT spawns.",
+      "last_observed": {
+        "at": "2026-09-09T07:46:51Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session",
+        "session_status": "IDLE",
+        "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+        "platform_updated_at": "2026-09-07T00:27:59Z"
+      }
     },
     {
       "session_id": "session_016UhdzaVjP5BLaokn2LajcA",
@@ -3068,12 +3084,12 @@
       "status": "idle",
       "last_observed_at": "2026-09-08T19:29:00Z",
       "last_observed": {
-        "at": "2026-09-09T04:26:57Z",
+        "at": "2026-09-09T07:46:51Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "list_sessions(mine=true, limit=25) read 2026-09-09T04:25Z — session_status AND status_bucket",
-        "session_status": "SESSION_STATUS_IDLE",
-        "status_bucket": "REVIEW_READY",
-        "platform_updated_at": "2026-09-08T23:25:36.928593Z",
+        "source": "get_session",
+        "session_status": "IDLE",
+        "status_bucket": "SESSION_STATUS_BUCKET_COMPLETED",
+        "platform_updated_at": "2026-09-09T06:40:08Z",
         "needs_action": "merge d5232c9e when CI completes (or release hold)",
         "manager_verdict": "live_and_answered_here",
         "manager_verdict_basis": "asks the manager to 'merge d5232c9e when CI completes (or release hold)'. THE ANSWER IS NO, AND IT IS NOT MINE TO GIVE: d5232c9e is #11337, declared tier 3 / landing: hold / hold_reason tier_2_3_needs_approval. A Tier-3 order-path change needs the OPERATOR, and 'the manager releases the hold' is not in the hold_reason vocabulary. The PR is correctly waiting, not stuck."
@@ -3126,12 +3142,12 @@
       "last_observed_at": "2026-09-08T19:56:00Z",
       "status_bucket": "blocked",
       "last_observed": {
-        "at": "2026-09-09T04:26:57Z",
+        "at": "2026-09-09T07:46:51Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "list_sessions(mine=true, limit=25) read 2026-09-09T04:25Z — session_status AND status_bucket",
-        "session_status": "SESSION_STATUS_IDLE",
-        "status_bucket": "BLOCKED",
-        "platform_updated_at": "2026-09-08T06:24:54.059717Z",
+        "source": "get_session",
+        "session_status": "IDLE",
+        "status_bucket": "SESSION_STATUS_BUCKET_BLOCKED",
+        "platform_updated_at": "2026-09-08T06:24:54Z",
         "needs_action": "run git push --force-with-lease (re-auth) or git reset --hard (keep current)",
         "manager_verdict": "superseded",
         "manager_verdict_basis": "asks for a force-push decision on the board successor; board #11336 is live and the work landed."
@@ -3636,6 +3652,220 @@
       "observation": "#11473 is BLOCKED BY A REPO-WIDE GUARD, NOT BY ITS OWN DIFF. Its guards job reads PASS 71 · FAIL 1 and the 1 is digest-liveness-guard (state=stale last_digest_age=6.01h) — a time-based, repo-wide condition no PR can fix. ⚠️ ITS OWN DIAGNOSIS WAS CORRECT AND I VERIFIED IT FROM THE JOB LOG RATHER THAN TAKING ITS WORD: a post_turn_summary is the session's own claim, and the whole reason this row carries a correction from 23:50Z is that I once graded this session on a proxy instead of the artifact. || It merged main in at 00:42:33Z (head fc535649) BEFORE the 00:46:02Z guards failure, so it has not pushed since — correctly, because there is nothing for it to push. NO POKE SENT. The manager dispatched work-digest.yml to clear the blocker. || ✅ DELIVERED AND MERGED 01:45Z as 47f5a981. Judged on merged output. This row's history is the cautionary one: at 23:50Z I graded this session 'alive and unproductive' from an absent remote branch and merged that claim to main 28 seconds before it opened the PR; the correction is in ff6ec532 and the class is filed as BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT. It went on to diagnose the repo-wide digest deadlock itself and correctly stopped pushing.",
       "branch": "claude/mi205b-ranking-key-harness",
       "pr": 11473
+    },
+    {
+      "session_id": "session_01YP3DnuFmSbvtLgBQiuCHso",
+      "registry_key": "pending-20260909T054411Z",
+      "state": "working",
+      "title": "MI-208 + MI-207 — the landing-machinery lane",
+      "owns_object": "WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT",
+      "checklist_item": "MI-208-WORK-DIGEST-ARMS-A-LANDING-ROUTE-IT-CANNOT-COMPLETE",
+      "spawned_at": "2026-09-09T05:44:11Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "MI-208 is the structural cause of the 42-deep automation queue and the recurring digest-liveness deadlock the manager has hand-cleared twice; MI-207 is the strongest prevention this repo can implement for the wrong-repo spawn class. Both are worker paths that R2 bars the manager from authoring. Operator-approved 2026-09-09, verbatim: 'yes do that'.",
+      "confirmed_at": "2026-09-09T05:44:58Z"
+    },
+    {
+      "session_id": "session_01JuznkKwm1oYm7bUFc9v23w",
+      "registry_key": "pending-20260909T060919Z",
+      "state": "working",
+      "title": "Lane 2 (research) — active management: measure what the trailing and banking paths actually did",
+      "owns_object": "WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF",
+      "spawned_at": "2026-09-09T06:09:19Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "why": "Operator-directed 2026-09-09: 'we start working on our active management'. The TARGET half of the exit thesis closed 2026-09-07; the trailing/banking half is the standing debt and has never been measured on the same footing. Parented to the cycle's own intent IN-20260903-TRADING-SYSTEM-HEALTH, so it needs no priority exception — this IS the cycle.",
+      "confirmed_at": "2026-09-09T06:09:55Z",
+      "last_observed": {
+        "at": "2026-09-09T07:46:51Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session",
+        "session_status": "IDLE",
+        "status_bucket": "SESSION_STATUS_BUCKET_WORKING",
+        "platform_updated_at": "2026-09-09T06:57:06Z"
+      }
+    },
+    {
+      "session_id": "session_01Hw9mp8cEeZqF1KSGZHyHui",
+      "registry_key": "pending-20260909T071304Z",
+      "state": "working",
+      "title": "Lane 1 (ops) — backlog drain: 765 unresolved health rows, and it grew by 49 while a review ran over it",
+      "owns_object": "WO-20260909-THE-HEALTH-BACKLOG-GREW-BY-49-WHILE",
+      "spawned_at": "2026-09-09T07:13:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/metis-insights",
+      "why": "Operator-directed 2026-09-09: 'there's tons of backlog work'. Also the unmet fourth clause of WO-20260908-SYSTEM-REVIEW, whose review half landed (report committed, index disagreement explained) while the DRAIN half did not. Parents to IN-20260903-TRADING-SYSTEM-HEALTH — the cycle's own intent — so no priority exception is needed.",
+      "observed_source_url": "https://github.com/benbaichmankass/metis-insights",
+      "confirmed_at": "2026-09-09T07:13:36Z",
+      "last_observed": {
+        "at": "2026-09-09T09:32:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
+        "platform_updated_at": "2026-09-09T08:20:00Z",
+        "manager_note": "Lane closed, but left branch claude/tlt-read-correction-20260909 with no PR — the contradictory TLT read is UNRESOLVED and now unowned."
+      }
+    },
+    {
+      "session_id": "session_01DUBXxiaZ3PMERcAfcJce7P",
+      "registry_key": "pending-20260909T070827Z",
+      "state": "working",
+      "title": "Lane 3 (engineering) — Phase F: the decision surface is built and nothing reads it",
+      "owns_object": "WO-20260901-PHASE-F",
+      "spawned_at": "2026-09-09T07:08:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/metis-insights",
+      "why": "Operator-directed 2026-09-09: 'we're still working on building out the workflow implementation in the engineering lane'. Phase F's plumbing landed with MI-194 (#11358/#11360/#11385); its done_condition is an OBSERVATION that is not met — a packet committed on a cadence AND READ, with a Tier-3 approval landing in exactly one place.",
+      "observed_source_url": "https://github.com/benbaichmankass/metis-insights",
+      "confirmed_at": "2026-09-09T07:09:11Z",
+      "last_observed": {
+        "at": "2026-09-09T09:32:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
+        "platform_updated_at": "2026-09-09T08:00:00Z",
+        "manager_note": "BLOCKED ~95min on DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR and the manager did not surface it — that lag is the manager's failure, not the lane's. Now ANSWERED: the operator rejected all four options as malformed. Do NOT resume this lane on window/floor; the question is void and the work is re-pointed as MI-215."
+      }
+    },
+    {
+      "session_id": "session_012kfL8m9T7xW3XkAv71To27",
+      "registry_key": "pending-20260909T073255Z",
+      "state": "working",
+      "title": "Lane 2 (research) — active management: the partial-close producer is built and has NEVER fired; establish why",
+      "owns_object": "WO-20260909-THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND",
+      "spawned_at": "2026-09-09T07:32:55Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Refill of the research lane. MI-209b closed and corrected two premises; the standing question is why a built, wired partial-close path has fired zero times across a complete census. Under the cycle priority, the measurement comes before anything is built on top of it.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T07:33:30Z",
+      "last_observed": {
+        "at": "2026-09-09T09:32:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
+        "platform_updated_at": "2026-09-09T08:03:08Z",
+        "manager_note": "#11514 guards GREEN, auto-merge armed, head 65543e26. §6 read by the manager and recorded on the #11514 OPEN-PRS row as an OPTION, not a pending decision."
+      }
+    },
+    {
+      "session_id": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+      "registry_key": "pending-20260909T075327Z",
+      "state": "working",
+      "title": "Lane 4 (landing) — the repo is red on a stale receipt whose fix is stuck in an unmergeable automation PR",
+      "owns_object": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
+      "spawned_at": "2026-09-09T07:53:27Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "check_trainer_capture_watch.py exits 1 on clean main, so every open PR is red including all three trading-truth lanes. The refreshed receipt is in #11488, stale and unmergeable; the manager cannot land it without an R2 violation (MI-184). Third distinct cause of the automation stall, after the R13 deadlock (#11494) and the missing disposition (#11509).",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T07:54:06Z",
+      "last_observed": {
+        "at": "2026-09-09T09:32:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
+        "platform_updated_at": "2026-09-09T08:40:06Z",
+        "manager_note": "#11519 reported green on b198aa6 but is still DRAFT and held by the manager. Its own framing says ~25 automation PRs; the measured figure is 51."
+      }
+    },
+    {
+      "session_id": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
+      "registry_key": "pending-20260909T075603Z",
+      "state": "working",
+      "title": "Lane 5 (security) — gate /api/bot/db/*, which serves the money DB with no credential",
+      "owns_object": "WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB",
+      "spawned_at": "2026-09-09T07:56:03Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-approved directly on 2026-09-09 from a four-option decision pop-up; they chose the narrow gate over full Phase H. Manager verified GET /api/bot/db/tables returns HTTP 200, 10494 bytes, no bearer, at 07:43:31Z.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T07:56:42Z",
+      "last_observed": {
+        "at": "2026-09-09T09:32:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "list_sessions(mine=true)",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "idle",
+        "platform_updated_at": "2026-09-09T08:40:01Z",
+        "manager_note": "Lane closed. Its measurement is what let the operator decide #11517 on facts; gate verified live 09:12:45Z (both routes 401, positive control 200)."
+      }
+    },
+    {
+      "session_id": "session_01MrTjuoRpBb7spyQLydXmmT",
+      "registry_key": "pending-20260909T095004Z",
+      "state": "working",
+      "title": "MI-215 — the strategy-review packet grades EDGE off a live window, which binding canon forbids",
+      "owns_object": "WO-20260901-PHASE-F",
+      "checklist_item": "MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
+      "spawned_at": "2026-09-09T09:50:04Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-directed 2026-09-09. Re-point the packet's edge verdict at OFFLINE backtest evidence, and establish whether check_soak_doctrine.py reaches that surface at all, with a positive control.",
+      "note": "DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR was REJECTED AS MALFORMED by the operator; the answer block on WO-20260901-PHASE-F carries their wording verbatim.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T09:51:00Z",
+      "last_observed": {
+        "at": "2026-09-09T10:34:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "pull_request_read + poke",
+        "session_status": "SESSION_STATUS_RUNNING",
+        "status_bucket": "working",
+        "manager_note": "#11529 read mergeable_state=dirty at 10:26Z — CONFLICT CAUSED BY THE MANAGER (#11531 filed two rows into health-review-backlog.json while this branch was open on the same file). Poked 10:26:03Z, delivery confirmed: told to stop hunting a docs-only skip trap, resolve as a VERIFIED UNION, and that its §5 premise correction is the most valuable thing in the PR. ⚠️ ITS PROPOSAL IS NOW OPERATOR-APPROVED — build_producer + no_offline_evidence, taken as a popup 2026-09-09; recorded as DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and MI-216/217."
+      }
+    },
+    {
+      "session_id": "session_01FoASvmUGuahCphE1cewPPs",
+      "registry_key": "pending-20260909T095132Z",
+      "state": "working",
+      "title": "MI-214 — the prop status-request fires on wall-clock age alone",
+      "owns_object": "WO-20260909-PROP-STATUS-REQUEST-FIRES-ON-WALL-CLOCK-AGE-ALONE",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "spawned_at": "2026-09-09T09:51:32Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-raised 2026-09-09 on a live ping. Change the TRIGGER to key on whether anything happened since the last snapshot; measure the operator's premise first.",
+      "note": "MEASURE THE PREMISE FIRST: prop_fills vs prop_account_status over the 228h window on breakout_1. If fills happened with no snapshot after, the operator's premise is false in the dangerous direction and the ping was working.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T09:52:15Z",
+      "last_observed": {
+        "at": "2026-09-09T10:47:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "pull_request_read + poke",
+        "session_status": "SESSION_STATUS_IDLE",
+        "status_bucket": "review_ready",
+        "manager_note": "#11530 green on guards+audit, pytest-run running, correctly HELD (landing: hold, no arming file, no slot claimed) — verified in the branch rather than trusted from the PR body. Poked 10:43:23Z with the operator APPROVAL and the follow-on (MI-220). It measured the operator premise and found it half false, reporting that plainly; that is why the approval could be given on facts."
+      }
+    },
+    {
+      "session_id": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+      "registry_key": "pending-20260909T105249Z",
+      "state": "working",
+      "title": "MI-218 — count the operating-layer surfaces that require calendar time to prove EDGE",
+      "owns_object": "WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE",
+      "checklist_item": "MI-218-COUNT-EVERY-SURFACE-THAT-REQUIRES-CALENDAR-TIME-TO-PROVE-EDGE",
+      "spawned_at": "2026-09-09T10:52:49Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-approved 2026-09-09 as a FULL SWEEP with a positive control. The M7 packet is one confirmed instance; nobody has counted the rest.",
+      "note": "The positive control is the FIRST deliverable: prove the probe finds the known M7 instance before trusting any silence it produces.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T10:53:41Z"
+    },
+    {
+      "session_id": "session_01CwHNLSX6gMjPoKUWHoYj7q",
+      "title": "P1 LIVE MONEY — bybit_2 ETHUSDT 0.04 long is UNPROTECTED and INVISIBLE (journal 5471 says closed-on-SL; the venue still holds it)",
+      "owns_object": "WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE-LEFT-A-REAL-MONEY-POSITION-UNPROTECTED-AND-INVISIBLE",
+      "checklist_item": "MI-221-BYBIT2-ETH-PHANTOM-CLOSE-UNPROTECTED",
+      "spawned_at": "2026-09-09T11:26:17Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-reported 2026-09-09 from the Bybit terminal. Real-money, no TP/SL, open since 2026-09-04. Two independent bot readers do not return it.",
+      "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

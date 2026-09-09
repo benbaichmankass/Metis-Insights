@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Changes how EVERY automation PR lands: `.github/actions/commit-to-main/action.yml` (27 workflows call it) now writes the R13 merge-slot claim, and `scripts/ci/check_pr_landing.py`'s LANDING_MACHINERY list gains that action plus the new `scripts/ops/claim_merge_slot.py`. R12's own reasoning applies at full force here — a mistake in this diff disarms the check that would have caught the mistake, and it would do so for the whole automation fleet at once. One human read, then merge.",
+  "why": "Tier-1 by surface (.github/**, scripts/ci/**, scripts/ops/**, tests/**; no src/, no config/, no order path, no deploy/). It is held on R12, not on tier. Adding the two paths to LANDING_MACHINERY is what makes this hold VERIFIABLE by R8 rather than an adjective — and self-landing it while leaving them off the list would be routing around R12 through a gap in its own inventory."
+}

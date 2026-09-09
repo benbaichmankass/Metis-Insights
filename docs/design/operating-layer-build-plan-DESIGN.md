@@ -254,6 +254,20 @@ docs and nothing else. A record written and never read is the shape
 packet becomes durable and still reaches no decision. Closed by
 `GET /api/bot/strategy-reviews`.
 
+⚠️ **CORRECTED 2026-09-09 — THE CRON HAS FIRED, AND THIS PARAGRAPH IS PRESERVED BELOW AS THE
+RECORD OF WHAT WAS TRUE WHEN IT WAS WRITTEN.** Do not re-quote it as outstanding. MEASURED over
+the workflow's complete run history (`total_count: 54`, 40 returned, #15→#54): **7 runs carry
+`event: schedule`**, of which **3 concluded `success`** — #34 `33955614332` (09-05), #35
+`34023105345` (09-06), #48 `34107468880` (09-07) — each committing an `INDEX.json` to `main`
+carrying **that run's own** `generated_at` to the second. Read from the run history and the
+committed stamp, never from the cron expression. ⚠️ **The caution the paragraph carried still
+stands and is now better evidenced, not weaker:** the cron is `40 4 * * *` and every run fired
+**08:34–09:42Z, ~4–5h late**, matching the `probes.yml` lateness exactly. ⚠️ **And 4 of the 7
+scheduled runs concluded `failure`, every one at `commit-to-main`'s 30-minute merge wait rather
+than in the generator — three landed anyway, one (#49, 09-08) did NOT**, so the committed series
+is 7 of 8 days and a red run on this workflow is usually cosmetic. See
+`docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md`. ORIGINAL:
+
 ⚠️ **THE CRON IS DEPLOYED, NOT OBSERVED, AND THE TWO MUST NOT BE CONFLATED.** The workflow
 landed at 11:58Z on 2026-09-01 and its cron is 04:40 UTC, so **its first scheduled
 opportunity had not yet arrived** — a third state, distinct from *fired and worked* and from

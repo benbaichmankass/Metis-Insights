@@ -10,7 +10,7 @@
 
 decision: approved
 approved_by: operator (ben.baichmankass) — in conversation, directly
-approved_at: 2026-09-08
+approved_at: 2026-09-09
 # ⚠️ These fields carry the MOST RECENT approval (2026-09-08, the three-lane
 #    structure). The 2026-09-03 approval that opened this file is NOT erased —
 #    it is the first `reason` block below and still covers its own six objects.
@@ -28,6 +28,14 @@ covers:
   - WO-20260908-MEASURE-HOW-ACTIVE-MANAGEMENT-ACTUALLY-BEHAVES-FROM
   - WO-20260901-PHASE-F
   - WO-20260901-PHASE-D
+  # -- added 2026-09-09, the landing-machinery lane (see the block at the end) --
+  - WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT
+  # -- added 2026-09-09, the engineering lane (see the block at the end) --
+  - WO-20260901-PHASE-F
+  # -- added 2026-09-09, the landing lane (see the block at the end) --
+  - WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED
+  # -- added 2026-09-09, the security gate (operator-approved directly) --
+  - WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -305,3 +313,131 @@ phase_d_addendum_2026_09_08:
     and it is not trading work. It is admitted because the operator chose it
     knowing that, not because the gate was inconvenient. The exception is still
     NOT a standing grant and still expires with the objects it names.
+
+# ============================================================================
+# 2026-09-09 — THE LANDING-MACHINERY LANE (WO-20260909-THE-LANDING-MACHINERY-…)
+# ============================================================================
+#
+# ASKED AND ANSWERED DIRECTLY. The manager reported that all four lanes from the
+# 2026-09-08 dispatch had emptied — every lane session idle, last dispatch of any
+# kind seven hours earlier — and proposed one lane on MI-208 + MI-207. The
+# operator answered, verbatim: "yes do that". That is the approval this block
+# records; it is not inferred from a busy adjacent task.
+#
+# WHY IT DISPLACES RATHER THAN WAITS. The cycle is CY-20260906-TRADING-TRUTH, and
+# repairing the MEASUREMENT before acting on it is exactly what this is: the
+# defect makes the repo's own landing instruments assert success they did not
+# achieve. Eleven automation producers write the pr-landing arming file and never
+# the merge_slot claim R13 requires beside it, so every receipt PR is structurally
+# unmergeable; the un-landed digest receipt then goes stale on a 6h clock and a
+# repo-wide TIME-BASED guard reds ALL 42 open PRs — including any trading PR. The
+# manager has hand-cleared this twice (01:04Z and, expected, 06:40Z) and it returns
+# on the next run, so the trading side cannot land work reliably while it stands.
+#
+# ⚠️ AND THE MANAGER CANNOT FIX IT. Both halves are worker paths —
+# .github/workflows/ and scripts/ — that check_manager_scope R2 bars a manager from
+# authoring, which is why this needs a session and not another hand-push. Filing a
+# manager-scope-exception instead was considered and REFUSED: the cheapest way past
+# that guard must remain routing the work to a session.
+#
+# SCOPE — two objects' worth of work, ONE object named. MI-201 / MI-202 / MI-203
+# stay `ready` and unassigned and are NOT covered here. A blanket exception naming
+# nothing is a permanent priority-suspension wearing an exception's clothes.
+#
+# ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
+
+# ============================================================================
+# 2026-09-09 (second) — THE ENGINEERING LANE (WO-20260901-PHASE-F)
+# ============================================================================
+#
+# ASKED AND ANSWERED. The operator set the day's work plan in their own words:
+# "for the research lane, we're still working on building out the workflow
+# implementation in the engineering lane plus other things that are arising in
+# real time from the research", and then "pace the work correctly, and make sure
+# the lanes are actually working". This is the engineering lane of that plan.
+#
+# WHY IT DISPLACES. Phase F is the one phase the build plan marks as deliberately
+# UNBLOCKED and the only one that touches the MEASURED constraint. Its plumbing
+# landed (MI-194: #11358, #11360, #11385) and its done_condition is NOT met,
+# because that condition is an OBSERVATION — a packet committed on a cadence AND
+# READ, with a Tier-3 approval landing in exactly one place.
+# OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-
+# UNEXERCISED carries the measurement: 52 strategies graded, 0 actionable, every
+# leg below the evidence floor, and "A ROUTE IS NOT A READER". Written-and-never-
+# read is the exact failure the operating layer exists to end, so leaving it is
+# building more surface over an unread one.
+#
+# SCOPE — ONE object. Phase G and Phase D are NOT covered. The ops lane (system
+# review) parents to the trading intent and needs no exception; the backlog drain
+# has no object yet and is NOT covered here.
+#
+# ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
+
+
+# ============================================================================
+# 2026-09-09 (third) — THE LANDING LANE (WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED)
+# ============================================================================
+#
+# WHY IT DISPLACES — and it is the one kind of work that genuinely can, because it
+# does not COMPETE with the cycle, it is what lets the cycle land at all. MEASURED
+# 2026-09-09T07:53:19Z: scripts/ci/check_trainer_capture_watch.py exits 1 on CLEAN MAIN
+# ("newest recorded run is 15.1h old, window 15h") — established by running it
+# against a clean main checkout, not inferred from a PR, after a first check that
+# read $? from a pipeline's tail and proved nothing. It is a repo-wide red: every
+# open PR fails `guards` on it, including all three trading-truth lane PRs. Leaving
+# it means the cycle's own work cannot merge.
+#
+# WHY A SESSION AND NOT THE MANAGER. The refreshed receipt already exists, in
+# automation PR #11488. The manager cannot land it: that branch is ~3h behind main,
+# so merging main in produces a merge commit whose FIRST-PARENT diff carries
+# scripts/ and tests/, which check_manager_scope R2 attributes to the manager as
+# doing an item. That is MI-184, filed as
+# BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT
+# (hit live). Routing it is the rule working, and no
+# manager-scope-exception is being filed to get past R2.
+#
+# THIS IS A THIRD, DISTINCT CAUSE — do not read it as the deadlock returning.
+# #11494 fixed the R13 half and #11500 PROVED it by self-landing; #11509 fixed a
+# second, content half (a PR closed with no recorded disposition). This one is an
+# automation PR that went STALE: nothing rebases it and its author is a bot that
+# never comes back, so it rots into a permanent red. Conflating the three is how a
+# fixed problem gets re-declared broken, or a live one declared fixed.
+#
+# SCOPE — ONE object. It does not cover the other stale automation PRs as work in
+# their own right beyond landing-or-closing them, and it covers neither Phase G
+# nor Phase D.
+#
+# NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
+
+# ============================================================================
+# 2026-09-09 (fourth) — THE SECURITY GATE (WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB)
+# ============================================================================
+#
+# THE OPERATOR ASKED FOR THIS DIRECTLY, which this file's own guidance says is the
+# 30-second case. Put to them as a decision pop-up on 2026-09-09 with four options
+# (gate /api/bot/db/* now, do full Phase H, accept and record, or measure the blast
+# radius first). They chose: "Gate /api/bot/db/* now".
+#
+# THE EVIDENCE IS THE MANAGER'S OWN READ, not a relayed claim. GET
+# https://ict-bot.duckdns.org/api/bot/db/tables returned HTTP 200 / 10,494 bytes
+# with NO bearer at 2026-09-09T07:43:31Z, serving table names, row counts and full
+# column schemas for trade_journal.db - the money DB - and trainer_store.db.
+#
+# ONE HALF IS UNVERIFIED AND IS FLAGGED AS SUCH RATHER THAN ASSERTED. A lane
+# reports /api/bot/db/table/{name} serving actual ROWS unauthenticated. The manager
+# did NOT confirm it: the sandbox refused to pull live trade rows and that refusal
+# was not worked around. The session must establish it first.
+#
+# THIS IS NOT THE CLOSED DIAG-TOKEN QUESTION. That surface is bearer-gated and its
+# exposure is a DECIDED, accepted risk that must not be re-raised. This one has no
+# credential of any kind. Filing them together would reopen a closed decision.
+#
+# WHY IT DISPLACES. It is an unauthenticated read of the production money DB, and
+# the operator chose to act on it now. The narrow gate was chosen OVER full Phase H
+# deliberately, so the scope is /api/bot/db/* and nothing wider.
+#
+# SCOPE - ONE object. NOT a standing grant, and it does not license Phase H.
+# The cycle priority remains CY-20260906-TRADING-TRUTH.

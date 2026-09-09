@@ -1,0 +1,138 @@
+{
+  "generated_at_utc": "2026-09-09",
+  "census": {
+    "trades": 5589,
+    "order_packages": 4500
+  },
+  "packages": {
+    "moved": 146,
+    "gradeable": 2131,
+    "ungradeable": 2369,
+    "gradeable_date_range": [
+      "2026-06-18",
+      "2026-09-09"
+    ],
+    "ungradeable_date_range": [
+      "2026-05-02",
+      "2026-07-16"
+    ],
+    "direction_of_moved": {
+      "short": 51,
+      "long": 95
+    }
+  },
+  "trailed_closed_trades": {
+    "all": 194,
+    "broker_truth": 51,
+    "exit_reason_all": {
+      "tp": 26,
+      "reconciler_filled": 51,
+      "backfill_closed_pnl_recovery": 1,
+      "sl": 25,
+      "intent_reduce": 5,
+      "stuck_strategy_watchdog": 4,
+      "intent_reduce_executed": 8,
+      "sl_cross": 15,
+      "exchange_flat_reconciled": 21,
+      "stale_stop": 1,
+      "netting_phantom_reconciled": 2,
+      "tp_cross": 7,
+      "giveback_stop": 5,
+      "netting_attributed": 22,
+      "exit_head": 1
+    },
+    "exit_reason_broker_truth": {
+      "tp": 14,
+      "reconciler_filled": 11,
+      "backfill_closed_pnl_recovery": 1,
+      "sl": 13,
+      "exchange_flat_reconciled": 7,
+      "tp_cross": 3,
+      "exit_head": 1,
+      "sl_cross": 1
+    }
+  },
+  "stop_out_grading": {
+    "package|tol=0.0005": {
+      "all": {
+        "at_trailed": 26,
+        "at_neither": 13,
+        "at_original": 1
+      },
+      "broker_truth": {
+        "at_trailed": 12,
+        "at_original": 1,
+        "at_neither": 1
+      }
+    },
+    "package|tol=0.001": {
+      "all": {
+        "at_trailed": 28,
+        "at_neither": 11,
+        "at_original": 1
+      },
+      "broker_truth": {
+        "at_trailed": 12,
+        "at_original": 1,
+        "at_neither": 1
+      }
+    },
+    "package|tol=0.0025": {
+      "all": {
+        "at_trailed": 32,
+        "indistinguishable": 2,
+        "at_neither": 5,
+        "at_original": 1
+      },
+      "broker_truth": {
+        "at_trailed": 11,
+        "indistinguishable": 2,
+        "at_neither": 1
+      }
+    },
+    "trade|tol=0.0005": {
+      "all": {
+        "at_neither": 17,
+        "at_trailed": 22,
+        "indistinguishable": 1
+      },
+      "broker_truth": {
+        "at_neither": 4,
+        "at_trailed": 9,
+        "indistinguishable": 1
+      }
+    },
+    "trade|tol=0.001": {
+      "all": {
+        "at_neither": 15,
+        "at_trailed": 24,
+        "indistinguishable": 1
+      },
+      "broker_truth": {
+        "at_neither": 4,
+        "at_trailed": 9,
+        "indistinguishable": 1
+      }
+    },
+    "trade|tol=0.0025": {
+      "all": {
+        "at_neither": 10,
+        "indistinguishable": 2,
+        "at_trailed": 27,
+        "at_original": 1
+      },
+      "broker_truth": {
+        "at_neither": 4,
+        "indistinguishable": 2,
+        "at_trailed": 8
+      }
+    }
+  },
+  "partial_bank": {
+    "partial_closes_nonempty": 0,
+    "partial_closes_key_present": 0,
+    "original_position_size_present": 0,
+    "packages_with_meta_tp2": 3,
+    "population": 5589
+  }
+}

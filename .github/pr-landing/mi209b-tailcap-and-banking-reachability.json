@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MEASUREMENT ONLY, and the diff is entirely on the Tier-1 surface: one new research doc under docs/research/, one row in docs/DOCUMENT-INDEX.md, and one append-only row in docs/claude/health-review-backlog.json filed through scripts/ops/backlog_append.py::append_row so the file's exact serialisation round-trips. No src/, no config/, no deploy/, no scripts/, no workflow, no live-VM runtime file, no order path, no strategy params, no risk caps. It corrects two premises in a manager follow-up and settles a coverage question; nothing is armed, flipped or re-graded, and no parameter is proposed. The one Tier-2 remedy it identifies (an offset parameter on GET /api/diag/log_file) is FILED as a backlog row and deliberately NOT built here. Every live read was read-only (GET /api/bot/db/table/*, GET /api/diag/log_file) and no live position was touched. R5 still grades the diff against the Tier-1 surface rather than taking this declaration on trust."
+}

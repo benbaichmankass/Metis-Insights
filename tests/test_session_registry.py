@@ -14,6 +14,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "ops"))
 import session_registry as sr  # noqa: E402
 
+#: `register` requires the repository a child will be given (`MI-207`) — it is
+#: keyword-only and undefaulted so a caller that never thought about it fails at
+#: the call rather than writing a row that silently means "nobody stated one".
+_SRC = "benbaichmankass/metis-insights"
+
 REG = {"sessions": [{"session_id": "session_01AAAAAAAAAAAAAAAAAAAA", "title": "a"},
                     {"session_id": "session_01BBBBBBBBBBBBBBBBBBBB", "title": "b"}]}
 LIVE = [{"id": "session_01AAAAAAAAAAAAAAAAAAAA"}, {"id": "session_01BBBBBBBBBBBBBBBBBBBB"}]
@@ -189,6 +194,7 @@ def _seed(tmp_path):
 def test_register_appends_a_row_and_the_prompt_names_it(tmp_path):
     p = _seed(tmp_path)
     row, ref = sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR",
+                           source_url=_SRC,
                            session_id="session_01NEWNEWNEWNEWNEWNEW")
     assert ref == "session_01NEWNEWNEWNEWNEWNEW"
     assert json.loads(p.read_text())["sessions"][0]["session_id"] == ref
@@ -197,7 +203,8 @@ def test_register_appends_a_row_and_the_prompt_names_it(tmp_path):
 
 def test_register_without_an_id_writes_a_pending_row_that_confirm_completes(tmp_path):
     p = _seed(tmp_path)
-    row, ref = sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR")
+    row, ref = sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR",
+                           source_url=_SRC)
     assert row["state"] == "spawn_pending" and row["session_id"] is None
     assert sr.pending_rows(json.loads(p.read_text())) != []
     sr.confirm(p, registry_key=row["registry_key"],
@@ -211,7 +218,8 @@ def test_register_refuses_to_append_over_an_unparseable_registry(tmp_path):
     p = tmp_path / "SESSIONS.json"
     p.write_text("{ this is not json", encoding="utf-8")
     with pytest.raises(SystemExit):
-        sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR")
+        sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR",
+                           source_url=_SRC)
     assert p.read_text() == "{ this is not json", "the broken file was overwritten"
 
 
@@ -222,6 +230,7 @@ def test_register_preserves_the_files_serialisation(tmp_path):
     p.write_text(json.dumps({"_comment": "⚠️ keep me", "sessions": []},
                             indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     sr.register(p, title="T", why="W", spawned_by="session_01MGRMGRMGRMGRMGRMGR",
+                           source_url=_SRC,
                 session_id="session_01NEWNEWNEWNEWNEWNEW")
     text = p.read_text(encoding="utf-8")
     assert "⚠️ keep me" in text, "non-ASCII was re-encoded to \\u escapes"

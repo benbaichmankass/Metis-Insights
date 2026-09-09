@@ -1,0 +1,30 @@
+id: WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  The landing machinery asserts more than it can deliver: producers arm a route they cannot complete, and the spawn registry cannot see the repo it registered
+stage: INTEGRITY
+lifecycle: done
+owner: session_01YP3DnuFmSbvtLgBQiuCHso
+opened_at: 2026-09-09
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The denominator is established across all eleven producers (not one file fixed and declared closed), each producer writes its own merge_slot claim in the same commit as its arming file, and an automation receipt PR is OBSERVED merging without a manager hand-push. Separately: session_registry.py REFUSES a registration with no explicit --source-url and prints it into the spawn prompt it emits, verified by a refusal on a real attempt rather than a passing unit test.
+
+why: >-
+  Two independent mechanisms in the operating layer record success for something they did not achieve. (1) Eleven automation producers write the pr-landing arming file but never the merge_slot claim R13 requires beside it, so every receipt PR is structurally unmergeable; the un-landed digest receipt then goes stale on a 6h clock and a repo-wide time-based guard reds ALL 42 open PRs. The manager has hand-cleared this twice and it returns on the next run. (2) session_registry.py has no --source-url and cannot observe which repo a child was handed, so register+confirm BOTH succeed on a spawn that attached the wrong OWNER's repository — 16 instances across 5 days, and the failure is silent rather than safe: the child runs and produces confident output from the wrong codebase.
+
+source: >-
+  operator-approved 2026-09-09T05:30Z; routed from MI-208 + MI-207
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

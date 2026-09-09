@@ -55,9 +55,18 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **70 of the 96 routes**;
+Endpoints a consumer hits directly without a JWT. **74 rows in the table below**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
+
+⚠️ **The previous figure here read *"70 of the 96 routes"* and was wrong in both
+halves** — counted mechanically on 2026-09-09 the section held **76** rows
+against a documented population of **105** (`--list`), i.e. the numerator was 6
+low and the denominator 9 low. It is corrected to 74 because this PR moves two
+rows to Tier 2a, and stated as a row count rather than a fraction because the
+denominator is the thing `--list` already computes and a second hand-maintained
+copy of it is exactly what went stale. Same lesson as the coverage banner above:
+**do not restate a count here by hand without re-running the count.**
 
 **Adding a route here is a code change reviewed in a PR.** The route must be:
 
@@ -92,8 +101,6 @@ the same staleness this paragraph was already written to complain about.
 | `GET /api/bot/backtests/sweeps` | `routers/backtests.py` | Strategy-improvement / validation sweeps mirrored from the trainer VM (`runtime_logs/trainer_mirror/backtests/`). File-backed; newest-first by date. |
 | `GET /api/bot/candles` | `routers/candles.py` | OHLCV from the same exchange the strategies trade the symbol on (Bybit / IBKR), via the signal builders' own fetcher. **The one Tier-1 route that reaches an external venue** — bounded by a short in-process cache and a shared single-worker executor that serialises IB access. Best-effort: empty `candles` + `error` on any failure. |
 | `GET /api/bot/config` | `routers/bot_config.py` | **Added S-064 (2026-05-09).** Effective config view (accounts, strategies, risk caps, halt flag, live/dry per account). Allowlist for accounts; recursive secret-key denylist for strategy params. **Never echoes `api_key_env` / `api_secret_env` values** — the redaction is what keeps this Tier 1. |
-| `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. **Default-deny table allowlist** (`_TABLE_ALLOWLIST`): a table not named there is absent from this listing and 404s on the read. ⚠️ The previous note here — *"Neither DB holds a secret"* — was **FALSE**: `device_tokens.token` holds raw FCM push tokens and was world-readable, unauthenticated, until 2026-09-01. `device_tokens` is now excluded. `BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN`. |
-| `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table **or on any table absent from `_TABLE_ALLOWLIST`**. Columns in `_REDACTED_COLUMNS` are dropped from the schema AND from the SELECT projection, so they are neither returned nor filterable/orderable — the latter matters because `filter_state` + `total` would otherwise be a brute-force oracle for a hidden value. |
 | `GET /api/bot/devices/event-kinds` | `routers/devices.py` | The canonical push event-kind taxonomy (`src.runtime.mobile_push.event_kinds`), so the (retired 2026-09-01) Android Notifications screen needn't mirror the list. Static data, no device rows, **ungated** — unlike its siblings in the Tier-2 token table below. |
 | `POST /api/bot/devices/register` | `routers/devices.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert a device by its FCM token; idempotent on token. **No gate** (`_check_admin_token` is not called here): a device must be able to enrol itself before it holds any credential. The raw token is never echoed back — only `token_suffix` (last 8 chars). Unknown subscription kinds → 400. |
 | `GET /api/bot/exit-ladder/soak` | `routers/exit_ladder.py` | ExitPlan laddered-vs-single-target shadow soak (dynamic-take-profit P3). Observe-only — nothing reads it back to drive an exit. |
@@ -168,20 +175,43 @@ the same staleness this paragraph was already written to complain about.
 
 ### 2a — JWT (`require_session`)
 
-HS256, 1h TTL, allowlisted email. **No consumer has ever called these** — the
-retired Streamlit dashboard and Android app consumed only no-session routes,
-and the Svelte SPA does not call them yet either — so the gate is currently
-invisible to every live consumer. ⚠️ That is what **Phase H** changes: with the
-other two consumers retired, attaching `require_session` to the read surface
-becomes tractable, because there is nothing else left to keep working. `POST /api/auth/login`
-mints the token and is itself in `PUBLIC_ROUTES` because you need it to get a
-token in the first place.
+HS256, 1h TTL, allowlisted email. `POST /api/auth/login` mints the token and is
+itself in `PUBLIC_ROUTES` because you need it to get a token in the first place.
+
+⚠️ **NO LIVE CONSUMER CAN CALL THESE, AND THAT IS AN OPEN OPERATIONAL PROBLEM,
+not a quirk.** Two independent facts, both MEASURED 2026-09-09, and they need
+different fixes:
+
+1. **The SPA cannot send a bearer.** `ict-trader-dashboard` has exactly one
+   fetch call site (`webapp/src/lib/api.ts::get<T>`) and it sends only
+   `Accept: application/json`. A search across all 40 `.ts`/`.svelte`/`.js`
+   files under `webapp/src/` for `Authorization|Bearer|api/auth/login|jwt`
+   returns **zero** matches (the only `localStorage` use is the API base-URL
+   override). There is no login screen, no token store, and no auth code path.
+2. **The host cannot mint a bearer.** `POST /api/auth/login` against
+   `https://ict-bot.duckdns.org` returns **500 `auth_unavailable`**, i.e.
+   `ALLOWED_EMAIL` / `WEBAPP_PASSWORD_SHA256` are unset on the live VM.
+
+**Consequence for anything moved into this tier: the route is reachable by
+nobody until BOTH are fixed.** That is the right failure direction for a money
+DB — `require_session` rejects a missing bearer *before* it reads any env, so
+an unconfigured host serves 401 rather than falling open — but it is a real
+precondition, not a formality. Setting the envs is a Tier-2 VM change; teaching
+the SPA to log in is a change in the *other* repo. Neither is optional.
+
+The previous text here read *"**No consumer has ever called these** … so the
+gate is currently invisible to every live consumer"* and treated that as
+harmless background. It is retained as the record of what was believed, and
+corrected: the invisibility is load-bearing the moment a route consumers DO use
+is moved in — which is what happened to the two `db` rows below.
 
 | Endpoint | Source | Notes |
 |---|---|---|
 | `POST /api/auth/login` | `routers/auth.py` | Mints a JWT for the allowlisted email. Public so an unauthed caller can authenticate. 500 with a generic `auth_unavailable` body — **no secret-name leak** — when the auth env vars are unset. |
 | `GET /api/status` | `routers/status.py` | Detailed runtime status. `Depends(require_session)`, verified in the handler signature. |
 | `GET /api/pnl` | `routers/pnl.py` | Per-account P&L (realized + unrealized). `Depends(require_session)`. |
+| `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. **Default-deny table allowlist** (`_TABLE_ALLOWLIST`): a table not named there is absent from this listing and 404s on the read. ⚠️ The previous note here — *"Neither DB holds a secret"* — was **FALSE**: `device_tokens.token` holds raw FCM push tokens and was world-readable, unauthenticated, until 2026-09-01. `device_tokens` is now excluded. `BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN`. **Gated 2026-09-09** — `Depends(require_session)`, verified by an unauthenticated call against the live host returning 401, not from this decorator. Was Tier-1 and fully unauthenticated until then: `BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS`. ⚠️ **The `_TABLE_ALLOWLIST` below it is AUTHORIZATION, not authentication, and never closed this** — it narrowed an anonymous caller's reach from 22 tables to 21. |
+| `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table **or on any table absent from `_TABLE_ALLOWLIST`**. Columns in `_REDACTED_COLUMNS` are dropped from the schema AND from the SELECT projection, so they are neither returned nor filterable/orderable — the latter matters because `filter_state` + `total` would otherwise be a brute-force oracle for a hidden value. **Gated 2026-09-09** — `Depends(require_session)`, verified by an unauthenticated call against the live host returning 401, not from this decorator. Was Tier-1 and fully unauthenticated until then: `BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS`. ⚠️ **The `_TABLE_ALLOWLIST` below it is AUTHORIZATION, not authentication, and never closed this** — it narrowed an anonymous caller's reach from 22 tables to 21. |
 
 The `PUBLIC_ROUTES` set in `src/web/api/auth.py` enumerates the routes that opt
 out of `require_session`. Adding a route there is a code change reviewed in a PR.

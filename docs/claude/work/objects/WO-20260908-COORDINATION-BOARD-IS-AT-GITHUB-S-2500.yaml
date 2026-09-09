@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Coordination board is at GitHub's 2500-comment cap: successor issue plus re-point its two readers
 stage: INTEGRITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01GtvQEQnfwzz9yRdPF6sPFg
 opened_at: 2026-09-08
 closed_at: null
@@ -104,3 +104,10 @@ observation: >-
   a self-test is a HARNESS result and reaches no live board.
 
 captured_by: scripts/ops/capture_idea.py
+
+manager_reconciliation:
+  at: 2026-09-09T07:46:27Z
+  by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+  moved: in_flight -> waiting
+  why: >-
+    session_01GtvQEQnfwzz9yRdPF6sPFg ended IDLE/disconnected 2026-09-08T06:24:54Z with a post_turn_summary reading 'PR #11334 green; awaiting force-push decision' — that summary is STALE: #11334 MERGED 2026-09-08T07:13:32Z, after the summary froze. Board #11336 is live and OBSERVED producing scope-overlap verdicts on #11505/#11509/#11511 today. That is likely enough for done, but the manager has not read this object's done_condition, so it is waiting on that read.
