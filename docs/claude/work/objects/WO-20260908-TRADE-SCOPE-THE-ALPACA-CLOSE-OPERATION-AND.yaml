@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Trade-scope the Alpaca close operation (and modify_protective)
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01GYsNAhP6SpKe1vyn2tBc94
 opened_at: 2026-09-08
 closed_at: null
@@ -165,3 +165,10 @@ scope_judgement_place_protective: >-
 
   NOT FOLDED IN, AND NOTHING IN THIS DIFF WAS CHANGED IN RESPONSE. No live
   position or resting order was touched by this session.
+
+manager_reconciliation:
+  at: 2026-09-09T07:46:27Z
+  by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+  moved: in_flight -> waiting
+  why: >-
+    session_01GYsNAhP6SpKe1vyn2tBc94 ended IDLE/disconnected 2026-09-09T06:40:08Z reporting 'close/modify_protective qty-matched; tests green'. Not verified against main by the manager. ⚠️ This is the scoped Alpaca fix the TLT naked-shares decision is waiting on — verifying it is worth more than its WIP slot.
