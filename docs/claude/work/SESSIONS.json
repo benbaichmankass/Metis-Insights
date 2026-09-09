@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T11:26:17Z",
+  "updated_at": "2026-09-09T12:13:20Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3865,6 +3865,20 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-reported 2026-09-09 from the Bybit terminal. Real-money, no TP/SL, open since 2026-09-04. Two independent bot readers do not return it.",
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
+      "title": "MI-222 BUILD: venue-truth position detector",
+      "owns_object": "WO-20260909-NO-DETECTOR-CAN-SEE-A-POSITION-MISSING-FROM-THE-VENUE-LIST",
+      "checklist_item": "MI-222-BUILD-THE-VENUE-TRUTH-POSITION-DETECTOR",
+      "spawned_at": "2026-09-09T12:13:20Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi-222-venue-truth-detector"
+      ],
+      "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
       "state": "working"
     }
   ],

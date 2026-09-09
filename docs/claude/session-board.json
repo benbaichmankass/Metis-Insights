@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-bybit2-eth-phantom-close",
-  "claimed_at": "2026-09-09T11:43:24Z",
-  "purpose": "MI-221 P1 real-money: root-cause the bybit_2 ETHUSDT phantom close (docs-only investigation, remediation HELD)"
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-mi222-venue-truth-detector",
+  "claimed_at": "2026-09-09T12:13:49Z",
+  "purpose": "MI-222: file the venue-truth detector work object + checklist item (operator-directed P1 follow-on); prior holder claude/mi-209c-partial-close-producer-20260909 merged as #11514 at 11:57:02Z"
  },
  "active_sessions": [
   {
