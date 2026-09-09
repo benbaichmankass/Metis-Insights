@@ -126,3 +126,84 @@ def test_no_caller_overrides_the_wait_with_its_own_timeout():
     assert not overriders, (
         "these callers override the shared wait: " + ", ".join(overriders)
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# R13: ARMING TAKES THE MERGE SLOT — and this action arms for every producer.
+#
+# `MI-208`. The action wrote the landing declaration (R11) and the arming file
+# (R6) and stopped there, so every PR it opened failed `pr-landing-guard` R13 —
+# a REQUIRED check — and could never merge. Measured 2026-09-09: 47 open PRs, 46
+# automation, PR #11487's guards job reading `PASS 53 · FAIL 1` on this guard.
+#
+# ⚠️ THE BLAST RADIUS IS WHY THE TEST IS HERE AND NOT IN A CALLER. The open
+# queue showed ELEVEN distinct `automation/*` prefixes, which reads like eleven
+# bugs; they are `branch-prefix` inputs to this ONE action, which 27 workflows
+# call. And the damage was not confined to the queue: an unlanded receipt makes
+# `check_digest_liveness` grade `stale`, and that guard is time-based and
+# repo-wide, so it then reds EVERY open PR — trading PRs included.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SESSION_BOARD = "docs/claude/session-board.json"
+CLAIM_SCRIPT = "scripts/ops/claim_merge_slot.py"
+
+
+def _action_script() -> str:
+    with open(ACTION, encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh)
+    steps = doc["runs"]["steps"]
+    return "\n".join(s.get("run", "") for s in steps)
+
+
+def test_the_action_arms_the_landing_route():
+    """A positive control. Every assertion below is of the form 'because it
+    arms, it must also X' — so if it ever STOPS arming, those become vacuous
+    truths and this file would pass while checking nothing."""
+    assert ".github/pr-automerge-requests/" in _action_script(), (
+        "the action no longer writes an arming file — the R13 assertions below "
+        "have quietly become vacuous; re-derive what this action does.")
+
+
+def test_the_action_writes_the_merge_slot_claim():
+    script = _action_script()
+    assert CLAIM_SCRIPT in script, (
+        f"the action arms auto-merge but never writes the R13 merge-slot claim. "
+        f"Arming IS the merge, so `pr-landing-guard` fails every PR this action "
+        f"opens and none of them can ever merge. Call {CLAIM_SCRIPT}.")
+
+
+def test_the_claim_is_staged_in_the_same_commit_as_the_arming_file():
+    """R13 reads the claim out of the branch's OWN DIFF (`_added_or_modified`
+    against the base), so a claim written to the working tree but never `git
+    add`ed satisfies nothing — and would fail in exactly the way that looks
+    like the fix is present."""
+    script = _action_script()
+    add_block = script.split('git add -- ".github/pr-landing/')[-1].split("git commit")[0]
+    assert SESSION_BOARD in add_block, (
+        f"{SESSION_BOARD} is not staged alongside the arming file. R13 grades "
+        f"the branch's own diff; an unstaged claim is not a claim.")
+
+
+def test_a_missing_claim_script_refuses_rather_than_opening_a_doomed_pr():
+    """The failure mode this whole work item is about: a mechanism reporting
+    success for something it did not achieve. If the script is absent the action
+    must FAIL, not open a PR that can never merge."""
+    script = _action_script()
+    assert f"! -f {CLAIM_SCRIPT}" in script, (
+        "the action does not check that the claim script exists; without that "
+        "check a missing script silently re-creates the landing deadlock.")
+
+
+def test_the_slot_conflict_is_resolved_not_aborted():
+    """R13 has every arming branch rewrite the SAME four lines, and R13 does not
+    serialize — so two automation runs in flight collide by construction
+    (verified: `CONFLICT (content): Merge conflict in session-board.json`).
+    Aborting there would trade the deadlock for a permanent conflict-strand."""
+    script = _action_script()
+    assert "refreshed_after_slot_conflict" in script, (
+        "the stale-branch refresh still aborts on a merge-slot conflict; that "
+        "strands the branch permanently on any overlapping pair of runs.")
+    assert "--theirs" in script, (
+        "a slot conflict must be resolved by taking MAIN's board and "
+        "re-asserting our own claim over it, so another branch's claim and any "
+        "`active_sessions` edits survive.")

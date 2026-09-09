@@ -98,6 +98,38 @@ The checks that matter most:
   serialize. A committed claim reaches no other session until the branch merges
   (`BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`), so concurrent-merge
   safety still rests on branch-protection required status checks.
+### How the AUTOMATION lane satisfies R13
+
+Automation PRs are opened by `.github/actions/commit-to-main/action.yml`, which
+**27 workflows** call. It writes all three things R11/R6/R13 ask for — the
+declaration, the arming file, and the `merge_slot` claim — in the **same
+commit**, because there is no session and no human in the loop to write them.
+
+⚠️ **It did not write the claim until 2026-09-09, and the consequence was
+repo-wide.** Every PR it opened failed R13, a required check, and could never
+merge; measured that morning at **47 open PRs, 46 of them automation**. Because
+the digest receipt is one of the things that could not land,
+`check_digest_liveness` then graded `stale` — and that guard is time-based and
+repo-wide, so it **reds every open PR**, trading PRs included. A generator that
+cannot land its own paperwork takes the repo with it. Twice a manager
+hand-pushed the missing claim to unblock one receipt; that is a workaround, and
+`held_by` is how you tell them apart — `github-actions[bot] · <workflow> run
+<id>` is the action, a `session_01…` id is a human intervening.
+
+⚠️ **The claim is SPLICED into `session-board.json`, never re-serialised**
+(`scripts/ops/claim_merge_slot.py`). That file is hand-maintained and matches no
+`json.dumps` indent, so a naive dump rewrites ~139 lines to change 4 — and since
+it is the one file every session edits, that would turn every concurrent edit
+into a whole-file conflict instead of a four-line one.
+
+⚠️ **R13 does not serialize, so the four-line conflict is routine and is
+RESOLVED rather than aborted.** Two automation runs in flight each write a valid
+claim and never see one another. `commit-to-main`'s stale-branch refresh takes
+**main's** board — preserving the other branch's claim and anyone's
+`active_sessions` edits — and re-asserts its own claim over it. **That heal is
+inside the action, so it covers the automation lane only; a human branch still
+resolves this by hand.**
+
 - **R8** — `changes_landing_machinery` is verified against the diff, and the
   branch's own declaration file is excluded from that evidence. An excuse every
   branch satisfies excuses nothing.

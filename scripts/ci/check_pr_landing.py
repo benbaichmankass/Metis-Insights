@@ -269,6 +269,19 @@ LANDING_MACHINERY = [
     "scripts/ci/check_pr_landing.py",
     "scripts/ci/check_automerge_trigger.py",
     "scripts/ops/session_registry.py",
+    # ⚠️ ADDED 2026-09-09 (MI-208). This action is a THIRD landing route and was
+    # missing from this list, so a change to it could self-land by the very
+    # route it edits — which is the one thing R12 exists to prevent. It writes
+    # `.github/pr-landing/{slug}.json`, writes the arming file, writes the R13
+    # merge-slot claim and calls `gh pr merge --auto --squash` for all 27
+    # workflows that use it. That is more landing authority than
+    # `pr-opener.yml`, which was already listed.
+    #
+    # ⚠️ Safe to list, unlike SESSION_BOARD above: an automation branch never
+    # MODIFIES these two files, it only runs them. R12 grades the diff, so this
+    # fires on a change TO the route and not on every branch that uses it.
+    ".github/actions/commit-to-main/action.yml",
+    "scripts/ops/claim_merge_slot.py",
 ]
 
 HOLD_REASONS = {
