@@ -2966,6 +2966,18 @@
       "opened_at": "2026-09-09",
       "tier": 2,
       "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ"
+    },
+    {
+      "id": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
+      "title": "F-28: the sanctioned rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a second builder registry holding 16 of 55 strategies, so exercising it would silently stop 35 of 45 live legs (78%) — operator-approved Tier-2 (COLLAPSE, not a parity test)",
+      "state": "in_flight",
+      "owner": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "opened_at": "2026-09-09",
+      "tier": 2,
+      "work_object": "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE",
+      "notes": [
+        "2026-09-09T23:07Z manager: SPAWNED. Registered before the spawn (pending-20260909T230624Z), confirmed after. Routed once WIP fell to 7 of 8 on #11603 merging. ⚠️ DELETING THE SECOND REGISTRY IS THE POINT — the operator was offered a parity test alone and chose the collapse over it, so a test-only delivery is not this item. ⚠️ Scoped OFF src/units/accounts/execute.py and scripts/ops/system_invariants.py, where MI-227 is live resolving a conflict."
+      ]
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
