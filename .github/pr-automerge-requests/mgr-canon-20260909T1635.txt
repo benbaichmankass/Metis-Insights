@@ -1,0 +1,1 @@
+arm auto-merge for the operator-decision canon write (#11570)
