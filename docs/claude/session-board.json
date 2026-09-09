@@ -5,12 +5,22 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-bybit2-eth-phantom-close",
-  "claimed_at": "2026-09-09T11:43:24Z",
-  "purpose": "MI-221 P1 real-money: root-cause the bybit_2 ETHUSDT phantom close (docs-only investigation, remediation HELD)"
+  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "branch": "claude/mgr-lease-20260909",
+  "claimed_at": "2026-09-09T15:29:41Z",
+  "purpose": "Manager: reclaim the LAPSED lease + land the MI-222/MI-225 register writes stranded in #11547"
  },
  "active_sessions": [
+  {
+   "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+   "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+   "repo": "benbaichmankass/Metis-Insights",
+   "status": "done",
+   "started_at": "2026-09-09T10:55:00Z",
+   "ended_at": "2026-09-09T13:25:00Z",
+   "scope": "MI-218 \u2014 Tier-1 MEASUREMENT ONLY. New: scripts/ops/calendar_edge_census.py, tests/test_calendar_edge_census.py, docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md, the WO yaml. Record edits: health-review-backlog.json, MANAGER-CHECKLIST.json (MI-218 row), SESSIONS.json, DOCUMENT-INDEX.md, session-board.json.",
+   "note": "CLOSED OUT via PR #11553. Changes NO gate, threshold or config. READS scripts/check_soak_doctrine.py (MI-215 check D, landing in #11529) and imports its detector; does not edit it. \u26a0\ufe0f Contended: docs/claude/health-review-backlog.json (5 rows, 55 insertions / 0 deletions). Any conflict there resolved as a VERIFIED UNION over id sets, never by taking a side."
+  },
   {
    "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
    "branch": "claude/mi205b-ranking-key-harness",

@@ -250,7 +250,25 @@ def _state_path() -> str:
     return str(runtime_logs_dir() / _STATE_FILENAME)
 
 
-def _load_state() -> Dict[str, str]:
+def last_request_iso(entry: Any) -> Optional[str]:
+    """The last-asked timestamp from a cadence entry, legacy or current.
+
+    ⚠️ THE ENTRY SHAPE CHANGED (2026-09-09) AND THE OLD ONE MUST KEEP WORKING.
+    It was ``{account_id: "<iso>"}``; it is now
+    ``{account_id: {"last_request": "<iso>", "last_verdict": ..., ...}}``.
+    The live VM holds a file in the OLD shape at the moment this deploys, so a
+    reader that assumed a dict would read every account as never-asked and
+    re-ask the whole fleet on the first tick after the deploy — the cooldown
+    silently reset by a refactor. A bare string is therefore still accepted.
+    """
+    if isinstance(entry, dict):
+        return entry.get("last_request")
+    if isinstance(entry, str):
+        return entry or None
+    return None
+
+
+def _load_state() -> Dict[str, Any]:
     try:
         with open(_state_path(), encoding="utf-8") as fh:
             data = json.load(fh)
@@ -259,7 +277,7 @@ def _load_state() -> Dict[str, str]:
         return {}
 
 
-def _save_state(state: Dict[str, str]) -> None:
+def _save_state(state: Dict[str, Any]) -> None:
     try:
         path = _state_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -371,7 +389,7 @@ def run_prop_status_request(now: Optional[datetime] = None) -> List[str]:
         age_h = _status_age_hours(acct, now, row=snap)
         if age_h is not None and age_h < max_age_h:
             continue  # snapshot fresh enough — nothing to ask
-        last_req = _parse_iso(state.get(acct))
+        last_req = _parse_iso(last_request_iso(state.get(acct)))
         if last_req and (now - last_req).total_seconds() < cooldown_h * 3600.0:
             continue  # asked recently — don't nag
         open_positions = None if by_account is None else by_account.get(acct, [])
@@ -390,8 +408,32 @@ def run_prop_status_request(now: Optional[datetime] = None) -> List[str]:
             tickets=(None if tickets_by_account is None
                      else tickets_by_account.get(acct, [])),
         )
+        # ⚠️ RECORD THE VERDICT WHETHER OR NOT WE ASK — this is what makes the
+        # suppression OBSERVABLE. Measured 2026-09-09T11:3xZ on the live VM
+        # right after MI-214 deployed: `prop_status_request` appeared ZERO
+        # times in 400 journal lines while the tick was demonstrably alive (24
+        # heartbeat mentions), because QUIESCENT was logged at DEBUG. So "the
+        # module ran and correctly stayed quiet" was indistinguishable from
+        # "it crashed on import" and from "it never ran" — the collapsed-state
+        # failure this repo names, in the instrument rather than the data.
+        # A journal line is NOT sufficient on its own either: this branch is
+        # reached at most once per COOLDOWN (12h) and journald retention here
+        # was measured at ~30 minutes, so the line is gone before anyone looks.
+        # The stamp is durable and already has a read surface
+        # (/api/diag/log_file?name=prop_status_request), which is why it goes
+        # here rather than into a new file nothing is allowlisted to read
+        # (BL-20260825-ALERT-AND-CADENCE-STATE-FILES-SHIP-WITHOUT-A-READ-SURFACE).
+        prior = state.get(acct)
+        entry: Dict[str, Any] = {
+            "last_request": last_request_iso(prior),
+            "last_verdict": verdict,
+            "last_assessed_at": now.isoformat(),
+            "last_detail": detail,
+            "last_age_hours": age_h,
+        }
+        state[acct] = entry
         if verdict == QUIESCENT:
-            logger.debug(
+            logger.info(
                 "prop_status_request: %s snapshot is %.1fh old but QUIESCENT "
                 "(%s) — not asking", acct,
                 age_h if age_h is not None else -1.0, detail)
@@ -402,7 +444,8 @@ def run_prop_status_request(now: Optional[datetime] = None) -> List[str]:
             from src.prop.breakout_notify import emit_prop_status_request
 
             emit_prop_status_request(acct, open_positions, age_hours=age_h)
-            state[acct] = now.isoformat()
+            entry["last_request"] = now.isoformat()
+            state[acct] = entry
             pinged.append(acct)
         except Exception as exc:  # noqa: BLE001 — notification never fatal
             logger.warning(
@@ -417,6 +460,7 @@ def run_prop_status_request(now: Optional[datetime] = None) -> List[str]:
 
 __all__ = [
     "run_prop_status_request",
+    "last_request_iso",
     "assess_activity",
     "ACTIVITY_STATES",
     "ASK_NO_SNAPSHOT",

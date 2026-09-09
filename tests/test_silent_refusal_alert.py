@@ -649,3 +649,113 @@ def test_the_verdict_gate_still_applies_and_this_is_a_known_residual(isolated) -
     assert a["priority_causes"] == ["balance_unreadable"]
     assert a["alerting"] is False, "documents the residual — not an endorsement"
     assert a["alert_disposition"] == "not_a_finding"
+
+
+# ── MI-214b: a prop stale-balance refusal must name its own cause ────────
+# The coordinator journals a prop sizing refusal as
+#   "REJECTED: sizing_failed: RuntimeError: prop_balance_stale: ..."
+# so it reaches `trades` and this detector DOES see it. What it could not do
+# before was SAY what it was: it bucketed as the generic `sizing_failed`, and
+# the operator was told the size computation failed when the actionable fact
+# is "send a fresh `bal <balance> <equity>`".
+
+
+def _prop_reason(state: str = "stale") -> str:
+    """The exact string the live path produces, built from the real owner
+    rather than hand-typed — a hand-typed copy would keep passing after
+    `refusal_message` changed, which is how a detector silently stops
+    matching the thing it was written for."""
+    from src.prop.prop_balance import refusal_message
+
+    meta = {"account_id": "breakout_1", "max_age_hours": 24.0,
+            "age_hours": 230.4, "reason": "snapshot 230.4h old"}
+    return f"REJECTED: sizing_failed: RuntimeError: {refusal_message(state, 'breakout_1', meta)}"
+
+
+def test_prop_balance_refusal_gets_its_own_cause_not_generic_sizing_failed() -> None:
+    from src.runtime.silent_refusal_alert import classify_cause
+
+    for state in ("stale", "absent", "error"):
+        assert classify_cause(_prop_reason(state)) == "prop_balance_unreported", state
+
+
+def test_prop_rule_precedes_the_generic_sizing_failed_rule() -> None:
+    """ORDERING IS THE WHOLE FIX, so it is pinned directly.
+
+    Both rules match the same string — the journalled reason contains
+    `sizing_failed` AND `prop_balance_stale` — and `classify_cause` returns the
+    FIRST match. If a later edit reorders the tuple, every prop-balance refusal
+    silently re-collapses into `sizing_failed` and no other test notices.
+    """
+    from src.runtime.silent_refusal_alert import _CAUSE_PATTERNS
+
+    names = [n for n, _ in _CAUSE_PATTERNS]
+    assert names.index("prop_balance_unreported") < names.index("sizing_failed")
+
+
+def test_the_generic_and_balance_unreadable_buckets_are_unchanged() -> None:
+    """The positive controls: this must NARROW one bucket, not repartition the
+    others. Without these, a regex that swallowed everything would pass the
+    two tests above."""
+    from src.runtime.silent_refusal_alert import classify_cause
+
+    assert classify_cause(
+        "REJECTED: sizing_failed: RuntimeError: something unrelated"
+    ) == "sizing_failed"
+    assert classify_cause(
+        "balance() returned None for ib_paper (exchange=interactive_brokers)"
+    ) == "balance_unreadable"
+    assert classify_cause("zero_balance") == "zero_balance"
+    assert classify_cause(None) == "unknown"
+    assert classify_cause("a reason matching nothing") == "other"
+
+
+def test_prop_balance_cause_carries_no_lowered_floor_deliberately() -> None:
+    """⚠️ THIS ASSERTS AN ABSENCE ON PURPOSE, AND THE REASON IS THE POINT.
+
+    `balance_unreadable` has `CAUSE_MIN_ROWS = 1` because its frequency was
+    MEASURED: 48 rows, 11 occurrences, run lengths [1,1,1,1,1,1,2,3,6,11,20],
+    so a floor of 5 fired on 3 of 11 lifetime and 0 of 7 since 2026-07-01.
+
+    No such measurement exists for the prop cause. Read 2026-09-09T11:3xZ from
+    `/api/diag/journal?table=trades&limit=1000` (the endpoint max, spanning to
+    2026-09-09): `breakout_1` has **ZERO** rows, and zero rows anywhere contain
+    `prop_balance` — the refusal has never been observed firing at all. Giving
+    it a lowered floor would be lowering a bar with no evidence, which is the
+    move `docs/CLAUDE-RULES-CANONICAL.md` forbids under "never lower a
+    pre-registered bar to manufacture a verdict".
+
+    So the floor stays global (5) and the gap is REPORTED rather than fixed.
+    If a future session measures real occurrences and adds the override, it
+    should delete this test with that measurement in the commit message.
+    """
+    from src.runtime.silent_refusal_alert import CAUSE_MIN_ROWS
+
+    assert "prop_balance_unreported" not in CAUSE_MIN_ROWS
+
+
+def test_a_single_prop_refusal_is_reported_but_does_not_alert() -> None:
+    """The honest current state, pinned so it cannot drift unnoticed: one
+    refusal is GRADED and readable, and stays below the volume floor."""
+    from src.runtime.silent_refusal_alert import assess
+
+    rows = [{"account_id": "breakout_1", "strategy_name": "breakout_eth",
+             "status": "rejected", "entry_reason": _prop_reason()}]
+    g = assess(rows, min_rows=5)["breakout_1"]
+    assert g["cause"] == "prop_balance_unreported"
+    assert g["verdict"] == "signalled_never_placed"
+    assert g["alerting"] is False
+    # NOT a bare False: "too few rows to call it a pattern" is a distinct fact
+    # from "the account is fine" and from "the account is switched off".
+    assert g["alert_disposition"] == "below_min_rows"
+
+
+def test_five_prop_refusals_alert_and_name_the_prop_cause() -> None:
+    from src.runtime.silent_refusal_alert import assess
+
+    rows = [{"account_id": "breakout_1", "strategy_name": "breakout_eth",
+             "status": "rejected", "entry_reason": _prop_reason()}] * 5
+    g = assess(rows, min_rows=5)["breakout_1"]
+    assert g["alerting"] is True
+    assert g["alerting_basis"] == "total_floor"
+    assert g["cause"] == "prop_balance_unreported"

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-218 closeout: marks the work object and checklist row `done` after #11538 merged (fc0d31b41), closes this session's active_sessions row, and releases the merge_slot, which still named the merged branch. Register bookkeeping only -- no src/, config/, deploy/, workflow, gate, threshold or test change."
+}

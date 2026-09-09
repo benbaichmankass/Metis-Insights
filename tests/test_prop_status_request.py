@@ -560,3 +560,127 @@ def test_ticket_read_is_newest_first_so_the_cap_cannot_manufacture_quiescence(
     assert created == sorted(created, reverse=True), (
         "list_tickets must return NEWEST-FIRST — prop_status_request's "
         "quiescence verdict depends on it")
+
+
+# ── MI-214b: the QUIESCENT verdict must be OBSERVABLE ────────────────────
+# Measured on the live VM 2026-09-09T11:3xZ, minutes after MI-214 deployed
+# (git_sha == git_sha_on_disk == b0dd0d67, restart_pending false):
+# `/api/diag/journalctl?unit=ict-trader-live&lines=400` contained ZERO
+# `prop_status_request` mentions while the tick was demonstrably alive (24
+# heartbeat mentions). QUIESCENT was logged at DEBUG, so the one verdict that
+# SUPPRESSES the ask left no trace at all — and MI-214's own done-condition
+# needs that observation.
+
+
+def test_legacy_string_cadence_entry_still_bounds_the_cooldown() -> None:
+    """⚠️ THE DANGEROUS CASE, AND IT IS A DEPLOY HAZARD, NOT A UNIT-TEST NICETY.
+
+    The live VM holds `{"breakout_1": "<iso>"}` — the OLD shape — at the moment
+    this change deploys. A reader that assumed the new dict shape would read
+    every account as never-asked and re-ask the WHOLE FLEET on the first tick
+    after the deploy: the cooldown silently reset by a refactor, which is the
+    opposite of what MI-214 exists to do.
+    """
+    from src.prop.prop_status_request import last_request_iso
+
+    assert last_request_iso("2026-09-09T07:47:07.098843+00:00") == \
+        "2026-09-09T07:47:07.098843+00:00"
+    assert last_request_iso({"last_request": "2026-09-09T07:47:07+00:00"}) == \
+        "2026-09-09T07:47:07+00:00"
+    # Never-asked and unreadable both read as None — and None means "ask",
+    # never "recently asked", so the failure direction is a duplicate prompt
+    # rather than a swallowed one.
+    assert last_request_iso(None) is None
+    assert last_request_iso({}) is None
+    assert last_request_iso("") is None
+    assert last_request_iso(12345) is None
+
+
+def test_legacy_entry_end_to_end_does_not_reset_the_cooldown(
+    isolated_env: Path, captured, declared,
+) -> None:
+    """The same hazard through the real entry point, with a real legacy file."""
+    import json as _json
+
+    from src.prop import prop_journal
+    from src.prop.prop_status_request import (
+        _state_path, run_prop_status_request)
+
+    prop_journal.insert_fill(_open_fill())          # open position => would ask
+    prop_journal.insert_account_status({
+        "account_id": "breakout_1", "balance": 4787.34, "equity": 4787.34})
+
+    import os
+    os.makedirs(os.path.dirname(_state_path()), exist_ok=True)
+    asked_at = datetime.now(timezone.utc) + timedelta(hours=229)
+    with open(_state_path(), "w", encoding="utf-8") as fh:
+        _json.dump({"breakout_1": asked_at.isoformat()}, fh)   # LEGACY shape
+
+    os.environ["PROP_STATUS_REQUEST_MAX_AGE_HOURS"] = "1"
+    try:
+        # 1h after that ask, inside the 12h cooldown: must NOT re-ask.
+        later = asked_at + timedelta(hours=1)
+        assert run_prop_status_request(now=later) == []
+        assert captured == []
+    finally:
+        os.environ.pop("PROP_STATUS_REQUEST_MAX_AGE_HOURS", None)
+
+
+def test_quiescent_records_a_durable_verdict_without_asking(
+    isolated_env: Path, captured, declared,
+) -> None:
+    """The suppression must leave evidence a session can READ.
+
+    A journal line is not sufficient by itself: this branch is reached at most
+    once per COOLDOWN (12h) and journald retention on this VM was measured at
+    ~30 minutes, so the line is gone before anyone looks. The stamp is durable
+    and already has a read surface.
+    """
+    from src.prop import prop_journal
+    from src.prop.prop_status_request import (
+        QUIESCENT, _load_state, run_prop_status_request)
+
+    prop_journal.insert_fill({
+        "account_id": "breakout_1", "ticket_id": "prop-1", "symbol": "SOLUSDT",
+        "direction": "long", "qty": 49.0, "entry_price": 105.04,
+        "exit_price": 105.76, "pnl": 35.28, "status": "closed"})
+    prop_journal.insert_account_status({
+        "account_id": "breakout_1", "balance": 4787.34, "equity": 4787.34})
+
+    import os
+    os.environ["PROP_STATUS_REQUEST_MAX_AGE_HOURS"] = "1"
+    try:
+        later = datetime.now(timezone.utc) + timedelta(hours=230)
+        assert run_prop_status_request(now=later) == []
+        assert captured == []
+        entry = _load_state()["breakout_1"]
+        assert entry["last_verdict"] == QUIESCENT
+        assert entry["last_assessed_at"] is not None
+        # ⚠️ and it must NOT look like an ask: a recorded assessment that also
+        # stamped `last_request` would restart the cooldown on every tick and
+        # permanently suppress a genuine ask.
+        assert entry["last_request"] is None
+    finally:
+        os.environ.pop("PROP_STATUS_REQUEST_MAX_AGE_HOURS", None)
+
+
+def test_asking_records_both_the_verdict_and_the_request_stamp(
+    isolated_env: Path, captured, declared,
+) -> None:
+    from src.prop import prop_journal
+    from src.prop.prop_status_request import (
+        ASK_POSITION_OPEN, _load_state, run_prop_status_request)
+
+    prop_journal.insert_fill(_open_fill())
+    prop_journal.insert_account_status({
+        "account_id": "breakout_1", "balance": 4787.34, "equity": 4787.34})
+    import os
+    os.environ["PROP_STATUS_REQUEST_MAX_AGE_HOURS"] = "1"
+    try:
+        later = datetime.now(timezone.utc) + timedelta(hours=230)
+        assert run_prop_status_request(now=later) == ["breakout_1"]
+        entry = _load_state()["breakout_1"]
+        assert entry["last_verdict"] == ASK_POSITION_OPEN
+        assert entry["last_request"] is not None
+    finally:
+        os.environ.pop("PROP_STATUS_REQUEST_MAX_AGE_HOURS", None)
