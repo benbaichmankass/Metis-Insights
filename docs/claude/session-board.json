@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
   "branch": "claude/mi-221-exhaustive-bybit-sweep",
-  "claimed_at": "2026-09-09T13:50:08Z",
-  "purpose": "MI-221 URGENT (PR #11555) — widen /api/diag/bybit_raw_positions to a genuine exhaustive sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block for the filter-independent margin check. Tier-1 read-only; no production reader changes and no order path is touched. Operator is looking at a real-money ETHUSDT position no read in this system returns."
+  "claimed_at": "2026-09-09T14:11:23Z",
+  "purpose": "MI-221 URGENT (PR #11555) — the exhaustive Bybit sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block for the account-level margin check. Tier-2 by path (src/units/accounts/clients.py); auto-merge armed by benbaichmankass 2026-09-09T13:55:35Z, which is the approval expressed as an action. Read-only: no production reader changes and no order path is touched. Reclaimed after resolving a conflict caused by my own #11556 landing first; that PR's claim is SPENT (merged as 7a2a8c7b4, verified in the log)."
  },
  "active_sessions": [
   {
