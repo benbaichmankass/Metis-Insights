@@ -1218,6 +1218,88 @@ def _alpaca_pos_in_scope(pos: Dict[str, Any], account: Dict[str, Any]) -> bool:
     return ac == "us_option" if expresses_options else ac != "us_option"
 
 
+POSITION_READ_SOAK_FILENAME = "position_read_state_soak.jsonl"
+
+
+def _record_position_read_observation(obs: Dict[str, Any]) -> None:
+    """Record one ``account_open_positions`` read's three-state observation.
+
+    MI-222, Tier-2, operator-approved 2026-09-09 as **observable-first**: make
+    the collapsed read in this module's ``_emit`` countable WITHOUT changing
+    what any caller receives. This is the whole output side of that change, and
+    it is called AFTER ``out`` is final so it cannot influence it.
+
+    WHERE THE OBSERVATION GOES, and why two places rather than one:
+
+    * ``runtime_logs/position_read_state_soak.jsonl`` -- one line per read.
+      The SOAK surface, the pattern this repo already uses, so a reviewer can
+      answer "which of the three states does production actually hit, and how
+      often?" **before** anyone proposes a behaviour change. That question is
+      why observable-first was chosen over fixing the behaviour now: changing a
+      real-money close path on a defect nobody has observed firing would be
+      arming on a construction rather than a sighting.
+    * ``src.runtime.outcomes.report`` at WARN, but **only** when a symbol dedupe
+      actually dropped a live book. That is the drop which reaches money, and
+      ``report()`` is the only call here that lands on a surface a human reads
+      -- it appends ``runtime_logs/outcomes.jsonl``, which feeds
+      ``/api/bot/notifications``, the hourly report and Telegram.
+      ``logger.warning`` alone reaches the systemd journal and NOWHERE else,
+      which is exactly how the Bybit over-cover condition stayed invisible for
+      ten days with its detection working perfectly throughout.
+
+    A QUIET READ IS DELIBERATELY NOT REPORTED. Almost every read is clean, and a
+    WARN per read would be the desensitised-alarm failure this repo keeps
+    paying for -- the soak file carries those, unrated.
+
+    MUST NEVER RAISE. It sits inside the fleet's position reader, on the tick
+    path; an observability helper that can throw would take down the very read
+    it exists to describe. Every failure path swallows and returns.
+    """
+    try:
+        import json
+
+        deduped = obs.get("dropped_symbol_dedupe") or []
+        zero = obs.get("dropped_zero_size") or []
+        unreadable = [q for q in (obs.get("queries") or [])
+                      if q.get("query_state") == "could_not_look"]
+        line = dict(obs)
+        line["ts"] = datetime.now(timezone.utc).isoformat()
+        line["dropped_symbol_dedupe_count"] = len(deduped)
+        line["dropped_zero_size_count"] = len(zero)
+        line["could_not_look_count"] = len(unreadable)
+        try:
+            from src.utils.paths import runtime_logs_dir
+            target = runtime_logs_dir() / POSITION_READ_SOAK_FILENAME
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(line, ensure_ascii=False) + "\n")
+        except Exception:  # noqa: BLE001 - a soak write must never break a read
+            pass
+        if deduped:
+            # The live-money one. A second book on a symbol we already emitted
+            # was discarded, so a caller keyed on (symbol, side) cannot see it.
+            logger.warning(
+                "account_open_positions(%s): DROPPED %d hedge book(s) by "
+                "symbol dedupe: %s",
+                obs.get("account_id"), len(deduped), deduped,
+            )
+            try:
+                from src.runtime.outcomes import Level, report
+                report(
+                    "position_read_state",
+                    "hedge_book_dropped",
+                    level=Level.WARN,
+                    account_id=obs.get("account_id"),
+                    dropped=json.dumps(deduped, ensure_ascii=False)[:400],
+                    emitted=obs.get("emitted"),
+                    rows_seen=obs.get("rows_seen"),
+                )
+            except Exception:  # noqa: BLE001 - reporter must never break a read
+                pass
+    except Exception:  # noqa: BLE001 - observation must never break a read
+        return
+
+
 def _bybit_configured_symbols(account: Dict[str, Any]) -> list:
     """Return the account's configured instrument list for the per-symbol
     position cross-check (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
@@ -1375,15 +1457,62 @@ def account_open_positions(
             raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
             out: list = []
             seen: set = set()
+            # MI-222 (Tier-2, observable-first; operator-approved 2026-09-09).
+            # OBSERVATION ONLY. Nothing below changes ``out`` -- not its
+            # contents, not its order, not its length. That invariant is the
+            # whole safety argument for this change and it is asserted
+            # directly, on identical inputs, in
+            # tests/test_accounts_clients_position_read_observability.py.
+            #
+            # WHY. ``_emit``'s two early returns discard rows silently, so
+            # three materially different venue answers -- "genuinely flat",
+            # "a zero-size row was returned", "no row was returned at all" --
+            # arrive at every caller as the same empty list, with no counter,
+            # no log line and no ``positionIdx``. That collapse blocked
+            # root-cause on two real-money P1s one day apart (see
+            # BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED
+            # and MI-221). The symbol-dedupe drop is the one that reaches
+            # money: ``seen`` is keyed on SYMBOL, so a second live hedge book
+            # is dropped, ``_exchange_position_set`` never sees its
+            # ``(symbol, side)`` pair, and the close test at
+            # order_monitor.py:4348 reads a live position as flat.
+            #
+            # DELIBERATELY NOT REGISTERED in check_collapsed_states.py's
+            # CONTRACTS table. That guard requires a consumer that BRANCHES on
+            # the states, and there is none -- BY DESIGN, because the approved
+            # scope forbids changing what any caller receives. Registering it
+            # would mean inventing a decorative branch to satisfy a guard,
+            # which is the failure the guard exists to catch. When a consumer
+            # is added, register it then.
+            obs: Dict[str, Any] = {
+                "account_id": account.get("account_id") or "unknown",
+                "category": category,
+                "rows_seen": 0,
+                "emitted": 0,
+                "dropped_zero_size": [],
+                "dropped_symbol_dedupe": [],
+                "queries": [],
+            }
 
             def _emit(p: Dict[str, Any]) -> None:
+                obs["rows_seen"] += 1
                 size = _f(p.get("size"))
-                if size <= 0:
-                    return
+                # Reads only -- ``p.get`` has no side effects, so hoisting
+                # these above the size gate cannot change behaviour.
                 sym = p.get("symbol")
+                idx = p.get("positionIdx")
+                if size <= 0:
+                    obs["dropped_zero_size"].append(
+                        {"symbol": sym, "position_idx": idx,
+                         "size_raw": p.get("size")})
+                    return
                 if sym in seen:
+                    obs["dropped_symbol_dedupe"].append(
+                        {"symbol": sym, "position_idx": idx,
+                         "size_raw": p.get("size"), "side": p.get("side")})
                     return
                 seen.add(sym)
+                obs["emitted"] += 1
                 out.append({
                     "symbol": sym,
                     "side": p.get("side"),
@@ -1392,6 +1521,17 @@ def account_open_positions(
                     "unrealised_pnl": _f(p.get("unrealisedPnl")),
                 })
 
+            obs["queries"].append({
+                "scope": "settle_coin_page",
+                "symbol": None,
+                # THREE STATES, NEVER COLLAPSED. ``rows_returned`` means the
+                # venue answered with at least one row (which may be
+                # zero-size); ``no_rows`` means it answered with an empty
+                # list; ``could_not_look`` is reserved for a read that
+                # FAILED, and is never a synonym for flat.
+                "query_state": "rows_returned" if raw else "no_rows",
+                "row_count": len(raw),
+            })
             for p in raw:
                 _emit(p)
 
@@ -1423,9 +1563,27 @@ def account_open_positions(
                         "for %s failed: %s",
                         account.get("account_id") or "unknown", sym, exc,
                     )
+                    # MI-222: a FAILED read is `could_not_look`, which is a
+                    # first-class state and NOT a synonym for flat. Before
+                    # this, a failed cross-check and a clean empty one were
+                    # both simply "nothing was added to out".
+                    obs["queries"].append({
+                        "scope": "symbol_scoped",
+                        "symbol": sym,
+                        "query_state": "could_not_look",
+                        "row_count": None,
+                        "error": repr(exc)[:200],
+                    })
                     continue
+                obs["queries"].append({
+                    "scope": "symbol_scoped",
+                    "symbol": sym,
+                    "query_state": "rows_returned" if lst2 else "no_rows",
+                    "row_count": len(lst2),
+                })
                 for p in lst2:
                     _emit(p)
+            _record_position_read_observation(obs)
             return out
         if ex == "alpaca":
             # Dry alpaca accounts are never dialled from the read path
