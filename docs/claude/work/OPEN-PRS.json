@@ -1815,6 +1815,29 @@
       "merged_at": "2026-09-08T07:13:00Z",
       "merge_sha": "e0c264981b09dad97f08ac735f9af2f216c6b414",
       "terminal_basis": "squash e0c26498, the merge call's own return"
+    },
+    {
+      "pr": 11488,
+      "opened_at": "2026-09-09T04:54:00Z",
+      "title": "chore(ops): trainer capture-watch receipt (auto)",
+      "owner_session": null,
+      "checklist_item": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
+      "draft": false,
+      "tier": "1",
+      "state": "open_untriaged_automation",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None recorded."
+      },
+      "blocker": "AUTOMATION, trainer-capture-watch receipt. It was NEVER red on `trainer-capture-watch` itself: its guards run 34312758346 reads `PASS 53 · FAIL 1` and the 1 is `pr-landing-guard` on R13 — it arms the landing route while holding no merge-slot claim. Opened 04:54:00Z; MI-208/#11494 taught `commit-to-main` to write that claim at 06:37:54Z, so this is a PRE-FIX branch and nothing rebases one (its author is a bot that never returns). 47 of the 50 open `automation/*` PRs were in the same state.",
+      "terminal": "closed_unmerged",
+      "settled_at": "2026-09-09T08:29:41Z",
+      "settled_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+      "reason": "SUPERSEDED BY A SIDE-EFFECT, and that is the finding rather than a footnote. This PR's payload (`generated_at 2026-09-09T04:53:57Z`, run_url .../34312725937) reached `main` at 07:56:53Z inside commit d9059a0 (#11513) — an UNRELATED SESSION PR that carried docs/claude/work/TRAINER-CAPTURE-WATCH.json in as a side-effect, not through the landing path. So the receipt that cleared a repo-wide red was hand-carried, while the PR built to deliver it stayed unmergeable. Byte-identity to main verified TWICE before closing, at d9059a0 and again at c499481: `git diff --quiet origin/main origin/automation/data-commit-34312725937-1 -- docs/claude/work/TRAINER-CAPTURE-WATCH.json` is clean, so merging would have changed nothing. The only other files in the diff are this branch's own arming pair, which is bookkeeping for a landing that already happened by another route — nothing was dropped. ⚠️ THIS CLOSE IS NOT A TEMPLATE FOR THE OTHER 49: only this one has byte-identical proof, and closing by the newest dated register alone is wrong in the dangerous direction — it calls 22 PRs cleanly superseded when the true figure is 15, and seven work-digest PRs (#11442 #11445 #11452 #11465 #11471 #11493 #11512) each carry a docs/claude/pending-pings.jsonl row absent from main, which closing would DROP. Those need the #10974 rescue-by-value first. The class fix is #11519.",
+      "disposition": "superseded — the entire payload was already byte-identical on main (verified twice, at d9059a0 and c499481), having arrived at 07:56:53Z as a side-effect of the unrelated session PR #11513 rather than through the landing path; merging would have changed nothing and nothing was dropped. It could never merge itself because it is a pre-#11494 branch that arms the landing route with no R13 merge-slot claim, and nothing rebases a bot-authored branch."
     }
   ],
   "last_reconciled_at": "2026-09-08T05:02:08Z",
