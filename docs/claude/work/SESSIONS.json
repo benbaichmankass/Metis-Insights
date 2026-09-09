@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T16:31:14Z",
+  "updated_at": "2026-09-09T17:00:45Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3915,6 +3915,21 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Re-spawn after session_01GXpHkCHCx3bLrDGVNkVPrP proved unrecoverable: it woke on a full authorisation poke (cse id matched, updated_at 15:51:31Z), consumed 64367 tokens, and went idle again with the identical needs_action. The authorisation is in THIS session's original spawn prompt.",
       "note": "Third attempt at the operator-agreed full-system audit. Predecessor stood down, not archived; do not poke it again.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_017windcijwZp3qttYNWCwYP",
+      "title": "OPS LANE — /full-system-audit (MI-225, attempt #5; repo-identity ambiguity resolved in-prompt)",
+      "owns_object": "WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-AFTER-THE-SYSTEM-REVIEW-WAS-NEVER-RUN",
+      "checklist_item": "MI-225-FULL-SYSTEM-AUDIT-OPS-LANE",
+      "spawned_at": "2026-09-09T17:00:45Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi225-full-system-audit"
+      ],
+      "why": "Attempts #1-#4 all failed at the SAME point and none of them was the child's fault: the prompt did not resolve the repo-identity ambiguity (remote is Metis-Insights, 244 in-repo files say ict-trading-bot, and CLAUDE.md warns that hardcoding either name is a trap), so a session obeying RULE ONE dead-ends asking which repo it is in. Attempt #5's prompt states the resolution up front. Registered AFTER the spawn, which is the MI-15 recurrence this registry exists to catch — recorded rather than tidied.",
+      "note": "OBSERVED RUNNING 2026-09-09T16:58:54Z, task_summary 'Phase 0 audit (instrumentation + rules) - 5 agents running; 50 pass, 3 fail on main'. Has opened draft PR #11571 (Phase 0). Attempts #2 (session_01GXpHkCHCx3bLrDGVNkVPrP) and #4 (session_01L2xaQxxSktSaRWHqpSkrPJ) are SUPERSEDED and must not be poked further.",
       "state": "working"
     }
   ],
