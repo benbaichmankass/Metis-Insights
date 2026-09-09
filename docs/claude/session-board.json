@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-mi214-approval-20260909",
-  "claimed_at": "2026-09-09T10:47:00Z",
-  "purpose": "record the MI-214 Tier-2 approval and its follow-on"
+  "branch": "claude/mgr-route-mi218-and-correct-tlt-20260909",
+  "claimed_at": "2026-09-09T10:55:00Z",
+  "purpose": "route MI-218 and correct the manager's false TLT-naked claim"
  },
  "active_sessions": [
   {
