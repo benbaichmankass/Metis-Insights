@@ -96,8 +96,8 @@ decision_requests:
         ship INV-PROTECT-LEG-MATCHES-ROW. This is the Tier-2 approval for an ORDER-PATH change. !!
         IT DOES NOT AUTHORISE CANCELLING ANY CURRENTLY-RESTING LEG BY HAND. The standing prohibition
         holds: do not 'remediate' an over-covered book by cancelling legs - the one prior attempt at
-        that cancelled the leg that MATCHED the journal (BL-20260820-OVERCOVER-REMEDIATION-
-        CANCELLED-THE-JOURNAL-MATCHING-LEG). The approval is for the code path that resizes on the
+        that cancelled the leg that MATCHED the journal (
+        BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). The approval is for the code path that resizes on the
         NEXT reduce, plus the detector.
     asked_by:
       session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
