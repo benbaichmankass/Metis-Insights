@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only — lease reclaim + heartbeat, supervision record, and the MI-222/MI-225 work objects and checklist rows stranded in #11547 (relay-opened, zero check runs). No src/, tests/, scripts/, workflow, config/ or deploy/ path."
+}

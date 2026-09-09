@@ -21,14 +21,14 @@
   "schema_version": 1,
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "claimed_at": "2026-09-08T11:55:22Z",
-  "heartbeat_at": "2026-09-09T11:26:50Z",
-  "expires_at": "2026-09-09T12:56:50Z",
+  "claimed_at": "2026-09-09T15:29:57Z",
+  "heartbeat_at": "2026-09-09T15:29:57Z",
+  "expires_at": "2026-09-09T16:59:57Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
-  "forced": false,
-  "force_reason": null,
+  "forced": true,
+  "force_reason": "The lease LAPSED (expired 239 min past its 11:26:50Z heartbeat). My 14:27:54Z heartbeat was committed only to claude/mgr-mi222-venue-truth-detector, whose PR #11547 was relay-opened and accrued ZERO check runs, so it never reached main. Same holder re-claiming after its own lapse; no takeover, no other session involved.",
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "note": "Heartbeat 04:08:21Z, tool-stamped (28 min gap, ttl 90). QUIET PASS — queue clear, nothing in flight. || THIS PASS DROPPED A DRAFTED ROW RATHER THAN FILING IT. `check_backlog_refs --all` surfaced one dangling reference repo-wide (an operator-endorsed anchor in a 2026-07-27 research workplan, in the MB- namespace, never filed — the token is NOT reproduced here because writing it would create the very failure it describes). A new row was drafted; then backlog_search returned BL-20260904-CLAUDE-MD-CITES-A-TRUNCATED-BACKLOG-ID-THAT-RESOLVES-TO-NOTHING at 0.70 overlap, OPEN, whose resolution_criteria ALREADY names the exact fix — an UNGATED whole-tree check_backlog_refs pass in run_guards.py rather than only the diff-scoped one. So the finding is EVIDENCE for that row's second half, not a new class, and the draft was dropped and appended to the existing row instead. ⚠️ The two instances differ in the REPAIR and that is why it was worth recording: the CLAUDE.md case is a truncation (expand it), this one was never filed at all (file it, or correct the doc — and the doc calls its anchor operator-endorsed, so it is not a manager's edit). || ⚠️ THE DIGEST CLEARANCE EXPIRES ~07:04Z, ~2.9h out; four stuck receipt PRs remain (#11442 #11445 #11452 #11465) and MI-208 is the durable fix, ROUTED not taken."
+  "note": null
 }
