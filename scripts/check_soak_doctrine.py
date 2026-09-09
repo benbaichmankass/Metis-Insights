@@ -39,14 +39,19 @@ opens any other file. So the guard enforced the doctrine's PROSE and reached
 none of the CODE that decides anything.
 
 Measured 2026-09-09: ``scripts/ml/strategy_review_packet.py::decide`` — the M7
-daily strategy-review gate — graded **52 of 52 legs ``hold`` on eight
-consecutive days** (2026-09-01..09-08; ``graded 52 / actionable 0 /
-by_action {hold: 52}`` on every committed index) because it withholds every
-verdict for want of live in-window closes. Its ``Override 4`` is a literal
+daily strategy-review gate — graded **52 of 52 legs ``hold`` on every day it
+has a committed record for** because it withholds every verdict for want of
+live in-window closes. Population, stated: the **7** indexes committed under
+``comms/strategy_reviews/`` at ``a77afb8e`` (2026-09-01..09-07), each reading
+``graded 52 / actionable 0 / by_action {hold: 52}``, and ``below_evidence_floor
+52`` on the six that carry the field. ⚠️ The brief that commissioned this check
+said EIGHT days through 09-08; only seven are in the repo, and this docstring
+says seven because that is what was counted here. The finding is identical
+either way, and the smaller number is the measured one. Its ``Override 4`` is a literal
 ``shadow_soak_days < 14`` promotion gate — the exact "N days at stage"
 construct the canonical rule's clause 3 names as "a policy artifact, not
 evidence". The rule has been binding since 2026-07-26 and was contradicted for
-eight days **unseen**, because the guard that enforces it did not reach the
+those days **unseen**, because the guard that enforces it did not reach the
 surface. Operator, 2026-09-09: *"we do NOT rely on live soaking for validating
 strategies, only mechanics ... I don't know how many more times I can explain
 this to various claudes"*. A further prose reminder is a NON-FIX; this check is
@@ -62,7 +67,7 @@ whose BODY assigns a verdict. That is the canonical rule stated mechanically:
 ⚠️ IT DELIBERATELY FLAGS FORCED ``hold`` TOO, not only KILL/PROMOTE. Withholding
 a verdict for want of accrual IS the prohibited gate — it is the precise shape
 of the 52/52 hold — so a check that only watched the loud verdicts would have
-stayed green through the entire eight days.
+stayed green through every one of those days.
 
 WHY A RATCHET AND NOT A HARD FAIL. The seven live branches are Tier-3 (they
 decide what a KILL/DEMOTE rests on) and cannot be changed by a session; a guard
