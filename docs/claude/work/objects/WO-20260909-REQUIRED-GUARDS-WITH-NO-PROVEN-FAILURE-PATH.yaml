@@ -5,7 +5,8 @@ title: >-
   Make every guard in the REQUIRED merge context prove it can turn red, and build the
   instrument that measures which ones cannot
 stage: INTEGRITY
-lifecycle: in_flight
+lifecycle: done
+closed_at: '2026-09-09'
 owner: MI-226 (unassigned at creation; set on spawn)
 opened_at: 2026-09-09
 review_trigger: >-
@@ -72,3 +73,27 @@ limits: >-
   file naming a guard need not exercise it) and therefore UNDER-reports the true gap.
   The 21 are the visible residue of exactly that. And F-01's own detector cannot see a
   guard invoked by a path other than run_guards.py.
+
+closed_by_manager: >-
+  Closed 2026-09-09T21:30Z by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) after PR #11592
+  merged as 92f44a226. The lane delivered all three declared parts and the object was left
+  reading `in_flight`, which is a false record and holds a slot against the WIP ceiling. ===
+  WHAT THE LANE REPORTED, ATTRIBUTED RATHER THAN ASSERTED (session_01DMQJewWwFDbMsUEFq98j7J, in
+  the PR body; the manager did not re-run these): (1) the instrument
+  scripts/ci/check_guard_selftest_coverage.py exists with a FILESYSTEM-GLOB denominator and was
+  verified red on the real tree - planting scripts/ci/check_zz_planted_probe.py took it to rc=1
+  with the denominator visibly 80 -> 81, removing it returned rc=0; (2) the four F-05 guards
+  each gained controls asserting on main()'s RETURN VALUE, not on stdout; (3) F-61 was REFUTED
+  on all four of its named instances - they ARE invoked with --self-test, the audit's probe used
+  a single-line grep against argv wrapped across two source lines - so the class is 4, not 8,
+  and the audit doc was corrected in the same PR. Coverage moved 52 -> 58 of 80. !! WHAT IS NOT
+  OBSERVED, AND IT IS THE ARMING HALF: the new instrument has NOT been seen grading on a PR
+  OTHER THAN THE ONE THAT INTRODUCED IT. That is the same distinction that keeps
+  OI-20260902-PR-QUEUE-WATCHER-... open - a guard that has only ever run on its own PR is
+  registered, not armed - and it is left stated here rather than folded into the close. Three
+  residuals were FILED not fixed, deliberately:
+  BL-20260909-AUDIT-F61-REPORTED-FOUR-CORRECTLY-WIRED-GUARDS-AS-UNWIRED-BECAUSE-A-TWO-LINE-ARGV-IS-INVISIBLE-TO-A-ONE-LINE-GREP,
+  BL-20260909-ONLY-17-OF-58-WIRED-GUARD-SELFTESTS-ASSERT-ON-A-RETURN-CODE-SO-F04S-STATED-DETECTOR-COULD-NOT-BE-MADE-A-GATE
+  (17 of 58, shipped reported-not-gated because gating would have failed 41 guards on day one,
+  which is how a guard gets disabled instead of fixed), and
+  BL-20260909-21-GUARDS-REST-THEIR-ONLY-FAILURE-PATH-EVIDENCE-ON-A-PYTEST-FILE-NOBODY-HAS-EXECUTED-AGAINST-A-PLANT.

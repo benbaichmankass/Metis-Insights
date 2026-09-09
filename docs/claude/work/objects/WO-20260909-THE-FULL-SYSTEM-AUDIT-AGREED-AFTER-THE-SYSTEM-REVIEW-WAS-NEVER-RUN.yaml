@@ -4,7 +4,8 @@ title: >-
   Run the /full-system-audit on the ops lane — agreed 2026-09-08 to follow the
   system review that would scope it, then dropped
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
-lifecycle: in_flight
+lifecycle: done
+closed_at: '2026-09-09'
 owner: session_017windcijwZp3qttYNWCwYP
 created: "2026-09-09"
 priority: p1
@@ -132,3 +133,14 @@ done_condition_status:
     OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING
     was opened so the six operator decisions are carried by a register rather than by this
     object - the audit's own finding about "do X first so we can scope Y" applied to itself.
+
+closed_by_manager: >-
+  Closed 2026-09-09T21:30Z by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj). The lane had
+  already filled `done_condition_status` with every clause MET and simply never flipped
+  `lifecycle`, so this object read `in_flight` while its work was on main - a false record
+  that also held a slot against the WIP ceiling of 8. PR #11571 merged as 566c0ff4c.
+  !! WHAT IS CLOSED IS THE AUDIT, NOT ITS FINDINGS. 67 of 68 are filed in the two review
+  backlogs and the six operator decisions are carried by
+  OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING,
+  which stays OPEN: four were answered 2026-09-09 (see the WO-20260909-DECISION-* objects,
+  landed e1518aecd) and TWO - F-11 and F-39 - have still not been put to the operator.

@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-audit-decisions-20260909T2115",
-  "claimed_at": "2026-09-09T21:04:38Z",
-  "purpose": "Manager: record four operator decisions on the full-system-audit findings (F-29, F-36, F-28, F-50)"
+  "branch": "claude/mgr-lease-hb-20260909T2128",
+  "claimed_at": "2026-09-09T21:28:30Z",
+  "purpose": "Manager: lease heartbeat + supervision reconcile (13 rows working->idle) + close two stale in_flight work objects"
  },
  "active_sessions": [
   {
