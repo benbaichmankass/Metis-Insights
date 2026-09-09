@@ -190,7 +190,13 @@ def test_fifo_partial_does_not_close_or_create_open(db):
     assert rows[id1]["status"] == "open"
     assert rows[id2]["position_size"] == pytest.approx(0.3)
     assert rows[id2]["status"] == "open"
-    assert res["allocations"] == [{"parent_id": id1, "consumed": pytest.approx(0.29)}]
+    # MI-227 widened the allocation dict (``closed`` / ``new_size`` /
+    # ``leg_resize``), so this asserts the FIFO facts it is about rather than
+    # pinning the whole shape — the added keys have their own tests in
+    # tests/test_intent_reduce_leg_resize.py.
+    assert len(res["allocations"]) == 1
+    assert res["allocations"][0]["parent_id"] == id1
+    assert res["allocations"][0]["consumed"] == pytest.approx(0.29)
     assert res["leftover"] == pytest.approx(0.0)
     assert res["no_parent_position"] is False
     # net = 0.21 + 0.3 = +0.51 (the prompt's "+0.52" is an arithmetic slip;

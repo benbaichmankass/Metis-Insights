@@ -43,6 +43,23 @@ must return ``not_measured``. A check that cannot be shown to fail is not
 evidence of anything. This mirrors ``scripts/ci/guard_selftests.py``, which
 covers 10 of the repo's 41 guards.
 
+PAYLOAD FILES
+-------------
+``--payloads`` reads ``<dir>/*.json`` and keys each by its FILE STEM. The stems
+the invariants read, and the route each comes from:
+
+    ib_open_orders.json      /api/diag/ib_open_orders
+    bybit_open_orders.json   /api/diag/bybit_open_orders
+    exchange_positions.json  /api/diag/exchange_positions
+    positions.json           /api/bot/positions
+    journal_trades.json      /api/diag/journal?table=trades
+    exit_loop_health.json    /api/diag/log_file?name=exit_loop_health
+
+⚠️ A payload that is simply ABSENT makes its invariants report
+``not_measured``, which is correct but is byte-identical to a blind read of a
+route that answered emptily. Capture every file above, or read the ``detail``
+line to see which one was missing.
+
 USAGE
     python3 scripts/ops/system_invariants.py --self-test
     python3 scripts/ops/system_invariants.py --payloads <dir-of-diag-json>
@@ -449,6 +466,164 @@ def inv_no_netted_duplicate_upnl(ctx) -> Result:
                   len(multi), viol)
 
 
+# ------------------------------------------------- Bybit per-ROW leg sizing
+def _bybit_leg_qty_index(payload: Any):
+    """``({order_id: {"qty", "symbol", "account"}}, read, blind, unchecked)``.
+
+    ``read`` / ``blind`` come from each account's ``read_state``, never from an
+    empty ``orders`` list: ``[]`` after ``orders_read`` means the account holds
+    nothing resting, while ``[]`` after ``could_not_look`` means we never
+    asked. Those are opposite facts.
+
+    ``unchecked`` carries the payload's own ``order_symbols_unchecked`` — the
+    DENOMINATOR for the orders read. A leg id absent from this index on such a
+    symbol may be resting-but-unread rather than gone, which is why an absent
+    id is never graded a violation below.
+
+    ``qty`` is ``None`` when the venue reported it unreadable; the surface
+    publishes an unset numeric as ``null`` rather than ``0.0`` on purpose, and
+    a ``0.0`` there would compare as a wildly under-sized leg.
+    """
+    idx: Dict[str, Dict[str, Any]] = {}
+    read: List[Any] = []
+    blind: List[Any] = []
+    unchecked: List[str] = []
+    for acct in (payload or {}).get("accounts") or []:
+        aid = acct.get("account_id")
+        state = acct.get("read_state")
+        if state == "could_not_look":
+            blind.append(aid)
+            continue
+        if state != "orders_read":      # not_bybit — nothing to read
+            continue
+        read.append(aid)
+        result = acct.get("result") or {}
+        for sym in result.get("order_symbols_unchecked") or []:
+            unchecked.append(f"{aid}/{sym}")
+        for o in result.get("orders") or []:
+            oid = o.get("order_id")
+            if oid is None:
+                continue
+            idx[str(oid)] = {
+                "qty": _num(o.get("qty")),
+                "symbol": str(o.get("symbol") or "").upper(),
+                "account": aid,
+            }
+    return idx, read, blind, unchecked
+
+
+def _open_journal_trades(payload: Any) -> List[Dict[str, Any]]:
+    """Open, non-backtest ``trades`` rows from ``/api/diag/journal?table=trades``.
+
+    Accepts the route's bare list as well as a ``{"rows": [...]}`` wrapper so a
+    payload captured either way grades identically.
+    """
+    rows = payload if isinstance(payload, list) else (payload or {}).get("rows") or []
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if str(r.get("status") or "").lower() != "open":
+            continue
+        try:
+            if int(r.get("is_backtest") or 0) != 0:
+                continue
+        except (TypeError, ValueError):
+            continue
+        out.append(r)
+    return out
+
+
+def inv_protective_leg_matches_row(ctx) -> Result:
+    """A tracked protective leg's venue qty must equal THAT ROW's position_size.
+
+    Audit F-36 (2026-09-09). ``apply_intent_reduce_partial_close`` shrank a
+    parent row and never resized the leg its own ``sl_order_id`` points at, so
+    a reduce-only stop stayed sized for the PRE-reduce position. Measured live
+    on ``bybit_1``/ADAUSDT: trade 5417 ``position_size`` 628.0 against a
+    tracked stop of 63,943.0 — **101.82x the row it protects**.
+
+    ⚠️ **THIS IS STRICTLY STRONGER THAN ANY SYMBOL-LEVEL CHECK, AND THAT IS THE
+    WHOLE POINT.** In the live instance the journal reconciled to the exchange
+    EXACTLY (79227.0 + 628.0 = 79855.0), so ``INV-JOURNAL-EXCHANGE`` passed and
+    ``exit_path_coverage.py`` graded 5417 ``bStop LIVE`` on the leg's mere
+    PRESENCE. A per-symbol sum is blind to how the protection is distributed
+    ACROSS the rows that share the position; this asks the per-row question.
+    ``_fx_leg_mismatch`` plants exactly that shape and the self-test asserts
+    that ``INV-JOURNAL-EXCHANGE`` PASSES on it while this one FAILS.
+
+    ⚠️ **A tracked id that is NOT resting is a DIFFERENT question and is never
+    a violation here.** The leg may have fired, been cancelled, or simply sit
+    on a symbol whose order read was incomplete. Whether a declared leg still
+    rests is stop-coverage's question; this one grades SIZE, and only over legs
+    the venue confirmed are resting. The count is reported in ``detail`` so an
+    ungraded leg is never mistaken for a clean one.
+
+    Population: (open journal row, tracked leg) pairs whose leg is RESTING on a
+    cleanly-read Bybit account.
+    """
+    ob, tr = ctx.get("bybit_open_orders"), ctx.get("journal_trades")
+    pop = "(open trade, tracked protective leg) pairs resting on a cleanly-read account"
+    if ob is None or tr is None:
+        return Result(NOT_MEASURED, pop, 0,
+                      detail="bybit_open_orders and/or journal_trades payload absent")
+    idx, read, blind, unchecked = _bybit_leg_qty_index(ob)
+    rows = _open_journal_trades(tr)
+
+    graded: List[tuple] = []       # (row, leg-kind, order_id, leg_qty, size)
+    not_resting = 0
+    leg_qty_unreadable = 0
+    size_unreadable = 0
+    rows_with_a_tracked_id = 0
+    for r in rows:
+        pairs = [("sl", r.get("sl_order_id")), ("tp", r.get("tp_order_id"))]
+        pairs = [(k, v) for k, v in pairs if v not in (None, "")]
+        if not pairs:
+            continue
+        rows_with_a_tracked_id += 1
+        size = _num(r.get("position_size"))
+        for kind, oid in pairs:
+            leg = idx.get(str(oid))
+            if leg is None:
+                not_resting += 1
+                continue
+            if leg["qty"] is None:
+                leg_qty_unreadable += 1
+                continue
+            if size is None or size <= 0:
+                size_unreadable += 1
+                continue
+            graded.append((r, kind, str(oid), leg["qty"], size))
+
+    if not graded:
+        return Result(
+            NOT_MEASURED, pop, 0,
+            detail=f"nothing gradeable — {len(rows)} open journal row(s), "
+                   f"{rows_with_a_tracked_id} carrying a tracked leg id, of which "
+                   f"{not_resting} leg(s) are not in the resting book, "
+                   f"{leg_qty_unreadable} have an unreadable venue qty and "
+                   f"{size_unreadable} an unreadable position_size · "
+                   f"blind accounts: {blind} · incomplete order reads: {unchecked}")
+
+    viol = []
+    for r, kind, oid, leg_qty, size in graded:
+        # A leg should carry its row's size exactly; the tolerance absorbs
+        # float noise only. Both directions are violations: an OVER-sized leg
+        # can cut a live sibling, an UNDER-sized one leaves the row part naked.
+        if abs(leg_qty - size) > max(1e-9, 1e-4 * size):
+            viol.append(
+                f"{r.get('account_id')}/{r.get('symbol')} trade {r.get('id')}: "
+                f"position_size {size:g} but its own tracked {kind} leg {oid} "
+                f"rests at {leg_qty:g} ({leg_qty / size:.2f}x)")
+    return Result(
+        FAIL if viol else PASS, pop, len(graded), viol,
+        detail=f"read accounts: {read} · blind (not counted): {blind} · "
+               f"incomplete order reads: {unchecked} · "
+               f"tracked legs not in the resting book (a different question, "
+               f"not graded here): {not_resting} · unreadable venue qty: "
+               f"{leg_qty_unreadable} · unreadable position_size: {size_unreadable}")
+
+
 INVARIANTS: List[Dict[str, Any]] = [
     {"id": "INV-PROTECT-STOP", "blast": "money-at-risk",
      "q": "Does every open IB position have a resting stop covering its size?",
@@ -459,6 +634,9 @@ INVARIANTS: List[Dict[str, Any]] = [
     {"id": "INV-PROTECT-TARGET", "blast": "money-at-risk",
      "q": "Does a position declaring a take_profit have a resting target?",
      "fn": inv_declared_target_rests},
+    {"id": "INV-PROTECT-LEG-MATCHES-ROW", "blast": "money-at-risk",
+     "q": "Does a tracked protective leg carry the size of the ROW it protects?",
+     "fn": inv_protective_leg_matches_row},
     {"id": "INV-JOURNAL-EXCHANGE", "blast": "accounting",
      "q": "Does journal open qty reconcile to exchange position size?",
      "fn": inv_journal_matches_exchange},
@@ -499,6 +677,59 @@ def _fx_good() -> Dict[str, Any]:
              "positions": [{"symbol": "AVAX/USDT:USDT", "size": 6331.0}]}]},
         "exit_loop_health": {"requirement_state": "within", "intervals_measured": 694,
                              "max_interval_ms": 41500},
+        # Per-ROW leg sizing: each tracked leg carries its own row's size.
+        "bybit_open_orders": {"accounts": [
+            {"account_id": "bybit_1", "read_state": "orders_read",
+             "result": {"orders": [
+                 {"order_id": "sl-4817", "symbol": "AVAXUSDT", "qty": 822.9},
+                 {"order_id": "sl-4795", "symbol": "AVAXUSDT", "qty": 5508.1},
+             ], "order_symbols_unchecked": []}},
+        ]},
+        "journal_trades": [
+            {"id": 4817, "account_id": "bybit_1", "symbol": "AVAXUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 822.9,
+             "sl_order_id": "sl-4817", "tp_order_id": None},
+            {"id": 4795, "account_id": "bybit_1", "symbol": "AVAXUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 5508.1,
+             "sl_order_id": "sl-4795", "tp_order_id": None},
+        ],
+    }
+
+
+def _fx_leg_mismatch() -> Dict[str, Any]:
+    """THE LIVE F-36 SHAPE, and it is built to pass every symbol-level check.
+
+    ``bybit_1``/ADAUSDT as measured 2026-09-09T16:47Z: trade 5417 carries
+    ``position_size`` 628.0 while its OWN tracked stop rests at 63,943.0, and
+    the sibling 5479 is exactly sized. Journal 79227.0 + 628.0 = 79855.0 equals
+    the exchange position to the unit, so ``INV-JOURNAL-EXCHANGE`` PASSES on
+    this fixture — which the self-test asserts explicitly. That contrast IS the
+    "strictly stronger than the symbol-level check" claim, made executable.
+    """
+    return {
+        "bybit_open_orders": {"accounts": [
+            {"account_id": "bybit_1", "read_state": "orders_read",
+             "result": {"orders": [
+                 {"order_id": "sl-5479", "symbol": "ADAUSDT", "qty": 79227.0},
+                 {"order_id": "sl-5417", "symbol": "ADAUSDT", "qty": 63943.0},
+             ], "order_symbols_unchecked": []}},
+        ]},
+        "journal_trades": [
+            {"id": 5479, "account_id": "bybit_1", "symbol": "ADAUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 79227.0,
+             "sl_order_id": "sl-5479"},
+            {"id": 5417, "account_id": "bybit_1", "symbol": "ADAUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 628.0,
+             "sl_order_id": "sl-5417"},
+        ],
+        # The symbol-level view, which reconciles EXACTLY.
+        "positions": [
+            {"id": "5479", "account": "bybit_1", "symbol": "ADAUSDT", "qty": 79227.0},
+            {"id": "5417", "account": "bybit_1", "symbol": "ADAUSDT", "qty": 628.0},
+        ],
+        "exchange_positions": {"accounts": [
+            {"account_id": "bybit_1",
+             "positions": [{"symbol": "ADA/USDT:USDT", "size": 79855.0}]}]},
     }
 
 
@@ -524,6 +755,23 @@ def _fx_bad() -> Dict[str, Any]:
             {"account_id": "bybit_1", "positions": [{"symbol": "SOL/USDT:USDT", "size": 4.6}]}]},
         "exit_loop_health": {"requirement_state": "breached", "intervals_measured": 694,
                              "max_interval_ms": 61040},
+        "bybit_open_orders": {"accounts": [
+            {"account_id": "bybit_1", "read_state": "orders_read",
+             "result": {"orders": [
+                 {"order_id": "sl-4816", "symbol": "SOLUSDT", "qty": 1409.4},
+                 # 4810's own leg still sized for the PRE-reduce position.
+                 {"order_id": "sl-4810", "symbol": "SOLUSDT", "qty": 1777.2},
+             ], "order_symbols_unchecked": []}},
+            {"account_id": "bybit_2", "read_state": "could_not_look", "result": None},
+        ]},
+        "journal_trades": [
+            {"id": 4816, "account_id": "bybit_1", "symbol": "SOLUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 1409.4,
+             "sl_order_id": "sl-4816"},
+            {"id": 4810, "account_id": "bybit_1", "symbol": "SOLUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 367.8,
+             "sl_order_id": "sl-4810"},
+        ],
     }
 
 
@@ -553,6 +801,8 @@ def _self_test() -> int:
     expect("netted-dup detects identical uPnL on differing qty",
            "INV-NETTED-DUP-UPNL", bad, FAIL)
     expect("stop-coverage detects a fully naked position", "INV-PROTECT-STOP", naked, FAIL)
+    expect("per-row leg sizing detects an oversized tracked leg",
+           "INV-PROTECT-LEG-MATCHES-ROW", bad, FAIL)
 
     # (b) known-GOOD must PASS  (a check that always fails is as useless as one
     #     that always passes)
@@ -564,6 +814,8 @@ def _self_test() -> int:
     expect("blind-count passes a clean read", "INV-BLIND-COUNT-NULL", good, PASS)
     expect("netted-dup passes correctly-prorated siblings",
            "INV-NETTED-DUP-UPNL", good, PASS)
+    expect("per-row leg sizing passes exactly-sized legs",
+           "INV-PROTECT-LEG-MATCHES-ROW", good, PASS)
 
     # (c) ABSENT input must be not_measured, NEVER pass
     for inv in INVARIANTS:
@@ -611,6 +863,63 @@ def _self_test() -> int:
     checks.append(("MKT is not protective",
                    _protective_leg_side("MKT") is None,
                    f"got {_protective_leg_side('MKT')}"))
+
+    # (c4) THE LOAD-BEARING CONTROL for INV-PROTECT-LEG-MATCHES-ROW: on the
+    #      real F-36 shape the symbol reconciles EXACTLY, so the symbol-level
+    #      check PASSES on the very fixture the per-row check must FAIL. If
+    #      these two ever agree, the new invariant has stopped being stronger
+    #      than the one it was added to exceed.
+    mismatch = _fx_leg_mismatch()
+    expect("per-row leg sizing FAILS the live F-36 shape",
+           "INV-PROTECT-LEG-MATCHES-ROW", mismatch, FAIL)
+    expect("...while the SYMBOL-level check PASSES on the same fixture",
+           "INV-JOURNAL-EXCHANGE", mismatch, PASS)
+
+    # (c5) An UNDER-sized leg is a violation too — the check is equality, not a
+    #      ceiling. An under-sized stop leaves part of the row unprotected.
+    under = _fx_leg_mismatch()
+    under["bybit_open_orders"]["accounts"][0]["result"]["orders"][1]["qty"] = 1.0
+    under["journal_trades"][1]["position_size"] = 628.0
+    expect("per-row leg sizing detects an UNDER-sized leg",
+           "INV-PROTECT-LEG-MATCHES-ROW", under, FAIL)
+
+    # (c6) A tracked leg that is NOT in the resting book is a DIFFERENT
+    #      question (did it fire? was it cancelled?) and must not be graded a
+    #      size violation here. One exactly-sized leg keeps n > 0 so this is a
+    #      PASS rather than a vacuous not_measured.
+    absent_leg = _fx_leg_mismatch()
+    absent_leg["bybit_open_orders"]["accounts"][0]["result"]["orders"] = [
+        {"order_id": "sl-5479", "symbol": "ADAUSDT", "qty": 79227.0}]
+    expect("a tracked leg missing from the resting book is not a size violation",
+           "INV-PROTECT-LEG-MATCHES-ROW", absent_leg, PASS)
+
+    # (c7) A row on a could_not_look account must not be graded at all —
+    #      "we did not look" is never a pass and never a failure.
+    blind_only = _fx_leg_mismatch()
+    blind_only["bybit_open_orders"]["accounts"][0]["read_state"] = "could_not_look"
+    blind_only["bybit_open_orders"]["accounts"][0]["result"] = None
+    expect("rows on a blind account are not_measured, never graded",
+           "INV-PROTECT-LEG-MATCHES-ROW", blind_only, NOT_MEASURED)
+
+    # (c8) The venue surface publishes an unset qty as null, never 0.0. A null
+    #      is "we could not read the size" and must not be graded as a leg of
+    #      size zero, which would render as maximally under-sized.
+    null_qty = _fx_leg_mismatch()
+    for o in null_qty["bybit_open_orders"]["accounts"][0]["result"]["orders"]:
+        o["qty"] = None
+    expect("a null venue qty is not graded as a zero-sized leg",
+           "INV-PROTECT-LEG-MATCHES-ROW", null_qty, NOT_MEASURED)
+
+    # (c9) CLOSED and BACKTEST rows are out of population. A closed row's leg
+    #      no longer has a size to match, and a backtest row never had a leg.
+    closed_rows = _fx_leg_mismatch()
+    closed_rows["journal_trades"][1]["status"] = "closed"
+    expect("a closed row is out of population (only the sized sibling remains)",
+           "INV-PROTECT-LEG-MATCHES-ROW", closed_rows, PASS)
+    bt_rows = _fx_leg_mismatch()
+    bt_rows["journal_trades"][1]["is_backtest"] = 1
+    expect("a backtest row is out of population",
+           "INV-PROTECT-LEG-MATCHES-ROW", bt_rows, PASS)
 
     # (e) small-n must NOT read as a pass
     small = _fx_good()
