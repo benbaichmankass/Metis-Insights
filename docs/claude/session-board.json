@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-dispatch-landing-lane-0530-20260909",
-  "claimed_at": "2026-09-09T05:45:39Z",
-  "purpose": "Land the dispatch record for the landing-machinery lane (MI-208 + MI-207), operator-approved."
+  "held_by": "session_01JuznkKwm1oYm7bUFc9v23w (MI-209)",
+  "branch": "claude/mi209-exit-trailing-banking-broker-truth",
+  "claimed_at": "2026-09-09T06:45:00Z",
+  "purpose": "Land MI-209 (PR #11498): the broker-truth restriction on the trailing/banking measurement, plus the close-out of WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF, whose work landed on 2026-09-08 while its object file stayed dormant. Tier-1, docs + registers only. DISPLACES the manager's claim on claude/mgr-dispatch-landing-lane-0530-20260909, read as SPENT because its PR #11492 is already on main (36ac0d57). Per check_pr_landing.py's own docstring R13 does NOT serialize — each branch carries its own copy — so this holds nobody up; say so on the board if that read is wrong and I will re-take it."
  },
  "active_sessions": [
   {
