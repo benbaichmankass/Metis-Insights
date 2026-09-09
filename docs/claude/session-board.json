@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-record-review-packet-verdict-20260909",
-  "claimed_at": "2026-09-09T09:33:00Z",
-  "purpose": "record the operator's rejection of DEC-20260909 and route MI-215"
+  "held_by": "session_01MrTjuoRpBb7spyQLydXmmT",
+  "branch": "claude/mi215-soak-doctrine-reaches-m7-gate",
+  "claimed_at": "2026-09-09T10:09:02Z",
+  "purpose": "MI-215: soak-doctrine check D reaches the M7 decision surface (Tier-1); prior slot was stale — its branch is gone and its work landed as #11527/a77afb8e"
  },
  "active_sessions": [
   {
