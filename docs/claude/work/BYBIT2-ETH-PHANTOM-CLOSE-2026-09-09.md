@@ -1089,7 +1089,14 @@ orders[0]      PartialTakeProfit  Sell 58.5  trigger 1.5535  reduce_only  Untrig
 orders[1]      PartialStopLoss    Sell 58.5  trigger 1.3463  reduce_only  Untriggered  tpsl_mode "Partial"
 ```
 
-**Both sides covered 58.5 / 58.5 = 100%, and all three protection fields on the position row are `null`.**
+**Both sides covered — stop leg qty 58.5 against position size 58.5, target leg qty 58.5 against the same
+58.5 — and all three protection fields on the position row are `null`.**
+
+⚠️ **POPULATION: ONE position, ONE read, on ONE account.** That is deliberately not a rate and must not be
+quoted as one — it is a claim about the SHAPE of the row, which one counter-example would refute and which
+no number of further reads would strengthen. What it establishes is that the empty position row and full
+leg coverage **can co-occur**, which is exactly what the hypothesis needs and all it needs.
+
 So the hypothesis's premise is not a guess: under Partial mode the venue genuinely puts nothing on the
 position row. Anything that reads position-level fields sees an unprotected position.
 
