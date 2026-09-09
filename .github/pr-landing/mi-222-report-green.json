@@ -1,5 +1,6 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "board-post relay carrier only -- automation/board-posts + its results receipt. No src/, tests/, config/, deploy/ or workflow path touched; no runtime, order path or strategy config."
+  "landing": "hold",
+  "hold_reason": "needs_human_disposition",
+  "why": "RECOMMEND CLOSING THIS PR AND DELETING THE BRANCH. It is a spent board-post relay carrier -- its only purpose was posting the MI-222 report to board issue #11336, which SUCCEEDED (comment 5606175880). The work it reports on, #11566, is already merged. Nothing here needs to reach main. I opened this PR only to satisfy the standing 'a pushed branch gets a PR' rule, then could neither close it (update_pull_request -> 403 for this session) nor delete the branch (the remote refuses the delete ref). DO NOT FORCE THIS GREEN. guards is red on R5 + R13 and both are CORRECT: R5 cannot certify the automation/pr-* and automation/board-results paths, and R13 refuses an armed auto-merge that holds no merge slot. Auto-merge IS enabled on this PR (open-and-automerge succeeded before R13 was evaluated), so the red guard is the only thing stopping an unslotted merge -- deleting the arming file would turn the guard blind rather than satisfy it. I did NOT take the merge slot: it was held by a LIVE session (session_01CwHNLSX6gMjPoKUWHoYj7q, claimed 2026-09-09T17:30:48Z for #11578), and displacing a live claim for a records-only carrier is the exact harm the board has already recorded three times."
 }
