@@ -3066,7 +3066,8 @@ async def get_bybit_raw_closed_pnl(
         # loop.run_in_executor, which takes no kwargs. The accessor's window
         # arguments are keyword-only, so they are bound with functools.partial
         # BEFORE the hop rather than passed through it.
-        # BL-20260909-DIAG-ROUTE-PASSED-KWARGS-TO-A-POSITIONAL-ONLY-EXECUTOR-HOP:
+        # BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-
+        # EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT:
         # the first version passed them as kwargs, which raises TypeError at
         # REQUEST time and never at import or in an accessor-level test.
         result = await run_account_read(
