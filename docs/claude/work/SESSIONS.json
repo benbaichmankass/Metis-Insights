@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T00:58:30Z",
+  "updated_at": "2026-09-09T01:52:28Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3519,7 +3519,7 @@
     {
       "session_id": "session_01ML8uLRrKLMmzR9fFywTWv5",
       "registry_key": "pending-20260908T221047Z-b",
-      "state": "review_ready",
+      "state": "done",
       "title": "MI-205b — build the N-book ranking-key harness (correct repo pinned)",
       "owns_object": "WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS",
       "checklist_item": "MI-205-N-BOOK-RANKING-HARNESS",
@@ -3540,9 +3540,9 @@
         "manager_verdict": "running_correct_repo",
         "manager_verdict_basis": "Third observation, 55 minutes after spawn. Still RUNNING and connected, platform updated_at 8 seconds before the read. Its task_summary has ADVANCED — 22:41Z read 'reading canonical docs + work object', this one adds '+ N-book engine; setting up harness' — so it is moving through the reading phase rather than stalled on it. ⚠️ WHAT IS NOT CLAIMED: no PR exists, nothing is pushed to its branch, and no output has been produced. That is EXPECTED at this stage and is recorded as 'nothing owed yet', never as progress. ⚠️ AND THE task_summary IS THE CHILD'S OWN CLAIM, frozen at its last turn — it is evidence the session is alive and moving, not evidence the harness works. The only thing that will settle that is merged output. sources re-read rather than carried over."
       },
-      "state_observed_at": "2026-09-09T00:58:30Z",
-      "state_basis": "get_session at 00:53:40Z — SESSION_STATUS_IDLE, connected, post_turn_summary 'digest-liveness stale (6.17h); #11473 blocked by repo deadlock'; plus list_commits (head fc535649 authored 00:42:33Z) and the guards job log read direct.",
-      "observation": "#11473 is BLOCKED BY A REPO-WIDE GUARD, NOT BY ITS OWN DIFF. Its guards job reads PASS 71 · FAIL 1 and the 1 is digest-liveness-guard (state=stale last_digest_age=6.01h) — a time-based, repo-wide condition no PR can fix. ⚠️ ITS OWN DIAGNOSIS WAS CORRECT AND I VERIFIED IT FROM THE JOB LOG RATHER THAN TAKING ITS WORD: a post_turn_summary is the session's own claim, and the whole reason this row carries a correction from 23:50Z is that I once graded this session on a proxy instead of the artifact. || It merged main in at 00:42:33Z (head fc535649) BEFORE the 00:46:02Z guards failure, so it has not pushed since — correctly, because there is nothing for it to push. NO POKE SENT. The manager dispatched work-digest.yml to clear the blocker.",
+      "state_observed_at": "2026-09-09T01:52:28Z",
+      "state_basis": "PR #11473 MERGED as 47f5a981, verified on origin/main — merged output, not a post_turn_summary. That is the only basis this row has ever been allowed to close on.",
+      "observation": "#11473 is BLOCKED BY A REPO-WIDE GUARD, NOT BY ITS OWN DIFF. Its guards job reads PASS 71 · FAIL 1 and the 1 is digest-liveness-guard (state=stale last_digest_age=6.01h) — a time-based, repo-wide condition no PR can fix. ⚠️ ITS OWN DIAGNOSIS WAS CORRECT AND I VERIFIED IT FROM THE JOB LOG RATHER THAN TAKING ITS WORD: a post_turn_summary is the session's own claim, and the whole reason this row carries a correction from 23:50Z is that I once graded this session on a proxy instead of the artifact. || It merged main in at 00:42:33Z (head fc535649) BEFORE the 00:46:02Z guards failure, so it has not pushed since — correctly, because there is nothing for it to push. NO POKE SENT. The manager dispatched work-digest.yml to clear the blocker. || ✅ DELIVERED AND MERGED 01:45Z as 47f5a981. Judged on merged output. This row's history is the cautionary one: at 23:50Z I graded this session 'alive and unproductive' from an absent remote branch and merged that claim to main 28 seconds before it opened the PR; the correction is in ff6ec532 and the class is filed as BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT. It went on to diagnose the repo-wide digest deadlock itself and correctly stopped pushing.",
       "branch": "claude/mi205b-ranking-key-harness",
       "pr": 11473
     }
