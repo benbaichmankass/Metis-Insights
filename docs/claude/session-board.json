@@ -7,8 +7,8 @@
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
   "branch": "claude/mi-221-s17-netting-class",
-  "claimed_at": "2026-09-09T16:28:30Z",
-  "purpose": "MI-221 § 17 + § 16 correction. Tier-1 docs + one backlog row."
+  "claimed_at": "2026-09-09T16:43:07Z",
+  "purpose": "MI-221 docs PR, re-claimed after merge-slot churn from another branch landing. Tier-1."
  },
  "active_sessions": [
   {
