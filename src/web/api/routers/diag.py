@@ -20,6 +20,7 @@ Failure modes:
 from __future__ import annotations
 
 import hmac
+import functools
 import json
 import logging
 import os
@@ -2956,9 +2957,19 @@ async def get_bybit_raw_closed_pnl(
     result: Any = None
     err: str | None = None
     try:
+        # `run_account_read(fn, *args)` is POSITIONAL-ONLY -- it forwards to
+        # loop.run_in_executor, which takes no kwargs. The accessor's window
+        # arguments are keyword-only, so they are bound with functools.partial
+        # BEFORE the hop rather than passed through it.
+        # BL-20260909-DIAG-ROUTE-PASSED-KWARGS-TO-A-POSITIONAL-ONLY-EXECUTOR-HOP:
+        # the first version passed them as kwargs, which raises TypeError at
+        # REQUEST time and never at import or in an accessor-level test.
         result = await run_account_read(
-            account_bybit_raw_closed_pnl, acc,
-            symbol=symbol, start_ms=start_ms, end_ms=end_ms,
+            functools.partial(
+                account_bybit_raw_closed_pnl,
+                symbol=symbol, start_ms=start_ms, end_ms=end_ms,
+            ),
+            acc,
         )
     except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the row (error + result=null), logged
         err = f"{type(exc).__name__}: {exc}"
