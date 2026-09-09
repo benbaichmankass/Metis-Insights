@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T10:54:00Z",
+  "updated_at": "2026-09-09T11:28:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2838,6 +2838,17 @@
       "tier": "tier_2",
       "added": "2026-09-09",
       "note": "OPERATOR DECISION 2026-09-09T10:44Z VIA POPUP — chose \"Fix it next\" over \"Fix it inside #11530\" and over \"Leave it filed\". So it is a SEPARATE PR, started once #11530 lands; do NOT widen #11530 to include it. ⚠️ THIS IS THE SAFETY NET UNDER #11530, WHICH IS WHY IT IS HIGH. The argument for letting the bot go quiet while the prop book is flat is 'sizing will hard-refuse on a stale balance' — and that refusal currently reaches NOBODY. coordinator.py's sizing branch calls log_rejection_to_journal + logger; the operator-facing _emit_execution_failure_ping sits on the LATER execute_pkg branch and is never reached. A prop account blocked by a stale balance therefore stops trading silently. MEASURED POPULATION, and quote it WITH its limit: /api/diag/journal?table=order_packages&limit=1000 (the endpoint max) spanning 2026-08-05T03:14:04Z → 2026-09-09T09:48:28Z, 77 rows mentioning breakout, 4 carrying prop_balance/sizing_failed — all on 2026-08-11 and 2026-08-13, none since. THOSE 4 ARE THE POSITIVE CONTROL, so 'none since' is a real zero; the 1000-row cap is the limit of that measurement and is NOT a lifetime count. Tier-2 (it changes what reaches the operator's channel): declare `hold` and bring the diff back for one OK. The backlog row for this is filed by the lane IN #11530 and is therefore NOT YET on main — cite the PR, not an id, until it lands."
+    },
+    {
+      "id": "MI-221-BYBIT2-ETH-PHANTOM-CLOSE-UNPROTECTED",
+      "title": "P1 REAL MONEY: bybit_2 ETHUSDT 0.04 long is live and unprotected while journal 5471 records it closed on `sl`, and no reader can see it",
+      "state": "in_flight",
+      "owner": "session_01CwHNLSX6gMjPoKUWHoYj7q",
+      "owns_object": "WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE-LEFT-A-REAL-MONEY-POSITION-UNPROTECTED-AND-INVISIBLE",
+      "priority": "critical",
+      "tier": "tier_1 — the INVESTIGATION is reads-only; any order-path remediation is Tier-2/3 and operator-gated",
+      "added": "2026-09-09",
+      "note": "OPERATOR-REPORTED 2026-09-09 from the Bybit terminal: ETHUSDT Perp, isolated 3x, 0.04 ETH, entry 2453.97, '+ Add' in the TP/SL column — NO STOP, NO TARGET — beside XRPUSDT 58.5 @ 1.4121 which DOES carry 1.5535/1.3463. Operator confirms they did NOT open it manually. MEASURED BY THE MANAGER 2026-09-09 11:18-11:24Z: (1) the XRP row matches bybit_2 (REAL MONEY) exactly and no other account holds XRP 58.5 @ 1.4121, so the terminal view is bybit_2; (2) journal trade 5471 is bybit_2/ETHUSDT/long/size 0.04, opened 2026-09-04T14:04:14, stop_loss 2451.59428571, status CLOSED, exit_reason 'sl' — size and side match the venue, so THE JOURNAL BELIEVES THE STOP FIRED AND THE VENUE STILL HOLDS THE POSITION; (3) bybit_2's only OPEN journal row is 5474 XRPUSDT; (4) /api/diag/exchange_positions?account_id=bybit_2 returns XRPUSDT ONLY, read twice; (5) /api/diag/bybit_open_orders?account_id=bybit_2 returns XRPUSDT only, order_symbols_cross_checked [\"XRPUSDT\"]; (6) ETHUSDT IS in bybit_2.symbols on the live /api/bot/config, so this is NOT a roster-scope explanation. UNPROTECTED ON REAL MONEY FOR FIVE DAYS. ⚠️ THE DANGEROUS PROPERTY IS NOT THAT PROTECTION FAILED — IT IS THAT THE POSITION IS INVISIBLE TO THE THING THAT PROTECTS IT. The journal says closed, so no naked sweep considers it, no reconciler adopts it, and it reaches no operator surface. It was found only because a human looked at the exchange. Any fix that re-arms a stop without explaining the invisibility has fixed nothing. ⚠️ NOT ESTABLISHED, and the session must report the RAW get_positions response to settle it: account_open_positions calls client.get_positions(category=..., settleCoin='USDT'), which is NOT journal-scoped and should return every USDT position. It does not. Either the venue is not returning it to this API key (a different UID/sub-account) or the bot drops it after the read. ⚠️ A THIRD DEFECT FOUND EN ROUTE, TO BE FILED WHATEVER THE CAUSE HERE: account_open_positions' bybit branch dedupes by SYMBOL (`if sym in seen: return`) and emits no position_idx, so under HEDGE mode — armed on bybit_2/ETHUSDT — a symbol with two non-zero books reports only the first and silently drops the second. Same family as BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED. ⚠️ PROTECTING THE POSITION IS THE OPERATOR'S ACTION AND THEY HAVE BEEN TOLD. The manager placed no order and the session is barred from the order path: the existing re-arm path is itself under suspicion."
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
