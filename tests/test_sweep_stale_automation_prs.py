@@ -130,6 +130,73 @@ def test_stale_register_plus_unread_ping_is_not_superseded(repo: Path) -> None:
     assert "+1 row(s) not on main" in entry["why"]
 
 
+def test_an_append_only_carrier_whose_register_is_NEWER_is_refreshed(
+        repo: Path) -> None:
+    """⚠️ THE SECOND MOTIVATING MISTAKE, and it is the mirror of the first.
+
+    `carries_append_only` exists so a PR holding an unread operator ping is
+    never CLOSED as cleanly superseded. It used to short-circuit the whole
+    classification, which also blocked the REFRESH -- and refreshing is the act
+    that LANDS those rows on `main`. So the safety property stranded exactly the
+    PRs whose rows most needed to arrive.
+
+    MEASURED 2026-09-09, population = the 49 open `automation/*` PRs: all TEN
+    open work-digest PRs graded `carries_append_only`, because a work digest
+    always queues a ping row -- so the sweeper could never refresh a work-digest
+    PR, and `check_digest_liveness` (6h) is the TIGHTEST repo-wide receipt
+    guard, carried by precisely that class.
+    """
+    _branch(repo, "automation/digest", {
+        "reg.json": json.dumps(
+            {"generated_at": "2026-09-09T13:00:00Z", "v": "new"}) + "\n",
+        "docs/claude/pending-pings.jsonl": '{"t":"a"}\n{"t":"z"}\n',
+    })
+    holders = sweep.newest_by_path([{"number": 1, "ref": "automation/digest"}],
+                                   "main", cwd=repo)
+    entry = _classify(repo, 1, "automation/digest", holders)
+    assert entry["state"] == sweep.REFRESH, (
+        "an append-only carrier whose register is NEWER must be refreshable — "
+        "landing is how the rows reach main, and refusing strands the digest"
+    )
+    assert entry["state"] in sweep.ACTIONABLE
+    assert "+1 row(s) not on main" in entry["why"], (
+        "the append fact must still be REPORTED, just not used to refuse"
+    )
+
+
+def test_the_append_override_can_never_make_a_pr_actionable(repo: Path) -> None:
+    """One-directional: it moves a PR toward `a human must look`, never toward
+    actionable, and it must not fire on REFRESH."""
+    src = MODULE.read_text(encoding="utf-8")
+    body = src.split("def classify(")[1].split("\ndef ")[0]
+    assert 'if append_note and state != REFRESH:' in body, (
+        "the append annotation must be applied AFTER the register verdict and "
+        "must exempt REFRESH — otherwise the digest carrier can never land"
+    )
+    # and the older-before-newer ordering that stops a partial rewind
+    assert body.index('buckets["older"]:') < body.index('elif buckets["newer"]:'), (
+        "a PR carrying one newer and one older payload must not be refreshed "
+        "into a partial REWIND"
+    )
+
+
+def test_an_append_only_carrier_whose_register_is_OLDER_still_refuses(
+        repo: Path) -> None:
+    """The first motivating mistake must stay fixed: older register + unread
+    ping is NOT cleanly superseded and is NOT actionable."""
+    _branch(repo, "automation/stale-digest", {
+        "reg.json": json.dumps(
+            {"generated_at": "2026-09-09T11:00:00Z", "v": "old"}) + "\n",
+        "docs/claude/pending-pings.jsonl": '{"t":"a"}\n{"t":"z"}\n',
+    })
+    entry = _classify(repo, 1, "automation/stale-digest")
+    assert entry["state"] == sweep.CARRIES_APPEND_ONLY
+    assert entry["state"] not in sweep.ACTIONABLE
+    assert "REWIND" in entry["why"], (
+        "the register reason must survive the override, not be replaced by it"
+    )
+
+
 def test_an_undated_payload_is_reported_not_guessed(repo: Path) -> None:
     """`we could not tell` must never render as `safe`."""
     _branch(repo, "automation/undated",

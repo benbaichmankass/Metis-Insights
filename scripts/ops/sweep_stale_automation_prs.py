@@ -280,13 +280,33 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
         else:
             buckets["undated"].append(path)
 
-    # ORDER MATTERS. The states that mean "a human must look" are tested FIRST,
-    # so a PR that is superseded on its register but still carries an unread
-    # ping is never filed as cleanly superseded. That precedence is the whole
-    # correction described in this module's docstring.
-    if buckets["append_only"]:
-        state, why = CARRIES_APPEND_ONLY, "; ".join(buckets["append_only"])
-    elif buckets["absent"]:
+    # ORDER MATTERS, AND IT CHANGED ON 2026-09-09 AFTER A MEASUREMENT.
+    #
+    # ⚠️ `carries_append_only` USED TO SHORT-CIRCUIT EVERYTHING, AND THAT WAS
+    # BACKWARDS ON THE REFRESH PATH. Its purpose is that a PR carrying an unread
+    # operator ping must never be CLOSED as cleanly superseded -- the motivating
+    # mistake in this module's docstring. But it was also blocking the REFRESH,
+    # and refreshing is the act that LANDS those rows on `main`. So the safety
+    # property was stranding exactly the PRs whose rows most needed to arrive.
+    #
+    # MEASURED, population = the 49 open `automation/*` PRs at 2026-09-09T14:18Z:
+    # ALL TEN open work-digest PRs graded `carries_append_only`, because a work
+    # digest ALWAYS queues a ping row. So the sweeper could NEVER refresh a
+    # work-digest PR -- and `check_digest_liveness` (6h) is the TIGHTEST
+    # repo-wide receipt guard, carried by precisely that class. The one
+    # mechanism built to keep those clocks alive was structurally unable to
+    # touch the tightest one.
+    #
+    # It is now an ANNOTATION that forbids CLOSING (which this file never does
+    # anyway) and does NOT forbid landing. The register verdict decides, and the
+    # append fact rides along in `why`.
+    #
+    # `older` is asked BEFORE `newer` so a PR carrying one of each cannot be
+    # refreshed into a partial REWIND. (Measured the same read: 0 of 49 PRs mix
+    # the two today, so this costs nothing now and closes the hole before it is
+    # reachable.)
+    append_note = "; ".join(buckets["append_only"])
+    if buckets["absent"]:
         state, why = ABSENT_ON_MAIN, (
             f"{len(buckets['absent'])} payload file(s) do NOT EXIST on main, so "
             f"this PR is their only copy — a point-in-time capture is "
@@ -297,6 +317,10 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
             f"{len(buckets['undated'])} payload file(s) differ from main with no "
             f"comparable timestamp — newer/older COULD NOT BE DETERMINED: "
             + ", ".join(buckets["undated"][:3]))
+    elif buckets["older"]:
+        state, why = SUPERSEDED_OLDER, (
+            f"{len(buckets['older'])} payload file(s) OLDER than main's — "
+            f"landing this would REWIND main: " + ", ".join(buckets["older"][:3]))
     elif buckets["newer"]:
         beaten = [(p, newest_holder[p]) for p in buckets["newer"]
                   if newest_holder.get(p, pr["number"]) != pr["number"]]
@@ -308,16 +332,24 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
             why = (f"{len(buckets['newer'])} payload file(s) newer than main's "
                    f"and newest among the open set: "
                    + ", ".join(buckets["newer"][:3]))
-    elif buckets["older"]:
-        state, why = SUPERSEDED_OLDER, (
-            f"{len(buckets['older'])} payload file(s) OLDER than main's — "
-            f"landing this would REWIND main: " + ", ".join(buckets["older"][:3]))
+            if append_note:
+                why += (f" — and it LANDS append-only rows main lacks, which is "
+                        f"the point: {append_note}")
     elif buckets["same"]:
         state, why = SUPERSEDED_IDENTICAL, (
             f"all {len(buckets['same'])} payload file(s) already byte-identical "
             f"on main")
     else:
         state, why = NO_PAYLOAD, "only arming files and the R13 slot claim"
+
+    # ⚠️ THE OVERRIDE IS ONE-DIRECTIONAL. It can only move a PR OUT of a
+    # closable/quiet verdict into "a human must look" — it can never make one
+    # actionable, and it deliberately does NOT fire on REFRESH, because landing
+    # is how the rows reach `main`.
+    if append_note and state != REFRESH:
+        state = CARRIES_APPEND_ONLY
+        why = f"{append_note} — {why}"
+
     return {"pr": pr["number"], "ref": pr["ref"], "state": state, "why": why,
             "files": files}
 
