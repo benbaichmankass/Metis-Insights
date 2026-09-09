@@ -43,7 +43,46 @@
   "as_of": "2026-09-08T14:22:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [],
+  "open_prs": [
+    {
+      "pr": 11514,
+      "title": "MI-209c: why the partial-close producer has never fired — routed to zero accounts",
+      "owner_session": "session_012kfL8m9T7xW3XkAv71To27",
+      "checklist_item": "MI-211-LANE-2-PARTIAL-CLOSE-NEVER-FIRED",
+      "tier": "tier_1",
+      "state": "green_awaiting_self_land",
+      "draft": false,
+      "opened_at": "2026-09-09T07:55:50Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 measurement only — one research script and one evidence doc. No src/, config/, deploy/ or order path; every read a GET. §6 names a Tier-3 SHAPE and proposes no value, so it is an option and not a decision put to anyone.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. No operator was asked and none needs to be: the PR arms nothing. Recorded by the manager, NOT quoting the operator — this `text` is the absence of a decision, not a decision."
+      },
+      "note": "MEASUREMENT ONLY — no lever armed, no cell re-graded, no leg retired, every read a GET. Self-landing (declared_self_land); CI was still running at 09:14Z. ⚠️ A SUCCESSOR MUST NOT READ §6 AS A PENDING OPERATOR DECISION: it is an OPTION, not a question, and it BLOCKS NOTHING. Its own recommendation is a NULL — stop, do not build on the partial-close path. If the operator ever wants partial banking live, §6 names the SHAPE only (declare a TP1 rung on a leg already running on bybit with excursion data) and deliberately proposes NO VALUE; it is Tier-3 and needs its own offline backtest gate. It explicitly does NOT re-route turtle_soup — reviving a deliberately demoted money-loser to exercise a mechanism was considered and rejected. Standing prohibitions restated intact in §6: be_floor_r stays DECIDED as NONE, ICT_SCALP_EXIT_HEAD_MODE unarmed, TP_VENUE_CAP_PCT untouched, no exit-matrix cell re-graded. Carries a HIGH finding worth routing, filed by lane 2 IN THIS PR and therefore NOT YET on main — cite the PR, not an id, until it lands: 12 live rows still serve peak_r = -1e18 with NO backfill while the parent row reads resolved, so a MIN/AVG over that column today is FABRICATED. The write-path fix landed 2026-09-08 (e1d24f6); the data was never repaired. A resolved row over unresolved data is worse than an open one."
+    },
+    {
+      "pr": 11519,
+      "title": "WO-20260909: an automation PR has no owner after its producing run exits — the class, not the one red",
+      "owner_session": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+      "checklist_item": "MI-212-LANE-4-STALE-AUTOMATION-LANDING",
+      "tier": "tier_1",
+      "state": "draft_held",
+      "draft": true,
+      "opened_at": "2026-09-09T08:27:24Z",
+      "blocker": "held as draft by the manager — the sweeper it proposes acts on 51 open automation PRs at once and has not been reviewed for blast radius",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 — the draft hold is the MANAGER's, pending a blast-radius read of the sweeper across ~25 open automation PRs. No operator approval was sought for the hold and none is owed.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
+      },
+      "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
+    }
+  ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -1853,6 +1892,6 @@
   ],
   "last_reconciled_at": "2026-09-09T08:58:05Z",
   "last_reconciled_sha": "284cbc6cfab55cd4aeff0a059b070607b0041594",
-  "updated_at": "2026-09-08T08:30:00Z",
-  "updated_by": "session_01GYsNAhP6SpKe1vyn2tBc94"
+  "updated_at": "2026-09-09T09:17:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

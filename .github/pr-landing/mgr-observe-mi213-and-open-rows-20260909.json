@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: MI-213 landed_unproven -> done on an observed 401 with a positive control; restores open-PR ownership rows for the two session PRs with typed not_required decisions; files MI-214 from operator feedback on the prop status-request trigger. Plus the R13 merge_slot claim naming this branch. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
