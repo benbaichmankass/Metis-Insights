@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01CwHNLSX6gMjPoKUWHoYj7q",
-  "branch": "claude/mi-221-rows0-ordering",
-  "claimed_at": "2026-09-09T13:34:38Z",
-  "purpose": "MI-221 follow-up: section 13 (what rows[0] actually returns) + the same measurement spliced into OI-20260908's observation. Tier-1, landing: self. DISPLACES a SPENT claim, recorded not erased: session_01KSZCUtFKze3k7ZvxnTnD4T on claude/mi218-closeout, whose PR #11553 is MERGED to main as 3a19593b4 — verified in the log, not assumed. Per check_pr_landing.py R13's own docstring this field does not serialize, so displacing it holds no one up; R13 REQUIRES the arming branch to carry it. ⚠️ FOURTH consecutive claim in ~2h that had to displace a stale holder (two github-actions[bot] runs at 11:08:18Z and 11:21:57Z whose branches are gone, then mi218 twice). Carried forward rather than quietly re-taken; it is a pattern someone should measure."
+  "branch": "claude/mi-221-exhaustive-bybit-sweep",
+  "claimed_at": "2026-09-09T13:50:08Z",
+  "purpose": "MI-221 URGENT (PR #11555) — widen /api/diag/bybit_raw_positions to a genuine exhaustive sweep: baseCoin per base, all four categories, settleCoin USDC as well as USDT, nextPageCursor followed, plus the raw wallet block for the filter-independent margin check. Tier-1 read-only; no production reader changes and no order path is touched. Operator is looking at a real-money ETHUSDT position no read in this system returns."
  },
  "active_sessions": [
   {
