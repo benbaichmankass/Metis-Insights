@@ -1,0 +1,2 @@
+Tier-1 manager register write: correct the venue-truth work object's refuted
+premise. PR #11583, opened by hand FIRST so a real pull_request event fires.
