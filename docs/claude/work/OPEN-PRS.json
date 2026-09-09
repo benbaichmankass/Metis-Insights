@@ -100,6 +100,25 @@
         "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
       },
       "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's."
+    },
+    {
+      "pr": 11530,
+      "title": "Prop status-request: trigger on activity, not the wall clock (MI-214, Tier-2, HELD)",
+      "owner_session": "session_01FoASvmUGuahCphE1cewPPs",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
+      "tier": "tier_2",
+      "state": "held_awaiting_operator",
+      "draft": true,
+      "opened_at": "2026-09-09T10:12:05Z",
+      "blocker": "Tier-2 operator OK. The diff is in src/prop/ and changes WHEN the operator receives a ping, so it must not self-land. Auto-merge is NOT armed and NO merge slot is claimed (R4 forbids landing:self on tier 2; arming while holding fails R13).",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": "The operator ASKED for the behaviour change in conversation but has NOT been shown or approved this diff. ⚠️ AN ASK TO CHANGE THE TRIGGER IS NOT AN OK TO SHIP IT UNREAD, and a successor must not read the quoted complaint as an approval — that is exactly the half-informed case this file exists to prevent. What is approved: nothing. What is asked for: that the ping stop firing when nothing has happened.",
+        "decided_on": null,
+        "text": "Operator, 2026-09-09, verbatim and complete: \"This ping in the prop channel is unessacry, the account snapshot is updated when a trade closes, if there are no prop trades than the account state didn't change\". That is the whole of what was said. No condition, no scope and no approval to merge were given, because merging was never put to them."
+      },
+      "note": "⚠️ WHAT A REVIEWER MUST ACTUALLY DECIDE IS ONE CLAIM, NOT THE DIFF SIZE: this change makes the bot go QUIET about a stale prop balance while the book is FLAT. That is safe only if a stale snapshot cannot hide a SHRINKING cushion, and the argument is that prop_reconcile.reconstruct_equity is ASYMMETRIC BY DESIGN — an unplaceable LOSS is always applied, an unplaceable GAIN is withheld and counted — so a REPORTED fill can only ever make the cushion conservative, never optimistic. If you disagree with that, this should not land. || NEITHER PROHIBITED MOVE WAS MADE: the pre-2026-08-14 flat bail is NOT restored (Tier-2 operator-approved, protects the account-level $4,700 static DD floor which binds while flat), and PROP_STATUS_REQUEST_MAX_AGE_HOURS is NOT changed (four consumers share it, including prop_balance.max_age_hours()'s SIZING gate). || ⚠️ THE PREMISE THE OPERATOR GAVE IS HALF FALSE AND IT IS RECORDED THAT WAY, not softened: MEASURED 2026-09-09T09:54Z via /api/bot/prop/fills?limit=500 and /api/bot/prop/status, breakout_1's newest snapshot is id 19 at 2026-08-30T19:33:29Z and its newest fill is id 41 at 2026-08-30T19:39:00Z — the last close is 5.5 minutes NEWER than the snapshot it supposedly produced, so a close PROMPTS a snapshot and never guarantees one. The conclusion holds anyway: 0 fills in the 230h since, 0 open positions, 0 unacted tickets, positive control 41 fills lifetime. || ⚠️ THE OBJECT CARRIES AN UNRESOLVED DIVERGENCE FROM ITS OWN done_condition, raised not buried: clause (a) says the ask must still fire on ANY fill since the snapshot; #11530 deliberately does NOT implement that, because fill 41 postdates the snapshot and clause (a) would therefore STILL FIRE on breakout_1 today and would not have silenced the ping the operator complained about. See divergence_from_done_condition in the work object. A ruling is wanted; it is a one-line change either way. || RESIDUAL FILED NOT FIXED: BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED — going quiet while flat is only safe because sizing hard-refuses on a stale balance, and that refusal reaches nobody."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
