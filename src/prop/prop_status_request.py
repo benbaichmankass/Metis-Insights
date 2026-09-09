@@ -21,7 +21,7 @@ else**, so an account nothing had touched was indistinguishable from one that
 moved and was never reported. The operator was pinged about ``breakout_1`` with
 **no open position** and a **230h** snapshot and said, correctly:
 
-    "This ping in the prop channel is unnecessary, the account snapshot is
+    "This ping in the prop channel is unessacry, the account snapshot is
     updated when a trade closes, if there are no prop trades than the account
     state didn't change"
 
