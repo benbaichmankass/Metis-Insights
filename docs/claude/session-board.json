@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01FoASvmUGuahCphE1cewPPs",
-  "branch": "claude/mi214-suppression-observed",
-  "claimed_at": "2026-09-09T23:04:31Z",
-  "purpose": "MI-214 suppression observation (Tier-1 registers)"
+  "branch": "claude/mi214-claude-md-reaches-nobody",
+  "claimed_at": "2026-09-09T23:27:58Z",
+  "purpose": "MI-214 session-end doc-freshness (Tier-1, CLAUDE.md one-sentence correction)"
  },
  "active_sessions": [
   {
