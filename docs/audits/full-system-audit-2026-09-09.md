@@ -982,17 +982,383 @@ Phase 0c requires treating every dated claim older than the last deploy as unver
 
 ---
 
-## Coverage contract (Phase 1) — updated as the program runs
+## Phase 3.4 — OUTCOME. Did it deliver what its design promised?
 
-**Behavioral coverage (primary):** _in progress — see the BEHAVIOR axis._
-**Reading coverage (secondary, honest):** _in progress; what was NOT reached will be stated explicitly._
+*Conformance asks "is it built as specified?". Liveness asks "does it run?". **Neither asks
+whether it WORKED.*** Promises were recovered verbatim from ROADMAP rows, design docs and the
+A/Bs that gated them, then measured over history on the population the promise was about.
 
-## Phase 3.10 — system-review coverage ledger
+### OUTCOME LEDGER
 
-| item | CITED / RE-ESTABLISHED | where |
+| subsystem | the promise (quoted) | population (n) | **grade** |
+|---|---|---|---|
+| **M20 exit-loop decouple** | *"no live trade goes >60 s without evaluation"* | 989 intervals, 12 processes, 8.3 h + the breach latch | 🔴 **HARMED** |
+| **M22 pairs sleeve** | *"OOS win 58–60%… all 4 pairs robustly net-positive, fee-insensitive"* | 361 closed `pairs_*`, 55 d; win-rate stratum n=216 | 🔴 **HARMED** |
+| **M28 macro/value thesis** | ran → **NULL**; *"Value construction is **closed**"* | 1000 soak rows / 8.4 d; **0 placements lifetime** | 🔴 **no measurable effect — REMOVAL CANDIDATE** |
+| **FLIP_POLICY=hold** | *"under `hold` always 0"* flips | **267** opposing-side conflicts, 6 accounts, 51 d | ✅ **DELIVERED** — 267/267 suppressed, **0 flips** |
+| **Netting attribution reconciler** | close the *"451× SOLUSDT"* divergence | 3 readable Bybit keys, live | ✅ **DELIVERED** — all at **1.00×** |
+| **CANDLE_CACHE_TTL_MAX_S=300** | hit rate *"21.5% → 41.5%"* | tick_cost, n=4 (weak) | ✅ delivered — **57.4%**; `fetch.1d` still no hits, matching the documented arithmetic |
+| **IB_PROBE_CACHE_S** | remove a probe tax *"21.9% of wall clock"* | exit pass mean 2921 ms vs 28852 pre-fix | ⚠️ **delivered but ERODING** — max pass 19481 → **34691.6 ms**, which is what drives the M20 breach |
+| **Design-A regime vol gate** | *"the ML label beats the frozen label **decisively** — $424 vs $59"* | 488 hard-gate events since go-live; **41** vol-axis; **12** ML-attributable | ⚠️ **not yet measurable** |
+| **CONVICTION_SIZING reductive** | *"widening pending a clean cross-symbol maxDD win at solid n"* | 186 apply rows, 36 d | ⚠️ **not yet measurable** — see F-50 |
+| **e35 bracket geometry** | a real-money trade *opened* post-deploy with `cap_r > tp_r` | 44 legs declare `tp_r`; **31 still carry the `tp_r: 50` sentinel** | ⚠️ not yet measurable — **but the eligible set widened from 3 legs to 13, so it is now REACHABLE; it was not before** |
+| **Prop manual bridge** | — | `breakout_1` → `positions: null` | ⚠️ **NOT GRADED — unread, not flat** |
+
+### F-50 · `AUD-20260909-m20-exit-eval-margin-collapsed-and-the-promise-was-already-broken` — 🔴 **HARMED, money-at-risk**
+
+- **claim:** The M20 promise was **broken on 2026-09-07**, and today's worst interval clears it by **48.8 ms**. The distribution *body* is unchanged since 2026-08-25 — **only the tail moved** — so the 15.0 s of margin `CLAUDE.md` records is gone while every instrument still reads `within` / `interval_breaches: 0`.
+- **evidence:**
+  ```
+  exit_interval_soak, n=989 intervals, 12 processes, 2026-09-09T08:36:14Z -> 16:54:41Z
+    mean 29880.6 · median 29993.1 · p95 34886.9 · MAX 59951.2      over_requirement: 0 of 1000
+  MAX ROW: interval_ms 59951.2, pass_ms 31399.1, requirement_s 60.0, over_requirement false
+
+  exit_loop_health_alert_state:
+    {"stale": false, "requirement_breach_process": "2026-09-07T22:48:54.737905+00:00"}
+  ```
+  `exit_loop_health.py:507-519` writes that field **only** when `requirement_state == "breached"` fires the alert — **so the 2026-09-07 breach is recorded fact, not inference.**
+  Mechanism, by arithmetic from the row's own neighbours: `interval = (cadence − prev_pass) + cur_pass`, so the requirement breaks whenever a pass is >30 s slower than the one before it. Here `prev=1448.9 ms, cur=31399.1 ms → Δ=29950.2 ms` — **it missed by 49.8 ms.** One row in the window (`pass_ms 34691.6`) **would have produced a 63,050 ms interval** had it followed a median pass.
+- **expected vs actual:** **Expected** (CLAUDE.md, 2026-08-25, n=991 / 10 processes / 8.3 h): `MAX 45034 ms`, *"15.0 s of margin"*, pass `2222 ms mean / 19481 ms max`. **Actual** (today, n=989 / 12 processes / 8.3 h — **same window shape**): `MAX 59951.2 ms`, margin **48.8 ms**, pass `2921.4 ms mean / 34691.6 ms max`. Body: mean 29879→29880.6, median 29970→29993.1 — **unmoved**.
+- **detector:** `exit_loop_health` grades a **binary** `over_requirement` at a strict threshold, which cannot see a 48.8 ms miss. Add a **near-miss band** (`max_interval_ms / requirement_ms ≥ 0.9` → WARN, distinct from `breached`), and **grade the RESTART GAP** (last pass of process *N* → first pass of *N+1*) against the same requirement — it is the one interval the promise covers and the instrument **excludes by construction**. *(Those 11 gaps were measured separately today: 25.3–53.9 s, 0 of 11 over 60 s, 1.3% of wall clock — clean, but unwatched.)*
+- **tier:** 2 · **disposition:** proposed
+
+### F-51 · `AUD-20260909-the-exit-eval-breach-history-is-uncountable` — third instance of a named class
+
+- **claim:** How many times the 60 s promise has been broken **cannot be established from any repo-reachable surface**.
+- **evidence:** The only durable record is a **124-byte latch that overwrites in place** and holds one process id. `/api/bot/logs?level=error&limit=1000` → **113 rows, NOT truncated**, spanning 2026-08-26 → 2026-09-09 (so it covers the breach date; 7 rows exist on 2026-09-07) — and **rows containing `"EXIT-EVAL"`: 0**. `exit_loop_health.py:439-451` `_send()` calls `send_telegram_direct` + `publish_event(WARNING)` and **never writes `outcomes.jsonl`**, which is the feed behind `/api/bot/logs`. The soak is 17.7 MB against a 1000-line read cap ≈ 8.3 h, so 2026-09-07 is unreachable through it.
+- ⚠️ **This is the IDENTICAL delivery defect `CLAUDE.md` already documents twice** (`ib_stop_over_cover`, `bybit_over_cover`) — which is precisely why *those two* appear in the ERROR feed above and this one does not. **Third instance of the class.**
+- **detector:** route the breach through `outcomes.jsonl` like every other page, and emit a **durable per-breach row, not a latch**. **A CI check that every `_send`-style alert module also writes `outcomes.jsonl` would catch the whole class.**
+- **tier:** 1 · **disposition:** proposed
+
+### F-52 · `AUD-20260909-the-conviction-soak-cannot-settle-the-gate-it-was-armed-for`
+
+- **claim:** `CONVICTION_SIZING_MODE=apply` was armed on `bybit_1` **solely to observe** whether reductive sizing cuts maxDD; 36 days and **186 applied reductions** later that question is no closer to settled, because **186 of 186 apply rows carry no `order_package_id`, `trade_id` or signal id** — a reduced size cannot be joined to the outcome it produced.
+- **evidence:** 186 apply rows, all `bybit_1`, all `applied: true`; ratio final/risk median **0.4314**. Full key list across all 186: `ts, kind, mode, direction, applied, strategy, symbol, account, conviction, risk_based_qty, final_qty, daily_loss_clamp, decision` — **IDENTIFIER-LIKE KEYS: NONE.** A best-effort heuristic join (same symbol, qty within 2%, ±300 s) recovers only **43 of 186 = 23.1%**, at **16.3% measured** provenance.
+- **expected vs actual:** **Expected**, from C1's own verdict (**PARTIAL**): *"supports **observing** reductive conviction live on the demo book… widening remains a Tier-3 gate, pending a clean cross-symbol maxDD win at solid n."* **Actual** — the observation channel emits no key that can reach an outcome; **77% of applied reductions are unattributable to any trade.** ⚠️ On the 43-row heuristic join the *direction* is right (maxDD −26,777 → −9,440) but **SOL — the symbol C1 actually failed on — is not separable**, so the join cannot answer the question that matters.
+- **detector:** add `order_package_id` to the apply row, plus a check that **every `*_soak` row whose purpose is to gate a Tier-3 decision carries a join key to `trades`/`order_packages`** — the `provenance-consumer-guard` shape: *a signal written and never joinable is a signal never read.*
+- **tier:** 1 · **disposition:** proposed
+
+### F-53 · `AUD-20260909-pairs-sleeve-live-winrate-is-14pp-below-its-oos-promise` — 🔴 HARMED
+
+- **claim:** The M22 pairs sleeve — placed on `bybit_1` paper **specifically to soak live-vs-backtest** — has run 55 days and 361 closed trades at a **44.0% win rate against a promised OOS 58–60%**, and only **5 of 361 (1.4%)** of its closes carry `measured` provenance, so its dollar claim is ungradeable from its own book.
+- **evidence:**
+  ```
+  361 closed pairs_* on bybit_1, 2026-07-17 -> 2026-09-09
+    provenance: estimated 211 · unverified 115 · fabricated 27 · measured 5 · none 3
+    ALL                                n=358  win 45.5%
+    non-fabricated (measured+estimated) n=216  win 44.0%     <- the honest stratum
+    MEASURED only                       n=  5  win 60.0%     <- far below any usable floor
+    pairs_sol_eth_a 43.5% · _b 42.5% · pairs_bnb_btc_a 43.8% · _b 47.6%
+  /api/bot/performance demo block: pairs_revert n=93 cov 0.000 · pairs_stop n=80 cov 0.000
+    · pairs_half_open_cleanup n=62 cov 0.000 · pairs_timeout n=2 cov 0.000
+    TOTAL 237 closed, MEASURED pnl count = 0
+  ```
+  ⚠️ **The M39 stamp (2026-08-25) DID land and DID work** — before it: 107 unverified + 27 fabricated of 189; after: 159 estimated + 5 measured + 8 unverified of 172. **It converted *unverified* into *estimated*; it did not make the sleeve read a broker fill.**
+- **expected vs actual:** **Expected** (`ROADMAP.md` M22, verbatim): *"all 4 pairs robustly net-positive, **fee-insensitive** … **OOS-validated on held-out 2025-26** with NO expectancy decay (OOS win **58-60%**, OOS maxDD 6-15R)."* **Actual** — **44.0%** on n=216, **14–16 pp below the OOS floor**, on the two pairs selected *because* they had positive fee-free edge.
+- ⚠️ **Caveat stated rather than hidden:** the win rate is the sign of an *estimated* exit price for 211 of the 216, so it inherits the bar-anchored estimate. **Dollar totals are deliberately NOT quoted — coverage is 1.4%.**
+- **detector:** a standing check that a sleeve under an explicit *"soak live == backtest"* mandate reports its live statistic **against the quoted OOS statistic**, and **fails when `pnlCoverage == 0.0` across every one of its exit paths** — a soak whose entire book is unmeasured cannot discharge a soak mandate.
+- **tier:** 1 to measure; any routing change is Tier-3 · **disposition:** proposed
+
+### F-54 · `AUD-20260909-the-macro-thesis-tick-still-runs-44-days-after-its-program-was-closed` — **removal candidate**
+
+- **claim:** The M28 value thesis-former runs on **every live trader tick**, has placed **nothing, ever**, and re-emits the same 5 theses hourly into a 2.1 MB soak — **44 days after the repo's own roadmap graded the sleeve NULL and declared "Value construction is closed".**
+- **evidence:** `src/main.py:879-880` calls `run_macro_thesis_tick(settings)` unconditionally per tick. Soak: n=1000 tail over 8.4 days, `event: {'would_form': 1000}`, `placed: {'False': 1000}`, `exec: {'shadow': 1000}`, 5 symbols × 200, **5 rows/hour, every hour**. `/api/diag/tick_cost` has **no `pipeline.macro_thesis` entry — its cost is uninstrumented.**
+- **expected vs actual:** **Expected** (`ROADMAP.md` M28, 2026-07-27): *"RAN → **NULL**: `edge_vs_baseline −0.0047` (loses to naive all-long net-of-cost) + `calibration_rank −0.0038` … the 'value exhausted' verdict now holds under **BOTH** arbiters … **Value construction is closed**."* **Actual** — still wired into the live loop 44 days later, 0 placements in its entire life.
+- **detector:** a CI check joining `ROADMAP.md` milestone status to live tick call sites, failing when a milestone graded `NULL`/`closed` still has a hook in `src/main.py` with no recorded operator decision to keep it. Absent that, an `OPEN-ITEMS` row recording the **deliberate** decision to keep an observe-only tick after its program closed — **the point being that "closed" and "still running" must not both be true silently.**
+- **tier:** 1 (removal touches no order path) · **disposition:** proposed
+
+### F-55..F-56
+
+| id | claim |
+|---|---|
+| **F-55** `design-a-vol-gate-decides-41-intents-in-its-entire-life` | The Design-A ML vol apparatus — advisory promotions, drift monitoring, a retrain family, gate packets — has produced **41 gating decisions in the whole 73-day life of enforced vol gating**, all on **one symbol** (BTCUSDT; `trend_donchian` 38 of 41), with the ML label attributable for **12**. Meanwhile the live agreement log the A/B **nominated as its evidence channel** is **89.6% ungradeable**: `agree: {None 896, True 67, False 37}`, because the frozen detector itself returns `unknown` **84.4%** of the time. **Population: 488 `regime_hard_gate` events paged to exhaustion.** ⚠️ *The gate is verifiably ENFORCING (`enforced: true` on 1000/1000) — whether its OFF-cells earned their keep is the separate question, and it has no live instrument.* **Detector:** make `agree: None` a **counted** state with a declared floor, so *"the agreement log is accruing"* can never be reported as *"the agreement log is evidence"*. |
+| **F-56** `alpaca-portfolio-tlt-open-27h-against-a-READABLE-venue` | Journal trade 5557 has been open **27.6 h** holding 75 TLT on `alpaca_portfolio` while the venue — **read successfully, twice, 74 s apart** — does not hold it. `RECONCILER_SNAPSHOT_MIN_FILL_AGE_S` is 300 s and the confirm rides 60 s, so it should have closed in minutes. ⚠️ **Read-state discipline is the whole finding:** `ib_paper`/`ib_live`/`oanda_practice`/`breakout_1` returned `positions: null` — *we did not look* — and are **excluded**; `alpaca_portfolio` returned a populated list of 6 symbols, **so its silence on TLT is a genuine negative**. Full sweep: 22 (account,symbol) keys, 19 readable, **18 agree at exactly 1.00×, 1 divergent**. **Detector:** a divergence check that runs **only** on accounts whose `positions` read is non-`null` — the `null`-vs-`[]` distinction is load-bearing. |
+
+---
+
+## Phase 3.8 — RECURRENCE. *Why do we keep finding the same bugs?*
+
+**The headline: the repo's anti-recurrence machinery is built, armed, and structurally unable to see its own history.** Recurrence is *prevented* case-by-case by 5 ledger classes with real guards. It is *detected* by nothing.
+
+### F-57 · `AUD-20260909-the-detector-field-the-skill-calls-mandatory-exists-on-3-of-1630-rows`
+
+- **claim:** The `detector` field Phase 4 of the audit skill declares mandatory (*"Every finding carries its `detector`. **No exceptions.**"*) is populated on **3 of 1630** backlog rows, so the schema that would make recurrence mechanically detectable does not exist in the data.
+- **evidence:** `health 3/1388 · performance 0/114 · ml 0/109 · research 0/19`. Rows carrying the FULL schema (`id`,`status`,`severity`,`tier`,`resolution_criteria`,`detector`): **3 of 1630 = 0.18%**. Missing: `severity` 332 · `tier` 135 · `resolution_criteria` 243 · `detector` **1627**.
+- **detector:** extend `backlog_append.py::append_row` to **REFUSE a row whose `status` is `resolved` unless `detector` is non-empty** (free text *"no detector possible because X"* counts). **The append path is already the single chokepoint and already refuses duplicates — this is one more refusal at a seam that exists.**
+- **tier:** 1
+
+### F-58 · `AUD-20260909-509-of-741-resolved-findings-leave-no-named-detector` — 🔴 the treadmill, quantified
+
+- **claim:** **509 of 741 resolved findings name no test, guard, or script** in any resolution-bearing field, so nothing fails if they return.
+- **evidence:** mining `detector`/`resolution_criteria`/`resolution`/`fix`/`remediation`/`prevention` and **verifying each named artifact against disk**:
+  ```
+  backlog      resolved  named  verified  ghost  none
+  health            581    202       201      1   379
+  performance        70     16        16      0    54
+  ml                 84     10        10      0    74
+  research            6      4         4      0     2
+  TOTAL             741    232       231      1   509      -> 68.7% leave none
+  ```
+  ⚠️ The single "ghost" is a **false positive of the agent's own regex** and is reported as such, not as a finding. **Real ghosts = 0** — when this repo names a detector, it exists.
+  **94 of the 509 are severity `critical`/`high`, and 45 of those carry money-path keywords** (bracket, naked, stop, oca, pnl, fill, close, sizing).
+- **the top 5 by blast radius:** `BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG` (critical) · `BL-20260818-ICT-SCALP-HAS-NO-TAKE-PROFIT-CLOSE-PATH` (critical) · **`BL-20260816-COVERAGE-IS-ONE-SIDED` (critical) — the single documented reason this audit skill was rewritten, and *its own recurrence detector does not exist*** · `BL-20260818-ATTACH-IB-TARGET-HAS-NEVER-RUN` · `BL-20260816-IB-CANCEL-REPORTS-CANCELLED-ON-ACCEPTANCE`, **which already recurred on 2026-09-08 on Alpaca** as `cancel_accepted_ineffective` — a proven cross-venue recurrence with no detector.
+- **tier:** 1
+
+### F-59 · `AUD-20260909-the-recurrence-ledger-has-no-intake-path` — **the assertion is TRUE and VACUOUS**
+
+- **claim:** `check_recurrence_ledger.py` validates only the ledger's internal shape and **reads no backlog**, so the ledger has no intake: **85 backlog rows self-declare a recurrence and ZERO cite a ledger class.**
+- **evidence:** `grep -c backlog scripts/ci/check_recurrence_ledger.py` → 2, **both prose in the module docstring**. Strong self-declared recurrences (`RECURRENCE`/`recurred`/`happened again`/`for the second|third|fourth time`): health 82 · performance 1 · ml 2 → **85 of 1630**. Rows citing a `RECURRENCE-LEDGER` class id: **0 of 85**. Ledger classes: **5**.
+- ⚠️ **`CLAUDE.md` asserts *"Every recorded repeated-mistake class has an executable prevention."* THAT ASSERTION WAS TESTED AND IT HOLDS — 5/5 classes name a prevention, all 7 named script paths exist on disk, and all 7 are referenced in `run_guards.py`.** **It is true and vacuous.** The load-bearing word is ***recorded***: recording is manual, and nothing routes an observed recurrence into the ledger. Coverage is **5 of 85 = 5.9%**, with 0 cross-references in either direction.
+- **detector:** extend `check_recurrence_ledger.py` to read the four backlogs and FAIL when a row matching the strong-recurrence vocabulary carries no `recurrence_class`. **The guard is already registered with a self-test, so this widens a binding check rather than adding an unarmed one.**
+- **tier:** 1
+
+### F-60..F-63
+
+| id | claim |
+|---|---|
+| **F-60** `unwired-artifact-guard-is-diff-scoped-while-its-sibling-got-the-whole-tree-fix` | The whole-tree `--all` remedy applied to `diagnostic-provenance-guard` on 2026-09-02 **swept exactly one guard**. **5 of 55 guard blocks remain diff-scoped-only**, and the standing audit nothing runs currently reports **186 runnerless tools** (94 of 538 under `scripts/`, 92 of 371 under `src/`). **Detector:** add the ungated step **behind a ratchet on the current 186** so it fails on an INCREASE — a bare `--all` would red every PR on day one, which is the desensitized-alarm P1. **The ratchet number IS the detector; it cannot silently loosen the way a diff scope does.** |
+| **F-61** `eight-registered-guards-have-no-proven-failure-path` | **Extends F-05 from 4 to 8.** `check_selftest_wiring.py`'s denominator is the 28 self-tests that already exist, not the 74 registered guards — so 8 are invisible to it, **including 4 that ship a `--self-test` `run_guards.py` never invokes**, which is precisely the defect that guard was built for: `check_cost_model_single_owner`, `check_role_pack_operating_layer`, `check_tp_venue_cap_single_owner`, `check_workflow_trigger_reachability` (self-test code present, **invoked=0**), plus the 4 from F-05. ⚠️ *The agent's first pass said 9 and corrected to 8 — `check_manifest_scope_constants` is covered by NAME via `guard_selftests.py`.* |
+| **F-62** `the-uncarried-specs-instrument-is-itself-uncarried` | `scripts/ops/uncarried_specs.py` — built to detect work specified by an artifact nothing points at — is declared `manual-only`, registered in **no guard and no workflow**, and its only reference is the PR-landing record from the day it was built. It measures **102 of 123 specs (82.9%) un-carried** and reports that **to nobody**. ⚠️ **This settles `OI-20260906`'s clause (1)** — the count is now measured with a stated tier-A/B classifier over a 381-artifact denominator — **and leaves clause (2) OPEN**: the mechanism exists and *requires a session to think of it*, which is the row's own failure mode reproduced one level up. **The row was NOT cleared.** ⚠️ **The `# wiring: manual-only` marker is the gap**: it is legitimately declared, so `check_unwired_artifacts` correctly exempts it — but it obliges nobody and expires never. |
+| **F-63** `backlog-key-sprawl-worsened-while-the-status-vocabulary-was-fixed` | Half the 2026-08-20 hygiene finding was **fixed** and the other half **nearly doubled**: `status` collapsed **34 → 6** (a closed vocabulary — and it is why every count in this audit was computable), while distinct keys grew **130 → 231**. Synonym sprawl visible in the top 25 alone (`opened_at`/`opened`/`created`, `detail`/`description`, `resolution`/`resolution_note`/`resolution_criteria`), plus date-stamped per-session keys (`review_2026_08_11`). **Detector:** a closed key vocabulary in `backlog_append.py`, refusing an unrecognised top-level key without `new_key_ok=True` + a reason. **Statuses prove the pattern works — they were normalised and stayed normalised.** |
+
+### BACKLOG HYGIENE — re-measured
+
+| backlog | rows | keys | statuses | open | resolved | open>30d | open crit | open high | resolved w/ **verified-existing** detector |
+|---|---|---|---|---|---|---|---|---|---|
+| health | **1388** | 231 | 6 | 790 | 581 | 90 | 13 | 263 | 201 / 581 |
+| performance | 114 | 80 | 3 | 44 | 70 | 24 | 0 | 5 | 16 / 70 |
+| ml | 109 | 44 | 3 | 25 | 84 | 18 | 0 | 3 | 10 / 84 |
+| research | 19 | 22 | 2 | 13 | 6 | 0 | 0 | 6 | 4 / 6 |
+| **TOTAL** | **1630** | 377 | 6 (closed) | **872** | **741** | 132 | 13 | 277 | **231 / 741** |
+
+⚠️ `health-review-backlog.json` has grown from the **951** `CLAUDE.md` records to **1388** — **+437 rows**. ⚠️ 43 open health rows carry no parseable open date, so **`open>30d` is a LOWER BOUND**.
+
+### Two genuine negatives, reported as negatives with denominators
+
+*A sweep that only finds problems is not measuring.* **The `order_packages.id` class is genuinely SWEPT** — 0 declarers over 90 files, with a **positive control of 42 files** that DO match the CREATE-TABLE probe. **The one-sided-coverage class is genuinely SWEPT across all three venues** — 1 surviving occurrence of 5, and it is the documented-legitimate carve-out (`_locked_has_protective_orders`), with Alpaca's boolean carrying the same warning docstring. **Both fixes DID sweep their class — they are the template**, and `broker_bracket_reconcile` (cron + dispatch, 0 unwired) is the template for wiring.
+
+---
+
+## Phase 3.10 — THE MANDATORY SYSTEM REVIEW
+
+⚠️ **`/system-review` ran FIRST here** (MI-192B, `comms/reports/since-last/20260908T112000Z/`) and was used to scope this audit — the opposite of the skill's sequencing. **That is not a licence to skip 3.10.** Every coverage item is marked below.
+
+### `review_coverage` — all five items present
+
+| item | status | verdict |
 |---|---|---|
-| strategy promotion/demotion readiness | _pending_ | |
-| ML training-cycle + soak health | _pending_ | |
-| soak status | _pending_ | |
-| flags raised | _pending_ | |
-| backlog drive (burn-down + population) | _pending_ | |
+| **strategy_promotion** | **RE-ESTABLISHED** | Roster re-read live (`bybit_2` now 6 legs — **`ada_pullback_2h` gone, `fvg_range_15m` present**, and `ict_scalp_5m` absent, confirming the 2026-09-06 Tier-3 demote). 30 d real-money publishes **positive** expectancyR (**+0.1399**) on a **losing** book (**−$7.857**, PF 0.8989, 12/41 contaminated) → **no promote/demote off performance: that is a verdict from a broken instrument.** All **10/10** sunset candidates ARE dispositioned (`repair`, `review_by 2026-11-03`, **0 expired, 0 undispositioned**). |
+| **ml_training_health** | **CITED + RE-ESTABLISHED** | Cited for cycles/builds. Re-established: trainer **alive** (mirror age 128 s, `down: false`, `load_1m 0.051`, 2 cycles/24 h, 0 failed builds, disk 86.1% → **85.7%**), and **`replay-pregate-nightly` still fails on schedule 3 of 3**. ⚠️ **The OOM cause could NOT be re-measured — no memory field on any reachable surface. Stated, not assumed.** |
+| **soak_status** | **RE-ESTABLISHED** | All **57** allowlisted logs enumerated: **54 present / 3 absent**, **17 truncated at the cap**, **6 under 5% auditable**, **7 stale >7 d**. |
+| **flags_raised** | **RE-ESTABLISHED** | 5 live banners — see below. |
+| **backlog_drive** | **RE-ESTABLISHED** | Population **1611 / 859 unresolved**; **4 closeable now + 2 partial**, each with its closing evidence. |
+
+### 🚩 FLAGS — raised loudly
+
+1. 🚩 **PROP IS $87.34 FROM ITS PERMANENT-KILL FLOOR ON A 237.4-HOUR-STALE SNAPSHOT — FIFTH CONSECUTIVE REVIEW, AND 30.5 h WORSE THAN THE FOURTH.** `distance_to_dd_floor_usd: 87.34`, `status_freshness: stale`, and `day_pnl_state: realized_unreported` — **so the daily-loss half is UNMEASURED, not zero.** ⚠️ **The ask DID fire today** (`prop_status_request` stamp `2026-09-09T07:47:07`) **and went unanswered.** **Operator action: one `bal <balance> <equity>` message.** ⚠️ And `OI-20260909`'s clause (1) **cannot be cleared** — the positive control it names (`last_verdict: quiescent`) is **absent from the live file**, so #11546 is not deployed.
+2. 🚩 **Two live real-money gates are armed with soaks that have never observed them.** `PROP_TICKET_RISK_GATE_MODE=enforce` (armed 2026-08-31): the soak holds **2 rows, both `annotate`, both timestamped 2026-08-30T16:16:27, span 0.00 h, age 10.0 days — ZERO enforce rows, over 100% of the file.** And `ALPACA_CASH_SETTLEMENT` on `alpaca_live`: **31 rows, still 0 on the target account** (27 of 31 `not_allowlisted`, proving non-allowlisted accounts *are* measured — so this is not a scoping artifact).
+3. 🚩 **The netting-attribution class is still closing real-money positions on unreadable book state, newest TODAY 15:40Z.** 47 `netting_attributed` closes in the window, **6 on real-money `bybit_2`**. The `position_idx`/`exchange_read_source` discriminators `CLAUDE.md` demands **now exist in the schema and are `None` on 12 of 13 zero-qty rows** — including two on hedge-armed `bybit_1` symbols, exactly where the wrong-book read bites. **The remediation is present but inert.**
+4. 🚩 **GLD close wedge at day 7**, and the classification **changed** since the prior review: `cancel_accepted_ineffective` (was `broker_cancel_wedged`). `close_failure` is **138 of 325** operator alerts (42.5%) over 5 days.
+5. 🚩 **MONITOR BLIND on an open `mes_trend_long_1d` MES position** — `candles_unavailable` 3 consecutive ticks. With `close_failure`, the two classes are **70% of the operator alert ring**.
+6. 🚩 **A latched alarm that can never clear.** `alpaca_live`'s silent-refusal latch has read `alerting: true` since **2026-08-21T12:38:38** and its `updated_at` **has not advanced in 19 days** while all 7 sibling accounts advanced to today. It also **lacks the `priority_causes`/`alerting_basis` fields added 2026-08-25**, confirming it has not been rewritten. `CLAUDE.md` records this exact latch as a **false alarm** fixed by `refusing_by_declaration` — it is frozen at the pre-fix state, **reporting a false alarm to every review indefinitely.**
+7. 🚩 **`restart_pending: true`** at 16:55Z on a process that started 16:42Z — a second deploy outstanding.
+8. ✅ **No account unreachable; no trainer-down latch; `prop_fills_staleness_state` → `"findings": {}` — checked and clean, not unread.**
+
+### Additional review findings
+
+| id | claim |
+|---|---|
+| **F-64** `performance-route-silently-drops-accountclass` | `GET /api/bot/performance` declares **only** `window`; `?accountClass=paper`, `=prop` and `=NONSENSE_XYZ` **all return the real-money aggregate** (`trades 41 pnl −7.857`) with no error and no read-state. Positive control that 41 is the real-money arm and not fleet-wide: the journal holds **37 real_money vs 523 paper (560 total)**. **A reviewer scoping the paper book is handed the real book's numbers.** The `filter_state` lesson from `/api/bot/db/table/*` was not carried here. |
+| **F-65** `seventeen-soaks-unreadable-past-their-tail` | **17 of 54** present soaks return the 1000-line cap; **6 are under 5% auditable**. `bybit_coverage_soak` is **2.5% / 7.24 h** — while **its own clears-condition demands "≥20 graded rows spanning ≥3 distinct UTC days"**, i.e. **~9.7% of the required span. The criterion is unsatisfiable by construction.** `audit` is **0.0% of 826 MB**. |
+| **F-66** `splg-trend-long-1d-is-structurally-dead-and-live` | `execution: live`, and **1000 of 1000** evaluations over 7 days report insufficient candles — class-(1) *no data*, confirmed at **100%**. **Positive control:** the same query on `mes_trend_long_1d` returns real channel/ADX values, so a zero here is a genuine negative. **It cannot ever produce a signal.** |
+| **F-67** `the-sunset-repair-hypothesis-cites-a-stale-exemplar` | All 10 sunset `repair` rows share a `cause_hypothesis` naming `trend_donchian_sol` as the **proven** class-(3) exemplar (*"144 signals / 0 rows"*) — **measurably false**: 3 closed `bybit_1` trades since 2026-09-03 (5419 +163.13, 5502 −78.54, 5513). **The repair work of 10 rows is directed by a false premise.** |
+| **F-68** `advisory-decisions-log-dead-76-days` | The advisory-score audit trail has not been written since **2026-06-25 (76.4 days)**, over a **100%-auditable** file, while the registry carries **3 advisory-stage models** and `REGIME_ML_VERDICT_MODE=use` gates real-money BTC routing. Its last row references a model id **superseded twice since**. |
+
+### Backlog drive — the burn-down, with its population
+
+**Population: 1611 rows across the three review backlogs; 859 open or kept_open.**
+**Burn-down this pass: 4 closeable now + 2 partially = 4/859 = 0.47%.** *That is the honest number, and it is far below the fill rate the prior review measured (~15:1 file-to-close).*
+
+**CLOSEABLE NOW (4):** `BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1` (3 journal rows now exist) · `BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN` (**close as not-a-defect with the diagnosis**: the transient branch `return`s before `cooldown_admits`, so the empty file is correct) · `BL-20260902-DIAG-BASE-URL-STILL-NAMES-THE-TERMINATED-MICRO` (it names the **live** VM; file a narrower successor for the plain-HTTP residual) · one of the two duplicate `DIAG-LOG-FILE-IS-TAIL-ONLY` rows filed 3 days apart — **merge**.
+**PARTIAL (2):** the netting-soak discriminator row (schema clause closed, population clause open) and the two `STRAY-OCA-SWEEP` rows (`stray_oca_soak` now holds **19 rows, was 8** on 2026-09-08, including two `acted: true / verify_state: verified`).
+**MUST NOT BE CLOSED — re-affirmed WORSE (3):** the prop-risk-soak row (now **10.0 days**, still 0 enforce rows) · `BL-20260809-DIAG-BOTLOG-TARGET-ABSENT` · the ADAUSDT over-cover row, **alarming live at 16:25:38Z today at 179%**.
+
+---
+
+## Phase 6 — DESIGN CRITICISM. Cohesion, function, philosophy.
+
+*Conformance is the floor. This phase judges the system **as a whole**, which no
+per-component pass can do. A finding of the form "this is built exactly as specified and
+the specification is wrong" outranks a conformance finding of the same severity.*
+
+### 6a. Cohesion — is this one system, or N systems in a trench coat?
+
+**Mostly one system, with four seams where two implementations can disagree — and every
+one of them was found this pass by a different axis, which is itself the evidence that
+they are a class rather than four accidents.**
+
+| the same concept, twice | how they disagree | found by |
+|---|---|---|
+| **strategy → builder** | 55 in the primary registry, **16** in the rollback registry | MODULARITY (F-28) |
+| **`daily_loss_pct`** | a FRACTION in production, a **PERCENT** in 9 harnesses | MODULARITY (F-30) |
+| **"is this position covered?"** | a side-blind symbol sum vs a per-book graded coverage vs a per-ROW leg match | BEHAVIOR (F-36) + INDEPENDENCE |
+| **"measured PnL"** | `provenance.classify_pnl` says 104 rows; `totalPnlMeasured` sums **444** | BEHAVIOR (F-40) |
+
+**The seam with no owner is the sharpest instance, and it is worth stating precisely.**
+`apply_intent_reduce_partial_close` is *correct*: it decrements the row it was asked to
+decrement. `modify_open_order` is *correct*: it amends the leg it is told to amend. **The
+handoff between them belongs to nobody**, so a reduce leaves a 101.8×-oversized stop and
+every symbol-level check passes because the symbol-level arithmetic still reconciles
+exactly. This is verbatim the shape the repo's own root-cause doc names — *"every
+contributing component was individually correct, which is why line-by-line audits kept
+returning clean: the defect lives at the seams"* — and it is why the BEHAVIOR axis is
+first in this program.
+
+### 6b. Philosophy — is the operating model itself sound?
+
+#### The doctrine is *observe first, gate later, never strand a capability*. **Its writing half works and its reading half does not, and that is the single most important structural finding of this audit.**
+
+Not an impression — four independent measurements of the same shape:
+
+| armed gate | its soak | can the soak settle the decision it was armed for? |
+|---|---|---|
+| `PROP_TICKET_RISK_GATE_MODE=enforce` (armed 2026-08-31, real prop money) | **2 rows, both `annotate`, span 0.00 h, 10 days old** | **No — zero rows have ever been written under the arm** |
+| `ALPACA_CASH_SETTLEMENT_MODE=apply` on `alpaca_live` (real money) | 31 rows, **0 on the allowlisted account** | **No** |
+| `CONVICTION_SIZING_MODE=apply` on `bybit_1` | 186 apply rows, **0 carrying any join key** | **No — 77% unattributable to any trade** |
+| `BYBIT_GRADED_COVERAGE` (held pending soak) | readable back **7.24 h** | **No — its own criterion demands 3 days. Unsatisfiable by construction.** |
+
+**Four for four.** The system is excellent at *arming an observation* and has no mechanism
+that asks *whether the observation can answer the question*. A soak is created, a
+`clears_when` is written, and nothing ever checks that the two are compatible.
+
+**And the reading bottleneck is structural, not incidental.** There are **57 allowlisted
+soak logs**; `/api/diag/log_file` caps at 1000 lines; **17 of 54 present logs are
+truncated and 6 are under 5% auditable** (`audit` is **0.0% of 826 MB**). The system
+writes evidence far faster than any consumer can read it back — and **writing looks like
+progress**, which is why this went unremarked. *The cheapest high-value change in this
+entire report is paging on that one endpoint.*
+
+#### Where fail-permissive became fail-silent
+
+Fail-permissive is the right default on a live trader and the repo argues for it
+explicitly. But it has crossed into fail-silent in a specific, identifiable place: **when
+the permissive value is indistinguishable from a real measurement.** `closed_flat` returns
+`0.0` — which is also *genuinely flat*. `current_net_position_qty` returns `0.0` — which
+is also *genuinely flat*. **3 of 3** journal-read helpers on the intent path fail
+permissive to a falsy value and **0 of 3 emit a durable read-state**.
+
+The repo already knows the fix and has implemented it beautifully **once** —
+`exit_anchor.py`'s `anchored`/`deferred`/`no_anchor`, and now
+`bybit_position_book`'s five states. **The doctrine is right; its application is
+enrolment-gated, and the newest, most careful instance is registered with nothing (F-49).**
+
+#### Does the tier system make *removal* hard? Measurably yes.
+
+| dead structure | age / size |
+|---|---|
+| M28 macro thesis tick, still on every live tick | **44 days** after its own roadmap said *"Value construction is closed"* |
+| runnerless tools | **186** |
+| unmerged `automation/*` branches | **164** |
+| workflow registrations with no file and **no deletion commit** in a 4563-commit clone | 4 |
+| `advisory_decisions` writer | dead **76 days**, its read surface still advertising it |
+
+The tier system optimises for the safety of *change*, and a deletion is a change. Nothing
+in the repo rewards removal, and **there is no arc for it**: there is a build-arc and a
+retire-arc and no delete-arc. `ROADMAP.md` can say *closed* while `src/main.py` still calls
+the thing every tick, and **no check couples those two facts** — which is F-54's detector
+and would be cheap.
+
+#### At what point does a guard cost more attention than the defect it catches?
+
+**A genuinely mixed answer, and the good half is large.** 92 guard entries, and `main` is
+green across **all 92** when run ungated. The guards are real, most are proven, and the
+`order_packages.id` and one-sided-coverage classes were **genuinely swept** — verified this
+pass with positive controls. That is a system working.
+
+**The cost is not in the guards. It is in the META-instruments**, and it is concentrated:
+
+- `check_selftest_wiring` measures the registry, not the guard population — so **8 of 74** guards with no proven failure path are invisible to it (F-05, F-61).
+- `check_guard_glob_coverage` is proven, and armed nowhere, and **unarmable as written** (F-02).
+- `uncarried_specs` measures 82.9% un-carried and reports it **to nobody** (F-62).
+- `check_recurrence_ledger` validates the ledger's shape and **reads no backlog**, so the ledger has 5 classes against **85** self-declared recurrences (F-59).
+
+**Every one of these is an instrument that measures something real and is pointed at a
+denominator that cannot move.** That is a more specific and more fixable diagnosis than
+"too many guards".
+
+#### What is the system's actual failure distribution, and does the infrastructure match it?
+
+Of this audit's **68 findings**, the money-at-risk and accounting ones cluster overwhelmingly
+at **seams and runtime outcomes** — a reduce that does not resize its leg, a rollback that
+drops 78% of legs, a falsifier that cannot falsify, a promise breached 2 days ago and
+uncountable. The doc/consistency findings are real but small.
+
+The infrastructure spend is the mirror image: **92 CI guards operating on diffs at merge
+time**, against **one** committed runtime invariant suite (`system_invariants.py`, 7
+invariants) and **one** exit-coverage script — *both of which are excellent, both of which
+pass their planted-control self-tests, and* ***neither of which has a scheduled caller.***
+
+**That is the mismatch, stated as precisely as the evidence allows: the repo has built its
+runtime instruments and not armed them, while continuing to add merge-time instruments.**
+The two highest-leverage changes in this report are not new code — they are *scheduling
+two scripts that already exist and already work.*
+
+### 6c. What would we build differently, and what should be deleted?
+
+**Answering in writing even where the answer is "the same", as the phase requires.**
+
+**The same, and it is working:** the tier system · the canonical-doc hierarchy · `provenance.py`
+as a single owner · the three-state discipline where it is applied · the coordination board's
+heartbeat (a frozen board is now distinguishable from a quiet one, which is a genuinely
+excellent piece of design) · `backlog_append`'s duplicate refusal, **which fired 14 times
+against this audit's own filings and was right to**.
+
+**Differently:**
+
+1. **Derive registries; do not maintain them.** The measured evidence is unusually clean: `strategy_descriptions.json` is guarded and **55/55 complete**; `strategy_changelog.json` is the same shape, unguarded, and **28/55**. **Memory's failure rate here is 49%.** `docs/strategy-coverage-matrix.md` is already generated — that is the pattern to extend, not the exception.
+2. **Make the append chokepoint enforce the schema the skill already mandates.** `detector` is required by Phase 4 *"no exceptions"* and present on **3 of 1630** rows. `backlog_append.py` is already the single writer and already refuses duplicates. One more refusal closes it.
+3. **Page the soak read surface** — the single cheapest change with the widest reach (§6b).
+4. **Arm the two runtime instruments that already exist.** `system_invariants.py` and `exit_path_coverage.py`, on a schedule, landing a receipt. `broker_bracket_reconcile.yml` is the template and is already proven.
+5. **Grade the landed artifact, not the run conclusion.** F-18's registers are stale on `main` while every workflow reports success.
+
+**Delete (each is a proposal, and each has its evidence above):** the M28 macro tick ·
+`pipeline._STRATEGY_BUILDERS` (collapse into `_resolve_builders`) · `EXCHANGE_MAP` **or**
+fix it to include the live futures venue · the 164 orphan branches **once F-18 is fixed and
+not before** — with F-18 unfixed, pruning would delete unlanded receipts, which is why the
+honest detector there is a *ceiling check* rather than a prune · and a triage pass over the
+186 runnerless tools, ratcheted rather than swept.
+
+**The one thing I would change about the audit program itself:** its own motivating numbers
+are frozen integers that went stale within 20 days (**8 of 8**, F-08/F-63). A skill that
+teaches *"state the population"* should quote **the command**, not the number.
+
+---
+
+## Coverage contract (Phase 1) — both numbers, honestly
+
+**Behavioral coverage (primary).** 7 invariant families asserted over the live book:
+**24 (account, symbol) groups / 25 open journal rows / 3 venues**. 12-hop pipeline
+properties asserted via committed instruments (`system_invariants.py` 7 invariants,
+`exit_path_coverage.py` 21 of 25 open trades). Signal accounting closed over a 24 h window
+with **44,434 audit rows paged in full** (not the 1000-row cap). PnL provenance classified
+over **n=558** closed non-backtest rows with the canonical module. Promises recovered and
+graded for **11 subsystems**. **57** soak logs enumerated live; **488** hard-gate events
+paged to exhaustion; **1630** backlog rows parsed rather than sampled.
+
+**Reading coverage (secondary).** Read in full: the audit skill, `CLAUDE.md`, the Phase-0
+guard corpus (79 scripts inventoried, **54 self-tests executed**), `run_guards.py`'s
+92-entry registry, `closed_flat_invariant.py`, `bybit_position_book.py`, `positions.py`,
+`package_leg_coverage.py`, `check_selftest_wiring.py`, `check_guard_glob_coverage.py`,
+`check_recurrence_ledger.py`, and the relevant regions of `order_monitor.py`,
+`coordinator.py`, `intents.py`, `pipeline.py`, `risk.py`, `performance.py`, `diag.py`,
+`clients.py`.
+
+### ⚠️ NOT REACHED — stated explicitly, because silent partial coverage reads as "all clear"
+
+- **The other two repos.** `ict-trader-dashboard` (the Svelte SPA — the **only** live consumer) and `ict-trader-android` were **not attached to this session** and were not audited. Hop 12 of the pipeline trace ("it appears, correctly, on each consumer") is therefore **ungraded, not passed**.
+- **Trainer VM memory.** The `replay-pregate-nightly` OOM cause could not be re-measured — **no reachable surface carries trainer memory**; it needs the `trainer-vm-diag` relay. The workflow is confirmed red 3 of 3 scheduled runs; **the cause is carried from the prior finding, not re-established.**
+- **The prop venue.** `breakout_1` returns `positions: null` — *unread, not flat*. The prop bridge is **NOT GRADED**.
+- **Live branch protection.** Only the **declared** spec in `branch-protection-sync.yml` was read; the live GitHub state was not (403 at the proxy, no MCP tool reads it). F-10's "required vs advisory is clean" rests on the declaration.
+- **Per-trade decision grading.** CITED to the 2026-09-08 review, not re-run.
+- **A per-line `src/` sweep.** Not attempted, and — per the skill's own instruction — **retired as a headline metric** rather than silently skipped.
+- **412 of 476** silent-empty sites were counted, not individually triaged. **24 of 39** diff-scoped guards graded `not_verifiable` by `check_guard_glob_coverage` — *which is not the same as verified-clean.*
