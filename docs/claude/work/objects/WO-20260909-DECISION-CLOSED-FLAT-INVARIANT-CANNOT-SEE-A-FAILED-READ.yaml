@@ -10,14 +10,34 @@ title: >-
   The closed-flat invariant reads a FAILED exchange read as flat - operator answered: fix all
   three, F-11 + F-12 + F-13
 stage: INTEGRITY
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: session_01UFEDvWwTCMqAsBoQCh9Kz1
 opened_at: '2026-09-09'
 closed_at: null
 
 review_trigger: >-
   Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD.
-  Do not re-measure - the evidence is in the audit at F-11, F-12 and F-13.
+  Do not re-measure - the evidence is in the audit at F-11, F-12 and F-13. !! THE BUILD IS IN
+  FLIGHT as of 2026-09-09 (MI-228, session_01UFEDvWwTCMqAsBoQCh9Kz1) and is NOT done: the code
+  is written and held for a human merge click, and NOT ONE OF THE THREE PARTS IS OBSERVED ON
+  THE FLEET. A merge is not a deploy and a deploy is not an observation.
+
+build_note_2026_09_09: >-
+  !! A FOURTH BLINDNESS WAS FOUND WHILE BUILDING THE FIX, AND IT SUBSUMES THE OTHER THREE AS AN
+  EXPLANATION OF THE 14.7-DAY ZERO. _residual_from_positions read the position size from
+  `p.get("qty") or p.get("contracts")`, and clients.py::account_open_positions normalises EVERY
+  venue branch - bybit, interactive_brokers, alpaca, oanda, 4 of 4 - to
+  {symbol, side, size, entry_price, unrealised_pnl}; IBClient.positions's own docstring pins
+  that shape. So `float(None or None or 0) == 0.0`, and a live residual graded FLAT on every
+  account, from the module's first commit. VERIFIED EMPIRICALLY, not by reading: a 26.05
+  ETHUSDT row in the exact production dict shape returned 0.0. Every fixture in
+  tests/test_closed_flat_invariant.py uses `qty`, so 15 tests were green throughout while
+  exercising a shape production never produces - the Generation-Discipline Rule 3 case
+  ("green tests are not compliance") in its purest form. !! THIS MATTERS FOR HOW THE ZERO IS
+  READ: F-13 says the zero "is not evidence of anything", which is right; the stronger and now
+  established fact is that the zero was GUARANTEED BY CONSTRUCTION, independent of failed
+  reads, window coverage and read surfaces. Fixed in the same PR. The audit's three
+  measurements were re-read against the code and NONE of them was found wrong.
 
 done_condition: >-
   THREE PARTS, and they are different facts - say WHICH you delivered. (1) F-11:
@@ -40,6 +60,7 @@ blocked_on_basis: >-
   that gate is discharged. !! `ready` means answered and buildable, NEVER in progress.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+built_by: worker session_01UFEDvWwTCMqAsBoQCh9Kz1 (MI-228, 2026-09-09)
 
 decision_requests:
   - id: DEC-20260909-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ

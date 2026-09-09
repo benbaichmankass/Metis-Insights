@@ -242,3 +242,79 @@ The bug that motivated this sprint:
   the existing fallback this invariant complements.
 * `src/web/runtime_status.py::write_status` — the never-raise
   contract pattern this module follows.
+
+---
+
+## ⚠️ 2026-09-09 — what this memo claimed, and what was actually true
+
+Full-system audit `docs/audits/full-system-audit-2026-09-09.md` §§ **F-11**,
+**F-12**, **F-13**, operator-approved Tier-2 the same day (`chosen: all_three`
+on `WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ`).
+Built as **MI-228**. Four things were wrong at once, and **each one alone was
+sufficient to make this invariant silent**. Nothing below touches an order
+path: the check was alert-only and still is.
+
+**1 · A failed exchange read graded FLAT (F-11).** Every failure path returned
+`0.0` — the value that means *flat* — at 5 of 5 early-return sites, and the
+caller reads `residual == 0.0` as *no violation*. So the one mechanism that can
+independently contradict *"this trade is closed"* was cleared by exactly the
+condition it exists to catch. Its own input already made the distinction —
+`clients.py::account_open_positions` returns `None` **by contract** so callers
+can tell `[]` from *could not read*, including an empty IB snapshot from a
+Gateway not verified logged-in — and this module was the consumer that dropped
+it. Now a three-state `ResidualRead`: `flat` / `residual` / `could_not_look`,
+registered with `collapsed-state-guard` as `closed_flat.residual_state`.
+
+**2 · It could not see a residual at all — NOT in the audit, found building
+the fix.** The size was read from `qty` / `contracts`; production emits
+**`size`** on 4 of 4 venue branches. `float(None or None or 0) == 0.0`, so a
+live residual graded flat on every account from the module's first commit.
+Verified empirically, not by reading: a 26.05 ETHUSDT row in the exact
+production dict shape returned `0.0`. **Every fixture in
+`tests/test_closed_flat_invariant.py` uses `qty`**, so 15 tests were green
+throughout while exercising a shape production never produces.
+
+**3 · The lookback was shorter than the invocation period (F-12).**
+`DEFAULT_WINDOW_SECONDS = 60`, never overridden (1 of 1 call sites), against a
+measured period of **≥ 101.9 s** — so ≥ 41 % of every period was examined by
+nobody, *by arithmetic, not by failure*. The wiring now MEASURES the interval
+between its own consecutive invocations and derives the window from it, and
+publishes both on a `closed_flat_coverage` soak.
+
+**4 · Nobody could read what it said (F-13).**
+`runtime_logs/invariant_violations.jsonl` was on no diag allowlist and had no
+alternate reader, and the alert was `Level.WARN`, which `outcomes.py` excludes
+from Telegram. Both fixed; the alert is `Level.ERROR` (not `CRITICAL` — this
+repo reserves that for a position that is UNPROTECTED or REVERSED).
+
+### Corrections to the text above
+
+- ⚠️ **The trade-#1049 retrospective's "~5 seconds" detection delay is
+  wrong and must not be re-quoted.** It reads *"the configured
+  `window_seconds`, plus one tick cadence"*, which mistakes the LOOKBACK for
+  the LATENCY: the invariant runs once per tick, so the floor was always one
+  tick period — measured at ≥ 101.9 s, ~20× the figure claimed. With the window
+  now cadence-derived the coverage gap is closed, but the detection delay is
+  still bounded below by the tick period, not by the window.
+- ⚠️ **`disable-closed-flat-invariant` is named above as the soft rollback and
+  no longer exists.** The `CLOSED_FLAT_INVARIANT_ENABLED` gate was removed
+  2026-06-17 (a safety invariant behind a default-off flag is the
+  Prime-Directive anti-pattern) and the check has been unconditional since. The
+  rollback for a *noisy* invariant is to fix what it is reporting.
+
+### What is proven, and what is not
+
+- **Not proven on the fleet:** none of the four. A merge is not a deploy and a
+  deploy is not an observation.
+- **A green test suite clears nothing here** — the whole finding is that a
+  harness cannot reach a failed exchange read on a live account.
+- **A continued zero clears nothing either**, until a planted violation has
+  been OBSERVED being reported. `run_residual_controls()` grades three planted
+  inputs through the deployed classifier every pass and stamps `controls_ok` on
+  the soak row — but its `controls_scope` ships beside it as
+  `pure_classifier_only`, deliberately: it reaches no venue, no account
+  resolver, no DB row and no alert path, so it is **not** evidence the
+  invariant works end to end.
+- ⚠️ **The first violation this reports is NOT a regression.** The zero was
+  uninformative by construction, so `0 → non-zero` is the mechanism starting to
+  work, not the book getting worse.

@@ -1066,6 +1066,45 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "closed_flat.residual_state",
+        # The producer OWNS the vocabulary: the three states are module
+        # constants in closed_flat_invariant and nowhere else.
+        "producer": "src/runtime/closed_flat_invariant.py",
+        # Scoped to this contract's OWN tokens, never the bare state words:
+        # "flat" and "residual" are ordinary English that appear across the
+        # order-path modules, and matching on them would bind this contract to
+        # files that have never heard of the invariant (the coincidence-
+        # matching failure this guard's own header warns about).
+        "consumer_token": (r"\bresidual_state\b|\bRESIDUAL_STATE_[A-Z_]+\b|"
+                           r"\bResidualRead\b"),
+        "states": ["flat", "residual", "could_not_look"],
+        "why": (
+            "AUDIT F-11 (2026-09-09), operator-approved Tier-2 the same day. "
+            "The closed->exchange-flat invariant is THE ONE MECHANISM that can "
+            "independently contradict 'this trade is closed', and it returned "
+            "0.0 -- the value meaning FLAT -- on every exchange-read failure: "
+            "5 of 5 early-return sites (account unresolvable; "
+            "account_open_positions raised; fetcher() raised; positions is "
+            "None; positions == []). The caller reads `residual == 0.0` as NO "
+            "VIOLATION, so the falsifier was cleared by exactly the condition "
+            "it exists to catch. Its own input already made the distinction -- "
+            "`clients.py::account_open_positions` returns None BY CONTRACT so "
+            "callers can tell 'no positions' ([]) from 'could not read' "
+            "(None), INCLUDING an empty IB snapshot from a Gateway not "
+            "verified logged-in -- and this module was the consumer that "
+            "dropped it. Positive control that the convention holds elsewhere: "
+            "hourly_report.py's `len(positions) if isinstance(positions, list) "
+            "else None`. `flat` is the venue telling us the book is empty and "
+            "is the ONLY state that clears the invariant. `residual` is the "
+            "violation. `could_not_look` is WE DID NOT LOOK, and folding it "
+            "into `flat` is what made a 14.7-day zero-violation record "
+            "evidence of nothing. Folding it into `residual` instead would "
+            "page the operator on every IB gateway logout -- the opposite "
+            "error and the desensitised-alarm P1 -- which is why the third "
+            "value has to exist rather than be inferred from a boolean."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",
