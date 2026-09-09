@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager dispatch record for the lane-2 refill. Registers under docs/claude/work/** plus the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
