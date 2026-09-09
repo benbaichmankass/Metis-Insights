@@ -53,7 +53,7 @@ verdict (`promote`) that the floor cannot reach.
 
 ⚠️ **The forced `hold` is the violation, not an escape from it.** Withholding a verdict
 for want of accrual *is* the prohibited gate. A reading that only counted KILL/PROMOTE
-would call this surface compliant, which is how it stayed green for eight days.
+would call this surface compliant, which is how it stayed green across every one of those days.
 
 ## 2. The premise correction — read this before proposing a fix
 
@@ -90,16 +90,52 @@ exists for a gate to consume.
 that docstring. This session could not read the trainer mirror to confirm it — the
 directory does not exist in a runner checkout, and generation runs on the VM.)*
 
-## 3. What is NOT proposed
+## 3. The model, which is the actual deliverable
 
-- ❌ **Any window or floor value.** The operator rejected that framing outright on
-  2026-09-09. Lowering the floor or widening the window removes **none** of the seven
-  branches — it re-scales the prohibited instrument. The question is void, not
-  unanswered, and must not be reopened.
-- ❌ **Retiring legs.** The quantity is trades *per leg*; fewer legs does not raise it,
-  and on paper accounts every leg runs regardless. Tier-3 in any case.
-- ❌ **A prose reminder.** This has been explained to multiple sessions. The mechanism
-  shipped with this proposal is check D (§5), not another warning.
+⚠️ **This section replaces a "what is NOT proposed" list that banned the window/floor
+question.** That framing was retracted by the operator on 2026-09-09, and the retraction
+is the most useful thing in this document:
+
+> *"you keep adding guards in the shape of forbidding questions from being asked - this
+> is incorrect. the problem isn't the question, it's the underlying misunderstanding of
+> infra and processes, and not asking questions isn't what fixes that - it just makes it
+> more likely that you will f\*\*\* again in the future because you're not asking the right
+> question ... it's that you don't understand how the system works. that's what we need
+> to fix here, not the question"*
+
+**So ask about the window and the floor freely.** What was wrong with the four options
+put to the operator earlier that day was not that they were asked — it is that all four
+rested on a false model of how this system establishes evidence. **Ban the false model,
+not the question.** The model:
+
+1. **EDGE is established OFFLINE** — purged walk-forward CV, `replay_pregate_fleet`, the
+   point-in-time backfills. That is where *"does this strategy work"* is answered.
+2. **LIVE data establishes MECHANICS ONLY** — that live executions match the simulator,
+   that the pipeline feeds what was trained on. Canon puts that at **1–2 executed
+   trades**, not calendar time.
+3. **SLOW LIVE ACCRUAL IS A FEATURE OF THIS SYSTEM, NOT A BARRIER TO OVERCOME.** A leg
+   closing ~1.2 trades a week is not a problem to engineer around, and
+   **`none_gradeable` on a live window is not a defect.**
+4. **Fewer legs does not raise trades-per-leg**, and on paper accounts every leg runs
+   regardless — so retiring legs cannot buy gradeability.
+
+⚠️ **READ §1's TABLE THROUGH POINT 3.** The 52/52 `hold` is **not** evidence that the
+fleet trades too slowly; the slowness is expected and fine. It is evidence that the gate
+is asking the **wrong source**. A reader who takes the table as a case for raising trade
+frequency, widening the window, or lowering the floor has inherited exactly the model
+this section exists to retire.
+
+**What follows from the model:** `MIN_CLOSED_FOR_ACTION` is a **symptom**, not the
+finding. The finding is that the review/validation layer is built on a *live-accrual*
+model of evidence while this system's actual evidence engine is the *backtest
+infrastructure* — the operator's own words, *"our overall operation is clearly not built
+to suit the system's structure."* Reconciling those two is the work. §2's measurements
+are what that mismatch looks like from the code side: the gate reads live closes because
+live closes are the only per-leg number anyone ever built.
+
+Two things this proposal still does not do, for reasons of authority rather than
+inquiry: it does **not** retire any leg (Tier-3, and point 4 says it would not help
+anyway), and it does **not** enact the repair (Tier-3 — §6 puts it to the operator).
 
 ## 4. What is proposed
 
@@ -143,7 +179,7 @@ everywhere — the same 52/52 outcome, now harder to see.
 
 ## 5. What MI-215 shipped instead (Tier-1, landed with this doc)
 
-The rule was contradicted for eight days **unseen**, and that is the half a session can
+The rule was contradicted across all seven committed days **unseen**, and that is the half a session can
 fix. `scripts/check_soak_doctrine.py` enforced the doctrine's *prose* and reached
 **exactly three files** — the canonical doc and two `SKILL.md`s. Measured by reading all
 132 lines: `scripts/ml/strategy_review_packet.py` was reachable by **no code path**, not
@@ -165,7 +201,9 @@ branches.
 
 ## 6. The decision for the operator
 
-**Not** *what window or floor* — that question is void.
+The window and the floor are fine to ask about; they are simply not where this
+decision sits, because under §3's model no setting of either makes a live count an
+edge basis. The question that does sit here:
 
 > **Do we build the per-leg offline edge record in §4, so a strategy leg's edge verdict
 > has an offline basis to rest on — and until it exists, does the M7 packet keep
@@ -174,8 +212,10 @@ branches.
 
 **Recommendation:** build the producer, and in the meantime have the packet say
 `no_offline_evidence` rather than `hold`. A `hold` that means *"we could not look"* is
-the collapsed state this repo has a guard family for, and it is what let eight days of
-52/52 read as a quiet fleet.
+the collapsed state this repo has a guard family for, and it is what let those days of
+52/52 read as a quiet fleet. Note this recommendation is NOT in tension with §3's
+point 3: `no_offline_evidence` says *nobody has proven this leg's edge offline*, which
+is a statement about the EVIDENCE, never a complaint that the leg trades slowly.
 
 If the answer is instead that the packet should remain a denominator report and never
 propose an action, that is legitimate and must be **recorded as a decision** —
