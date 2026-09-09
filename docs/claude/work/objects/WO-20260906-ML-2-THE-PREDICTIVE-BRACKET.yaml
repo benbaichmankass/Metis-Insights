@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   ML-2, the predictive bracket: regress the exit location an entry should expect, graded on calibration first
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01Adzvjpv8SZQouoBjwMJ4qv
 opened_at: 2026-09-06
 closed_at: null
@@ -116,3 +116,10 @@ progress:
     only widen. Tracked at
     BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION.
 
+
+manager_reconciliation:
+  at: 2026-09-09T07:46:27Z
+  by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+  moved: in_flight -> waiting
+  why: >-
+    session_01Adzvjpv8SZQouoBjwMJ4qv ended IDLE/disconnected 2026-09-07T00:27:59Z reporting 'ML-2 refuted on sharpness (0/5 quantiles); calibration passes (MACE 0.0061)'. A refutation is a real result and may satisfy the done_condition, but the manager has not read that condition against the filed evidence, so it is waiting on verification, not done.

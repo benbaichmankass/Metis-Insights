@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only under docs/claude/** plus the R13 merge_slot claim: reconciles five stale in_flight objects and five IDLE session rows, and records the lane-4 and lane-5 dispatches with their scoped spawn-priority exceptions. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
