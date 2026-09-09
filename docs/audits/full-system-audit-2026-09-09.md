@@ -898,6 +898,90 @@ The **account** axis (bucket ii = 0 on both recent adds; **8 of 401** `src/` fil
 
 ---
 
+## Phase 3.6 — CONSISTENCY. Field beats comment.
+
+`check_canonical_doc_coherence.py` passes all 5 of its checks (Phase 0b). The findings
+below were all reached **by reading the field**, not by running the checker — which is
+itself the axis's result: **the coherence guard is sound and its coverage is narrow.**
+
+### F-47 · `AUD-20260909-claude-md-declares-a-landed-money-path-fix-as-not-applied` — 🔴 stale in the dangerous direction
+
+- **claim:** `CLAUDE.md`'s `BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-…` row states *"Both fixes are Tier-2, written out in the evidence doc and NOT applied."* **Both are applied**, and have been since 2026-09-08.
+- **evidence — the field:**
+  ```
+  FIX 1 — book selection:
+    $ grep -rn "select_position_row" --include=*.py src/
+    src/runtime/order_monitor.py:8909:    selection = _bybit_book.select_position_row(rows)
+    src/runtime/bybit_position_book.py:147:def select_position_row(rows) -> BookSelection:
+    (module is bybit_position_book.py, imported as _bybit_book)
+
+  FIX 2 — the re-adopt flap guard's exit_reason allowlist:
+    $ grep -n "netting_attributed" src/runtime/order_monitor.py
+    2621:  MI-204 (2026-09-08, operator-approved Tier-2) added ``netting_attributed``
+    2663:  "            'netting_attributed')) "     <- IN THE SQL, not just the docstring
+  ```
+  Positive control that the probe can find a present symbol: `PROTECTION_STRAY_GROUP_MODE` → 2 hits in `CLAUDE.md`.
+- **expected vs actual:** **Expected** — the canonical doc describes the code. **Actual** — it describes the state as of the moment the row was written and was not updated when MI-204 landed both fixes the next day. ⚠️ **This is stale in the dangerous direction on a money-path row:** a session reading it concludes a live protective-grading defect is still open, and may re-investigate a closed defect or reason about a mechanism that no longer exists. The independence pass reached the same conclusion by a different route.
+- **population:** 1 row; 2 of 2 claimed-unapplied fixes verified applied.
+- **detector:** ⚠️ **The general form is hard and should be stated rather than over-promised** — no CI check can know that a prose sentence about applied-ness has expired. What **is** checkable, and is the tractable half: a guard asserting that any `CLAUDE.md` row naming a `BL-*` id whose backlog `status` is resolved may not also contain the strings `NOT applied` / `not yet applied` / `is not fixed`. That is narrow, it is cheap, and it would have caught this one.
+- **tier:** 1 · **disposition:** proposed
+
+### F-48 · `AUD-20260909-the-repo-rename-resolution-is-stated-only-as-a-warning` — the trap that nearly cost this audit
+
+**Carried at the operator's explicit direction. Three sessions burned ~190k tokens on it and all three were RIGHT to stop.**
+
+- **claim:** `CLAUDE.md` tells a session that *"hardcoding either name is a trap"* and never states the resolution positively, so a cold session that verifies honestly — exactly the behaviour RULE ONE demands — dead-ends instead of resolving.
+- **evidence:**
+  ```
+  $ git remote get-url origin
+  https://github.com/benbaichmankass/Metis-Insights        <- THE AUTHORITATIVE CHECK
+
+  POPULATION of the old name in-tree: 427 files, 954 occurrences
+    /home/ubuntu/ or /opt/ VM clone paths ...... 551  <- CORRECT. Must NEVER be swept.
+    github.com URLs (301-redirect-safe) ........ 155  <- harmless
+    everything else ............................ 248
+
+  In CLAUDE.md:  "git remote" appears  1×
+                 "hardcoding either name is a trap"  1×
+                 "Metis-Insights"  1×   (positive control: the name IS present)
+  ```
+- **expected vs actual:** **Expected** — the doc that reaches a session before it acts states the resolution: *the remote is authoritative; the old name is the same repo via a 301; the VM clone dirs are deliberately unswept*. **Actual** — it states the hazard and stops. The warning is **correct and well-intentioned** — it was written because a session's *allowed-repository list* has historically named either repo, and that genuinely varies. But it answers *"do not trust a hardcoded name"* without answering *"so what should I do instead"*, and the one-command answer (`git remote get-url origin`) appears once, in a different paragraph, not as the prescribed resolution.
+- ⚠️ **Why this is a first-class finding and not a nitpick:** the failure mode selects *against* careful sessions. A session that ignores the warning proceeds (correctly, by luck). A session that honours RULE ONE, inspects the tree, finds 427 files naming a different repo, reads a doc that says hardcoding either name is a trap, and correctly refuses to act on an unverified premise — **stalls with nothing delivered**. That happened three times consecutively.
+- **population:** 3 of 3 spawned sessions stalled on this question; 427 files / 954 occurrences measured this session.
+- **detector:** **no detector is possible for a doc that is silent** — a guard cannot fail on an absent sentence. The fix is the doc edit itself: add the positive resolution and the authoritative command next to the warning. What **is** detectable, and is worth having, is the *inverse*: `check_canonical_doc_coherence.py` already owns a `dead VM IP single-source` check; the same shape can assert that any doc paragraph naming both repo names also names `git remote get-url origin` as the resolver.
+- **tier:** 1 · **disposition:** proposed — **the doc edit is Tier-1 and this audit is not taking it**, because `CLAUDE.md` outside the generated brief is worker-path under `check_manager_scope.py` and the wording is the operator's to approve.
+
+### F-49 · `AUD-20260909-the-newest-money-path-state-contract-is-unregistered`
+
+- **claim:** `bybit_position_book.STATES` — a deliberate **five-state** contract on the money path, added days ago as the fix for a real-money mis-grade — is **not registered** with `collapsed-state-guard`, so nothing asserts its states stay branched-on.
+- **evidence:**
+  ```
+  src/runtime/bybit_position_book.py:88
+    STATES = ("selected", "flat", "no_rows", "ambiguous_multi_book", "size_unreadable")
+
+  $ grep -c "bybit_position_book\|book_selection" scripts/ci/check_collapsed_states.py
+  0
+  ```
+- **expected vs actual:** **Expected** — the most carefully-designed new state contract in the repo, written *because* a collapsed read closed a live position, is enrolled in the guard built for exactly that. **Actual** — 0 references. ⚠️ **The guard's enrolment-gating is documented and deliberate**, so this is not a defect *in the guard*; it is the predicted consequence of enrolment-gating, observed. That is what makes it a finding: the gate's cost is now measurable rather than theoretical.
+- **population:** 34 registered contracts; this one is not among them. It is the newest money-path multi-state field found this pass.
+- **detector:** the enrolment gap is itself detectable — a check that a module defining a module-level `STATES` tuple (or a frozen set of state literals) under `src/runtime/` is either registered in `CONTRACTS` or carries a dated exemption. That converts "someone must remember to enrol" into a mechanism, which is the distinction this repo keeps paying for.
+- **tier:** 1 · **disposition:** proposed
+
+### The four stale dated claims found this pass, collected
+
+Phase 0c requires treating every dated claim older than the last deploy as unverified until re-measured. Sampled and re-measured:
+
+| claim | stated | measured today | direction |
+|---|---|---|---|
+| `CLAUDE.md` — `BL-20260908` fixes | *"NOT applied"* | **both applied** (F-47) | 🔴 dangerous |
+| `CLAUDE.md` — `DIAG_BASE_URL` ships `http://158.178.210.252:8001` | terminated VM | `http://141.145.193.91:8001` — the **current** VM, still plain-http raw-IP (F-04) | safe |
+| `SKILL.md:52` — *"20 test files still declare `order_packages.id`"* | 20 | **0** over a 119-file denominator, with a working positive control (F-08) | misdirects a future audit |
+| `SKILL.md:57` — *"10 of 41 guard scripts have a failure-path self-test"* | 10/41 | **54/79**, established by executing all 54 (F-08) | misdirects a future audit |
+
+**4 of 4 sampled dated claims had expired.** That is the sample, not the population — but a 4/4 hit rate on a small sample is itself the argument for the detector F-08 proposes: **make the doc quote the command, not the number.**
+
+---
+
 ## Coverage contract (Phase 1) — updated as the program runs
 
 **Behavioral coverage (primary):** _in progress — see the BEHAVIOR axis._
