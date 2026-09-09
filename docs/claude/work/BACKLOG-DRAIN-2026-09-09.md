@@ -12,11 +12,21 @@ Population stated at both ends, per the object's done-condition.
 
 | | rows | `open` | `kept_open` | **unresolved** |
 |---|---|---|---|---|
-| BEFORE (07:12Z) | 1359 | 584 | 181 | **765** |
-| AFTER (08:4xZ) | 1360 | 582 | 181 | **763** |
+| BEFORE — session start, 07:12Z | 1359 | 584 | 181 | **765** |
+| `origin/main` at merge time | 1360 | 585 | 181 | **766** |
+| AFTER — this branch | 1361 | 583 | 181 | **764** |
 
-- rows **CLOSED**: 3 · rows **FILED**: 1 · **net unresolved −2**
+- rows **CLOSED**: 3 · rows **FILED**: 1 · **this session's net: −2**
 - CLASS retired: **none** — and §3 explains why there was none to retire.
+
+⚠️ **Three populations, not two, and they must not be collapsed.** The register moved
+*underneath* this session: `origin/main` gained one row (open 584 → 585) while the work was in
+flight, so the branch lands at **764**, not the 763 a naive before/after subtraction predicts.
+The **manager's 765 premise was correct when measured** and this is not a correction of it. The
+conflict was resolved by taking main's file wholesale and **re-applying this session's edits as a
+script** — never by merging JSON by hand — so the other lane's row is preserved intact and the
+byte-exact round-trip was re-asserted afterwards. That +1 arriving during a ~90-minute session is
+itself a small data point for §3.
 
 **The manager's premise was CONFIRMED, not falsified.** 584 + 181 = 765 is exactly what the file
 read at session start.
