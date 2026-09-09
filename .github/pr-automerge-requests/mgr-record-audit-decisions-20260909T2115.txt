@@ -1,0 +1,1 @@
+Manager: record four operator decisions on the audit findings. Tier-1, register writes only. PR #11597.
