@@ -4,13 +4,15 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Exit mechanics: the trailing and banking half, which the ship-blocked matrix never covered
 stage: EVIDENCE
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_01JuznkKwm1oYm7bUFc9v23w
 opened_at: 2026-09-08
-closed_at: null
+closed_at: '2026-09-09'
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  CLOSED 2026-09-09 — nothing re-reads this. Re-open only if a session needs the
+  trailing/banking question re-measured on a LARGER population; the two evidence
+  documents below are the state of record and the open residue is carried by the
+  three backlog rows named in `verdict`, not by this object.
 done_condition: >-
   A measurement, with its POPULATION stated, of what the trailing and banking paths actually did on closed trades -- how often a trailing amend fired, how often it was the exit, and whether any partial bank ever occurred -- read from broker-truth rows only (provenance.is_measured), never from journal prose. It is DONE when the numbers exist with their denominators; it is NOT done by proposing a parameter change, and NO exit-matrix cell status may be re-graded (Tier-3, decided).
 
@@ -28,3 +30,85 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+evidence:
+- |-
+  docs/research/exit-trailing-and-banking-measurement-2026-09-08.md — MI-188b, PR #11351, commit 34b82575. The measurement itself.
+- |-
+  docs/research/exit-trailing-banking-broker-truth-2026-09-09.md — MI-209. Independent verification on a fresh complete census, plus the `provenance.is_measured` restriction this object's own done_condition required and MI-188b did not apply.
+- |-
+  docs/research/data/exit-trailing-banking-broker-truth-2026-09-09.json — the derived counts, committed.
+
+verdict: |-
+  DONE 2026-09-09. The done_condition is satisfied: the numbers exist with their
+  denominators, no parameter was proposed, and no exit-matrix cell was re-graded.
+
+  ⚠️ IT WAS ALREADY SATISFIED ON 2026-09-08 AND THIS FILE DID NOT SAY SO. MI-188b
+  measured it and merged (PR #11351, 34b82575) while this object stayed
+  `dormant` / `owner: null` / `closed_at: null`, so on 2026-09-09 a fresh session
+  (MI-209) was dispatched onto it with a brief asserting the half had "never been
+  measured" — a faithful rendering of what this file said. That cost a dispatch,
+  recovered only because the session checked the premise before building on it. It
+  is the MI-193 register-decay shape applied to the work store, and it is filed as
+  its own class in `BL-20260909-A-WORK-OBJECT-WHOSE-MEASUREMENT-LANDED-STAYED-DORMANT-AND-WAS-RE-DISPATCHED-A-DAY-LATER`.
+  Closing this object does not close that row.
+
+  THE NUMBERS, with populations, over the complete 2026-09-09 census (5589 trades,
+  4500 order_packages; `total` echoed and rows-fetched asserted equal):
+
+  * TRAILING AMENDS FIRED — a LOWER BOUND ON PACKAGES ONLY, never a count of
+    amends. 146 of 2131 gradeable packages (6.85%) had their stop demonstrably
+    move; 146 favourable, 0 adverse (95 long, 51 short). 2369 packages are
+    UNGRADEABLE — no entry-time stop recorded — which is *we cannot look*, never
+    *unmoved*, and they are 2026-05-02→2026-07-16, so this reads "since
+    2026-06-18". There is still NO durable per-amend record anywhere: of the 19
+    `update_order_package(` call sites in `src/`, only `order_monitor.py:1460`
+    writes `sl`, and it overwrites in place. That is
+    `BL-20260908-A-TRAILING-AMEND-HAS-NO-DURABLE-RECORD-SO-ITS-RATE-IS-UNMEASURABLE`.
+
+  * WAS THE TRAIL THE EXIT — YES, and this is the half the broker-truth
+    restriction STRENGTHENS. Of 40 stop-outs on demonstrably-trailed packages, 14
+    carry a MEASURED exit price; of those 14, TWELVE exited at the TRAILED level
+    at a 5bp tolerance, stable across a 5x tolerance range (typical distance to
+    the trailed level 0.001-0.013% against 0.2-4.2% to the original). The trail is
+    real and it ends trades.
+
+  * ⚠️ BUT ONE OF MI-188b's HEADLINES REVERSES UNDER THE RESTRICTION AND MUST NOT
+    BE RE-QUOTED. It concluded the trail "ends trades slightly more often than the
+    declared TP does (33 vs 32)" over a population that is 47 measured / 102
+    estimated / 14 fabricated / 3 unverified. Restricted to broker truth the
+    counts are 14 stop-outs against 17 declared-TP exits (n=51), i.e. the other
+    ordering — and 12 vs 17 after grading where the stop-outs actually landed.
+    NEITHER ORDERING IS ESTABLISHED at that n; what is established is that the
+    published one rests on a population three quarters of which is not broker
+    truth. This is the repo's own "a headline whose sign flips on a filter choice
+    must state the filter", firing on our own number.
+
+  * PARTIAL BANK — ZERO, over a complete census of all 5589 trade rows, and
+    independently re-confirmed a day after MI-188b with one probe it did not run
+    (`notes.original_position_size`, stamped on the FIRST partial, is absent on
+    every row — so `_apply_partial_close` has never executed, not merely that its
+    output was not retained). MI-188b's framing stands and is the important half:
+    the zero is an UNREACHABLE mechanism, not a broken one. Its four gates are
+    unchanged on today's census (`meta.tp2` on 3 of 4500 packages, all
+    turtle_soup, none reaching a managed exit).
+
+  WHAT IS NOT ESTABLISHED, stated rather than filled in: the amend COUNT; whether
+  trail or TP ends more trades; whether trailing HELPS (no lever-OFF arm exists —
+  `BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE`);
+  anything before 2026-06-18.
+
+  RESIDUE FILED, NOT CARRIED HERE:
+  `BL-20260909-TRADES-STOP-LOSS-CAN-UNDERSTATE-THE-LEVEL-RESTING-AT-THE-VENUE-AND-POSITIONS-READS-IT`,
+  `BL-20260909-PROVENANCE-IS-MEASURED-RETURNS-FALSE-FOR-EVERY-ROW-WHEN-HANDED-A-BUCKET-STRING-AND-SAYS-NOTHING`,
+  `BL-20260909-A-WORK-OBJECT-WHOSE-MEASUREMENT-LANDED-STAYED-DORMANT-AND-WAS-RE-DISPATCHED-A-DAY-LATER`.
+
+  SIBLING: `WO-20260907-THE-TRAILING-BANKING-HALF-OF-THE-EXIT` is PARTLY answered
+  and was deliberately NOT merged into this one. Its "is exit_plan live or shadow"
+  half was already answered by MI-163 and is corroborated here from a second
+  direction (`order_packages.exit_plan` has no update site in `src/`, which is
+  what makes it usable as a frozen entry-time record). Its "does the POOLED corpus
+  have sufficient n for a fleet-wide bank-at-XR rule" half is NOT answered, and
+  this unit is evidence it is further away than it looks: the broker-truth trailed
+  population is n=51, of which 14 are stop-outs, against the repo's own
+  MIN_LIVE_N = 30.
