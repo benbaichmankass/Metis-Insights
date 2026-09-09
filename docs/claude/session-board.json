@@ -8,7 +8,7 @@
   "held_by": "session_012kfL8m9T7xW3XkAv71To27",
   "branch": "claude/mi-209c-partial-close-producer-20260909",
   "claimed_at": "2026-09-09T08:00:00Z",
-  "purpose": "MI-209c PR #11514 (Tier-1, measurement+docs). Taken from a STALE claim: prior holder's PR #11511 merged 2026-09-09T07:42:51Z and the slot was never released; announced on board #11336."
+  "purpose": "MI-209c PR #11514 (Tier-1, measurement+docs). Taken from a STALE claim: prior holder's PR #11511 merged 2026-09-09T07:42:51Z and the slot was never released; announced on board #11336. ALSO displaces session_01DUBXxiaZ3PMERcAfcJce7P's claim for claude/document-index-write-second-instance, which is likewise SPENT: its PR #11513 merged as d9059a0, and that claim's own purpose says \"Displace freely\". Two spent claims in a row -- see BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST."
  },
  "active_sessions": [
   {
