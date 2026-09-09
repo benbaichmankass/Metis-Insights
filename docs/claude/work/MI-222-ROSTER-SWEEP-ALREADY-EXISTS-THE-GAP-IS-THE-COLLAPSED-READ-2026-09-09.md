@@ -180,6 +180,35 @@ manager's call.
 **Only after that is a non-blind detector possible at all** — until the reader can say
 *which* of the three states it saw, a detector on top of it can only ever say "clean".
 
+## 6a. Where the finding must land — named and verified, not assumed
+
+The brief requires that a finding reach a surface a human reads, and that the surface be
+named. Verified from source rather than repeated:
+
+* **`logger.error` / `logger.warning` reach the systemd journal and nothing else.** They do
+  not write `runtime_logs/outcomes.jsonl`, so they do not reach Telegram,
+  `/api/bot/notifications`, or the hourly report. Both existing sites in the collapse story
+  use exactly this: `_emit`'s cross-check failure path logs
+  `"per-symbol cross-check for %s failed"` via `logger.warning` and stops there.
+* **`src/runtime/outcomes.py::report()` is the single call that reaches a human.** Its own
+  docstring states it decides "whether to push to the in-process AlertsQueue (for
+  `/alerts`)", "whether to append to `runtime_logs/outcomes.jsonl` (audit trail)" and
+  "whether to send a Telegram message", with per-fingerprint and hourly rate limits, and it
+  is documented to **never raise**. `outcomes.jsonl` is consumed by
+  `src/web/api/routers/notifications.py` (`/api/bot/notifications`),
+  `src/runtime/hourly_report.py` (WARN+ events in the last hour) and
+  `src/web/api/routers/dashboard.py`.
+
+**So any detector built on the § 6 surface must report through
+`outcomes.report(..., level=Level.ERROR|CRITICAL, ...)`, not `logger.error`.** This is the
+gap that kept the Bybit over-cover condition invisible for ten days while the detection
+worked perfectly throughout — the detector fired, and its finding went only to the journal.
+
+⚠️ **And it must report all three states distinctly**, which is the whole point of § 3: a
+detector that reports only "divergence found" and stays silent on "could not read" has
+re-created the collapse one layer up. `report()` carries arbitrary structured kwargs, so the
+state can travel as a field rather than being encoded in whether a call happens at all.
+
 ## 7. What is NOT established
 
 1. **Whether the venue holds the ETH position.** Three independent venue reads say flat;
