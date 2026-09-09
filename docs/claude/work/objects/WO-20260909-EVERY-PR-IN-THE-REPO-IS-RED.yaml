@@ -507,6 +507,49 @@ the_fifth_mode_is_SUSTAINED_and_repo_wide_1656Z: >-
   argument of this WO restated one level up: the REMEDY is still not as automatic
   as the ALARM.
 
+the_outage_is_4h47m_and_that_changes_the_diagnosis: >-
+  MEASURED 2026-09-09T18:28Z. THE LANDING PATH IS STILL DOWN, and it is now
+  established rather than inferred -- which took two steps, because the first
+  answer was a trap.
+
+  ⚠️ STEP ONE, THE TRAP: at 17:30Z the most recent work-digest run (34383191261,
+  17:29:10Z) concluded SUCCESS. Reading its PER-JOB conclusions shows the `gate`
+  job answered "is a digest due?" with NO and the `digest` job was SKIPPED, so
+  `commit-to-main` never ran and `gh pr create` was never attempted. A GREEN RUN
+  THAT TESTED NOTHING. Reading the run's conclusion field as the answer would
+  have reported recovery on evidence containing none -- UNPROVENANCED
+  DIAGNOSTIC OUTPUT, the class this repo has a guard for. The lesson generalises
+  past this incident: for any workflow whose real work sits behind a gate, the
+  run conclusion is a claim about the GATE, not about the work.
+
+  STEP TWO, THE ANSWER: three runs DID reach the branch-push step -- 17:41:27Z,
+  17:45:54Z, 17:54:06Z, all work-digest -- and NONE got a pull request
+  (list_pull_requests(state=all, head=...) returns [] on the newest). Cause
+  verbatim from run 34385660100 at 17:55:08Z, byte-identical to 13:08Z and
+  16:42Z: `gh pr create attempt 2..3/3 failed: GraphQL: API rate limit already
+  exceeded for user ID 119055177`.
+
+  ⚠️ THE DURATION IS THE NEW FACT AND IT CHANGES THE DIAGNOSIS. 13:08:18Z ->
+  17:55:08Z is FOUR HOURS FORTY-SEVEN MINUTES, through what should have been
+  several hourly quota resets. So this is NOT one exhausted window waiting to
+  lapse; the quota is being CONTINUOUSLY RE-CONSUMED. Every Claude session in
+  this repo acts as user 119055177, so `gh pr create` inside `commit-to-main`
+  competes with every session's MCP traffic. The CAPACITY reading in
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-... is now the better-supported
+  one, and its clearing criteria already refuse a quiet queue as evidence for
+  exactly this reason.
+
+  RESCUED as #11582 -- the newest digest (17:54:05Z, superseding the 17:41:27Z
+  and 17:45:53Z strands), no rewind, pr-landing OK under the REAL branch name,
+  no conflict, carrying one pending-pings row main lacks. Digest margin was
+  +4.22h.
+
+  ⚠️ SIX HAND RESCUES IN ONE DAY (#11490, #11557, #11572, #11573, #11574,
+  #11582). Each one is correct and none of them is the fix. If a successor reads
+  only one line of this object, read that one: the class this WO names is that
+  the REMEDY is not as automatic as the ALARM, and six manual interventions in
+  an afternoon is that sentence measured.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
