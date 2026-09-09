@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "github-actions[bot] · work-digest run 34410703239",
-  "branch": "automation/work-digest-34410703239-1",
-  "claimed_at": "2026-09-09T22:09:42Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+  "held_by": "session_01FoASvmUGuahCphE1cewPPs",
+  "branch": "claude/mi214-suppression-observed",
+  "claimed_at": "2026-09-09T23:04:31Z",
+  "purpose": "MI-214 suppression observation (Tier-1 registers)"
  },
  "active_sessions": [
   {
