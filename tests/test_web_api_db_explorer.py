@@ -9,6 +9,16 @@ Pins the safety + shape contract of /api/bot/db/tables and
   * the connection is read-only (writes rejected)
   * the exposure contract: table allowlist (default-deny) + column redaction
     (BL-20260901-DB-EXPLORER-IS-UNGATED-AND-REACHES-DEVICE-TOKENS-RAW-TOKEN-COLUMN)
+  * the AUTHENTICATION gate: both routes are session-gated as of 2026-09-09
+    (BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS)
+
+⚠️ **Both client fixtures below authenticate.** That is deliberate and is the
+only honest way to keep the pre-gate behavioural assertions meaningful: they
+pin what an AUTHORISED caller sees, and every one of them passed identically
+before the gate (measured: 26 passed on the parent commit). The gate itself is
+pinned separately by ``TestAuthenticationGate``, which asserts the
+credential-free case — so no assertion here was weakened to accommodate the
+change, and the unauthenticated path is tested rather than merely bypassed.
 """
 from __future__ import annotations
 
@@ -17,6 +27,23 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+# The gate is `require_session` (HS256 JWT, allowlisted email). Tests mint a
+# real token through the production helper rather than hand-rolling one, so a
+# change to the token contract fails these tests instead of silently diverging.
+_TEST_EMAIL = "operator@example.com"
+_TEST_KEY = "test-signing-key-not-a-real-secret"
+
+
+def _auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JWT_SIGNING_KEY", _TEST_KEY)
+    monkeypatch.setenv("ALLOWED_EMAIL", _TEST_EMAIL)
+
+
+def _bearer() -> dict:
+    from src.web.api import auth as auth_module
+
+    return {"Authorization": f"Bearer {auth_module.issue_token(_TEST_EMAIL)}"}
 
 
 @pytest.fixture
@@ -50,7 +77,10 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     from src.web.api.routers import db_explorer as dbx
 
     monkeypatch.setattr(dbx, "_DB_PATH", db)
-    return TestClient(api_main.app, raise_server_exceptions=False)
+    _auth_env(monkeypatch)
+    return TestClient(
+        api_main.app, raise_server_exceptions=False, headers=_bearer()
+    )
 
 
 class TestTables:
@@ -139,7 +169,10 @@ def federated_client(monkeypatch, tmp_path):
     from src.web.api.routers import db_explorer as dbx
     monkeypatch.setattr(dbx, "_DB_PATH", tj)
     monkeypatch.setattr(dbx, "_TRAINER_STORE_DB", sidecar)
-    return TestClient(api_main.app, raise_server_exceptions=False)
+    _auth_env(monkeypatch)
+    return TestClient(
+        api_main.app, raise_server_exceptions=False, headers=_bearer()
+    )
 
 
 class TestFederation:
@@ -400,3 +433,143 @@ class TestExposureContract:
             "That is permitted but never accidental — confirm it is intended "
             "and update this test with the reason."
         )
+
+
+# ---------------------------------------------------------------------------
+# The AUTHENTICATION gate (2026-09-09).
+#
+# BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS
+# — the table allowlist that shipped 2026-09-01 is the AUTHORIZATION layer
+# (which tables are reachable at all). It never decided WHETHER an anonymous
+# caller may reach any of them, and was never claimed to. This class pins the
+# missing half.
+#
+# ⚠️ These tests deliberately do NOT reuse the authenticated `client` fixture —
+# they build an unauthenticated one, because the whole point is the caller who
+# presents nothing.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def anon_client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
+    """A client that sends no Authorization header, against a populated DB.
+
+    The DB is populated on purpose: a 401 proves more when there is real data
+    behind the gate to leak, so a passing test cannot be an artefact of an
+    empty store.
+    """
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    try:
+        conn.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, pnl REAL)")
+        conn.execute("INSERT INTO trades (symbol, pnl) VALUES ('BTCUSDT', 1.0)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    from src.web.api import main as api_main
+    from src.web.api.routers import db_explorer as dbx
+
+    monkeypatch.setattr(dbx, "_DB_PATH", db)
+    _auth_env(monkeypatch)
+    return TestClient(api_main.app, raise_server_exceptions=False)
+
+
+class TestAuthenticationGate:
+    def test_tables_refuses_an_unauthenticated_caller(self, anon_client):
+        res = anon_client.get("/api/bot/db/tables")
+        assert res.status_code == 401
+
+    def test_table_read_refuses_an_unauthenticated_caller(self, anon_client):
+        res = anon_client.get("/api/bot/db/table/trades")
+        assert res.status_code == 401
+
+    def test_the_refusal_leaks_no_rows(self, anon_client):
+        """A 401 that still serialised the page would defeat the point."""
+        body = anon_client.get("/api/bot/db/table/trades").text
+        assert "BTCUSDT" not in body
+
+    def test_the_listing_refusal_leaks_no_schema(self, anon_client):
+        """`/db/tables` published table names, row counts and full column
+        schemas — a 401 must not carry any of that in its body."""
+        body = anon_client.get("/api/bot/db/tables").text
+        assert "trades" not in body
+        assert "pnl" not in body
+
+    def test_a_malformed_bearer_is_refused(self, anon_client):
+        for header in (
+            {"Authorization": "Bearer "},
+            {"Authorization": "Basic abc"},
+            {"Authorization": "not-a-scheme"},
+            {"Authorization": "Bearer not.a.jwt"},
+        ):
+            res = anon_client.get("/api/bot/db/tables", headers=header)
+            assert res.status_code == 401, header
+
+    def test_a_token_signed_with_the_wrong_key_is_refused(self, anon_client):
+        import jwt as pyjwt
+
+        forged = pyjwt.encode(
+            {"email": _TEST_EMAIL, "iat": 0, "exp": 9999999999},
+            "not-the-signing-key",
+            algorithm="HS256",
+        )
+        res = anon_client.get(
+            "/api/bot/db/tables", headers={"Authorization": f"Bearer {forged}"}
+        )
+        assert res.status_code == 401
+
+    def test_gate_still_refuses_when_auth_is_UNCONFIGURED(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ):
+        """⚠️ The polarity that matters, and the reason this test is here.
+
+        `POST /api/bot/prop/report` fails CLOSED with 503 when its token env is
+        unset; `_check_admin_token` on the devices routes fails OPEN and serves.
+        Those two live side by side in this codebase, so which one this gate
+        copies is a real question and not a formality.
+
+        MEASURED on the live host 2026-09-09: `POST /api/auth/login` returns 500
+        `auth_unavailable`, i.e. the auth envs are NOT set in production. If this
+        gate failed open on that condition it would be decorative exactly where
+        it is needed. It does not: `require_session` rejects a missing bearer
+        BEFORE it reads `ALLOWED_EMAIL`, so an unconfigured host serves 401.
+        """
+        db = tmp_path / "trade_journal.db"
+        conn = sqlite3.connect(str(db))
+        try:
+            conn.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT)")
+            conn.execute("INSERT INTO trades (symbol) VALUES ('BTCUSDT')")
+            conn.commit()
+        finally:
+            conn.close()
+
+        from src.web.api import main as api_main
+        from src.web.api.routers import db_explorer as dbx
+
+        monkeypatch.setattr(dbx, "_DB_PATH", db)
+        monkeypatch.delenv("JWT_SIGNING_KEY", raising=False)
+        monkeypatch.delenv("ALLOWED_EMAIL", raising=False)
+        anon = TestClient(api_main.app, raise_server_exceptions=False)
+
+        for path in ("/api/bot/db/tables", "/api/bot/db/table/trades"):
+            res = anon.get(path)
+            assert res.status_code == 401, path
+            assert "BTCUSDT" not in res.text
+
+    def test_every_db_route_is_gated_no_route_left_behind(self):
+        """State the POPULATION rather than spot-checking two paths.
+
+        Enumerates every route the db_explorer router actually binds and
+        asserts each one carries `require_session`. A third route added later
+        without a gate fails HERE, rather than being found on a public host.
+        """
+        from src.web.api.routers import db_explorer as dbx
+        from src.web.api.auth import require_session
+
+        routes = [r for r in dbx.router.routes if "/db/" in getattr(r, "path", "")]
+        assert len(routes) == 2, [getattr(r, "path", None) for r in routes]
+
+        for route in routes:
+            deps = [d.call for d in route.dependant.dependencies]
+            assert require_session in deps, getattr(route, "path", None)
