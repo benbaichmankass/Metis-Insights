@@ -34932,6 +34932,22 @@
       "notes": "Filed by the manager after the contention cleared; deliberately held while it was live because the row itself lands in a file the contention was over."
     },
     {
+      "id": "BL-20260909-THE-BYBIT-COVERAGE-SOAK-CANNOT-BE-READ-BACK-BEYOND-ABOUT-SEVEN-HOURS-SO-IT-CANNOT-EVIDENCE-ANY-INCIDENT-OLDER-THAN-THAT",
+      "opened_at": "2026-09-09",
+      "opened_by": "MI-221 session_01CwHNLSX6gMjPoKUWHoYj7q",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 — tooling / read surface",
+      "area": "observability",
+      "title": "/api/diag/log_file caps at 1000 lines, which on bybit_coverage_soak's volume is ~7 hours — so the soak that is the ONLY declared evidence for the graded-coverage widening decision cannot be read back far enough to evidence anything",
+      "detail": "MEASURED 2026-09-09T16:30Z while trying to answer MI-221's question (B) -- why the per-tick Bybit naked sweep never re-armed trade 5471 across four days (2026-09-04T14:04:14Z..2026-09-08T13:37:13Z). /api/diag/log_file?name=bybit_coverage_soak&lines=1000 returned 1000 rows spanning ONLY 2026-09-09T09:24:47Z..16:29:35Z -- SEVEN HOURS AND FIVE MINUTES. The route's own cap is _MAX_LIMIT = 1000 (src/web/api/routers/diag.py), and _clamp silently reduces any larger request, so 1000 is the hard ceiling for every consumer. At the observed rate (1000 rows / 425 min = 2.35 rows/min) reaching back to the incident's start would need roughly 16,900 rows -- about 17x the ceiling. THE INCIDENT WINDOW IS UNREACHABLE THROUGH THE ONLY SURFACE THAT EXPOSES THIS LOG. || THIS IS A READ-SURFACE LIMIT, NOT DATA LOSS, and the distinction matters for the fix: the file on the VM may hold far more; what is capped is the retrieval. So the remedy is a windowed/paged read, not a change to what is written. || WHY IT IS SEVERE RATHER THAN A NUISANCE: OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT records that this soak's rows are THE ONLY DECLARED EVIDENCE for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then bybit_2 (REAL MONEY), and its clears_when requires at least 20 graded rows spanning at least 3 distinct UTC days plus at least one verdicts_differ row. A reader can accumulate that by sampling forward, but CANNOT audit it retrospectively, and cannot check a disagreement reported yesterday. An evidence store that cannot be re-read past 7 hours is weak evidence for a real-money arming decision. || ALSO MEASURED, and it is a separate fact worth keeping: ZERO bybit_2 ETHUSDT rows appear even inside today's 7-hour window -- correctly, because ETH is flat and the sweep grades only symbols carrying a position. So the absence of ETH rows today is NOT evidence about the incident; it is the expected shape for a flat symbol, and must not be read as the sweep having nothing to say.",
+      "resolution_criteria": "/api/diag/log_file (or a sibling) accepts a TIME WINDOW or a cursor, so any allowlisted jsonl can be read back to an arbitrary point rather than only its last 1000 lines. CLEARED when a read of bybit_coverage_soak returns rows from a date at least 3 days before the request, demonstrated on the live fleet -- and verified by a POSITIVE CONTROL that the window bound is real: a request for a window the file does not cover must return an explicit empty-for-that-window state, NEVER the most recent rows, because silently serving the tail for an out-of-range window is the same class of defect as the cap itself. NOT SUFFICIENT: raising _MAX_LIMIT alone (it moves the ceiling without making the bound expressible, and a bigger tail is still a tail); a green unit test over a fixture file; or sampling the tail more often (that accumulates going forward and still cannot audit the past, which is the actual gap).",
+      "refs": [
+        "docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md",
+        "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT"
+      ]
+    },
+    {
       "id": "BL-20260909-UNDER-NETTING-A-JOURNAL-ROW-CAN-BE-MASKED-BY-A-SIBLINGS-PROTECTIVE-LEG-AND-NOTHING-GRADES-PER-ROW-COVERAGE",
       "opened_at": "2026-09-09",
       "opened_by": "MI-221 session_01CwHNLSX6gMjPoKUWHoYj7q (operator hypothesis 2026-09-09T16:26Z)",
