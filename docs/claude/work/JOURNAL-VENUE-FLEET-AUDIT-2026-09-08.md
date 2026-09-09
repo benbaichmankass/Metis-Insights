@@ -1,6 +1,6 @@
 # Journal-open vs venue positions — the first fleet-wide audit, 2026-09-08
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-177**, standing pipeline-integrity lane pass 4, under
 `IN-20260903-TRADING-SYSTEM-HEALTH` / `CY-20260906-TRADING-TRUTH`. This is the

@@ -1,6 +1,6 @@
 # Sprint Log: S-MSE-1
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Multi-Strategy Execution (Phase 1) — Intent layer + delta-aware dispatch for
 > Bybit2 / BTC/USDT.**

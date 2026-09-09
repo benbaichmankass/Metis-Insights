@@ -1,6 +1,6 @@
 # Checkpoint workflow
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 How Claude Code sessions execute the sprint in small, resumable steps.
 Read this at the start of **every** session, before touching code.

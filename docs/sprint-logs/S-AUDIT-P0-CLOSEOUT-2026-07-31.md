@@ -1,6 +1,6 @@
 # S-AUDIT-P0-CLOSEOUT-2026-07-31 — full-system-audit P0 execution (provenance loop closed)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-31 → 2026-07-31 (single session; continuation of the audit session that merged #8178)

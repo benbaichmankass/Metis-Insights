@@ -1,6 +1,6 @@
 # Sprint S-063 — Performance tab + persistent equity history
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** auto-claude (M6 dashboard UI + tiny M2 backend
 > auth-surface change).

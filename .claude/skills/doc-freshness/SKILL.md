@@ -3,7 +3,7 @@ name: doc-freshness
 description: Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made — AND that this session's material decisions actually landed in every durable surface they belong in (roadmap + sprint log + the right review backlog), so nothing flows through the cracks. Use at the end of every session per docs/CLAUDE-RULES-CANONICAL.md, when the operator says "/doc-freshness" or "check the docs are up to date", or whenever you suspect documentation drift. Fixes Tier-1 doc contradictions + missing roadmap/sprint-log records in place; logs minor leftovers to the health-review backlog; flags anything needing a code/config change for the operator.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /doc-freshness — keep the instruction corpus internally consistent
 

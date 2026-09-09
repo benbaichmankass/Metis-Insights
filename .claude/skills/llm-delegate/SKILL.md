@@ -3,7 +3,7 @@ name: llm-delegate
 description: Offload a BOUNDED coding/research subtask to a cheap external LLM running as an ephemeral GitHub Actions job, then verify its output before acting. Use when a subtask is mechanical and self-contained — read N files and extract/summarize/classify, find gaps in a test suite, review one file for bugs, check a doc against its code — and doing it inline would burn context on grunt work. Costs $0. Owns the scope guard (public repo code + docs ONLY — never live trading data, credentials, or account config) and the three-state result contract. NOT for anything needing repo-wide context, anything touching live/runtime data, or work you cannot cheaply check — a delegated answer you can't verify is worse than no answer. Composes with delegate-work (which covers sub-agents and sub-sessions; this is the third, cheapest mode).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /llm-delegate — offload a bounded subtask to a cheap external model
 

@@ -3,7 +3,7 @@ name: delegate-work
 description: How to DELEGATE and PARALLELIZE a big-scope or long-running task across sub-agents and sub-sessions so it runs correctly and efficiently instead of as one slow serial slog. Pull this the moment a task is large (many files / multiple subsystems / all three repos / a broad sweep, audit, migration, or refactor) or a session is long-running — BEFORE diving in head-first. Covers when to delegate vs do it inline, how to decompose into independent units, the three parallelization modes (in-context parallel tool calls · background Agent fan-out with structured findings · operator-spawned parallel sessions), the single-writer consolidation rule, the sub-session spawn-prompt template, and running efficiently. Composes with session-coordination (the merge serialization + board) and full-system-audit (its Phase 2 IS this skill). NOT for small sequential tasks — delegation overhead isn't worth it there.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # delegate-work — decompose, delegate, and run a big task efficiently
 

@@ -1,6 +1,6 @@
 # Sprint S-022 — Error Monitoring & "Don't Fail Quietly"
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** Operator-driven feature sprint, autonomous Claude execution.
 > **Owner:** Claude Code (autonomous, self-merging).

@@ -3,7 +3,7 @@ name: db-setup
 description: Set up, locate, and verify the ICT bot's canonical SQLite stores — trade_journal.db (the money DB the live trader produces) and trainer_store.db (the read-mostly trainer/ML sidecar). Covers the single path resolver (src.utils.paths + scripts/ops/_lib.sh), how tables get created (lazy on first access by src/units/db/database.py + WAL via src/utils/db_init.py), the OCI data-dir migration (scripts/migrate_journal_db.sh), and the canonical-db-resolver CI guard. Use when setting up a fresh environment, when "the DB is in the wrong place" / "there's a duplicate journal", when adding a new DB path read/write, or when verifying storage on the VM. Composes with db-wiring (integrity) and diag-data (reads).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /db-setup — locate, create, and verify the canonical SQLite stores
 

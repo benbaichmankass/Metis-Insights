@@ -1,6 +1,6 @@
 # Sprint summary — S-telegram-format
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint date:** 2026-05-03
 **Outcome:** ✅ COMPLETE / WRAPPED — every recurring Telegram message in the bot now uses the unified collapsable formatter.

@@ -1,6 +1,6 @@
 # Sprint Log: S-M30-TRACK1-EXIT-HEAD-20260728
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-28 (Track-1 overnight-research continuation; fresh session handoff from `track1-micro-jji3ee`).

@@ -1,6 +1,6 @@
 # Sprint Log: S-R6-VM-RESIDENCY-VERDICT-2026-08-29
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-28 23:20Z → 2026-08-29 00:40Z (single session)

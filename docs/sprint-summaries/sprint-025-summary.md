@@ -1,6 +1,6 @@
 # Sprint 025 — UI processor migration step 1 + remaining G4 button flows
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Dates:** 2026-05-02 (continuation of the same-day cadence; PRs #276 → #279 + summary)
 **Checkpoints:** CP-2026-05-02-14 → CP-2026-05-02-18

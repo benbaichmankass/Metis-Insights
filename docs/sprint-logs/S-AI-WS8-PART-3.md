@@ -1,6 +1,6 @@
 # S-AI-WS8-PART-3 — Shadow-prediction drift detector
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-10
 **Authority:** [`docs/sprint-logs/S-AI-WS8-PART-1.md`](S-AI-WS8-PART-1.md), [`docs/sprint-logs/S-AI-WS8-PART-2.md`](S-AI-WS8-PART-2.md)

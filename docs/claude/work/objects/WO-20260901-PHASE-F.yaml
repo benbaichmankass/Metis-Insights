@@ -3,7 +3,7 @@ type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: "Phase F — the repairs — decision preparation and decision recording"
 stage: CAPABILITY
-lifecycle: ready
+lifecycle: waiting
 adjudicated_2026_09_06: >-
   BOOKKEEPING CORRECTION by the manager, not a verdict on the work. lifecycle read `in_flight`,
   which asserts the object is being actively worked. A LIVE list_sessions read on 2026-09-06
@@ -23,7 +23,23 @@ done_condition: >-
   A strategy-review packet is committed on a cadence and read, and a Tier-3
   approval lands in exactly one place.
 
-blocked_on: []   # nothing blocks this — a CLAIM, not an absence of information
+blocked_on:
+- kind: operator_decision
+  ref: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
+  since: '2026-09-09'
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by session_01DUBXxiaZ3PMERcAfcJce7P, MEASURED over all 8 committed daily
+  indexes (2026-09-01..2026-09-08, 52 enabled strategies, 7-day window). ⚠️ THIS EDGE REPLACES AN
+  EMPTY LIST THAT WAS A CLAIM, NOT AN ABSENCE — the object really did have nothing blocking it on
+  2026-09-01, and it does now. TWO of the three clears_when clauses on
+  OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED are MET
+  (a scheduled run committed an index — 3 of 7 schedule runs succeeded; and floor_state has read
+  `none_gradeable` on 7 real runs, not `unknown`). What remains is clause (3), an operator decision
+  on the window/floor pair, which is why the edge is `operator_decision` and not `capability`.
+  ⚠️ AND THE EDGE DOES NOT COVER THE WHOLE OBJECT — say which half you are reading. C4's third owed
+  item (no real consumer BRANCHES on the decision-record grade) is UNSTARTED CAPABILITY WORK, not
+  blocked on anybody; it needs src/, hence its own tier-gated change. Recording it as blocked would
+  make the constraint computation read an operator gate where there is only unstarted work.
 
 note: >-
   ⚠️ THIS IS THE ONLY PHASE THAT IS UNBLOCKED TODAY, and it is the only one
@@ -119,6 +135,79 @@ scope_split:
     whose resolution_criteria require BOTH a reconciliation AND the executable
     check — because closing the instance without the check is exactly what left
     this class alive the two previous times it was fixed.
+
+decision_requests:
+- id: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
+  question: >-
+    The daily strategy-review packet has graded 52 of 52 legs `hold` on eight consecutive days and
+    has never proposed a single action. At a 7-day window with a floor of n>=20 closes, NO leg is
+    gradeable and none can become gradeable at any sane window. How should the window/floor pair be
+    set — or should the packet be accepted as a denominator report rather than a decision surface?
+  urgency: blocking
+  asked_on: '2026-09-09'
+  asked_by:
+    session_id: session_01DUBXxiaZ3PMERcAfcJce7P
+    recorded_at: '2026-09-09T07:30:00Z'
+    note: >-
+      Phase F clause (3). Answering this is the ONLY thing still holding
+      OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED open;
+      its other two clauses were measured MET on 2026-09-09.
+  context: >-
+    MEASURED over all 8 committed daily indexes (2026-09-01..2026-09-08), all 52 enabled strategies,
+    window 7 days, floor MIN_CLOSED_FOR_ACTION = 20. Full working:
+    docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md.
+    graded 52 / actionable 0 / by_action {hold: 52} on 8 of 8. NO leg has reached 11 closes in a
+    7-day window on ANY day measured; 29-32 of 52 legs sit at zero every day; the whole fleet closes
+    58-67 trades per window. Grading all 52 legs needs ~1040 in-window closes against ~62 observed —
+    a ~17x shortfall that is stable across every day, so it is the fleet's steady state and not a
+    quiet week. Meanwhile 16 legs are LOSING money in-window (-13,147.94 on 09-07 / -11,213.99 on
+    09-08, provenance-trusted) and the surface cannot act on any of them.
+    ⚠️ WIDENING THE WINDOW MOSTLY DOES NOT WORK, and the generator already proves it rather than my
+    asserting it: its own evidence_horizon_summary reads gradeable_now 0 · reachable 20 ·
+    unbounded_no_closes 24 · structurally_ungradeable 8, with days_to_grade_median_reachable_point
+    70.0 and days_to_grade_all_reachable_point 140.0. So (a) no window under ~70 DAYS grades even the
+    median REACHABLE leg — a 14- or 30-day widening turns actionable 0 into actionable 0; (b) 32 of
+    52 legs never become gradeable at ANY window, and for the 8 `shadow_execution_no_fills` legs that
+    is correct and permanent, since a shadow leg cannot fill by declaration; and (c) a 70-140 day
+    window spans the e35 bracket-geometry deploy (2026-08-30), hedge-mode arming (2026-08-30) and the
+    cash-settlement gate arming (2026-08-31), so a KILL resting on it would grade a leg partly on
+    geometry it no longer runs.
+    ⚠️ AND THE OBSERVATION THAT REFRAMES THE QUESTION: at 52 legs and ~62 closes/week the MEDIAN leg
+    closes ~1.2 trades per week. The floor may not be too high and the window may not be too short —
+    the fleet may simply be spread too thin to generate decision-grade evidence about itself. On that
+    reading the lever is the NUMBER OF LEGS (Phase G / E3's sunset pass, which already names 10
+    retirement candidates over 52 legs), not the statistic. Option `too_many_legs` exists so the
+    operator is not offered only window-and-floor when a third lever is on the table.
+  options:
+  - key: accept_as_denominator
+    label: Leave window 7d / floor 20, and RECORD that the fleet is deliberately ungradeable
+    implication: >-
+      Nothing changes mechanically and the packet keeps reporting `none_gradeable` correctly. The
+      packet is then explicitly a DENOMINATOR REPORT, not a decision surface, and nobody should read
+      `actionable: 0` as a clean bill of health. Legitimate — but it must be a recorded decision
+      rather than a drift, because today it reads as a decision surface that is silently inert.
+  - key: widen_to_horizon
+    label: Widen the window to ~70-90 days, keeping the floor at 20
+    implication: >-
+      Grades roughly half the 20 reachable legs and leaves 32 of 52 permanently ungradeable. Buys the
+      first real verdicts at the cost of evidence that spans three Tier-2/3 changes deployed
+      2026-08-30/31 — a KILL would rest partly on geometry the leg no longer runs. State that
+      limitation on any badge produced this way.
+  - key: too_many_legs
+    label: Treat this as a FLEET-WIDTH problem and route it to the sunset pass (Phase G / E3)
+    implication: >-
+      Retire legs so the same flow concentrates into fewer books, raising per-leg n without weakening
+      the evidence bar — the only lever that does both. Slowest, Tier-3 per retirement, and it does
+      not make the next packet gradeable. `SUNSET-DISPOSITIONS` already carries 10 candidates.
+  - key: lower_the_floor
+    label: Lower MIN_CLOSED_FOR_ACTION below 20
+    implication: >-
+      ⚠️ LISTED SO IT IS EXPLICITLY DECIDED RATHER THAN QUIETLY AVAILABLE, AND IT IS THE ONE I WOULD
+      ARGUE AGAINST. No leg exceeds 10 closes in-window, so any floor that makes something gradeable
+      is <=10, and a KILL at n<=10 is exactly the low-n hazard the floor exists to prevent — the same
+      error one level up. If chosen, it should be paired with a weaker action class than KILL/DEMOTE
+      rather than lowering the bar for the existing one.
+  allows_free_text: true
 
 evidence:
   - docs/design/operating-layer-build-plan-DESIGN.md

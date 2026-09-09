@@ -1,6 +1,6 @@
 # Overnight workplan — 2026-08-29 → 30 · **M20 Active Trade Management**
 
-> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > ## **PLAN STATUS: `closed_unfinished`**
 > **What was left:** The N1/N2/N8 items were not audited by this session; `ROADMAP.md`'s

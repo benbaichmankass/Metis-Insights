@@ -3,7 +3,7 @@ name: performance-review
 description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE and its RESEARCH PIPELINE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider. Reviews the M13 AI-analyst insights log (/api/bot/insights/*) and cross-checks its claims against real data. ALSO owns the research pipeline end to end (2026-08-30): are backtests queued and routable, are they running, were their results READ and dispositioned, what analysis follows, and what action item comes out. Owns comms/claude_strategy_scores.jsonl (per-decision grading, append-only), docs/claude/performance-review-backlog.json (trading follow-ups) and docs/claude/research-review-backlog.json (research/evidence follow-ups). Also answers \"did anyone read that sweep\", \"is the research queue healthy\", \"/research-review\". Use when the operator says "run the performance review", "/performance-review", "score the recent trades", or "how are the strategies doing". NOT for ML/model perf (use /ml-review) and NOT for system/pipeline plumbing (use /health-review).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /performance-review — trading performance + the research pipeline
 

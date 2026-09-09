@@ -1,6 +1,6 @@
 # How the manager/sub-session operating model actually behaves — measured, 2026-09-08
 
-> **Doc status:** `live` · category `research` · MI-193 (LANE 2) ·
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > `session_012cVryifpv359yAWWVkrmnk` · parent `session_01HrmZ1RRNM4UnEUaFdrPEjj`
 
 Measurement of the operating model **as it behaves**, not as it is designed, from

@@ -1,6 +1,6 @@
 # Sprint 027 — Claude ↔ Telegram operator communication infrastructure
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Dates:** 2026-05-02 (single-session sprint; PRs #290 → #291 + this summary)
 **Checkpoints:** CP-2026-05-02-23 → CP-2026-05-02-24

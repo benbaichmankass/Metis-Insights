@@ -1,6 +1,6 @@
 # Sprint Log: S-REFACTOR-S6
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-20  
 **Sprint:** S6 — CENTRALIZED_ALLOCATOR primary path  

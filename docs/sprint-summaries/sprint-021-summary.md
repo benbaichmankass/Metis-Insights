@@ -1,6 +1,6 @@
 # Sprint S-021 — BUG-048 hardening: config-drift contract + boot-time observability
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Dates:** 2026-05-04 (single session; continues from CP-2026-05-04-04 which delivered the BUG-049 code fix)
 **Checkpoints:** CP-2026-05-04-04 → CP-2026-05-04-05

@@ -3,7 +3,7 @@ name: regime-selectivity
 description: The binding rules for authoring, gating, and flipping a REGIME OFF-CELL — the (trend, vol) cells in config/regime_policy.yaml that drop a strategy's intents before routing. Use when authoring or changing a trend_vol cell, when deciding whether a strategy needs vol/trend gating, when reading a regime_cell_walkforward result, or before proposing a Tier-3 regime-router flip. Owns three rules that keep the router SELECTIVE (gates only money-losing regimes that generalize), not cosmetic: no-cosmetic-cell, walk-forward-before-Tier-3, axis-fidelity. Composes with backtesting (the evidence), ml-review (the advisory vol head), and the regime tooling (scripts/research/regime_cell_walkforward.py). NOT for training the vol head itself (that's model-training) and NOT for the intent layer's flip policy (FLIP_POLICY).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /regime-selectivity — author regime OFF-cells that gate only what deserves gating
 

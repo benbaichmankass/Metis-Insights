@@ -1,6 +1,6 @@
 # M1 P1-A..D follow-ups + M2 formal close-out — summary
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** docs + small comms-hardening sprint (no live-trading code path changed).
 > **Branch:** `claude/review-roadmap-hIO75`. **Closed:** 2026-05-08.

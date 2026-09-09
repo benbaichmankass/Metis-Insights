@@ -3,7 +3,7 @@ name: system-review
 description: Master SYSTEM REVIEW session — the WORK is the review; the report is just its deliverable. Runs all three reviews (/health-review + /performance-review + /ml-review), actively reviews the whole system since the last review (technical health + every trade graded + strategy promotion/demotion readiness + ML training-cycle health + soak progress), DIAGNOSES bugs and PROPOSES fixes, raises flags when something has stalled or a gate is met, then synthesizes ONE consolidated, time-windowed system report (per-trade dossiers split real/paper/prop, PnL trend, market context, ML fleet) — a self-contained responsive HTML the apps surface in their Reports list, pinged once. Use when the operator says "/system-review", "/system-report", "run the system review/report", "give me the daily/weekly/monthly review", or "what has the system been doing / where do we stand". Takes --window=since-last|daily|weekly|monthly (default since-last). NOT a replacement for the three skills (it invokes them) and NOT a code review.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /system-review — the master system-review session (deliverable: the system report)
 

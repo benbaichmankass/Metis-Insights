@@ -1,6 +1,6 @@
 # Sprint S-028 Summary — BUG-050: Dead close-all legacy code removal
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-04  
 **Branch:** `claude/bug-050-dead-closeall-cleanup`  

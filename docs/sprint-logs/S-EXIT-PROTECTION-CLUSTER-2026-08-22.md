@@ -1,6 +1,6 @@
 # S-EXIT-PROTECTION-CLUSTER-2026-08-22
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-22 (single session, `s2-exitclust`), continuing the 2026-08-21 review programme

@@ -1,6 +1,6 @@
 # S-PROVENANCE-IB-EXECUTIONS-2026-07-30
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Objective:** Continue S-PROVENANCE-EXITLEAK-ROOTCAUSE — close the three open ends
 PR #8039 deliberately left: make IB PnL measurable, make the provenance CI guard

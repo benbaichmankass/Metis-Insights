@@ -3,7 +3,7 @@ name: before-asking-the-operator
 description: TRIGGER any time you are about to write phrases like "you'll need to", "run this locally", "manually...", "SSH in and", "sudo", "open a terminal", "on the VM, edit", "the operator needs to", "go to the dashboard and create", or any other instruction that attributes work to the operator. Run the runner-check below BEFORE generating that instruction. Almost every instance is a fallback because no direct MCP tool exists for X — but a GitHub Actions runner can do anything a terminal can, given the right stored auth. Default the work to a runner; the operator only owns the three categories in credentials-and-vm-mutations (originate secret value / approve tier-gated decision / physical-external action).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /before-asking-the-operator — the runner-check that runs first
 

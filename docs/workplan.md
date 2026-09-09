@@ -1,6 +1,6 @@
 # AI Trader — Project Structure & Workplan
 
-> **Doc status:** `historical` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `plan` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md)
 
 > ## **PLAN STATUS: `historical`**
 >
