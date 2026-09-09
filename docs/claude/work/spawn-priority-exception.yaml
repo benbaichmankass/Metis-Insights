@@ -32,6 +32,8 @@ covers:
   - WO-20260909-THE-LANDING-MACHINERY-ASSERTS-MORE-THAN-IT
   # -- added 2026-09-09, the engineering lane (see the block at the end) --
   - WO-20260901-PHASE-F
+  # -- added 2026-09-09, the landing lane (see the block at the end) --
+  - WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -371,3 +373,38 @@ phase_d_addendum_2026_09_08:
 # ⚠️ NOT A STANDING GRANT. It expires with this object. The cycle priority remains
 # CY-20260906-TRADING-TRUTH.
 
+
+# ============================================================================
+# 2026-09-09 (third) — THE LANDING LANE (WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED)
+# ============================================================================
+#
+# WHY IT DISPLACES — and it is the one kind of work that genuinely can, because it
+# does not COMPETE with the cycle, it is what lets the cycle land at all. MEASURED
+# 2026-09-09T07:53:19Z: scripts/ci/check_trainer_capture_watch.py exits 1 on CLEAN MAIN
+# ("newest recorded run is 15.1h old, window 15h") — established by running it
+# against a clean main checkout, not inferred from a PR, after a first check that
+# read $? from a pipeline's tail and proved nothing. It is a repo-wide red: every
+# open PR fails `guards` on it, including all three trading-truth lane PRs. Leaving
+# it means the cycle's own work cannot merge.
+#
+# WHY A SESSION AND NOT THE MANAGER. The refreshed receipt already exists, in
+# automation PR #11488. The manager cannot land it: that branch is ~3h behind main,
+# so merging main in produces a merge commit whose FIRST-PARENT diff carries
+# scripts/ and tests/, which check_manager_scope R2 attributes to the manager as
+# doing an item. That is MI-184 / BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE
+# -BUT-R2-FORBIDS-IT, hit live. Routing it is the rule working, and no
+# manager-scope-exception is being filed to get past R2.
+#
+# THIS IS A THIRD, DISTINCT CAUSE — do not read it as the deadlock returning.
+# #11494 fixed the R13 half and #11500 PROVED it by self-landing; #11509 fixed a
+# second, content half (a PR closed with no recorded disposition). This one is an
+# automation PR that went STALE: nothing rebases it and its author is a bot that
+# never comes back, so it rots into a permanent red. Conflating the three is how a
+# fixed problem gets re-declared broken, or a live one declared fixed.
+#
+# SCOPE — ONE object. It does not cover the other stale automation PRs as work in
+# their own right beyond landing-or-closing them, and it covers neither Phase G
+# nor Phase D.
+#
+# NOT A STANDING GRANT. It expires with this object. The cycle priority remains
+# CY-20260906-TRADING-TRUTH.
