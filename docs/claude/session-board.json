@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-hb-20260909T1826",
-  "claimed_at": "2026-09-09T18:25:52Z",
-  "purpose": "Manager: lease heartbeat + supervision reconciliation"
+  "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP · lane4 hand-run; landing path rate-limited",
+  "branch": "automation/work-digest-34385660100-1",
+  "claimed_at": "2026-09-09T18:35:20Z",
+  "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
  },
  "active_sessions": [
   {
