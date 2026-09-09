@@ -1,0 +1,4 @@
+MI-209b — correct two premises in the manager follow-up on the trailing/banking
+object: the zero-partials result is a complete census and is not tail-bound, and
+the partial-close producer is built end to end rather than unbuilt. Tier-1,
+measurement only, docs + registers only.

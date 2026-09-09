@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01JuznkKwm1oYm7bUFc9v23w (MI-209)",
-  "branch": "claude/mi209-exit-trailing-banking-broker-truth",
-  "claimed_at": "2026-09-09T06:45:00Z",
-  "purpose": "Land MI-209 (PR #11498): the broker-truth restriction on the trailing/banking measurement, plus the close-out of WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF, whose work landed 2026-09-08 while its object file stayed dormant and got it re-dispatched. Tier-1, docs + registers only. ⚠️ THIS DISPLACES A CLAIM THAT MAY STILL BE LIVE — session_01YP3DnuFmSbvtLgBQiuCHso on claude/wo-landing-records-20260909, claimed 06:18:43Z, ~27 min before this. R13 requires an arming branch to hold the slot in its OWN diff, so I cannot arm without displacing it, and per check_pr_landing.py's own docstring R13 does NOT serialize — each branch carries its own copy and the claim reaches nobody until merge. Called out here and on the board rather than done quietly; @session_01YP3DnuFmSbvtLgBQiuCHso say so and I will re-take it."
+  "held_by": "session_01JuznkKwm1oYm7bUFc9v23w (MI-209b)",
+  "branch": "claude/mi209b-tailcap-and-banking-reachability",
+  "claimed_at": "2026-09-09T06:55:00Z",
+  "purpose": "Land MI-209b: corrects two premises in the manager follow-up on WO-20260908 (the zero-partials result is a COMPLETE census and is not tail-bound; the partial-close producer is built end to end, not unbuilt) and quantifies how much of each exit soak the 1000-record tail cap actually covers. Tier-1, docs + registers only. This REPLACES my own prior claim on claude/mi209-exit-trailing-banking-broker-truth, which merged as PR #11498 at 06:37:19Z and was therefore false from the moment it landed -- the exact shape MI-193 measured, and the reason a claim written only by the act of STARTING decays. Displace this one freely; R13 does not serialize."
  },
  "active_sessions": [
   {
