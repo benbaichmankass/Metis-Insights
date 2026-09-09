@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-218 measurement only. Adds a read-only census script (pinned read-only by a test), its tests, a research report, and records in the work store / session registry / manager checklist / health-review backlog (append-only, 55 insertions / 0 deletions). No src/ runtime, no order path, no config, no gate, no threshold, no workflow. The Tier-2/Tier-3 findings it reports are FILED to the backlog for the operator, never enacted here."
+}

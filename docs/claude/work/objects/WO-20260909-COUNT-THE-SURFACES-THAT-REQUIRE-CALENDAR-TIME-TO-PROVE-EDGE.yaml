@@ -10,7 +10,11 @@ opened_at: 2026-09-09
 closed_at: null
 review_trigger: >-
   Operator-approved as a full sweep. Re-read if the count comes back zero, which
-  would itself need explaining given a known instance exists.
+  would itself need explaining given a known instance exists. DISCHARGED 2026-09-09: #11529 landed on main as
+  d535343b6 and the census was RE-RUN against the merged check D -- control found,
+  Pass A 7, Pass B 14, population 1,058/8,464, identical to the run made against
+  the MI-215 branch. The check-D-present test no longer skips (13 passed, 0
+  skipped). Nothing about this object is outstanding on that PR.
 done_condition: >-
   A COUNT is reported of operating-layer surfaces that require calendar time to elapse before an EDGE verdict becomes possible, with the CLASSIFIER stated and the POPULATION defined. ⚠️ THE POSITIVE CONTROL IS THE FIRST DELIVERABLE, NOT A FORMALITY: demonstrate the probe finds the KNOWN M7 strategy-review instance before trusting anything else it says. A probe that misses M7 is broken, and a silent probe is indistinguishable from a clean result — which is exactly what check_soak_doctrine.py did for eight days while the rule it enforces was being contradicted. ⚠️ ZERO IS AN ACCEPTABLE ANSWER ONLY WITH THAT CONTROL SHOWN. ⚠️ A LIST WITH NO DENOMINATOR DOES NOT SATISFY THIS — "we found some" is the state it is already in. ⚠️ AND THIS IS A MEASUREMENT, NOT A LICENCE TO CHANGE GATES: report the count and the list; each fix is its own scoped decision, and anything touching what a promotion or KILL rests on is Tier-3.
 
@@ -22,10 +26,33 @@ source: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-09 by the manager: nothing blocks starting. The candidate
-  surfaces are all readable in the repo, the known positive control (the M7
-  packet) is on main, and no deploy, credential or operator input is needed to
-  produce the count. MI-215's landing would ADD a surface worth checking but is
-  not a precondition for the sweep.
+  ASSESSED 2026-09-09 by the manager, and RE-AFFIRMED by the owning session at
+  completion -- the manager's reading was right and is kept verbatim above.
+  Nothing blocks starting: the candidate surfaces are readable in the repo, the
+  positive control (the M7 packet) is on main, and no deploy, credential or
+  operator input is needed to produce the count. MI-215's landing ADDS a surface
+  worth checking and is not a precondition for the sweep.
+  RETRACTION, recorded rather than silently dropped: the owning session first
+  wrote a `{kind: pr, ref: "#11529"}` edge here, reasoning that the census cannot
+  RUN without check D. That edge was WRONG and is withdrawn. The done_condition
+  is "a COUNT is reported", and the count IS reported -- so the object is not
+  blocked, it is finished pending merge. An edge asserting otherwise would be
+  read by the constraint computation as a real blocker, and this store's own
+  README records that a FALSE blocker is worse than a missing one. The genuine
+  #11529 dependency is about re-running the probe and is recorded in
+  `review_trigger` and `outcome`, which is where a fact about an instrument
+  belongs.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj
+
+outcome: >-
+  ANSWERED 2026-09-09 by session_01KSZCUtFKze3k7ZvxnTnD4T. FOUR confirmed surfaces plus one conditional, of which THREE are new (M7 was the control). POSITIVE CONTROL ESTABLISHED FIRST: the probe rediscovered scripts/ml/strategy_review_packet.py::decide -- all 7 branches -- WITHOUT being told the file or the function name, and REFUSES to print any count when it does not (exit 2; verified against a tree without check D, where counts read `None`, never `0`). POPULATION: 1,058 Python files / 8,464 functions across scripts+src+ml, 0 parse failures; 66 OPEN-ITEMS rows, 4 backlogs, 32 skills. NEW SURFACES -- (S2) ml/promotion/gates.py DEFAULT GateThresholds profile requires a 7 CALENDAR-DAY shadow_soak and 200 LIVE trades for every non-regime head, while canon's guard (tests/ml/test_gates.py) is scoped to the REGIME profile only: the M7 fact pattern one level up, where the rule is binding, the guard is real, and the guard does not reach the surface; (S3) backtest_fidelity_calibrate.py MIN_LIVE_N=30 makes 30 live trades a precondition for a leg's BACKTEST being admissible edge evidence, in a script whose own docstring says it exists because the old way "caps every decision at reality's clock"; (S4) exit-refinement SKILL.md P7 attaches DEMOTION to a realized live future_r_delta record. CONDITIONAL -- (C1) e2_feature_information.py power floors, live or offline depending on which panel is handed in, with the code not reading the panel's own source stamp. VERDICT ON THE MANAGER'S QUESTION: a FIX, not a redesign -- 3 new surfaces in 8,464 functions is not systemic -- but the three are the daily strategy-review gate, the ML promotion gate and the backtest-trust calibrator, so nearly every edge decision passes through one of them. The pattern is not widespread; it is load-bearing.
+
+limit: >-
+  THE COUNT IS A `lower_bound`, NOT `measured`, AND THAT IS THE MOST IMPORTANT RESULT. S2 -- the largest new finding -- was found by READING, not by any automated pass, and NEITHER PASS CAN EVER FIND IT: check D detects an accrual-gated verdict as CONTROL FLOW (an `if` whose body assigns a verdict), whereas S2 is a DATA FIELD (`required=th.require_shadow_soak`, a constructor argument). How many more gates of that shape exist cannot be bounded from inside the instrument, so reporting the number as `measured` would be the unprovenanced-diagnostic error this repo has a guard for. Filed as BL-20260909-CHECK-D-IS-BLIND-TO-A-GATE-DECLARED-AS-A-DATA-FIELD-NOT-A-BRANCH. Also stated: Pass C (prose) is a co-occurrence classifier -- 19 edge/both candidates yielded 1 confirmed finding -- its recall is unmeasured, and the 11 `mechanics` + 4 `unclassified` rows were NOT individually read. YAML/JSON config thresholds were reached opportunistically by grep, not by a systematic pass.
+
+evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md
+probe: scripts/ops/calendar_edge_census.py  # re-run against merged check D (main d535343b6): same numbers
+pr: 11538
+filed_not_taken: >-
+  5 rows appended to docs/claude/health-review-backlog.json via backlog_append.py. NOTHING was changed: no gate, no threshold, no config. S2 is Tier-3 and S3 Tier-2 -- both are the operator's call and are filed, not enacted.
