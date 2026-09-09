@@ -177,7 +177,13 @@ class TestActionableSignalsLogTheirStrategyName:
         # Force the multiplexer to consider only one strategy and have
         # it return an actionable VWAP-shaped signal.
         monkeypatch.setattr(pl, "STRATEGIES", ["vwap"])
-        monkeypatch.setitem(pl._STRATEGY_BUILDERS, "vwap", _vwap_actionable_signal)
+        # Register through the intent layer's own extension point rather than
+        # patching a pipeline-local dict: pipeline._STRATEGY_BUILDERS was
+        # deleted 2026-09-09 (audit F-28, MI-229) and _REGISTERED_BUILDERS is
+        # what _resolve_builders() merges over the default roster, so this
+        # override reaches BOTH the rollback and intent paths.
+        from src.runtime import intent_multiplexer as _im
+        monkeypatch.setitem(_im._REGISTERED_BUILDERS, "vwap", _vwap_actionable_signal)
 
         pl.run_pipeline(
             settings={"SYMBOL": "BTCUSDT", "DRY_RUN": "true"},

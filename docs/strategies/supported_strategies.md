@@ -34,6 +34,13 @@ To change priority order, edit `STRATEGIES` in `src/runtime/pipeline.py`.
 
 1. Write a builder function with signature `(settings: dict) -> dict` that returns
    `{symbol, side, qty, meta}`.
-2. Register it in `_STRATEGY_BUILDERS` in `src/runtime/pipeline.py`.
+2. Register it in **`src/runtime/intent_multiplexer.py::_default_intent_builders`** —
+   the ONE builder roster. ⚠️ This step used to read *"register it in
+   `_STRATEGY_BUILDERS` in `src/runtime/pipeline.py`"*, a SECOND registry that
+   nothing kept in step with the first; by 2026-09-09 it held 16 of 55
+   strategies and, because `MULTI_STRATEGY_INTENT_LAYER=false` routes to it, the
+   documented rollback had become a 78% capability outage (audit F-28). It is
+   deleted — `pipeline.strategy_builders()` reads the roster above, and
+   `tests/test_strategy_builder_registry_single_home.py` fails any re-split.
 3. Optionally add its key to `STRATEGIES` to include it in multiplexed mode.
 4. Add a doc file under `docs/strategies/`.

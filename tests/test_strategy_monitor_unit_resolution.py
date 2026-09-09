@@ -4,10 +4,10 @@ the order-monitor can actually call monitor() on.
 Aliased strategies (the WS-A metals + M15 equity/fx sleeves, ict_scalp_5m, …)
 have no same-name module — they reuse a base unit via the signal builder. The
 order-monitor resolves them through pipeline.monitor_unit_for(). If a new
-aliased strategy is added to _STRATEGY_BUILDERS without a matching entry in
-_STRATEGY_MONITOR_UNIT, its open positions would silently run on static SL/TP
-with no active monitor() — exactly the orphan-MHG gap. This test fails CI in
-that case.
+aliased strategy is added to the builder roster
+(intent_multiplexer._default_intent_builders) without a resolvable monitor unit,
+its open positions would silently run on static SL/TP with no active monitor()
+— exactly the orphan-MHG gap. This test fails CI in that case.
 """
 from __future__ import annotations
 
@@ -18,25 +18,24 @@ import pytest
 
 pytest.importorskip("pandas")
 
-from src.runtime.pipeline import _STRATEGY_BUILDERS, monitor_unit_for
+from src.runtime.pipeline import monitor_unit_for
 from src.runtime.intent_multiplexer import _resolve_builders
 
 
 def _all_registered_strategies():
-    """Union of BOTH live rosters the order-monitor must resolve against.
+    """THE roster the order-monitor must resolve against — there is one.
 
-    The legacy ``pipeline._STRATEGY_BUILDERS`` is NOT the whole story — the
-    IBKR/FX symbol sleeves register only in the intent-layer roster
-    (``intent_multiplexer``), which is what actually generates signals
-    (``MULTI_STRATEGY_INTENT_LAYER`` default on). Iterating only
-    ``_STRATEGY_BUILDERS`` left those sleeves unguarded, so a sleeve whose
-    ``monitor()`` couldn't be resolved (``mgc_trend_1h`` →
-    ``No module named 'src.units.strategies.mgc_trend_1h'``) slipped past CI
-    while its live positions ran naked on static SL/TP (BL-20260615-MGCNAKED).
+    This used to union ``pipeline._STRATEGY_BUILDERS`` with the intent roster,
+    because the two could differ and iterating only the former left the IBKR/FX
+    symbol sleeves unguarded: a sleeve whose ``monitor()`` couldn't be resolved
+    (``mgc_trend_1h`` → ``No module named 'src.units.strategies.mgc_trend_1h'``)
+    slipped past CI while its live positions ran naked on static SL/TP
+    (BL-20260615-MGCNAKED). The second registry was DELETED on 2026-09-09
+    (audit F-28, MI-229), so there is nothing left to union. **Coverage is not
+    reduced:** the deleted dict was a strict subset of this roster, so the set
+    this returns is identical to what the union returned.
     """
-    names = set(_STRATEGY_BUILDERS)
-    names.update(_resolve_builders())
-    return sorted(names)
+    return sorted(_resolve_builders())
 
 
 def test_every_strategy_resolves_to_a_module_with_monitor():

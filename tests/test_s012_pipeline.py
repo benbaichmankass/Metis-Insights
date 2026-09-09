@@ -152,8 +152,10 @@ def test_turtle_soup_in_strategies_list():
 
 
 def test_turtle_soup_in_strategy_builders():
-    from src.runtime.pipeline import _STRATEGY_BUILDERS
-    assert "turtle_soup" in _STRATEGY_BUILDERS
+    # Reads THE roster. pipeline._STRATEGY_BUILDERS (the second registry) was
+    # deleted 2026-09-09 — audit F-28, MI-229.
+    from src.runtime.pipeline import strategy_builders
+    assert "turtle_soup" in strategy_builders()
 
 
 def test_no_per_strategy_risk_map():

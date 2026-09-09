@@ -240,33 +240,32 @@ Honour the `enabled: false` flag: when the YAML block has
 short-circuits and the strategy stays inert until the operator opts
 in.
 
-### 3. Pipeline registration — `src/runtime/pipeline.py`
+### 3. Pipeline registration — **there is none. Do not add one.**
 
-Three edits in this file:
+⚠️ **THIS STEP USED TO SAY "add an entry to `_STRATEGY_BUILDERS` in
+`src/runtime/pipeline.py`", AND THAT INSTRUCTION IS WHY AUDIT F-28 HAPPENED.**
+`pipeline._STRATEGY_BUILDERS` was a SECOND builder registry beside the intent
+layer's, kept in step by nothing but this sentence — and the sentence was
+routinely skipped, because omitting it changed nothing observable on the live
+path. **Measured 2026-09-09: 55 strategies in the intent roster, 16 here, 39
+missing, of which 35 were `execution: live` out of 45.** Since
+`MULTI_STRATEGY_INTENT_LAYER=false` is the documented no-redeploy rollback and
+routed to that dict, the rollback had become a **78% capability outage** that
+presented as ordinary log noise.
 
-a) Import the new builder at the top of the file alongside the
-   existing builders:
+The operator was offered a parity test and chose the structural fix
+(`DEC-20260909-ROLLBACK-BUILDER-REGISTRY`, `chosen: collapse_to_one_registry`).
+**The second registry is deleted.** `pipeline.strategy_builders()` and
+`pipeline.monitor_unit_for()` both resolve through
+`intent_multiplexer._resolve_builders()`, so step 4 below is the *only* place a
+strategy is registered.
 
-```python
-from src.runtime.strategy_signal_builders import (
-    ict_scalp_signal_builder,
-    <new>_signal_builder,
-    turtle_soup_signal_builder,
-    vwap_signal_builder,
-)
-```
+**Re-introducing any `name -> *_signal_builder` dict under `src/` fails
+`tests/test_strategy_builder_registry_single_home.py`.** Do not import your
+builder into `pipeline.py` either — the only builders imported there are the
+four the `STRATEGY=<name>` env override names by hand.
 
-b) Add an entry to `_STRATEGY_BUILDERS` (drives the legacy
-   first-wins multiplexer + the `STRATEGY=<name>` env override path):
-
-```python
-_STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
-    ...
-    "<name>": <new>_signal_builder,
-}
-```
-
-c) NOTHING to add for risk. The per-strategy `STRATEGY_RISK_PCT` map was
+NOTHING to add for risk, and that has not changed. The per-strategy `STRATEGY_RISK_PCT` map was
    removed 2026-06-29 — a strategy carries no risk level. Position sizing is
    the RiskManager's sole responsibility: the account-level `risk_pct` basis
    (uniform 1.5%) × an internal confidence scalar driven by the order
@@ -595,9 +594,11 @@ Reference for what a complete new-strategy PR looks like:
 - Strategy module: `src/units/strategies/ict_scalp.py`
 - Signal builder: `ict_scalp_signal_builder` in
   `src/runtime/strategy_signal_builders.py`
-- Pipeline registration: `_STRATEGY_BUILDERS` + `STRATEGY_RISK_PCT`
-  in `src/runtime/pipeline.py` (entry: `"ict_scalp_5m": 0.3`)
-- Intent builder registration:
+- Pipeline registration: **none** — `_STRATEGY_BUILDERS` and
+  `STRATEGY_RISK_PCT` were both deleted (the latter 2026-06-29, the former
+  2026-09-09 / audit F-28). This entry is kept as the historical record of
+  where it used to live.
+- Builder registration (the ONE home):
   `src/runtime/intent_multiplexer.py::_default_intent_builders`
 - Priority: `src/runtime/intents.py::DEFAULT_PRIORITIES`
   (`"ict_scalp_5m": 30`)
@@ -621,9 +622,10 @@ new member looks like before it has earned real money:
   shared Chandelier `monitor()`)
 - Signal builder: `fade_breakout_4h_signal_builder` in
   `src/runtime/strategy_signal_builders.py`
-- Pipeline + intent registration: `_STRATEGY_BUILDERS` /
-  `STRATEGY_RISK_PCT` (pipeline), `_default_intent_builders`
-  (multiplexer), `DEFAULT_PRIORITIES` (`fade_breakout_4h: 10`)
+- Builder registration: `_default_intent_builders` (multiplexer) — the ONE
+  home. The pipeline-side `_STRATEGY_BUILDERS` / `STRATEGY_RISK_PCT` named
+  here are both deleted (2026-09-09 / 2026-06-29); kept as record.
+  Priority: `DEFAULT_PRIORITIES` (`fade_breakout_4h: 10`)
 - Config: `config/strategies.yaml::fade_breakout_4h` block —
   `enabled: true` / `execution: shadow` / `shadow_model_ids: []`
 - Routing: `bybit_1.strategies` (demo) — NOT bybit_2 (PR #1885)
