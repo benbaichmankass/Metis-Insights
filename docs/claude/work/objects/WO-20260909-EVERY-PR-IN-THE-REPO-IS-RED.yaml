@@ -96,6 +96,35 @@ what_was_established: >-
   check_pr_queue_watch (30h), check_manager_queue_watch. The same trap is live
   on a second one now: #11490 carries a PR-queue-watch receipt that cannot land.
 
+fourth_mechanism_measured_after_the_fix: >-
+  ⚠️ MEASURED 2026-09-09T09:30Z, AFTER this WO's class fix was written, and it
+  SHARPENS the class rather than contradicting it. PR #11518
+  (`automation/work-digest-34327540243-1`, opened 08:21:03Z) POSTDATES #11494
+  and carries a valid R13 claim, so it is NOT the cause #11494 fixed. Every step
+  measured, not inferred: (1) `commit-to-main`'s stale-branch refresh FIRED AND
+  WORKED -- its head 9ce35856 is literally `Merge main so the required checks
+  re-run against the current base`, with a resolved session-board conflict;
+  (2) all four required checks went GREEN on that sha at 08:31-08:33Z;
+  (3) auto-merge was armed at open time; (4) it is STILL OPEN an hour later and
+  a trial merge against current main CONFLICTS in BOTH
+  docs/claude/session-board.json AND docs/claude/work/WORK-DIGEST.json.
+  ⚠️ AUTO-MERGE DOES NOT RESOLVE CONFLICTS -- it waits silently and forever, and
+  the producer's ONE refresh attempt is already spent with its run exited. So a
+  PR can be green, armed, correctly claimed and STILL permanently stranded, and
+  the strand is invisible because every signal on it reads healthy.
+  THE CLASS THEREFORE HAS TWO SUB-CASES, and only one is mechanically fixable:
+  (i) the only conflict is the R13 slot file -- the sweeper refreshes it, taking
+  main's board and re-asserting the claim, and the PR lands; (ii) a DATA
+  conflict between two generator runs -- no rule can settle it without
+  discarding one run's output, so the sweeper REFUSES and reports, and the older
+  PR must be closed with its append-only rows rescued first. That limit is
+  written into the sweeper's own docstring rather than left to be discovered,
+  and filed as
+  BL-20260909-A-GREEN-ARMED-AUTOMATION-PR-STALLS-FOREVER-WHEN-MAIN-MOVES-BECAUSE-AUTO-MERGE-DOES-NOT-RESOLVE-CONFLICTS.
+  ⚠️ AND THE RATE IS THE REAL PROBLEM: over the 75 minutes of this session the
+  open `automation/*` queue went 50 -> 51 (two opened, #11518 and #11525; one
+  closed, #11488, closed BY HAND). It grows faster than hand-triage drains it.
+
 what_was_not_done: >-
   NOT DONE, explicitly. (1) NO PR WAS CLOSED. 27 `superseded_older` PRs still
   need closing with a recorded `disposition`, and 7 more

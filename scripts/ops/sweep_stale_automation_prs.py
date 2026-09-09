@@ -48,6 +48,30 @@ a session closes them by hand, having read the diff, and records a
 `disposition` (`open_pr_record.py` grades a `closed_unmerged` row with none as
 `undispositioned`, which is how cause (2) of this incident happened).
 
+⚠️ WHAT THIS FIXES IS ONE OF TWO SUB-CASES, AND THE OTHER IS NAMED NOT HIDDEN
+-----------------------------------------------------------------------------
+MEASURED 2026-09-09T09:30Z on PR #11518, which POSTDATES #11494 and carries a
+valid R13 claim, so it is not the cause #11494 fixed. Its producer's refresh
+FIRED AND WORKED (head commit 9ce35856 is `Merge main so the required checks
+re-run against the current base`), all four required checks went GREEN at
+08:31-08:33Z, auto-merge was armed — and an hour later it is still open and now
+conflicts with `main` in BOTH `docs/claude/session-board.json` AND
+`docs/claude/work/WORK-DIGEST.json`.
+
+⚠️ AUTO-MERGE DOES NOT RESOLVE CONFLICTS. It waits, silently and forever. The
+producer's one refresh attempt is spent and its run has exited. So a PR can be
+green, armed, correctly claimed and STILL permanently stranded.
+
+  (i)  the only conflict is the R13 slot file  -> THIS FILE REFRESHES IT, taking
+       `main`'s board and re-asserting the claim, and the PR lands.
+  (ii) a DATA conflict between two generator runs (WORK-DIGEST.json here) -> NO
+       RULE HERE CAN SETTLE IT. Taking either side discards one run's output.
+       `refresh()` aborts on any conflicted path other than the slot file and
+       says so, and the PR is reported for a human read.
+
+Sub-case (ii) is a real limit of this file, not an oversight: see
+BL-20260909-A-GREEN-ARMED-AUTOMATION-PR-STALLS-FOREVER-WHEN-MAIN-MOVES-BECAUSE-AUTO-MERGE-DOES-NOT-RESOLVE-CONFLICTS.
+
 ⚠️ AND IT REFUSES TO REFRESH A SUPERSEDED PR — THE DANGEROUS DIRECTION
 ----------------------------------------------------------------------
 Every one of these PRs already has auto-merge ARMED. So refreshing one is not
