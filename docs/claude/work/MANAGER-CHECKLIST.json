@@ -2940,6 +2940,30 @@
         "The six operator decisions are NOT routed and must not be: they are Tier-2/Tier-3 and the work object's must_not says the operator decides. They are carried by the loud OPEN-ITEMS row.",
         "2026-09-09T21:30Z manager: PR #11592 MERGED as 92f44a226; work object closed. landed_unproven NOT done — the new instrument scripts/ci/check_guard_selftest_coverage.py has NOT been observed grading on a PR other than the one that introduced it, which is the arming half. Coverage 52 -> 58 of 80. F-61 REFUTED on all four named instances (they ARE invoked; the audit's probe used a single-line grep against argv wrapped over two lines) — class is 4, not 8, and the audit doc was corrected in the same PR."
       ]
+    },
+    {
+      "id": "MI-227-INTENT-REDUCE-ORPHAN-PROTECTIVE-LEG",
+      "title": "F-36: apply_intent_reduce_partial_close never resizes the reducing row's OWN protective leg — operator-approved Tier-2 (resize + INV-PROTECT-LEG-MATCHES-ROW)",
+      "state": "in_flight",
+      "owner": "session_0178Pn128KK71u6nCzLeVH6w",
+      "notes": [
+        "2026-09-09T21:50Z manager: SPAWNED. Registered before the spawn (pending-20260909T214948Z) and confirmed after. Operator answered `resize_and_invariant` 2026-09-09; the object WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG carries the answer and its scope limits. ⚠️ THE APPROVAL COVERS THE CODE PATH THAT RESIZES ON THE NEXT REDUCE PLUS THE INVARIANT — it does NOT authorise cancelling any currently-resting leg, and no order may be placed, modified or cancelled on any account. Chosen first because it is real money (3 of 21 rows on bybit_2) AND the root cause of 64 of the 112 rows in the operator ERROR feed."
+      ],
+      "opened_at": "2026-09-09",
+      "tier": 2,
+      "work_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG"
+    },
+    {
+      "id": "MI-228-CLOSED-FLAT-INVARIANT-CANNOT-FALSIFY",
+      "title": "F-11 + F-12 + F-13: the closed-flat invariant reads a failed exchange read as flat, covers <=59% of its timeline, and pages where nobody looks — operator-approved Tier-2 (fix all three)",
+      "state": "in_flight",
+      "owner": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
+      "notes": [
+        "2026-09-09T21:51Z manager: SPAWNED. Registered before the spawn (pending-20260909T215040Z) and confirmed after. Operator answered `all_three` 2026-09-09; the object WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ carries the answer. This is CY-20260906-TRADING-TRUTH exactly — repair the MEASUREMENT before acting on what it says. ⚠️ Nothing here touches an order path, and the first violation it reports must NOT be read as a regression: today's zero is uninformative by construction. ⚠️ Deliberately disjoint from MI-227, which is adding INV-PROTECT-LEG-MATCHES-ROW to system_invariants.py — F-39's fix lands in the same file, which is why F-39 was NOT paired here."
+      ],
+      "opened_at": "2026-09-09",
+      "tier": 2,
+      "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ"
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
