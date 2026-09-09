@@ -10,17 +10,30 @@ title: >-
   The closed-flat invariant reads a FAILED exchange read as flat - operator answered: fix all
   three, F-11 + F-12 + F-13
 stage: INTEGRITY
-lifecycle: in_flight
-owner: session_01UFEDvWwTCMqAsBoQCh9Kz1
+lifecycle: waiting
+owner: null
 opened_at: '2026-09-09'
 closed_at: null
 
 review_trigger: >-
   Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD.
   Do not re-measure - the evidence is in the audit at F-11, F-12 and F-13. !! THE BUILD IS IN
-  FLIGHT as of 2026-09-09 (MI-228, session_01UFEDvWwTCMqAsBoQCh9Kz1) and is NOT done: the code
-  is written and held for a human merge click, and NOT ONE OF THE THREE PARTS IS OBSERVED ON
-  THE FLEET. A merge is not a deploy and a deploy is not an observation.
+  MERGED as of 2026-09-09T23:04:12Z (MI-228, PR #11603, merge commit a34bc556c, merged by the
+  operator) and is STILL NOT DONE. !! `waiting` IS THE HONEST LIFECYCLE AND `done` WOULD BE A
+  FALSE CLAIM: the manager checklist's own vocabulary says `done` means MERGED AND OBSERVED
+  while `landed_unproven` means the code is in and its effect has NOT been seen on the fleet,
+  and collapsing those two is the failure this repo keeps paying for. NOT ONE OF THE FOUR PARTS
+  IS OBSERVED. A merge is not a deploy and a deploy is not an observation. !! `owner` IS
+  DELIBERATELY CLEARED rather than left naming the build session: that session is gone, and an
+  owner who cannot act reads as supervision that is not happening. What carries the remaining
+  work is OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN (loud,
+  verified_at: null), whose clears_when names the four things that clear NOTHING here - a
+  continued zero, a green suite, the merge itself, and `controls_ok: true`. !! DO NOT REOPEN
+  THIS AS A BUILD. The build is finished; what is owed is an OBSERVATION, and the first one to
+  make is the DENOMINATOR: read /api/diag/log_file?name=closed_flat_coverage and establish that
+  rows exist AT ALL with examined > 0. Zero rows after a full tick cadence means the writer is
+  not writing or the code is not deployed - a DEPLOY DEFECT, the opposite fact from a quiet
+  book, and it must never be reported as 'no violations observed'.
 
 build_note_2026_09_09: >-
   !! A FOURTH BLINDNESS WAS FOUND WHILE BUILDING THE FIX, AND IT SUBSUMES THE OTHER THREE AS AN
@@ -61,6 +74,11 @@ blocked_on_basis: >-
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
 built_by: worker session_01UFEDvWwTCMqAsBoQCh9Kz1 (MI-228, 2026-09-09)
+landed: >-
+  PR #11603 merged 2026-09-09T23:04:12Z as a34bc556c -- LANDED_UNPROVEN, not done.
+  Quoted as a block scalar deliberately: an unquoted `#11603` makes YAML read the rest
+  of the line as a COMMENT, so the value silently became the two characters "PR" -- a
+  field that looks populated and says nothing, which is this object's own subject.
 
 decision_requests:
   - id: DEC-20260909-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ

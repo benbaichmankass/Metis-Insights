@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One work-object YAML under docs/claude/work/objects/ — lifecycle in_flight -> waiting and owner -> null now that PR #11603 has MERGED. No src/, config/, deploy/, workflow or test change; nothing runtime, nothing on an order path. Leaving it in_flight would hold a WIP slot (measured: the ceiling read 7 in flight with it, 6 without) and name a finished session as owner, which reads as supervision that is not happening."
+}
