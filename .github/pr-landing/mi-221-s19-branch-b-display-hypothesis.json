@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two files, both under docs/claude/ — § 19 appended to the MI-221 evidence document, one in-place correction to § 18's framing, and two rows filed through backlog_append into health-review-backlog.json (asserted a strict superset of main: +2 appended, 0 lost, 0 mutated, 0 reordered). No runtime, no order path, no strategy config, no risk caps, no live-VM file, no landing machinery. Tier-1 by the canonical doc's own examples (docs + a backlog filing, which CLAUDE.md calls the act of NOT taking the item)."
+}

@@ -1,0 +1,2 @@
+Tier-1 manager lease heartbeat + supervision reconciliation. PR #11581, opened by
+hand FIRST so a real pull_request event fires and the required checks run.

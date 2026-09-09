@@ -384,7 +384,7 @@
     "is_not": "A soak row proves the DECISION, never the ORDER. This row's clause (c) needs a `trades` row on an account the same soak row lists in `rounds_applied[*].accounts`, and this probe cannot see the journal. It also cannot tell an EMPTY log (the state as of 2026-08-31T07:51Z — no rows since the arm) from a log full of non-matching rows; read the printed denominator."
    }
   },
-    {
+  {
    "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
    "opened": "2026-08-31",
    "kind": "monitoring",
@@ -1483,7 +1483,7 @@
    "docs/research/real-money-close-attribution-2026-09-08.md"
   ]
  },
- {
+  {
   "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
   "kind": "monitoring",
   "loud": true,
@@ -1507,7 +1507,7 @@
    "BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED"
   ]
  },
- {
+  {
    "id": "OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
    "kind": "monitoring",
    "loud": true,
@@ -1532,6 +1532,25 @@
      "BL-20260909-THE-SANCTIONED-INTENT-LAYER-ROLLBACK-IS-A-78-PERCENT-CAPABILITY-OUTAGE",
      "BL-20260909-THREE-ORDER-PACKAGES-ARE-CLOSED-WHILE-HOLDING-FOUR-OPEN-LEGS-ONE-ON-REAL-MONEY"
    ]
+ },
+  {
+  "id": "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
+  "kind": "monitoring",
+  "opened": "2026-09-09",
+  "loud": false,
+  "check_every_days": 3,
+  "verified_at": null,
+  "observation": "2026-09-09, and it is deliberately NOT a claim of progress: NOTHING HAS BEEN OBSERVED, because the writer is not on main yet. What IS established is only what a harness can establish -- 13 tests pass, and one of them asserts the reader's return value is byte-identical on the same inputs, which is the whole safety argument for the change. verified_at stays null on purpose; dating it today would assert an observation nobody made. THE FIRST REAL CHECK IS THE DENOMINATOR, NOT THE FINDING: read /api/diag/log_file?name=position_read_state_soak and establish that rows exist AT ALL with rows_seen > 0. Zero rows means the code is not deployed or not reached -- a deploy defect -- and must never be reported as 'no drops observed', which is the opposite fact.",
+  "summary": "MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answers -- genuinely flat / a zero-size row was returned / no row was returned at all -- were one silent value, and could_not_look was a synonym for flat. The reader's return value is byte-identical and a test asserts it. THE POINT OF THE SOAK IS THE TIER-3 DECISION IT GATES: the operator chose observable-first over fixing the behaviour precisely because nobody has observed which state production is in, and changing a real-money close path on a defect never seen firing would be arming on a construction rather than a sighting. WHAT IS NOT YET TRUE: no soak row has been observed on the fleet at all -- this is DEPLOYED-PENDING-MERGE, not running.",
+  "clears_when": "EITHER of two OPPOSITE outcomes, and they are different findings -- say which. (a) THE DROP IS REAL: at least one position_read_state_soak row carries dropped_symbol_dedupe_count >= 1, read off /api/diag/log_file, naming the symbol and the position_idx of the book that was discarded. That is the live-money case -- a second book on a symbol already emitted, invisible to every caller keyed on (symbol, side), which is what gates the close decision at order_monitor.py:4348 -- and it is the EVIDENCE a Tier-3 behaviour-change proposal would rest on. The manager, not this row, puts that to the operator. (b) THE DROP DOES NOT HAPPEN HERE: rows accrue across at least 3 distinct UTC days with dropped_symbol_dedupe_count == 0 throughout AND a non-zero denominator (rows_seen > 0 on those rows, so the reader was genuinely looking). That RETIRES the Tier-3 proposal on this account set and must be RECORDED as that decision rather than left looking like a soak still running. !! AN EMPTY LOG CLEARS NEITHER AND IS ITSELF THE FINDING: zero rows after a full cadence means the writer is not writing or the code is not deployed -- a deploy defect, not a quiet book. Zero rows and 'rows accruing with no drops' are OPPOSITE facts and must never both be reported as 'the soak is quiet'. !! A GREEN TEST SUITE CLEARS NOTHING: 13 tests pass in a harness and a harness cannot reach a venue. !! AND MERGING CLEARS NOTHING -- a merge is not a deploy and a deploy is not a row.",
+  "probe_absent_reason": "NO PROBE IS POSSIBLE YET, and the reason is DATED rather than permanent -- two things must land first, in order. (1) This branch must MERGE: the diag allowlist entry for position_read_state_soak ships in the same commit as the writer, so /api/diag/log_file?name=position_read_state_soak 404s until then, and a probe written today would grade could_not_read forever while looking like a quiet negative. (2) At least one row must EXIST to serve as scripts/ops/probe_soak.py --positive-control, without which a quiet result is an UNREAD rather than a negative -- probe_lib.report's own contract, and the distinction this whole row is about. !! ONCE BOTH HOLD THE PROBE IS A ONE-LINER and should be added rather than left as prose: probe_soak against this log with ready_when dropped_symbol_dedupe_count>=1, which is already declared in the soak block above. !! DO NOT read this field as 'this row cannot be automated'. It says 'not yet', and a session that finds both conditions met should replace it with a real probe.",
+  "soak": {
+   "log": "position_read_state_soak",
+   "declared_at": "2026-09-09",
+   "ready_when": "dropped_symbol_dedupe_count>=1",
+   "min_matching": 1,
+   "why_a_timer_cannot_express_this": "The question is not how long the reader has run but WHICH of three states it saw, and the deciding state is rare by construction -- it needs two simultaneously non-zero books on one symbol, which requires hedge mode armed on that symbol AND both books live at the same instant. Elapsed days cannot distinguish 'the condition has not occurred' from 'the writer is dead', and those demand opposite responses: the first RETIRES a Tier-3 proposal, the second is a deploy defect. check_every_days says how often a session must LOOK; this says what it looks FOR. The negative outcome is deliberately given a clearing path of its own, because a soak whose only exit is 'the bad thing happened' runs forever when the bad thing never does -- which is how a held decision becomes an abandoned one."
+  }
  }
 ],
  "there_is_no_cap": "Deliberately UNCAPPED (operator-directed 2026-08-26: 'we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from'). An earlier version capped this at 12 rows; that was a bandaid — it bounded the LIST rather than making anything get read or fixed. What bounds it instead is that a `monitoring` row must be RE-OBSERVED on a cadence: it cannot be carried by doing nothing.",
