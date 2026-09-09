@@ -2,7 +2,7 @@ id: WO-20260906-THE-EXIT-GEOMETRY-REBUILD-WAS-SPECIFIED-AND-NEVER-DISPATCHED
 title: >-
   The exit-geometry rebuild was specified 2026-08-23 and never dispatched
 kind: commitment
-lifecycle: in_flight
+lifecycle: waiting
 opened: '2026-09-06'
 intent: IN-20260903-TRADING-SYSTEM-HEALTH
 owner: MI-148
@@ -133,3 +133,10 @@ answer:
     - >-
       NEW row filed:
       BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT
+
+manager_reconciliation:
+  at: 2026-09-09T07:46:27Z
+  by: session_01HrmZ1RRNM4UnEUaFdrPEjj
+  moved: in_flight -> waiting
+  why: >-
+    owner reads 'MI-148', which is a checklist id and NOT a session — so no session has ever held this object and it cannot have been in flight. Waiting on a real owner.

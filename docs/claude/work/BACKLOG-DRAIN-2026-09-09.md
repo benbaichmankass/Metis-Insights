@@ -13,20 +13,27 @@ Population stated at both ends, per the object's done-condition.
 | | rows | `open` | `kept_open` | **unresolved** |
 |---|---|---|---|---|
 | BEFORE — session start, 07:12Z | 1359 | 584 | 181 | **765** |
-| `origin/main` at merge time | 1360 | 585 | 181 | **766** |
-| AFTER — this branch | 1361 | 583 | 181 | **764** |
+| `origin/main` at landing time | 1362 | 587 | 181 | **768** |
+| AFTER — this branch | 1363 | 585 | 181 | **766** |
 
 - rows **CLOSED**: 3 · rows **FILED**: 1 · **this session's net: −2**
 - CLASS retired: **none** — and §3 explains why there was none to retire.
 
 ⚠️ **Three populations, not two, and they must not be collapsed.** The register moved
-*underneath* this session: `origin/main` gained one row (open 584 → 585) while the work was in
-flight, so the branch lands at **764**, not the 763 a naive before/after subtraction predicts.
-The **manager's 765 premise was correct when measured** and this is not a correction of it. The
-conflict was resolved by taking main's file wholesale and **re-applying this session's edits as a
-script** — never by merging JSON by hand — so the other lane's row is preserved intact and the
-byte-exact round-trip was re-asserted afterwards. That +1 arriving during a ~90-minute session is
-itself a small data point for §3.
+*underneath* this session TWICE, through two separate merge conflicts on this one file. Other
+lanes added three rows while the work was in flight (`open` 584 → 587), so the branch lands at
+**766**, not the 763 a naive before/after subtraction of this session's own −2 would predict.
+The **manager's 765 premise was correct when measured** and none of this corrects it — the
+session's own contribution is −2 at both ends (768 → 766 against main at landing time).
+
+Both conflicts were resolved the same way and **never by merging JSON by hand**: take main's file
+wholesale, re-apply this session's changed rows onto it as a script, re-assert the byte-exact
+round-trip. The second resolution added a **clobber check** that compares each side's rows against
+the merge base and REFUSES if any row was edited on both — it reported `BOTH changed: none`, 13
+rows mine, 2 rows theirs, so the other lanes' work is provably preserved rather than assumed to be.
+
+That three rows arrived from other lanes during a ~1-hour session, against this session's 3 closes,
+is itself a small live data point for §3.
 
 **The manager's premise was CONFIRMED, not falsified.** 584 + 181 = 765 is exactly what the file
 read at session start.
