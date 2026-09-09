@@ -6,9 +6,9 @@
  },
   "merge_slot": {
   "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-heartbeat-0521-20260909",
-  "claimed_at": "2026-09-09T05:21:20Z",
-  "purpose": "Heartbeat to cover the 06:40Z digest wake, plus the re-measured digest cadence gap that makes dispatch the expected path."
+  "branch": "claude/mgr-dispatch-landing-lane-0530-20260909",
+  "claimed_at": "2026-09-09T05:45:39Z",
+  "purpose": "Land the dispatch record for the landing-machinery lane (MI-208 + MI-207), operator-approved."
  },
  "active_sessions": [
   {
