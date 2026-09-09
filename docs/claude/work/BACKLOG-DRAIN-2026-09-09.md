@@ -206,6 +206,27 @@ Neither re-opens a standing decision; both report that facts moved under one.
 No Tier-3 item enacted. No exit-matrix cell re-graded. No standing decision re-opened. The
 diag-token rotation question was not raised and no successor row was filed.
 
+⚠️ **Three further process failures of mine, recorded because a drain session's whole product is
+whether its claims can be trusted.** All happened after the burn-down above and none change it.
+
+1. **A DATED SNAPSHOT REPORTED AS A LIVE READ** — §6's original text. Corrected in place there; the
+   full account is in that section. It is the same collapse `check_trainer_capture_watch.py` prints a
+   standing warning about, committed in a session whose central finding is provenance discipline.
+2. **THE CORRECTION LOST THE AUTO-MERGE RACE BY ~3 MINUTES.** #11510 merged at 08:21:37Z; the fix was
+   pushed at 08:24:48Z and is not in the squash. I had declared the branch closed to new content on
+   arming and broke that deliberately, because a false claim about position protection landing in a
+   permanent artifact is worse than the race — the judgement holds, the timing did not, and the fix
+   landed as a separate PR off `main` instead (a merged PR cannot be reused).
+3. **A `grep` OF `main` RETURNED A FALSE NEGATIVE AND I NEARLY BELIEVED IT.** Checking whether the
+   stale claim had landed, `grep -c "the whole short is naked"` returned `0` — because the phrase
+   wraps across two lines in the rendered file. The claim *was* there. RULE ONE's second clause is
+   exactly this: a negative result needs a denominator, and the probe must be shown able to find a
+   positive before its silence means anything. I caught it only by reading the section directly.
+4. **CONTENT AND THE ARMING PAIR WENT IN ONE PUSH**, so `claude-pr-automerge` *created* the correction
+   PR rather than adopting a hand-opened one — giving it the zero-CI window this file's own §7 note
+   warns about (`total_count: 1`, only the workflow's own check). The two-push order is: open the PR
+   by hand FIRST, push the arming pair SECOND. I got that right on #11510 and wrong on its successor.
+
 ⚠️ **Process note, recorded because the object's own bounds warned about exactly this shape.**
 `document-index-guard` failed on the new document, and the documented remedy
 (`python3 scripts/ops/document_index.py --write`) rewrote **446 files** — bumping the `last verified`
