@@ -344,6 +344,381 @@ Phase 0's required output. Established by measurement, not by inspection of name
 
 ---
 
+## Phase 3.3 — INDEPENDENCE. **The most important section of this audit.**
+
+The axis asks: *can each claim be falsified by evidence its own producer does not
+control?* It is the pass that would have caught `protection_coverage`. **It caught
+the same shape again, in a different module, and this time on the mechanism whose
+entire job is to be the independent falsifier.**
+
+### F-11 · `AUD-20260909-closed-flat-invariant-reads-a-failed-exchange-read-as-flat` — 🔴 **money-at-risk, Tier-2**
+
+- **claim:** The closed→exchange-flat invariant — the one mechanism that can independently contradict *"this trade is closed"* — returns `0.0` (flat ⇒ no violation) when the exchange read **fails**. Its "no violations" verdict cannot be distinguished from blindness, and it is blinded by exactly the condition it exists to catch.
+- **evidence:** `src/runtime/closed_flat_invariant.py:243-244`
+  ```python
+  def _residual_from_positions(positions: Optional[Iterable[Any]], ...) -> float:
+      if not positions:
+          return 0.0
+  ```
+  Its input is `clients.py::account_open_positions`, **whose own docstring says the opposite is required**: *"`None` on any failure path so callers can distinguish 'no positions' (`[]`) from 'could not read' (`None`)"* — including *"**IB only:** an EMPTY snapshot from a Gateway that is NOT verified logged-in"*. `_exchange_residual_qty` also returns `0.0` at `:210`, `:223`, `:232` (account unresolvable; `account_open_positions` raised; `fetcher()` raised). The caller reads `if residual == 0.0: continue` as *no violation*.
+  **Positive control that the convention is otherwise honoured:** `src/runtime/hourly_report.py:335` — `open_count = len(positions) if isinstance(positions, list) else None`.
+- **expected vs actual:** **Expected** — a failed or unverifiable exchange read grades `unknown` and does **not** clear the invariant. **Actual** — 4 distinct failure paths *and* an explicit `None` sentinel all collapse to `0.0`.
+- **population:** 5 of 5 early-return sites in the module's exchange-read path. Of the 2 consumers of `account_open_positions` in `src/` outside `order_monitor`, **1 is correct and 1 collapses**.
+- **detector:** register `closed_flat.residual_state` in `check_collapsed_states.py::CONTRACTS` with `flat` / `residual` / `could_not_look`. **That guard already exists and already fails on a state no consumer branches on** — this needs a registration, not a new instrument.
+- **tier:** 2 · **disposition:** proposed (Tier-2 — the operator decides; not enacted)
+
+### F-12 · `AUD-20260909-closed-flat-window-is-shorter-than-its-own-invocation-period` — 🔴 money-at-risk
+
+- **claim:** The invariant looks back **60 s** of `closed_at` but is invoked once per trader tick, whose period is measurably **≥ 101.9 s** — so on *every* tick there is a window in which a trade can close and be examined by nobody. **By arithmetic, not by failure.**
+- **evidence:** `closed_flat_invariant.py:62` `DEFAULT_WINDOW_SECONDS = 60`; `_closed_flat_wiring.py:114` calls `check()` with **no** `window_seconds` override; scheduling is sleep-**after**, not period-targeting (`src/main.py:1124`, `end_time` computed *after* the tick body).
+  Two independent live measurements:
+  - `/api/diag/tick_cost` → `mean_ms 64327.0`, `max_ms 78320.8` ⇒ implied period **124.3 s** mean / 138.3 s max.
+  - **Durable and not produced by the tick timer** — `/api/bot/logs?level=warn&limit=1000`, 888 rows spanning 2026-08-26 → 2026-09-09. Inter-arrival gaps of the once-per-tick `strategy_builder exception` row: `n=140 mean=278.7s median=296.1s min=101.9s`, and **gaps ≤ 60 s: 0 of 140 = 0.0%**.
+- **expected vs actual:** **Expected** — a lookback ≥ the invocation period, so consecutive checks tile the timeline. **Actual** — ≥ **41.1%** of every period is unexamined at the tightest observed bound, **51.7%** at the `tick_cost` mean.
+- **population:** window = 1 constant, never overridden (1 of 1 call sites). Period: n=4 ticks (`tick_cost`) **and** n=140 gaps over 14.7 days. ⚠️ *The 140-gap series only fires while MGC candles are unavailable, so its upper tail overstates the period; **only its minimum (101.9 s) is a sound bound**, and that is what the claim uses.*
+- **detector:** derive the window from the caller's own cadence (`max(DEFAULT, since_last * 1.5)`), publish it on a `closed_flat_coverage` soak, and add a CI test failing any `check()` invocation whose window is not cadence-derived.
+- **tier:** 2 · **disposition:** proposed
+
+### F-13 · `AUD-20260909-invariant-violations-has-no-read-surface-and-its-alert-never-pages` — money-at-risk (gated)
+
+- **claim:** The falsifier's **output** is unreadable from every surface a session or the operator has: `runtime_logs/invariant_violations.jsonl` is **not** on the diag `log_file` allowlist, and the alert is emitted at `Level.WARN`, which `outcomes` explicitly excludes from Telegram.
+- **evidence:** `closed_flat_invariant.py:55` writes `invariant_violations.jsonl`; `:371` `report(channel, level=Level.WARN, ...)`; `outcomes.py:76` `_TELEGRAM_LEVELS = {Level.ERROR, Level.CRITICAL}`. Allowlist scan: 57 names vs 23 `runtime_logs/*.jsonl` writers in `src/` → **6 unreadable**, of which 4 have an alternate surface and **`invariant_violations` has none** (its only mention outside `src/runtime/` is `enable_closed_flat_invariant.sh:135`, an SSH-only `tail -f` instruction). Live WARN feed n=888 over 14.7 d: **`closed_flat_invariant` rows = 0**, with the feed's own composition (857 `strategy_builder` / 31 `pairs_half_open`) proving it is non-empty.
+- **F-11 + F-12 + F-13 compose, and the composition is the finding:** the invariant cannot see a failed read, cannot cover ~half its own timeline, writes where nobody can look, and pages at a level that never reaches the operator. **Its 14.7-day zero is not evidence of anything.** There is no planted-violation self-test and no `controls_ok`.
+- **detector:** extend `check_new_table_wiring.py`'s logic to jsonl — a module writing `runtime_logs/<name>.jsonl` must have `<name>` in `diag._LOG_FILES` or a registered alternate reader.
+- **tier:** 1 · **disposition:** proposed
+
+### F-14 · `AUD-20260909-silent-empty-guard-covers-13-percent-of-its-own-class`
+
+- **claim:** `silent-empty-guard` protects 4 path prefixes + 3 files, while the class it names lives overwhelmingly outside them — and **55 `# allow-silent:` overrides sit in files the guard never reads**, i.e. authors suppressed a guard that would never have fired.
+- **evidence:** `_PROTECTED_PREFIXES = ("src/web/api/", "src/units/db/", "scripts/macro/", "scripts/research/")`. AST scan of every non-test `.py` for a broad handler returning an empty/falsy value:
+  ```
+  broad-except handlers returning empty/falsy: n=476
+    INSIDE guard scope : 64          OUTSIDE : 412  (86.6%)
+  top uncovered:  29 src/runtime/order_monitor.py · 19 src/units/accounts/clients.py
+                  18 src/runtime/execution_diagnostics.py · 15 src/units/accounts/ib_client.py
+  `# allow-silent:` markers (non-test):  IN scope 137  ·  OUT of scope 55
+    incl. 17 in clients.py, 2 in risk.py (:566/:612 — the sizing/equity reads)
+  ```
+  **F-11's own two sites carry `# allow-silent:` markers and are never scanned.**
+- **expected vs actual:** **Expected** — the guard's path scope matches the concept it declares. **Actual** — **86.6%** of the class is outside it, including every one of the repo's *own* named instances. This is the `check_strategy_risk_field_in_diff.py` shape — *guard boundary ≠ concept boundary* — one guard over.
+- **detector:** two parts. (a) widen the prefixes to `src/runtime/`, `src/units/accounts/`, `src/prop/`, `src/core/` — **diff-scoped, so existing sites stay grandfathered and no PR reds on day one**. (b) **a check that fails when an `# allow-silent:` marker appears in a file the guard cannot scan** — a suppression for a guard that cannot fire is proof of a scope/concept mismatch, and is the cheapest possible detector for this class.
+- **tier:** 1 · **disposition:** proposed
+
+### F-15 · `AUD-20260909-collapsed-state-guard-credits-tests-and-docstrings-as-consumers`
+
+- **claim:** `collapsed-state-guard`'s central check — *"every declared state is branched on by a consumer"* — is satisfied by **token presence anywhere in any `.py` file, `tests/` and docstrings included**, so for 28 of 129 declared contract-states the only evidence anything reads them is a test assertion or a comment.
+- **evidence:** `_states_in` matches `re.search(rf"[\"']{state}[\"']", body)` over the whole file; the consumer loop iterates `_py_files()`, which **does not exclude `tests/`**. Re-running the guard's own computation over its own 2180-file set: **28 of 129 states across 9 contracts** have only test-or-docstring evidence. Worked example — `position_telemetry.finality_source`: `stamped` / `derived_join` / `not_final` each have exactly two "consumers": one test file, and `diag.py:2705/2707/2709` **all inside a docstring**. The guard nevertheless prints `ok position_telemetry.finality_source: 3 consumer(s), all states read`.
+- **expected vs actual:** **Expected** — 1 unread contract reported (the grandfathered one). **Actual** — 8 further contracts pass on test-or-docstring evidence alone, against the guard's own docstring: *"A state nothing reads IS the collapse."*
+- **detector:** split the consumer count into production / test / docstring and print all three; fail (or grandfather with a printed debt list, as it already does) when production-consumer count is 0. The docstring exclusion can reuse the `ast` walk already in `_import_line_numbers`.
+- **tier:** 1 · **disposition:** proposed
+
+### F-16 · `AUD-20260909-diag-journal-silently-ignores-every-filter-it-does-not-implement`
+
+- **claim:** `/api/diag/journal` — the surface sessions use to check money-path claims — accepts only `table` and `limit`, **silently discards every other query parameter**, returns a bare list with no request echo, and answers 200.
+- **evidence:** live, with a positive control:
+  ```
+  == POSITIVE CONTROL: limit IS honoured ==
+  ?table=trades&limit=1 -> 1 row  ids=[5610]
+  ?table=trades&limit=3 -> 3 rows ids=[5610, 5609, 5608]
+  == IGNORED PARAMS: all return identical rows ==
+    ?where=id%3D5258 · ?account_id=ib_paper · ?status=open · ?symbol=MES
+    · ?nonsense_param=1   ->  ALL [(5610,'AVAXUSDT'), (5609,'SLV'), (5608,'SLV')]
+  ```
+  **The auditing agent was itself misled by it**: three different `where=` values for trades 5258/5573/408 all returned trade 5610.
+- **expected vs actual:** **Expected** — an unsupported filter is a 400, or the envelope reports `filter_state: ignored_unknown_column`. **The repo has already built exactly this** — `db_explorer.filter_state`, a registered three-state contract. **Actual** — 200, no envelope, no signal.
+- **population:** 25 diag GET routes; **3 return a bare `list[...]`** (`/audit`, `/journal`, `/timers`); 22 return an envelope. 5 of 5 probed non-implemented params silently dropped.
+- **blast_radius:** accounting — a session attributes one trade's fields to another.
+- **detector:** register `diag_journal.filter_state` with `db_explorer`'s three states; generalise as a CI check that no `@router.get` in `diag.py` returns a bare `list[...]`.
+- **tier:** 1 · **disposition:** proposed — ⚠️ **routes to MI-221/MI-222, who hold `diag.py`. Not edited here.**
+
+### F-17 · `AUD-20260909-journal-read-failure-reports-flat-and-disarms-the-netting-guard-together` — 🔴 money-at-risk
+
+- **claim:** A **single** trade-journal read failure makes the intent layer size a **full** open (position reads flat) **and simultaneously disarms the no-pyramiding netting guard** (reads "no open trade"), and the only trace is a `logger.warning` on a surface with ~30 min retention.
+- **evidence:** `coordinator.py:2003` → `current_net_position_qty(...)` → persisted as `pkg.meta["execution_delta"]["current_qty"]` at `:2025`. Producer `positions.py:194-200`: `except Exception: logger.warning(... "(treating as flat)"); return 0.0`. The guard consulted three lines later at `coordinator.py:2058` is `has_open_trade_for_strategy`, `positions.py:127-133` — **same sqlite file, same broad except, `return False`**, docstring: *"a missing journal or read failure returns `False` … → don't block"*. The account+symbol sibling `coordinator.py:_has_open_position` (`:96-105`) logs **nothing** at all.
+- **expected vs actual:** **Expected** — an unreadable journal degrades to refuse/hold, or at minimum stamps a read-state so a downstream reader can tell flat from unread. **Actual** — the quantity *and its guard* fail permissive on the same underlying failure, and `execution_delta` persists `current_qty: 0.0` with no read-state. **`0.0` is a real value (genuinely flat), so this is not even detectable after the fact.**
+- **population:** 3 journal-read helpers on the intent/dispatch path; **3 of 3 fail permissive to a falsy value**, 2 of 3 log to journald only, 1 of 3 logs nothing, **0 of 3 emit a durable read-state**.
+- **detector:** register `position_read.state` (`measured` / `journal_absent` / `unreadable`) with producer `positions.py`, and carry it into `execution_delta` so `/api/diag/audit_query` can count it.
+- **tier:** 2 · **disposition:** proposed
+
+### UNFALSIFIABLE VERDICTS — ranked by blast radius
+
+| # | published verdict | why nothing can contradict it | surface that would falsify it |
+|---|---|---|---|
+| 1 | **"No closed→exchange-flat violations"** | Produced by the same code that reads the exchange, and a failed read produces the *clean* value (F-11). Output has no read surface; alert never pages (F-13). **0 rows in 888 WARN entries over 14.7 d with no positive control anywhere** — no synthetic exercise, no `controls_ok`, no planted-violation self-test. | a `closed_flat_coverage` soak writing `{trades_examined, window_seconds, residual_state, exchange_read_state}` per invocation. One row with `exchange_read_state=could_not_look` and `trades_examined>0` contradicts it immediately. |
+| 2 | **Every close is examined by the invariant** | Coverage is published nowhere; the 60 s-vs-101.9 s gap is derivable only by joining `tick_cost` to a source constant (F-12). | the same soak, carrying `window_start`/`window_end`. Two consecutive rows whose windows do not touch is the contradiction. |
+| 3 | **`execution_delta.current_qty` is the real net position** | `0.0` is emitted for genuinely-flat *and* for unreadable, persisted with no read-state; the distinguishing WARNING lives only in journald at ~30 min retention (F-17). | a `read_state` field beside `current_qty` — already persisted via the signals dual-write, so `/api/diag/audit_query` reads it for free. |
+| 4 | **`RiskManager` refusals are complete** | `approve()` is a bare `bool` discarding `evaluate()`'s reason; equity/daily-state reads degrade to `None` under `# allow-silent` markers the guard never scans. Refusals are journaled — **an approval taken on an unreadable equity is not.** | stamp the equity read-state onto the **approval** path, not only the refusal path. |
+| 5 | **IB `protection_coverage`** | It *does* have an independent surface (`/api/diag/ib_open_orders`) — **but that surface is knowingly biased toward confirming it**: its envelope ships `stale_read_caveat: "may include orders already cancelled by another client"`, because `_open_trades` reads ib_insync's accumulated cache and `reqAllOpenOrders` only ADDS. **It over-reports resting legs — the exact direction that would hide the original defect.** | prune the local cache against each `reqAllOpenOrders`, or serve from a fresh client per call. Removing `stale_read_caveat` is already the fix's stated done-condition. |
+| 6 | **"34 contracts … clean"** (`collapsed-state-guard`) | evidence is token presence in any `.py`, tests and docstrings included (F-15). | split the consumer count three ways and print all three. |
+| 7 | **"No new silent-empty read paths"** | the guard reads **13.4%** of the class; 55 suppressions sit in files it never opens (F-14). A green is a statement about `src/web/api/`, **not** about the order path. | widen the prefixes + add the misplaced-marker check. |
+| 8 | **A `/api/diag/journal` result answers the question asked** | bare list, no echo, unknown params dropped (F-16). | envelope + `filter_state`, the pattern `db_explorer` already ships. |
+
+### Verified NON-issues on this axis — stated with the probe that could have returned a positive
+
+- **`has_protective_orders` used for naked-detection anyway** (explicitly hunted): **0 non-test, non-docstring call sites in `src/`**. `order_monitor.py:7925/:8308` name it only to say the sweep does *not* use it. **Positive control:** the same grep finds 8 live call sites in `tests/test_ib_naked_rearm.py`. **No finding.**
+- **Live protection coverage, all three venues, computed from raw order rows rather than read off a verdict.** IB `ib_paper` @16:46Z: MHG 30 long / 30 STP / 30 LMT · MGC 32 short / 32 / 32 · MES 15 long / 15 / 15 — **3/3 fully two-sided**. Alpaca @16:45Z: `alpaca_paper` 9 positions, `alpaca_portfolio` 7 — **16/16 symbols at exactly 1.00× on both the stop and the target side**. What would have counted: any symbol with `stop_qty < pos_qty` or `tp_qty == 0`. **No finding — and this is the audit's strongest positive result.**
+- **The Bybit `rows[0]` book-selection reducer** (`BL-20260908-…-A-HEDGE-BOOK-READS-FLAT`): **FIXED** — `_bybit_position_protection` now calls `_bybit_book.select_position_row(rows)`, a five-state pure function that refuses loudly when `not selection.is_usable` and carries `position_idx: None` meaning *"we named no book"*. ⚠️ **`CLAUDE.md`'s row saying the fix is "written out … and NOT applied" is STALE.** Field beats comment.
+
+---
+
+## Phase 3.5 — LIVENESS. The zombie hunt.
+
+### F-18 · `AUD-20260909-commit-to-main-is-rate-limited-so-the-registers-do-not-land` — 🔴 **live right now**
+
+- **claim:** The shared `commit-to-main` action cannot open its PR because the account's GraphQL rate limit is exhausted, so **every scheduled producer that lands a receipt through it pushes to an `automation/*` branch that is never merged** — `DUE.md`, `READOUT.md`, `PROBES.json` and the strategy-review packets are stale on `main` while their workflows report as "running".
+- **evidence:** run 34344242030 (constraint-readout, 11:11:33Z):
+  ```
+  * [new branch] HEAD -> automation/constraint-readout-34344242030-1
+  ##[warning]commit-to-main: gh pr create attempt 1/3 failed:
+       GraphQL: API rate limit already exceeded for user ID 119055177.
+  ##[error]commit-to-main: could not open a PR ... after 3 attempts.
+       THE ROWS ARE NOT LOST — they are pushed to automation/...
+  ```
+  Identical at run 34338586205 (due-list, 10:08:13Z).
+  **Independently re-verified by the audit lead, from git rather than from the agent:**
+  ```
+  $ git branch -r | grep -c 'origin/automation/'                      -> 164
+  $ git branch -r --no-merged origin/main | grep -c 'origin/automation/' -> 164   (ALL unmerged)
+  $ git show origin/main:docs/claude/PROBES.json | jq -r .generated_at
+       2026-09-07T10:31:05  (TODAY IS 2026-09-09)
+  READOUT.md: "Generated 2026-09-08T11:25:27" · DUE.md: "Generated 2026-09-08T05:10:04"
+  ```
+  ⚠️ **Third, strongest corroboration: the audit lead hit the identical limit this session** — `update_pull_request` on #11571 returned `API rate limit already exceeded for user ID 119055177`. This is not a historical log entry; it is live.
+- **expected vs actual:** **Expected** — a daily register render lands on `main`, and `READOUT.md`/`DUE.md` describe today. **Actual** — the render is pushed to a throwaway branch, the PR is refused, and **164 unmerged receipt branches have accumulated**. Note the session brief in `CLAUDE.md` is rendered *from these very files*, so **the brief every session reads at startup is being served from stale registers.**
+- **population:** 2 failing runs read in full of 8 daily-cron failures observed; 164 orphan branches, 164 of 164 unmerged.
+- **detector:** a guard reading `DUE.json`/`CONSTRAINT.json` `generated_at` **on `main`** against wall clock, failing when older than 2× the declared cadence — i.e. **grade the landed artifact, not the run conclusion**. `check_digest_liveness.py` already has this shape for the digest; nothing has it for DUE/READOUT/PROBES.
+- **tier:** 1 · **disposition:** proposed — **flagged loudly; this is degrading now.**
+
+### F-19 · `AUD-20260909-crons-fire-on-a-systematic-4-4h-lag-not-erratically`
+
+- **claim:** `CLAUDE.md`'s *"scheduled workflows fire LATE and ERRATICALLY"* both understates and **mis-describes** it: daily crons fire on a **systematic ~4.4 h lag stable to within ±5 min per workflow across days**, and hourly crons fire at **~25% of their declared rate**.
+- **evidence:** `event=schedule`, window 2026-09-07T19:08Z → 2026-09-09T16:38Z (45.5 h):
+  ```
+  purge-artifacts      3:00Z -> 07:52:56 (+292.9m) ; 07:55:48 (+295.8m)
+  replay-pregate       4:00Z -> 08:40:19 (+280.3m) ; 08:44:40 (+284.7m)
+  probes               5:20Z -> 09:48:37 (+268.6m) ; 09:51:41 (+271.7m)
+  due-list             5:50Z -> 10:05:54 (+255.9m) ; 10:08:13 (+258.2m)
+  constraint-readout   6:05Z -> 11:07:32 (+302.5m) ; 11:11:33 (+306.6m)
+  hourly rate (actual/expected): error-feed-digest 0.24 · work-digest 0.26
+                                  work-decision-commit 0.44 · session-reaper 0.66
+  6-hourly are near-nominal:      broker-bracket-reconcile 7/7.6 · pr-queue-watch 7/7.6
+  ```
+- **expected vs actual:** **Expected** — jitter around the declared minute. **Actual** — a near-constant +4.4 h offset (min +2.0 h, max +5.2 h), **reproducible day over day**, plus a ~75% drop rate on sub-6-hourly schedules. A systematic offset is a *different, more tractable* problem than jitter — it can be corrected by re-declaring the cron; jitter cannot.
+- **population:** n=23 daily-cron firings across 13 workflows; n=100 scheduled runs across 21 workflows; denominator = 26 workflows declaring a `schedule:`. ⚠️ **5 weeklies fell outside the window and are UNMEASURED, not clean.**
+- **detector:** a check that reads each declared cron, pulls its `event=schedule` history, and fails when median lateness exceeds a threshold **or** actual/expected firings fall below a floor. Nothing measures either today; every consumer reasons from the cron string.
+- **tier:** 1 · **disposition:** proposed
+
+### F-20 · `AUD-20260909-exchange-map-omits-the-live-futures-venue` — 🔴 money-at-risk
+
+- **claim:** `integrator.py::EXCHANGE_MAP` has **zero production call sites** and **omits `interactive_brokers`** — the exchange behind the only live futures account — so the CI contract that *"every integration declares its management caps"* is structurally blind to the venue it most matters for.
+- **evidence:** `rg -rn "EXCHANGE_MAP\[" src/ scripts/` → **0 hits** (positive control: `EXCHANGE_MANAGEMENT_CAPS` **is** read at `health.py:376`). Real dispatch is hardcoded strings in `execute.py:804/1226/1304/3028`. `EXCHANGE_MAP = {bybit, breakout, oanda, alpaca}` vs **5** distinct `exchange:` values across 11 accounts in `accounts.yaml`. The guard `tests/test_ltmgmt_p5_contract_ci.py:59` iterates **MAP → CAPS only**; there is no assertion that every exchange in `accounts.yaml` appears in `EXCHANGE_MAP`. `interactive_brokers` backs `ib_paper` (`mode: live`, 9 strategies) and `ib_live`.
+- **expected vs actual:** **Expected** per `ROADMAP.md:718` (S-AUDIT-E explicitly **KEPT** it as the integration registry) — it enumerates the integrations. **Actual** — 4 of 5, and the missing one is the live futures venue. A new IB management op could ship with no caps entry and the guard would pass.
+- **detector:** add the reverse assertion — every `exchange:` in `accounts.yaml` must appear in `EXCHANGE_MAP`. **It fails today, which is the point.**
+- **tier:** 1 · **disposition:** proposed
+
+### F-21 · `AUD-20260909-thirty-six-pages-in-45-hours-from-one-root-cause`
+
+- **claim:** `claude-run-failure-alert.yml` fired on **36 scheduled-run failures across 12 workflows in 45.5 h (~19/day)**, the large majority sharing the single `commit-to-main` rate-limit cause of F-18 — the desensitized-alarm P1 `CLAUDE.md` names as itself a first-class bug.
+- **evidence:** watch list = 34 entries; joined to the 100-run window: `error-feed-digest` 8/11 failed · `pr-queue-watch` 6/7 · `session-reaper` 6/10 · constraint-readout 2/2 · due-list 2/2 · probes 2/2 · strategy-review 2/2 · replay-pregate 2/2 · **36 failures across 12 of 34 watched workflows**.
+- **expected vs actual:** **Expected**, from the workflow's own header (*"an alarm that fires on everything is itself a P1 bug"*) — a page is rare and actionable. **Actual** — ~19 pages/day, ≥5 workflows failing for one shared cause.
+- **detector:** de-duplicate by cause before paging (group on the failing step's error signature; page once per distinct cause per window, with a count), **and grade the alarm's own health** — a check failing when watched-workflow failures exceed N/day.
+- **tier:** 1 · **disposition:** proposed
+
+### F-22..F-27 — the remaining liveness findings, in brief
+
+| id | claim | pop. | tier |
+|---|---|---|---|
+| **F-22** `log-advisory-scores-defined-never-called` | `Coordinator.log_advisory_scores` has **zero production call sites** (tests only) while `/api/diag/log_file?name=advisory_decisions` documents it as that file's producer — and the file has not been written in **76 days** (last `2026-06-25`), *after* advisory heads went live 2026-08-02/08-04. Same-run controls fresh within hours. | 1 of 56 log surfaces | 1 |
+| **F-23** `prop-ticket-risk-soak-dead-10-days` | `prop_ticket_risk_soak.jsonl` unwritten since `2026-08-30T16:16Z` (946 B total) while `OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED` reads that same emptiness as *the gate has not tripped*. **Opposite facts.** 4 sibling soaks fresh within 2 days. ⚠️ Verdict is **COULD-NOT-PROBE**: read-only, cannot separate "no tickets emitted" from "writer not reached". | 946 B; 10 d | 1 |
+| **F-24** `package-leg-coverage-frozen-22-days` | `package_leg_coverage_state.json` frozen at `2026-08-18T08:41Z`, served as current, **with no field on the payload saying when it was written**. Producer reachable at `main.py:1007`; registered as a `collapsed-state-guard` contract — which proves states are *branched on*, never that the producer still runs. | 22 d | 1 |
+| **F-25** `eight-deploy-units-outside-the-diag-allowlist` | 8 of 47 `deploy/` units absent from `_CANONICAL_UNITS`, so unreadable on `/api/diag/services` and 400 on `/api/diag/journalctl`. **2 of 8 have recorded provenance** (`ict-heartbeat.*`, deliberately retired); **6 do not** — including `ict-ib-gateway-reset.*`, which `CLAUDE.md` calls *"the one deterministic restart the whole design relied on"*. Deliberate and accidental exclusions are indistinguishable. | 47 / 40 / 8 | 1 |
+| **F-26** `four-registered-workflows-have-no-file-and-no-deletion-commit` | GitHub holds **144** active workflow registrations against **140** files on disk. The 4 orphans have **no deletion commit in a 4563-commit clone**; `ping-relay.yml` was registered from an unmerged branch on 2026-09-04 and left registered. | 144/140/4 | 1 |
+| **F-27** `nothing-prunes-automation-branches-on-a-schedule` | Both pruners are demand-only (no `schedule:`); `prune-landed-branches.yml` has **240 runs, 10 of 10 most recent `skipped`** on unrelated issues. It runs constantly and prunes nothing — which is why F-18's 164 branches stand. ⚠️ The honest detector here is a **ceiling check, not a prune**: with F-18 unfixed, pruning would delete unlanded receipts. | 240 runs; 164 branches | 1 |
+
+Plus two docs-tier: **`velotrade`** is described in 2 docs as a registered `EXCHANGE_MAP` entry and appears **0 times** in `src/`+`config/` (control: `breakout` in 56 src files); and **14 of 87** dispatchable `system-actions` options have no row in the doc's allowlist **table**, several of them journal-mutating (`rebuild-pnl-from-bybit`, `reset-daily-risk-state`).
+
+### Two corrections the liveness agent made against itself, recorded rather than dropped
+
+1. It first flagged `scope-overlap-audit.yml` as having **no trigger**; refuted — `:69 pull_request_target:`, which its regex missed. **LIVE.**
+2. It first read the failure-alert watch list from a **truncated** `awk` window and concluded `probes`/`due-list`/`error-feed-digest`/`replay-pregate-nightly` were unwatched, contradicting `OI-20260902`. Re-read of the full block: **all four are watched** (`:192/:215/:219/:226`). The finding is the paging **volume** (F-21), not a coverage gap.
+
+*Both are recorded because a probe that returns a clean negative for want of range is the exact failure this audit is about.*
+
+---
+
+## Phase 3.7 — MODULARITY. Can one change be half-applied?
+
+**The axis's own result first, because it reframes every finding under it.** Change
+amplification is **not** rising across the board — the *account* and *broker* axes are
+genuinely modular and falling (broker: 28 → 13 → 12 files, bucket (ii) = **0**; account
+adds carry bucket (ii) = 0 on both recent examples). **The defect is specific to the
+strategy axis**, and it is entirely in bucket (ii): hand-maintained registries holding
+facts `config/strategies.yaml` already contains.
+
+| change-kind | commit | total | (i) truth | (ii) **underived registries** | (iii) tests+docs |
+|---|---|---|---|---|---|
+| strategy — new type | `8157d1ec` 2026-05-14 `ict_scalp_5m` | 13 | 6 | 4 | 3 |
+| strategy — 3 variants | `e4a9ffd3` 2026-07-21 | 15 | 3 | 9 | 3 |
+| strategy — 3 variants | `ad18c115` 2026-07-22 | **6** | 3 | 3 | 0 ← **half-applied, see F-31** |
+| strategy — 1 variant | `cc4efb1c` 2026-07-28 `ict_scalp_mgc_15m` | **17** | 3 | **10** | 4 |
+| account (existing broker) | `2b605a38` 2026-06-24 | 4 | 3 | **0** | 1 |
+| broker | `505356a5` 2026-06-11 Alpaca | 12 | 7 | **0** | 5 |
+
+**Bucket (i) is flat at 3 for a variant-add. The rise 13 → 17 is entirely bucket (ii), and
+it happened while the work got strictly smaller** (a symbol re-target vs building a whole
+strategy engine).
+
+⚠️ **17 is a LOWER BOUND on today's cost, not an estimate of it.** No strategy has been
+added since 2026-07-28 — 43 days — so the curve is *trailing*. Since then the repo has
+gained further per-leg registers (`SUNSET-DISPOSITIONS.json`, `config/lever_reachability.json`,
+`config/training_population.yaml`, the work store).
+
+### F-28 · `AUD-20260909-rollback-builder-registry-is-39-legs-short` — 🔴 **money-at-risk**
+
+**The single most consequential modularity finding: a documented rollback that is itself an outage.**
+
+- **claim:** The sanctioned rollback `MULTI_STRATEGY_INTENT_LAYER=false` routes signal generation to a **second, parallel builder registry holding 16 of 55 strategies** — so exercising it would silently stop **35 of 45 `execution: live` legs (78%)**, logged as a `warning` and skipped. No test asserts the two registries agree.
+- **evidence — re-verified by the audit lead from AST, not taken from the agent:**
+  ```
+  pipeline._STRATEGY_BUILDERS n = 16
+  execution:live legs MISSING from the rollback registry: 35 of 45 (78%)
+  sample: ada_pullback_2h, eth_pullback_2h, gdx_pullback_1d, gld_pullback_1d,
+          gld_pullback_1h, iaum_pullback_1d, ict_scalp_avax_5m, ict_scalp_eth_15m
+  ```
+  `pipeline.py:506-509` — the behaviour on a leg the rollback registry lacks:
+  ```python
+  builder = _STRATEGY_BUILDERS.get(strategy_name)
+  if builder is None:
+      logger.warning("Multiplexer: unknown strategy '%s' — skipping", strategy_name)
+      continue
+  ```
+  `pipeline.py:671-684` documents the path as the rollback: *"export `MULTI_STRATEGY_INTENT_LAYER=false` to fall back to it **without a code change**"*. `CLAUDE.md` lists this var as *"the core intent-aggregation switch, **default on**"*.
+  `grep -rn "_STRATEGY_BUILDERS" tests/ | grep -i "parity\|== set"` → **no output. No parity assertion exists.**
+- **expected vs actual:** **Expected** — a rollback documented as *"revert without a redeploy"* reverts **behaviour**, not **coverage**. **Actual** — the primary registry grew 16 → 55 across 2026-05 → 2026-07 and the rollback registry was never followed, so **the rollback is now a 78% capability outage that presents as ordinary log noise.** The failure mode is the worst available: it looks like it worked.
+- **population:** 55 primary builders · 16 legacy · 39 gap · **35 of the gap `execution: live`**, out of 45 live legs.
+- **detector:** a test asserting `set(_default_intent_builders()) == set(pipeline._STRATEGY_BUILDERS)`. **Better — and this is the modularity fix rather than the detector — delete `_STRATEGY_BUILDERS` and have `multiplexed_signal_builder` call `_resolve_builders()`, collapsing two registries into one.** Either way the parity test is what fails if it recurs.
+- **tier:** 1 for the parity test; **the rollback path itself is Tier-2** · **disposition:** proposed
+
+### F-29 · `AUD-20260909-unknown-strategy-priority-is-inverted-and-now-live-contended` — 🔴 money-at-risk, **Tier-3**
+
+**F-32 from the 2026-08-20 audit is unremediated and has escalated from theoretical to live.**
+
+- **claim:** `_UNKNOWN_STRATEGY_PRIORITY = 10` is still documented as *"deliberately below the in-scope strategies"* while **45 of 50 mapped legs sit below 10** — and five *declared, `execution: live`* legs are now **absent** from the map. Omission does not merely fail to be safe; **it wins the arbitration.**
+- **evidence — re-verified by the audit lead by AST over `intents.py` + `strategies.yaml`:**
+  ```
+  DEFAULT_PRIORITIES n = 50 | _UNKNOWN_STRATEGY_PRIORITY = 10
+  histogram: {0: 41, 1: 1, 2: 1, 3: 1, 5: 1, 10: 1, 20: 1, 30: 1, 40: 1, 50: 1}
+  legs strictly BELOW the fallback 10:  45 of 50
+  declared: 55 | execution:live: 45
+  live legs ABSENT from DEFAULT_PRIORITIES -> gdx_pullback_1d, iaum_pullback_1d,
+                       scha_trend_long_1d, slv_pullback_1d, splg_trend_long_1d
+  ```
+  And the contention is **live, not hypothetical**:
+  ```
+  alpaca_options_paper SLV: [('slv_trend_1h', 0), ('slv_pullback_1d', ABSENT->10)]
+  alpaca_paper         SLV: [('slv_trend_1h', 0), ('slv_pullback_1d', ABSENT->10)]
+  alpaca_portfolio     SLV: [('slv_trend_1h', 0), ('slv_pullback_1d', ABSENT->10)]
+  ```
+  `intents.py:648-652` — `effective_priority()` falls back to the constant; it is a real tiebreak term at `intents.py:1454`. `intent_multiplexer.py:587` passes `DEFAULT_PRIORITIES.get(name)` → `None` for an absent leg.
+  The constant's own comment: *"Picked deliberately below the in-scope strategies so a misconfigured new strategy never silently overrides Turtle Soup / VWAP."* **Its actual effect is the inverse of its stated purpose.**
+- **expected vs actual:** **Expected** — an unlisted strategy loses every contest. **Actual** — it beats 45 of 50 declared legs, and on 3 accounts it beats a specific named competitor on a shared symbol. *The contended accounts are paper-class, so no real money rides the specific instance — but the mechanism is account-agnostic.*
+- **detector — two parts, and the second is the transferable one:**
+  1. `check_strategy_coverage.py` gains a fourth invariant: every `execution: live` strategy has a `DEFAULT_PRIORITIES` entry or a dated `priority_exempt:`.
+  2. **A distribution assertion on the constant itself** — fail if `_UNKNOWN_STRATEGY_PRIORITY` is not strictly below `min(DEFAULT_PRIORITIES.values())`. **This is the generic detector for "a default whose fail-safety depends on a distribution that has since moved"**, which is the class, not the instance.
+- **tier:** **3** — changing a leg's arbitration priority is an order-routing change · **disposition:** proposed, **operator decides**
+
+### F-30 · `AUD-20260909-daily-loss-pct-is-two-units-under-one-name` — 🔴 money-at-risk
+
+**The `risk_pct` twin, left unfixed when `risk_pct` was single-homed on 2026-08-20.**
+
+- **claim:** `daily_loss_pct` carries a **FRACTION** in production and a **PERCENT** in nine harness files, under the identical name and identical CLI flag — so passing the live value `--daily-loss-pct 0.05` to a backtest simulates a daily-loss halt **100× tighter** than live.
+- **evidence:**
+  ```
+  src/units/accounts/risk.py:788      return self.daily_loss_pct * float(eq)        # FRACTION
+  scripts/backtest_system.py:1357     <= -abs(daily_loss_pct) / 100.0 * day_start   # PERCENT
+  scripts/backtest_system.py:1850     p.add_argument("--daily-loss-pct", default=3.0)
+
+  live daily_loss_pct by account: bybit_1/2/portfolio 0.05, ib_paper 0.05, ib_live 0.05,
+    alpaca_* 0.05, alpaca_live 0.1, breakout_1 0.03      <- all FRACTIONS
+  config/prop_rulesets/breakout.yaml:26  daily_loss_pct: 0.03   # [CONFIRMED — FAQ]
+
+  scripts/ci/check_risk_basis_agreement.py:70
+      _RISK_FLAGS = ("--risk-pct", "--base-risk-pct")     <- this flag is not in it
+  ```
+- **population:** **9 of 9** harness files declaring `--daily-loss-pct` default to `3.0`; **11 of 11** accounts declare it as a fraction. Denominator: **78** parameters appearing in both a config file and a harness CLI (measured over 498 harness flags × 468 config keys).
+- **blast_radius:** money-at-risk — research authorises Tier-3 promotions, and a prop-ruleset evaluation is the gate on **real-money prop routing**.
+- **detector:** extend `_RISK_FLAGS` to a `FLAG_UNITS` table covering every flag whose name matches a `*_pct` key in `config/**.yaml`, each declaring `UNIT_FRACTION`/`UNIT_PERCENT`. **The guard's existing `FILE_UNITS` + `KNOWN_DIVERGENCES` machinery already does the grading — only its flag list is narrow.**
+- **tier:** 1 · **disposition:** proposed
+
+### F-31 · `AUD-20260909-no-harness-models-quantization-or-refusal` — 🔴 money-at-risk
+
+**This is the assumption the skill warns "hides longest", and it is confirmed present.**
+
+- **claim:** The R-normalization premise that makes a risk default *"not matter"* is **structurally untestable** here. `scripts/backtest_system.py` — 2068 lines, the fleet's core harness every walkforward and panel routes through — computes a raw float qty with **no whole-contract floor, no `min_qty`, no whole-share floor and no sub-1 refusal**, while **24 of 52 routed legs (46.2%)** run on a venue that applies all of them.
+- **evidence:**
+  ```
+  scripts/backtest_system.py:919-924
+      def _risk_qty(bal, rpct, entry_px, sl_px) -> float:
+          stop_dist = abs(entry_px - sl_px)
+          if stop_dist <= 0 or bal <= 0 or rpct <= 0: return 0.0
+          return (bal * (rpct / 100.0)) / stop_dist        # <- no floor, no refusal
+
+  $ grep -n "floor\|min_qty\|contracts\|whole" scripts/backtest_system.py | grep -v round
+  (no qty-quantization site; every hit is round() on a reporting field)
+
+  $ grep -rln "qty_legalize\|whole_unit\|WHOLE_UNIT_QTY" scripts/ src/backtest/ ml/
+  scripts/check_qty_legalization_guard.py        <- a guard
+  scripts/ci/check_collapsed_states.py           <- a guard
+  scripts/research/pairs_dollar_lots.py          <- not a backtest harness
+
+  src/units/accounts/risk.py:986-988
+      force_whole = is_futures or bool(whole_units)
+      eff_min_qty = 1.0 if force_whole else self.min_qty
+  ```
+- **expected vs actual:** **Expected** — a harness whose defence of its risk default is *"it's normalized"* must model the paths where the **trade set** is a function of the risk level. **Actual** — of 150 files in the guard's declared harness fleet, **1** imports the legalizer, and it is not a backtest harness. Below a threshold the trade does not shrink, **it does not happen** — and the refused trades are absent from a population the harness never claimed to enumerate. **It fails in the flattering direction: small risk reads as safe when it means "this leg does not trade".**
+- **population:** 150 files in `SCAN_GLOBS`, 1 models quantization. **24 of 52 routed legs** on `alpaca` (whole shares) or `interactive_brokers` (whole contracts, strict sub-1 refusal).
+- **detector:** **no full detector is possible from CI** — *"does the harness model refusal"* is a semantic property. **The tractable half is detectable:** fail any file in `SCAN_GLOBS` that computes a qty from a risk basis and does not import `src.units.accounts.qty_legalize` — the single-owner shape `check_qty_legalization_guard.py` already enforces elsewhere. And state the residual in the harness's own output as a `quantization_modelled: false` field, so a reader cannot mistake a clean backtest for one that priced the floor.
+- **tier:** 1 · **disposition:** proposed
+
+### F-32 · `AUD-20260909-guard-scope-narrower-than-concept-three-cases-PROVEN-BY-PERTURBATION`
+
+**Not inferred from source — the identical line was added to different paths and the verdicts differ.**
+
+```
+$ python3 scripts/check_strategy_risk_field_in_diff.py probe.diff   # same line, 3 paths
+  - src/runtime/foo.py:1 — strategy_risk_pct reference re-introduced
+  EXIT=1        # scripts/ and ml/ NOT flagged
+
+$ python3 scripts/check_env_gate_in_diff.py env.diff                # same gate, 4 paths
+  - src/runtime/foo.py:1 — env-gate 'NEW_FEATURE_ENABLED'
+  EXIT=1        # src/core/, src/news/, src/prop/ NOT flagged
+```
+
+| guard | concept it protects | paths scanned | the gap that matters |
+|---|---|---|---|
+| `check_strategy_risk_field_in_diff` | *"risk lives at the account level and **nowhere else**"* | `config/strategies.yaml`, `src/` | `scripts/` (150 harness files) + `ml/` exempt. **Research authorises Tier-3 changes to production, so a rule that binds production and exempts research does not bind the decision.** Unchanged since the 2026-08-20 audit named it. |
+| `check_env_gate_in_diff` | the Prime Directive — no default-off flag before a required capability | `src/{runtime,units,web}` | **7 of 15 gate-bearing `src/` files uncovered (46.7%)** — including `src/news/news_score.py`, which holds `NEWS_VETO_ENABLED`, a var `CLAUDE.md` itself calls *"a LIVE trade-blocking gate … for every account incl. real money"*. `src/core/coordinator.py` — the order path — is outside it too. |
+| `check_diagnostic_provenance` | *"a diagnostic must carry the provenance of what it printed"* | `scripts/{ml,research,ops,…}/`, `ml/…` | **all of `src/` excluded by an explicit comment** whose stated reason (*"computes a value for another machine"*) is **false for `order_monitor.py`**, whose over-cover page is a Telegram CRITICAL a human acts on — and which `CLAUDE.md` records as having *"named a cause no code path tested"* until 2026-09-02. **54 `src/` modules emit operator-facing text; 0 are in scope.** |
+
+- **detector:** a **concept-scope** guard, distinct from `check_guard_glob_coverage.py` — which asks only whether a guard is *triggered by files it reads*, so a guard reading nothing outside its own scope passes it while remaining narrower than its concept. Each guard declares `CONCEPT_DOMAIN` beside its scan scope; the meta-guard fails when `CONCEPT_DOMAIN − scan_scope` is non-empty without a dated, reasoned exemption. **`check_api_tier_policy.py` already models the answer**: its one out-of-scope route is enumerated in `docs/api-tier-policy.md:97` with the reason attached.
+- **tier:** 1 · **disposition:** proposed
+
+### F-33..F-35 — the rest, in brief
+
+| id | claim | population |
+|---|---|---|
+| **F-33** `harness-atr-stop-mult-default-matches-47pct-of-live` | 9 harness files hardcode `--atr-stop-mult 2.5`; only **21 of 44** legs declaring the key run at 2.5 live — a default inherited from the pre-e35 era simulating a stop 25% wider on 14 legs and 67% wider on 6 more. **Three divergent legs route to `bybit_2` = real money.** `check_harness_lever_coupling.py` verifies the key is *classified*, never that the *value* agrees. |
+| **F-34** `strategy-add-touches-ten-underived-registries` | 10 of the 17 files are hand-maintained registries holding facts `strategies.yaml` already contains, and the guard covers **3 of them**. **The natural experiment is visible in the outcome:** `strategy_descriptions.json` (guarded) is **55/55 complete**; `strategy_changelog.json` (unguarded, same shape) is **28/55**. The registries are not *derived*, they are *remembered* — and memory's measured failure rate here is **49%**. |
+| **F-35** `roster-pinned-tests-broke-main-and-the-pattern-persists` | 3 tests hold a hand-copied full roster. A strategy add that omitted them **broke `main` for every open PR on 2026-07-22**; the repair commit `3bb6a235` says so in its own message. `tests/test_strategy_registry.py:238` still reads `assert len(strategies) == 55` beneath a 24-line hand-maintained changelog comment (bumped 45→48→51→54→55). ⚠️ **The proposed fix is a detector REMOVAL, deliberately:** the census detects nothing a diff of `strategies.yaml` would not show, and its only measured effect was an outage. |
+
+### Verified NON-issues on this axis — each with the probe that could have returned a positive
+
+The **account** axis (bucket ii = 0 on both recent adds; **8 of 401** `src/` files carry an account literal in executable code) · the **broker** axis (amplification *falling* 28 → 13 → 12, bucket ii = 0) · `src/core/instrument_class.py` (derived from `instruments.yaml` — the correct pattern, and it *replaced* a drifted parallel map) · `strategy_descriptions.json` **55/55** · `_LOG_FILES` (18/18 soaks present, and a miss returns HTTP 400 **naming the allowed set** — loud and safe) · `check_api_tier_policy.py`'s one out-of-scope route is explicitly enumerated in the policy doc.
+
+⚠️ **Stated method limit on the hardcoded-enumeration probe.** It counts string *constants* in executable code via AST, excluding docstrings and (invisible to AST) comments. Raw vs stripped over 401 `src/` files: **accounts 85 → 8**, strategy names 77 → 18, symbols 123 → 31. **The 10× gap on accounts is the measure of how much an unstripped grep is prose** — the previous audit's "12+ files with scattered account rosters" was measuring text. It does not see a name built at runtime or read from config, so a clean file here is *"no literal found"*, **not** *"not coupled"*.
+
+---
+
 ## Coverage contract (Phase 1) — updated as the program runs
 
 **Behavioral coverage (primary):** _in progress — see the BEHAVIOR axis._
