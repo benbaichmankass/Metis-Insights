@@ -81,6 +81,25 @@
         "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
       },
       "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
+    },
+    {
+      "pr": 11528,
+      "title": "Route MI-214 and MI-215 to sessions",
+      "owner_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "checklist_item": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED + MI-215-REVIEW-PACKET-MUST-TAKE-EDGE-FROM-BACKTESTS-NOT-A-LIVE-WINDOW",
+      "tier": "tier_1",
+      "state": "green_awaiting_self_land",
+      "draft": false,
+      "opened_at": "2026-09-09T09:54:00Z",
+      "blocker": null,
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 manager spawn records: SESSIONS.json rows, one new work object, two checklist transitions, the merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. Recorded by the manager, NOT quoting the operator — this text records the ABSENCE of a decision. ⚠️ The WORK it routes is a different matter: MI-215 is Tier-3 (propose, never enact) and MI-214 is Tier-2 (one operator OK before shipping). Do not read this row's not_required as covering either."
+      },
+      "note": "Registers the two spawns the manager made after the operator rejected DEC-20260909 as malformed. ⚠️ A SUCCESSOR SHOULD KNOW WHAT THE BRIEFS FORBID, because re-deriving it is the failure both rows exist to prevent: MI-215 must NOT re-ask the window/floor question, must NOT route to the sunset pass, and must NOT be 'fixed' with another prose reminder; MI-214 must NOT restore the pre-2026-08-14 flat bail and must NOT raise the shared PROP_STATUS_REQUEST_MAX_AGE_HOURS threshold. Both briefs also require MEASURING a premise before building on it — mine in MI-215's case (grep -c = 0 on the guard), the operator's in MI-214's."
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
