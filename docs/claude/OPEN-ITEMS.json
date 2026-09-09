@@ -5,6 +5,32 @@
  "loud_means_report_it_every_session": "A row with `loud: true` must be REPORTED ON in the session's closing summary — checked and stated, not silently carried. Operator directive 2026-08-26: 'keep a LOUD backlog item for EVERY SESSION to check and report on it till it's implemented correctly and the mechanism has been verified.'",
  "updated_at": "2026-09-08",
  "items": [
+  {
+    "id": "OI-20260909-THE-AUTOMATION-LANDING-DEADLOCK-IS-FIXED-IN-CODE-AND-NO-AUTOMATION-PR-HAS-BEEN-OBSERVED-MERGING-ITSELF",
+    "kind": "monitoring",
+    "loud": true,
+    "opened": "2026-09-09",
+    "opened_at": "2026-09-09",
+    "verified_at": "2026-09-09",
+    "check_every_days": 2,
+    "probe_absent_reason": "A PROBE COULD BE WRITTEN AND WOULD NOT ANSWER THIS ROW. What is owed is that an automation PR MERGES WITHOUT A MANAGER HAND-PUSH, and no repo-side reader can tell those apart after the fact: a squash merge attributes to the merger either way, and the hand-push is a commit ON the automation branch that looks like any other. Telling them apart needs the PR's own commit list read against `github-actions[bot]` authorship, which is a GitHub read, not a file read. Recording the PR number and its commit authorship by hand IS the observation.",
+    "title": "The automation landing deadlock is fixed IN CODE and no automation PR has been observed merging itself",
+    "summary": "MEASURED 2026-09-09, population stated: 47 open PRs, 46 of them automation. `.github/actions/commit-to-main/action.yml` writes the R11 landing declaration and the R6 arming file and never writes the R13 merge-slot claim, so every PR it opens fails `pr-landing-guard` — a REQUIRED check — and can never merge. Reproduced locally against automation/session-reaper-34311893227-1; PR #11487's guards job read PASS 53 · FAIL 1 with the 1 being that guard. THE DENOMINATOR IS ONE FILE, NOT ELEVEN: the eleven distinct `automation/*` prefixes in the queue are `branch-prefix` INPUTS to this one action, which 27 workflows call. The consequence was repo-wide, not just a pile of open PRs — the receipt never lands, `check_digest_liveness` reads the last LANDED receipt, grades `stale`, and being time-based and repo-wide it then reds EVERY open PR including trading PRs (verified in the guard's own source: `stale` => FAIL, run from `run_guards.py` on every pull request). PR #11494 writes the claim via a new `scripts/ops/claim_merge_slot.py` that SPLICES the value rather than re-serialising (session-board.json matches no `json.dumps` indent; a naive dump rewrites ~139 lines to change 4 and would make every concurrent session edit a whole-file conflict). #11494 is `landing: hold` on R12 and needs one human read.",
+    "observation": "2026-09-09 — the FIX is verified in three ways and the EFFECT is not verified at all, and those are different facts. Verified: (a) a simulated automation PR carrying declaration + arming file + claim grades `pr-landing: OK — state=declared_self_land`, where the same branch without the claim grades FAIL on R13; (b) `check_manager_scope` on a simulated automation commit grades `unattributed`, exit 0, so no NEW guard failure is introduced; (c) CI on #11494 itself: guards SUCCESS. NOT verified: no automation PR has actually merged under this change, because #11494 has not merged. ⚠️ AND A KNOWN COST IS ACCEPTED RATHER THAN SOLVED: re-measured independently, 19 of the last 20 commits on origin/main touch session-board.json, so board contention is already the steady state (driven today by manager heartbeats); this change adds automation PRs to that set. The conflict-heal shipped with it lives INSIDE commit-to-main, so an automation branch recovers and a HUMAN branch does not — BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION measured a human PR losing 17 consecutive collisions. That is not a regression this introduces (reconcile-open-prs and session-reaper fired on push:main long before R13 existed; R13 stopped their PRs merging, so they accumulate instead of cycling) but it is not fixed either.",
+    "clears_when": "AN AUTOMATION PR IS OBSERVED MERGING WITH NO MANAGER HAND-PUSH. Record the PR number AND read its commit list: every commit must be authored by `github-actions[bot]`. ⚠️ #11494 MERGING CLEARS NOTHING — a merge is not a deploy and a deploy is not a run; that distinction is why several rows in this file are still open. ⚠️ A GREEN GUARD ON A SIMULATED BRANCH CLEARS NOTHING EITHER: that is already done and is what justified the change, not what proves it. ⚠️ AND AN AUTOMATION PR THAT MERGES AFTER A MANAGER PUSHED THE CLAIM ONTO IT IS THE FAILURE THIS ROW TRACKS, NOT ITS RESOLUTION — that has happened twice already (see #11477, whose session-board.json diff carries a MANAGER session id in `held_by` and a purpose line naming this exact defect). Read `held_by`: `github-actions[bot] · <workflow> run <id>` is the fix working; a `session_01...` id is the manual workaround. ⚠️ IF THE OPERATOR DECIDES R13 SHOULD NOT APPLY TO THE AUTOMATION LANE, this row does NOT clear — it CHANGES: the lane is then unclaimed by design, which is a legitimate decision and must be RECORDED as one rather than left looking like a fix about to land.",
+    "why_it_matters": "While it stands, the repo cannot land its own receipts, and a stale digest receipt reds every PR in the repo — so a trading PR is blocked by a bookkeeping workflow that cannot file its own paperwork. It is also the exact class this work item was opened for: a mechanism that records success for something it did not achieve. `commit-to-main` exits 0 having opened a PR that, by construction, could never merge.",
+    "owner_session": "session_01YP3DnuFmSbvtLgBQiuCHso",
+    "refs": [
+      "#11494",
+      "#11496",
+      "#11487",
+      "#11477",
+      "BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION",
+      "BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET",
+      ".github/actions/commit-to-main/action.yml",
+      "scripts/ops/claim_merge_slot.py"
+    ]
+  },
  {
    "id": "OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET",
    "kind": "monitoring",
