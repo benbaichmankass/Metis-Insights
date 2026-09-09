@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pass. Registers under docs/claude/work/** only: the tool-stamped lease heartbeat (stamped 07:01:36Z and left uncommitted — a stop hook caught it), two MANAGER-CHECKLIST rows moved in_flight->done on verified merged output, the work object closed, and the R13 merge_slot claim. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path is touched."
+}
