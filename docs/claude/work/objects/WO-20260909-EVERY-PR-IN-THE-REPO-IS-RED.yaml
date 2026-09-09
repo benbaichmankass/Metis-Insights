@@ -51,11 +51,34 @@ what_was_established: >-
   (1) `check_trainer_capture_watch.py` exits 1 on clean main was TRUE at
   07:4x-07:5xZ and is now FALSE: verified exit 0 on a clean `origin/main`
   checkout. Main was red for 12 minutes, 07:44:31Z -> 07:56:53Z.
-  (2) IT WAS NOT #11488 THAT LANDED THE RECEIPT. Commit d9059a0 (#11513), an
-  unrelated SESSION PR, carried `docs/claude/work/TRAINER-CAPTURE-WATCH.json` in
-  as a side-effect; the bytes are identical to #11488's. So #11488 is
-  SUPERSEDED, not pending -- verified byte-identical against origin/main -- and
-  the WO's own rule says close it with a recorded reason rather than merge it.
+  (2) IT WAS NOT #11488 THAT LANDED THE RECEIPT, AND IT WAS NOT LUCK EITHER.
+  Commit d9059a0 (#11513) carried `docs/claude/work/TRAINER-CAPTURE-WATCH.json`
+  in. ⚠️ I FIRST RECORDED THAT AS AN INCIDENTAL SIDE-EFFECT AND IT IS WRONG --
+  corrected after reading #11513's pre-squash commits. Commit fcd152b9 by
+  session_01DUBXxiaZ3PMERcAfcJce7P is titled `port the stranded
+  trainer-capture-watch receipt: main went red on the clock`. That session hit
+  the repo-wide red, established it was not its own PR's fault by reproducing it
+  on a clean worktree of origin/main, checked the receipt's PROVENANCE rather
+  than assuming (its producing run reads conclusion=failure, but the receipt was
+  written 26s in and the failure came 31min later reading verbatim
+  `commit-to-main: PR #11488 did not merge within 30m` -- the MEASUREMENT
+  succeeded, only the LANDING failed), and ported it under the drive-to-green
+  rule. THE DISTINCTION IS LOAD-BEARING AND CHANGES THE TRIAGE: an incidental
+  side channel would mean receipts reach main unreliably and the open automation
+  queue is partly phantom; a DELIBERATE PORT means the landing path is reliably
+  broken and a human-equivalent actor had to stop its own work to hand-carry the
+  payload. The second is what happened. It is the stronger case for the class
+  fix, not a weaker one -- and it is the same defect that session recorded
+  independently, from its own side, as `a self-blocking loop`. #11488 is
+  therefore SUPERSEDED, not pending -- byte-identity verified twice, at d9059a0
+  and again at c499481 -- and is now CLOSED with a recorded disposition.
+  (2b) THE SWEEPER WOULD HAVE MADE THAT PORT UNNECESSARY, and this is checkable
+  rather than asserted: before the port, main's receipt was 2026-09-08T16:44:31Z
+  and #11488's was 2026-09-09T04:53:57Z, so #11488 graded `refresh` -- the one
+  actionable state. The refresh path merges main in AND writes the R13
+  merge-slot claim via claim_merge_slot.py, which is precisely what #11488
+  lacked. Any sweep after 06:37:54Z (when that script reached main) would have
+  unstranded it without a session touching it.
   (3) #11488 WAS NEVER RED ON `trainer-capture-watch`. Its guards run
   (34312758346) reads `PASS 53 - FAIL 1` and the 1 is `pr-landing-guard` on
   R13, reproduced locally on the real branch name. It was opened 04:54:00Z;
