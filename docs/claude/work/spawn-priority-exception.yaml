@@ -393,8 +393,9 @@ phase_d_addendum_2026_09_08:
 # automation PR #11488. The manager cannot land it: that branch is ~3h behind main,
 # so merging main in produces a merge commit whose FIRST-PARENT diff carries
 # scripts/ and tests/, which check_manager_scope R2 attributes to the manager as
-# doing an item. That is MI-184 / BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE
-# -BUT-R2-FORBIDS-IT, hit live. Routing it is the rule working, and no
+# doing an item. That is MI-184, filed as
+# BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT
+# (hit live). Routing it is the rule working, and no
 # manager-scope-exception is being filed to get past R2.
 #
 # THIS IS A THIRD, DISTINCT CAUSE — do not read it as the deadlock returning.
