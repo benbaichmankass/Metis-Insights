@@ -34451,6 +34451,22 @@
         "docs/research/exit-trailing-banking-broker-truth-2026-09-09.md",
         "docs/research/operating-model-measurement-2026-09-08.md"
       ]
+    },
+    {
+      "id": "BL-20260909-DIAG-LOG-FILE-IS-TAIL-ONLY-AND-HARD-CAPPED-AT-1000-SO-A-MULTI-HUNDRED-KB-SOAK-CANNOT-BE-READ-OVER-ITS-LIFETIME",
+      "opened_at": "2026-09-09",
+      "filed_by": "session_01JuznkKwm1oYm7bUFc9v23w (MI-209b)",
+      "severity": "medium",
+      "tier": 2,
+      "status": "open",
+      "title": "/api/diag/log_file is tail-only and hard-capped at 1000 lines with NO offset, so a soak log is unreadable beyond its last 1000 records from any session — exit_lever_soak's 1000-record tail covers only ~25.7% of its estimated lifetime",
+      "detail": "MEASURED 2026-09-09 (MI-209b), evidence docs/research/exit-banking-tailcap-and-reachability-2026-09-09.md §2. get_log_file does n = _clamp(lines, _DEFAULT_LIMIT, _MAX_LIMIT) with _MAX_LIMIT = 1000 (src/web/api/routers/diag.py:1815 and :876) and reads content[-n:] — tail-only, with NO offset parameter on the route. Its sibling audit_query DOES take limit + offset, added for exactly this reason ('the time/event-filtered reader the line-capped /audit and /log_file tails cannot provide'), so the pattern exists in the same file and was simply never applied here. COVERAGE, MEASURED (size_bytes from the endpoint's own payload) AND ESTIMATED (lifetime record counts extrapolated as size / mean-record-size-of-tail; the tail's mean record size may not represent the whole file, so these are directional): exit_lever_soak 1,415,768 bytes, mean record 363 B, ~3,897 records estimated, 1000-record tail covers ~25.7%; exit_ladder_soak 656,242 bytes, mean record 633 B, ~1,036 records, tail covers ~96.5%. So the two soaks are in completely different positions and must not be spoken of as one cap. WHY IT MATTERS: a session asked to settle whether a soak-derived conclusion is tail-bound cannot do so, and must reason from coverage bounds instead of content. NO OTHER PATH REACHES IT, checked rather than assumed: the vm-diag-snapshot relay issues a path-validated curl at the same route and inherits the cap; system-actions pull-latest-logs runs scripts/ops/pull_logs.sh, which emits a FIXED bundle (status.json, heartbeat, journalctl, signal_audit tail) that contains neither soak and is truncated by the workflow to 50 KB, two orders of magnitude under a 1.4 MB file; and trainer-vm-diag runs arbitrary bash on the TRAINER, which holds a synced journal DB and not the live VM's runtime_logs/. NOT A BLOCKER ON THE BANKING QUESTION, and that must not be misread: the zero-partials result is a COMPLETE census of trades (n=5589) and order_packages (n=4500), never soak-derived, so it is not tail-bound at all.",
+      "resolution_criteria": "GET /api/diag/log_file accepts an offset (or an explicit head/range) so a caller can page a multi-hundred-KB log to its start, mirroring audit_query's existing limit+offset. Demonstrated on exit_lever_soak by BOTH controls: a paged read reaching the file's FIRST record (positive — the record's ts predates the current 1000-record tail window, which begins 2026-08-31T12:03:15Z), and a request beyond the end returning an empty page rather than silently re-serving the tail (negative — an out-of-range page that returns the last 1000 lines is the collapsed state this row exists to prevent, and would be worse than the cap). Raising _MAX_LIMIT alone does NOT close this: it moves the ceiling without making the file pageable, and a 3,897-record file would need it raised again. Tier-2 because it changes a live-VM web-api route; not built by the filing session, which was measurement-only.",
+      "refs": [
+        "src/web/api/routers/diag.py",
+        "docs/research/exit-banking-tailcap-and-reachability-2026-09-09.md",
+        "scripts/ops/pull_logs.sh"
+      ]
     }
   ]
 }
