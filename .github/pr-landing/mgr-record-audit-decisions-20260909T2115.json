@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Recording operator decisions into docs/claude/work/** — explicitly management. Four new decision objects with answer blocks, plus checklist and OPEN-ITEMS notes. No src/, tests/, config/, deploy/ or workflow path; the DECISIONS are Tier-2/Tier-3 but this diff enacts none of them."
+}

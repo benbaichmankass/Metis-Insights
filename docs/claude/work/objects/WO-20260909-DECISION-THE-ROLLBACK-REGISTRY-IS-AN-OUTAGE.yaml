@@ -1,0 +1,109 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+id: WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The sanctioned intent-layer rollback is a 78% capability outage - operator answered: collapse
+  the two registries into one
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD
+  on the signal path. The registry counts are in the audit at F-28.
+
+done_condition: >-
+  pipeline._STRATEGY_BUILDERS no longer exists as a second registry - multiplexed_signal_builder
+  resolves through the SAME path the primary uses - AND a parity assertion exists so that a
+  future re-split fails loudly. !! DELETING THE SECOND REGISTRY IS THE POINT: a parity test
+  alone leaves the duplication that caused this, and the operator chose the collapse over the
+  test.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
+  detector is named in the audit, and the operator has now answered. What gated it was the
+  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
+  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
+  and buildable, NEVER in progress.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-ROLLBACK-BUILDER-REGISTRY
+    question: >-
+      The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a SECOND builder
+      registry holding 16 of 55 strategies - so exercising it would silently stop 35 of 45 live
+      legs (78%), logged as a warning and skipped. No test asserts the two registries agree.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-28, re-verified by the audit lead from AST rather than taken from the agent.
+      pipeline._STRATEGY_BUILDERS n=16; execution:live legs MISSING from the rollback registry:
+      35 of 45 (78%). Sample: ada_pullback_2h, eth_pullback_2h, gdx_pullback_1d,
+      gld_pullback_1d, gld_pullback_1h, iaum_pullback_1d, ict_scalp_avax_5m, ict_scalp_eth_15m.
+      On a leg the rollback registry lacks, pipeline.py:506-509 logs a warning and CONTINUES.
+      pipeline.py:671-684 documents this path as the rollback - 'export
+      MULTI_STRATEGY_INTENT_LAYER=false to fall back to it without a code change' - and
+      CLAUDE.md lists the var as 'the core intent-aggregation switch, default on'. A grep for a
+      parity assertion over tests/ returns NO OUTPUT. The primary registry grew 16 -> 55 across
+      2026-05 to 2026-07 and the rollback registry was never followed. !! THE FAILURE MODE IS
+      THE WORST AVAILABLE: it looks like it worked.
+    options:
+      - key: collapse_to_one_registry
+        label: Collapse to one registry
+        implication: >-
+          Deletes _STRATEGY_BUILDERS and routes the rollback through _resolve_builders(). One
+          registry cannot drift from itself. Tier-2 - it touches the signal path.
+      - key: parity_test_and_backfill
+        label: Parity test plus backfill the 39
+        implication: >-
+          Syncs by hand now and guards it. Works today, preserves the duplication that caused
+          it.
+      - key: parity_test_only
+        label: Parity test only
+        implication: >-
+          Tier-1. Fails loudly on the next drift but does NOT close today's 39-leg gap; the
+          rollback stays an outage until someone acts on the red.
+      - key: retire_the_rollback
+        label: Retire the rollback path
+        implication: >-
+          Honest - it does not work - but there is then no env-flip rollback for the intent
+          layer at all.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:1xZ. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE OPERATOR ASKED
+        'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. That precedent was read first and followed. The Telegram channel was
+        separately VERIFIED healthy the same minute (sweep receipt 21:01:23Z:
+        destination=claude, poll_state=polled_with_handler,
+        token_from=TELEGRAM_CLAUDE_BOT_SECRET; write gate open) — it was not the blocker, and
+        these six were simply never declared as decision_requests at all.
+      chosen: collapse_to_one_registry
+      free_text: >-
+        Operator chose the structural fix on 2026-09-09: collapse the two registries into one
+        rather than police them with a test. Tier-2 approval for a SIGNAL-PATH change. !! THE
+        ROLLBACK MUST STILL WORK AFTERWARDS - the point is that
+        MULTI_STRATEGY_INTENT_LAYER=false reverts BEHAVIOUR without reverting COVERAGE, so the
+        build is not done until the flag is exercised and all 45 live legs still build. A parity
+        assertion stays valuable as the recurrence detector even once the second registry is
+        gone.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:15:00Z'
+      note: >-
+        Manager session. One of the six the full-system audit filed and did not take.

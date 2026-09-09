@@ -1,0 +1,108 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+id: WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  intent_reduce leaves a stop up to 101.8x the row it protects - operator answered: resize the
+  leg AND add the per-row invariant
+stage: DECISION
+lifecycle: ready
+owner: null
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD
+  on the order path. Do not re-measure - the venue read is in the audit at F-36.
+
+done_condition: >-
+  BOTH: (a) apply_intent_reduce_partial_close resizes the reducing row's OWN tracked protective
+  leg, verified against a venue read after a real intent-reduce; and (b)
+  INV-PROTECT-LEG-MATCHES-ROW exists in system_invariants.py asserting each open trade's venue
+  leg qty equals THAT row's position_size. !! (b) IS STRICTLY STRONGER THAN THE EXISTING
+  SYMBOL-LEVEL INV-PROTECT-OVERCOVER, which passes whenever siblings happen to sum correctly -
+  do not treat the existing one as covering this.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
+  detector is named in the audit, and the operator has now answered. What gated it was the
+  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
+  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
+  and buildable, NEVER in progress.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-INTENT-REDUCE-ORPHAN-LEG
+    question: >-
+      apply_intent_reduce_partial_close shrinks a trade's row but never resizes that row's own
+      venue stop - leaving a reduce-only stop up to 101.8x the row it protects. 21 of 1000
+      journal rows, including 3 on real-money bybit_2. It is the root cause of 64 of the 112
+      rows in the operator ERROR feed. Tier-2.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-36. Live at 2026-09-09T16:47Z on bybit_1/ADAUSDT: trade 5479 position_size 79227.0
+      with its stop at 79227.0 (correct); trade 5417 position_size 628.0 with its tracked stop
+      resting at 63943.0 - 101.82x. Journal 79227.0 + 628.0 = 79855.0 reconciles EXACTLY with
+      the exchange position; resting stops total 143170.0 = 179.3% over-covered. 63943 - 63315 =
+      628, i.e. exactly 5417's current size, which is the arithmetic identifying the cause.
+      First over- cover page fired 41 seconds after the reduce. A grep over the 133-line
+      function finds ZERO references to sl_order_id, tp_order_id, modify_open_order,
+      set_trading_stop or amend. The leg was still 63,943.0 after a trailing amend on 2026-09-08
+      - the amend followed the tracked id and faithfully preserved the wrong size. Population:
+      24 (account, symbol) groups in the live open book, 23 exactly sized, 1 broken;
+      bybit_1/BNBUSDT had no reduce and is exactly sized - the negative control. !! TODAY'S
+      STANDING INSTANCE IS PAPER-CLASS. The mechanism is account-agnostic and has fired 3x on
+      real-money bybit_2; those rows have since closed, so there is no standing real-money
+      instance right now.
+    options:
+      - key: resize_and_invariant
+        label: Resize the leg, add the invariant
+        implication: >-
+          Fixes the cause and adds the detector that would catch a recurrence. Tier-2 - it
+          touches the order path. Also removes most of the ERROR-feed noise.
+      - key: invariant_first
+        label: Add the invariant first, fix after a soak
+        implication: >-
+          Safer sequencing; the oversized legs and the pages persist meanwhile.
+      - key: detector_only
+        label: Detector only, never resize
+        implication: >-
+          Measures and pages correctly, leaves the legs. The over-cover is reduce-only so it
+          cannot flip a position, but a stop 101x its row can cut a live sibling.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:1xZ. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE OPERATOR ASKED
+        'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. That precedent was read first and followed. The Telegram channel was
+        separately VERIFIED healthy the same minute (sweep receipt 21:01:23Z:
+        destination=claude, poll_state=polled_with_handler,
+        token_from=TELEGRAM_CLAUDE_BOT_SECRET; write gate open) — it was not the blocker, and
+        these six were simply never declared as decision_requests at all.
+      chosen: resize_and_invariant
+      free_text: >-
+        Operator chose the full fix on 2026-09-09: resize the reducing row's own tracked leg AND
+        ship INV-PROTECT-LEG-MATCHES-ROW. This is the Tier-2 approval for an ORDER-PATH change.
+        !! IT DOES NOT AUTHORISE CANCELLING ANY CURRENTLY-RESTING LEG BY HAND. The standing
+        prohibition holds: do not 'remediate' an over-covered book by cancelling legs - the one
+        prior attempt at that cancelled the leg that MATCHED the journal (
+        BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). The approval is
+        for the code path that resizes on the NEXT reduce, plus the detector.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:15:00Z'
+      note: >-
+        Manager session. One of the six the full-system audit filed and did not take.

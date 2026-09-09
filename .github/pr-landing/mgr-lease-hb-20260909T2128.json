@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Management bookkeeping only: the manager lease heartbeat, the sub-session supervision record reconciled against a live list_sessions read, the merge-slot claim, the manager checklist, and two work-object lifecycles whose PRs have already merged. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ path. No order was placed, modified or cancelled on any account."
+}

@@ -94,10 +94,10 @@ def load_exemptions() -> Tuple[Dict, Dict, Set[str], int]:
 
 def evaluate() -> Tuple[List[str], List[dict]]:
     """Return (violations, rows). rows drive the matrix."""
-    live = live_strategies()
-    covered = regime_covered()
-    exempt, debt, desc_exempt, ceiling = load_exemptions()
-    desc = description_keys()
+    live = globals()["live_strategies"]()
+    covered = globals()["regime_covered"]()
+    exempt, debt, desc_exempt, ceiling = globals()["load_exemptions"]()
+    desc = globals()["description_keys"]()
 
     violations: List[str] = []
     rows: List[dict] = []
@@ -184,17 +184,125 @@ def write_matrix(rows: List[dict], ceiling: int) -> None:
     print(f"wrote {MATRIX_OUT.relative_to(REPO)}")
 
 
-def main() -> int:
+def self_test() -> int:
+    """Plant each violation class and require main(["--check"]) to REFUSE it.
+
+    The live config satisfies every branch of `evaluate()`, so without these
+    fixtures NONE of this guard's six refusal paths would ever execute -- it
+    shipped into the required `guards` merge context with no self-test and no
+    test file, so its green had never been shown capable of turning red (F-05,
+    2026-09-09 full-system audit).
+
+    The bar is `main(["--check"])`'s RETURN VALUE, not its output. Every
+    control below plants ONE violation class in isolation, so a probe that
+    fires on the wrong thing is caught rather than credited; the final control
+    removes every plant and requires 0, without which a guard that returned 1
+    unconditionally would pass all the others.
+
+    `--matrix` is never passed, so `docs/strategy-coverage-matrix.md` is not
+    written. The real `config/` files are read-only here: the fixtures replace
+    this module's own loaders and are restored in a `finally`.
+    """
+    fails: List[str] = []
+
+    def check(label: str, got, want) -> None:
+        if got != want:
+            fails.append(f"  FAIL - {label}: got {got!r}, want {want!r}")
+        else:
+            print(f"  PASS - {label}")
+
+    g = globals()
+    real = {k: g[k] for k in
+            ("live_strategies", "regime_covered", "load_exemptions", "description_keys")}
+
+    def stage(live, covered, exempt, debt, desc_exempt, ceiling, desc):
+        g["live_strategies"] = lambda: list(live)
+        g["regime_covered"] = lambda: set(covered)
+        g["load_exemptions"] = lambda: (exempt, debt, set(desc_exempt), ceiling)
+        g["description_keys"] = lambda: set(desc)
+
+    ok = dict(live=["s_ok"], covered={"s_ok"}, exempt={}, debt={},
+              desc_exempt=set(), ceiling=0, desc={"s_ok"})
+    try:
+        # 0. BASELINE: a fully covered, fully described strategy passes. Every
+        #    control below is this fixture with exactly one thing broken, so a
+        #    failure is attributable to the plant and nothing else.
+        stage(**ok)
+        check("a covered, described strategy returns 0", main(["--check"]), 0)
+
+        # 1. A live strategy with no cell and no exempt/debt entry.
+        stage(**{**ok, "covered": set()})
+        check("[regime] an uncelled live strategy returns 1", main(["--check"]), 1)
+
+        # 2. A live strategy with no description entry.
+        stage(**{**ok, "desc": set()})
+        check("[description] a strategy with no description returns 1",
+              main(["--check"]), 1)
+
+        # 3-4. The exemptions file's OWN structure. A debt entry parked with no
+        #      reason or no tracking_id is an untraceable exemption, which is
+        #      the shape that turns a ratchet into a dumping ground.
+        stage(**{**ok, "covered": set(),
+                 "debt": {"s_ok": {"tracking_id": "MI-1"}}, "ceiling": 1})
+        check("[debt] a debt entry with no reason returns 1", main(["--check"]), 1)
+        stage(**{**ok, "covered": set(),
+                 "debt": {"s_ok": {"reason": "r"}}, "ceiling": 1})
+        check("[debt] a debt entry with no tracking_id returns 1",
+              main(["--check"]), 1)
+
+        # 5. An exempt entry with no stated reason.
+        stage(**{**ok, "covered": set(), "exempt": {"s_ok": {}}})
+        check("[exempt] an exempt entry with no reason returns 1",
+              main(["--check"]), 1)
+
+        # 6. THE RATCHET. Parking a NEW strategy in coverage_debt above the
+        #    declared ceiling must fail -- the ceiling only ever moves down.
+        stage(**{**ok, "covered": set(),
+                 "debt": {"s_ok": {"reason": "r", "tracking_id": "MI-1"}},
+                 "ceiling": 0})
+        check("[ratchet] debt above the ceiling returns 1", main(["--check"]), 1)
+
+        # 7. ...and the SAME fixture under a ceiling that admits it passes, so
+        #    control 6 is shown to fire on the ratchet and not on the debt
+        #    entry merely existing.
+        stage(**{**ok, "covered": set(),
+                 "debt": {"s_ok": {"reason": "r", "tracking_id": "MI-1"}},
+                 "ceiling": 1})
+        check("[ratchet] the same debt entry under a ceiling of 1 returns 0",
+              main(["--check"]), 0)
+
+        # 8. REMOVE EVERY PLANT: the LIVE config must still pass. This is the
+        #    control that proves the guard is not simply failing everything.
+        for k, v in real.items():
+            g[k] = v
+        check("the live config returns 0", main(["--check"]), 0)
+    finally:
+        for k, v in real.items():
+            g[k] = v
+
+    if fails:
+        print("\n".join(fails))
+        print("\nSELF-TEST FAILED")
+        return 1
+    print("\nALL PASS")
+    return 0
+
+
+def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="fail (exit 1) on any violation")
     ap.add_argument("--matrix", action="store_true", help="(re)write the coverage matrix doc")
-    args = ap.parse_args()
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the planted-failure controls and exit")
+    args = ap.parse_args(argv)
+    if args.self_test:
+        return self_test()
     # default: --check
     if not args.check and not args.matrix:
         args.check = True
 
     violations, rows = evaluate()
-    _e, _d, _de, ceiling = load_exemptions()
+    _e, _d, _de, ceiling = globals()["load_exemptions"]()
 
     if args.matrix:
         write_matrix(rows, ceiling)
