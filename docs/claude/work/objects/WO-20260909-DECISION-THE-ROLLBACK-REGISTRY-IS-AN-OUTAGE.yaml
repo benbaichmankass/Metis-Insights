@@ -171,7 +171,9 @@ build:
     Three plants, each reverted, each caught: (a) a 3-entry `_STRATEGY_BUILDERS` re-added to
     pipeline -> 2 of 7 fail; (b) a module-local dict inside `multiplexed_signal_builder` -> the
     behavioural test fails; (c) a local dict consulted first in `monitor_unit_for`, the
-    pre-2026-06 BL-20260615-MGCNAKED shape -> 2 of 7 fail. The detector also carries a standing
+    pre-2026-06 naked-orphan-MGC shape (the id the code comments use for that incident was
+    never filed as a backlog row, so it is deliberately not cited here as a tracking
+    reference) -> 2 of 7 fail. The detector also carries a standing
     POSITIVE CONTROL asserting the AST scan can still find the one roster that SHOULD exist, so
     a matcher that has silently stopped working cannot pass as a clean result.
   detector_limits_stated: >-
