@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "P1 spawn record ONLY: registers the reads-only investigation session for the operator-reported bybit_2 ETHUSDT unprotected position, its work object, and the MI-221 checklist row. Registering a spawn and recording an operator-reported incident in docs/claude/work/** is management. No src/, tests/, scripts/, .github/workflows/, config/ or deploy/ path -- and NO order was placed or amended on any account. DELIBERATELY AVOIDS docs/claude/health-review-backlog.json and docs/claude/session-board.json: PR #11514 is open on both and has already merged main twelve times chasing manager register commits, so this PR is scoped to the files it does not contend on. That is why it claims no merge_slot."
+}
