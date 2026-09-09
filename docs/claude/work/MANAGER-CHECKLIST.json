@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T08:09:49Z",
+  "updated_at": "2026-09-09T09:00:34Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2753,16 +2753,16 @@
     {
       "id": "MI-213-LANE-5-GATE-API-BOT-DB",
       "title": "LANE 5 (security): gate /api/bot/db/* — the money DB answers with no credential at all",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01RvQbaZmEoH7V9VYpJiX7ZW",
       "owns_object": "WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB",
       "priority": "P1_OPERATOR",
       "tier": "2",
-      "note": "OPERATOR-APPROVED directly from a four-option decision; they chose the NARROW gate over full Phase H, so scope is /api/bot/db/* and the lane is told not to widen it. VERIFIED BY THE MANAGER: GET https://ict-bot.duckdns.org/api/bot/db/tables -> HTTP 200, 10,494 bytes, no bearer, at 2026-09-09T07:43:31Z, serving schemas and row counts for trade_journal.db and trainer_store.db. ⚠️ The rows half is UNVERIFIED — the sandbox blocked pulling live trade rows and that was not worked around; the lane establishes it first. ⚠️ NOT the closed diag-token question: that surface is bearer-gated and DECIDED. Tier-2 — approval is to do the work, not to deploy unreviewed.",
+      "note": "OPERATOR-APPROVED directly from a four-option decision; they chose the NARROW gate over full Phase H, so scope is /api/bot/db/* and the lane is told not to widen it. VERIFIED BY THE MANAGER: GET https://ict-bot.duckdns.org/api/bot/db/tables -> HTTP 200, 10,494 bytes, no bearer, at 2026-09-09T07:43:31Z, serving schemas and row counts for trade_journal.db and trainer_store.db. ⚠️ The rows half is UNVERIFIED — the sandbox blocked pulling live trade rows and that was not worked around; the lane establishes it first. ⚠️ NOT the closed diag-token question: that surface is bearer-gated and DECIDED. Tier-2 — approval is to do the work, not to deploy unreviewed. ⚠️ UPDATED 2026-09-09T08:57Z: OPERATOR APPROVED ('11517 approved'), re-put as an explicit four-option decision carrying the lane's measured blockers, and they chose 'Merge now, accept losing the tab'. MERGED as 284cbc6c. state=landed_unproven, NOT done: measured at 08:57:59Z immediately after the merge, /api/bot/db/tables STILL returned 200 with no bearer and /api/diag/version read restart_pending TRUE with the running web-api predating the merge. deploy_pull_restart.sh restarts ict-web-api.service only when HEAD advances, so the gate goes live on the next git-sync tick. Verification armed 09:11Z; owning lane poked to confirm 401 on BOTH routes first-hand. The broken Data Explorer tab is an ACCEPTED COST, not a regression.",
       "added": "2026-09-09"
     }
   ],
-  "as_of": "2026-09-09T08:09:49Z",
+  "as_of": "2026-09-09T09:00:34Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
