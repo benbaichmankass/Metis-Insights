@@ -1218,7 +1218,7 @@ def _alpaca_pos_in_scope(pos: Dict[str, Any], account: Dict[str, Any]) -> bool:
     return ac == "us_option" if expresses_options else ac != "us_option"
 
 
-POSITION_READ_SOAK_FILENAME = "position_read_state_soak.jsonl"
+POSITION_READ_SOAK_LOG_NAME = "position_read_state_soak.jsonl"
 
 
 def _record_position_read_observation(obs: Dict[str, Any]) -> None:
@@ -1269,7 +1269,7 @@ def _record_position_read_observation(obs: Dict[str, Any]) -> None:
         line["could_not_look_count"] = len(unreadable)
         try:
             from src.utils.paths import runtime_logs_dir
-            target = runtime_logs_dir() / POSITION_READ_SOAK_FILENAME
+            target = runtime_logs_dir() / POSITION_READ_SOAK_LOG_NAME
             target.parent.mkdir(parents=True, exist_ok=True)
             with open(target, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(line, ensure_ascii=False) + "\n")

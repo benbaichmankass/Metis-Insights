@@ -326,7 +326,7 @@ def test_soak_name_is_on_the_diag_allowlist():
     pytest.importorskip("fastapi")
     from src.web.api.routers import diag
 
-    from src.units.accounts.clients import POSITION_READ_SOAK_FILENAME
+    from src.units.accounts.clients import POSITION_READ_SOAK_LOG_NAME
 
     assert "position_read_state_soak" in diag._LOG_FILES
     # The route name and the file the writer actually opens must agree — two
@@ -334,5 +334,5 @@ def test_soak_name_is_on_the_diag_allowlist():
     # that is being written perfectly well.
     assert (
         diag._LOG_FILES["position_read_state_soak"].name
-        == POSITION_READ_SOAK_FILENAME
+        == POSITION_READ_SOAK_LOG_NAME
     )
