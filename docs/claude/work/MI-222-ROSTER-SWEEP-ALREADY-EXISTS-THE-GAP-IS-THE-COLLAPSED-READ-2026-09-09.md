@@ -79,7 +79,7 @@ For any account whose `account_id` is in `accounts.yaml`, the roster sweep is
 | (a) enumerates `account_open_positions(cfg)` | **confirmed** | `order_monitor.py:3128` |
 | (a) is *only* the account-wide venue list | **REFUTED** | `clients.py:1410` |
 | (b) enumerates journal `status='open'` | **confirmed** | `order_monitor.py:9846-9849`: `FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0`. Trade 5471 is `closed`, so genuinely missed. |
-| there is no third path | **confirmed** (not disproven) | no other enumeration found |
+| there is no third path | **confirmed, and counted** | population = every position-enumerating site in `order_monitor.py`. Family (a), `account_open_positions`: lines **3128, 4337, 5386** (plus `_exchange_position_set` at 2885 converting its output). Family (b), `FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0`: lines **4208, 7871, 8390, 9365, 9848**. **8 sweep sites, 2 sources, no third.** |
 | nothing runs `journal_venue_audit.py` | **confirmed** | references only in its own docstring + 2 docs; no workflow, timer or caller |
 | ETHUSDT ∈ `bybit_2.symbols` | **confirmed** | `['BTCUSDT','ETHUSDT','XRPUSDT','ADAUSDT']` |
 | a symbol-scoped read sees what the account-wide list misses | **NO** | MI-221 § 2: the cross-check ran on ETHUSDT, succeeded, returned no row with `size > 0`, twice — verified with a positive control that the failure-log probe was not vacuously quiet |
