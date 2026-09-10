@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "The manager's own registers only -- MANAGER-CHECKLIST.json, SESSIONS.json, MANAGER-LEASE.json -- plus the merge_slot claim. docs/claude/** exclusively: no src/, tests/, scripts/, workflows, config/ or deploy/, no runtime, no order path. Recording an operator decision into docs/claude/work/** and filing backlog rows are both explicitly management acts, and a lease heartbeat is a base manager duty. Split out of #11697 because that PR's 65k-line comms/ diff makes pytest-run ~20 minutes, and automation takes the single-holder merge_slot 2-4 times inside that window -- #11697 was dirtied at 14:04, 14:30 and 14:52 without ever reaching a merge. This diff path-skips pytest, so it closes inside the gap."
+}
