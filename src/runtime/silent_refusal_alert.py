@@ -65,6 +65,14 @@ the watch off:
   `SILENT_REFUSAL_WINDOW_HOURS`   lookback (default 24)
   `SILENT_REFUSAL_MIN_ROWS`       refusals before it is a pattern (default 5)
   `SILENT_REFUSAL_SKIP`           CSV escape hatch, mirrors ACCOUNT_DOWN_ALERT_SKIP
+                                  ⚠️ A skipped account's latch is RETIRED
+                                  (`_retire_skipped_latches`) rather than left
+                                  standing — before 2026-09-10 both loops below
+                                  skipped it, so a latch taken BEFORE the skip was
+                                  immortal and `silent_accounts()` served it for
+                                  ever. Retiring sends NO ping and PRESERVES the
+                                  last graded verdict; the skip itself is
+                                  unchanged and is a deliberate operator act.
 
 Latched per `(account, cause)`: one 🔴 on crossing in, one 🟢 on recovery. The
 cause is part of the latch key because an account that stops refusing for
@@ -195,6 +203,13 @@ def _int_knob(name: str, default: int, *, minimum: int = 0) -> int:
     except (TypeError, ValueError):
         return default
     return max(minimum, val)
+
+
+#: ``alert_disposition`` written onto a latch retired because its account is
+#: in ``SILENT_REFUSAL_SKIP``. A NAMED value, never a bare ``alerting: false``:
+#: "the alarm is switched off" and "we looked and found nothing" are different
+#: facts and a reader must be able to tell them apart.
+_DISPOSITION_ENV_SKIP = "suppressed_env_skip"
 
 
 def _skip_set() -> frozenset:
@@ -407,16 +422,103 @@ def silent_accounts() -> Dict[str, Dict[str, Any]]:
 
     Read-only view for the review skills, mirroring
     `account_reachability_alert.down_accounts()`. Never raises.
+
+    ⚠️ AN ACCOUNT IN ``SILENT_REFUSAL_SKIP`` IS NEVER RETURNED, whatever its
+    latch says. The skip is an operator decision that this account's alarm is
+    OFF; a row that still reads ``alerting: true`` under it is a claim nobody is
+    standing behind. This is the READ half of the fix — the write half
+    (`_retire_skipped_latches`) retires the row itself, and the two are
+    deliberately both present: the read-side test also covers a state file
+    written before that pass existed, and a fleet whose trader has not yet
+    restarted onto it.
     """
     try:
         state = _load_state()
+        skip = _skip_set()
         return {
             aid: st for aid, st in state.items()
             if aid != _LAST_CHECK_KEY and isinstance(st, dict) and st.get("alerting")
+            and aid not in skip
         }
     except Exception as exc:  # noqa: BLE001
         logger.debug("silent_refusal_alert: silent_accounts failed: %s", exc)
         return {}
+
+
+
+def _retire_skipped_latches(
+    state: Dict[str, Any], skip: frozenset, now: datetime
+) -> List[str]:
+    """Retire the latch of any account that is now in ``SILENT_REFUSAL_SKIP``.
+
+    ── A SKIPPED ACCOUNT'S LATCH WAS IMMORTAL ──────────────────────────────
+    Both loops in :func:`run_silent_refusal_check` ``continue`` on
+    ``aid in skip`` — the assessment loop, so ``state[aid]`` is never rewritten,
+    and the quiet-account RELEASE loop, which exists precisely to free a latch
+    that can no longer clear itself. So an account latched ``alerting: true``
+    and THEN skipped kept that verdict for ever, and :func:`silent_accounts` —
+    what the review skills read to decide whether to flag — kept serving it.
+
+    MEASURED on the live VM 2026-09-10: ``alpaca_live`` read
+    ``alerting: true, cause: risk_refused, verdict: signalled_never_placed``
+    with ``updated_at`` frozen at ``2026-08-21T12:38:38Z`` while
+    ``__last_check__`` was ``2026-09-10T07:58:20Z`` and all seven other accounts
+    carried that fresh stamp — 20 days. ``get-env`` (Actions run 34455224799)
+    read ``SILENT_REFUSAL_SKIP = 'alpaca_live'`` off ``/proc/<MainPID>/environ``.
+    The latched cause was from a zero-balance era; the account held $200.22 and
+    its refusals were ``side_filter`` suppressions, a different cause entirely.
+
+    ⚠️ THE SKIP ITSELF IS CORRECT AND IS NOT WHAT THIS CHANGES.
+    ``docs/claude/system-actions.md`` records it as a deliberate operator
+    silencing. What is repaired is what the skip LEAVES BEHIND.
+
+    ⚠️ IT SENDS NO PING, and that is the whole point — silence is what the skip
+    buys. In particular it must NOT send the ordinary 🟢 ``[OK]``, which asserts
+    the account is placing orders again; nobody measured that, and the same
+    trap is why the quiet-account release above carries its own wording.
+
+    ⚠️ THE LAST GRADED VERDICT IS PRESERVED, NOT DELETED. Dropping the row
+    entirely would be simpler and would lose the record of what was last
+    observed — so the row stays, carrying ``last_graded_*`` and an
+    ``alert_disposition`` naming why it is quiet. That keeps *"the alarm is
+    switched off"* distinguishable from *"we looked and found nothing"*, which
+    is the collapsed state this defect actually is.
+
+    Idempotent: an already-retired row is left alone, so this does not rewrite
+    the state file every cadence window. Returns the ids retired THIS call.
+    """
+    retired: List[str] = []
+    for aid in sorted(skip):
+        prev = state.get(aid)
+        if not isinstance(prev, dict):
+            continue  # nothing latched for this account — nothing to retire
+        if prev.get("alert_disposition") == _DISPOSITION_ENV_SKIP:
+            continue  # already retired; do not churn the file
+        row: Dict[str, Any] = {
+            "alerting": False,
+            "alert_disposition": _DISPOSITION_ENV_SKIP,
+            "cause": None,
+            "priority_causes": [],
+            "alerting_basis": None,
+            "refused": prev.get("refused"),
+            "placed": prev.get("placed"),
+            "verdict": prev.get("verdict"),
+            "last_graded_verdict": prev.get("verdict"),
+            "last_graded_cause": prev.get("cause"),
+            "last_graded_at": prev.get("updated_at"),
+            "retired_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+        state[aid] = row
+        retired.append(aid)
+        logger.info(
+            "silent_refusal_alert: %s is in SILENT_REFUSAL_SKIP — retiring its "
+            "latch (last graded %r, cause %r, at %s). No ping is sent: the skip "
+            "is a deliberate silencing, and a recovery message would assert "
+            "something nobody measured.",
+            aid, prev.get("verdict"), prev.get("cause"), prev.get("updated_at"),
+        )
+    return retired
 
 
 def run_silent_refusal_check(
@@ -563,9 +665,11 @@ def run_silent_refusal_check(
         recovered.append(aid)
         state.pop(aid, None)
 
+    retired = _retire_skipped_latches(state, skip, now)
+
     _save_state(state)
     return {"checked": True, "alerted": alerted, "recovered": recovered,
-            "assessed": len(assessed)}
+            "assessed": len(assessed), "retired_skipped": retired}
 
 
 __all__ = ["run_silent_refusal_check", "silent_accounts", "assess",
