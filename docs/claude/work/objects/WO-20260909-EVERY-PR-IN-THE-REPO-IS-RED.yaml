@@ -597,6 +597,61 @@ a_defect_in_MY_OWN_scan_method: >-
   actually answers "is the producer working", and it is what a successor should
   use instead of the branch scan.
 
+finding_five_CORRECTED_the_branch_instrument_already_exists: >-
+  ⚠️ CORRECTING MY OWN FINDING 5. I recorded that the sweeper is blind to
+  PR-less branches because it enumerates OPEN PRS, and recommended that "it
+  should iterate BRANCHES". A BRANCH-ITERATING INSTRUMENT ALREADY EXISTS ON
+  `main`: `scripts/ops/stuck_automation_branches.py`. Verified 2026-09-10 by
+  `git cat-file -e origin/main:...` — present on main and on this branch.
+
+  ⚠️ AND IT HAD ALREADY MEASURED THE FIFTH MODE, TEN DAYS BEFORE I "FOUND" IT.
+  Its own docstring: "Measured 2026-08-30: 7 of 7 automation/* branches were
+  unmerged into main, two of them carrying open PRs a day old, and FOUR CARRYING
+  NO OPEN PR AT ALL. Nobody had noticed, because the only way to see it is to
+  list branches." That is the mode I spent an afternoon rediscovering from a
+  rate-limit log. My contribution to it is the CAUSE (`gh pr create` failing on
+  the shared per-user GraphQL quota) and the DURATION (4h47m through several
+  hourly resets), not the existence.
+
+  ⚠️ THIS IS THE `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` RISK, AND IT WAS
+  ONLY NOT PAID BECAUSE I DECLINED TO BUILD. CLAUDE.md prescribes a one-line
+  existence check (`grep -n <name> scripts/`) BEFORE writing a capability. I did
+  not run it when I wrote finding 5; I ran it today, ten days late, and only
+  because another lane's commit message named the file. I got the right outcome
+  for the wrong reason: I deferred the branch-iteration work as "not to be
+  rushed", which happened to avoid a duplicate build. Do not read that as
+  judgement — read it as luck, and run the check first next time.
+
+  SO THE RECOMMENDATION CHANGES. The sweeper should COMPOSE with
+  `stuck_automation_branches.py`, not reimplement branch enumeration. What that
+  tool LACKS is precisely what this WO's workflow supplies, and the two halves
+  are complementary rather than competing:
+    - it is MANUAL-ONLY by its own wiring comment ("a session or operator runs
+      this when triaging why an automation branch never landed"), so it has NO
+      CADENCE — nothing runs it, which is the same "the alarm has no automatic
+      remedy" shape this WO is about, one level over;
+    - it REPORTS and GATES NOTHING, deliberately ("the judgement about what to
+      do with a stuck branch is a human one") — so it never refreshes, never
+      lands, and never re-asserts an R13 claim.
+  The sweeper has cadence and a verified action path and the wrong input set;
+  that tool has the right input set and neither. Joining them is the real fix
+  for finding 5.
+
+  ⚠️ AND IT IS CURRENTLY BROKEN IN A WAY THAT WOULD POISON THAT JOIN. Filed by
+  another lane the same day as
+  BL-20260910-STUCK-AUTOMATION-BRANCHES-GRADES-LANDED-BY-ANCESTRY-SO-LANDED-IS-DEAD-CODE-AND-EVERY-MERGED-BRANCH-READS-STUCK:
+  `classify` decides LANDED with `git merge-base --is-ancestor`, which is
+  unreachable in a squash-merge repo, so measured over all 712 remote-tracking
+  branches EXACTLY ONE grades LANDED and it is `origin/main` itself. Every real
+  merged branch reads STUCK. A sweeper that consumed that verdict today would
+  try to refresh branches that already landed. Fix that row FIRST, then join.
+
+  ⚠️ NOTE WHAT THIS DOES NOT CHANGE. The sweeper's own input set is still
+  open-PRs, and I have still not shipped the change — this is a correction to
+  the RECOMMENDATION, not work delivered. And the deeper point stands: the
+  repo already owned an instrument that had seen this failure, it ran nowhere,
+  and nobody read it for ten days. That is the same sentence as the WO's thesis.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
