@@ -3478,7 +3478,8 @@
       "resolution_criteria": "Both changes shipped and the POST-STATE VERIFIED on the fleet (Tier-2 discipline), plus a soak row that can name which of the three states it saw. ⚠️ A green test suite clears nothing — a harness cannot reach a hedged venue book.",
       "explicitly_not_in_scope": "No order placed, modified or cancelled on any account by hand. Does NOT authorise remediating an over-covered book by cancelling legs (BL-20260820). Does NOT settle trade 5569's own reconcile_status — that is the parent object's separate done_condition.",
       "blocked_on": [],
-      "blocked_on_basis": "ASSESSED — the operator_decision edge was the blocker and it is answered; what it needs now is a session."
+      "blocked_on_basis": "ASSESSED — the operator_decision edge was the blocker and it is answered; what it needs now is a session.",
+      "⚠️_this_item_was_DROPPED_and_that_is_recorded_2026_09_10T1426Z": "DISPATCHED to session_01FyYyybxWC7VD1Rq1doEEdf (MI-241) at 13:32Z with DELIVERY CONFIRMED (the cse_ suffix matched), and the lane worked #11699/#11700 instead and went idle. Measured at 14:26Z on main: this row still reads state=queued / owner=unassigned, so NOTHING carried it -- not the lane, not the registry, not this checklist. ⚠️ A CONFIRMED POKE IS NOT A CONFIRMED PICKUP, and that is the general finding: delivery was verified and the WORK was not. The manager duty this misses is the read-back -- after dispatching, check that the OWNER field and the lane's actual output agree with what was sent. This is a P1 Tier-2 REAL-MONEY item (Bybit wrong-book close reads a hedge book as flat and closes a live position), so the drop is not cosmetic."
     },
     {
       "id": "MI-254-THE-DECISIONS-INBOX-GRADES-ON-THE-WRONG-FIELD-SO-ANSWERED-READS-AS-UNANSWERED",
@@ -3568,6 +3569,48 @@
       "resolution_criteria": "THREE PARTS, different facts — say which you cleared. (1) The rebase lands: the corrected merge check `git -c merge.jsonregister.driver=false merge-tree --write-tree origin/main <head>` exits 0, and the union of docs/claude/health-review-backlog.json is VERIFIED (base 1426 / main 1433 / PR 1431; target 1438 if no ids overlap — measure, do not assume; 0 rows lost from either side, no duplicate ids). (2) The manager MERGES it by hand — not auto-merge, not the lane. (3) A SCHEDULED run of stale-automation-sweep.yml is OBSERVED completing and its effect verified as EFFECT (merge-base equal to main's tip on a branch it refreshed), never from the sweeper's own report. ⚠️ (3) MAY NOT BE CLEARABLE FOR HOURS — the cron is 2-hourly and this repo's scheduled workflows fire LATE and ERRATICALLY (probes.yml ~4h50m late; work-digest 5 firings against 24 declared). Read the run history, NEVER the cron expression. ⚠️ A workflow_dispatch run clears (3) NOT AT ALL: dispatch is what is already proven and a cron that does not fire is the failure class. ⚠️ A GREEN CI RUN CLEARS NOTHING — 21 tests pass in a harness and a harness cannot reach a cron. ⚠️ AND MERGING CLEARS ONLY (2): a merge is not a deploy and a deploy is not a run.",
       "⚠️_what_this_does_NOT_fix": "A FIFTH strand mode the sweeper does not cover, stated in its own body: when the producing run exhausts the shared user API quota, `gh pr create` fails and the branch is pushed with NO PR at all. The sweeper enumerates OPEN PRs, so such a branch is invisible to it — the premise is right and the INPUT SET is wrong. Also unfixed: 34 automation PRs remain undispositioned, and three more unrecoverable artifacts are NOT yet rescued (the US-20260909T002929Z econ capture, the m28 valuation snapshots, the 2026-09-08 strategy-review packet).",
       "blocked_on": []
+    },
+    {
+      "id": "MI-261-11648-IS-THE-GITHUB-TOKEN-ZERO-CHECK-TRAP-AND-HAS-SAT-SEVEN-HOURS",
+      "title": "#11648 (MI-139) looks green, has never run CI, and carries three conflicts including CLAUDE.md",
+      "state": "queued",
+      "tier": 1,
+      "priority": "P2",
+      "lane": "ops",
+      "added": "2026-09-10T14:26Z",
+      "owner": "unassigned — needs a lane; NOT the manager (it touches CLAUDE.md, a worker path)",
+      "source": "manager merge-queue sweep, 2026-09-10T14:0xZ",
+      "scope": "Open since 2026-09-10T07:08:09Z. MEASURED: get_check_runs returns total_count 1 and the ONE run is `open-and-automerge`, conclusion success. That is the documented GITHUB_TOKEN trap -- claude-pr-automerge OPENED the PR itself, so no `pull_request` event ever fired and the four real checks never will. ⚠️ IT READS AS GREEN AT A GLANCE, which is why it sat seven hours. Remedy is one ORDINARY commit pushed by a session (never an empty commit -- prohibited).",
+      "⚠️_it_also_has_three_conflicts": "Corrected merge check (`git -c merge.jsonregister.driver=false merge-tree --write-tree origin/main <head>`) exits 1 on CLAUDE.md, OPEN-ITEMS.json and health-review-backlog.json. ⚠️ CLAUDE.md IS A WORKER PATH for manager-scope purposes (canonical prose outside the generated SESSION-BRIEF block), so the MANAGER MUST NOT RESOLVE THIS -- it routes to a lane. The two registers resolve as verified unions; CLAUDE.md does not and needs a human reading of both texts.",
+      "resolution_criteria": "#11648 is MERGED or explicitly closed. ⚠️ A GREEN READING CLEARS NOTHING until total_count >= 4 -- that is the whole defect. Verify the four real checks fired, then the corrected merge check exits 0, then merge.",
+      "blocked_on": [
+        {
+          "kind": "lane_capacity",
+          "ref": "operator cap of 3 concurrent lanes",
+          "since": "2026-09-10T14:26Z"
+        }
+      ]
+    },
+    {
+      "id": "MI-262-THE-WORKFLOW-PAGE-STALENESS-WARNING-IS-CALIBRATED-AT-3H-AND-THE-OPERATOR-COMPLAINED-AT-1H",
+      "title": "The Workflow page's staleness banner stays silent through exactly the lateness the operator objected to",
+      "state": "queued",
+      "tier": 1,
+      "priority": "P2",
+      "lane": "engineering",
+      "added": "2026-09-10T14:26Z",
+      "owner": "unassigned",
+      "source": "manager live read of https://ict-bot.duckdns.org/api/bot/work/checklist at 2026-09-10T14:12Z",
+      "scope": "MEASURED: the page served commitSha dbaf46843f6d, committedAt 13:11:18Z, commitAgeHours 0.954, treeState synced, warnings []. The empty warnings list is CORRECT BY CONSTRUCTION -- src/web/api/routers/work.py's `stale_after_hours` defaults to 3.0 and the branch is `commit.age_hours >= stale_after_hours`. But the operator complained at 2026-09-10T10:38Z, verbatim: 'the page doesn't seem to be very up to date - at least an hour old'. So the banner built to make the manager's lateness visible TO THE OPERATOR is silent across the exact band the operator noticed and objected to. That is a CALIBRATION mismatch against a stated expectation, not a broken mechanism.",
+      "⚠️_do_not_read_this_as_a_bug_in_the_banner": "The mechanism works and its own reported age was accurate to the minute. ⚠️ AND A MANAGER ERROR IS RECORDED HERE RATHER THAN DROPPED: I first read the payload for `ageHours`, got None from a missing key, and was about to file 'the banner cannot compute an age'. The field is `commitAgeHours`. That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A committed by the READER -- the label I looked for named a quantity the accessor did not return -- and it was caught only by dumping the raw block instead of trusting the parse.",
+      "resolution_criteria": "An OPERATOR DECISION on the threshold, recorded as one -- not a session picking a number. The question is what lateness the operator wants to SEE, and only they can answer it; 1.0h matches what they actually complained about. ⚠️ DECIDING TO LEAVE IT AT 3.0 CLEARS THIS ROW TOO and must be recorded as a decision rather than left looking like a tuning about to happen.",
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "what staleness should warn on the Workflow page",
+          "since": "2026-09-10T14:26Z"
+        }
+      ]
     }
   ],
   "as_of": "2026-09-10T13:36:00Z",
