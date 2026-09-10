@@ -47,6 +47,24 @@ blocked_on_basis: >-
 
 captured_by: session_01Ww2pZVK5VUqV8xFFtTs9B1 (the investigating lane)
 
+# ⚠️ THIS OBJECT WAS CAPTURED TWICE, and the two halves are MERGED rather than one
+# overwriting the other. The manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) captured the
+# DORMANT stub via scripts/ops/capture_idea.py and landed it on main while this lane was
+# working; the lane wrote the completed object on its branch, and the two collided as an
+# add/add. The stub's `why` and `source` are the record of WHY the work was commissioned
+# and are preserved verbatim below; everything else is the lane's, because the stub's
+# `lifecycle: dormant` / `stage: QUESTION` / `owner: null` describe a parked idea and the
+# work is done. `done_condition` above is the lane's restatement of the stub's, which read:
+#   "The CAUSE of the restart-boundary breach is established and named against evidence
+#    (not inferred), AND an exact Tier-2 remedy is put to the operator as a proposal with
+#    its rollback stated. Explicitly NOT done by: re-measuring, a green test, or any arming"
+#  -- met, and the lane's version adds WHICH evidence.
+source: manager (captured via scripts/ops/capture_idea.py), completed by the lane
+
+why: >-
+  MI-230 shipped the instrument and its FIRST complete read contradicts what the OPEN-ITEMS row predicted. Two filed, open, high-severity backlog rows carry the measurement and DELIBERATELY do not propose a cause. Population is complete, not a sample: 442 process boundaries, ungradeable 0, overlapping 0, unattributed_rows 0. A restart boundary breaches ~10x more often than a within-process interval (17.4% vs 1.803%), and a deploy is exactly when the trader is least likely to be evaluating exits. Nobody owns either row.
+
+
 evidence: docs/claude/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md
 
 drives:

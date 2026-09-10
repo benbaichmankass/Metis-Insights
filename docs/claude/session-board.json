@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "claude session_01Ww2pZVK5VUqV8xFFtTs9B1 · PR #11647",
     "branch": "claude/mi-exit-eval-60s-rootcause",
-    "claimed_at": "2026-09-10T06:39:15Z",
-    "purpose": "Tier-1 docs-only: root-cause of the exit-eval 60s breaches + the operator decision request. Prior holder was github-actions[bot] work-digest run 34443237065 at 05:59:44Z, whose own purpose says arming auto-merge IS its merge — a stale automation claim, not a live session."
+    "claimed_at": "2026-09-10T06:40:02Z",
+    "purpose": "Tier-1 docs-only: exit-eval 60s root cause + DEC-20260910-EXIT-EVAL-60S-REMEDY. Taken from session_01HrmZ1RRNM4UnEUaFdrPEjj / claude/mgr-hb-20260910T0610, whose branch is ALREADY MERGED to main — a completed claim, not a live one."
   },
   "active_sessions": [
     {
