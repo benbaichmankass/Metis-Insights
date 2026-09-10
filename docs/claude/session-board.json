@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "MI-259 OPS lane (session_01M3FPDA7Yp9dmMXFqsYzGi3)",
-    "branch": "claude/mi259-file-the-two-findings",
-    "claimed_at": "2026-09-10T22:35:00Z",
-    "purpose": "PR #11742 — Tier-1 follow-up to #11739 (merged): files the two MI-259 findings into the health-review backlog. Arming auto-merge IS the merge, so R13 takes the slot here. Prior holder 'session_01HrmZ1RRNM4UnEUaFdrPEjj' (#11741) has MERGED, so its claim is finished — taken, not contested. NOTE: this is the SECOND time #11519 has made a PR of this session `dirty` in one sitting, and on this one merge_slot was the ONLY differing key between the two sides — the bare conflict with no content behind it."
+    "branch": "claude/mi259-close-the-work-object",
+    "claimed_at": "2026-09-10T22:40:00Z",
+    "purpose": "PR #11743 — Tier-1 close-out: reconciles WO-20260910-DISPOSITION-THE-34-... from dormant to done now its done_condition is met and verified on main. Final PR of the MI-259 lane. Prior holder 'MI-259 OPS lane (session_01M3FPDA7Yp9dmMXFqsYzGi3)'."
   },
   "active_sessions": [
     {
@@ -94,5 +94,5 @@
   "_pruned_2026-08-21-close": "Pruned the wave0-8g7443 entry at that session's own request on the live board (issuecomment-5373565199): it closed after merging #10110 (0649418) and flagged that this file was still asserting it was live -- a small false record it chose to hand over rather than spend a CI cycle on. active_sessions is left EMPTY rather than re-registering spsxq6, because spsxq6 closes with the work-plan rewrite in this same PR; registering a session that ends on merge would recreate the exact staleness being pruned. Merge_slot is null and correct. Note for the next session: 'one session at a time' is now policy (operator directive 2026-08-21), so a single entry here should be the normal steady state, not a list.",
   "_pruned_2026-08-21": "Pruned the 2026-08-10 api-tier-policy-guard-npihz7 entry -- >24h stale per the schema's own rule, and `git ls-remote --heads origin claude/api-tier-policy-guard-npihz7` returns nothing, so the branch is gone (merged-and-deleted or abandoned). Verified rather than inferred from the date alone. NOTE: the detector-scheduling session (2026-08-21, PRs #10086/#10090/#10091) registered no active_sessions entry -- it coordinated via the live #6927 board comments (START / heads-up / claim / release / DONE) and its merge_slot claims were mirrored there, not here. Recording that omission rather than back-filling an entry for a session that is already finished; merge_slot is null and correct.",
   "_pruned_2026-08-22": "Pruned the wave0-8g7443 entry at its own session close (2026-08-22). That session ran T.1 + Phase 0 + the restored Phase 2 items and merged 11 PRs (#10114, #10115, #10117-#10125) plus this close-out; log: docs/sprint-logs/S-WORKPLAN-PHASE0-20260822.md. VERIFIED rather than inferred from the date: `git ls-remote --heads origin claude/2026-08-21-review-8g7443` returns nothing, so the registered branch is gone. merge_slot was already null and correct -- no stale claim to release. active_sessions is now EMPTY, which is the accurate state under the operator's one-session-at-a-time directive: this was the sole running session and it is closing.",
-  "updated_at": "2026-09-10T22:35:00Z"
+  "updated_at": "2026-09-10T22:40:00Z"
 }
