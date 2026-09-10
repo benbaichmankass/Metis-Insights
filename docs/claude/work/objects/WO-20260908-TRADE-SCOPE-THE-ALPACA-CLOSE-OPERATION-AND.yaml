@@ -24,10 +24,7 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on:
-  - kind: operator_decision
-    ref: "The Alpaca close-confirmation MEASUREMENT — reserved to #11312 by #11279's own approval scope"
-    since: 2026-09-08
+blocked_on: []
 blocked_on_basis: >-
   ASSESSED 2026-09-08 by the owning session, from the code, from the Alpaca API
   reference, and from the recorded operator decision on #11279 in
@@ -172,3 +169,44 @@ manager_reconciliation:
   moved: in_flight -> waiting
   why: >-
     session_01GYsNAhP6SpKe1vyn2tBc94 ended IDLE/disconnected 2026-09-09T06:40:08Z reporting 'close/modify_protective qty-matched; tests green'. Not verified against main by the manager. ⚠️ This is the scoped Alpaca fix the TLT naked-shares decision is waiting on — verifying it is worth more than its WIP slot.
+
+⚠️_operator_decision_ANSWERED_2026_09_10T1145Z: >-
+  THE ONE OPEN EDGE ON THIS OBJECT IS CLEARED. The operator answered the
+  close-confirmation MEASUREMENT question directly, in conversation, on
+  2026-09-10 at ~11:45Z, on a pop-up put by manager session
+  session_01HrmZ1RRNM4UnEUaFdrPEjj. CHOSEN: **mirror IB — strict.** The
+  qty-scoped partial close confirms on the TRADE'S OWN quantity delta; a short
+  delta REFUSES (retCode 1) and the journal row STAYS OPEN for the existing
+  reconcilers. The whole-symbol path keeps its existing flatness gate untouched.
+  Offered against two alternatives, both declined: keeping whole-symbol flatness
+  as the confirmation for BOTH paths (which would make a partial close
+  unconfirmable forever on exactly the multi-row books the capability exists
+  for), and holding the decision until `?qty=` is observed accepted on a live
+  position (honest, since that acceptance is NOT established — no broker call
+  was made from any session — but the only account that could produce it is
+  paper and the precondition is a live multi-row symbol, so it could wait
+  indefinitely while the symbol-wide over-close stays in place).
+  ⚠️ THIS RATIFIES THE BUILT BEHAVIOUR RATHER THAN CHANGING IT. `blocked_on_basis`
+  already records that the built code is `strict` in exactly this sense; what was
+  missing was the DECISION, because #11279's approval scope read "EXPLICITLY NOT
+  Alpaca — Alpaca's mirror defect is decided separately on #11312" and that
+  separate decision had never been made. So this is the same asymmetry the
+  operator chose for IB on 2026-09-08 applied to the mirror venue, now recorded
+  as a decision instead of standing as an unapproved default.
+  ⚠️ IT SAT TWO DAYS BECAUSE NOBODY ASKED, NOT BECAUSE NOBODY ANSWERED. It was
+  visible on the Workflow page's "BLOCKING YOU, WITH NO ANSWERABLE REQUEST
+  ATTACHED" list the whole time — which is precisely the drop class the manager
+  exists to catch, and catching it two days late is the failure, recorded as one.
+  ⚠️ WHAT THIS DOES NOT DECIDE, kept explicit so the scope is not read wider than
+  it is: `place_protective` is STILL symbol-wide and is NOT in this object's
+  scope (BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE),
+  so a re-arm on Alpaca still cannot be placed without cancelling every leg on
+  the symbol. The 56 naked TLT shares on trade 5414 STAY naked until a scoped
+  protective-attach exists — do NOT retry the re-arm through the existing path.
+  And live acceptance of `?qty=` against a real Alpaca position remains
+  NOT ESTABLISHED; that is an observation still owed, not a thing this decision
+  asserts.
+  answered_by: operator (conversational)
+  answered_at: 2026-09-10T11:45:00Z
+  verdict: approved
+  chosen: mirror_ib_strict
