@@ -1,0 +1,215 @@
+{
+  "_doc": [
+    "PER-PR DISPOSITIONS for the open automation PRs — MI-259, OPS lane, 2026-09-10.",
+    "Operator decision ~2026-09-10T13:20Z: 'rescue what cannot be regenerated, close what is superseded.'",
+    "",
+    "⚠️ EVERY VERDICT HERE IS A CONTENT SET-DIFFERENCE, NEVER A ROW COUNT.",
+    "#11735 established the row count is the WRONG TEST: a corpus appended PER RUN can hold MORE",
+    "rows and still LACK what an earlier run measured. That mistake discarded 22 measured rows,",
+    "two of them the only alpaca_live compat verdicts for two REAL-MONEY legs.",
+    "TWO PRs HERE REPRODUCE THE TRAP EXACTLY, and a count would have closed both:",
+    "  #11386 valuation  — main 432 rows, PR 432 rows, IDENTICAL COUNT, 9 rows only in the PR.",
+    "  #11475 econ       — main 17975 rows > PR 17967 rows, main LARGER, 427 rows only in the PR.",
+    "",
+    "'key' names the content key used. 'evidence' is what was read, not what was assumed.",
+    "CLOSING THESE DOES NOT FIX THE CLASS — #11519 (session-board.json has no merge driver in",
+    ".gitattributes while R13 forces every armed branch to claim merge_slot there) is the mechanism",
+    "and is still open. This clears the pile; it does not prevent the next one."
+  ],
+  "schema_version": 1,
+  "as_of": "2026-09-10",
+  "recorded_by": "session_01M3FPDA7Yp9dmMXFqsYzGi3 (OPS lane)",
+  "population": {
+    "measured_at": "2026-09-10",
+    "how": "mcp list_pull_requests state=open perPage=100 — ONE page, 44 rows (not a truncated default-20 listing)",
+    "open_prs_total": 44,
+    "automation_prs": 43,
+    "not_automation": {
+      "11648": "MI-139 session PR — NOT dispositioned here; it is a session's work, not producer output"
+    },
+    "by_producer": {
+      "reconcile-open-prs": 14,
+      "session-reaper": 8,
+      "work-digest": 6,
+      "error-feed-digest": 6,
+      "data-commit": 3,
+      "econ-calendar": 1,
+      "valuation-snapshots": 1,
+      "strategy-reviews": 1,
+      "constraint-readout": 1,
+      "due-list": 1,
+      "probes": 1
+    }
+  },
+  "rescued_to_main": [
+    {
+      "pr": 11475,
+      "artifact": "comms/macro/econ_calendar_captures/US-20260909T002929Z.fxstreet.json",
+      "kind": "point_in_time",
+      "verdict": "RESCUED",
+      "evidence": "ABSENT from main. Byte-identity asserted: git rev-parse gives blob 501198c770154b591733a3ce31feabe558f9ae5e on both the branch and the written file (1851661 bytes).",
+      "why_unrecoverable": "A later re-fetch returns REVISED consensus — the lookahead the macro discipline forbids."
+    },
+    {
+      "pr": 11475,
+      "artifact": "comms/macro/econ_calendar_snapshots.jsonl",
+      "kind": "append_only_union",
+      "verdict": "RESCUED",
+      "key": "whole canonical row",
+      "numbers": {
+        "unique_on_main": 17975,
+        "unique_in_pr": 17967,
+        "only_on_main": 435,
+        "only_in_pr": 427,
+        "union": 18402
+      },
+      "evidence": "All 427 rescued rows carry observed_at 2026-09-09T00:29:29Z — one capture. main's series ran 09-07, 09-08, then 09-10: THE 09-09 CAPTURE WAS A HOLE. main's 17975 lines preserved in order; the block was spliced at line 17541. Diff is 427 pure insertions, 0 deletions.",
+      "trap": "main held MORE rows than the PR (17975 > 17967). A row count says 'superseded'; the content says a whole capture is missing."
+    },
+    {
+      "pr": 11386,
+      "artifact": "comms/macro/valuation_snapshots.jsonl",
+      "kind": "append_only_union",
+      "verdict": "RESCUED",
+      "key": "whole canonical row",
+      "numbers": {
+        "unique_on_main": 432,
+        "unique_in_pr": 432,
+        "only_on_main": 9,
+        "only_in_pr": 9,
+        "union": 441
+      },
+      "evidence": "All 9 rescued rows carry as_of 2026-09-08T12:12:22Z. DENOMINATOR: main held 9 rows for every day 09-01..09-09 EXCEPT 2026-09-08, which had ZERO. Values are genuinely point-in-time — BAMLH0A0HYM2 cheap_score reads 0.0337 on 09-08 against 0.0739 on 09-09.",
+      "trap": "IDENTICAL row counts (432 vs 432) hiding a missing day. This is the purest instance of the #11735 trap in the population."
+    },
+    {
+      "pr": 11361,
+      "artifact": "comms/strategy_reviews/2026-09-08/INDEX.json",
+      "kind": "dated_packet",
+      "verdict": "RESCUED",
+      "evidence": "ABSENT from main. DENOMINATOR: main's dated series is 09-01..09-07, 09-09, 09-10 — only 09-08 missing. Byte-identity asserted: blob e2f2b3897151136081e2260915187b79d2a109a9, 60058 bytes. Packet grades 52 strategies, window_days 7.0, min_closed_for_action 20.",
+      "why_unrecoverable": "The next run writes a LATER date, never the missing one."
+    },
+    {
+      "pr": 11366,
+      "artifact": "docs/claude/PROBES.json",
+      "kind": "newer_than_main",
+      "verdict": "RESCUED",
+      "evidence": "main's PROBES.json generated_at was 2026-09-07T10:31:05 and the PR's is 2026-09-08T09:50:48 — THE PR IS NEWER, the opposite of every other PR here. Trade measured by probe id: taking the PR's file LOSES 1 verdict for a row no longer in OPEN-ITEMS (closed) and GAINS 3 for rows still open. Byte-identity asserted: blob a3402ed269d55e95c06aa8657ac8b88c33e4f331.",
+      "note": "Its DUE.json/DUE.md half is superseded (main 2026-09-10T18:40:23 > PR 2026-09-08T09:52:26) and was NOT taken. Rescue is per FILE, not per PR."
+    },
+    {
+      "prs": [
+        11468,
+        11459,
+        11454,
+        11449,
+        11422,
+        11404,
+        11399,
+        11376
+      ],
+      "artifact": "docs/claude/work/REAPER-OBSERVATIONS.json::runs",
+      "kind": "append_only_union",
+      "verdict": "RESCUED",
+      "key": "generated_at",
+      "numbers": {
+        "on_main_before": 48,
+        "rescued": 8,
+        "after_cap_60": 56
+      },
+      "evidence": "main held 1 reaper pass for 2026-09-08 against 4-11 on every other day; these 8 are the passes whose PRs never landed. The `observations` container was checked separately and only_in_pr was 0 on every branch — NO per-session record was ever at risk, only the run census.",
+      "caveat": "`runs` is a 60-cap ring (session_reaper.py line 540), so these rows age out in the ordinary course. They are rescued because a 1-of-9 day makes the reaper look nearly stopped when the cause was the merge jam, not the reaper."
+    }
+  ],
+  "closed_superseded": [
+    {
+      "prs": [
+        11470,
+        11453,
+        11448,
+        11444,
+        11438,
+        11432,
+        11429,
+        11420,
+        11416,
+        11402,
+        11397,
+        11393,
+        11362,
+        11353
+      ],
+      "producer": "reconcile-open-prs",
+      "count": 14,
+      "verdict": "CLOSE — superseded",
+      "key": "pr (per container: open_prs, settled_prs, recently_merged_pruned_from_this_record)",
+      "evidence": "settled_prs only_in_pr = 0 on ALL FOURTEEN — main is a strict superset, so NO operator decision and NO condition was lost. That was the one thing worth checking here, since OPEN-PRS.json is the file CLAUDE.md names as the dangerous half of a handoff. The only PR-unique content is a stale open_prs row for #11337 (and #11390 on #11402), both no longer open — merging would RE-ADD a closed PR to the open list.",
+      "note": "#11362 additionally carries automation/board-results/mi196-start.txt pointing at comment 5584854937 where main points at 5584450734 — a duplicate board post, not lost data; both comments exist."
+    },
+    {
+      "prs": [
+        11493,
+        11471,
+        11465,
+        11452,
+        11445,
+        11442
+      ],
+      "producer": "work-digest",
+      "count": 6,
+      "verdict": "CLOSE — superseded",
+      "evidence": "WORK-DIGEST.json is a single regenerated receipt: main generated_at 2026-09-10T20:54:54Z against the newest PR's 2026-09-09T06:00:14Z. Each PR's one unique pending-pings.jsonl row is its own QUEUED digest ping.",
+      "why_not_rescued": "pending-pings.jsonl is a DELIVERY QUEUE the VM drains. Restoring a row would SEND a two-day-stale digest whose content main has already superseded — the restore is actively harmful, not merely redundant."
+    },
+    {
+      "prs": [
+        11489,
+        11476,
+        11462,
+        11439,
+        11408,
+        11367
+      ],
+      "producer": "error-feed-digest",
+      "count": 6,
+      "verdict": "CLOSE — superseded",
+      "key": "(feed, cause, level, accounts)",
+      "evidence": "The digest is WATERMARK-CHAINED, not accumulating: covers_since resumes from the prior digest's next_since. The chain ON MAIN was walked over 40 commits and is UNBROKEN, and a single landed digest spans covers_since 2026-09-08T05:07:41.352880 -> next_since 2026-09-09T18:45:08.092854. All six unmerged windows start at 2026-09-08T05:07:41.352880 and end at 09:55, 14:40, 18:55, 21:47, 09-09T00:00 and 09-09T04:52 — every one STRICTLY INSIDE that landed span, so every error row they grouped was re-read by the digest that landed.",
+      "why_not_rescued": "Each carries 42 groups main's current window lacks, which a naive read calls loss. They are a PAST window, already covered; writing one back would rewind the watermark and re-process rows."
+    },
+    {
+      "prs": [
+        11458,
+        11456,
+        11382
+      ],
+      "producer": "data-commit",
+      "count": 3,
+      "verdict": "CLOSE — superseded",
+      "evidence": "Dated liveness receipts, single regenerated objects. PR-QUEUE-WATCH.json main 2026-09-10T21:11:28Z vs PRs 2026-09-08T21:24:01Z / 11:44:09Z. TRAINER-CAPTURE-WATCH.json main 2026-09-10T20:58:40Z vs PR 2026-09-08T21:16:03Z. Their own PR bodies say to read generated_at — main's is newer on all three."
+    },
+    {
+      "pr": 11428,
+      "producer": "constraint-readout",
+      "count": 1,
+      "verdict": "CLOSE — superseded AND regressive",
+      "evidence": "CONSTRAINT.json on the PR (2026-09-08T17:35:28) is ~6h NEWER than main's (2026-09-08T11:25:27), so this is NOT a stale-branch close and must not be recorded as one. It is closed because merging it would REGRESS: the branch is two days behind, and diffing it against CURRENT main shows CLAUDE.md -51 lines / +11 — it would strip 51 lines from the session brief. Both READOUT.md files read 'Generated 2026-09-08' so there is no readout content to lose.",
+      "why_not_rescued": "The readout is a PURE FUNCTION of the work store (scripts/ops/constraint_readout.py) — regenerable on demand, therefore not unrecoverable. The fix is to re-run the producer, not to merge a stale brief."
+    },
+    {
+      "pr": 11368,
+      "producer": "due-list",
+      "count": 1,
+      "verdict": "CLOSE — superseded",
+      "evidence": "DUE.json is a rendering of what is DUE NOW: main generated_at 2026-09-10T18:40:23 vs PR 2026-09-08T10:06:14. Its 20 PR-only row ids are rows that have since stopped being due; restoring them would resurrect stale due rows.",
+      "why_not_rescued": "A due-list row is a statement about the present, not an observation to preserve."
+    }
+  ],
+  "findings_raised": [
+    "PROBES: main's docs/claude/PROBES.json last LANDED 2026-09-07T10:36:07 (commit 8d51945aa) — the probes producer has not landed in 3 days. The 09-08 snapshot rescued here is itself 2 days old. The fix is to run probes.yml, not to merge older snapshots.",
+    "CONSTRAINT-READOUT: docs/claude/CONSTRAINT.json last LANDED 2026-09-08T11:47:41 (commit 1e1d3718f) — 2 days stale for the same reason.",
+    "REAPER: main recorded 1 of 9 reaper passes on 2026-09-08. Anyone reading `runs` as a cadence record would have concluded the reaper nearly stopped that day; the cause was the merge jam.",
+    "THREE PRE-SPAWN RECORDS FOR THIS SESSION WERE DESCRIBED AS WRITTEN AND LANDED ON NO REF (git log --all -S): the registry key pending-20260910T213243Z, the object WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND, and a spawn-priority-exception block reason_20260910_ops_lane. An MI-15 recurrence. The session authored its own object and exception and self-registered."
+  ]
+}

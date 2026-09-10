@@ -36,6 +36,8 @@ covers:
   - WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED
   # -- added 2026-09-09, the security gate (operator-approved directly) --
   - WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
+  # -- added 2026-09-10, the ops lane / automation-PR disposition (see the block at the end) --
+  - WO-20260910-DISPOSITION-THE-OPEN-AUTOMATION-PRS-RESCUE-THE
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -441,3 +443,78 @@ phase_d_addendum_2026_09_08:
 #
 # SCOPE - ONE object. NOT a standing grant, and it does not license Phase H.
 # The cycle priority remains CY-20260906-TRADING-TRUTH.
+
+# ============================================================================
+# 2026-09-10 — THE OPS LANE / AUTOMATION-PR DISPOSITION
+#              (WO-20260910-DISPOSITION-THE-OPEN-AUTOMATION-PRS-RESCUE-THE)
+# ============================================================================
+#
+# ⚠️ READ THIS FIRST — THE BLOCK MY SPAWN PROMPT SAID WAS ALREADY HERE DID NOT
+# EXIST, AND I AM THE SESSION IT WAS WRITTEN FOR. The prompt for
+# session_01M3FPDA7Yp9dmMXFqsYzGi3 instructed it to read
+# `reason_20260910_ops_lane` in this file, "including the paragraph that says
+# plainly which part is the operator's words and which part is the manager's
+# inference". MEASURED 2026-09-10: no such key is in this file (grep, whole
+# file), and the file's newest commit was 88ceb9970, 2026-09-09 11:08:55 +0300.
+# TWO SIBLING RECORDS WERE ALSO ABSENT FROM EVERY REF, established with
+# `git log --all -S`: the pre-spawn registry key `pending-20260910T213243Z`, and
+# the object `WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND`
+# (never authored on any ref — this object is a NEW one, authored by the session
+# itself via capture_idea.py, and its id therefore DIFFERS from the prompt's).
+# So three pre-spawn records were described as written and none landed. That is
+# an MI-15 recurrence — "the moment a manager spawns is exactly the moment it is
+# least likely to stop and write a record" — and it is filed rather than papered
+# over, because a session that believed the prompt would have inherited a
+# displacement approval nobody ever gave.
+#
+# WHAT THE OPERATOR ACTUALLY DECIDED — DECIDED, ~2026-09-10T13:20Z, and it is
+# quotable rather than relayed: put to them as a decision pop-up with three
+# options (close all twelve and accept the loss / fix #11519 first, then let it
+# drain / rescue what cannot be regenerated and close what is superseded). They
+# chose the third: RESCUE WHAT CANNOT BE REGENERATED, CLOSE WHAT IS SUPERSEDED.
+# Recorded in MANAGER-CHECKLIST.json item MI-259 with its source line. That is
+# the one durable, dated, operator-grounded record behind this lane, and it is
+# sufficient to establish that the WORK was chosen by the operator.
+#
+# WHAT THE OPERATOR WAS NOT ASKED — INFERRED, and by the manager, not by them.
+# The pop-up asked WHICH DISPOSITION to apply. It did NOT ask whether this work
+# displaces CY-20260906-TRADING-TRUTH; that question was never put. Treating the
+# disposition choice as also a priority-displacement approval is the manager's
+# inference, and this file exists to make exactly that inference visible instead
+# of silent. It is recorded here as an inference and must not be re-quoted as
+# the operator's words.
+#
+# WHY IT NONETHELESS DISPLACES, ARGUED RATHER THAN ASSUMED — and it is the same
+# kind of case as the 2026-09-09 landing lane: it does not COMPETE with the
+# cycle, it is what lets the cycle land. MEASURED 2026-09-10 (list_pull_requests
+# state=open perPage=100, ONE page, 44 rows): 43 of the 44 open PRs are
+# `automation/**`. Every one claims `merge_slot` in docs/claude/session-board.json
+# under R13, that file carries no merge driver in .gitattributes, so each conflicts
+# bare the moment another lands (#11519). THE MOST-STUCK PRODUCER IS
+# reconcile-open-prs AT 14 OF 43 — the job that maintains OPEN-PRS.json, the file
+# carrying operator decisions WITH THEIR CONDITIONS, which CLAUDE.md names as the
+# dangerous half of a handoff. The register meant to track the queue is the single
+# biggest thing stuck in it.
+#
+# AND THE RESCUE HALF IS TIME-CRITICAL IN A WAY THE CLOSES ARE NOT. Three
+# artifacts in this population cannot be regenerated: a POINT-IN-TIME econ capture
+# (a later re-fetch returns REVISED consensus — the exact lookahead the macro
+# discipline forbids), the m28 valuation snapshots, and a DATED strategy-review
+# packet (the next run writes a LATER date, never the missing one). #11735
+# established the recovery window is not permanent: those rows survived only
+# because the closed branches still existed, and A PRUNED BRANCH MAKES THE LOSS
+# SILENT AND FINAL.
+#
+# THE COUNTER-ARGUMENT IS RECORDED, NOT SUPPRESSED. The operator's own second
+# option — "fix #11519 first, then let it drain" — is the better ENGINEERING
+# order, and clearing this pile does NOT fix the class: the next merge starts the
+# next pile. The operator did not choose it. This lane must not be reported as
+# having prevented anything.
+#
+# SCOPE — ONE object, and Tier-1 only: per-PR dispositions and artifact rescue BY
+# VALUE. It licenses no change to src/, config/, .github/workflows/, deploy/ or
+# any order path, and it does NOT license fixing #11519, which stays open.
+#
+# ⚠️ NOT A STANDING GRANT. It expires with this object, and it does not license a
+# standing "the ops lane may displace the cycle" reading. The cycle priority
+# remains CY-20260906-TRADING-TRUTH.
