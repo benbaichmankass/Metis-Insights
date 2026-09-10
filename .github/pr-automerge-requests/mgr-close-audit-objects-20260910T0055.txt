@@ -1,0 +1,2 @@
+claude/mgr-close-audit-objects-20260910T0055
+Work-store state: two merged builds move in_flight -> waiting with true typed edges. Tier-1, self-landing.

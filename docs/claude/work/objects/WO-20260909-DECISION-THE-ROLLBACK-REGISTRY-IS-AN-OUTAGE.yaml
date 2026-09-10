@@ -9,7 +9,7 @@ title: >-
   The sanctioned intent-layer rollback is a 78% capability outage - operator answered: collapse
   the two registries into one
 stage: DECISION
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01TM8XjkvVpvMxH4EcLtTsvP
 opened_at: '2026-09-09'
 closed_at: null
@@ -27,13 +27,40 @@ done_condition: >-
   alone leaves the duplication that caused this, and the operator chose the collapse over the
   test.
 
-blocked_on: []
+blocked_on:
+  - kind: external_event
+    ref: >-
+      MULTI_STRATEGY_INTENT_LAYER=false EXERCISED on the fleet, with all 45 execution: live legs
+      observed still building under it. That is a SEPARATE Tier-2 act which the 2026-09-09 approval
+      does NOT cover, and #11615's own PR body says so in terms.
+    since: '2026-09-10'
+    note: >-
+      THE CODE HALF IS DELIVERED AND MERGED - #11615 squashed as 2ee21f4e5 by the manager holding
+      the lease at 2026-09-10T00:44Z, on the recorded approval rather than a re-ask. Both clauses of
+      the written done_condition are MET: pipeline._STRATEGY_BUILDERS no longer exists, and
+      tests/test_strategy_builder_registry_single_home.py is the recurrence detector, verified
+      against three planted re-splits. !! SO WHY IS THIS NOT `done`: the OPERATOR'S OWN ANSWER adds
+      a clause the done_condition field does not carry - "the build is not done until the flag is
+      exercised and all 45 live legs still build". The answer block outranks the field it sits
+      beside, so the object is WAITING on an observation, not finished. Recording it `done` on the
+      field alone would be the merged-is-not-proven collapse this repo keeps paying for. !! NOBODY
+      HAS EVER RUN THIS ROLLBACK, before the fix or after, so the repaired path is unexercised
+      exactly as the broken one was throughout the window it rotted in. Carried by
+      OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED.
 blocked_on_basis: >-
-  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
-  detector is named in the audit, and the operator has now answered. What gated it was the
-  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
-  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
-  and buildable, NEVER in progress.
+  RE-ASSESSED 2026-09-10T00:55Z by the manager after merging #11615. !! THE PRIOR BASIS IS SUPERSEDED
+  BY A CHANGE OF FACT, NOT A DISAGREEMENT, AND ITS TEXT MUST NOT BE RE-QUOTED: it read "Nothing
+  blocks the BUILD ... IT IS NOT SCHEDULED: the WIP ceiling stood at 8 of 8 in_flight, so no lane
+  could be spawned". A lane WAS spawned (MI-229, session_01TM8XjkvVpvMxH4EcLtTsvP), the build is
+  DELIVERED and MERGED, so both halves of that sentence are now false and a session reasoning from
+  them would conclude this is unstarted work. What blocks it now is a LIVE EXERCISE of the rollback
+  flag - a different kind of blocker from a decision gate, which is why the edge is external_event
+  and not operator_decision. !! THE EDGE IS A TRUE ONE, written by the session that merged this work
+  and read both the done_condition and the operator's answer before writing it - not a bulk pass over
+  unassessed rows, which the work store's README records as an active harm because the constraint
+  computation reads an invented edge as a real blocker and a false blocker is worse than a missing
+  one. !! NOTHING IS OWED TO THIS ROW BY A HUMAN: the Tier-2 approval is discharged and MUST NOT be
+  re-sought.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
 
