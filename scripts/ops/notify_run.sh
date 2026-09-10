@@ -300,6 +300,29 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code}) — trade still on legacy add-a-leg path"; priority="normal" ;;
         esac
         ;;
+    reattach-stranded-package-legs)
+        # 2026-09-10, audit F-39 / MI-241: re-attach the three order_packages
+        # rows that were closed while their legs were still OPEN, so
+        # order_monitor can select them again. Journal/state repair ONLY --
+        # places, modifies and cancels nothing. Dry-run unless apply:true.
+        # HIGH on a successful APPLY rather than normal: one of the three
+        # packages carries REAL-MONEY leg 5474 on bybit_2, and re-opening it
+        # hands that leg back to the strategy's monitor(), which may then
+        # trail, tighten or CLOSE it. That is the intended consequence and the
+        # operator approved it -- which is exactly why the ping should not
+        # arrive at the same weight as a dry-run preview.
+        tier=2
+        case "${exit_code}" in
+            0) if [ "${ACTION_APPLY:-}" = "true" ] || [ "${ACTION_APPLY:-}" = "True" ]; then
+                   result="APPLIED — packages re-attached; real-money leg 5474 is strategy-managed again"
+                   priority="high"
+               else
+                   result="ok (dry-run preview — nothing written)"
+                   priority="normal"
+               fi ;;
+            *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     close-stranded-journal-row)
         # 2026-07-15: close a stranded open journal row whose broker position is
         # already flat (dry-run unless apply:true; refuses unless broker-flat).

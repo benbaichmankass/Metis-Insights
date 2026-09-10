@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-09-10T04:45:00+00:00",
+  "updated_at": "2026-09-10T08:15:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -175,15 +175,22 @@
       "severity": "medium",
       "severity_basis": "Four legs including one on real money (bybit_2 XRPUSDT 58.5) sit OUTSIDE the exit loop for as long as this is unanswered -- no monitor(), no trailing, no strategy close. Not HIGH: each still carries its own venue-side protection and the condition has stood since well before this row, so it is a standing exposure rather than a deteriorating one. Deciding NO is a legitimate answer and must be RECORDED as one with that consequence stated, rather than left looking like a repair about to happen.",
       "tier": "2 (money-DB writeback)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "judgement",
       "owner_class_basis": "A judgement call on a specific change to a money DB whose consequence is that a real-money leg (bybit_2 XRPUSDT 58.5) becomes strategy-closable again. It needs no credential a session lacks, no minted secret and no broker -- the blocker is the DECISION itself, which is what `judgement` means here, as opposed to `defaulted_to_human` (a wire nobody built). It was first filed as `genuinely_human`, which is NOT in this register's vocabulary; check_operator_owed.py rejected it and named the five valid values.",
       "refs": [
         "PR #11630",
         "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
         "OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO",
-        "scripts/ops/reattach_stranded_package_legs.py"
-      ]
+        "scripts/ops/reattach_stranded_package_legs.py",
+        "DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED",
+        "PR #11652",
+        "scripts/ops/reattach_stranded_package_legs_action.sh"
+      ],
+      "resolved_at": "2026-09-10",
+      "last_state_change_at": "2026-09-10",
+      "last_state_change_note": "Answered YES. Resolved by MI-241 (session_01FyYyybxWC7VD1Rq1doEEdf).",
+      "resolution": "ANSWERED — YES, all three packages. The operator approved the XRPUSDT half at 2026-09-10T07:52Z, recorded as DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED on WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (chosen: reattach_xrpusdt_too), completing the earlier same-day 'paper first' approval of pkg-32a5162bbbdd4ef6 and pkg-785d9a600c894c81. The record's own `supersedes` block LIFTS the manager's standing hold on pkg-293021e2e84a48db. ⚠️ LOCATOR, because a session grepping `main` finds nothing and would read that as the decision not existing: it is at commit c58c80ed4 on the manager branch origin/claude/mgr-checklist-schema-20260910T0718, NOT on main at the time this row was resolved. ⚠️ UPDATED the same day: it HAS since landed on main (7f36fbd0d, PR #11650), so read it in docs/claude/work/objects/ rather than on the branch. The branch locator is kept because it was accurate when written, not because it is still the place to look. ⚠️ WHAT THE RECORD ESTABLISHES AND WHAT IT DOES NOT, stated rather than smoothed over: it establishes that the operator chose 'Approve it — re-attach XRPUSDT too' from a three-option popup whose option text stated the live consequence in terms ('the strategy's monitor() may trail, tighten or CLOSE leg 5474 on real money'). It does NOT itself attest that the operator read the row-level diff on PR #11630; the manager relayed it. The diff is unchanged from the one this row describes and from #11630's body, so the condition is satisfied on content — but a later session should not upgrade 'shown the consequence' into 'reviewed the SQL'. ⚠️ THIS ROW BEING RESOLVED DOES NOT MEAN THE REPAIR HAS RUN. It has not. The DECISION is what this row owed and the decision is in; the EXECUTION is tracked by OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO clause (2), which is still OPEN. Conflating the two would make an unrun money-DB repair read as done. MEASURED by MI-241 while resolving this (2026-09-10T08:0xZ): the operator's approval was UNEXECUTABLE — #11630 shipped the helper with no *_action.sh wrapper and no system-actions.yml allowlist entry, so nothing could invoke it against the live DB (positive control: repair-netted-rows and 40+ siblings each resolve to a wrapper; 'reattach' resolved to nothing). PR #11652 adds that dispatch path; the --apply is one merge away, and the four legs were re-verified live as still open and venue-backed at 2026-09-10T08:00:14Z."
     }
   ]
 }
