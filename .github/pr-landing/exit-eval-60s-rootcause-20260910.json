@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/** ONLY — an evidence doc, one new work object carrying an operator decision_request, three backlog rows DRIVEN in place (two root-caused, one re-opened as a recurrence), one new backlog row filed, and one OPEN-ITEMS row corrected + re-affirmed. No src/, no config/, no scripts/, no deploy/, no workflows, no env knob, no order path. The two remedies this work produces (R1: reorder _start_exit_loop in src/main.py; R2: a per-pass IB circuit breaker) are Tier-2, are written out as a PROPOSAL only, and are deliberately NOT in this diff — they are put to the operator as DEC-20260910-EXIT-EVAL-60S-REMEDY."
+}
