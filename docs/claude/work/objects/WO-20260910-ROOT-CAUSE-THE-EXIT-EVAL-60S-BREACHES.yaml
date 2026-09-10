@@ -1,0 +1,30 @@
+id: WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Root-cause the exit-eval 60s breaches: 17.4% of restart boundaries (max 210.4s) and a within-process recurrence of 1216 against a row closed as resolved
+stage: QUESTION
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-10
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The CAUSE of the restart-boundary breach is established and named against evidence (not inferred), AND an exact Tier-2 remedy is put to the operator as a proposal with its rollback stated. Explicitly NOT done by: re-measuring, a green test, or any arming — the measurement is already complete and the remedy is not this object's to apply.
+
+why: >-
+  MI-230 shipped the instrument and its FIRST complete read contradicts what the OPEN-ITEMS row predicted. Two filed, open, high-severity backlog rows carry the measurement and DELIBERATELY do not propose a cause. Population is complete, not a sample: 442 process boundaries, ungradeable 0, overlapping 0, unattributed_rows 0. A restart boundary breaches ~10x more often than a within-process interval (17.4% vs 1.803%), and a deploy is exactly when the trader is least likely to be evaluating exits. Nobody owns either row.
+
+source: >-
+  manager
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

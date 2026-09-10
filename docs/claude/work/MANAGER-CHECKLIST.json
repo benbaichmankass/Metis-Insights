@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T05:32:00Z",
+  "updated_at": "2026-09-10T06:11:11Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -3068,9 +3068,29 @@
       "added": "2026-09-10",
       "blocked_on": "",
       "manager_note": "MEASURED: heartbeat 2026-09-10T02:49:05Z, ttl_minutes 90, next management act attempted 04:42:39Z = 114 minutes, 24 past the deadline. manager_lease.py refused me with state=expired and 'STAND DOWN — stop managing, do not re-claim silently'. CAUSE IS MINE AND UNGLAMOROUS: two merges, a conflict diagnosis, a poke and an operator popup consumed more wall clock than I budgeted, and I did not heartbeat in between. There was no crash and no external delay to blame. ⚠️ I DID NOT FORCE-CLAIM ON MY OWN JUDGEMENT. I first established from the file's own history that session_01HrmZ1RRNM4UnEUaFdrPEjj is the holder in all 8 most recent revisions and that no other session ever claimed it — so this was a LAPSE, not a takeover and not a race. Then I put it to the operator as a popup, because 'exactly one management session at a time' is their requirement and whether a lapsed manager may resume is their call, not mine; and the one thing I cannot establish from inside the repo is whether another management session is live. Answered 'Re-claim it, I am not running another manager'. Re-claimed 04:44:17Z via --force with that reason RECORDED in the lease file, which is what makes it not-silent. ⚠️ WHAT THIS COST, STATED RATHER THAN GLOSSED: for 24 minutes the repo's own record said no manager held the lease while I was in fact still merging. Any session arriving cold in that window would have read the lease as claimable and been RIGHT to take it. Nothing bad happened, and that is luck rather than design. ⚠️ THE REMEDY IS NOT A REMINDER. The operator declined the shortened-cadence option, so the TTL stands at 90; what changes is that a heartbeat is now taken BEFORE a merge round or a popup rather than after, since both are the unbounded steps. R7 grades the gap between heartbeats and passed every time tonight — it cannot see a lapse that ends in a re-claim, which is worth knowing about R7."
+    },
+    {
+      "id": "LANE4-RECOVERY-11519-STALE-AUTOMATION-SWEEPER",
+      "title": "Recover #11519 (the stale-automation sweeper): rebase onto main, resolve the conflict, re-green, un-draft",
+      "state": "in_flight",
+      "owner": "session_01QDXwpPzHmqY33qcCkNRdNR",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "note": "OPERATOR-DECIDED 2026-09-10T06:09Z via popup, chosen: 'Recover it with a fresh session'. Recorded here because a decision that lives only in chat is lost. WHY IT NEEDED A DECISION: its author session_01NcYsS6kFNrzxEKcrNy9eXP has been IDLE/DISCONNECTED/completed since 2026-09-09T20:21:52Z at 71% context, having stopped deliberately and left the PR 'holding for review'. MEASURED 2026-09-10T06:07Z: draft=true, mergeable_state=dirty, check_runs total_count=0, base pinned to 6295bce38 — so the PR's OWN closing claim 'green (7/7)' is STALE AND FALSE, and the zero check runs are the merge conflict rather than CI-not-started. It carries 2056 additions and 21 tests that fix the ~16 stranded automation PRs clogging the queue. ⚠️ SCOPE IS RECOVERY, NOT MERGE: it declares hold_reason changes_landing_machinery and registers itself in LANDING_MACHINERY, so R12 bars the route it changes from approving it — it wants a HUMAN READ, which is neither the lane's nor the manager's to give. Green and un-drafted is the whole deliverable.",
+      "manager_note": "2026-09-10T06:11Z. Spawned + registered (pending-20260910T060841Z -> confirmed). WIP 6/8 at spawn."
+    },
+    {
+      "id": "MI-232-ROOT-CAUSE-EXIT-EVAL-60S-BREACHES",
+      "title": "Root-cause the exit-eval 60s breaches: 17.4% of RESTART boundaries (max 210.4s) and a within-process recurrence of 1216",
+      "state": "in_flight",
+      "owner": "session_01Ww2pZVK5VUqV8xFFtTs9B1",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "note": "CYCLE PRIORITY CY-20260906-TRADING-TRUTH, and the measurement-before-acting case that priority names: the instrument now works and reports worse than anyone believed. Owns WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES under IN-20260903-TRADING-SYSTEM-HEALTH. POPULATION IS COMPLETE, NOT A SAMPLE (ungradeable 0, overlapping 0, unattributed_rows 0): 442 process boundaries, 77 breached = 17.4%, max 210409 ms = 3.51x the 60s requirement; within-process over the same file 1216/67444 = 1.803%, max 120189 ms. THE COMPARISON IS THE FINDING — a restart boundary breaches ~10x more often than a within-process interval, and a deploy is exactly when the trader is least likely to be evaluating exits. ⚠️ The within-process half is a RECURRENCE against a row marked `resolved` (1204 -> 1216), so that the earlier fix did not hold is part of what is being explained. ⚠️ 0 -> non-zero is the mechanism STARTING TO WORK, not a regression; the OPEN-ITEMS row predicted `within` and the complete read contradicts it. ⚠️ SCOPE: INVESTIGATE AND PROPOSE ONLY. The measurement is Tier-1 and DONE; the cause and any remedy are Tier-2+ and go to the operator as an exact proposal with its rollback stated, never applied. No env knob armed, no order path touched, no order placed, modified or cancelled on any account.",
+      "manager_note": "2026-09-10T06:11Z. Spawned + registered (pending-20260910T061026Z -> confirmed). Object created via capture_idea after spawn_gate correctly REFUSED a spawn naming no parent object."
     }
   ],
-  "as_of": "2026-09-10T05:32:00Z",
+  "as_of": "2026-09-10T06:11:11Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
