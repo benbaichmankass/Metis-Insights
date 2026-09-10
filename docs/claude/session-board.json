@@ -5,9 +5,9 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · work-digest run 34529093508",
-    "branch": "automation/work-digest-34529093508-1",
-    "claimed_at": "2026-09-10T20:54:54Z",
+    "held_by": "github-actions[bot] · trainer-capture-watch run 34529489971",
+    "branch": "automation/data-commit-34529489971-1",
+    "claimed_at": "2026-09-10T20:58:41Z",
     "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
