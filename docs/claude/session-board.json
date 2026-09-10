@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T1326",
-    "claimed_at": "2026-09-10T13:29:04Z",
-    "purpose": "Manager lease heartbeat 13:25:57Z (PR #11698), expires 14:55:57Z, plus supervision from a live 13:26:00Z read. TAKEN FROM THIS SESSION'S OWN #11697 rather than from another session's branch: the lease expired 13:39:07Z and #11697's pytest-run would not have finished until ~13:41Z, so waiting would have lapsed it. #11697 gets one rebase; the cost is paid to myself. Released on merge."
+    "branch": "claude/mgr-rescue-pit-artifacts-20260910T1320",
+    "claimed_at": "2026-09-10T13:34:45Z",
+    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable artifacts. Re-taken after #11698 (the lease heartbeat) landed and displaced it -- a displacement this session caused deliberately, to itself, because the lease would otherwise have lapsed at 13:39:07Z. Prior holder now TERMINAL. Released on merge."
   },
   "active_sessions": [
     {
