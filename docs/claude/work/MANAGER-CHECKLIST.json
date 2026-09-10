@@ -3254,8 +3254,8 @@
     {
       "id": "MI-241-APPLY-THE-F39-REATTACH-ALL-THREE-PACKAGES-INCLUDING-REAL-MONEY-XRPUSDT",
       "title": "Apply the F-39 re-attach — all three packages, including real-money XRPUSDT (Tier-2, operator-approved)",
-      "owner": "unassigned — needs a session",
-      "state": "ready",
+      "owner": "session_01FyYyybxWC7VD1Rq1doEEdf",
+      "state": "in_flight",
       "tier": 2,
       "priority": "high",
       "lane": "trading-truth",
@@ -3265,7 +3265,9 @@
       "resolution_criteria": "All four legs are OBSERVED to have a managing package again, read off /api/bot/positions AND the journal rather than from the script's output; and OI-20260910-F39-STRANDED-PACKAGE-LEGS-... has its clause (2) recorded as MET with what was seen. Clause (3) — a SCHEDULED caller for system_invariants.py — is a DIFFERENT fact and is not cleared by this.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — the approval is recorded and the tool is merged (#11630, c88c7ff9e). Nothing blocks the apply.",
-      "source": "operator decision DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED"
+      "source": "operator decision DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED",
+      "owns_object": "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+      "spawned_at": "2026-09-10T07:57:23Z"
     },
     {
       "id": "MI-242-ADD-SCRIPTS-BACKTEST-STAR-TO-TIER1-SURFACE-OPERATOR-APPROVED",
