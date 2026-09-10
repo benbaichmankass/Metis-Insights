@@ -6,12 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-supervise-230-231-20260910T0120",
-    "pr": 11629,
-    "claimed_at": "2026-09-10T01:20:00Z",
-    "purpose": "Live supervision record on MI-230 and MI-231, and a second instance appended to the OPEN row BL-20260823-SCHEDULED-ROUTINE-CARRIED-STALE-REPAIR-VERDICTS rather than filed as a new one. Tier-1, no worker path, no order touched.",
-    "found_stale": "Claimed over my own #11625 claim, which merged and released nothing. Fifth manager claim tonight; including automation the sequence is work-digest 34420408024 -> #11618, error-feed-digest 34421732450 -> #11621, then #11619, #11622, #11624, #11625, none released.",
-    "concurrent_sibling": "MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E, branch claude/mi230-exit-eval-near-miss-restart-gap) and MI-231 (session_017vNWUL48WWrtxssFv2EDMf) are both RUNNING as of 01:16Z. !! MI-231 declares scripts/ops/system_invariants.py and MI-230 declares src/runtime/exit_loop_health.py -- this branch touches NEITHER, and no worker path at all. Both lanes will append to docs/claude/work/ and the health backlog, so any conflict there is resolved as a VERIFIED UNION over ID SETS. !! COMPARE ID SETS, NOT ROW COUNTS: #11627 deleted a row from health-review-backlog.json tonight while the count stayed 1419 -> 1419, because one row was added as one was removed, and the loss was invisible in the diff."
+    "branch": "claude/mgr-hb-20260910T0128",
+    "claimed_at": "2026-09-10T01:29:40Z",
+    "purpose": "Manager heartbeat (01:27:37Z), live three-lane supervision, and a canonical 4-key claim that closes the slot-size delta redding main. Narrative in PR #11632 body, not in this mirror. Tier-1, no worker path, no order touched."
   },
   "active_sessions": [
     {
