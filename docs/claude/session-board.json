@@ -5,13 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-close-audit-objects-20260910T0055",
-    "pr": 11624,
-    "claimed_at": "2026-09-10T00:57:00Z",
-    "purpose": "Work-store state: two objects whose builds merged move in_flight -> waiting, each gaining a TRUE typed external_event blocked_on edge. Tier-1, no worker path, no order touched.",
-    "found_stale": "Claimed over my OWN just-merged claim for pr 11622 (branch claude/mgr-hb-20260910T0035), which merged as 2832abf10 and released nothing -- nothing does. !! I FIRST DECLINED TO RE-CLAIM, reasoning that overwriting my own claim with a second one adds a record without adding information, and pr-landing R13 REFUSED that and was right: on this route arming IS the merge (claude-pr-automerge enables auto-merge and GitHub lands it on green with no further act), and the PreToolUse merge-slot hook is structurally blind to it because the merge is performed by a workflow under GITHUB_TOKEN and calls neither merge_pull_request nor enable_pr_auto_merge. So the claim is made in the push that arms or it is not made at all, and 'the same holder already appears there' is not a substitute for an attributable claim naming THIS branch. Recorded because the reasoning I had to abandon is the more useful half. !! TONIGHT'S GHOST SEQUENCE, for the record: work-digest 34420408024 -> #11618 (dirtied #11619), error-feed-digest 34421732450 -> #11621 (dirtied #11622 twice), then my own #11622 -> this. Two of four were BOTS.",
-    "concurrent_sibling": "None known. This branch touches only docs/claude/work/objects/*.yaml (two files) plus the landing pair, and no live session has declared those two object files on the board."
+    "held_by": "session_01TM8XjkvVpvMxH4EcLtTsvP (main-is-red fix)",
+    "branch": "claude/fix-merge-slot-diff-metric",
+    "claimed_at": "2026-09-10T01:16:08Z",
+    "purpose": "Repairs tests/test_claim_merge_slot.py, which fails on clean origin/main and reds pytest-run on every open PR. Arming auto-merge IS the merge, so R13 takes the slot."
   },
   "active_sessions": [
     {
