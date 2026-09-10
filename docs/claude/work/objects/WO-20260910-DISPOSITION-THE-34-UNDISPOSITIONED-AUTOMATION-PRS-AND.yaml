@@ -1,0 +1,30 @@
+id: WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Disposition the 34 undispositioned automation PRs and rescue the artifacts that cannot be regenerated
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-10
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every open automation PR carries a RECORDED per-PR disposition — closed with a measured reason, or its unrecoverable artifact landed by value with byte-identity asserted against git rev-parse <branch>:<path> and any append-only file resolved as a VERIFIED UNION (rows only-on-main = 0). A row-COUNT comparison is NOT a disposition: PR #11735 proved a later run with MORE rows can still lack a strategy an earlier run measured, and 22 measured verdict rows were discarded that way. The set-difference must be on CONTENT keys. NOT done when the pile is merely smaller.
+
+why: >-
+  The most-stuck producer is reconcile-open-prs, the job that maintains OPEN-PRS.json — the register that carries operator decisions WITH THEIR CONDITIONS. The register meant to track the queue is the single biggest thing stuck in it, and it has been generating its own backlog since 2026-09-08.
+
+source: >-
+  operator decision 2026-09-10T13:20Z 'rescue the 3, close the 9', applied to the measured population of 43; manager checklist MI-259
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

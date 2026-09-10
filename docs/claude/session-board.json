@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-201 (session_01UxsiSgFa9dKwBFw5RTbLGA)",
-    "branch": "claude/mi201-recover-lost-compat-verdicts",
-    "claimed_at": "2026-09-10T21:26:05Z",
-    "purpose": "PR #11735 — Tier-1 recovery of 22 gld-compat verdict rows discarded by the #11662/#11664 batch closure. Arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/manager-tick-2126z-20260910",
+    "claimed_at": "2026-09-10T21:37:59Z",
+    "purpose": "manager tick 21:26Z — lease heartbeat, two lane spawns, the row-count-check correction"
   },
   "active_sessions": [
     {
