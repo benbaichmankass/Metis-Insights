@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-mi262-observed-20260910T1800",
-    "claimed_at": "2026-09-10T18:02:54Z",
-    "purpose": "PR #11720 -- the MI-262 observation. Landing this is ALSO what produces criterion (1)'s missing negative control: the page must read warnings: [] within 15 minutes of this push."
+    "branch": "claude/mgr-mi262-negctl-20260910T1811",
+    "claimed_at": "2026-09-10T18:13:51Z",
+    "purpose": "PR #11721 -- the MI-262 negative control, completing criterion (1)."
   },
   "active_sessions": [
     {

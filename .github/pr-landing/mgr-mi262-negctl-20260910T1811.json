@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/MANAGER-CHECKLIST.json): the negative control that completes MI-262's criterion (1), recorded as a matched pair with its positive. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed."
+}
