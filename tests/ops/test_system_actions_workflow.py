@@ -312,6 +312,20 @@ EXPECTED_ACTIONS = {
     # a flat position, ambiguous (>1) live legs of one type, or more than
     # one open untracked trade row.
     "backfill-tpsl-leg-ids": "backfill_tpsl_leg_ids_action.sh",
+    # Audit F-39 / MI-241. Re-attaches the three order_packages rows that were
+    # flipped to `closed` while their legs were still OPEN, so order_monitor's
+    # `status="open"` selector can never pick them up and those legs are managed
+    # by nobody. Diff: status closed->open, close_reason->NULL, prior values kept
+    # under meta.reattach_repair. DRY-RUN by default; apply gated. Operator-
+    # approved twice (WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS
+    # chosen: detector_and_reattach for the paper pair, and
+    # DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED for pkg-293021e2e84a48db, which
+    # carries REAL-MONEY leg 5474 on bybit_2). PLACES, MODIFIES AND CANCELS
+    # NOTHING -- the approval is scoped in terms to a journal/state repair. The
+    # wrapper captures /api/diag/exchange_positions FRESH inside the run and
+    # ABORTS on a failed capture; a leg flat at the venue, an unreadable account,
+    # and a payload naming no accounts are each a REFUSAL, never a write.
+    "reattach-stranded-package-legs": "reattach_stranded_package_legs_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -381,6 +395,7 @@ TIER_2_ACTIONS = {
     "validate-bybit-naked-rearm",
     "cancel-stale-tpsl-legs",
     "backfill-tpsl-leg-ids",
+    "reattach-stranded-package-legs",
 }
 
 
