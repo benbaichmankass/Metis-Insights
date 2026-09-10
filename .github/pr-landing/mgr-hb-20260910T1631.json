@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): a lease heartbeat plus the supervision record of MI-255's delivered PR #11708. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed. Recording an operator-facing observation into the manager's own state of record is management, not a build."
+}

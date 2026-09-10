@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
-    "branch": "claude/lane4-sweep-cadence-20260910",
-    "claimed_at": "2026-09-10T16:46:52Z",
-    "purpose": "WO-20260909: cron-lag re-measurement qualifying the sweeper cadence (PR #11713). Third re-assertion."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-hb-20260910T1631",
+    "claimed_at": "2026-09-10T16:55:32Z",
+    "purpose": "PR #11711 -- manager registers only; the operator's Workflow page is stale until this lands. Resolved by MERGING main in, because the board carries no merge driver and my branch had two slot commits, so a 3-way merge conflicts on the same lines however clean the final content is."
   },
   "active_sessions": [
     {
