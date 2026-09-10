@@ -9,17 +9,22 @@ title: >-
   The sanctioned intent-layer rollback is a 78% capability outage - operator answered: collapse
   the two registries into one
 stage: DECISION
-lifecycle: in_flight
+lifecycle: done
 owner: session_01TM8XjkvVpvMxH4EcLtTsvP
 opened_at: '2026-09-09'
-closed_at: null
+closed_at: '2026-09-10'
 
 review_trigger: >-
-  PICKED UP 2026-09-09 by MI-229 (session_01TM8XjkvVpvMxH4EcLtTsvP). The BUILD is written and
-  is on PR #11615, `landing: hold` / `tier_2_3_needs_approval` — it needs a MERGE CLICK,
-  not another approval. Re-read `build` below before touching this; the DECISION is discharged
-  and re-asking the operator would be re-asking a settled question.
-
+  CLOSED 2026-09-10. The DECISION was discharged by the operator on 2026-09-09 and the BUILD
+  that implements it MERGED as PR #11615 (squashed to `main` as 2ee21f4e5, merged
+  2026-09-10T00:42:51Z by the operator, head f606e4d4d, all 6 checks green). Nothing here is
+  owed. ⚠️ `done` ON THIS OBJECT MEANS THE DECISION AND ITS BUILD ARE COMPLETE — IT DOES NOT
+  MEAN THE EFFECT WAS OBSERVED ON THE FLEET, and collapsing those two is the failure this repo
+  keeps paying for. The fleet question is carried by
+  OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED
+  (`loud: true`, `verified_at: null`), NOT by this row: nobody has ever run the rollback, before
+  or after the change, so the repaired rollback is as unexercised as the broken one was. Read
+  `build` below before re-opening anything here.
 done_condition: >-
   pipeline._STRATEGY_BUILDERS no longer exists as a second registry - multiplexed_signal_builder
   resolves through the SAME path the primary uses - AND a parity assertion exists so that a
@@ -114,7 +119,17 @@ build:
   by: MI-229 · session_01TM8XjkvVpvMxH4EcLtTsvP (worker; manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
   built_on: '2026-09-09'
   pr: '#11615'
-  landing: hold / tier_2_3_needs_approval — auto-merge NOT armed, no merge slot claimed.
+  landing: >-
+    hold / tier_2_3_needs_approval — auto-merge never armed, no merge slot claimed. MERGED
+    2026-09-10T00:42:51Z by the operator (squash 2ee21f4e5 on `main`), head f606e4d4d, all 6
+    checks green: guards · pytest-run · pytest-collect · repo-inventory · open-and-automerge ·
+    audit. ⚠️ `open-and-automerge` ran and its log reads `NO REQUEST … no auto-merge, no merge`
+    — it fired only because merging main pulled in another branch's request file and matched
+    the path filter. Two merge-conflict cycles were resolved on the way (main moved twice):
+    OPEN-ITEMS.json resolved FROM THEIRS with a union asserted by id set (72 = base 70 + mine 1
+    + main's 1, all of main's rows byte-identical at position INCLUDING one it had modified in
+    place), and CLAUDE.md — being generated — resolved by re-rendering rather than by picking
+    hunks.
   done_condition_grading: >-
     BOTH halves delivered. (1) `pipeline._STRATEGY_BUILDERS` NO LONGER EXISTS — deleted, not
     aliased and not turned into a view; `hasattr(pipeline, "_STRATEGY_BUILDERS")` is False and a
