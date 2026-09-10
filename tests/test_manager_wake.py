@@ -16,6 +16,7 @@ import importlib.util
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -161,10 +162,43 @@ def test_brief_lands_on_the_status_contract_in_order():
 
 
 def test_brief_is_self_contained_state_not_a_link_to_go_read():
-    """A woken manager may have no tools to go fetch anything with."""
+    """A woken manager may have no tools to go fetch anything with.
+
+    ⚠️ THE CYCLE ID IS READ FROM THE REGISTER, NEVER PINNED AS A LITERAL.
+    This assertion used to read ``assert "CY-20260903-MANAGER-CONTROL" in text``
+    and it turned `main` RED on 2026-09-10 at 09:24:19Z, when `84d8e2d49`
+    (#11655) correctly moved ``MANAGER-CHECKLIST.json::cycle`` on to
+    ``CY-20260906-TRADING-TRUTH``. Nothing was wrong with that commit: the
+    checklist is a LIVE register a manager edits every few hours, and
+    ``wake.brief`` renders ``data.get("cycle")`` straight out of it. A test that
+    freezes a live register's VALUE is asserting today's data, not the property
+    it is named for — the recorded answer decays while the test reads as a
+    statement about the code.
+
+    What this test is actually for is that the brief carries **real register
+    content** rather than a link telling a tool-less manager to go and read one.
+    So it asserts the brief contains WHATEVER the register currently says, which
+    is falsifiable, cannot decay, and still fails loudly if the cycle line is
+    dropped from the brief.
+
+    The positive control is not optional: an empty or absent ``cycle`` would make
+    ``in text`` vacuously true for the empty string, so the id is required to be
+    present and non-trivial before it is used as the probe.
+    """
     text = wake.brief(NOW)
     # Real register content, not just section headers.
-    assert "CY-20260903-MANAGER-CONTROL" in text
+    cycle = (json.loads(
+        Path(wake.CHECKLIST_PATH).read_text(encoding="utf-8")
+    ).get("cycle") or "").strip()
+    assert cycle, (
+        "MANAGER-CHECKLIST.json declares no `cycle`, so this test has no probe "
+        "and would pass vacuously. That absence is itself the finding."
+    )
+    assert cycle.startswith("CY-"), f"unexpected cycle id shape: {cycle!r}"
+    assert cycle in text, (
+        f"the brief must carry the checklist's own cycle ({cycle}) as state, "
+        "not a pointer to go read it"
+    )
     assert "Merge queue" in text
     assert "Sub-sessions" in text
     assert len(text) > 2000
