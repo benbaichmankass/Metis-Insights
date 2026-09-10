@@ -35509,6 +35509,7 @@
     },
     {
       "id": "BL-20260910-THE-PYTEST-ABSENT-COUNTERMEASURE-IS-FILED-IN-AN-UNREAD-BACKLOG-WHILE-THE-BOARD-TELLS-SESSIONS-THE-OPPOSITE",
+      "status": "open",
       "opened_at": "2026-09-10",
       "severity": "high",
       "tier": 1,
