@@ -45,6 +45,15 @@ on:
       # failed run here rather than through the manager, who is the bottleneck
       # being reported on.
       - pr-queue-watch
+      # The stale-automation sweeper. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
+      # A QUEUE WITH NOTHING STRANDED, which is the exact failure class it
+      # exists for: the 47 stranded PRs of 2026-09-09 accumulated silently
+      # because nothing owned an automation branch after its producing run
+      # exited. A sweeper that dies quietly restores that condition while
+      # everything looks fine. It also FAILS DELIBERATELY on exit 2
+      # (`COULD NOT LOOK` -- the open-PR list was unreadable), so this entry
+      # carries the blind-sensor alarm as well as the death alarm.
+      - stale-automation-sweep
       # The alarm on the trainer's FORWARD-ONLY order-flow capture. Its silence
       # is indistinguishable from a healthy capture -- which is the entire
       # failure class it exists for, one level up: the capture's own

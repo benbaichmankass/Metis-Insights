@@ -17,6 +17,641 @@ done_condition: >-
 why: >-
   MEASURED 2026-09-09T07:48Z. check_trainer_capture_watch.py exits 1 on CLEAN MAIN -- 'newest recorded run is 15.1h old (window 15h)'. It is repo-wide: every open PR is red on it. The refreshed receipt EXISTS, in automation PR #11488 (opened 04:54Z), which has been unmergeable since. So a guard that watches a cadence is now reporting the failure of the LANDING path rather than of the cadence, and nobody can clear it by fixing the watcher. The manager cannot land #11488: its branch is ~3h stale, so bringing main in creates a merge commit whose FIRST-PARENT diff carries scripts/ and tests/, which check_manager_scope R2 attributes to the manager as doing an item. That is MI-184 / BL-20260908-THE-MANAGER-MUST-RUN-THE-MERGE-QUEUE-BUT-R2-FORBIDS-IT-AUTHORING-THE-COMMIT-THAT-RESOLVES-A-REGISTER-CONFLICT exactly, hit live. #11494 fixed the R13 half of the automation deadlock and #11500 proved it, and #11509 fixed a second content half -- this is a THIRD, distinct cause: an automation PR that goes STALE cannot self-heal, because nothing re-bases it and its author is a bot that will never come back.
 
+findings: >-
+  THE CLASS ANSWER IS (a), AND THE FIX CANNOT LIVE WHERE (a) IMPLIES. The
+  producing workflow already does everything (a) asks: all 25 of 25
+  `commit-to-main` call sites set `verify-merged: true` (measured by parsing
+  every workflow that references the action -- an earlier grep-based count of 7
+  was a `-A12` window artefact and is retracted), and `refresh-stale-branch`
+  merges main in and DOES work -- #11499's head is a `Merge main so the required
+  checks re-run` commit. But every bit of that lives inside the PRODUCING RUN'S
+  OWN LIFETIME: one `verify-timeout-minutes` window (default 30), one refresh
+  attempt. When the job exits the branch has NO OWNER, and any blocker outliving
+  that window strands it permanently while the producer's next cron opens
+  another that strands identically. So the fix is a CADENCE JOB that outlives
+  the producer, not another input to it -- `.github/workflows/stale-automation-sweep.yml`
+  + `scripts/ops/sweep_stale_automation_prs.py`, 2h, refresh-only.
+  (b) IS REFUSED AS NOT IMPLEMENTABLE: `main` is branch-protected and rejects a
+  direct workflow push (GH006) -- that is the documented reason `commit-to-main`
+  exists at all. "Land receipts directly" means removing branch protection from
+  the path that writes to main most often, i.e. creating an unguarded lane, the
+  polarity failure this repo already paid for with `new-table-wiring-guard`.
+  (c) IS REFUSED AS WRONG ON PURPOSE: a time-based guard reading the freshest
+  receipt across OPEN PRs would grade an unlanded receipt as if it had landed,
+  so a watcher whose output can never merge would read `fresh` forever -- the
+  guard going quiet in exactly the state it exists to announce. It would also
+  make a required check depend on live GitHub API state at CI time, so the same
+  commit grades differently on re-run.
+  AND THE NULL IS REFUSED TOO, with evidence: the receipts SHOULD keep gating
+  every PR. The guard did its job -- it went red at 07:44:31Z and the condition
+  was visible repo-wide within minutes. What failed is that the REMEDY path is
+  not as automatic as the alarm.
+
+what_was_established: >-
+  (1) `check_trainer_capture_watch.py` exits 1 on clean main was TRUE at
+  07:4x-07:5xZ and is now FALSE: verified exit 0 on a clean `origin/main`
+  checkout. Main was red for 12 minutes, 07:44:31Z -> 07:56:53Z.
+  (2) IT WAS NOT #11488 THAT LANDED THE RECEIPT, AND IT WAS NOT LUCK EITHER.
+  Commit d9059a0 (#11513) carried `docs/claude/work/TRAINER-CAPTURE-WATCH.json`
+  in. ⚠️ I FIRST RECORDED THAT AS AN INCIDENTAL SIDE-EFFECT AND IT IS WRONG --
+  corrected after reading #11513's pre-squash commits. Commit fcd152b9 by
+  session_01DUBXxiaZ3PMERcAfcJce7P is titled `port the stranded
+  trainer-capture-watch receipt: main went red on the clock`. That session hit
+  the repo-wide red, established it was not its own PR's fault by reproducing it
+  on a clean worktree of origin/main, checked the receipt's PROVENANCE rather
+  than assuming (its producing run reads conclusion=failure, but the receipt was
+  written 26s in and the failure came 31min later reading verbatim
+  `commit-to-main: PR #11488 did not merge within 30m` -- the MEASUREMENT
+  succeeded, only the LANDING failed), and ported it under the drive-to-green
+  rule. THE DISTINCTION IS LOAD-BEARING AND CHANGES THE TRIAGE: an incidental
+  side channel would mean receipts reach main unreliably and the open automation
+  queue is partly phantom; a DELIBERATE PORT means the landing path is reliably
+  broken and a human-equivalent actor had to stop its own work to hand-carry the
+  payload. The second is what happened. It is the stronger case for the class
+  fix, not a weaker one -- and it is the same defect that session recorded
+  independently, from its own side, as `a self-blocking loop`. #11488 is
+  therefore SUPERSEDED, not pending -- byte-identity verified twice, at d9059a0
+  and again at c499481 -- and is now CLOSED with a recorded disposition.
+  (2b) THE SWEEPER WOULD HAVE MADE THAT PORT UNNECESSARY, and this is checkable
+  rather than asserted: before the port, main's receipt was 2026-09-08T16:44:31Z
+  and #11488's was 2026-09-09T04:53:57Z, so #11488 graded `refresh` -- the one
+  actionable state. The refresh path merges main in AND writes the R13
+  merge-slot claim via claim_merge_slot.py, which is precisely what #11488
+  lacked. Any sweep after 06:37:54Z (when that script reached main) would have
+  unstranded it without a session touching it.
+  (3) #11488 WAS NEVER RED ON `trainer-capture-watch`. Its guards run
+  (34312758346) reads `PASS 53 - FAIL 1` and the 1 is `pr-landing-guard` on
+  R13, reproduced locally on the real branch name. It was opened 04:54:00Z;
+  MI-208/#11494 taught the action to write the claim at 06:37:54Z. A pre-fix
+  branch.
+  (4) THE THREE CAUSES ARE ONE RELAY ON ONE QUEUE, each becoming the blocker as
+  the previous is fixed: R13 until 06:37:54Z (#11494); `session-registry-guard`
+  06:38Z->~07:36Z (#11509); `trainer-capture-watch` 07:44:31Z->07:56:53Z
+  (#11513, by side-effect).
+  (5) POPULATION 50 open `automation/*` PRs of 52 open PRs. 47 carry no R13
+  claim; the cut is exact and confirms #11494 works (#11493 opened 06:00:16Z has
+  none, #11499 opened 06:38:14Z has one).
+  (6) FOUR always-run guards grade a dated receipt that must LAND on main --
+  check_digest_liveness (6h), check_trainer_capture_watch (15h),
+  check_pr_queue_watch (30h), check_manager_queue_watch. The same trap is live
+  on a second one now: #11490 carries a PR-queue-watch receipt that cannot land.
+
+fourth_mechanism_measured_after_the_fix: >-
+  ⚠️ MEASURED 2026-09-09T09:30Z, AFTER this WO's class fix was written, and it
+  SHARPENS the class rather than contradicting it. PR #11518
+  (`automation/work-digest-34327540243-1`, opened 08:21:03Z) POSTDATES #11494
+  and carries a valid R13 claim, so it is NOT the cause #11494 fixed. Every step
+  measured, not inferred: (1) `commit-to-main`'s stale-branch refresh FIRED AND
+  WORKED -- its head 9ce35856 is literally `Merge main so the required checks
+  re-run against the current base`, with a resolved session-board conflict;
+  (2) all four required checks went GREEN on that sha at 08:31-08:33Z;
+  (3) auto-merge was armed at open time; (4) it is STILL OPEN an hour later and
+  a trial merge against current main CONFLICTS in BOTH
+  docs/claude/session-board.json AND docs/claude/work/WORK-DIGEST.json.
+  ⚠️ AUTO-MERGE DOES NOT RESOLVE CONFLICTS -- it waits silently and forever, and
+  the producer's ONE refresh attempt is already spent with its run exited. So a
+  PR can be green, armed, correctly claimed and STILL permanently stranded, and
+  the strand is invisible because every signal on it reads healthy.
+  THE CLASS THEREFORE HAS TWO SUB-CASES, and only one is mechanically fixable:
+  (i) the only conflict is the R13 slot file -- the sweeper refreshes it, taking
+  main's board and re-asserting the claim, and the PR lands; (ii) a DATA
+  conflict between two generator runs -- no rule can settle it without
+  discarding one run's output, so the sweeper REFUSES and reports, and the older
+  PR must be closed with its append-only rows rescued first. That limit is
+  written into the sweeper's own docstring rather than left to be discovered,
+  and filed as
+  BL-20260909-A-GREEN-ARMED-AUTOMATION-PR-STALLS-FOREVER-WHEN-MAIN-MOVES-BECAUSE-AUTO-MERGE-DOES-NOT-RESOLVE-CONFLICTS.
+  ⚠️ AND THE RATE IS THE REAL PROBLEM: over the 75 minutes of this session the
+  open `automation/*` queue went 50 -> 51 (two opened, #11518 and #11525; one
+  closed, #11488, closed BY HAND). It grows faster than hand-triage drains it.
+
+done_condition_met: >-
+  ⚠️ MET 2026-09-09T12:28:57Z, AND BY THE MECHANISM RATHER THAN BY HAND — which
+  is the distinction this whole object turns on. VERIFIED on a clean
+  `origin/main` worktree with the exit code read directly, not inferred:
+  `python3 scripts/ci/check_trainer_capture_watch.py` -> `liveness: fresh /
+  newest recorded run is 1.0h old (window 15h)` / EXIT=0. `main` carries
+  `generated_at 2026-09-09T11:35:03Z`, landed by commit d2a8f4a as PR #11543.
+  The clock reset from 19:53:57Z to 2026-09-10T02:35:03Z (7.6h -> 14.0h of
+  headroom).
+  THE SEQUENCE, because the causal chain is the finding and not the timestamp:
+  (1) the 11:23Z scheduled run (#46) fired 11 min late -- inside the observed
+  4.53h-7.63h jitter, so the CRON DID NOT MISS and OI-20260903 is not what
+  happened here; (2) it opened #11543 with a fresh receipt, a valid R13 claim
+  and the arming pair; (3) #11543 went GREEN on all four required checks at
+  11:54:09Z with auto-merge ARMED, and then sat unmerged for 27 minutes,
+  conflicted with `main` on `docs/claude/session-board.json` ALONE -- the
+  fourth mechanism, reproduced on the very receipt this WO is about, in its
+  refreshable sub-case (i); (4) run #46 was CANCELLED at its 40-minute job wall
+  rather than failing, because `commit-to-main`'s refresh RESETS the verify
+  deadline on success and pushed the wait 12 seconds past the job timeout, so
+  `Report the verdict` was SKIPPED and the failure was SILENT; (5)
+  `sweep_stale_automation_prs.py --apply` refreshed it; (6) it merged.
+  ⚠️ CONTRAST WITH THE 07:56:53Z CLEARANCE, which is why this one counts: that
+  receipt reached `main` because session_01DUBXxiaZ3PMERcAfcJce7P PORTED it BY
+  HAND into an unrelated session PR. This one reached `main` through the
+  automation PR's OWN landing route, after the sweeper unstranded it. A hand
+  port proves a human-equivalent actor was watching; this proves the mechanism
+  works without one.
+  ⚠️ THE SWEEPER IS NOW OBSERVED, NOT MERELY DEPLOYED -- for sub-case (i) ONLY.
+  Sub-case (ii) (a DATA conflict between two generator runs) is now OBSERVED -- ⚠️ THIS SENTENCE PREVIOUSLY READ "still unobserved" AND IS CORRECTED, see `sub_case_ii_is_now_OBSERVED_correcting_this_object` -- and remains unfixable by this file, by design.
+  ⚠️ AND ITS FIRST LIVE RUN REPORTED A SUCCESS IT DID NOT ACHIEVE. `refresh()`
+  used `git commit --no-edit`, which no-ops on the no-conflict path because
+  `git merge` has already committed; the exit code was discarded; the push
+  carried the merge commit alone; and it returned `refreshed and pushed` for a
+  claim it never wrote. #11490 came back STILL FAILING R13 while the output
+  said it was fixed -- the exact class `commit-to-main`'s docstring names, "a
+  step that reports success for something it did not achieve", committed by the
+  file written to end it. Fixed in 6f36b27 (`-m`, exit code checked, and the
+  EFFECT verified against the merge-base before pushing), with three
+  mutation-checked tests. The second run refreshed both PRs and the claims were
+  verified by running check_pr_landing.py against each branch rather than by
+  trusting the sweeper's own report.
+
+what_was_not_done: >-
+  NOT DONE, explicitly. (1) NO PR WAS CLOSED. 27 `superseded_older` PRs still
+  need closing with a recorded `disposition`, and 7 more
+  (#11442/#11445/#11452/#11465/#11471/#11493/#11512) each carry a
+  `pending-pings.jsonl` row absent from main and need the rescue-by-value #10974
+  did BEFORE any close -- filed as
+  BL-20260909-TWENTY-SEVEN-SUPERSEDED-AUTOMATION-PRS-ARE-OPEN-AND-EACH-NEEDS-A-RECORDED-DISPOSITION.
+  (2) 13 PRs could not be triaged mechanically because their payloads carry no
+  `generated_at` -- filed as
+  BL-20260909-THIRTEEN-GENERATED-REGISTERS-CARRY-NO-GENERATED-AT-SO-SUPERSESSION-IS-UNDECIDABLE.
+  (3) THE SWEEPER HAS NOT RUN AGAINST LIVE BRANCHES WITH `--apply`. It is
+  DEPLOYED, NOT OBSERVED: the classifier is proven by 12 planted self-test cases
+  and 11 tests, and the triage was run live in dry-run, but no branch has been
+  pushed by it. Its first scheduled run is the observation.
+  (4) The producer-side refresh bound in `commit-to-main` is UNCHANGED, by
+  choice -- filed as
+  BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER.
+  (5) ⚠️ THE CLOCK IS RE-ARMED: main goes red on this guard again at
+  2026-09-09T19:53:57Z unless a fresh receipt lands. The sweeper is what is meant
+  to prevent that; it has not yet been seen doing so.
+
+second_mechanism_measured_1258Z: >-
+  ⚠️ THE R13 FIX IS REAL AND IT IS NOT SUFFICIENT, AND A SESSION READING ONLY
+  `what_was_established` WOULD CONCLUDE OTHERWISE. Second live sweep,
+  2026-09-09T12:58Z. POPULATION: all 60 open PRs returned by
+  `list_pull_requests(state=open, perPage=100)`, of which 53 carry an
+  `automation/*` head ref. States: `refresh` 1 (#11490) · `superseded_older` 29 ·
+  `undated_payload` 13 · `carries_append_only` 10 · `superseded_by_open_pr` 1
+  (#11458, beaten by #11490).
+
+  SEVENTEEN of those 53 are `reconcile-open-prs` PRs and EVERY ONE grades
+  `superseded_older`. Two of them -- #11499 (opened 06:38:14Z, twenty seconds
+  after #11494 landed) and #11506 -- were run through `check_pr_landing.py`
+  LOCALLY UNDER THEIR REAL BRANCH NAMES and both read
+  `pr-landing: OK — state=declared_self_land`. So they carry a valid R13 claim,
+  they COULD land, and they did not: they were SUPERSEDED WHILE WAITING. The
+  reconciler opens a PR on every merge to `main`, so a receipt goes stale faster
+  than the previous one clears the queue.
+
+  This is a SECOND mechanism, distinct from the R13 strand and from the fourth
+  mechanism above (a green armed PR stranded by a conflict auto-merge will not
+  resolve). It is ALREADY FILED as
+  BL-20260906-THE-OPEN-PRS-RECONCILER-FIRES-PER-MERGE-SO-A-BUSY-DAY-STACKS-N-STALE-PRS-FOR-ONE-DERIVED-EDIT,
+  so no new row was opened -- filing a duplicate would make the backlog worse,
+  which is the failure `backlog_append.py`'s duplicate check exists to stop. What
+  is NEW here is the measurement against a stated population, and it belongs on
+  that row rather than in a second one.
+
+  ⚠️ THE SWEEPER DOES NOT FIX THIS AND MUST NOT BE READ AS DOING SO. It refuses
+  to refresh a superseded PR on purpose -- refreshing one would REWIND `main`.
+  These 17 need CLOSING with a recorded disposition, which is a human act.
+
+sweeper_first_verified_unstrand: >-
+  #11490 (the PR-queue-watch receipt) is the first branch the sweeper unstranded
+  and then had VERIFIED end to end rather than reported. At 12:55Z it read
+  `mergeable_state: dirty` -- a merge conflict, on `docs/claude/session-board.json`
+  ALONE, which is sub-case (i) of the fourth mechanism and the one the sweeper is
+  built for. The conflict was reproduced first in a throwaway worktree
+  (`git merge --no-commit`, conflicted paths = exactly the slot file) so the
+  sub-case was MEASURED and not assumed.
+
+  `--apply` at 12:59Z: new head `ab626dd1`. Verified as EFFECT, four ways, none
+  of them the sweeper's own report -- (1) `git merge-base origin/main HEAD` now
+  equals main's tip `c11911b3`, so the conflict is gone; (2)
+  `docs/claude/session-board.json` IS in the branch's own diff against that
+  merge-base; (3) the claim names `automation/data-commit-34314147723-1`, this
+  branch, at 12:59:10Z; (4) `check_pr_landing.py`, run in a worktree checked out
+  UNDER THE REAL BRANCH NAME, reads `pr-landing: OK — state=declared_self_land`.
+  The payload receipt `2026-09-09T05:15:42Z` is preserved, still newer than
+  main's `2026-09-08T16:50:32Z`.
+
+  ⚠️ THE SWEEPER IS NOT ON `main` AND THEREFORE HAS NO CRON. It exists only on
+  this PR, which is `landing: hold` under R12 and needs one human read. Both runs
+  so far were HAND-RUN by this session from the working tree. `commit-to-main`'s
+  own words apply to the claim as much as to any step: what is observed is that
+  the SCRIPT works, not that the MECHANISM runs.
+
+  ⚠️ WHY IT MATTERED NOW: main's `docs/claude/work/PR-QUEUE-WATCH.json` reads
+  `2026-09-08T16:50:32Z` against `check_pr_queue_watch.py`'s 30h window, so main
+  would have gone red repo-wide on a SECOND receipt guard at about
+  2026-09-09T22:50Z. #11490 is the receipt that prevents it.
+
+gap_found_in_my_own_class_fix_and_closed: >-
+  ⚠️ THE HAND-TRIAGE FOUND A LATENT DEFECT IN THE SWEEPER ITSELF, AND THE
+  DEFECT WOULD HAVE BEEN ARMED BY THIS SESSION'S OWN FILED REMEDY. Recording it
+  because a fix nobody stress-tested against the live queue is exactly what this
+  WO is about.
+
+  `APPEND_ONLY` was a HARDCODED PATH LIST holding one entry,
+  `docs/claude/pending-pings.jsonl`. Hand-triaging #11475 (econ-calendar PIT
+  snapshots) showed the live queue holds a SECOND append-only payload class the
+  list did not know about: `comms/macro/econ_calendar_snapshots.jsonl` on that
+  branch is `main` PLUS 427 rows main does not have (verified as a strict
+  line-prefix relation, 17540 -> 17967), and the branch also carries
+  `comms/macro/econ_calendar_captures/US-20260909T002929Z.fxstreet.json`, which
+  is ABSENT FROM MAIN ENTIRELY -- a point-in-time capture is forward-only and
+  nothing re-derives it.
+
+  ⚠️ IT GRADED `undated_payload`, SO NOTHING WAS DROPPED -- BUT ONLY BY
+  ACCIDENT, and the accident is the finding. JSONL does not parse as a JSON
+  object, so `dated_at` returned None and the file fell into the "we could not
+  tell" bucket. Had that generator stamped `generated_at`, the file would have
+  been graded on its REGISTER and become closable. AND STAMPING `generated_at`
+  ON THESE GENERATORS IS EXACTLY THE REMEDY THIS SESSION FILED for the 13
+  undated PRs -- so the filed fix would have ARMED the row-dropping bug the
+  sweeper exists to prevent.
+
+  FIXED, not filed. (1) The append check is now a PROPERTY of the content --
+  `looks_appended()` asks whether main's bytes are a strict prefix of the
+  branch's -- consulted BEFORE the register comparison, and it can only ever
+  move a PR toward `carries_append_only`, which is not in ACTIONABLE. The named
+  `APPEND_ONLY` set is KEPT beside it, because a branch that REWRITES a known
+  append-only file breaks the prefix relation and that is the dangerous case a
+  content test cannot see. (2) A payload file absent from main gets its own
+  state, `absent_on_main`: `dated_at` returns None for TWO different reasons and
+  reporting "no comparable timestamp" for a file main has never had names a
+  cause no code path tested -- UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A,
+  whose remedy in this repo is to branch on the real stage rather than reword
+  the label.
+
+  Both protections are MUTATION-CHECKED: dropping `looks_appended` from
+  `classify` fails 3 tests, dropping the absent check fails 2. ⚠️ One test is
+  deliberately a SOURCE-LEVEL assertion and says so -- a file that is both dated
+  and a byte-prefix append is close to unconstructible for a JSON object, so the
+  precedence is asserted on the code rather than faked with a fixture.
+
+  EFFECT ON THE LIVE QUEUE, re-triaged 2026-09-09T13:30Z (population: 53 of the
+  54 open PRs, 48 with automation/* head refs; #11553 opened after the
+  observation and is not in it): `superseded_older` 25 · `carries_append_only`
+  10 · `absent_on_main` 2 (#11361, #11525 -- each a
+  comms/strategy_reviews/<date>/INDEX.json main lacks) · `undated_payload` 11 ·
+  `refresh` 0. #11475 moved undated -> carries_append_only carrying "+427
+  row(s) not on main". `refresh` is 0 because #11490 merged; nothing is
+  actionable and that is the correct reading, not an idle sweeper.
+
+sub_case_ii_is_now_OBSERVED_correcting_this_object: >-
+  ⚠️ THIS OBJECT SAID SUB-CASE (ii) "REMAINS UNOBSERVED". THAT IS NO LONGER
+  TRUE -- do not re-quote it. Observed live on #11386 (m28 valuation snapshots)
+  at 2026-09-09T13:32Z.
+
+  `comms/macro/valuation_snapshots.jsonl` holds 432 rows on BOTH sides. Nine
+  rows are unique to the branch and nine are unique to `main` -- neither is a
+  superset, so this is not an append and no merge rule settles it. `git merge
+  origin/main` on that branch exits 1 with `comms/macro/valuation_snapshots.jsonl`
+  as the ONLY conflicted path.
+
+  The divergence is two generator runs measuring the same slot at different
+  times: same symbol, same metric, e.g. GLD `real_yield_10y` reads 2.42 on the
+  branch and 2.43 on main, with the derived `cheap_score` and `z_score` moving
+  with it. NEITHER IS WRONG. There is no rule that picks one, which is precisely
+  why the sweeper refuses -- it grades the PR `undated_payload`, never
+  actionable, and leaves it for a human.
+
+  So the fourth mechanism now has BOTH sub-cases observed: (i) a slot-file-only
+  conflict, which the sweeper resolves and did twice (#11543, #11490, the second
+  from a genuinely conflicted start); and (ii) a DATA conflict between generator
+  runs, which it correctly refuses. (ii) is a STATED LIMIT of this fix and not a
+  defect in it -- but it is no longer hypothetical, and a successor should read
+  it as a live class rather than a caveat.
+
+fifth_mechanism_the_producing_run_never_OPENS_the_pr: >-
+  ⚠️ A FIFTH STRAND MODE, AND THE SWEEPER IS STRUCTURALLY BLIND TO IT. Found
+  2026-09-09T14:2xZ while measuring whether any receipt was stranded.
+
+  THREE branches carry a receipt NEWER than main's, and NONE of them has a pull
+  request -- not closed, NEVER OPENED. Checked individually with
+  `list_pull_requests(state=all, head=...)`, each returns `[]`:
+  automation/work-digest-34355107317-1 (WORK-DIGEST 13:08:15Z vs main's
+  11:39:00Z), automation/work-digest-34353511056-1, and
+  automation/data-commit-34347588537-1 (PR-QUEUE-WATCH 11:50:12Z vs main's
+  05:15:42Z).
+
+  CAUSE, READ FROM THE RUN LOG AND NOT INFERRED. Run 34355107317 (`work-digest`,
+  event=push, conclusion=failure, 13:07:27Z -> 13:09:23Z) pushed the branch at
+  13:08:17Z and then logged verbatim: `commit-to-main: gh pr create attempt 1/3
+  failed: GraphQL: API rate limit already exceeded for user ID 119055177`, twice
+  more, then `could not open a PR ... after 3 attempts. THE ROWS ARE NOT LOST --
+  they are pushed to <branch> and can be opened manually.` `commit-to-main`
+  behaved CORRECTLY: it retried, failed loudly, and said exactly where the rows
+  are. What it cannot do is the "manually" part, and nothing else was going to.
+
+  ⚠️ THE RATE LIMIT IS PLAUSIBLY SELF-INFLICTED AT THE ORG LEVEL AND I AM NOT
+  GOING TO PRETEND OTHERWISE: every Claude session in this repo acts as user id
+  119055177, so sessions polling CI through the MCP and `gh pr create` inside
+  `commit-to-main` draw on ONE quota. This session has been making MCP calls
+  against this repo throughout.
+
+  ⚠️ THE BLIND SPOT IS IN THE CLASS FIX ITSELF. sweep_stale_automation_prs.py
+  enumerates the OPEN-PR LIST, so a branch that never got a PR is invisible to
+  it. The premise -- "the branch has no owner once the producing run exits" --
+  is right; the INPUT SET is wrong. It should iterate BRANCHES, not PRs.
+  MEASURED: 157 origin/automation/* branches exist and 48 have an open PR. That
+  is NOT 109 strands (most are closed or merged PRs whose branch survived), but
+  the correct denominator for this mode is branches, and the sweeper never looks
+  at it. NOT FIXED HERE -- iterating branches changes what the sweeper may act
+  on and deserves its own review, so it is recorded rather than rushed.
+
+  WHAT WAS DONE: #11557 opened BY HAND for the newest stranded digest branch --
+  the step the rate limit prevented -- because check_digest_liveness (6h) had
+  main expiring at 17:39Z and this branch carries 13:08:15Z. Checked before
+  opening: newer than main's (no rewind), pr-landing OK under the REAL branch
+  name, one pending-pings row main lacks (landing PUTS it on main, which is the
+  direction those rows want), and conflicting with main on session-board.json
+  ALONE -- sub-case (i).
+
+second_defect_in_my_own_fix_append_only_blocked_LANDING: >-
+  ⚠️ AND OPENING #11557 IMMEDIATELY EXPOSED A SECOND DEFECT IN THE SWEEPER,
+  worse than the first. It graded `carries_append_only`, which is NOT in
+  ACTIONABLE -- so the sweeper REFUSED to refresh the very PR opened to save the
+  clock.
+
+  MEASURED, population = the 49 open automation/* PRs at 14:18Z: ALL TEN open
+  work-digest PRs grade `carries_append_only`, because a work digest ALWAYS
+  queues a ping row. So the sweeper could NEVER refresh a work-digest PR, and
+  check_digest_liveness (6h) is the TIGHTEST repo-wide guard, carried by exactly
+  that class. The one mechanism built to keep those clocks alive was
+  structurally unable to touch the tightest one.
+
+  THE STATE WAS RIGHT AND ITS SCOPE WAS WRONG. It exists so a PR holding an
+  unread operator ping is never CLOSED as cleanly superseded -- the motivating
+  mistake in the module docstring. It was also blocking the REFRESH, and
+  refreshing is what LANDS those rows on main. The safety property was stranding
+  precisely the PRs whose rows most needed to arrive.
+
+  FIXED: it is now an ANNOTATION applied AFTER the register verdict and exempt
+  on REFRESH, so it can still only move a PR toward "a human must look" and
+  never toward actionable. `older` is also asked BEFORE `newer`, so a PR
+  carrying one of each cannot be refreshed into a partial REWIND (0 of 49 mix
+  the two today -- the hole is closed before it is reachable). Three tests, two
+  mutation-checked; the FIRST motivating mistake is re-pinned separately, and
+  the REWIND reason now survives the annotation instead of being replaced by it.
+
+  EFFECT: #11557 moved carries_append_only -> refresh, was refreshed to
+  6cefccb4, and VERIFIED as effect -- merge-base equals main's tip, the slot file
+  is in the branch's own diff, the claim names that branch, the receipt
+  13:08:15Z and the extra ping row are both preserved, and check_pr_landing.py
+  passes in a worktree checked out UNDER THE REAL BRANCH NAME. The other nine
+  work-digest PRs correctly stay put: their registers are older than main's.
+
+  ⚠️ AND ONE OPERATIONAL LESSON FROM THE FIRST ATTEMPT, which FAILED: the
+  sweeper reported `could not check the branch out` because MY OWN working tree
+  was dirty. It reported the failure rather than claiming success -- the
+  post-false-success machinery doing its job -- but it is also an argument for
+  the sweeper living in CI, where the checkout is clean, rather than being
+  hand-run from a session's tree.
+
+one_strand_LEFT_deliberately_and_what_would_change_that: >-
+  MEASURED 2026-09-09T15:38Z, population = 158 origin/automation/* branches
+  compared against main: EXACTLY ONE carries a receipt newer than main's --
+  automation/data-commit-34347588537-1, PR-QUEUE-WATCH 11:50:12Z against main's
+  05:15:42Z. It has NO pull request (fifth mode), no OPEN PR carries a newer
+  PR-QUEUE-WATCH, and check_pr_landing.py passes under its real branch name.
+
+  ⚠️ AND IT COMPOUNDS WITH THE SWEEPER'S REFUSAL RULE. Its conflict against main
+  is NOT slot-file-only: `docs/claude/session-board.json` AND
+  `docs/claude/work/PR-QUEUE-WATCH.json`. `refresh()` aborts on any conflict
+  outside the slot file, so even with a PR the sweeper would leave it alone.
+  This is the first observed case of a stranded branch the sweeper refuses for a
+  reason OTHER than supersession.
+
+  I AM DELIBERATELY NOT LANDING IT, and this is a decision rather than an
+  oversight. check_pr_queue_watch has a 30h window and main's margin is +19.6h;
+  pr-queue-watch's cron (`41 */6 * * *`) next fires ~17:41Z, so a fresher
+  receipt is due through the NORMAL route in about two hours. Hand-resolving a
+  PAYLOAD conflict on an automation branch is a larger act than opening a PR,
+  and it buys ~6.5h of margin on a clock that has 19.6h. The digest case was the
+  opposite on every count -- 3.2h of margin, no other carrier -- which is why
+  that one WAS hand-landed as #11557.
+
+  WHAT WOULD CHANGE THIS, stated so it is checkable rather than a feeling:
+  EITHER the 17:41Z pr-queue-watch run also fails to open a PR (two consecutive
+  failures is a pattern, not an incident), OR the pr-queue margin drops below
+  ~6h with no fresher receipt on main. Either one, land it by hand.
+
+proposed_narrow_extension_NOT_shipped: >-
+  The refusal above is right in general and over-conservative here, and the fix
+  is small enough to state precisely: on a conflict, if EVERY conflicted payload
+  path is one the classifier already graded `newer` AND this PR is the newest
+  holder of each, take the branch's version; anything else, abort as today. That
+  is not a new judgement -- it is the SAME decision `REFRESH` already makes, and
+  the conflict is incidental (git cannot merge two whole-file rewrites of a
+  receipt).
+
+  ⚠️ NOT SHIPPED, deliberately. It expands what the sweeper may do to a PAYLOAD
+  file, and this session has already found TWO defects in this file by moving
+  quickly -- the `--no-edit` false success and the append-only scope error. A
+  19.6h margin does not justify a third. Write it with tests, against a stated
+  population, when it is the thing being worked rather than a detour.
+
+the_fifth_mode_is_SUSTAINED_and_repo_wide_1656Z: >-
+  ⚠️ THE TRIGGER I SET AT 15:38Z FIRED, AND HARDER THAN I FRAMED IT. I asked
+  whether the NEXT pr-queue-watch run would also fail to open a PR, treating two
+  consecutive failures as a pattern. MEASURED 2026-09-09T16:56Z, population = all
+  164 origin/automation/* branches against main and against the live open-PR
+  list: SIX branches carry a receipt NEWER than main's and NONE has an open PR --
+  WORK-DIGEST 16:03:36Z / 16:39:51Z / 16:41:36Z, TRAINER-CAPTURE-WATCH 16:46:17Z,
+  PR-QUEUE-WATCH 11:50:12Z and 16:53:15Z. FIVE appeared within the preceding hour.
+
+  This is not one strand and not two consecutive failures on one workflow. It is
+  the AUTOMATION LANDING PATH BEING DOWN REPO-WIDE for at least 3.5 hours, across
+  every producer of a repo-wide liveness receipt. Cause read from run 34378237022
+  (16:41:39Z->16:42:43Z) verbatim -- `gh pr create attempt 1..3/3 failed: GraphQL:
+  API rate limit already exceeded for user ID 119055177` -- BYTE-IDENTICAL to run
+  34355107317 at 13:08Z on a different workflow.
+
+  ⚠️ AND THE QUOTA IS SHARED WITH CLAUDE SESSIONS: every session in this repo acts
+  as user 119055177, so MCP polling and `gh pr create` draw on one per-user limit.
+  That makes it a CAPACITY question about concurrent sessions as much as a
+  workflow bug, and this session was making MCP calls throughout the window.
+  Filed as
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR.
+
+  ⚠️ MY 15:38Z DECISION NOT TO LAND automation/data-commit-34347588537-1 WAS
+  CORRECT AND IS NOW MOOT FOR THE RIGHT REASON, WHICH IS NOT THE REASON I GAVE. I
+  reasoned a fresher receipt was due through the normal route; a fresher receipt
+  DID appear (16:53:15Z) but it did NOT land -- it stranded identically. So the
+  strand resolved by supersession, not by the route working, and the route has
+  not worked since 13:08Z. Do not read that call as vindicated by the outcome.
+
+  ACTED: opened #11572 (PR-QUEUE-WATCH 16:53:15Z), #11573 (WORK-DIGEST 16:41:36Z,
+  the tightest clock at +4.17h) and #11574 (TRAINER-CAPTURE-WATCH 16:46:17Z) by
+  hand -- the newest receipt of each class, each superseding the older strands.
+  All three graded `refresh`, were refreshed by the sweeper (slot-file conflict
+  only in two, none in the third) and VERIFIED as effect: merge-base equal to
+  main's tip, slot file in each branch's own diff, each claim naming its own
+  branch, `check_pr_landing.py` OK under the REAL branch name on all three, and
+  the receipts and the digest's extra ping row preserved.
+
+  ⚠️ #11573 IS THE CASE THAT WOULD HAVE BEEN UNSAVABLE THIS MORNING. It carries a
+  pending-pings row, so under the pre-fix classifier it graded
+  `carries_append_only` -- not actionable -- and the sweeper could not have
+  refreshed the carrier of the TIGHTEST repo-wide clock. The fix made earlier
+  today is what let it grade `refresh`.
+
+  ⚠️ FOUR HAND RESCUES IN ONE AFTERNOON (#11557, #11572, #11573, #11574). That is
+  the workaround, not the fix, and it does not scale -- which is the whole
+  argument of this WO restated one level up: the REMEDY is still not as automatic
+  as the ALARM.
+
+the_outage_is_4h47m_and_that_changes_the_diagnosis: >-
+  MEASURED 2026-09-09T18:28Z. THE LANDING PATH IS STILL DOWN, and it is now
+  established rather than inferred -- which took two steps, because the first
+  answer was a trap.
+
+  ⚠️ STEP ONE, THE TRAP: at 17:30Z the most recent work-digest run (34383191261,
+  17:29:10Z) concluded SUCCESS. Reading its PER-JOB conclusions shows the `gate`
+  job answered "is a digest due?" with NO and the `digest` job was SKIPPED, so
+  `commit-to-main` never ran and `gh pr create` was never attempted. A GREEN RUN
+  THAT TESTED NOTHING. Reading the run's conclusion field as the answer would
+  have reported recovery on evidence containing none -- UNPROVENANCED
+  DIAGNOSTIC OUTPUT, the class this repo has a guard for. The lesson generalises
+  past this incident: for any workflow whose real work sits behind a gate, the
+  run conclusion is a claim about the GATE, not about the work.
+
+  STEP TWO, THE ANSWER: three runs DID reach the branch-push step -- 17:41:27Z,
+  17:45:54Z, 17:54:06Z, all work-digest -- and NONE got a pull request
+  (list_pull_requests(state=all, head=...) returns [] on the newest). Cause
+  verbatim from run 34385660100 at 17:55:08Z, byte-identical to 13:08Z and
+  16:42Z: `gh pr create attempt 2..3/3 failed: GraphQL: API rate limit already
+  exceeded for user ID 119055177`.
+
+  ⚠️ THE DURATION IS THE NEW FACT AND IT CHANGES THE DIAGNOSIS. 13:08:18Z ->
+  17:55:08Z is FOUR HOURS FORTY-SEVEN MINUTES, through what should have been
+  several hourly quota resets. So this is NOT one exhausted window waiting to
+  lapse; the quota is being CONTINUOUSLY RE-CONSUMED. Every Claude session in
+  this repo acts as user 119055177, so `gh pr create` inside `commit-to-main`
+  competes with every session's MCP traffic. The CAPACITY reading in
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR is now the better-supported
+  one, and its clearing criteria already refuse a quiet queue as evidence for
+  exactly this reason.
+
+  RESCUED as #11582 -- the newest digest (17:54:05Z, superseding the 17:41:27Z
+  and 17:45:53Z strands), no rewind, pr-landing OK under the REAL branch name,
+  no conflict, carrying one pending-pings row main lacks. Digest margin was
+  +4.22h.
+
+  ⚠️ SIX HAND RESCUES IN ONE DAY (#11490, #11557, #11572, #11573, #11574,
+  #11582). Each one is correct and none of them is the fix. If a successor reads
+  only one line of this object, read that one: the class this WO names is that
+  the REMEDY is not as automatic as the ALARM, and six manual interventions in
+  an afternoon is that sentence measured.
+
+the_landing_path_RECOVERED_and_that_clears_nothing: >-
+  MEASURED 2026-09-09T19:46Z. THE LANDING PATH IS WORKING AGAIN, established
+  from the artifact rather than from a quiet queue.
+
+  PR #11586 landed a WORK-DIGEST receipt of 18:53:58Z at 18:56:17Z, and NO
+  SESSION OPENED IT BY HAND. Its head is automation/work-digest-34391729884-1,
+  its body is `commit-to-main`'s own template ("Automated daily work digest
+  (Phase B) ... Generated artifact only; auto-merge"), it carries ONE commit,
+  and it went from created 18:54:01Z to merged 18:56:18Z -- 2m17s open-to-merge,
+  which is auto-merge firing on green. That is the whole producer path working
+  end to end: push, `gh pr create`, `gh pr merge --auto`, land.
+
+  SO THE OUTAGE WINDOW IS 13:08:18Z -> somewhere in (17:55:08Z, 18:54:01Z].
+  Last observed failure 17:55:08Z; first observed success 18:54:01Z. At least
+  4h47m, recovering within the following hour.
+
+  ⚠️ THIS CLEARS NOTHING, AND THE FILED ROW SAYS SO IN ITS OWN CRITERIA. Nothing
+  was fixed: the quota recovered. `commit-to-main` still fails the same way the
+  next time the shared per-user limit is exhausted, and the six hand rescues
+  today were needed precisely because nothing else covers that window.
+  BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR
+  stays OPEN, and its clause -- "a quiet day clears nothing; establish it
+  against a run that actually hit the limit" -- is exactly this situation.
+
+a_defect_in_MY_OWN_scan_method: >-
+  ⚠️ AND I NEARLY MISREAD THE RECOVERY AS SILENCE, THROUGH A FLAW IN MY OWN
+  MEASUREMENT. Every check-in this session I have scanned
+  `origin/automation/*` branches for one pushed since the last look, treating a
+  new branch as evidence that a run reached the push step. At 19:46Z that scan
+  returned ZERO branches pushed since 18:39Z and I wrote "no run reached the
+  push step; `gh pr create` untested since 17:55Z".
+
+  THAT INFERENCE IS INVALID. A branch that SUCCESSFULLY lands is DELETED on
+  merge. So counting surviving branches measures STRANDS, never ATTEMPTS, and
+  "zero new branches" is equally consistent with "no run fired" and with "runs
+  fired and every one of them succeeded" -- opposite facts. The scan is a
+  perfectly good strand detector and a useless liveness probe, and I had been
+  using it as both.
+
+  WHAT DISTINGUISHES THEM is the RECEIPT ON MAIN: main's digest had moved
+  17:54:05Z -> 18:53:58Z with no action from me, which is only possible if a
+  producer landed one. Read the receipt, then attribute it to a commit
+  (`git log origin/main -- docs/claude/work/WORK-DIGEST.json`), then read the PR
+  to see whether a human or the action opened it. That is the sequence that
+  actually answers "is the producer working", and it is what a successor should
+  use instead of the branch scan.
+
+finding_five_CORRECTED_the_branch_instrument_already_exists: >-
+  ⚠️ CORRECTING MY OWN FINDING 5. I recorded that the sweeper is blind to
+  PR-less branches because it enumerates OPEN PRS, and recommended that "it
+  should iterate BRANCHES". A BRANCH-ITERATING INSTRUMENT ALREADY EXISTS ON
+  `main`: `scripts/ops/stuck_automation_branches.py`. Verified 2026-09-10 by
+  `git cat-file -e origin/main:...` — present on main and on this branch.
+
+  ⚠️ AND IT HAD ALREADY MEASURED THE FIFTH MODE, TEN DAYS BEFORE I "FOUND" IT.
+  Its own docstring: "Measured 2026-08-30: 7 of 7 automation/* branches were
+  unmerged into main, two of them carrying open PRs a day old, and FOUR CARRYING
+  NO OPEN PR AT ALL. Nobody had noticed, because the only way to see it is to
+  list branches." That is the mode I spent an afternoon rediscovering from a
+  rate-limit log. My contribution to it is the CAUSE (`gh pr create` failing on
+  the shared per-user GraphQL quota) and the DURATION (4h47m through several
+  hourly resets), not the existence.
+
+  ⚠️ THIS IS THE `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` RISK, AND IT WAS
+  ONLY NOT PAID BECAUSE I DECLINED TO BUILD. CLAUDE.md prescribes a one-line
+  existence check (`grep -n <name> scripts/`) BEFORE writing a capability. I did
+  not run it when I wrote finding 5; I ran it today, ten days late, and only
+  because another lane's commit message named the file. I got the right outcome
+  for the wrong reason: I deferred the branch-iteration work as "not to be
+  rushed", which happened to avoid a duplicate build. Do not read that as
+  judgement — read it as luck, and run the check first next time.
+
+  SO THE RECOMMENDATION CHANGES. The sweeper should COMPOSE with
+  `stuck_automation_branches.py`, not reimplement branch enumeration. What that
+  tool LACKS is precisely what this WO's workflow supplies, and the two halves
+  are complementary rather than competing:
+    - it is MANUAL-ONLY by its own wiring comment ("a session or operator runs
+      this when triaging why an automation branch never landed"), so it has NO
+      CADENCE — nothing runs it, which is the same "the alarm has no automatic
+      remedy" shape this WO is about, one level over;
+    - it REPORTS and GATES NOTHING, deliberately ("the judgement about what to
+      do with a stuck branch is a human one") — so it never refreshes, never
+      lands, and never re-asserts an R13 claim.
+  The sweeper has cadence and a verified action path and the wrong input set;
+  that tool has the right input set and neither. Joining them is the real fix
+  for finding 5.
+
+  ⚠️ AND IT IS CURRENTLY BROKEN IN A WAY THAT WOULD POISON THAT JOIN. Filed by
+  another lane the same day as
+  BL-20260910-STUCK-AUTOMATION-BRANCHES-GRADES-LANDED-BY-ANCESTRY-SO-LANDED-IS-DEAD-CODE-AND-EVERY-MERGED-BRANCH-READS-STUCK:
+  `classify` decides LANDED with `git merge-base --is-ancestor`, which is
+  unreachable in a squash-merge repo, so measured over all 712 remote-tracking
+  branches EXACTLY ONE grades LANDED and it is `origin/main` itself. Every real
+  merged branch reads STUCK. A sweeper that consumed that verdict today would
+  try to refresh branches that already landed. Fix that row FIRST, then join.
+
+  ⚠️ NOTE WHAT THIS DOES NOT CHANGE. The sweeper's own input set is still
+  open-PRs, and I have still not shipped the change — this is a correction to
+  the RECOMMENDATION, not work delivered. And the deeper point stands: the
+  repo already owned an instrument that had seen this failure, it ran nowhere,
+  and nobody read it for ten days. That is the same sentence as the WO's thesis.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
