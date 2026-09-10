@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · trainer-capture-watch run 34471749578",
-    "branch": "automation/data-commit-34471749578-1",
-    "claimed_at": "2026-09-10T11:31:51Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-decisions-writeback-20260910T1043",
+    "claimed_at": "2026-09-10T11:38:04Z",
+    "purpose": "Manager registers (Tier-1, docs-only): the checklist refresh the operator is owed, supervision from a live 11:22Z list_sessions, the lease heartbeat, and the two corrections above. FOURTH TAKEOVER IN FOURTEEN MINUTES -- prior holders were the work-digest, session-reaper and trainer-capture-watch automation runs, each claimed-then-merged (11:17:59Z, 11:28:50Z, 11:31:51Z) and each now TERMINAL. There is no way around this: R13 requires the claim in the SAME push that arms, verified by running the guard with the claim dropped, so an armed branch cannot decline to contend. Released on merge."
   },
   "active_sessions": [
     {
