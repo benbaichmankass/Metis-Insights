@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-238 · session_01MQ2EzPomkBsM6uxJMCrJbF",
-    "branch": "claude/mi238-live-observation",
-    "claimed_at": "2026-09-10T09:33:00Z",
-    "purpose": "PR — MI-238 register-only: record the FIRST-EVER live read of GET /api/bot/work/checklist (200 at 2026-09-10T09:29:42Z on deployed 221b5dff1) into OI-20260910-WORKFLOW-PAGE-SHIPPED-..., plus the re-rendered SESSION-BRIEF block that derives from it. One row's observation/clears_when/verified_at; no src/, tests, scripts, workflows or config. TAKEN FROM A TERMINAL HOLDER: the slot named claude/mi201-correct-symbols-claim, whose PR #11667 is already MERGED and is the head of main — nothing was preempted. Mirrored on the coordination board; released on merge. RE-TAKEN 2026-09-10T10:0xZ after a merge conflict: main's slot had moved to automation/error-feed-digest-34463759065-1, whose PR #11677 MERGED at 10:03:45Z with the branch since deleted — a TERMINAL holder, so nothing live was preempted. This is the R13 churn recorded in BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION, not a contested claim."
+    "held_by": "manager · session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-page-landed-20260910T1002",
+    "claimed_at": "2026-09-10T10:16:41Z",
+    "purpose": "PR #11678 — manager registers + four operator decisions answered 2026-09-10T10:15Z. Tier-1, register files only. Released on merge."
   },
   "active_sessions": [
     {
