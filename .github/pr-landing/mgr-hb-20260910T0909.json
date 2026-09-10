@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "#11655 currently holds the single-holder merge_slot in docs/claude/session-board.json, and R13 requires an ARMED self-landing branch to hold it. Two branches cannot, so this heartbeat declares hold rather than fighting for the slot and dirtying #11655 a third time — that contention is a known open defect. The manager merges this by hand once green. ⚠️ THIS IS NOT WAITING ON AN APPROVAL: it is Tier-1 register content and the hold is purely queue mechanics.",
+  "why": "Tier-1: two register files only — docs/claude/work/MANAGER-LEASE.json (the heartbeat) and docs/claude/work/SESSIONS.json (the supervision record R6 requires in the same commit). No src/, tests/, scripts/, config/, deploy/ or .github/workflows/."
+}
