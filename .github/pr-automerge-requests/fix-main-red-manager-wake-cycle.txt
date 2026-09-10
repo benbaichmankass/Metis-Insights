@@ -1,5 +1,0 @@
-PR #11680 — main is RED for every open PR in the repo.
-tests/test_manager_wake.py pinned a cycle id that #11655 correctly corrected.
-Tier-1, one test file. Self-land authorised by the manager in the MI-248 dispatch.
-The PR was opened with create_pull_request BEFORE this file was pushed, so it
-carries a real pull_request event and its CI attaches normally.
