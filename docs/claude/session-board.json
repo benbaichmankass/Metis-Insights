@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-alpaca-close-decision-20260910T1145",
-    "claimed_at": "2026-09-10T11:48:55Z",
-    "purpose": "Manager registers (Tier-1, docs-only): records the operator's 11:45Z decision that the Alpaca qty-scoped partial close confirms STRICT on the trade's own quantity delta, clearing the LAST blocking edge on the operator's Workflow page. PR #11689, opened by me first so it carries a real pull_request event and CI fires -- claude-pr-automerge ADOPTS it rather than creating it under GITHUB_TOKEN, which is the zero-check trap. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
+    "branch": "claude/mgr-dr-outlived-subject-20260910T1250",
+    "claimed_at": "2026-09-10T13:06:10Z",
+    "purpose": "Manager registers (Tier-1, docs-only) for PR #11696: records the operator's 12:50Z decision on DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW together with the finding that the question was already moot when it was put to them, and files MI-258. Opened by hand first so CI fires on a real pull_request event. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
   },
   "active_sessions": [
     {
