@@ -1,0 +1,1 @@
+manager heartbeat 07:04Z — tier 1, registers only; arm auto-merge
