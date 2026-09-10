@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "claude session_01J2dBJqYb85GwahYy51CdLV · PR #11648 (MI-139, OPS lane takeover)",
     "branch": "claude/mi139-observe-deployed-20260910",
-    "claimed_at": "2026-09-10T23:31:37Z",
-    "purpose": "Tier-1 registers only: record the DUE fleet observation on OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET (clause 1 DEPLOYED satisfied; clauses 2-3 not) and file BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT. Original author session_017UnyG4ArXmXKpB8rmEGv1j is gone; this session merged origin/main in rather than rebasing its branch. Taken from github-actions[bot] / automation/work-digest-34541162005-1, whose PR #11745 MERGED at 2026-09-10T23:16:54Z (verified against GitHub, state closed / merged true, not inferred from the claim's age) - a COMPLETED claim, not a live one. No src/, no config/, no order path."
+    "claimed_at": "2026-09-10T23:48:04Z",
+    "purpose": "Tier-1 registers only: clear OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET on its own clears_when (clause 1 DEPLOYED and clause 2 SEAM-REACHED both OBSERVED on the live fleet; clause 3 recorded with a measured why) and file BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT. Unsticking a PR opened 2026-09-10T07:08:09Z whose author session is gone; origin/main merged IN, never rebased. No src/, no config/, no order path, no order placed or cancelled."
   },
   "active_sessions": [
     {
