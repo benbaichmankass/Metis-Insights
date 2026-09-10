@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
-    "branch": "claude/mi251-stuck-branch-ancestry-finding",
-    "claimed_at": "2026-09-10T12:37:22Z",
-    "purpose": "PR #11695 - one appended health-review-backlog row (Tier-1, no src/, no config/). Taken over from my OWN branch claude/mi251-inverse-etf-scope, TERMINAL: PR #11693 carries merged_at 2026-09-10T12:36:44Z. TERMINALITY IS READ FROM merged_at, NEVER FROM ANCESTRY - this repo squash-merges, so git merge-base --is-ancestor reports every merged branch as LIVE and makes this single-holder slot read permanently occupied. Note the API row also shows merged: false BESIDE merged_at being set; trust merged_at."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-dr-outlived-subject-20260910T1250",
+    "claimed_at": "2026-09-10T13:06:10Z",
+    "purpose": "Manager registers (Tier-1, docs-only) for PR #11696: records the operator's 12:50Z decision on DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW together with the finding that the question was already moot when it was put to them, and files MI-258. Opened by hand first so CI fires on a real pull_request event. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
   },
   "active_sessions": [
     {
