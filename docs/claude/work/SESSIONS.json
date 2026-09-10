@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T00:33:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager cadence tick)",
+  "updated_at": "2026-09-10T01:16:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager supervision)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4344,6 +4344,46 @@
       "observation": "MI-229. LIVE via list_sessions 2026-09-10T00:33Z: SESSION_STATUS_RUNNING, connected, updated_at 00:31:31Z. PR #11615 is OPEN with guards/pytest-collect/repo-inventory GREEN on head f606e4d4 and pytest-run still in flight; an EARLIER head (31b9893c) had pytest-run FAIL at 00:22:07Z and the lane pushed a fix itself -- the manager did NOT route it and nothing was owed. !! ITS OWN post_turn_summary CITES 'PR #31030', WHICH DOES NOT EXIST IN THIS REPO; the real PR is #11615. Recorded rather than corrected on its behalf, as an instance of why the cadence tick says judge by MERGED OUTPUT and never by post_turn_summary. #11615 is Tier-2 signal path, landing: hold, auto-merge deliberately NOT armed; the operator's approval (chosen: collapse_to_one_registry) is recorded on WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE and MUST NOT be re-sought -- what it waits on is a merge click.",
       "observed_at": "2026-09-10T00:33:00Z",
       "last_observed_at": "2026-09-10T00:33:00Z"
+    },
+    {
+      "session_id": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
+      "registry_key": "pending-20260910T005655Z",
+      "state": "running",
+      "title": "MI-230 — F-50: M20's 60s exit-eval promise, the near-miss band and the restart gap (operator-approved Tier-1/2)",
+      "owns_object": "WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED",
+      "checklist_item": "MI-230-M20-EXIT-EVAL-NEAR-MISS-AND-RESTART-GAP",
+      "spawned_at": "2026-09-10T00:56:55Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Audit F-50. The M20 promise was BROKEN on 2026-09-07 and today clears by 48.8ms. Operator chose near_miss_and_restart_gap 2026-09-09.",
+      "observed_source_url": "get_session on each id at 2026-09-10T01:16Z",
+      "confirmed_at": "2026-09-10T00:57:57Z",
+      "previous_observation": {
+        "state": "working"
+      },
+      "observation": "MI-230 (F-50). LIVE via get_session 2026-09-10T01:16Z: RUNNING, connected, updated_at 01:15:35Z, branch claude/mi230-exit-eval-near-miss-restart-gap. task_summary: 'wired restart-gap alert+read; fixing test fixtures'. !! IT IS ON THE HARDER HALF, which is the read that matters: the RESTART GAP (last pass of process N to first pass of N+1) is the one interval M20's promise covers and the instrument excludes BY CONSTRUCTION, because max_interval_ms is per-process and the trader restarts on every merge to main. A lane that shipped only the near-miss band would have looked done and not been. Nothing owed to it.",
+      "observed_at": "2026-09-10T01:16:00Z",
+      "last_observed_at": "2026-09-10T01:16:00Z"
+    },
+    {
+      "session_id": "session_017vNWUL48WWrtxssFv2EDMf",
+      "registry_key": "pending-20260910T005702Z",
+      "state": "running",
+      "title": "MI-231 — F-39: three order packages closed while holding four open legs, one on real-money bybit_2 (operator-approved Tier-2)",
+      "owns_object": "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+      "checklist_item": "MI-231-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+      "spawned_at": "2026-09-10T00:57:02Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Audit F-39. Operator chose detector_and_reattach 2026-09-09: promote package_leg_coverage to a suite FAIL, and re-attach legs 4347, 5265, 5474, 5475.",
+      "observed_source_url": "get_session on each id at 2026-09-10T01:16Z",
+      "confirmed_at": "2026-09-10T00:57:57Z",
+      "previous_observation": {
+        "state": "working"
+      },
+      "observation": "MI-231 (F-39, REAL MONEY adjacent). LIVE 01:16Z: RUNNING, connected, updated_at 01:15:46Z. task_summary: 'invariant fails on live data; testing planted controls + verifying venue truth before writeback'. !! ALL THREE HALVES OF THAT ARE THE RIGHT SHAPE: the invariant failing on live data is the finding reproducing rather than a harness passing; PLANTED CONTROLS are the stated criterion (a continuing zero from the promoted detector is not evidence until it has been seen failing on a planted stranded live leg, because the latch it replaces was quiet for exactly the reason nobody read it); and verifying venue truth BEFORE the writeback is the scope limit the operator's own chosen option carries - journal/state repair only, no order touched on any account, emphatically not bybit_2. Nothing owed to it, and its re-attach diff comes back to the operator before it is applied.",
+      "observed_at": "2026-09-10T01:16:00Z",
+      "last_observed_at": "2026-09-10T01:16:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

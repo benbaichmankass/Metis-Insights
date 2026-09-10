@@ -3020,6 +3020,24 @@
       },
       "note": "CORRECT AS `in_flight` -- stated so a reader knows it was checked, not skipped. PR #11615 open at 2026-09-10T00:33Z: guards / pytest-collect / repo-inventory GREEN on head f606e4d4, pytest-run in flight. An earlier head failed pytest-run at 00:22:07Z and the LANE fixed it unaided. Tier-2 signal path, landing: hold -- pr-landing R4/R5 bar an src/** diff from landing itself whatever its approval state, so it waits on a MERGE CLICK and NOT on the approval, which is already recorded (chosen: collapse_to_one_registry). Do not re-ask.",
       "state_observed_at": "2026-09-10T00:33:00Z"
+    },
+    {
+      "id": "MI-230-M20-EXIT-EVAL-NEAR-MISS-AND-RESTART-GAP",
+      "title": "F-50: M20's 60s exit-eval promise was BROKEN on 2026-09-07 and today clears by 48.8ms — build the near-miss band AND grade the restart gap",
+      "state": "in_flight",
+      "owner": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
+      "note": "Routed 2026-09-10T00:57Z. Operator answered 2026-09-09, chosen: near_miss_and_restart_gap, on WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED -- do NOT re-seek. TWO PARTS and the second is the harder one: (b) the RESTART GAP, last pass of process N to first pass of N+1, is the ONE interval the promise covers and the instrument excludes BY CONSTRUCTION, because max_interval_ms is per-process and the trader restarts on every merge to main. A build shipping only the near-miss band has not done it. !! F-51 is deliberately NOT in scope: the breach page never writes outcomes.jsonl, it was offered as a SUPERSET option and the operator picked the narrower one, so it is filed and UNANSWERED rather than rejected. !! The tail's CAUSE is a separate question from its INSTRUMENTATION.",
+      "state_observed_at": "2026-09-10T00:58:00Z",
+      "added": "2026-09-10"
+    },
+    {
+      "id": "MI-231-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+      "title": "F-39: three order packages closed while holding four open legs, one on REAL-MONEY bybit_2 — promote the detector to a suite FAIL and re-attach legs 4347/5265/5474/5475",
+      "state": "in_flight",
+      "owner": "session_017vNWUL48WWrtxssFv2EDMf",
+      "note": "Routed 2026-09-10T00:57Z. Operator answered 2026-09-09, chosen: detector_and_reattach -- the Tier-2 approval. !! THE SCOPE LIMIT IS PART OF THE APPROVAL, NOT A MANAGER GLOSS, and it was stated in the option the operator selected: JOURNAL/STATE REPAIR ONLY. No order may be placed, modified or cancelled on ANY account, emphatically not bybit_2. The venue positions are not to be touched. !! THE RE-ATTACH IS NOT PRE-APPROVED AS A DIFF -- it is a Tier-2 DB writeback whose exact change returns to the operator before it is applied. !! And a continuing zero from the promoted detector is NOT evidence until it has been OBSERVED failing on a planted stranded live leg: the latch it replaces was quiet for exactly the reason nobody read it. Sequencing note: scripts/ops/system_invariants.py was contended by MI-227, which merged as 7b8b6b51d, so that contention is over.",
+      "state_observed_at": "2026-09-10T00:58:00Z",
+      "added": "2026-09-10"
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
