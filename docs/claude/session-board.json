@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
-    "branch": "claude/mi247-oi-option-a-observed",
-    "claimed_at": "2026-09-10T12:12:35Z",
-    "purpose": "PR #11690 - MI-247 register update (Tier-1, docs/claude/OPEN-ITEMS.json, 2 ins/2 del). Taken over from claude/mgr-alpaca-close-decision-20260910T1145, TERMINAL: its PR #11689 shows merged_at 2026-09-10T11:53:59Z. NOTE the ancestry test is INVALID here - this repo squash-merges, so git merge-base --is-ancestor reports a merged branch as LIVE. Establish terminality from the PR's merged_at, not from ancestry."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-hb-tlt-correction-20260910T1210",
+    "claimed_at": "2026-09-10T12:22:28Z",
+    "purpose": "Manager registers (Tier-1, docs-only) for PR #11694. SIXTH slot takeover today, and the contention is the filed defect rather than anyone's mistake: #11690 (MI-247) armed at ~12:15Z while this branch held the slot, landed first as 6d14b8e3d, and dirtied this one -- exactly what I told MI-247 to expect in the other direction. Prior holder claude/mi247-oi-option-a-observed is now TERMINAL. Released on merge."
   },
   "active_sessions": [
     {
