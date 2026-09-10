@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T08:27:00Z",
+  "updated_at": "2026-09-10T08:30:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3350,9 +3350,26 @@
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — the decision is given; nothing blocks typing it and doing the work.",
       "source": "audit F-series via MI-225; surfaced 2026-09-10 by the operator asking why they had not heard back"
+    },
+    {
+      "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
+      "title": "THE THIRD DROP CLASS: a row filed and never routed has no age, no owner and no alarm — filing is not routing",
+      "owner": "unassigned — needs a session",
+      "state": "ready",
+      "tier": 1,
+      "priority": "high",
+      "lane": "engineering",
+      "added": "2026-09-10",
+      "note": "OPERATOR DIRECTIVE 2026-09-10, stating the manager's core mandate: \"your job as a manager session or part of it at least is to ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session and things don't just fall between the cracks. That's the main thing that you need to be focused on... the main impetus for moving to a new system with the manager session was to prevent these kinds of things from happening.\" !! THIS IS THE THIRD MEMBER OF A FAMILY AND THE ONLY ONE NOT YET FILED. MI-235 covers a session BLOCKED on a manager action never being told when it clears. MI-236 covers an `in_flight` row going stale because nothing decays it. NEITHER covers a row that was FILED, correctly, with a real owner-shaped gap — and then simply never routed to anyone. Such a row sits at `ready` / `owner: unassigned` indefinitely: it has no age, nothing computes how long it has been unrouted, and no surface reports it. FILING IS NOT ROUTING, and today the register made those two indistinguishable. MEASURED ON THIS SESSION, and every instance was found only because the operator asked a question that happened to touch it: (1) MI-201-ALPACA-LIVE-ROSTER-EXPANSION — `ready`/`unassigned` from 2026-09-08 to 2026-09-10T08:14Z, TWO DAYS, while being the actual answer to 'why am I still not seeing any live trades'. The operator had to ask before it moved. (2) WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED — the operator ANSWERED it on 2026-09-09 ('fix the constant AND map the five legs'), the answer was written into the object's TITLE while `chosen`/`answered_at` stayed None, and it reached no checklist row and no owner. Found 2026-09-10 only because the operator said 'I still haven't heard back'. Now MI-245. (3) MI-140-ALPACA-LIVE-CANNOT-PLACE — its verdict MERGED 2026-09-07 as #11271 and its row read `state: queued` / `status: in_flight` for three days after. Different proximate cause (MI-237's two status fields) and the SAME outcome: a settled thing that no surface reported as settled. !! AND A FOURTH, ON THE FILE ITSELF: this checklist's `cycle` field declared CY-20260903-MANAGER-CONTROL, superseded 2026-09-06 — so the manager's own state of record carried the wrong named priority for four days and nothing noticed.",
+      "what_this_is_not": "NOT another reminder, and NOT more documentation. The operator's point is EXECUTION: \"we actually finish things and execute them\". A row saying 'the manager should route filed rows promptly' is precisely the reminder-is-not-a-mechanism non-fix this repo has already paid for twice on MI-15. Whatever is built must SURFACE or REFUSE without anyone choosing to look. NOT a licence to auto-route either: spawning against an unread row is worse than leaving it, and the operator's cap of 3 is deliberate.",
+      "the_shape_that_would_have_caught_all_four": "They differ in proximate cause and share one property: a row whose STATE stopped matching reality, with no elapsed-time term anywhere. So the candidate mechanism is an AGE on the state transition — `state_since` — plus a surface that reports rows whose state has held longer than that state should last. `ready` for two days is a finding; `in_flight` owned by a dead session is a finding (MI-236); `blocked` past its blocker's clearance is a finding (MI-235). ⚠️ ESTABLISH THE THRESHOLDS FROM THE DATA, not by choosing round numbers — measure how long rows ACTUALLY hold each state before they move, and state the population. ⚠️ AND IT MUST DISTINGUISH `we did not look` FROM `nothing is stale`: a surface that cannot say which is which reproduces the collapsed-state class this repo has a guard family for.",
+      "resolution_criteria": "(1) A row that has held `ready`/`unassigned` past a measured threshold is SURFACED somewhere a manager reads before it plans — not in a 5.1 MB backlog, and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row is reported before the operator asks about it. !! (2) IS THE WHOLE POINT AND (1) DOES NOT SUBSTITUTE — every mechanism in this family has shipped and then not been read; that is what OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION and OI-20260902-ROLE-PACKS-... both still record. !! A GREEN GUARD CLEARS (1) ONLY. !! AND IF THE ANSWER IS THAT MI-235/MI-236/MI-237 SUBSUME THIS ONCE BUILT, that is a legitimate finding — say so and CLOSE this row explicitly rather than leaving a fourth near-duplicate accruing, which is itself the class.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-237: the schema migration would give the field a home, but the missing thing is an elapsed-time term and a surface, which do not depend on it.",
+      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
     }
   ],
-  "as_of": "2026-09-10T08:27:00Z",
+  "as_of": "2026-09-10T08:30:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
