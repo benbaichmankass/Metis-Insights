@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surfaces ONLY: the lease heartbeat, the sub-session registry, the manager checklist, the merge queue, and one health-review-backlog filing. No src/, no config/, no scripts/, no deploy/, no .github/workflows/, no role packs, and nothing in CLAUDE.md outside the generated SESSION-BRIEF block -- i.e. every changed path is inside TIER1_SURFACE and none of it is a worker path under check_manager_scope R2. Carries the lease heartbeat with FRESH supervision in the same commit so R6 grades a live registry rather than a bare timestamp, and SESSIONS.json::updated_at is a full ISO timestamp rather than a bare date (a date parses as midnight and fails R6 against the 90-minute TTL). Files BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY, and filing is the act of NOT taking the item."
+}

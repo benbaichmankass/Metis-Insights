@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T0222",
-    "claimed_at": "2026-09-10T02:24:58Z",
-    "purpose": "Manager heartbeat (02:20:29Z), live three-lane supervision, and two backlog filings: an instance appended to the open loud-flag row (75.6% -> 84.7%) and one new row on the poke-verification check. Tier-1, no worker path, no order touched."
+    "branch": "claude/mgr-hb-20260910T0246",
+    "claimed_at": "2026-09-10T02:50:26Z",
+    "purpose": "manager heartbeat 02:49:05Z + four-lane supervision + merge-queue ledger + one backlog filing"
   },
   "active_sessions": [
     {
