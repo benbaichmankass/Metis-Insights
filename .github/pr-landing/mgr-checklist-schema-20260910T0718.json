@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "hold_text": "Must land AFTER #11640 (MI-231, F-39 session-end). #11640 went `dirty` at 07:18Z because THIS manager's own merges (#11644, #11646, #11647) dirtied it twice, and its session is live and resolving that conflict now. Landing this PR first would dirty it a third time, which is the merge-queue harm the manager exists to prevent -- so the hold is queue discipline, not a content dependency. Flip to `landing: self` and arm auto-merge once #11640 is merged or explicitly closed.",
-  "why": "Tier-1 by path: one file, docs/claude/work/MANAGER-CHECKLIST.json, appending a single filed checklist row. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ -- nothing here can reach a runtime, an order path or a strategy. Filing a backlog/checklist row is explicitly a management act (the act of NOT taking the item), so it is also within manager scope."
+  "landing": "self",
+  "why": "Tier-1 by path: docs/claude/work/** only — MANAGER-CHECKLIST.json, SESSIONS.json, MANAGER-LEASE.json and three work objects, plus this landing declaration. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/, so nothing here can reach a runtime, an order path or a strategy. Contents are management acts: filed checklist rows (filing is explicitly the act of NOT taking an item), a lease heartbeat, a supervision reconcile written from a live list_sessions read, and four recorded operator decisions. THE PRIOR HOLD IS DISCHARGED, not dropped: this file previously declared landing: hold with hold_reason depends_on_unmerged_pr naming #11640, which merged 2026-09-10T08:0xZ as 55c52392f. That was merge-queue discipline — #11640's CI window (~18 min) exceeded main's merge interval (~10 min), so it was dirtied inside every green window, twice by this manager's own merges. Holding until it landed was the fix; with it merged the reason no longer exists."
 }
