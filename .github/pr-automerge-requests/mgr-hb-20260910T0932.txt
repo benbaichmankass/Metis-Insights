@@ -1,0 +1,1 @@
+Arms claude-pr-automerge for PR #11675 — manager lease heartbeat 09:29:29Z + the 09:28Z supervision record. Tier-1, two register files. Pushed SECOND so the PR carries a real pull_request event and CI actually fires.

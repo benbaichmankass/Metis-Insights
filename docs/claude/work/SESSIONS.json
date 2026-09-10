@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T09:09:00Z",
+  "updated_at": "2026-09-10T09:32:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4394,8 +4394,8 @@
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:37:04Z",
-      "updated_at": "2026-09-10T09:09:00Z",
-      "manager_observation": "MI-238 (engineering): poked 2026-09-10T08:13Z with a manager correction — a Work page ALREADY EXISTS on the deployed SPA and its brief did not say so; told to EXTEND it, not rebuild. Delivery confirmed (cse_ suffix matched the target id). Not re-read since; state below is its last observed value, not a fresh one."
+      "updated_at": "2026-09-10T09:32:00Z",
+      "manager_observation": "MI-238 (engineering) — LIVE READ 2026-09-10T09:28Z via list_sessions(mine=true): RUNNING/connected, updated_at 09:28:02Z, so it is actively working right now rather than idle-with-a-stale-field. Its bot half LANDED: PR #11651 merged 09:31Z as 4875f407a3d773bd86911a9ceed24e9098096b8c, Tier-2 by PATH (src/web/api/routers/work.py + src/runtime/manager_status.py), operator-approved by popup this tick ('Merge it'). ⚠️ WHAT IS NOT DONE AND MUST NOT BE READ AS DONE: the SPA page itself ships in benbaichmankass/ict-trader-dashboard and is NOT written; a route nobody calls renders nothing. The operator asked for a PAGE, so this lane is at most half delivered. ⚠️ post_turn_summary was EMPTY on this read (status_category None) — that is not a healthy signal and is not evidence of progress; the merge is."
     },
     {
       "session_id": "session_01FyYyybxWC7VD1Rq1doEEdf",
@@ -4409,13 +4409,13 @@
       "why": "Operator approved the XRPUSDT half 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED), completing the earlier paper-first approval. Tool already merged as #11630/c88c7ff9e.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:57:32Z",
-      "updated_at": "2026-09-10T09:09:00Z",
-      "manager_observation": "MI-241 (ops, REAL MONEY): OBSERVED 2026-09-10T09:09Z — IDLE/connected, status_bucket REVIEW_READY, '3 guard checks green; awaiting pytest-run' on claude/mi241-f39-reattach-dispatch. ⚠️ A MANAGER CONCERN RAISED AT 08:42Z IS HEREBY WITHDRAWN, and it is recorded rather than deleted: its task_summary then read 'Hand-run every test in the system-actions module', which is not what it was dispatched to do, and the manager flagged possible drift WITHOUT asserting it. The later read shows it was validating tooling before touching a money DB and is now review_ready. The concern was correctly raised as unestablished and is correctly closed by observation, not by assumption."
+      "updated_at": "2026-09-10T09:32:00Z",
+      "manager_observation": "MI-241 (ops, REAL-MONEY-adjacent) — LIVE READ 09:28Z: IDLE/connected, updated 09:26:53Z. ⚠️ ITS OWN post_turn_summary READS '4/5 checks green, pytest-run pending' AND THAT IS STALE AND OPTIMISTIC: measured on GitHub at 09:21Z, #11652 was mergeable_state=dirty with total_count=0 check runs — a MERGE CONFLICT in docs/claude/OPEN-ITEMS.json and docs/claude/health-review-backlog.json, not un-started CI. I poked it at 09:23Z with the two conflicting files measured by git merge-tree. It responded: head moved 5209eb37 -> 50ed76787d2518617d23ba04ebd923545445d652 at 09:23:59Z (9 commits). NOT YET CONFIRMED GREEN — mergeable_state read 'unknown' (recomputing) at 09:30Z. ⚠️ The operator ANSWERED 'Merge it' on #11652 at ~09:10Z; it is waiting on CI, not on a decision, and the approval must not be re-sought."
     },
     {
       "session_id": "session_01UxsiSgFa9dKwBFw5RTbLGA",
       "registry_key": "pending-20260910T081408Z",
-      "state": "completed",
+      "state": "working",
       "title": "MI-201 — propose the alpaca_live roster expansion (Tier-1 proposal; the roster change itself is Tier-3)",
       "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
       "spawned_at": "2026-09-10T08:14:08Z",
@@ -4424,13 +4424,13 @@
       "why": "Operator asked 2026-09-10 why alpaca_live shows no live trades weeks after reactivation. MI-140's merged verdict (#11271) says it is NOT broken: it was asked twice, both times to short, both suppressed by the operator-directed side_filter: long gate. The real cause is a roster of ONE leg. This row has read ready/unassigned since 2026-09-08 and was never routed.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T08:14:52Z",
-      "updated_at": "2026-09-10T09:09:00Z",
-      "manager_observation": "MI-201 (research): DELIVERED. PR #11665 merged as 145101e54 — the alpaca_live roster screen. Its answer supersedes the manager's earlier relay: shorting_enabled: false on the account, so all three post-arming packages were unexecutable AT THE VENUE before side_filter was consulted. Option A approved by the operator 09:0xZ and spawned as MI-247."
+      "updated_at": "2026-09-10T09:32:00Z",
+      "manager_observation": "MI-201 (research) — ⚠️ THIS ROW READ `completed` AND THAT WAS WRONG. LIVE READ 09:28Z: RUNNING/connected, updated 09:28:01Z, post_turn_summary need_input: '4 PRs open; #11666 ready to merge; awaiting your merge click + decision record'. THE LANE WAS BLOCKED ON ME, which is the first thing this tick is supposed to fix. Cleared 09:26-09:31Z: #11666 (Tier-2, the immortal silent-refusal latch) put to the operator by popup and MERGED as 7f14898850e543f3f77463a7a144d18c458d2d8a; #11667 (the symbols-claim correction) MERGED as 221b5dff1. #11673 remains open. ⚠️ MEASURED with git merge-tree at 09:29Z, with #11666's branch as a POSITIVE CONTROL (clean, so the probe finds a real negative): both #11667 and #11673 conflicted ONLY on docs/claude/session-board.json — the R13 single-holder merge_slot, a known open defect, not their bug. Poked 09:31Z with the resolution recipe and told to release the slot rather than re-enter the race."
     },
     {
       "session_id": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
       "registry_key": "pending-20260910T090025Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-247 — apply Option A: add four legs to alpaca_live (Tier-3, operator-approved 2026-09-10)",
       "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
       "spawned_at": "2026-09-10T09:00:25Z",
@@ -4438,9 +4438,11 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator approved Option A from MI-201's screen (#11665, merged): tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d. Tier-3 config/accounts.yaml change on a REAL-MONEY account; R4 bars self-landing.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-10T09:01:05Z"
+      "confirmed_at": "2026-09-10T09:01:05Z",
+      "updated_at": "2026-09-10T09:32:00Z",
+      "manager_observation": "MI-247 (research, REAL MONEY) — LIVE READ 09:28Z: IDLE/disconnected, updated 09:19:53Z. Delivered PR #11671: Option A, four legs onto alpaca_live (tlt/ief/slv/iaum _pullback_1d), Tier-3, operator-approved. 3 of 4 checks green (guards, pytest-collect, repo-inventory); pytest-run still in_progress at 09:30Z, started 09:16:44Z. ⚠️ IT CARRIED MY 09:10Z RETRACTION CORRECTLY — the PR records that the account-level `symbols:` list is NOT inert (src/main.py::_resolve_tick_symbols reads it and sizes the tick loop) and keeps the conclusion on the corrected reason. That was the urgent poke and it landed. R4 bars a Tier-3 diff from self-landing, so it waits on my merge click once pytest-run is green; the approval is recorded and must not be re-sought."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-09T04:26:57Z — list_sessions(mine=true, limit=25) read at 04:25Z: EVERY row returned is SESSION_STATUS_IDLE, all but one `disconnected`. 24 are rows here and carry a refreshed `last_observed`. ⚠️ PAGE ONE OF MORE (has_more=true): the other 152 rows were NOT observed and their state is CARRIED, not confirmed. ⚠️ `state` IS DELIBERATELY NOT REWRITTEN TO `idle` — I tried that and it was wrong twice over. It would have overwritten nine rows' `manager_verdict` / `manager_verdict_basis` (e.g. 'answered_already: #11330 MERGED 2026-09-08T06:14:03Z'), which is the one thing stopping a successor re-asking a settled question; and IDLE is a PLATFORM fact about a connection, never a verdict that the work is finished. Six checklist rows moved to `done` in this same commit ONLY on PRs verified merged on main; MI-193/MI-195/MI-196 were left alone because their claims could not be verified. A statement about what this manager spawned and can see, never a claim that no other session exists."
+  "⚠️_last_live_reconcile": "2026-09-10T09:28Z — list_sessions(mine=true, limit=25), 25 returned, graded against the manager-2026-09-06 tag. FOUR rows reconciled from that read (MI-238, MI-241, MI-247, MI-201). ⚠️ TWO FINDINGS THE READ PRODUCED THAT NO REGISTRY FIELD SHOWS. (1) session_01WmFdLwfq4U5aLLjFRDDy6b (MI-222, the venue-truth position detector) has read REQUIRES_ACTION/disconnected since 2026-09-10T06:55:58Z — 2.5 HOURS BLOCKED ON A PERMISSION PROMPT ('Waiting on permission: mcp__...__pull_request_read') with no human in that container to answer it. That is a DROP, not a stall: nothing decays it and nothing was going to surface it. Filed rather than silently carried. (2) FOUR sessions were alive at once against an operator cap of THREE — MI-238 and MI-201 both RUNNING, MI-241 and MI-247 idle-with-open-PRs. MI-247 was spawned into the research lane at 09:00Z while MI-201 (also research) was still live, on a stale reading that MI-201 had completed. Recorded as a breach of the cap, not glossed. ⚠️ post_turn_summary was NOT trusted for any of the four: MI-241's read '4/5 green' while GitHub showed a merge conflict with zero check runs, and MI-238's was empty."
 }
