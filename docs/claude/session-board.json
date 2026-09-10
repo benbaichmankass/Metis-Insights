@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T1326",
-    "claimed_at": "2026-09-10T13:29:04Z",
-    "purpose": "Manager lease heartbeat 13:25:57Z (PR #11698), expires 14:55:57Z, plus supervision from a live 13:26:00Z read. TAKEN FROM THIS SESSION'S OWN #11697 rather than from another session's branch: the lease expired 13:39:07Z and #11697's pytest-run would not have finished until ~13:41Z, so waiting would have lapsed it. #11697 gets one rebase; the cost is paid to myself. Released on merge."
+    "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
+    "branch": "claude/oi-position-read-state-soak-first-read",
+    "claimed_at": "2026-09-10T13:43:17Z",
+    "purpose": "Tier-1 register-only observation on OI-20260909-POSITION-READ-STATE-SOAK (2 files, 2-line OPEN-ITEMS numstat + the re-rendered session brief). TAKEN FROM A STALE CLAIM, NOT FROM LIVE WORK: the prior holder's branch claude/mgr-hb-20260910T1326 merged as #11698 at 13:34:14Z (verified via pull_request_read, merged: true) and its own purpose said 'Released on merge' — the release write never landed. Released on merge."
   },
   "active_sessions": [
     {
