@@ -1,0 +1,6 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "Docstring-and-comment only inside src/runtime/orphan_attribution.py. src/** is Tier-2 by path (R5 grades the declared tier against the diff), and R4 bars a Tier-2 diff from landing itself whatever its approval state, so this is HELD for the operator's OK routed by the manager. The change corrects a quantitative claim with no stated population -- 'Of 5 judgeable adopts, 2 named a strategy whose own size distribution excludes the position' -- which is DEFAULT_BAND's own stated justification, i.e. load-bearing prose in the module that decides whether a live orphan adopt is refused. Re-measured over a population that IS named: 2 of 15. NO behaviour changes: no statement, no constant, no signature is touched -- verified by the 24-case suite passing unchanged. The Tier-1 half of the same correction (the test table's transposed trade id, and the same figure in docs/claude/OPEN-ITEMS.json) is PR #11717 and is deliberately separate rather than smuggled in behind a Tier-1 declaration."
+}
