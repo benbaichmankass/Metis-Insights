@@ -8,7 +8,7 @@
     "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
     "branch": "claude/backlog-merge-slot-release-and-automerge-order",
     "claimed_at": "2026-09-10T13:57:25Z",
-    "purpose": "Tier-1 backlog-only (2 rows, numstat 20/0). CONTINUATION of this session's own claim, not a takeover: re-pointed from claude/oi-position-read-state-soak-first-read, merged as #11699 / 197129680. See .github/pr-landing/backlog-merge-slot-release-and-automerge-order.json::merge_slot_note for why this PR HOLDS rather than RELEASES the slot — R13 requires an armed branch to hold it, so a release-and-arm PR fails by construction, which is exactly the finding Row 1 files."
+    "purpose": "Tier-1 backlog-only. RE-CLAIMED over a STALE automation claim, recorded rather than silent: #11701 (automation/work-digest-34486820000-1) took the slot at 14:06:46Z and its own purpose says 'arming auto-merge IS the merge' -- that PR is MERGED (3a3673c2d is on main), so the claim was finished the moment it was written. SECOND stale claim reasoned past in 25 minutes, after the manager's at 13:43Z, and exactly the collapsed state this PR files as BL-20260910-THE-MERGE-SLOT-HAS-A-DOCUMENTED-RELEASE-STEP-WITH-NO-MECHANISM-SO-EVERY-CLAIM-READS-HELD-FOREVER: merge_slot cannot say 'nobody holds this'. Not taken from live work. Continuation of this session's own claim, re-pointed from claude/oi-position-read-state-soak-first-read (#11699)."
   },
   "active_sessions": [
     {
