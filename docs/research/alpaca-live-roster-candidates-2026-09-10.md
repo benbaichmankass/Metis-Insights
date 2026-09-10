@@ -607,6 +607,23 @@ issue that produces no run is a real and silent state**, and the remedy is the
 dispatch path rather than re-filing the issue. If you are waiting on one of these
 and see nothing, check `actions_list` before assuming it is queued.
 
+**⚠️ THE `GITHUB_TOKEN` ZERO-CHECK TRAP HAS A THIRD ENTRANCE, AND I WALKED INTO
+IT WHILE DOCUMENTING IT.** `CLAUDE.md`'s prevention is *"open the PR yourself
+first, then push the arming file"*, and it works — #11665 and #11666 both carry
+five real check runs because of it. But it is **an ordering across two pushes**,
+and the correction PR for this very document collapsed them: I amended the
+arming file into the branch's FIRST commit, so `claude-pr-automerge` saw an
+armed branch with no open PR, called `pulls.create` under `GITHUB_TOKEN`, and
+#11667 was born with **no `pull_request` event and no CI** — the exact state
+the prevention exists to avoid.
+
+So the rule is sharper than "open it first": **the arming file must not be in
+the branch's first push.** If you are amending or squashing while setting a
+branch up, that is precisely when the two pushes silently become one. The
+remedy is unchanged (push one ordinary commit — never an empty one), but the
+cheaper move is to keep `.github/pr-automerge-requests/` out of the initial
+commit entirely.
+
 **Every compat-matrix run opens a landing PR to `main`** carrying
 `docs/research/gld-compat-matrix-verdicts.jsonl` (the workflow's own header
 records this, and warns that its older "does NOT push" sentence is false). Four
