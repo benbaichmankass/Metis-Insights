@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T17:26:00Z",
+  "updated_at": "2026-09-10T18:00:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4406,10 +4406,10 @@
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:37:04Z",
-      "updated_at": "2026-09-10T17:26:00Z",
-      "manager_observation": "MI-262. PICKED UP all three pokes (16:58Z dispatch, 17:01Z root-cause evidence, 17:04Z after-case) and DELIVERED #11716 at 17:23Z — 25 minutes from dispatch. Declared tier 1 / landing hold / hold_reason unvouchable_paths, correctly: R5 refuses self-landing because the diff touches src/runtime/manager_status.py and src/web/api/routers/work.py, outside TIER1_SURFACE. ⚠️ IT PUSHED BACK ON MY FRAMING AND IT IS RIGHT TO. I told it the treeState defect was likely this repo's collapsed-state class; it established with a live measurement that it is NOT — all three tree states are emitted and branched on, and the behind==0 && head!=main case already grades `unknown`. What was missing is PROVENANCE ON THE COMPARISON BASE: behind_commits counts against the LOCAL origin/main ref while deploy_pull_restart.sh hard-resets HEAD to that ref straight after fetching, so the zero is guaranteed by construction rather than measured. Its fix reads FETCH_HEAD's mtime — no network call on a read route — and returns None, never 0.0, when it cannot establish when we last fetched. Reaching for the named failure class because it was nearby would have been the wrong diagnosis; it said so instead of agreeing with me. ⚠️ AND IT DECLINED TO CLAIM CRITERION (2): 'a tree that is behind reads as behind' cannot be met without a fetch, and it performs none. It said so rather than declaring the criterion met — the honest outcome, and I am recording it as such rather than treating the row as closed.",
-      "live_status": "delivered_pr_11716_awaiting_ci_and_a_human_certification",
-      "live_status_read_at": "2026-09-10T17:25:00Z",
+      "updated_at": "2026-09-10T18:00:00Z",
+      "manager_observation": "MI-262. #11716 MERGED as 5f5292a0f after the manager read and certified the diff. OBSERVED on the deployed route at 17:58:55Z: mainRefAgeHours present, treeNote/stamp now state when we last fetched, AND the 15-minute warning FIRED at 25m — the positive half of criterion (1), on the real page. ⚠️ The NEGATIVE control is not yet taken under the new code, so the row stays open; the 17:04Z clean read was under the old 3.0h threshold and does not count. Next for this lane: land the held SPA companion ict-trader-dashboard#214, and bring the manager a PROPOSAL on criterion (2) — fix it or retire it as a recorded decision — rather than deciding it.",
+      "live_status": "pr_merged_awaiting_spa_companion_and_the_negative_control",
+      "live_status_read_at": "2026-09-10T17:58:55Z",
       "live_updated_at": "2026-09-10T13:22:37Z"
     },
     {
@@ -4468,5 +4468,5 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-10T17:25Z — PARTIAL. This pass verified TWO lanes against live evidence: session_01FyYyybxWC7VD1Rq1doEEdf (read off merged PRs #11708/#11715 on main) and session_01MQ2EzPomkBsM6uxJMCrJbF (read off delivered PR #11716 — its landing declaration, its diff, its CI). Both were read from MERGED OUTPUT or a live PR, never from a post_turn_summary, which freezes in BOTH directions. The other 202 rows were NOT re-read this pass; an absent or older live_status_read_at means NOBODY LOOKED THIS PASS, never that the lane is fine."
+  "⚠️_last_live_reconcile": "2026-09-10T17:58Z — PARTIAL. One lane re-read (session_01MQ2EzPomkBsM6uxJMCrJbF), off its MERGED PR and off the DEPLOYED route rather than a post_turn_summary. The other 203 rows were NOT re-read this pass; an absent or older live_status_read_at means nobody looked, never that the lane is fine."
 }
