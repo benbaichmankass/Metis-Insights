@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "two lines in docs/claude/OPEN-ITEMS.json (observation + verified_at) plus the regenerated CLAUDE.md SESSION-BRIEF block. Records that MI-227's clauses (1) merged and (2) deployed are now established on the fleet, so a later session does not re-derive the deploy check; the original observation text is kept verbatim as the record. No runtime, order path, config, test or CI behaviour is touched."
+}

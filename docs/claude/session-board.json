@@ -6,11 +6,12 @@
  },
   "merge_slot": {
   "held_by": "session_0178Pn128KK71u6nCzLeVH6w",
-  "branch": "claude/mi227-work-object-waiting",
-  "pr": 11616,
-  "claimed_at": "2026-09-09T23:49:00Z",
-  "purpose": "MI-227 session-end record-keeping (Tier-1, one work-object YAML: lifecycle in_flight -> waiting after #11604 merged, plus one true external_event blocked_on edge)",
-  "found_stale": "Claimed over a STALE holder rather than jumping a live queue, recorded rather than quietly taken: the slot read session_01FoASvmUGuahCphE1cewPPs / claude/mi214-claude-md-reaches-nobody claimed 2026-09-09T23:27:58Z, and that branch's PR #11613 MERGED at 2026-09-09T23:38:35Z without the slot being released. Verified against GitHub (search_pull_requests on the head branch: state closed, merged_at 23:38:35Z), not inferred from the commit subject on main."
+  "branch": "claude/mi227-deploy-observed",
+  "pr": 11617,
+  "claimed_at": "2026-09-09T23:52:00Z",
+  "purpose": "MI-227 follow-through record (Tier-1: OPEN-ITEMS.json observation + verified_at, and the regenerated CLAUDE.md SESSION-BRIEF)",
+  "found_stale": "Claimed over a STALE holder, recorded rather than quietly taken: the slot read session_01FoASvmUGuahCphE1cewPPs / claude/mi214-claude-md-reaches-nobody claimed 2026-09-09T23:27:58Z, whose PR #11613 MERGED at 2026-09-09T23:38:35Z without release. Verified against GitHub (search_pull_requests on that head branch: closed, merged_at 23:38:35Z), not inferred from main's commit subject.",
+  "concurrent_sibling": "RESOLVED 2026-09-09T23:57Z, and the prediction this field made came true: the sibling claude/mi227-work-object-waiting (PR #11616) MERGED as 4230ef10b, its claim reached main, and this branch then conflicted on exactly this block -- which is WHY the merge ref could not build and #11617 showed total_count 0 check runs, i.e. a merge conflict masquerading as `CI has not started`. Resolved by KEEPING THIS BRANCH'S CLAIM and discarding the sibling's, which is not taking a side arbitrarily: #11616 has LANDED, so its claim is spent by the same test that graded MI-214's stale (its PR merged, the slot was never released). !! THE SLOT MUST STILL BE RELEASED, AND NOT IN THIS FILE BY THIS PR: R13 fails an armed branch carrying no claim, so a release-only PR would need a claim to land its own release -- circular. docs/claude/coordination-board.md settles it: the authoritative live claim is the `MERGE SLOT CLAIM` comment on the live board issue and THIS FILE IS ITS MIRROR, so the release is posted there once this lands. A future reader finding this claim on main should read it as the attribution of the last armed merge, NOT as a slot still held."
  },
  "active_sessions": [
   {
