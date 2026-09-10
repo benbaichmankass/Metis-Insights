@@ -1,90 +1,93 @@
 {
- "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). THE AUTHORITATIVE LIVE MERGE CLAIM IS THE `🔒 MERGE SLOT CLAIM` / `🔓 RELEASE` COMMENT ON THE LIVE BOARD (GitHub issue #6927), posted as a per-merge precondition — that comment reaches other sessions instantly; the `merge_slot` field below is a best-effort DURABLE MIRROR of it, not the claim itself (BL-20260720-MERGE-PROTOCOL-LAPSE: sessions treated this JSON as the claim, it went untouched under load, and 3 claim-less merges raced `behind` in one day). The LIVE open-PR list (GitHub) is the authoritative real-time signal for who is mid-merge. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` § 2 (the per-merge precondition) and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock — it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection REQUIRED STATUS CHECKS (pytest-collect/pytest-run/guards, enforce_admins on), so no merge lands red. NOTE 2026-08-10: this used to read 'require-up-to-date'; that setting is now OFF (strict:false, operator-directed) because it forced a ~9-min CI re-run on any PR that went behind without serializing anything. Being behind main no longer blocks a merge. **2026-07-26 (BL-20260726-MERGE-QUEUE-ENABLEMENT): once the GitHub native merge queue is enabled (docs/runbooks/merge-queue.md), it is the PRIMARY merge serializer (auto-sync + serialize + merge-on-green), and this `merge_slot` + the board CLAIM/RELEASE comments become belt-and-suspenders for the rare non-queued/admin-bypass merge. The board's PRIMARY, always-mandatory job is work coordination — `active_sessions` registration + the #6927 START/DONE/question comments — which the queue does NOT replace. The board is kept, not retired (operator directive 2026-07-26).**",
- "schema": {
-  "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
-  "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
- },
+  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). THE AUTHORITATIVE LIVE MERGE CLAIM IS THE `🔒 MERGE SLOT CLAIM` / `🔓 RELEASE` COMMENT ON THE LIVE BOARD (GitHub issue #6927), posted as a per-merge precondition — that comment reaches other sessions instantly; the `merge_slot` field below is a best-effort DURABLE MIRROR of it, not the claim itself (BL-20260720-MERGE-PROTOCOL-LAPSE: sessions treated this JSON as the claim, it went untouched under load, and 3 claim-less merges raced `behind` in one day). The LIVE open-PR list (GitHub) is the authoritative real-time signal for who is mid-merge. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` § 2 (the per-merge precondition) and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock — it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection REQUIRED STATUS CHECKS (pytest-collect/pytest-run/guards, enforce_admins on), so no merge lands red. NOTE 2026-08-10: this used to read 'require-up-to-date'; that setting is now OFF (strict:false, operator-directed) because it forced a ~9-min CI re-run on any PR that went behind without serializing anything. Being behind main no longer blocks a merge. **2026-07-26 (BL-20260726-MERGE-QUEUE-ENABLEMENT): once the GitHub native merge queue is enabled (docs/runbooks/merge-queue.md), it is the PRIMARY merge serializer (auto-sync + serialize + merge-on-green), and this `merge_slot` + the board CLAIM/RELEASE comments become belt-and-suspenders for the rare non-queued/admin-bypass merge. The board's PRIMARY, always-mandatory job is work coordination — `active_sessions` registration + the #6927 START/DONE/question comments — which the queue does NOT replace. The board is kept, not retired (operator directive 2026-07-26).**",
+  "schema": {
+    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — DURABLE MIRROR of the authoritative `🔒 MERGE SLOT CLAIM` board comment on #6927 (which is the real live claim). At most ONE session holds this at a time. Mirror the claim here before merge, clear after (merged or aborted).",
+    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
+  },
   "merge_slot": {
-    "held_by": "github-actions[bot] · error-feed-digest run 34421732450",
-    "branch": "automation/error-feed-digest-34421732450-1",
-    "claimed_at": "2026-09-10T00:33:00Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-hb-20260910T0035",
+    "pr": 11622,
+    "claimed_at": "2026-09-10T00:36:00Z",
+    "purpose": "Manager cadence tick: lease heartbeat, a live six-lane supervision record, two stale checklist rows corrected in_flight -> landed_unproven, and one recurrence backlog row. Tier-1, no worker path, no order touched.",
+    "found_stale": "Claimed over MY OWN merged claim, recorded rather than quietly reused: the slot held session_01HrmZ1RRNM4UnEUaFdrPEjj / claude/mgr-audit-dispositions-20260909 / pr 11619, whose PR MERGED at 2026-09-10T00:30:59Z (confirmed by the subscribed-PR event, outcome: merged). Nothing releases the slot on merge, so a claimant's only honest option is to say whose ghost it stepped over -- BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST. !! THAT ROW IS WIDER THAN SESSIONS AS OF TONIGHT: the claim BEFORE mine was .github/actions/commit-to-main holding it for work-digest run 34420408024, which landed as #11618 and released nothing, and that unreleased bot claim is precisely what made #11619 mergeable_state=dirty and cost it every pull_request check run. !! REBASE 2026-09-10T00:41Z -- A THIRD UNRELEASED AUTOMATION CLAIM IN ONE EVENING, and this one displaced the claim recorded in the sentence above. main's stage-2 slot read 'github-actions[bot] - error-feed-digest run 34421732450' with pr: null, landed as #11621 and released nothing, which is what made #11622 mergeable_state=dirty. So tonight the sequence is: work-digest 34420408024 -> #11618 (dirtied #11619), then error-feed-digest 34421732450 -> #11621 (dirtied #11622). TWO of the three ghosts were BOTS, not sessions. That is the measured basis for BL-20260910-A-MANAGER-READ-THREE-DIRTY-PRS-AS-A-NEW-WEDGE-CLASS-AND-NEARLY-FILED-IT-THE-THIRD-OCCURRENCE-OF-A-CLASS-CLAUDEMD-ALREADY-RESTATES's second finding: .github/actions/commit-to-main claims this slot and has no release path, so the automation queue now races every manager register write. active_sessions was compared across all three stages and is IDENTICAL (5 rows, same keys) -- no union was owed there, and taking a side on merge_slot is safe ONLY because that field is a single-holder mirror, never an append-only list. !! SECOND REBASE 2026-09-10T00:45Z, after this manager merged #11615 (MI-229 / audit F-28) as 2ee21f4e5. main STILL carried the same unreleased error-feed-digest claim, and active_sessions had DIVERGED (main 6 rows, this branch 5), so it was resolved as a VERIFIED UNION over (session, branch) keys -- never by taking a side, which would have silently deleted whichever row the other side added and left no trace in the diff. merge_slot is the one field where taking a side is correct, because it is a single-holder mirror rather than an append-only list.",
+    "concurrent_sibling": "claude/mi217-packet-reads-offline-evidence (MI-215's lane) posted a board START at 2026-09-10T00:16:37Z declaring docs/claude/health-review-backlog.json, which this commit APPENDS one row to. A conflict there is EXPECTED and must be resolved as a VERIFIED UNION over id sets -- never by taking a side, which silently deletes every row the other branch added and leaves no trace in the diff."
   },
- "active_sessions": [
-  {
-   "session": "session_01TM8XjkvVpvMxH4EcLtTsvP",
-   "branch": "claude/mi229-collapse-builder-registry",
-   "repo": "benbaichmankass/Metis-Insights",
-   "status": "done",
-   "started_at": "2026-09-09T22:05:00Z",
-   "ended_at": "2026-09-09T23:59:00Z",
-   "scope": "MI-229 (audit F-28, operator-approved 'collapse'). Tier-2 SIGNAL PATH: deletes pipeline._STRATEGY_BUILDERS (the second registry) and routes multiplexed_signal_builder + monitor_unit_for through intent_multiplexer._resolve_builders(). Also: intent_multiplexer docstring, 7 tests that named the deleted symbol, a new re-split detector test, .claude/skills/new-strategy/SKILL.md + docs/strategies/supported_strategies.md (both instructed authors to register in the dict being deleted), the WO yaml, session-board.json.",
-   "note": "Places/modifies/cancels NO order and flips NO env var. Does NOT touch src/units/accounts/execute.py or scripts/ops/system_invariants.py (MI-227 is live in both). Landing: PR opened ready with landing:hold, tier 2 - manager or operator merges; auto-merge NOT armed so no merge_slot is claimed."
-  },
-  {
-   "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
-   "branch": "claude/mi218-count-calendar-time-edge-surfaces",
-   "repo": "benbaichmankass/Metis-Insights",
-   "status": "done",
-   "started_at": "2026-09-09T10:55:00Z",
-   "ended_at": "2026-09-09T13:25:00Z",
-   "scope": "MI-218 \u2014 Tier-1 MEASUREMENT ONLY. New: scripts/ops/calendar_edge_census.py, tests/test_calendar_edge_census.py, docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md, the WO yaml. Record edits: health-review-backlog.json, MANAGER-CHECKLIST.json (MI-218 row), SESSIONS.json, DOCUMENT-INDEX.md, session-board.json.",
-   "note": "CLOSED OUT via PR #11553. Changes NO gate, threshold or config. READS scripts/check_soak_doctrine.py (MI-215 check D, landing in #11529) and imports its detector; does not edit it. \u26a0\ufe0f Contended: docs/claude/health-review-backlog.json (5 rows, 55 insertions / 0 deletions). Any conflict there resolved as a VERIFIED UNION over id sets, never by taking a side."
-  },
-  {
-   "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
-   "branch": "claude/mi205b-ranking-key-harness",
-   "repo": "Metis-Insights",
-   "started_at": "2026-09-08T22:20:00+00:00",
-   "ended_at": null,
-   "status": "active",
-   "scope": "MI-205b - the RE-DISPATCH of MI-205 (which was seeded against the wrong repository and was interrupted). Builds the N-book ranking-key A/B harness and runs the four declared arms. Touches scripts/research/, .github/workflows/, tests/research/, docs/research/, docs/claude/work/objects/, and ONE field on ONE OPEN-ITEMS row.",
-   "note": "MI-205's board START (comment 5592584424) is SUPERSEDED and released. MEASURED against `git diff --stat origin/main...4b6840eb`: its branch carried TWO files / 32 insertions, both board-post relay artifacts, so no harness work existed to recover and nothing is duplicated."
-  },
-  {
-   "session": "session_018aKyS3",
-   "branch": "claude/metis-lane-0-decisions-7jgnjz",
-   "repo": "Metis-Insights",
-   "started_at": "2026-08-25T14:35:00+00:00",
-   "ended_at": "2026-08-25T17:05:00+00:00",
-   "status": "done",
-   "scope": "Lane 0 decisions — the declared-policy vocabulary (is_policy_hold extracted), the per-cause alert floor (balance_unreadable=1), set-env's env_file parameter, and the IB_MD_CLIENT_ID provisioning that confirmed Lane 0 item 0.5 by intervention.",
-   "merged": [
-    "7438ead (#10281)",
-    "9c9f847 (#10283)",
-    "530a3cf (#10287)"
-   ],
-   "system_actions": [
-    "#10284 get-env baseline",
-    "#10285 set-env web-api",
-    "#10286 get-env scoping proof"
-   ],
-   "note": "REGISTERED RETROSPECTIVELY AT SESSION END, and that is itself the lapse worth recording. The live board (#6927) carried every START / 🔒 CLAIM / 🔓 RELEASE / DONE in real time, so no other session was ever uninformed and no merge raced — but this durable mirror went untouched across all three merges. That is the exact shape of BL-20260720-MERGE-PROTOCOL-LAPSE with the polarity reversed: there the JSON was treated AS the claim and the board was skipped; here the board was done properly and the JSON was skipped. merge_slot is left all-null because it IS free — writing a retrospective claim into it would be fabricating a record of a lock that is not held."
-  },
-  {
-   "session": "session_01NeR2kREiXrXQcYYuRHvzRa",
-   "branch": "claude/session-invokable-actions-ci-settled",
-   "repo": "Metis-Insights",
-   "started_at": "2026-09-02T05:55:00+00:00",
-   "status": "active",
-   "intent": "Session-invokable actions: measured inventory + build the ci-settled relay (PR #10757).",
-   "scope": ".github/workflows/ci-settled.yml, scripts/ops/ci_settle.py, scripts/ops/ci_settled.sh, tests/test_ci_settle.py, docs/github-actions-workflows.md, docs/audits/session-invokable-actions-inventory-2026-09-02.md, docs/claude/health-review-backlog.json, automation/ci-{watch,results}/**",
-   "note": "Sub-session; the MANAGER merges. Touches no src/, no config/, no unit file, neither VM. merge_slot deliberately NOT claimed -- this session does not merge."
-  },
-  {
-   "session": "session_01Lozuti2jAX4kQ9RC4yTSPo",
-   "label": "MI-195",
-   "branch": "claude/mi195-tp-decisions-and-examine",
-   "started_at": "2026-09-08T09:59:45Z",
-   "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
-  }
- ],
- "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
- "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
- "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list.",
- "_pruned_2026-08-10": "Pruned 2 active_sessions entries from 2026-07-27/2026-07-30 (m28-value-thesis-sweep-evapa5, offline-vol-axis-regime-5u1p7k) — >24h stale per the schema's own pruning rule.",
- "_pruned_2026-08-21-close": "Pruned the wave0-8g7443 entry at that session's own request on the live board (issuecomment-5373565199): it closed after merging #10110 (0649418) and flagged that this file was still asserting it was live -- a small false record it chose to hand over rather than spend a CI cycle on. active_sessions is left EMPTY rather than re-registering spsxq6, because spsxq6 closes with the work-plan rewrite in this same PR; registering a session that ends on merge would recreate the exact staleness being pruned. Merge_slot is null and correct. Note for the next session: 'one session at a time' is now policy (operator directive 2026-08-21), so a single entry here should be the normal steady state, not a list.",
- "_pruned_2026-08-21": "Pruned the 2026-08-10 api-tier-policy-guard-npihz7 entry -- >24h stale per the schema's own rule, and `git ls-remote --heads origin claude/api-tier-policy-guard-npihz7` returns nothing, so the branch is gone (merged-and-deleted or abandoned). Verified rather than inferred from the date alone. NOTE: the detector-scheduling session (2026-08-21, PRs #10086/#10090/#10091) registered no active_sessions entry -- it coordinated via the live #6927 board comments (START / heads-up / claim / release / DONE) and its merge_slot claims were mirrored there, not here. Recording that omission rather than back-filling an entry for a session that is already finished; merge_slot is null and correct.",
- "_pruned_2026-08-22": "Pruned the wave0-8g7443 entry at its own session close (2026-08-22). That session ran T.1 + Phase 0 + the restored Phase 2 items and merged 11 PRs (#10114, #10115, #10117-#10125) plus this close-out; log: docs/sprint-logs/S-WORKPLAN-PHASE0-20260822.md. VERIFIED rather than inferred from the date: `git ls-remote --heads origin claude/2026-08-21-review-8g7443` returns nothing, so the registered branch is gone. merge_slot was already null and correct -- no stale claim to release. active_sessions is now EMPTY, which is the accurate state under the operator's one-session-at-a-time directive: this was the sole running session and it is closing.",
- "updated_at": "2026-09-08T12:26:00Z"
+  "active_sessions": [
+    {
+      "session": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "branch": "claude/mi229-collapse-builder-registry",
+      "repo": "benbaichmankass/Metis-Insights",
+      "status": "done",
+      "started_at": "2026-09-09T22:05:00Z",
+      "ended_at": "2026-09-09T23:59:00Z",
+      "scope": "MI-229 (audit F-28, operator-approved 'collapse'). Tier-2 SIGNAL PATH: deletes pipeline._STRATEGY_BUILDERS (the second registry) and routes multiplexed_signal_builder + monitor_unit_for through intent_multiplexer._resolve_builders(). Also: intent_multiplexer docstring, 7 tests that named the deleted symbol, a new re-split detector test, .claude/skills/new-strategy/SKILL.md + docs/strategies/supported_strategies.md (both instructed authors to register in the dict being deleted), the WO yaml, session-board.json.",
+      "note": "Places/modifies/cancels NO order and flips NO env var. Does NOT touch src/units/accounts/execute.py or scripts/ops/system_invariants.py (MI-227 is live in both). Landing: PR opened ready with landing:hold, tier 2 - manager or operator merges; auto-merge NOT armed so no merge_slot is claimed."
+    },
+    {
+      "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
+      "branch": "claude/mi218-count-calendar-time-edge-surfaces",
+      "repo": "benbaichmankass/Metis-Insights",
+      "status": "done",
+      "started_at": "2026-09-09T10:55:00Z",
+      "ended_at": "2026-09-09T13:25:00Z",
+      "scope": "MI-218 — Tier-1 MEASUREMENT ONLY. New: scripts/ops/calendar_edge_census.py, tests/test_calendar_edge_census.py, docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md, the WO yaml. Record edits: health-review-backlog.json, MANAGER-CHECKLIST.json (MI-218 row), SESSIONS.json, DOCUMENT-INDEX.md, session-board.json.",
+      "note": "CLOSED OUT via PR #11553. Changes NO gate, threshold or config. READS scripts/check_soak_doctrine.py (MI-215 check D, landing in #11529) and imports its detector; does not edit it. ⚠️ Contended: docs/claude/health-review-backlog.json (5 rows, 55 insertions / 0 deletions). Any conflict there resolved as a VERIFIED UNION over id sets, never by taking a side."
+    },
+    {
+      "session": "session_01ML8uLRrKLMmzR9fFywTWv5",
+      "branch": "claude/mi205b-ranking-key-harness",
+      "repo": "Metis-Insights",
+      "started_at": "2026-09-08T22:20:00+00:00",
+      "ended_at": null,
+      "status": "active",
+      "scope": "MI-205b - the RE-DISPATCH of MI-205 (which was seeded against the wrong repository and was interrupted). Builds the N-book ranking-key A/B harness and runs the four declared arms. Touches scripts/research/, .github/workflows/, tests/research/, docs/research/, docs/claude/work/objects/, and ONE field on ONE OPEN-ITEMS row.",
+      "note": "MI-205's board START (comment 5592584424) is SUPERSEDED and released. MEASURED against `git diff --stat origin/main...4b6840eb`: its branch carried TWO files / 32 insertions, both board-post relay artifacts, so no harness work existed to recover and nothing is duplicated."
+    },
+    {
+      "session": "session_018aKyS3",
+      "branch": "claude/metis-lane-0-decisions-7jgnjz",
+      "repo": "Metis-Insights",
+      "started_at": "2026-08-25T14:35:00+00:00",
+      "ended_at": "2026-08-25T17:05:00+00:00",
+      "status": "done",
+      "scope": "Lane 0 decisions — the declared-policy vocabulary (is_policy_hold extracted), the per-cause alert floor (balance_unreadable=1), set-env's env_file parameter, and the IB_MD_CLIENT_ID provisioning that confirmed Lane 0 item 0.5 by intervention.",
+      "merged": [
+        "7438ead (#10281)",
+        "9c9f847 (#10283)",
+        "530a3cf (#10287)"
+      ],
+      "system_actions": [
+        "#10284 get-env baseline",
+        "#10285 set-env web-api",
+        "#10286 get-env scoping proof"
+      ],
+      "note": "REGISTERED RETROSPECTIVELY AT SESSION END, and that is itself the lapse worth recording. The live board (#6927) carried every START / 🔒 CLAIM / 🔓 RELEASE / DONE in real time, so no other session was ever uninformed and no merge raced — but this durable mirror went untouched across all three merges. That is the exact shape of BL-20260720-MERGE-PROTOCOL-LAPSE with the polarity reversed: there the JSON was treated AS the claim and the board was skipped; here the board was done properly and the JSON was skipped. merge_slot is left all-null because it IS free — writing a retrospective claim into it would be fabricating a record of a lock that is not held."
+    },
+    {
+      "session": "session_01NeR2kREiXrXQcYYuRHvzRa",
+      "branch": "claude/session-invokable-actions-ci-settled",
+      "repo": "Metis-Insights",
+      "started_at": "2026-09-02T05:55:00+00:00",
+      "status": "active",
+      "intent": "Session-invokable actions: measured inventory + build the ci-settled relay (PR #10757).",
+      "scope": ".github/workflows/ci-settled.yml, scripts/ops/ci_settle.py, scripts/ops/ci_settled.sh, tests/test_ci_settle.py, docs/github-actions-workflows.md, docs/audits/session-invokable-actions-inventory-2026-09-02.md, docs/claude/health-review-backlog.json, automation/ci-{watch,results}/**",
+      "note": "Sub-session; the MANAGER merges. Touches no src/, no config/, no unit file, neither VM. merge_slot deliberately NOT claimed -- this session does not merge."
+    },
+    {
+      "session": "session_01Lozuti2jAX4kQ9RC4yTSPo",
+      "label": "MI-195",
+      "branch": "claude/mi195-tp-decisions-and-examine",
+      "started_at": "2026-09-08T09:59:45Z",
+      "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
+    }
+  ],
+  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
+  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
+  "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list.",
+  "_pruned_2026-08-10": "Pruned 2 active_sessions entries from 2026-07-27/2026-07-30 (m28-value-thesis-sweep-evapa5, offline-vol-axis-regime-5u1p7k) — >24h stale per the schema's own pruning rule.",
+  "_pruned_2026-08-21-close": "Pruned the wave0-8g7443 entry at that session's own request on the live board (issuecomment-5373565199): it closed after merging #10110 (0649418) and flagged that this file was still asserting it was live -- a small false record it chose to hand over rather than spend a CI cycle on. active_sessions is left EMPTY rather than re-registering spsxq6, because spsxq6 closes with the work-plan rewrite in this same PR; registering a session that ends on merge would recreate the exact staleness being pruned. Merge_slot is null and correct. Note for the next session: 'one session at a time' is now policy (operator directive 2026-08-21), so a single entry here should be the normal steady state, not a list.",
+  "_pruned_2026-08-21": "Pruned the 2026-08-10 api-tier-policy-guard-npihz7 entry -- >24h stale per the schema's own rule, and `git ls-remote --heads origin claude/api-tier-policy-guard-npihz7` returns nothing, so the branch is gone (merged-and-deleted or abandoned). Verified rather than inferred from the date alone. NOTE: the detector-scheduling session (2026-08-21, PRs #10086/#10090/#10091) registered no active_sessions entry -- it coordinated via the live #6927 board comments (START / heads-up / claim / release / DONE) and its merge_slot claims were mirrored there, not here. Recording that omission rather than back-filling an entry for a session that is already finished; merge_slot is null and correct.",
+  "_pruned_2026-08-22": "Pruned the wave0-8g7443 entry at its own session close (2026-08-22). That session ran T.1 + Phase 0 + the restored Phase 2 items and merged 11 PRs (#10114, #10115, #10117-#10125) plus this close-out; log: docs/sprint-logs/S-WORKPLAN-PHASE0-20260822.md. VERIFIED rather than inferred from the date: `git ls-remote --heads origin claude/2026-08-21-review-8g7443` returns nothing, so the registered branch is gone. merge_slot was already null and correct -- no stale claim to release. active_sessions is now EMPTY, which is the accurate state under the operator's one-session-at-a-time directive: this was the sole running session and it is closing.",
+  "updated_at": "2026-09-08T12:26:00Z"
 }
