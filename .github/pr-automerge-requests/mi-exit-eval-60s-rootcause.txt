@@ -1,0 +1,2 @@
+PR #11647 — WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES. Tier-1, docs/** only.
+PR opened by this session (mcp create_pull_request) so it carries a real pull_request event and CI fires normally; this file only arms auto-merge on the existing PR.

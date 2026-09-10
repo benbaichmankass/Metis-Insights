@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_017vNWUL48WWrtxssFv2EDMf",
     "branch": "claude/mi231-f39-openitems-observation",
-    "claimed_at": "2026-09-10T06:26:41Z",
-    "purpose": "MI-231 session-end records + one tooling self-test repair. Tier-1 self-landing, guards green on fd7a89203. 8th and final slot rebase -- the manager has paused heartbeats to open a landing window."
+    "claimed_at": "2026-09-10T06:58:17Z",
+    "purpose": "MI-231 session-end records + tooling self-test repair. Tier-1. 9th rebase, done to make the PR MERGEABLE so the manager's 'merge it directly' option is executable -- a dirty PR cannot be merged by anyone."
   },
   "active_sessions": [
     {
