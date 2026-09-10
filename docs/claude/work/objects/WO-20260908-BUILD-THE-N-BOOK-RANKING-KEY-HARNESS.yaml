@@ -1,242 +1,194 @@
-# Created by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) 2026-09-08 when the operator
-# answered DEC-20260908-TRADE-PRIORITISATION-HARNESS with `build_harness`. The DECISION object
-# is the answered question; this is the WORK it authorises. Separate objects deliberately: the
-# question is closed and the build is not.
-#
-# BUILT AND ANSWERED 2026-09-08 by session_01ML8uLRrKLMmzR9fFywTWv5 (MI-205b — the
-# RE-DISPATCH of MI-205, which was seeded against the wrong repository and was
-# interrupted; MEASURED against `git diff --stat origin/main...4b6840eb`, its branch
-# carried TWO files / 32 insertions, both board-post relay artifacts, so nothing was
-# recovered and nothing was duplicated).
 id: WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS
 type: build
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
-title: >-
-  Give backtest_system.py an N-book mode and a ranking-key arm, then measure whether
-  arbitration ORDER drives outcome at all
+title: Give backtest_system.py an N-book mode and a ranking-key arm, then measure whether arbitration
+  ORDER drives outcome at all
 stage: BUILD
 lifecycle: done
 owner: session_01ML8uLRrKLMmzR9fFywTWv5
 opened_at: '2026-09-08'
 closed_at: '2026-09-08'
-
-review_trigger: >-
-  Re-read when the four arms have run. ⚠️ Do NOT report a verdict from a single fold count:
-  the whole reason this question is open is that a fold-majority gate passed a lever that lost
-  35R, because 30-39% of its folds were INERT.
-  ⚠️ THAT HAZARD FIRED HERE, EXACTLY AS PREDICTED: every comparison in both runs came back
-  2 of 6 folds INERT (33.3%) — inside the same band. The gate is a CONJUNCTION (pooled net R
-  AND a majority of EFFECTIVE folds) and inertness is IMPORTED from
-  scripts/research/m20_wf_effective.py::is_inert rather than restated; the reporter's
-  self-test plants the be_floor_r=1.5 shape (fold majority + pooled loss + a third inert)
-  and requires a refusal.
-
-done_condition: >-
-  scripts/backtest_system.py expresses N books and a swappable ranking key; the four declared
-  arms (confidence_first / priority_first / recent_pnl_first / random_tiebreak) have run on the
-  CONTESTED subset only, stratified by `decided_by`, reported against the ACHIEVED
-  contested-tick count rather than the declared one; and a verdict is recorded either way.
-  ⚠️ A NULL RESULT SATISFIES THIS. If confidence_first does not beat random_tiebreak, the
-  finding is that arbitration ORDER does not drive outcome — publishable, and the signal to
-  look at the confidence SCORE instead. That is an answer, not a failure to re-run until
+review_trigger: 'Re-read when the four arms have run. ⚠️ Do NOT report a verdict from a single fold count:
+  the whole reason this question is open is that a fold-majority gate passed a lever that lost 35R, because
+  30-39% of its folds were INERT. ⚠️ THAT HAZARD FIRED HERE, EXACTLY AS PREDICTED: every comparison in
+  both runs came back 2 of 6 folds INERT (33.3%) — inside the same band. The gate is a CONJUNCTION (pooled
+  net R AND a majority of EFFECTIVE folds) and inertness is IMPORTED from scripts/research/m20_wf_effective.py::is_inert
+  rather than restated; the reporter''s self-test plants the be_floor_r=1.5 shape (fold majority + pooled
+  loss + a third inert) and requires a refusal.'
+done_condition: scripts/backtest_system.py expresses N books and a swappable ranking key; the four declared
+  arms (confidence_first / priority_first / recent_pnl_first / random_tiebreak) have run on the CONTESTED
+  subset only, stratified by `decided_by`, reported against the ACHIEVED contested-tick count rather than
+  the declared one; and a verdict is recorded either way. ⚠️ A NULL RESULT SATISFIES THIS. If confidence_first
+  does not beat random_tiebreak, the finding is that arbitration ORDER does not drive outcome — publishable,
+  and the signal to look at the confidence SCORE instead. That is an answer, not a failure to re-run until
   something wins.
-
-done_condition_met: >-
-  MET, with ONE deviation stated rather than smoothed over — see `deviation_from_done_condition`.
-  The four arms ran on the contested subset only, stratified by `decided_by`, graded against the
-  ACHIEVED contested count (1,270 elections / 138-206 trades) and NOT the declared 1,780, and a
-  verdict is recorded: a NULL, which this condition's own last sentence says satisfies it.
-
-deviation_from_done_condition: >-
-  The done-condition says "scripts/backtest_system.py expresses N books and a swappable ranking
-  key". The capability was built as a SIBLING — scripts/research/nbook_portfolio.py — that
-  IMPORTS backtest_system rather than editing it. Two reasons, both structural:
-  (1) scripts/backtest_system.py is OUTSIDE scripts/ci/check_pr_landing.py's TIER1_SURFACE
-  (which allows scripts/{ci,ops,research,reports}/**, not scripts/*.py), so touching it makes a
-  Tier-1 measurement PR fail R5 and unable to self-land; widening TIER1_SURFACE is itself
-  LANDING_MACHINERY and is held by R12, so there is no self-landing route through it.
-  (2) The hazard that wording exists to prevent — a second portfolio engine free to drift — is
-  closed by an EXECUTABLE assertion instead of by co-location: at N=1 with the full roster the
-  N-book engine reproduces run_system_backtest TRADE-FOR-TRADE, and that test FAILS if its
-  fixture stops producing trades so it cannot pass vacuously
-  (tests/research/test_nbook_portfolio.py). A parity assertion is strictly stronger than
-  sharing a file, which is what the two-expressions-of-one-ordering incidents in
-  src/runtime/intents.py demonstrate.
-  ⚠️ Recorded as a DEVIATION, not as compliance. A session that judges it unacceptable should
-  say so; see `decision_requests`.
-
+done_condition_met: 'MET, with ONE deviation stated rather than smoothed over — see `deviation_from_done_condition`.
+  The four arms ran on the contested subset only, stratified by `decided_by`, graded against the ACHIEVED
+  contested count (1,270 elections / 138-206 trades) and NOT the declared 1,780, and a verdict is recorded:
+  a NULL, which this condition''s own last sentence says satisfies it.'
+deviation_from_done_condition: 'The done-condition says "scripts/backtest_system.py expresses N books
+  and a swappable ranking key". The capability was built as a SIBLING — scripts/research/nbook_portfolio.py
+  — that IMPORTS backtest_system rather than editing it. Two reasons, both structural: (1) scripts/backtest_system.py
+  is OUTSIDE scripts/ci/check_pr_landing.py''s TIER1_SURFACE (which allows scripts/{ci,ops,research,reports}/**,
+  not scripts/*.py), so touching it makes a Tier-1 measurement PR fail R5 and unable to self-land; widening
+  TIER1_SURFACE is itself LANDING_MACHINERY and is held by R12, so there is no self-landing route through
+  it. (2) The hazard that wording exists to prevent — a second portfolio engine free to drift — is closed
+  by an EXECUTABLE assertion instead of by co-location: at N=1 with the full roster the N-book engine
+  reproduces run_system_backtest TRADE-FOR-TRADE, and that test FAILS if its fixture stops producing trades
+  so it cannot pass vacuously (tests/research/test_nbook_portfolio.py). A parity assertion is strictly
+  stronger than sharing a file, which is what the two-expressions-of-one-ordering incidents in src/runtime/intents.py
+  demonstrate. ⚠️ Recorded as a DEVIATION, not as compliance. A session that judges it unacceptable should
+  say so; see `decision_requests`.'
 what_shipped:
-  - >-
-    scripts/research/ranking_keys.py — the four declared arms + the in-process installer.
-    confidence_first IS src.runtime.intents._election_sort_key, imported BY IDENTITY
-    (asserted), never a copy; the other three are local because they have no live original.
-    The tier-3 track-record term is repointed at the REPLAY's own closes, because the live
-    one reads trade_journal.db — look-ahead AND a dependency on one machine's DB file.
-  - >-
-    scripts/research/nbook_portfolio.py — the N-book engine. ONE gate per tick
-    (gate_intents), N elections (elect_from_gated); that split's own docstring names this
-    caller. Under --arbitration global a book that does not carry the winner STANDS ASIDE
-    and it is COUNTED, which is the BL-20260827-...-STARVES-ITS-PAPER-SIBLING shape made
-    visible instead of rendering as silence.
-  - >-
-    scripts/research/rank_arm_report.py — the gate (pooled net R AND effective-fold
-    majority), head-to-head shipped-vs-alternative, churn, and a declared Bonferroni
-    multiplicity correction.
-  - >-
-    .github/workflows/ranking-key-ab.yml — fires it on a FREE GitHub runner, not the 1-core
-    trainer (docs/claude/vm-resource-management.md). One job, four arms, deliberately not a
-    matrix: the arms differ ONLY in the election key and share identical, expensive signal
-    streams.
-  - tests/research/test_ranking_keys.py and tests/research/test_nbook_portfolio.py
-  - >-
-    docs/research/trade-prioritisation-ranking-key-AB-2026-09-08.md (the write-up) and the
-    committed payloads under docs/research/ranking-key-ab/.
-
-result: >-
-  NO — and it is a NULL, which the done-condition says is a success.
-  MEASURED (population stated): BTCUSDT 5m, Binance-vision archive, 2025-08-04 -> 2026-09-08
-  (400 calendar days, 115,200 bars), 15m clock (38,401 bars), 8 harness members, 1 book,
-  seed 20260908, 6 fixed folds, fee+slippage+funding from the ONE shared cost model.
-  PRIMARY at signal_ttl_bars=16 (live-faithful): 1,270 contested elections ACHIEVED against the
-  design's DECLARED 1,780; 138-206 contested TRADES per arm, i.e. UNDERPOWERED against the
-  design's own 393/group floor. All three deterministic arms beat the random control on the
-  gate; NONE clears the declared Bonferroni alpha of 0.0167 (p 0.24-0.31).
-  POWERED SECONDARY at signal_ttl_bars=96 — deliberately NOT live-faithful, run ONLY to
-  establish that the null is not an artefact of n (n=1,130-1,543, above the floor): it AGREES.
-  HEAD-TO-HEAD AT POWER — the operator's actual question — confidence_first grades
-  `not_preferred` against BOTH priority_first (folds 2-2, p=0.583) and recent_pnl_first
-  (folds 2-2, p=0.937).
-  ⚠️ THE ONE EFFECT THAT SURVIVES IS STABILITY, NOT THE CHOICE OF STABLE KEY: the control
-  re-rolls per tick (deliberately — a frozen draw would be a NAME ranking in disguise) and
-  flips 92 times (primary) / 331 (powered) against 18-34 for every deterministic arm. Most of
-  the arm-vs-control gap is churn. Do not quote those deltas without the flip counts.
-  ⚠️ EVERY expectancy in every stratum is NEGATIVE: on this population the contested subset
-  loses money whoever wins the contest, which bounds what any ranking key can be worth here.
-  ⚠️ Every p is a LOWER BOUND (iid normal approximation over autocorrelated backtest trades).
-
-what_this_does_not_establish: >-
-  (1) NOTHING about per-account fan-out — the primary is ONE book. The N-book and `global`
-  modes are built and tested but the adjacent question needs its own population and write-up.
-  (2) Nothing about symbols other than BTCUSDT, nor about the live 52-leg roster: the live
-  conviction_arbitration soak's 5.01 contests/day is a fleet-wide figure and is NOT comparable
-  to eight BTCUSDT members. (3) NOTHING LIVE CHANGED and nothing is proposed — flipping the
-  ranking key is Tier-3. (4) It does NOT say the live key is wrong; it says the correctness
-  argument it shipped on has not been joined by an outcome result, and that no cheaper
-  alternative was shown to be better either.
-
-defect_found_and_fixed_in_flight: >-
-  `decided_by` MISLABELLED THE CONTROL'S OWN DECIDING TERM. deciding_term names terms by zipping
-  `(target_qty,) + ELECTION_TERMS` against the key tuple; the control originally omitted the
-  target_qty slot, so its random draw was reported as `decided_by=target_qty` on 100 of 208
-  contested trades in the first primary run — unprovenanced diagnostic output (sub-class A) in
-  the exact field the whole analysis stratifies by, and my own first test allowed it. Fixed at
-  the source with a CONSTANT placeholder in that slot (constant, so it can never itself decide)
-  and pinned by test_the_control_can_never_report_target_qty_as_the_deciding_term.
-
+- scripts/research/ranking_keys.py — the four declared arms + the in-process installer. confidence_first
+  IS src.runtime.intents._election_sort_key, imported BY IDENTITY (asserted), never a copy; the other
+  three are local because they have no live original. The tier-3 track-record term is repointed at the
+  REPLAY's own closes, because the live one reads trade_journal.db — look-ahead AND a dependency on one
+  machine's DB file.
+- scripts/research/nbook_portfolio.py — the N-book engine. ONE gate per tick (gate_intents), N elections
+  (elect_from_gated); that split's own docstring names this caller. Under --arbitration global a book
+  that does not carry the winner STANDS ASIDE and it is COUNTED, which is the BL-20260827-...-STARVES-ITS-PAPER-SIBLING
+  shape made visible instead of rendering as silence.
+- scripts/research/rank_arm_report.py — the gate (pooled net R AND effective-fold majority), head-to-head
+  shipped-vs-alternative, churn, and a declared Bonferroni multiplicity correction.
+- '.github/workflows/ranking-key-ab.yml — fires it on a FREE GitHub runner, not the 1-core trainer (docs/claude/vm-resource-management.md).
+  One job, four arms, deliberately not a matrix: the arms differ ONLY in the election key and share identical,
+  expensive signal streams.'
+- tests/research/test_ranking_keys.py and tests/research/test_nbook_portfolio.py
+- docs/research/trade-prioritisation-ranking-key-AB-2026-09-08.md (the write-up) and the committed payloads
+  under docs/research/ranking-key-ab/.
+result: 'NO — and it is a NULL, which the done-condition says is a success. MEASURED (population stated):
+  BTCUSDT 5m, Binance-vision archive, 2025-08-04 -> 2026-09-08 (400 calendar days, 115,200 bars), 15m
+  clock (38,401 bars), 8 harness members, 1 book, seed 20260908, 6 fixed folds, fee+slippage+funding from
+  the ONE shared cost model. PRIMARY at signal_ttl_bars=16 (live-faithful): 1,270 contested elections
+  ACHIEVED against the design''s DECLARED 1,780; 138-206 contested TRADES per arm, i.e. UNDERPOWERED against
+  the design''s own 393/group floor. All three deterministic arms beat the random control on the gate;
+  NONE clears the declared Bonferroni alpha of 0.0167 (p 0.24-0.31). POWERED SECONDARY at signal_ttl_bars=96
+  — deliberately NOT live-faithful, run ONLY to establish that the null is not an artefact of n (n=1,130-1,543,
+  above the floor): it AGREES. HEAD-TO-HEAD AT POWER — the operator''s actual question — confidence_first
+  grades `not_preferred` against BOTH priority_first (folds 2-2, p=0.583) and recent_pnl_first (folds
+  2-2, p=0.937). ⚠️ THE ONE EFFECT THAT SURVIVES IS STABILITY, NOT THE CHOICE OF STABLE KEY: the control
+  re-rolls per tick (deliberately — a frozen draw would be a NAME ranking in disguise) and flips 92 times
+  (primary) / 331 (powered) against 18-34 for every deterministic arm. Most of the arm-vs-control gap
+  is churn. Do not quote those deltas without the flip counts. ⚠️ EVERY expectancy in every stratum is
+  NEGATIVE: on this population the contested subset loses money whoever wins the contest, which bounds
+  what any ranking key can be worth here. ⚠️ Every p is a LOWER BOUND (iid normal approximation over autocorrelated
+  backtest trades).'
+what_this_does_not_establish: '(1) NOTHING about per-account fan-out — the primary is ONE book. The N-book
+  and `global` modes are built and tested but the adjacent question needs its own population and write-up.
+  (2) Nothing about symbols other than BTCUSDT, nor about the live 52-leg roster: the live conviction_arbitration
+  soak''s 5.01 contests/day is a fleet-wide figure and is NOT comparable to eight BTCUSDT members. (3)
+  NOTHING LIVE CHANGED and nothing is proposed — flipping the ranking key is Tier-3. (4) It does NOT say
+  the live key is wrong; it says the correctness argument it shipped on has not been joined by an outcome
+  result, and that no cheaper alternative was shown to be better either.'
+defect_found_and_fixed_in_flight: '`decided_by` MISLABELLED THE CONTROL''S OWN DECIDING TERM. deciding_term
+  names terms by zipping `(target_qty,) + ELECTION_TERMS` against the key tuple; the control originally
+  omitted the target_qty slot, so its random draw was reported as `decided_by=target_qty` on 100 of 208
+  contested trades in the first primary run — unprovenanced diagnostic output (sub-class A) in the exact
+  field the whole analysis stratifies by, and my own first test allowed it. Fixed at the source with a
+  CONSTANT placeholder in that slot (constant, so it can never itself decide) and pinned by test_the_control_can_never_report_target_qty_as_the_deciding_term.'
 blocked_on: []
-blocked_on_basis: >-
-  ASSESSED 2026-09-08 by session_01ML8uLRrKLMmzR9fFywTWv5 at CLOSE: nothing blocks it, and
-  nothing did. The build ran to completion and the question is answered.
-
+blocked_on_basis: 'ASSESSED 2026-09-08 by session_01ML8uLRrKLMmzR9fFywTWv5 at CLOSE: nothing blocks it,
+  and nothing did. The build ran to completion and the question is answered.'
 decision_requests:
-  # ⚠️ EVERY OPTION CARRIES A `key`, AND THAT IS NOT COSMETIC. `key` is what a
-  # submission NAMES, so `work_decisions.normalise_option` DROPS an option
-  # without one rather than synthesising a key that would let a submission
-  # select something the author never wrote down. Both of these requests were
-  # first written with `name:` instead, and the effect was precisely the failure
-  # this store exists to prevent: the questions read as filed while being
-  # UNANSWERABLE from the Telegram/SPA decision channel. Caught by
-  # tests/test_work_decisions.py::test_the_committed_store_declares_at_least_one_real_decision_request.
-  - id: DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW
-    urgency: routine
-    asked_on: '2026-09-08'
-    asked_by:
-      session_id: session_01ML8uLRrKLMmzR9fFywTWv5
-    question: >-
-      OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST
-      is a `loud` row whose clears_when has three clauses. (2) and (3) are met in full and its
-      own text says a NULL closes it. Clause (1) says "scripts/backtest_system.py grows an
-      N-book mode", and the capability was built as a parity-asserted SIBLING instead, for the
-      landing-surface reason in `deviation_from_done_condition`. Should the row be removed?
-    context: >-
-      The row is left OPEN with a full `observation` recording exactly what was built, measured
-      and deviated from, so whoever decides is deciding on the evidence rather than on a
-      summary. Removing a `loud` row is a judgement about a deviation from a written condition,
-      and a sub-session that cannot put the deviation to anyone should not make it silently.
-    options:
-      - key: reword_clause_1_then_remove
-        label: Reword clause (1) to name the CAPABILITY, then remove the row
-        implication: >-
-          Makes the next reader's test the one that matters - does the capability exist and is
-          it drift-proof - rather than which file it lives in, and then closes an answered
-          question. RECOMMENDED.
-      - key: remove_the_row
-        label: Remove the row as it stands
-        implication: >-
-          The register stops carrying an answered question. Correct if the substance is what
-          clears_when meant. The evidence is committed and the write-up is linked from the
-          design file, so nothing is lost by removal.
-      - key: keep_it_open_until_backtest_system_itself_carries_the_mode
-        label: Keep it open until scripts/backtest_system.py itself carries the mode
-        implication: >-
-          Reads the clause literally. Costs an open `loud` row that every session must report
-          on while the question behind it is answered - the alarm-fatigue shape this repo
-          treats as its own P1.
-
-  - id: DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE
-    urgency: routine
-    asked_on: '2026-09-08'
-    asked_by:
-      session_id: session_01ML8uLRrKLMmzR9fFywTWv5
-    question: >-
-      check_pr_landing.py's TIER1_SURFACE allows scripts/{ci,ops,research,reports}/** but not
-      scripts/*.py, so the repo's research harnesses (scripts/backtest_*.py) cannot be touched
-      by a self-landing Tier-1 PR - even though the canonical Tier-1 examples list explicitly
-      names "Backtest tooling that does not alter live runtime behavior". This shaped a real
-      design decision this session. Should scripts/backtest_*.py join TIER1_SURFACE?
-    context: >-
-      Editing check_pr_landing.py is LANDING_MACHINERY, so R12 holds such a change for a human
-      by design and it cannot ride the PR that surfaced it, whatever its merit.
-    options:
-      - key: add_it
-        label: Add scripts/backtest_*.py to TIER1_SURFACE
-        implication: >-
-          Research-harness work self-lands like the rest of the research surface, matching the
-          canonical Tier-1 example list. It widens an allowlist whose whole polarity is
-          fail-closed, so it deserves a deliberate read rather than a nod.
-      - key: leave_it
-        label: Leave the allowlist as it is
-        implication: >-
-          Every harness change keeps needing a human. The costlier failure is not the delay:
-          it is that sessions route around it by DUPLICATING the harness, which is the drift
-          this repo has already paid for twice.
-
-context: >-
-  CONFIDENCE HAS BEEN THE LIVE PRIMARY RANKING KEY ON REAL MONEY SINCE 2026-08-31 (PR #10544)
-  and has never been shown to pick the better-performing trade. It went live on a CORRECTNESS
-  argument — it is evidence about the trade, unlike the strategy NAME it replaced — not on an
-  outcome result. Operator, 2026-08-31: "the confidence score is a good start, but it isn't
-  proven that it's necessarily what's gonna give us the best trade every time."
-  ⚠️ THE A/B COULD NOT BE RUN BECAUSE THE HARNESS CANNOT EXPRESS IT: backtest_system.py models
-  ONE shared book, so neither global-vs-per-account arbitration nor a swapped ranking key is
-  expressible. That is the gap this object closes, and it is why the question sat unmeasured
-  from 2026-08-31 with verified_at and observation both null.
-  ⚠️ THIS BUILD ALSO UNBLOCKS THE ADJACENT QUESTION — global vs per-account arbitration — which
-  is blocked on the same missing capability. One build, two questions.
-  ⚠️ PRIOR ART THAT SHAPES THE ARMS: M18's allocator asked the adjacent question and the answer
-  was NO (edge -$7, ranker OOS AUC ~0.51). random_tiebreak is therefore a DECLARED arm, not an
-  afterthought — it is the floor the others must clear.
-  ⚠️ AND IT WAS THE RIGHT CALL TO DECLARE IT: the control turned out to be the arm that carries
-  the finding, because what it isolates is INSTABILITY rather than a worse ranking.
-
+- id: DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW
+  urgency: routine
+  asked_on: '2026-09-08'
+  asked_by:
+    session_id: session_01ML8uLRrKLMmzR9fFywTWv5
+  question: OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST is
+    a `loud` row whose clears_when has three clauses. (2) and (3) are met in full and its own text says
+    a NULL closes it. Clause (1) says "scripts/backtest_system.py grows an N-book mode", and the capability
+    was built as a parity-asserted SIBLING instead, for the landing-surface reason in `deviation_from_done_condition`.
+    Should the row be removed?
+  context: The row is left OPEN with a full `observation` recording exactly what was built, measured and
+    deviated from, so whoever decides is deciding on the evidence rather than on a summary. Removing a
+    `loud` row is a judgement about a deviation from a written condition, and a sub-session that cannot
+    put the deviation to anyone should not make it silently.
+  options:
+  - key: reword_clause_1_then_remove
+    label: Reword clause (1) to name the CAPABILITY, then remove the row
+    implication: Makes the next reader's test the one that matters - does the capability exist and is
+      it drift-proof - rather than which file it lives in, and then closes an answered question. RECOMMENDED.
+  - key: remove_the_row
+    label: Remove the row as it stands
+    implication: The register stops carrying an answered question. Correct if the substance is what clears_when
+      meant. The evidence is committed and the write-up is linked from the design file, so nothing is
+      lost by removal.
+  - key: keep_it_open_until_backtest_system_itself_carries_the_mode
+    label: Keep it open until scripts/backtest_system.py itself carries the mode
+    implication: Reads the clause literally. Costs an open `loud` row that every session must report on
+      while the question behind it is answered - the alarm-fatigue shape this repo treats as its own P1.
+  answered_at: '2026-09-10T07:52:00Z'
+  answered_by: operator (conversational popup, relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  verdict: reframed_not_answered
+  text: 'Operator, verbatim: "We should have a workflow for monitoring that allows us to follow mo itores
+    items in a clean wya that doesn''t generate noise, if we don''t then we need to understand how that
+    fits into the workflow lane. The problem here is not correctly framed for a structurally sound workflow."'
+  scope: '⚠️ NONE OF THE THREE OPTIONS WAS CHOSEN AND THIS REQUEST IS NOT ANSWERED — do not record it
+    as decided, and do not remove, reword or keep the loud row on the strength of this. The operator REJECTED
+    THE FRAMING: asking case-by-case whether one loud row should be removed is the wrong unit of decision,
+    because it reproduces per-row adjudication instead of fixing how monitored items are followed. The
+    work this generates is a MONITORING WORKFLOW in the workflow-implementation lane — one that lets monitored
+    items be followed cleanly without generating noise — filed as MI-239. This request stays OPEN and
+    should be re-asked, if at all, only after that workflow exists and can frame it properly.'
+- id: DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE
+  urgency: routine
+  asked_on: '2026-09-08'
+  asked_by:
+    session_id: session_01ML8uLRrKLMmzR9fFywTWv5
+  question: check_pr_landing.py's TIER1_SURFACE allows scripts/{ci,ops,research,reports}/** but not scripts/*.py,
+    so the repo's research harnesses (scripts/backtest_*.py) cannot be touched by a self-landing Tier-1
+    PR - even though the canonical Tier-1 examples list explicitly names "Backtest tooling that does not
+    alter live runtime behavior". This shaped a real design decision this session. Should scripts/backtest_*.py
+    join TIER1_SURFACE?
+  context: Editing check_pr_landing.py is LANDING_MACHINERY, so R12 holds such a change for a human by
+    design and it cannot ride the PR that surfaced it, whatever its merit.
+  options:
+  - key: add_it
+    label: Add scripts/backtest_*.py to TIER1_SURFACE
+    implication: Research-harness work self-lands like the rest of the research surface, matching the
+      canonical Tier-1 example list. It widens an allowlist whose whole polarity is fail-closed, so it
+      deserves a deliberate read rather than a nod.
+  - key: leave_it
+    label: Leave the allowlist as it is
+    implication: 'Every harness change keeps needing a human. The costlier failure is not the delay: it
+      is that sessions route around it by DUPLICATING the harness, which is the drift this repo has already
+      paid for twice.'
+  chosen: add_it
+  answered_at: '2026-09-10T07:52:00Z'
+  answered_by: operator (conversational popup, relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  verdict: approved
+  scope: Add scripts/backtest_*.py to check_pr_landing.py::TIER1_SURFACE.
+  text: Operator chose "Add scripts/backtest_*.py to TIER1_SURFACE", closing the contradiction between
+    the guard and the canonical Tier-1 examples, which already name "Backtest tooling that does not alter
+    live runtime behavior".
+  condition: '⚠️ EDITING check_pr_landing.py IS LANDING_MACHINERY, so R12 holds that PR for a human BY
+    DESIGN — the approval does not make it self-landing, and the PR must declare landing: hold with hold_reason
+    changes_landing_machinery. The widening is scripts/backtest_*.py ONLY; it is not a licence to widen
+    scripts/*.py generally.'
+context: 'CONFIDENCE HAS BEEN THE LIVE PRIMARY RANKING KEY ON REAL MONEY SINCE 2026-08-31 (PR #10544)
+  and has never been shown to pick the better-performing trade. It went live on a CORRECTNESS argument
+  — it is evidence about the trade, unlike the strategy NAME it replaced — not on an outcome result. Operator,
+  2026-08-31: "the confidence score is a good start, but it isn''t proven that it''s necessarily what''s
+  gonna give us the best trade every time." ⚠️ THE A/B COULD NOT BE RUN BECAUSE THE HARNESS CANNOT EXPRESS
+  IT: backtest_system.py models ONE shared book, so neither global-vs-per-account arbitration nor a swapped
+  ranking key is expressible. That is the gap this object closes, and it is why the question sat unmeasured
+  from 2026-08-31 with verified_at and observation both null. ⚠️ THIS BUILD ALSO UNBLOCKS THE ADJACENT
+  QUESTION — global vs per-account arbitration — which is blocked on the same missing capability. One
+  build, two questions. ⚠️ PRIOR ART THAT SHAPES THE ARMS: M18''s allocator asked the adjacent question
+  and the answer was NO (edge -$7, ranker OOS AUC ~0.51). random_tiebreak is therefore a DECLARED arm,
+  not an afterthought — it is the floor the others must clear. ⚠️ AND IT WAS THE RIGHT CALL TO DECLARE
+  IT: the control turned out to be the arm that carries the finding, because what it isolates is INSTABILITY
+  rather than a worse ranking.'
 refs:
-  - docs/research/trade-prioritisation-research-DESIGN.yaml
-  - docs/research/trade-prioritisation-ranking-key-AB-2026-09-08.md
-  - docs/research/ranking-key-ab/2026-09-08-primary/
-  - docs/research/ranking-key-ab/2026-09-08-secondary-powered-ttl96/
-  - scripts/research/ranking_keys.py
-  - scripts/research/nbook_portfolio.py
-  - scripts/research/rank_arm_report.py
-  - .github/workflows/ranking-key-ab.yml
-  - scripts/backtest_system.py
-  - WO-20260908-DECISION-TRADE-PRIORITISATION-HARNESS
+- docs/research/trade-prioritisation-research-DESIGN.yaml
+- docs/research/trade-prioritisation-ranking-key-AB-2026-09-08.md
+- docs/research/ranking-key-ab/2026-09-08-primary/
+- docs/research/ranking-key-ab/2026-09-08-secondary-powered-ttl96/
+- scripts/research/ranking_keys.py
+- scripts/research/nbook_portfolio.py
+- scripts/research/rank_arm_report.py
+- .github/workflows/ranking-key-ab.yml
+- scripts/backtest_system.py
+- WO-20260908-DECISION-TRADE-PRIORITISATION-HARNESS

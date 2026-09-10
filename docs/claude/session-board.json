@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T0706",
-    "claimed_at": "2026-09-10T07:05:13Z",
-    "purpose": "record four operator decisions + the sunset standing policy; heartbeat 07:04:53Z"
+    "branch": "claude/mgr-checklist-schema-20260910T0718",
+    "claimed_at": "2026-09-10T08:07:37Z",
+    "purpose": "Tier-1 manager registers: checklist rows, lease heartbeat, supervision reconcile, four recorded operator decisions"
   },
   "active_sessions": [
     {
