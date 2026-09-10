@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: one register file, docs/claude/work/MANAGER-CHECKLIST.json. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ — nothing here can reach a runtime, an order path or a strategy. Contents are management acts: two filed rows (filing is explicitly the act of NOT taking an item) and a lane tag on fourteen rows, recording an operator direction. The CLAUDE.md and role-pack half of that direction is deliberately NOT in this diff — it is a WORKER path for manager-scope-guard, and it is routed to a session as MI-244."
+}
