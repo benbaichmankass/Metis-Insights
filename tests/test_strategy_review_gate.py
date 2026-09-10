@@ -28,6 +28,7 @@ from scripts.ml.strategy_review_packet import (
     compute_headline,
     compute_regime_cells,
     decide,
+    is_actionable,
     load_backtest_anchor,
     regime_policy_cell_for,
 )
@@ -451,8 +452,17 @@ class TestRegimeSlicerEndToEnd:
             shadow_soak_days=20,
         )
         assert packet["execution"] == "live"
-        # n=5 is below the 20-trade evidence floor → hold (PB-20260630-004).
-        assert packet["proposed_action"] == "hold"
+        # n=5 is below the 20-trade evidence floor, so NO action may be proposed
+        # (PB-20260630-004). ⚠️ THE VERDICT WORD CHANGED IN MI-217 AND THE
+        # PROPERTY DID NOT: this leg has no offline edge record, so the gate now
+        # says `no_offline_evidence` rather than `hold` — "nobody produced the
+        # evidence this verdict rests on" instead of "graded, nothing to do".
+        # The safety property is asserted directly rather than via the word, so
+        # this test keeps its teeth if the vocabulary moves again.
+        assert packet["proposed_action"] not in ("kill", "demote_shadow", "promote", "tune")
+        assert is_actionable(packet["proposed_action"]) is False
+        assert packet["proposed_action"] == "no_offline_evidence"
+        assert packet["offline_evidence"]["state"] == "absent"
 
     def test_shadow_strategy_with_anomalous_fills_holds_with_override_reason(
         self, populated_db: Path
@@ -656,8 +666,16 @@ class TestOrphanedPackagesAreNotClosedTrades:
         assert h["n_decisions"] == 20
         assert h["n_filled"] == 0
         assert h["n_closed"] == 0
-        assert packet["proposed_action"] == "hold"
-        assert any("insufficient evidence" in r for r in packet["reasons"])
+        # ⚠️ THE INTENT OF THIS TEST IS THE SAFETY PROPERTY, NOT THE WORD: an
+        # all-orphan window must never surface as `n_closed=N → catastrophic`.
+        # MI-217 changed the word (this leg has no offline edge record, so the
+        # gate now names the absence instead of calling it `hold`) and left the
+        # property untouched. Both are asserted.
+        assert packet["proposed_action"] not in ("kill", "demote_shadow", "promote", "tune")
+        assert is_actionable(packet["proposed_action"]) is False
+        assert packet["proposed_action"] == "no_offline_evidence"
+        assert packet["offline_evidence"]["state"] == "absent"
+        assert any("no offline edge record" in r for r in packet["reasons"])
 
 
 # ---------------------------------------------------------------------------

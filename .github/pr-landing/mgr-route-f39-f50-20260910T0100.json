@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only: two sub-session registrations confirmed with real session ids, and two checklist rows. Spawning and registering are management acts. No src/, tests/, scripts/, config/, deploy/ or workflow path. No order placed, modified or cancelled on any account."
+}

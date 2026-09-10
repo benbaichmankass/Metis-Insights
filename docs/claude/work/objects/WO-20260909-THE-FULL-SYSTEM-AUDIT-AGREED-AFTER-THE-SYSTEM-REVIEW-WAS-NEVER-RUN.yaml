@@ -4,8 +4,9 @@ title: >-
   Run the /full-system-audit on the ops lane — agreed 2026-09-08 to follow the
   system review that would scope it, then dropped
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
-lifecycle: ready
-owner: unassigned
+lifecycle: done
+closed_at: '2026-09-09'
+owner: session_017windcijwZp3qttYNWCwYP
 created: "2026-09-09"
 priority: p1
 blocked_on: []
@@ -76,3 +77,84 @@ done_condition:
   explicitly_not_sufficient:
     - A clean report. The skill exists because clean reports were the failure.
     - Passing CI. The audit asserts things CI cannot reach.
+
+run_record:
+  session: session_017windcijwZp3qttYNWCwYP
+  ran: "2026-09-09"
+  branch: claude/mi225-full-system-audit
+  pr: 11571
+  audit_doc: docs/audits/full-system-audit-2026-09-09.md
+  report: comms/reports/audit/20260909T171500Z/  # RPT-20260909-171500-audit, rendered under --strict
+  findings: 68
+  backlog_rows_filed: 19   # 16 health, 3 performance; each with severity + tier + resolution_criteria + a detector
+
+done_condition_status:
+  clause_1_report_exists: MET
+  clause_1_detail: >-
+    Published through the system-report pipeline, NOT a hand-rolled artifact: envelope from
+    comms/schema/system_report_response.template.json with window "audit", rendered by
+    scripts/reports/render_system_report.py --strict (so the review-coverage guard PASSED
+    rather than being bypassed), appended to comms/reports/index.json, committed. The guard
+    demanded eight blocks the previous audit report did not carry and every one is filled
+    with measured material.
+  clause_2_seven_axes: MET
+  clause_2_detail: >-
+    All seven reported on, none silently absent: BEHAVIOR (3.1/3.2), INDEPENDENCE (3.3),
+    OUTCOME (3.4), LIVENESS (3.5), CONSISTENCY (3.6), MODULARITY (3.7), RECURRENCE (3.8),
+    plus AXIS 0 design criticism as Phase 6. What was NOT reached is declared WITH ITS REASON
+    in the coverage contract: the dashboard and android repos were not attached so hop 12 of
+    the pipeline trace is UNGRADED; trainer memory is unmeasurable from any reachable surface;
+    the prop venue reads positions:null (unread, not flat) so the prop bridge is NOT GRADED;
+    live branch protection was not read (403 at the proxy); per-trade grading is CITED.
+  clause_3_phase_310: MET
+  clause_3_detail: >-
+    All five review_coverage items present and each marked CITED or RE-ESTABLISHED per the
+    scope_input caveat. strategy_promotion RE-ESTABLISHED (the roster had moved:
+    ada_pullback_2h gone from bybit_2, fvg_range_15m present). ml_training_health CITED for
+    cycles/builds and RE-ESTABLISHED for trainer liveness, with the OOM cause explicitly NOT
+    re-established. soak_status RE-ESTABLISHED over all 57 allowlisted logs. flags_raised
+    RE-ESTABLISHED. backlog_drive RE-ESTABLISHED with a burn-down of 4/859 = 0.47%.
+  clause_4_findings_filed: MET
+  clause_4_detail: >-
+    19 backlog rows filed through scripts/ops/backlog_append.py::append_row (never by hand),
+    each with severity, tier, resolution_criteria written as what would AND would not clear
+    it, and a named detector or an explicit "no detector possible because X". The duplicate
+    refusal fired 14 times and every candidate was read before re-filing; one is recorded as
+    a genuine RECURRENCE. Burn-down reported with its population: 1630 rows / 872 unresolved,
+    4 closeable now + 2 partial.
+  must_not_compliance: >-
+    No clean axis was reported without stating what was looked at and what would have counted
+    as a finding - every axis carries an explicit "verified non-issue" or "what would have
+    counted" section. Phase 3.10 was NOT deferred. NO Tier-2 or Tier-3 remediation was taken:
+    all six money-at-risk proposals are FILED for the operator. No empty probe was treated as
+    a negative finding without a positive control - where one could not be established
+    (prop venue, trainer memory, alpaca_live soak absence) that is stated as UNGRADEABLE.
+  carried_forward: >-
+    OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING
+    was opened so the six operator decisions are carried by a register rather than by this
+    object - the audit's own finding about "do X first so we can scope Y" applied to itself.
+
+closed_by_manager: >-
+  Closed 2026-09-09T21:30Z by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj). The lane had
+  already filled `done_condition_status` with every clause MET and simply never flipped
+  `lifecycle`, so this object read `in_flight` while its work was on main - a false record
+  that also held a slot against the WIP ceiling of 8. PR #11571 merged as 566c0ff4c.
+  !! WHAT IS CLOSED IS THE AUDIT, NOT ITS FINDINGS. The six operator decisions are carried by
+  OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING,
+  which stays OPEN. ALL SIX were answered 2026-09-09 - four at 21:15Z (landed e1518aecd) and the
+  last two, F-11 and F-39, at 21:33Z - each with a full answer block on its own
+  WO-20260909-DECISION-* object.
+  !! CORRECTED 2026-09-09T23:4xZ BY ITS OWN AUTHOR: this block read "67 of 68 are filed in the two
+  review backlogs" and THAT FIGURE IS FALSE. The audit filed NINETEEN backlog rows against SIXTY-EIGHT
+  findings - its own run_record (`backlog_rows_filed: 19`) and clause_4_detail ("19 backlog rows
+  filed") both say so, twice, on this same object, and the F-id count over the audit doc is 68. So
+  roughly 49 findings carry no backlog row, which is the audit's DESIGN and not a defect. The false
+  figure did real harm before it was caught: a later manager, finding no backlog row for F-50, read
+  that absence against "67 of 68" and reported it as evidence that a money-at-risk proposal had
+  reached the operator unfiled - a finding manufactured entirely by this sentence. F-50 lacking a row
+  was the NORMAL case. What was genuinely owed - a landing place for the operator's F-50 disposition -
+  is now filed as
+  BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS,
+  and it turned out to be a RECURRENCE of the resolved
+  BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT, which is a better row than the phantom would
+  have been. Read a count off the run_record, never off a manager's prose about it.

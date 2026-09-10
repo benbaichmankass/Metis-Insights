@@ -52,6 +52,9 @@ from src.runtime.evidence_horizon import (  # noqa: E402
 )
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _offline_evidence as _oe  # noqa: E402
+
 _STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
 _REGIME_POLICY_YAML = _REPO_ROOT / "config" / "regime_policy.yaml"
 
@@ -968,6 +971,7 @@ def decide(
     shadow_soak_days: int,
     window_end: Any = None,
     tuning_attempted: Optional[bool] = None,
+    offline: Optional["_oe.OfflineEvidence"] = None,
 ) -> Decision:
     """Mechanical gate per `docs/strategy-review-gate.md` § Threshold table.
 
@@ -1029,19 +1033,52 @@ def decide(
 
     # --- The matrix.
     if n == 0:
-        decision.action = "hold"
-        decision.reasons.append("no closed trades in window — insufficient evidence.")
+        # ⚠️ THE WORD `hold` IS WRONG HERE WHEN THERE IS NO OFFLINE RECORD, AND
+        # WRONG IN THE DANGEROUS DIRECTION. `hold` reads as "graded, nothing to
+        # do"; the truth is "the offline evidence this verdict should rest on
+        # does not exist". The promotion-evidence doctrine says edge is proven
+        # OFFLINE and live rows prove MECHANICS, so withholding for want of live
+        # closes is not a verdict about the strategy at all — it is a gap in our
+        # instrumentation. Say which one it is.
+        if offline is not None and not offline.has_record:
+            decision.action = _oe.NO_OFFLINE_EVIDENCE
+            decision.reasons.append(
+                f"no offline edge record for this leg (state={offline.state}) — "
+                "edge is proven OFFLINE per the promotion-evidence doctrine, and "
+                "no closed trades in window cannot supply it. Run "
+                "scripts/ops/build_strategy_evidence.py for this leg."
+            )
+        else:
+            decision.action = "hold"
+            decision.reasons.append("no closed trades in window — insufficient evidence.")
+            if offline is not None:
+                decision.reasons.append(
+                    f"offline edge record present (fidelity={offline.fidelity}); "
+                    "live rows would prove MECHANICS, not edge."
+                )
     elif n < MIN_CLOSED_FOR_ACTION:
         # Minimum-evidence floor (PB-20260630-004): below 20 closed trades the
         # low-n matrix below could emit a real-money KILL / DEMOTE_SHADOW off
         # 1-5 trades (win<=0.10, exp<0, a policy-OFF cell) — statistical noise,
         # not evidence. Force HOLD under the floor; the 20<=n<30 catastrophic
         # path is intact.
-        decision.action = "hold"
-        decision.reasons.append(
-            f"insufficient evidence (n_closed={n} < {MIN_CLOSED_FOR_ACTION}) — no KILL/DEMOTE fires at "
-            "very low n; hold until more trades close."
-        )
+        # Same distinction as the n == 0 branch. The floor's SAFETY property is
+        # untouched — `no_offline_evidence` proposes no KILL/DEMOTE either, so
+        # nothing can fire off 1-5 trades — but "hold until more trades close"
+        # is the sentence the doctrine forbids when it is standing in for edge.
+        if offline is not None and not offline.has_record:
+            decision.action = _oe.NO_OFFLINE_EVIDENCE
+            decision.reasons.append(
+                f"no offline edge record for this leg (state={offline.state}); "
+                f"n_closed={n} < {MIN_CLOSED_FOR_ACTION} cannot supply edge either. "
+                "No KILL/DEMOTE fires. Run scripts/ops/build_strategy_evidence.py."
+            )
+        else:
+            decision.action = "hold"
+            decision.reasons.append(
+                f"insufficient evidence (n_closed={n} < {MIN_CLOSED_FOR_ACTION}) — no KILL/DEMOTE fires at "
+                "very low n; hold until more trades close."
+            )
     elif n < 30:
         if win <= 0.10 and exp_neg and any_off:
             decision.action = "kill"
@@ -1390,10 +1427,13 @@ def build_packet(
     cells = compute_regime_cells(decisions, regime_index, regime_policy, strategy)
     diag = compute_execution_diagnostics(decisions)
 
+    offline = _oe.read_offline_evidence(strategy)
+
     decision = decide(
         headline, cells, diag, execution, shadow_soak_days,
         window_end=window_end,
         tuning_attempted=tuning_attempt_on_record(strategy),
+        offline=offline,
     )
 
     # The window IN DAYS, derived from the window the packet was actually
@@ -1437,6 +1477,12 @@ def build_packet(
         # reaches). See src/runtime/evidence_horizon.py. Published so no
         # consumer re-derives it — the same reasoning MIN_CLOSED_FOR_ACTION is
         # published for.
+        # WHAT OFFLINE EDGE EVIDENCE EXISTS FOR THIS LEG, published for the same
+        # reason `evidence_horizon` and MIN_CLOSED_FOR_ACTION are: a consumer
+        # that re-derives it eventually spells it differently. Four states,
+        # never collapsed — `absent` (nobody ran the producer) and `unreadable`
+        # (we could not look) have different remedies and must not merge.
+        "offline_evidence": offline.to_dict(),
         "evidence_horizon": evidence_horizon(
             floor=MIN_CLOSED_FOR_ACTION,
             n_closed=headline.n_closed,
@@ -1512,6 +1558,28 @@ def _strategies_all(cfg: Mapping[str, Mapping[str, Any]]) -> List[str]:
 #: comment — consumers must not hardcode either spelling.
 NO_ACTION_VERDICT = "hold"
 
+#: Verdicts that are NOT a decision request to the operator, even though they
+#: are not ``hold``.
+#:
+#: ⚠️ THIS SET EXISTS BECAUSE `is_actionable` USED TO BE `action != "hold"`,
+#: AND THAT DEFAULT IS WRONG FOR `no_offline_evidence` IN THE DANGEROUS
+#: DIRECTION. `no_offline_evidence` is a gap in OUR instrumentation — nobody has
+#: run `scripts/ops/build_strategy_evidence.py` for that leg — not a question
+#: anyone is asking the operator. Left to fall through the old default it would
+#: have flipped ~51 of 52 legs to `actionable: True` on day one, swamping the
+#: genuinely-actionable rows on `/api/bot/strategy-reviews?actionable_only=true`
+#: with rows nobody can act on. That is the desensitised-alarm failure this repo
+#: keeps paying for, one surface further along.
+#:
+#: ⚠️ AND THE OPPOSITE ERROR IS WORSE, WHICH IS WHY IT IS COUNTED SEPARATELY
+#: RATHER THAN JUST SILENCED. Making it non-actionable and NOT counting it
+#: would reproduce exactly the invisibility that motivated the whole change —
+#: 52/52 graded `hold`, with nothing on any surface revealing that the gate was
+#: withholding every verdict for want of live trades. It rides `by_action` and
+#: its own `no_offline_evidence` summary count, so it is quiet but never
+#: invisible. A state nothing counts is a state nothing reads.
+NON_DECISION_VERDICTS = frozenset({NO_ACTION_VERDICT, _oe.NO_OFFLINE_EVIDENCE})
+
 
 def is_actionable(action: Optional[str]) -> bool:
     """True when this verdict asks a human for a decision.
@@ -1523,7 +1591,7 @@ def is_actionable(action: Optional[str]) -> bool:
     """
     if action is None:
         return True
-    return action.strip().lower() != NO_ACTION_VERDICT
+    return action.strip().lower() not in NON_DECISION_VERDICTS
 
 
 # The minimum-evidence floor (PB-20260630-004). Below this many closed trades
@@ -1587,6 +1655,24 @@ def write_index(
             1 for r in rows if r.get("below_evidence_floor") is None
         ),
         "actionable": sum(1 for r in rows if r.get("actionable")),
+        # ⚠️ ITS OWN COUNT, BESIDE `actionable` RATHER THAN INSIDE IT. These
+        # legs are NOT asking the operator for a decision — nobody has run
+        # `scripts/ops/build_strategy_evidence.py` for them — so folding them
+        # into `actionable` would bury the rows that ARE asking. But leaving
+        # them uncounted would recreate the invisibility that motivated the
+        # whole change (52/52 `hold`, nothing revealing the gate was withholding
+        # for want of live trades). Quiet, never invisible.
+        "no_offline_evidence": sum(
+            1 for r in rows if r.get("proposed_action") == _oe.NO_OFFLINE_EVIDENCE
+        ),
+        # The read-state census, so `no_offline_evidence: 51` can be told apart
+        # from "51 records are corrupt" without opening 51 packets.
+        "offline_evidence_states": {
+            s: sum(1 for r in rows if r.get("offline_evidence_state") == s)
+            for s in sorted(
+                {r.get("offline_evidence_state") for r in rows if r.get("offline_evidence_state")}
+            )
+        },
         "by_action": {
             a: sum(1 for r in rows if r.get("proposed_action") == a)
             for a in sorted({r.get("proposed_action") for r in rows if r.get("proposed_action")})
@@ -1682,6 +1768,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "strategy": strategy,
             "proposed_action": action,
             "actionable": is_actionable(action),
+            # Published on the INDEX so the evidence diagnosis is self-sufficient
+            # there, for the same reason `n_closed` and `below_evidence_floor`
+            # are: joining index rows to packet files silently CROSSES A RUN
+            # BOUNDARY (see the note below).
+            "offline_evidence_state": (packet.get("offline_evidence") or {}).get("state"),
             "n_closed": headline.get("n_closed"),
             # A NUMERIC, generator-owned answer to "could this row have
             # produced an action at all?". None when n_closed is itself

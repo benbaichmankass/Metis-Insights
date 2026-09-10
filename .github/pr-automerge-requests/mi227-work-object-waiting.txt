@@ -1,0 +1,10 @@
+MI-227 session-end record-keeping. Tier-1, landing: self.
+
+One work-object YAML under docs/claude/work/objects/ (a docs/** path, so
+TIER1_SURFACE vouches for it): WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-
+PROTECTIVE-LEG goes lifecycle in_flight -> waiting with owner -> claude, now
+that the Tier-2 code it tracks has merged as 7b8b6b51d (#11604). Adds one TRUE
+typed blocked_on edge (kind: external_event) for the live intent-reduce the
+done-condition still owes, and corrects two fields that went stale on that merge.
+
+No runtime, order path, config, test or CI behaviour is touched. PR #11616.

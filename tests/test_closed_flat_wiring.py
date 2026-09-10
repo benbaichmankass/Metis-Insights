@@ -1,4 +1,4 @@
-"""Regression for ``src/runtime/_closed_flat_wiring.py`` (S-067 fu A).
+r"""Regression for ``src/runtime/_closed_flat_wiring.py`` (S-067 fu A).
 
 **BASELINE (2026-06-17): the invariant check is UNCONDITIONAL.** The
 default-OFF ``CLOSED_FLAT_INVARIANT_ENABLED`` gate was removed — a safety
@@ -15,9 +15,16 @@ Contracts under test:
    NOT "gated off").
 2. **No violations** — check IS called, returns ``[]``, helper returns
    ``None`` and does not mutate ``summaries``.
-3. **Violations present** — check returns a list of ``InvariantViolation``;
-   helper returns the summary entry ``{"violations": N, "phase":
-   "alert_only"}`` and writes it into ``summaries["__closed_flat_invariant__"]``.
+3. **Violations present** — the check returns a result carrying
+   ``InvariantViolation``\ s; the helper returns a summary entry carrying the
+   per-state counts and writes it into
+   ``summaries["__closed_flat_invariant__"]``.
+
+⚠️ **The entry point is ``check_detailed``, not ``check`` (audit F-11,
+2026-09-09).** ``check`` returns the violations list alone, which cannot
+express ``could_not_look`` — an empty list there means "no violation FOUND",
+never "no violation EXISTS". A pass with zero violations but an ungradeable
+exchange read is NOT a clean tick and the helper must still report it.
 
 Plus the never-raise contract (4) and the resolver-shape contract (5):
 
@@ -29,7 +36,30 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.runtime import _closed_flat_wiring as wiring
+from src.runtime import closed_flat_invariant as cfi
+
+
+def _clean():
+    """A pass in which every examined row graded `flat` — the only shape the
+    wiring may report as a clean tick."""
+    return cfi.ClosedFlatCheckResult(
+        [], [],
+        state_counts={"flat": 2, "residual": 0, "could_not_look": 0},
+        examined=2, controls_ok=True,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _reset_cadence():
+    """The invocation-interval tracker is module state by design (a process
+    restart must fall back to the bootstrap window). Reset it per test so the
+    window a test observes is the one that test produced."""
+    wiring._last_invocation_monotonic = None
+    yield
+    wiring._last_invocation_monotonic = None
 
 
 # ---------------------------------------------------------------------------
@@ -48,9 +78,9 @@ def test_check_runs_with_no_env(monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
     )
-    fake_check = MagicMock(return_value=[])
+    fake_check = MagicMock(return_value=_clean())
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
     summaries: dict = {}
     result = wiring.maybe_run_closed_flat_check(db=object(), summaries=summaries)
@@ -67,9 +97,9 @@ def test_check_runs_with_legacy_false_env(monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
     )
-    fake_check = MagicMock(return_value=[])
+    fake_check = MagicMock(return_value=_clean())
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
     assert wiring.maybe_run_closed_flat_check(db=object()) is None
     fake_check.assert_called_once()
@@ -86,9 +116,9 @@ def test_check_runs_no_violations(monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
     )
-    fake_check = MagicMock(return_value=[])
+    fake_check = MagicMock(return_value=_clean())
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
     summaries: dict = {}
     result = wiring.maybe_run_closed_flat_check(db=object(), summaries=summaries)
@@ -110,15 +140,21 @@ def test_violations_recorded_in_summaries(monkeypatch):
     )
     fake_violations = [object(), object(), object()]  # 3 violations
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check",
-        lambda db, account_resolver=None, **kw: fake_violations,
+        "src.runtime.closed_flat_invariant.check_detailed",
+        lambda db, account_resolver=None, **kw: cfi.ClosedFlatCheckResult(
+            fake_violations, [],
+            state_counts={"flat": 1, "residual": 3, "could_not_look": 0},
+            examined=4, window_seconds=kw.get("window_seconds", 60.0),
+            cadence_basis=kw.get("cadence_basis", "measured"),
+            controls_ok=True,
+        ),
     )
     summaries: dict = {}
     result = wiring.maybe_run_closed_flat_check(db=object(), summaries=summaries)
-    assert result == {"violations": 3, "phase": "alert_only"}
-    assert summaries["__closed_flat_invariant__"] == {
-        "violations": 3, "phase": "alert_only",
-    }
+    assert result["violations"] == 3
+    assert result["state_counts"]["residual"] == 3
+    assert result["phase"] == "alert_only"
+    assert summaries["__closed_flat_invariant__"] is result
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +173,7 @@ def test_check_raising_is_swallowed(monkeypatch):
         raise RuntimeError("simulated check failure")
 
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", _boom,
+        "src.runtime.closed_flat_invariant.check_detailed", _boom,
     )
     # Must NOT raise.
     assert wiring.maybe_run_closed_flat_check(db=object()) is None
@@ -155,7 +191,7 @@ def test_cfg_loader_raising_is_swallowed(monkeypatch):
     )
     fake_check = MagicMock()
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
     assert wiring.maybe_run_closed_flat_check(db=object()) is None
     fake_check.assert_not_called()
@@ -181,10 +217,10 @@ def test_resolver_returns_cfg_for_known_id(monkeypatch):
 
     def _capture(db, account_resolver=None, **kw):
         captured_resolver.append(account_resolver)
-        return []
+        return _clean()
 
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", _capture,
+        "src.runtime.closed_flat_invariant.check_detailed", _capture,
     )
     wiring.maybe_run_closed_flat_check(db=object())
     assert len(captured_resolver) == 1

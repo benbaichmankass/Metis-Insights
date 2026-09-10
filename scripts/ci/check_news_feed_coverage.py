@@ -84,6 +84,72 @@ def _traded_symbols() -> Set[str]:
     return found
 
 
+def self_test() -> int:
+    """Plant an unmapped symbol and require main() to REFUSE it.
+
+    Three refusal paths exist and all three are exercised, because the live
+    config satisfies every one of them -- so without these fixtures none of the
+    guard's refusals would ever run, and a guard whose refusal path never runs
+    is indistinguishable from one that always passes (F-05, 2026-09-09 audit).
+
+    The bar is `main()`'s RETURN VALUE, not its output. Controls 1-3 plant a
+    violation and require 1; control 4 removes it and requires 0. Control 4 is
+    not optional: without it a guard that returned 1 unconditionally would pass
+    the other three.
+
+    The plant replaces the module's own `_traded_symbols` for the duration and
+    restores it in a `finally`. NOTHING under `config/` is written -- the real
+    accounts.yaml / strategies.yaml / news_feeds.yaml are read-only here.
+    """
+    fails: List[str] = []
+
+    def check(label: str, got, want) -> None:
+        if got != want:
+            fails.append(f"  FAIL - {label}: got {got!r}, want {want!r}")
+        else:
+            print(f"  PASS - {label}")
+
+    real = globals()["_traded_symbols"]
+    try:
+        # 1. A symbol no instrument entry classifies reads macro-only in
+        #    SILENCE. That is the whole subject of this guard.
+        globals()["_traded_symbols"] = lambda: {"__SELFTEST_UNCLASSIFIED__"}
+        check("an unclassifiable symbol makes main() return 1", main(), 1)
+
+        # 2. THE EMPTY-POPULATION REFUSAL. A guard that reports a pass over
+        #    zero symbols has checked nothing -- `n=0` is not a clean negative,
+        #    it is an absent denominator. This control is why that branch is
+        #    not merely written but proven to fire.
+        globals()["_traded_symbols"] = lambda: set()
+        check("an EMPTY symbol population makes main() return 1 (no pass on n=0)",
+              main(), 1)
+
+        # 3. REMOVE THE PLANT: the live population must still pass, which is
+        #    what separates "found the plant" from "trips on anything".
+        globals()["_traded_symbols"] = real
+        check("the live population returns 0", main(), 0)
+
+        # 4. A REAL symbol that IS mapped must not trip -- a narrower positive
+        #    control than 3, so a future change that made every fixture fail
+        #    would be caught rather than read as strictness.
+        one = sorted(real())[:1]
+        if one:
+            globals()["_traded_symbols"] = lambda: set(one)
+            check(f"a single mapped symbol ({one[0]}) returns 0", main(), 0)
+        else:
+            fails.append("  FAIL - the live tree yielded no traded symbol to "
+                         "use as a positive control; control 4 could not run")
+    finally:
+        globals()["_traded_symbols"] = real
+
+    if fails:
+        print("\n".join(fails))
+        print("\nSELF-TEST FAILED")
+        return 1
+    print("\nALL PASS")
+    return 0
+
+
 def main() -> int:
     from src.core.instrument_class import (
         UNKNOWN,
@@ -104,7 +170,7 @@ def main() -> int:
         str(x).strip().lower() for x in (raw.get("macro_only_classes") or []) if str(x).strip()
     }
 
-    symbols = _traded_symbols()
+    symbols = globals()["_traded_symbols"]()
     if not symbols:
         print("::error::news-feed-coverage: found NO traded symbols in "
               "accounts.yaml/strategies.yaml — the guard cannot have checked "
@@ -161,4 +227,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if "--self-test" in sys.argv[1:]:
+        raise SystemExit(self_test())
     raise SystemExit(main())

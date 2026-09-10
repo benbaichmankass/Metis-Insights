@@ -21,14 +21,14 @@
   "schema_version": 1,
   "state": "held",
   "holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "claimed_at": "2026-09-09T15:29:57Z",
-  "heartbeat_at": "2026-09-09T19:12:06Z",
-  "expires_at": "2026-09-09T20:42:06Z",
+  "claimed_at": "2026-09-10T04:44:17Z",
+  "heartbeat_at": "2026-09-10T05:30:14Z",
+  "expires_at": "2026-09-10T07:00:14Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired",
   "forced": true,
-  "force_reason": "The lease LAPSED (expired 239 min past its 11:26:50Z heartbeat). My 14:27:54Z heartbeat was committed only to claude/mgr-mi222-venue-truth-detector, whose PR #11547 was relay-opened and accrued ZERO check runs, so it never reached main. Same holder re-claiming after its own lapse; no takeover, no other session involved.",
+  "force_reason": "Operator-authorized re-claim, 2026-09-10, asked as a popup and answered 'Re-claim it, I am not running another manager'. I let my OWN lease lapse: heartbeat 02:49:05Z, 90min TTL, returned 04:42Z = 114min, 24 past the deadline; cause was merges plus an operator popup round-trip consuming more wall clock than I budgeted, with no intervening heartbeat. NOT a takeover and NOT a race: verified over the 8 most recent revisions of this file that session_01HrmZ1RRNM4UnEUaFdrPEjj is the holder in every one and no other session ever claimed it, before asking. The operator confirmed no other management session is live -- which is the half I cannot establish from inside the repo, and is why this went to them rather than being force-claimed on my own judgement.",
   "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "note": null
 }

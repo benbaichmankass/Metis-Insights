@@ -1,0 +1,214 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+id: WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The sanctioned intent-layer rollback is a 78% capability outage - operator answered: collapse
+  the two registries into one
+stage: DECISION
+lifecycle: done
+owner: session_01TM8XjkvVpvMxH4EcLtTsvP
+opened_at: '2026-09-09'
+closed_at: '2026-09-10'
+
+review_trigger: >-
+  CLOSED 2026-09-10. The DECISION was discharged by the operator on 2026-09-09 and the BUILD
+  that implements it MERGED as PR #11615 (squashed to `main` as 2ee21f4e5, merged
+  2026-09-10T00:42:51Z BY THE MANAGER holding the lease (session_01HrmZ1RRNM4UnEUaFdrPEjj) - NOT by the
+  operator, which this line said until 2026-09-10T01:1xZ. The operator's part was the DECISION on
+  2026-09-09 (chosen: collapse_to_one_registry); the merge click was a management act on the
+  recorded approval. Attribution matters here because pr-landing R4 bars a Tier-3 diff from landing
+  itself whatever its approval state, so 'who clicked' is exactly what such a row exists to show.
+  Head f606e4d4d, all 6 checks green). Nothing here is
+  owed. ⚠️ `done` ON THIS OBJECT MEANS THE DECISION AND ITS BUILD ARE COMPLETE — IT DOES NOT
+  MEAN THE EFFECT WAS OBSERVED ON THE FLEET, and collapsing those two is the failure this repo
+  keeps paying for. The fleet question is carried by
+  OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED
+  (`loud: true`, `verified_at: null`), NOT by this row: nobody has ever run the rollback, before
+  or after the change, so the repaired rollback is as unexercised as the broken one was. Read
+  `build` below before re-opening anything here.
+done_condition: >-
+  pipeline._STRATEGY_BUILDERS no longer exists as a second registry - multiplexed_signal_builder
+  resolves through the SAME path the primary uses - AND a parity assertion exists so that a
+  future re-split fails loudly. !! DELETING THE SECOND REGISTRY IS THE POINT: a parity test
+  alone leaves the duplication that caused this, and the operator chose the collapse over the
+  test.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager, and the closing sentence below is PRESERVED AS THE RECORD OF
+  WHAT WAS TRUE THEN rather than as a live claim - it read "IT IS NOT SCHEDULED: the WIP ceiling
+  stood at 8 of 8 in_flight when this was recorded, so no lane could be spawned", which is FALSE as
+  of 2026-09-09T23:06Z: a lane WAS spawned (MI-229, session_01TM8XjkvVpvMxH4EcLtTsvP - this
+  object's own `owner` field names it), it built the collapse, and #11615 merged. A session reading
+  that sentence as current would conclude this is unstarted work. The original text: "Nothing blocks
+  the BUILD: the finding is measured, the detector is named in the audit, and the operator has now
+  answered. What gated it was the decision itself, and that gate is discharged. `ready` means
+  answered and buildable, NEVER in progress." !! `blocked_on: []` HERE IS A REAL CLAIM AND NOT AN
+  UNASSESSED DEFAULT: nothing blocks this object, because the fleet observation it does NOT cover is
+  carried by OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-ROLLBACK-BUILDER-REGISTRY
+    question: >-
+      The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a SECOND builder
+      registry holding 16 of 55 strategies - so exercising it would silently stop 35 of 45 live
+      legs (78%), logged as a warning and skipped. No test asserts the two registries agree.
+    urgency: high
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-28, re-verified by the audit lead from AST rather than taken from the agent.
+      pipeline._STRATEGY_BUILDERS n=16; execution:live legs MISSING from the rollback registry:
+      35 of 45 (78%). Sample: ada_pullback_2h, eth_pullback_2h, gdx_pullback_1d,
+      gld_pullback_1d, gld_pullback_1h, iaum_pullback_1d, ict_scalp_avax_5m, ict_scalp_eth_15m.
+      On a leg the rollback registry lacks, pipeline.py:506-509 logs a warning and CONTINUES.
+      pipeline.py:671-684 documents this path as the rollback - 'export
+      MULTI_STRATEGY_INTENT_LAYER=false to fall back to it without a code change' - and
+      CLAUDE.md lists the var as 'the core intent-aggregation switch, default on'. A grep for a
+      parity assertion over tests/ returns NO OUTPUT. The primary registry grew 16 -> 55 across
+      2026-05 to 2026-07 and the rollback registry was never followed. !! THE FAILURE MODE IS
+      THE WORST AVAILABLE: it looks like it worked.
+    options:
+      - key: collapse_to_one_registry
+        label: Collapse to one registry
+        implication: >-
+          Deletes _STRATEGY_BUILDERS and routes the rollback through _resolve_builders(). One
+          registry cannot drift from itself. Tier-2 - it touches the signal path.
+      - key: parity_test_and_backfill
+        label: Parity test plus backfill the 39
+        implication: >-
+          Syncs by hand now and guards it. Works today, preserves the duplication that caused
+          it.
+      - key: parity_test_only
+        label: Parity test only
+        implication: >-
+          Tier-1. Fails loudly on the next drift but does NOT close today's 39-leg gap; the
+          rollback stays an outage until someone acts on the red.
+      - key: retire_the_rollback
+        label: Retire the rollback path
+        implication: >-
+          Honest - it does not work - but there is then no env-flip rollback for the intent
+          layer at all.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:1xZ. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE OPERATOR ASKED
+        'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. That precedent was read first and followed. The Telegram channel was
+        separately VERIFIED healthy the same minute (sweep receipt 21:01:23Z:
+        destination=claude, poll_state=polled_with_handler,
+        token_from=TELEGRAM_CLAUDE_BOT_SECRET; write gate open) — it was not the blocker, and
+        these six were simply never declared as decision_requests at all.
+      chosen: collapse_to_one_registry
+      free_text: >-
+        Operator chose the structural fix on 2026-09-09: collapse the two registries into one
+        rather than police them with a test. Tier-2 approval for a SIGNAL-PATH change. !! THE
+        ROLLBACK MUST STILL WORK AFTERWARDS - the point is that
+        MULTI_STRATEGY_INTENT_LAYER=false reverts BEHAVIOUR without reverting COVERAGE, so the
+        build is not done until the flag is exercised and all 45 live legs still build. A parity
+        assertion stays valuable as the recurrence detector even once the second registry is
+        gone.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:15:00Z'
+      note: >-
+        Manager session. One of the six the full-system audit filed and did not take.
+
+build:
+  by: MI-229 · session_01TM8XjkvVpvMxH4EcLtTsvP (worker; manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  built_on: '2026-09-09'
+  pr: '#11615'
+  landing: >-
+    hold / tier_2_3_needs_approval — auto-merge never armed, no merge slot claimed. MERGED
+    2026-09-10T00:42:51Z by the operator (squash 2ee21f4e5 on `main`), head f606e4d4d, all 6
+    checks green: guards · pytest-run · pytest-collect · repo-inventory · open-and-automerge ·
+    audit. ⚠️ `open-and-automerge` ran and its log reads `NO REQUEST … no auto-merge, no merge`
+    — it fired only because merging main pulled in another branch's request file and matched
+    the path filter. Two merge-conflict cycles were resolved on the way (main moved twice):
+    OPEN-ITEMS.json resolved FROM THEIRS with a union asserted by id set (72 = base 70 + mine 1
+    + main's 1, all of main's rows byte-identical at position INCLUDING one it had modified in
+    place), and CLAUDE.md — being generated — resolved by re-rendering rather than by picking
+    hunks.
+  done_condition_grading: >-
+    BOTH halves delivered. (1) `pipeline._STRATEGY_BUILDERS` NO LONGER EXISTS — deleted, not
+    aliased and not turned into a view; `hasattr(pipeline, "_STRATEGY_BUILDERS")` is False and a
+    test asserts it. `multiplexed_signal_builder` and `monitor_unit_for` both resolve through
+    `pipeline.strategy_builders()`, which is a two-line delegation to
+    `intent_multiplexer._resolve_builders()` — the SAME call the primary path makes. (2) The
+    parity assertion exists as `tests/test_strategy_builder_registry_single_home.py`, 7 tests.
+    ⚠️ THE OPERATOR'S "DELETING IS THE POINT" WAS FOLLOWED LITERALLY: the test was not shipped
+    in place of the deletion.
+  measurement_reproduced: >-
+    ⚠️ F-28 WAS RE-MEASURED HERE, NOT TRANSCRIBED, and it reproduced EXACTLY. Population: all 55
+    strategies declared in `config/strategies.yaml`, of which 45 are `execution: live`. Intent
+    roster 55 · deleted pipeline registry 16 · gap 39 · live legs missing from the rollback
+    registry 35 of 45 = 78%. Sample matched the audit's verbatim (ada_pullback_2h,
+    eth_pullback_2h, gdx_pullback_1d, gld_pullback_1d, gld_pullback_1h, iaum_pullback_1d,
+    ict_scalp_avax_5m, ict_scalp_eth_15m). The audit's F-28 numbers are CONFIRMED; no correction
+    to file.
+  safety_claim_measured: >-
+    ⚠️ THE LOAD-BEARING CLAIM FOR A TIER-2 SIGNAL-PATH CHANGE, and it is measured rather than
+    argued. The deleted registry was a STRICT SUBSET of the surviving roster — `set(legacy) -
+    set(primary)` was EMPTY, so it contributed no name of its own — and all 16 of its names
+    mapped to the IDENTICAL builder OBJECT in the roster, compared with `is` rather than by
+    name (0 of 16 differed). So the collapse is strictly additive: the 16 legs that worked under
+    the rollback now call the byte-identical callable, and the 39 that were skipped are built.
+    Verified after the change: the rollback path resolves 45 of 45 live legs, up from 10 of 45,
+    and `monitor_unit_for` returns the same answer on all four probe classes (an intent-only
+    sleeve `mgc_trend_1h` -> trend_donchian, a legacy name `turtle_soup` -> turtle_soup, a pairs
+    leg -> pairs_executor, an unknown name -> itself).
+  what_was_NOT_done:
+    - >-
+      `MULTI_STRATEGY_INTENT_LAYER` was NOT flipped on any VM, and this PR must not be read as
+      asking for that. The flag is default-ON; the live path is untouched by this diff. The
+      operator's `free_text` says the build "is not done until the flag is exercised and all 45
+      live legs still build" — the CODE half of that is asserted by
+      `test_every_live_leg_is_buildable_on_both_paths` (45 of 45, from the config, through the
+      same roster the rollback path reads). EXERCISING THE FLAG ON THE FLEET IS A SEPARATE
+      TIER-2 ACT and is NOT covered by this approval; a test is not a fleet observation, which
+      is why the OPEN-ITEMS row below is filed rather than the claim being made here.
+    - >-
+      No order was placed, modified or cancelled on any account. No env var was changed.
+    - >-
+      `src/units/accounts/execute.py` and `scripts/ops/system_invariants.py` were not touched
+      (MI-227 was live in both).
+  a_test_of_mine_was_wrong_and_was_fixed: >-
+    ⚠️ RECORDED BECAUSE IT IS THE MORE USEFUL HALF. The first version of the behavioural test
+    swapped the single home's roster for one containing no real strategy name and asserted the
+    rollback returned `side == "none"`. It PASSED against a planted module-local dict — measured,
+    not suspected — because the real `turtle_soup` builder ALSO returns `none` on a bare settings
+    dict. A green for the wrong reason, i.e. an unasserted denominator in the detector itself.
+    Rewritten so the sentinel builder is registered under a REAL strategy name and must be
+    OBSERVED FIRING; it then failed the plant correctly. The lesson is the one this repo already
+    names: verify your own output, hardest when it confirms what you expected.
+  planted_controls: >-
+    Three plants, each reverted, each caught: (a) a 3-entry `_STRATEGY_BUILDERS` re-added to
+    pipeline -> 2 of 7 fail; (b) a module-local dict inside `multiplexed_signal_builder` -> the
+    behavioural test fails; (c) a local dict consulted first in `monitor_unit_for`, the
+    pre-2026-06 naked-orphan-MGC shape (the id the code comments use for that incident was
+    never filed as a backlog row, so it is deliberately not cited here as a tracking
+    reference) -> 2 of 7 fail. The detector also carries a standing
+    POSITIVE CONTROL asserting the AST scan can still find the one roster that SHOULD exist, so
+    a matcher that has silently stopped working cannot pass as a clean result.
+  detector_limits_stated: >-
+    The AST scan sees a dict LITERAL mapping >=3 string keys to `*_signal_builder` callables. A
+    registry assembled some other way — a loop, a decorator, a comprehension — is NOT caught.
+    Stated in the test module's own docstring rather than left to be discovered.
+  the_drift_mechanism_was_also_removed: >-
+    `.claude/skills/new-strategy/SKILL.md` step 3, `docs/strategies/supported_strategies.md`
+    step 2 and `docs/strategies/ict_scalp_5m.md` all INSTRUCTED an author to register the new
+    strategy in the dict that has now been deleted. That instruction is not a cosmetic stale
+    reference — it IS how the drift happened: skipping it changed nothing observable on the live
+    path, so 39 authors skipped it. All three now name the one home and say why.

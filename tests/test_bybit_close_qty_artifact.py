@@ -347,7 +347,11 @@ class TestPartialCloseWritesARoundedResidual:
             reduce_direction="short", reduce_qty=256.1,
             fill_price=106.4, closed_at_iso="2026-09-06T03:32:39+00:00",
         )
-        assert out["allocations"] == [{"parent_id": 4242, "consumed": 256.1}]
+        # MI-227 widened the allocation dict; assert the two fields this test
+        # is about, plus the residual it exists to pin.
+        assert len(out["allocations"]) == 1
+        assert out["allocations"][0]["parent_id"] == 4242
+        assert out["allocations"][0]["consumed"] == 256.1
         assert len(db.updates) == 1
         trade_id, fields = db.updates[0]
         assert trade_id == 4242

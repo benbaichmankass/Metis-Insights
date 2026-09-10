@@ -569,7 +569,7 @@ CONTRACTS: List[Dict[str, object]] = [
         # every state would only buy three override annotations that assert nothing.
         # The guard is stronger keyed to the field itself.
         "consumer_token": r"\brequirement_state\b",
-        "states": ["within", "breached", "not_measured", "unknown"],
+        "states": ["within", "near_miss", "breached", "not_measured", "unknown"],
         "why": (
             "within = every MEASURED interval between exit evaluations was "
             "inside the 60s requirement; breached = at least one was not, so a "
@@ -585,7 +585,55 @@ CONTRACTS: List[Dict[str, object]] = [
             "both read healthy while the requirement sits at 60s. Measured "
             "2026-08-16 at a 58940.8ms worst pass (n=694), 1.1s inside the "
             "requirement, alarming nowhere. "
-            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
+            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT. "
+            "`near_miss` was ADDED 2026-09-09 on an operator decision "
+            "(WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED, audit F-50) "
+            "because `within` covered both a comfortable 20s max and a 59951.2ms "
+            "max against a 60s requirement -- a MEASURED reading, n=989 intervals "
+            "over 12 processes on 2026-09-09, clearing the promise by 48.8ms with "
+            "every instrument reading `within`. It is a WARN and is deliberately "
+            "NOT a widening of `breached`: no trade went unevaluated past the "
+            "requirement, and spending the ALERT vocabulary on a promise that was "
+            "KEPT is how the operator gets trained past the one that means it was "
+            "not. The producer tests `breached` FIRST, so the band underneath can "
+            "never downgrade a real breach."
+        ),
+    },
+    {
+        "name": "exit_restart_gap.restart_gap_state",
+        "producer": "src/runtime/exit_restart_gap.py",
+        # No `producer_field`, deliberately, for the reason the qty_legalize and
+        # research_queue entries give: the states are module CONSTANTS
+        # (`RESTART_GAP_WITHIN = "within"`), so the literal never shares a line
+        # with the word `restart_gap_state` and narrowing here would fail for a
+        # spelling reason rather than a correctness one. The hazard
+        # `producer_field` guards -- a SIBLING field in the same module standing
+        # in as evidence -- does not arise: the module's only other state field
+        # is `gap_state`, whose vocabulary (measured/overlapping/ungradeable) is
+        # disjoint from this one's.
+        "consumer_token": r"\brestart_gap_state\b|\bgrade_restart_gaps\b|\bgrade_this_process\b",
+        "states": ["within", "near_miss", "breached", "not_measured", "unknown"],
+        "why": (
+            "THE INTERVAL THE PROMISE COVERS AND THE INSTRUMENT EXCLUDES BY "
+            "CONSTRUCTION. M20 guarantees no live trade goes 60s without "
+            "re-evaluation; `exit_loop_health.max_interval_ms` grades that from a "
+            "module global that resets on every restart, and the live trader "
+            "restarts on every merge to main (12 processes in ~8.3h measured "
+            "2026-09-09). So the gap from the last pass of process N to the first "
+            "of N+1 is measured by NOBODY -- and a deploy is exactly when the "
+            "trader is least likely to be evaluating exits (old process stopped, "
+            "new one booting with cold caches). `not_measured` = fewer than two "
+            "processes in the population, so NO gap EXISTS; `unknown` = "
+            "boundaries existed and none could be graded, e.g. the successor's "
+            "earliest row is not a genuine first pass because the log was "
+            "rotated. BOTH must never collapse into `within`: a log with one "
+            "process in it has not demonstrated compliance, it has demonstrated "
+            "nothing, and a rotated log would otherwise yield an arbitrary "
+            "within-process interval wearing a restart-gap label -- "
+            "systematically SHORT, i.e. wrong in the reassuring direction. "
+            "Measured 2026-09-09: 11 restart gaps at 25.3-53.9s, 0 of 11 over "
+            "60s, 1.3% of wall clock -- clean, and watched by nothing. "
+            "WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED (audit F-50)."
         ),
     },
     {
@@ -1063,6 +1111,45 @@ CONTRACTS: List[Dict[str, object]] = [
             "decision to the wrong chat. The two errors are opposite, which is "
             "why the third value has to exist rather than be inferred from a "
             "boolean."
+        ),
+    },
+    {
+        "name": "closed_flat.residual_state",
+        # The producer OWNS the vocabulary: the three states are module
+        # constants in closed_flat_invariant and nowhere else.
+        "producer": "src/runtime/closed_flat_invariant.py",
+        # Scoped to this contract's OWN tokens, never the bare state words:
+        # "flat" and "residual" are ordinary English that appear across the
+        # order-path modules, and matching on them would bind this contract to
+        # files that have never heard of the invariant (the coincidence-
+        # matching failure this guard's own header warns about).
+        "consumer_token": (r"\bresidual_state\b|\bRESIDUAL_STATE_[A-Z_]+\b|"
+                           r"\bResidualRead\b"),
+        "states": ["flat", "residual", "could_not_look"],
+        "why": (
+            "AUDIT F-11 (2026-09-09), operator-approved Tier-2 the same day. "
+            "The closed->exchange-flat invariant is THE ONE MECHANISM that can "
+            "independently contradict 'this trade is closed', and it returned "
+            "0.0 -- the value meaning FLAT -- on every exchange-read failure: "
+            "5 of 5 early-return sites (account unresolvable; "
+            "account_open_positions raised; fetcher() raised; positions is "
+            "None; positions == []). The caller reads `residual == 0.0` as NO "
+            "VIOLATION, so the falsifier was cleared by exactly the condition "
+            "it exists to catch. Its own input already made the distinction -- "
+            "`clients.py::account_open_positions` returns None BY CONTRACT so "
+            "callers can tell 'no positions' ([]) from 'could not read' "
+            "(None), INCLUDING an empty IB snapshot from a Gateway not "
+            "verified logged-in -- and this module was the consumer that "
+            "dropped it. Positive control that the convention holds elsewhere: "
+            "hourly_report.py's `len(positions) if isinstance(positions, list) "
+            "else None`. `flat` is the venue telling us the book is empty and "
+            "is the ONLY state that clears the invariant. `residual` is the "
+            "violation. `could_not_look` is WE DID NOT LOOK, and folding it "
+            "into `flat` is what made a 14.7-day zero-violation record "
+            "evidence of nothing. Folding it into `residual` instead would "
+            "page the operator on every IB gateway logout -- the opposite "
+            "error and the desensitised-alarm P1 -- which is why the third "
+            "value has to exist rather than be inferred from a boolean."
         ),
     },
     {

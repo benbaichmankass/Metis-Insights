@@ -39,7 +39,7 @@ from src.runtime.exit_plan import (
 pytest.importorskip("pandas")
 import pandas as pd  # noqa: E402
 
-from src.runtime.pipeline import _STRATEGY_BUILDERS, monitor_unit_for  # noqa: E402
+from src.runtime.pipeline import monitor_unit_for  # noqa: E402
 from src.runtime.intent_multiplexer import _resolve_builders  # noqa: E402
 
 
@@ -92,9 +92,11 @@ def test_bybit_remains_fully_wired():
 
 
 def _all_registered_strategies():
-    names = set(_STRATEGY_BUILDERS)
-    names.update(_resolve_builders())
-    return sorted(names)
+    # ONE roster since 2026-09-09 (audit F-28, MI-229): this used to union
+    # pipeline._STRATEGY_BUILDERS with the intent roster because the two could
+    # differ. The union is gone with the second registry, not weakened — the
+    # deleted dict was a strict SUBSET, so this set is unchanged.
+    return sorted(_resolve_builders())
 
 
 def _candles(last_close: float, *, start: float, n: int = 260) -> pd.DataFrame:

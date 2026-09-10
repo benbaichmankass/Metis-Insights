@@ -309,6 +309,25 @@ HOLD_REASONS = {
         "an explicit operator instruction; quote it",
     "tier_2_3_needs_approval":
         "Tier-2/Tier-3 work; say what approval is being sought and from whom",
+    # ADDED 2026-09-09 (MI-226). R5's own remedy text says "Either narrow the
+    # PR, or set `landing: \"hold\"` and let a human read it" -- and until this
+    # entry existed there was NO hold_reason that said that. Every other value
+    # in this set would have been a FALSE statement about a Tier-1 PR whose only
+    # sin is touching a path the allowlist does not enumerate, so the guard's
+    # own advice was unfollowable and the only passing move was to lie about
+    # why. Found by a PR editing `scripts/check_provenance_consumers.py`: 26
+    # guard scripts live in bare `scripts/`, their sibling `scripts/ci/**` is
+    # allowlisted, and no truthful declaration existed for any of them.
+    #
+    # It grants NOTHING. It does not widen TIER1_SURFACE and does not self-land
+    # -- it is a hold, so a human still merges. And it is VERIFIED against the
+    # diff (R14), so it cannot become a blanket excuse: a PR whose paths are all
+    # inside the allowlist may not claim it, because such a PR can simply
+    # self-land.
+    "unvouchable_paths":
+        "Tier-1 work whose diff touches a path outside TIER1_SURFACE, so the "
+        "guard cannot certify self-landing and a human merges (VERIFIED against "
+        "the diff -- see R14); name the paths",
 }
 
 MIN_TEXT = 20
@@ -654,6 +673,29 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
             else:
                 notes.append("R8 verified — landing machinery in the diff: "
                              + ", ".join(sorted(machinery)[:5]))
+        # R14 -- verified, not presence-only, exactly as R8 is. Without this,
+        # `unvouchable_paths` would be the cheapest way past R5 for ANY diff,
+        # which is the presence-only marker failure `new-table-wiring-guard` was
+        # bitten by and that this guard cites twice elsewhere.
+        if reason == "unvouchable_paths":
+            unvouchable = [p for p in changed
+                           if not _match(p, TIER1_SURFACE) and p != decl_rel]
+            if not unvouchable:
+                fails.append(
+                    f"R14 {decl_rel} claims `unvouchable_paths`, but every "
+                    f"changed path IS inside TIER1_SURFACE. Such a PR can "
+                    f"self-land: declare `landing: \"self\"` and arm it. This "
+                    f"reason exists for the case R5 names and must not become a "
+                    f"way to avoid landing work that is ready.")
+            elif tier != 1:
+                fails.append(
+                    f"R14 {decl_rel} claims `unvouchable_paths` at tier {tier}. "
+                    f"That reason is for TIER-1 work the guard cannot certify; "
+                    f"Tier-2/3 work is held under `tier_2_3_needs_approval`, "
+                    f"which says what approval is being sought and from whom.")
+            else:
+                notes.append("R14 verified — paths outside TIER1_SURFACE: "
+                             + ", ".join(sorted(unvouchable)[:5]))
         # R9
         if reason == "depends_on_unmerged_pr" and not re.search(r"#\d+", text):
             fails.append(
@@ -745,6 +787,16 @@ def self_test() -> int:
                                          "explicit operator approval before merge",
                                why="a strategy parameter change, Tier-3 by path"),
             False, "declared_needs_approval"),
+        "verified unvouchable_paths hold on a tier-1 diff": (
+            lambda r: ((r / "scripts").mkdir(parents=True, exist_ok=True),
+                       (r / "scripts/check_something.py").write_text(
+                           "x\n", encoding="utf-8"),
+                       _declare(r, tier=1, landing="hold",
+                                hold_reason="unvouchable_paths",
+                                hold_text="touches scripts/check_something.py, a CI "
+                                          "guard outside the allowlist; a human merges",
+                                why="CI guard tooling the allowlist does not enumerate")),
+            True, "declared_hold"),
         "verified changes_landing_machinery hold": (
             lambda r: ((r / "scripts/ci").mkdir(parents=True, exist_ok=True),
                        (r / "scripts/ci/check_automerge_trigger.py").write_text(
@@ -825,6 +877,13 @@ def self_test() -> int:
                                hold_text="claims to touch the landing route but "
                                          "the diff is a docs file",
                                why=_GOOD_WHY), True),
+        "R14 unvouchable_paths on an all-Tier-1 diff": (
+            lambda r: _declare(r, tier=1, landing="hold",
+                               hold_reason="unvouchable_paths",
+                               hold_text="claims the guard cannot vouch for this, "
+                                         "but every path is inside the allowlist",
+                               why="a docs-only diff pretending it cannot self-land"),
+            True),
         "R9 depends_on_unmerged_pr naming no PR": (
             lambda r: _declare(r, tier=1, landing="hold",
                                hold_reason="depends_on_unmerged_pr",

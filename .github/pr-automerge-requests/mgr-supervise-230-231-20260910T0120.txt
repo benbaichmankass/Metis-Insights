@@ -1,0 +1,2 @@
+claude/mgr-supervise-230-231-20260910T0120
+Supervision record + a second instance on an open stale-prompt row. Tier-1, self-landing.

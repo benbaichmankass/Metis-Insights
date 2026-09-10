@@ -176,14 +176,18 @@ def test_wired_into_builders_multiplexer_priorities_pipeline():
     )
     from src.runtime.intent_multiplexer import _default_intent_builders
     from src.runtime.intents import DEFAULT_PRIORITIES
-    from src.runtime.pipeline import _STRATEGY_BUILDERS
+    from src.runtime.pipeline import strategy_builders
 
     builders = _default_intent_builders()
     assert builders["trend_donchian_sol_prop"] is trend_donchian_sol_prop_signal_builder
     assert builders["trend_donchian_eth_prop"] is trend_donchian_eth_prop_signal_builder
     for name in _VARIANTS:
         assert DEFAULT_PRIORITIES[name] == 0          # floor — never wins arbitration
-        assert name in _STRATEGY_BUILDERS
+        # Both entry points, one roster. This used to assert membership of
+        # pipeline._STRATEGY_BUILDERS, the SECOND registry deleted 2026-09-09
+        # (audit F-28, MI-229) — a variant present here and absent there was
+        # precisely the drift that made the documented rollback a 78% outage.
+        assert name in strategy_builders()
     # monitor() resolves via the trend_donchian unit tag (no same-name module).
     assert getattr(trend_donchian_sol_prop_signal_builder, "monitor_unit") == "trend_donchian"
     assert getattr(trend_donchian_eth_prop_signal_builder, "monitor_unit") == "trend_donchian"

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Spawn bookkeeping: two sub-session registry rows and their two checklist items, plus the merge-slot claim. Registering a spawn and keeping the manager checklist are management acts. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ path. The lanes' WORK is Tier-2 and is theirs to open; this diff builds none of it and places, modifies or cancels no order on any account."
+}

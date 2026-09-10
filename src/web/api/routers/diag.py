@@ -309,6 +309,8 @@ _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _ARBITRATION_FANOUT_SOAK_LOG = runtime_logs_dir() / "arbitration_fanout_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _EXPOSURE_SOAK_LOG = runtime_logs_dir() / "exposure_soak.jsonl"
+_INVARIANT_VIOLATIONS_LOG = runtime_logs_dir() / "invariant_violations.jsonl"
+_CLOSED_FLAT_COVERAGE_LOG = runtime_logs_dir() / "closed_flat_coverage.jsonl"
 # Two observe-only soaks that shipped a writer and no reader, found 2026-08-31
 # by deriving the expected set from the SOAK_LOG_NAME constants rather than
 # enumerating it (2 of 10 were unreachable). A soak exists to be READ before
@@ -513,6 +515,28 @@ _LOG_FILES: dict[str, Path] = {
     "pairs_soak": _PAIRS_SOAK_LOG,
     # Gross-exposure observation soak (also public at /api/bot/exposure/soak).
     "exposure_soak": _EXPOSURE_SOAK_LOG,
+    # AUDIT F-13 (2026-09-09), operator-approved Tier-2 the same day. The
+    # closed->exchange-flat invariant is the ONE mechanism that can
+    # independently contradict "this trade is closed", and its OUTPUT was
+    # readable from no surface a session or the operator has: an allowlist scan
+    # found 57 names against 23 runtime_logs/*.jsonl writers in src/, leaving 6
+    # unreadable -- and of those, 4 had an alternate surface and
+    # `invariant_violations` had NONE. Its only mention outside src/runtime/
+    # was an SSH-only `tail -f` line in a shell script. The alert was also
+    # emitted at Level.WARN, which outcomes.py excludes from Telegram, so a
+    # violation reached nobody on any channel. Both halves are fixed; this is
+    # the read half.
+    "invariant_violations": _INVARIANT_VIOLATIONS_LOG,
+    # AUDIT F-12's soak. One row per invariant pass carrying the window
+    # actually used, HOW that window was derived (measured cadence vs process
+    # bootstrap), the per-state counts, and whether the planted controls held.
+    # ⚠️ THIS IS WHAT MAKES A ZERO INTERPRETABLE. The invariant looked back a
+    # fixed 60s while its measured invocation period was >= 101.9s, so >= 41%
+    # of every period was examined by nobody -- by arithmetic, not by failure --
+    # and nothing published the coverage, so the gap was invisible. Read
+    # `state_counts.could_not_look` and `cadence_basis` beside any zero before
+    # quoting it: a zero over an unread book is not a clean book.
+    "closed_flat_coverage": _CLOSED_FLAT_COVERAGE_LOG,
     "conflict_taxonomy_soak": _CONFLICT_TAXONOMY_SOAK_LOG,
     "macro_thesis_soak": _MACRO_THESIS_SOAK_LOG,
     # Netting partial-close ATTRIBUTION soak (BL-20260801). One line per journal

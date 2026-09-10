@@ -1,0 +1,120 @@
+# Hand-authored by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) on 2026-09-09 to put an
+# audit finding to the operator as an answerable question, and to record the answer given.
+# Every figure below is TRANSCRIBED from docs/audits/full-system-audit-2026-09-09.md
+# (landed on main as 566c0ff4c). No measurement was re-run by the manager.
+id: WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  M20's 60s exit-eval promise was broken on 2026-09-07 and today clears by 48.8ms - operator
+  answered: near-miss band plus grade the restart gap
+stage: DECISION
+lifecycle: in_flight
+owner: claude
+opened_at: '2026-09-09'
+closed_at: null
+
+review_trigger: >-
+  PICKED UP 2026-09-10 by MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E). The DECISION is
+  discharged; what remains is the observability BUILD, now in flight. !! THE TIER LINE
+  BELOW IS CORRECTED: the decision text and this object's own option list called it
+  "Tier-2 observability", and the BUILT change touches no runtime knob, no order path, no
+  config and no deploy file -- it is CI/observability, i.e. Tier-1, which is what MI-230's
+  dispatch declared and what it self-landed under. Recorded rather than silently
+  reclassified, because a session reading "Tier-2" would go looking for an operator OK
+  that was never required for the build (the OK that WAS required -- the decision itself --
+  is recorded below and must not be re-sought). The distribution is in the audit at F-50.
+
+done_condition: >-
+  BOTH: (a) exit_loop_health emits a NEAR-MISS band (max_interval_ms / requirement_ms >= 0.9 ->
+  WARN) that is a DISTINCT state from `breached`, and (b) the RESTART GAP - last pass of process
+  N to first pass of N+1 - is graded against the same requirement. !! (b) IS THE ONE INTERVAL
+  THE PROMISE COVERS AND THE INSTRUMENT EXCLUDES BY CONSTRUCTION; a build that ships only (a)
+  has not done the harder half.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
+  detector is named in the audit, and the operator has now answered. What gated it was the
+  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
+  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
+  and buildable, NEVER in progress.
+
+captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
+
+decision_requests:
+  - id: DEC-20260909-M20-EXIT-EVAL-NEAR-MISS
+    question: >-
+      M20's 60s exit-eval promise was BREACHED on 2026-09-07 - recorded fact from the alert
+      latch, not inference - and today's worst interval clears it by 48.8 ms. The distribution
+      body is unchanged since 2026-08-25; only the tail moved. Every instrument still reads
+      'within' and 'breaches: 0'.
+    urgency: routine
+    asked_on: '2026-09-09'
+    context: >-
+      Audit F-50. exit_interval_soak n=989 intervals over 12 processes, 2026-09-09T08:36:14Z to
+      16:54:41Z: mean 29880.6, median 29993.1, p95 34886.9, MAX 59951.2, over_requirement 0 of
+      1000. exit_loop_health_alert_state carries requirement_breach_process
+      2026-09-07T22:48:54Z, and exit_loop_health.py writes that field ONLY when a breach fires
+      the alert - so the 2026-09-07 breach is recorded fact. Mechanism by arithmetic from the
+      row's own neighbours: interval = (cadence - prev_pass) + cur_pass, so the requirement
+      breaks whenever a pass is >30s slower than the one before. Here prev=1448.9ms,
+      cur=31399.1ms, delta=29950.2ms - it missed by 49.8ms. One row in the window (pass_ms
+      34691.6) would have produced a 63,050ms interval had it followed a median pass. Against
+      2026-08-25 (n=991, same window shape): MAX 45034ms and 15.0s of margin, pass 2222ms mean /
+      19481ms max; today MAX 59951.2ms, margin 48.8ms, pass 2921.4ms mean / 34691.6ms max. Body
+      unmoved: mean 29879 -> 29880.6, median 29970 -> 29993.1. The 11 restart gaps were measured
+      separately today at 25.3-53.9s, 0 of 11 over 60s, 1.3% of wall clock - clean, but
+      unwatched.
+    options:
+      - key: near_miss_and_restart_gap
+        label: Near-miss band plus grade the restart gap
+        implication: >-
+          Tier-2 observability; changes no order path. The binary grade cannot see a 48.8ms
+          miss, and the restart gap is excluded by construction.
+      - key: also_route_to_outcomes
+        label: That, plus route breaches to the ERROR feed
+        implication: >-
+          Adds the delivery fix - the breach page never writes outcomes.jsonl, so it reaches
+          neither Telegram nor /api/bot/logs. THIRD instance of that class after
+          ib_stop_over_cover and bybit_over_cover.
+      - key: investigate_the_tail
+        label: Find the slow pass first
+        implication: >-
+          Establish what makes one pass 34.7s against a 2.9s mean before changing any
+          instrument.
+      - key: accept_the_margin
+        label: Accept the margin, watch only
+        implication: >-
+          Records 48.8ms as acceptable and leaves the instruments as they are.
+    allows_free_text: true
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-09'
+      channel: >-
+        Claude Code chat (AskUserQuestion option picker), answered directly to the manager
+        session session_01HrmZ1RRNM4UnEUaFdrPEjj at 2026-09-09T21:1xZ. NOT via the transit log,
+        so commit_work_decisions.py has nothing to replay and this answer is written BY HAND —
+        the README's 'or a session doing the same thing by hand' path. !! THE OPERATOR ASKED
+        'give me any decisions that are waiting for me as pop ups'. The 2026-09-08 precedent
+        recorded in WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING is that this phrasing means
+        RENDER THEM IN THE CHAT, and that a manager who built Telegram delivery instead made the
+        operator ask twice. That precedent was read first and followed. The Telegram channel was
+        separately VERIFIED healthy the same minute (sweep receipt 21:01:23Z:
+        destination=claude, poll_state=polled_with_handler,
+        token_from=TELEGRAM_CLAUDE_BOT_SECRET; write gate open) — it was not the blocker, and
+        these six were simply never declared as decision_requests at all.
+      chosen: near_miss_and_restart_gap
+      free_text: >-
+        Operator chose the near-miss band plus grading the restart gap on 2026-09-09. !! THE
+        DELIVERY DEFECT WAS NOT CHOSEN AND IS NOT THEREBY REJECTED - it was offered as a
+        superset option and the operator picked the narrower one; F-51 (the breach page never
+        writes outcomes.jsonl, so the breach history is uncountable from any repo-reachable
+        surface) remains FILED and unanswered, and a lane must not fold it into this build
+        without asking. !! NOR IS THE TAIL INVESTIGATION REJECTED: it is a separate question
+        about CAUSE, where this decision is about INSTRUMENTATION.
+    asked_by:
+      session_id: session_01HrmZ1RRNM4UnEUaFdrPEjj
+      recorded_at: '2026-09-09T21:15:00Z'
+      note: >-
+        Manager session. One of the six the full-system audit filed and did not take.

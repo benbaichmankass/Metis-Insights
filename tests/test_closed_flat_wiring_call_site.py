@@ -23,7 +23,17 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from src.runtime import closed_flat_invariant as cfi
 from src.runtime import order_monitor as om
+
+
+def _clean():
+    """A pass in which every examined row graded `flat`."""
+    return cfi.ClosedFlatCheckResult(
+        [], [],
+        state_counts={"flat": 1, "residual": 0, "could_not_look": 0},
+        examined=1, controls_ok=True,
+    )
 
 
 def test_call_site_invokes_check_with_no_env(tmp_path, monkeypatch):
@@ -36,9 +46,9 @@ def test_call_site_invokes_check_with_no_env(tmp_path, monkeypatch):
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
     )
 
-    fake_check = MagicMock(return_value=[])
+    fake_check = MagicMock(return_value=_clean())
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
 
     om.run_monitor_tick(strategies=["vwap"])
@@ -60,9 +70,9 @@ def test_call_site_invokes_check_ignoring_legacy_false_env(tmp_path, monkeypatch
         lambda: {"bybit_2": {"account_id": "bybit_2"}},
     )
 
-    fake_check = MagicMock(return_value=[])
+    fake_check = MagicMock(return_value=_clean())
     monkeypatch.setattr(
-        "src.runtime.closed_flat_invariant.check", fake_check,
+        "src.runtime.closed_flat_invariant.check_detailed", fake_check,
     )
 
     om.run_monitor_tick(strategies=["vwap"])

@@ -178,10 +178,14 @@ def test_strategy_exception_pages_with_strategy_name(reporter):
     def _exploding(_settings):
         raise ValueError("strategy borked")
 
-    with patch.dict(pl._STRATEGY_BUILDERS, {"_test_explode": _exploding}, clear=False), \
-            patch.object(pl, "STRATEGIES", ["_test_explode"]), \
+    # ``builders=`` replaces the module-global patch this used to do: the
+    # second registry (pipeline._STRATEGY_BUILDERS) was deleted 2026-09-09
+    # (audit F-28, MI-229) and multiplexed_signal_builder now takes the same
+    # per-call injection point multiplexed_intent_signal_builder has.
+    with patch.object(pl, "STRATEGIES", ["_test_explode"]), \
             patch("src.runtime.outcomes._Reporter._send_telegram_or_queue") as send:
-        signal = pl.multiplexed_signal_builder({"SYMBOL": "BTCUSDT"})
+        signal = pl.multiplexed_signal_builder(
+            {"SYMBOL": "BTCUSDT"}, builders={"_test_explode": _exploding})
     assert signal["side"] == "none"
     send.assert_called_once()
     msg = send.call_args[0][0]

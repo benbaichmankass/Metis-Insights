@@ -1,0 +1,1 @@
+Manager lease heartbeat 20:30:11Z + supervision record. Tier-1, register writes only. PR #11591.
