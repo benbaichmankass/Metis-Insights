@@ -74,7 +74,11 @@ from fastapi import APIRouter, Header, HTTPException, Request
 # reading here is `manager_status`'s and none of it is re-derived locally.
 from src.runtime import manager_status
 from src.runtime.work_decisions import (
+    ANSWERED_IN_CONVERSATION,
     ANSWER_STATES,
+    ENGAGED_NOT_SETTLED,
+    SETTLED_STATES,
+    VERDICT_UNRECOGNISED,
     ASKED_BY_RECORDED,
     ASKED_BY_STATES,
     COMMITTED,
@@ -1065,6 +1069,36 @@ def get_work_checklist() -> dict[str, Any]:
     return payload
 
 
+#: Operator-facing wording per answer state. PRESENTATION for this surface; the
+#: grading itself has ONE owner in `work_decisions.grade_answer_state` and is
+#: not re-derived here or in the SPA.
+_ANSWER_STATE_NOTES = {
+    NOT_SUBMITTED: "Waiting on you. Nobody has answered this through any channel.",
+    IN_TRANSIT: (
+        "Submitted, NOT yet decided — it becomes a decision only when it is "
+        "committed into the work object."
+    ),
+    COMMITTED: "Answered through the decision channel (SPA or Telegram) and committed.",
+    ANSWERED_IN_CONVERSATION: (
+        "Answered IN CONVERSATION and recorded by hand as a verdict. It never "
+        "travelled through the decision channel, which is why it used to show "
+        "as unanswered here."
+    ),
+    ENGAGED_NOT_SETTLED: (
+        "⚠️ You responded but did NOT settle it — this question is still open. "
+        "Shown apart from both answered and untouched, because it is neither."
+    ),
+    VERDICT_UNRECOGNISED: (
+        "⚠️ Carries a verdict that neither vocabulary recognises, so it could "
+        "not be graded. That is *we could not tell*, NOT an answer."
+    ),
+    UNREADABLE: (
+        "⚠️ The transit channel could not be read, so whether an answer is in "
+        "flight is unknown. Not a claim that you have not answered."
+    ),
+}
+
+
 def _decision_inbox() -> dict[str, Any]:
     """Every operator decision the store is waiting on, with its answer state.
 
@@ -1106,6 +1140,14 @@ def _decision_inbox() -> dict[str, Any]:
                     "objectLifecycle": obj.get("lifecycle"),
                     "parentIntent": obj.get("parentIntent"),
                     "answerState": state,
+                    "answerStateNote": _ANSWER_STATE_NOTES.get(state, ""),
+                    # ⚠️ PUBLISHED SO NO CONSUMER RE-DERIVES IT. The SPA
+                    # previously filtered its "Waiting on you" list on
+                    # `answerState !== "committed"` — a SECOND definition of
+                    # "answered" living in TypeScript, free to drift from this
+                    # one, and it is the same mistake as merging state/status.
+                    # Read from SETTLED_STATES, which `work_decisions` owns.
+                    "settled": state in SETTLED_STATES,
                     "transit": transit_window(
                         submission if state == IN_TRANSIT else None, now=now
                     ),
@@ -1138,7 +1180,17 @@ def _decision_inbox() -> dict[str, Any]:
 
     # Attention order: what the operator can act on NOW comes first. An answered
     # question is not a task.
-    order = {NOT_SUBMITTED: 0, UNREADABLE: 1, IN_TRANSIT: 2, COMMITTED: 3}
+    # ⚠️ SETTLED ROWS SORT LAST BUT ARE NOT HIDDEN. The operator needs to see
+    # what they decided AND under what condition — this page is the one surface
+    # they read, and dropping an answered row loses that record there.
+    # `engaged_not_settled` sorts near the top: the operator engaged and the
+    # question is still open, which is exactly the state most at risk of being
+    # mistaken for done.
+    order = {
+        NOT_SUBMITTED: 0, ENGAGED_NOT_SETTLED: 1, VERDICT_UNRECOGNISED: 2,
+        UNREADABLE: 3, IN_TRANSIT: 4,
+        COMMITTED: 5, ANSWERED_IN_CONVERSATION: 6,
+    }
     urgency_order = {"blocking": 0, "routine": 1}
     requests.sort(
         key=lambda r: (
@@ -1204,9 +1256,23 @@ def _decision_inbox() -> dict[str, Any]:
             # An `in_transit` question is also unanswered, but it is waiting on
             # a COMMITTER, not on the operator, and pooling them would put work
             # on the operator's plate that is not theirs.
-            "awaitingOperator": by_state[NOT_SUBMITTED] + by_state[UNREADABLE],
+            # ⚠️ `engaged_not_settled` and `verdict_unrecognised` COUNT AS
+            # AWAITING. The first is the operator having spoken without
+            # settling; the second is a verdict neither vocabulary recognises,
+            # so we could not grade it. Neither is a decision, and folding
+            # either into `decided` would report a question as closed that
+            # nobody closed.
+            "awaitingOperator": (by_state[NOT_SUBMITTED] + by_state[UNREADABLE]
+                                 + by_state[ENGAGED_NOT_SETTLED]
+                                 + by_state[VERDICT_UNRECOGNISED]),
             "awaitingCommit": by_state[IN_TRANSIT],
-            "decided": by_state[COMMITTED],
+            # Settled through EITHER channel. Read from SETTLED_STATES rather
+            # than re-derived, so this can never drift from the one owner.
+            "decided": sum(by_state[k] for k in SETTLED_STATES),
+            # The channel split, because "answered" and "answered through the
+            # route" are different facts and only the second round-trips.
+            "decidedViaRoute": by_state[COMMITTED],
+            "decidedInConversation": by_state[ANSWERED_IN_CONVERSATION],
             "byAnswerState": by_state,
             "requestCount": len(requests),
             # Reported, never swallowed: a question the operator can SEE and

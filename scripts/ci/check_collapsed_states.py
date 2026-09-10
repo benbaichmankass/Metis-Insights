@@ -980,7 +980,9 @@ CONTRACTS: List[Dict[str, object]] = [
         "producer": "src/runtime/work_decisions.py",
         "consumer_token": (r"\banswer_state\b|\banswerState\b|\bANSWER_STATES\b|"
                            r"\bgrade_answer_state\b"),
-        "states": ["not_submitted", "in_transit", "committed", "unreadable"],
+        "states": ["not_submitted", "in_transit", "committed", "unreadable",
+                   "answered_in_conversation", "engaged_not_settled",
+                   "verdict_unrecognised"],
         "why": (
             "Phase H's decision round-trip, and the states carry the transit "
             "contract the schema design states outright: THREE NEVER "
@@ -997,7 +999,30 @@ CONTRACTS: List[Dict[str, object]] = [
             "back on the operator that they may already have answered and "
             "making a broken channel indistinguishable from a quiet one. That "
             "is exit_anchor.py's deferred/no_anchor distinction applied to a "
-            "write path."
+            "write path. "
+            "⚠️ WIDENED 2026-09-10 (MI-254) BECAUSE THE FOUR STATES WERE "
+            "THEMSELVES A COLLAPSE, on the surface built to prevent them. "
+            "There are TWO recording shapes for one fact: the route writes an "
+            "`answer` block, while an answer given IN CONVERSATION -- how the "
+            "overwhelming majority of decisions here are actually given -- is "
+            "written by hand as `verdict` + `chosen` + `answered_at`. Grading "
+            "only the first made *nobody has answered* and *answered through "
+            "the other channel* render IDENTICALLY. MEASURED over every "
+            "`docs/claude/work/objects/*.yaml` (21 objects, 26 requests): 23 "
+            "carry an `answer` block, 3 carry a `verdict` and NO answer block, "
+            "0 carry both -- and all three showed the operator as "
+            "`not_submitted` questions they had settled that morning, which is "
+            "the desensitised-alarm P1 aimed at the one panel whose whole "
+            "value is being believed. `answered_in_conversation` is kept apart "
+            "from `committed` rather than merged into it because only the "
+            "second round-trips, and `OI-20260901-DECISION-ROUNDTRIP-...` "
+            "turns on that distinction. ⚠️ `engaged_not_settled` is the one "
+            "that must never be folded: `reframed_not_answered` is the "
+            "operator responding WITHOUT settling, so calling it answered "
+            "would hide a genuinely open decision -- worse than the bug being "
+            "fixed. And `verdict_unrecognised` is *we could not grade it*, "
+            "because a grader that shrugs at a value outside its vocabulary IS "
+            "the collapse (`open_pr_record.VERDICTS` states the same rule)."
         ),
     },
     {
