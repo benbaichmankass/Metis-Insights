@@ -1,8 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
-
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+_Generated 2026-09-10T10:03:33+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 10d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -78,6 +76,84 @@ _Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
   - MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and 
 - 🔔 **OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING** (open_items · 3d) — monitoring row 3d since last observation (cadence 3d)
   - MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's monitor(), and only tre
+- 🔔 **#11353** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11361** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 **#11362** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11366** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh probe results (auto)
+- 🔔 **#11367** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11368** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the due-list (auto)
+- 🔔 **#11376** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11382** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): PR-queue watcher receipt (auto)
+- 🔔 **#11386** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(m28): valuation snapshots (auto)
+- 🔔 **#11393** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11397** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11399** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11402** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11404** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11408** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11416** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11420** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11422** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11428** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the A1 constraint readout (auto)
+- 🔔 **#11429** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11432** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11438** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11439** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11442** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11444** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11445** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11448** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11449** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11452** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11453** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11454** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11456** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): trainer capture-watch receipt (auto)
+- 🔔 **#11458** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): PR-queue watcher receipt (auto)
+- 🔔 **#11459** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11462** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11465** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11468** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): session-reaper observations (auto)
+- 🔔 **#11470** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11471** (unlanded_automation · 2d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
 - 🔔 **OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED** (open_items · 2d) — monitoring row 2d since last observation (cadence 2d)
   - ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n
 - 🔔 **OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED** (open_items · 2d) — loud row — must be reported on every session
@@ -99,11 +175,29 @@ _Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
 - 🔔 **OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS** (open_items · 2d) — loud row — must be reported on every session
   - TWO MEASUREMENT TRAPS ON THE REAL-MONEY TRADE SURFACE, both of which have ALREADY produced a wrong operator-facing conclusion (2026-09-08, MI-200). Read this BEFORE measuring real-money performance. (
 - 🔔 **PROBE-REPORT-STALE** (probes · 2d) — EVERY probe verdict below was observed at 2026-09-07T10:31:05.344186+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.
-  - probe report is 66.7h old — expected daily (cron 20 5 * * *)
+  - probe report is 71.5h old — expected daily (cron 20 5 * * *)
+- 🔔 **#11475** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(m1): economic-calendar PIT snapshots (auto)
+- 🔔 **#11476** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11489** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **#11493** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11512** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11518** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11525** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 **#11536** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11541** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): reconcile OPEN-PRS.json after merge (auto)
+- 🔔 **#11595** (unlanded_automation · 1d) — producer output opened a PR that has not landed
+  - chore(ops): trainer capture-watch receipt (auto)
 - 🔔 **OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED** (open_items · 1d) — loud row — must be reported on every session
   - ⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi
-- 🔔 **OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED** (open_items · 1d) — loud row — must be reported on every session
-  - alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and 
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (open_items · 1d) — loud row — must be reported on every session
   - PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the second is proof the c
 - 🔔 **OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT** (open_items · 1d) — loud row — must be reported on every session
@@ -124,13 +218,27 @@ _Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
   - [!] CORRECTED 2026-09-09T22:52Z — CLAUSE (1) IS CLEARED AND THIS ROW'S OWN ID NOW OVERSTATES WHAT IS OPEN. The id is deliberately NOT renamed (the generated SESSION BRIEF, MI-214's work object and MI-
 - 🔔 **OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING** (open_items · 1d) — loud row — must be reported on every session
   - The 2026-09-09 full-system audit (docs/audits/full-system-audit-2026-09-09.md, report RPT-20260909-171500-audit) filed 68 findings and 19 backlog rows and REMEDIATED NOTHING, correctly, per its work o
-- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- 🔔 **#11620** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(m1): economic-calendar PIT snapshots (auto)
+- 🔔 **#11654** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 **#11662** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - gld-compat: per-account verdicts (run 34455459855)
+- 🔔 **#11664** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - gld-compat: per-account verdicts (run 34456197195)
+- 🔔 **#11672** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(m7): strategy review packets (auto)
+- 🔔 **#11677** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED** (open_items · 0d) — loud row — must be reported on every session
+  - alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and 
+- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
-- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p
-- 🔔 **OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- 🔔 **OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any 
-- 🔔 **OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- 🔔 **OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fresh / stale (ran befo
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
@@ -140,8 +248,24 @@ _Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
 - 🔔 **OI-20260910-EXIT-EVAL-NEAR-MISS-BAND-AND-RESTART-GAP-SHIPPED-AND-NEITHER-HAS-GRADED-A-LIVE-BOUNDARY** (open_items · 0d) — loud row — must be reported on every session
   - MI-230 built the two halves the operator chose on 2026-09-09 (WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED, chosen: near_miss_and_restart_gap; audit F-50). (a) exit_loop_health.requirement_stat
-- 🔔 **OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO** (open_items) — monitoring row has NEVER been observed
+- 🔔 **OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO** (open_items · 0d) — loud row — must be reported on every session
   - Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (
+- 🔔 **OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER** (open_items) — monitoring row has NEVER been observed
+  - MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without 
+- 🔔 **OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO** (operator_owed · 0d) — owed to the operator, status='open'
+  - Yes/no on the EXACT re-attach diff for the four F-39 stranded package legs (3 order_packages rows, one on real money)
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
+  - constraint-readout
+- 🔔 **econ-calendar-produce** (red_crons) — latest scheduled run concluded 'failure'
+  - econ-calendar-produce
+- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - pr-queue-watch
+- 🔔 **probes** (red_crons) — latest scheduled run concluded 'failure'
+  - probes
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
+- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
+  - strategy-review-packets
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 8d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 8d) — monitoring row 8d since last observation (cadence 7d)
@@ -174,15 +298,15 @@ _Generated 2026-09-10T05:14:23+00:00 · verdict **partial**_
   - [error] NEW x1 🚨 ALL accounts failed to dispatch Strategy: ict_scalp_mgc_Nm | Symbol: MGC | Side: buy Accounts attempted: N | Trades placed: N Failures: • 
 - **ERROR-FEED-SUMMARY** (error_feed) — 59 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-10T00:32:27.347900+00:00`.
   - 101 cause groups over 1360 rows (69 error-level, 32 warn-level, 1 new since the last digest)
-- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - probe could not run (exit_2)
-- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - probe could not run (exit_2)
-- **OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- **OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - probe could not run (exit_2)
-- **OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- **OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - probe could not run (exit_2)
-- **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 66.7h ago]
+- **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 71.5h ago]
   - probe could not run (exit_2)
 - **OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES** (open_items) — monitoring row has NEVER been observed
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
