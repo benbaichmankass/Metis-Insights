@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T23:43:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated_at": "2026-09-10T00:33:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager cadence tick)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -3852,7 +3852,7 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-directed 2026-09-09. Re-point the packet's edge verdict at OFFLINE backtest evidence, and establish whether check_soak_doctrine.py reaches that surface at all, with a positive control.",
       "note": "DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR was REJECTED AS MALFORMED by the operator; the answer block on WO-20260901-PHASE-F carries their wording verbatim.",
-      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
       "confirmed_at": "2026-09-09T09:51:00Z",
       "last_observed": {
         "at": "2026-09-09T23:43:00Z",
@@ -3875,7 +3875,36 @@
             "manager_note": "#11529 read mergeable_state=dirty at 10:26Z — CONFLICT CAUSED BY THE MANAGER (#11531 filed two rows into health-review-backlog.json while this branch was open on the same file). Poked 10:26:03Z, delivery confirmed: told to stop hunting a docs-only skip trap, resolve as a VERIFIED UNION, and that its §5 premise correction is the most valuable thing in the PR. ⚠️ ITS PROPOSAL IS NOW OPERATOR-APPROVED — build_producer + no_offline_evidence, taken as a popup 2026-09-09; recorded as DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and MI-216/217."
           }
         }
-      }
+      },
+      "previous_observation": {
+        "state": "running",
+        "note": "DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR was REJECTED AS MALFORMED by the operator; the answer block on WO-20260901-PHASE-F carries their wording verbatim.",
+        "last_observed": {
+          "at": "2026-09-09T23:43:00Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
+          "state": "running",
+          "detail": "MI-215/MI-216. RUNNING, connected. task_summary 'PR dirty (5th conflict, 11 behind); resolving to clean state, then handoff' on claude/mi216-per-leg-offline-edge-record (#11587). ⚠️ FIVE CONFLICTS ON ONE BRANCH IS THE MANAGER'S QUEUE FAILURE, NOT THE LANE'S — every one was a manager register write landing under it (BL-20260909-A-LANE-BRANCH-MERGED-MAIN-TWELVE-TIMES-CHASING-MANAGER-REGISTER-WRITES). ACTION TAKEN: the manager's own register PR is written and DELIBERATELY NOT PUSHED until #11587 merges, and the lane was poked at 23:43Z (trig_01YW5a8SuornywXrcdyQrw5d, wake confirmed idle->running) telling it the slot is its own and to do nothing but confirm CI. git merge-tree against current main at ca5927eb8: ZERO conflict markers, so it is clean as of this read.",
+          "previous_observation": {
+            "at": "2026-09-09T21:28:00Z",
+            "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+            "source": "list_sessions(mine=true, limit=40)",
+            "session_status": "SESSION_STATUS_IDLE",
+            "platform_updated_at": "2026-09-09T21:13:59Z",
+            "previous_observation": {
+              "at": "2026-09-09T10:34:00Z",
+              "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+              "source": "pull_request_read + poke",
+              "session_status": "SESSION_STATUS_RUNNING",
+              "status_bucket": "working",
+              "manager_note": "#11529 read mergeable_state=dirty at 10:26Z — CONFLICT CAUSED BY THE MANAGER (#11531 filed two rows into health-review-backlog.json while this branch was open on the same file). Poked 10:26:03Z, delivery confirmed: told to stop hunting a docs-only skip trap, resolve as a VERIFIED UNION, and that its §5 premise correction is the most valuable thing in the PR. ⚠️ ITS PROPOSAL IS NOW OPERATOR-APPROVED — build_producer + no_offline_evidence, taken as a popup 2026-09-09; recorded as DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and MI-216/217."
+            }
+          }
+        }
+      },
+      "observation": "MI-215. LIVE 00:33Z: connected, review_ready, updated_at 00:16:49Z, on branch main. Reports MI-216 merged (confirmed independently: #11587 merged by this manager as 456680bb) and the MI-217 design fork resolved. A NEW lane branch claude/mi217-packet-reads-offline-evidence posted a board START at 00:16:37Z declaring docs/claude/health-review-backlog.json -- the same file this heartbeat commit appends to, so a conflict there is EXPECTED and must be resolved as a VERIFIED UNION over id sets, never by taking a side.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "last_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "session_id": "session_01FoASvmUGuahCphE1cewPPs",
@@ -3942,17 +3971,32 @@
       "why": "Operator-reported 2026-09-09 from the Bybit terminal. Real-money, no TP/SL, open since 2026-09-04. Two independent bot readers do not return it.",
       "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
       "state": "idle",
-      "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, connected, status_category=completed - \"Stop order #5471 confirmed via 3 independent endpoints; created 0ms after entry fill, fired as designed after 3.8d rest; no defect or unprotected window found.\" Its four landings are on main (#11565 instrument, #11576 S18, #11578 S19, #11580 S20). MANAGER ACTION 19:43Z: its session TITLE still read \"P1 LIVE MONEY - bybit_2 ETHUSDT 0.04 unprotected and invisible\", which is the premise its OWN work refuted, and list_sessions is a surface a cold manager reads. Renamed to state the refutation. A stale title on a resolved P1 is a false record, not untidiness.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "observation": "MI-221. LIVE 00:33Z: connected, completed. !! THE FINDING IS A REFUTATION, and the checklist title still carries the falsified premise: bybit_2 ETHUSDT trade 5471 was PROTECTED 100% of its life -- the stop leg was created 0ms after the entry fill and FIRED after 3.8 days, confirmed against three independent endpoints. There was no unprotected window and no defect. A P1 REAL-MONEY row that resolves as 'the premise was wrong' is the most valuable kind and must not be quietly dropped.",
       "status": "completed",
-      "last_observed_at": "2026-09-09T19:44:00Z",
+      "last_observed_at": "2026-09-10T00:33:00Z",
       "last_observed": {
         "at": "2026-09-09T21:28:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
         "source": "list_sessions(mine=true, limit=40)",
         "session_status": "SESSION_STATUS_IDLE",
         "platform_updated_at": "2026-09-09T17:54:40Z"
-      }
+      },
+      "previous_observation": {
+        "state": "idle",
+        "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, connected, status_category=completed - \"Stop order #5471 confirmed via 3 independent endpoints; created 0ms after entry fill, fired as designed after 3.8d rest; no defect or unprotected window found.\" Its four landings are on main (#11565 instrument, #11576 S18, #11578 S19, #11580 S20). MANAGER ACTION 19:43Z: its session TITLE still read \"P1 LIVE MONEY - bybit_2 ETHUSDT 0.04 unprotected and invisible\", which is the premise its OWN work refuted, and list_sessions is a surface a cold manager reads. Renamed to state the refutation. A stale title on a resolved P1 is a false record, not untidiness.",
+        "note": "Journal 5471 closed exit_reason=sl 2026-09-04T14:04:14; venue holds ETH 0.04 long entry 2453.97. Report the RAW get_positions response for bybit_2.",
+        "last_observed": {
+          "at": "2026-09-09T21:28:00Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "list_sessions(mine=true, limit=40)",
+          "session_status": "SESSION_STATUS_IDLE",
+          "platform_updated_at": "2026-09-09T17:54:40Z"
+        },
+        "last_observed_at": "2026-09-09T19:44:00Z",
+        "observed_at": "2026-09-09T16:28:00Z"
+      },
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z"
     },
     {
       "session_id": "session_01WmFdLwfq4U5aLLjFRDDy6b",
@@ -3967,10 +4011,17 @@
       ],
       "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
       "state": "blocked",
-      "observed_at": "2026-09-09T16:28:00Z",
-      "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, status_bucket BLOCKED, needs_action \"close PR #11579 and delete claude/mi-222-report-green branch\". ACTED ON, 19:43Z: #11579 CLOSED by this manager on the author's own disposition, with a comment recording exactly what the close does and does not lose (88 lines, all automation/** relay inputs plus the receipt; no src/tests/config/deploy/workflow path; commits and branch survive a close). The board post itself is NOT lost - board-post.yml fails its run on a failed post and this one wrote a receipt naming issue #11336 comment 5606175880. I DID NOT independently re-read that comment and said so on the PR rather than implying a verification I did not perform. Root cause of the block was pr-landing R13: the branch armed without holding merge_slot, and re-slotting it would have serialised a lease heartbeat behind a relay receipt.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "observation": "MI-222. LIVE 00:33Z: IDLE, disconnected, BLOCKED with an explicit needs_action addressed to the manager: 'close PR #11579 and delete claude/mi-222-report-green branch' -- auto-merge armed but R13 (unslotted auto-merge) refuses it. Closing a PR is a MANAGEMENT act and is the manager's to do; it is queued in this tick and is NOT a build.",
       "status": "blocked_resolved",
-      "last_observed_at": "2026-09-09T19:44:00Z"
+      "last_observed_at": "2026-09-10T00:33:00Z",
+      "previous_observation": {
+        "state": "blocked",
+        "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, status_bucket BLOCKED, needs_action \"close PR #11579 and delete claude/mi-222-report-green branch\". ACTED ON, 19:43Z: #11579 CLOSED by this manager on the author's own disposition, with a comment recording exactly what the close does and does not lose (88 lines, all automation/** relay inputs plus the receipt; no src/tests/config/deploy/workflow path; commits and branch survive a close). The board post itself is NOT lost - board-post.yml fails its run on a failed post and this one wrote a receipt naming issue #11336 comment 5606175880. I DID NOT independently re-read that comment and said so on the PR rather than implying a verification I did not perform. Root cause of the block was pr-landing R13: the branch armed without holding merge_slot, and re-slotting it would have serialised a lease heartbeat behind a relay receipt.",
+        "last_observed_at": "2026-09-09T19:44:00Z",
+        "observed_at": "2026-09-09T16:28:00Z"
+      },
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z"
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
@@ -4095,7 +4146,7 @@
     {
       "session_id": "session_0178Pn128KK71u6nCzLeVH6w",
       "registry_key": "pending-20260909T214948Z",
-      "state": "running",
+      "state": "idle",
       "title": "MI-227 — F-36: intent_reduce orphans an oversized protective leg (operator-approved Tier-2, order path)",
       "owns_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG",
       "checklist_item": "MI-227-INTENT-REDUCE-ORPHAN-PROTECTIVE-LEG",
@@ -4103,7 +4154,7 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator answered this decision 2026-09-09 (resize_and_invariant): the full fix. Real money — 3 of 21 affected rows are on bybit_2 — and it is the root cause of 64 of the 112 rows in the operator ERROR feed, so it is also the largest single source of alarm fatigue. Parents to IN-20260903-TRADING-SYSTEM-HEALTH, the cycle's own intent.",
-      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
       "confirmed_at": "2026-09-09T21:50:30Z",
       "last_observed": {
         "at": "2026-09-09T23:43:00Z",
@@ -4131,7 +4182,40 @@
             "manager_note": "LIVE and working ('MI-227 fix in flight: wiring resize + audit row gap'). PR #11604 is open, not a draft, and its `guards` check FAILED at 22:19:51Z. NOT TOUCHED BY THE MANAGER: it is a worker path (src/) and check_manager_scope R2 grades COMMITS IN RANGE, so a manager fix there is a violation however small. The lane is running and owns it."
           }
         }
-      }
+      },
+      "previous_observation": {
+        "state": "running",
+        "last_observed": {
+          "at": "2026-09-09T23:43:00Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
+          "state": "running",
+          "detail": "MI-227 / audit F-36. RUNNING, connected. ITS PR #11604 WAS MERGED BY THE MANAGER AT 23:4xZ AS 7b8b6b51 — all five checks green, landing: hold, operator Tier-2 order-path approval recorded on WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG and NOT re-sought. The session is doing post-merge work ('Inspecting blocked_on edge schema and usage'). ⚠️ MERGED IS NOT OBSERVED: the resize has never run on a live reduce, and the PR itself states the Bybit qty-on-amend contract is taken from the V5 docs and is unverified against the venue.",
+          "previous_observation": {
+            "at": "2026-09-09T23:26:30Z",
+            "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+            "source": "get_session",
+            "session_status": "SESSION_STATUS_IDLE",
+            "platform_updated_at": "2026-09-09T23:16:55Z",
+            "branch": "claude/mi227-intent-reduce-resize-tracked-leg",
+            "pr": 11604,
+            "manager_note": "POKE WORKED — the merge conflict is RESOLVED. New head 0ef788cd; guards GREEN 23:17:47Z, pytest-run in flight. It correctly scheduled its own 23:52Z re-check rather than declaring done. MERGE IT once pytest-run passes: the operator's Tier-2 approval is on WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG and must not be re-sought.",
+            "previous_observation": {
+              "at": "2026-09-09T22:26:30Z",
+              "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+              "source": "get_session",
+              "session_status": "SESSION_STATUS_RUNNING",
+              "platform_updated_at": "2026-09-09T22:25:02Z",
+              "branch": "claude/mi227-intent-reduce-resize-tracked-leg",
+              "pr": 11604,
+              "manager_note": "LIVE and working ('MI-227 fix in flight: wiring resize + audit row gap'). PR #11604 is open, not a draft, and its `guards` check FAILED at 22:19:51Z. NOT TOUCHED BY THE MANAGER: it is a worker path (src/) and check_manager_scope R2 grades COMMITS IN RANGE, so a manager fix there is a violation however small. The lane is running and owns it."
+            }
+          }
+        }
+      },
+      "observation": "MI-227. LIVE 00:33Z: IDLE, disconnected, completed. All three PRs merged (#11604 fix as 7b8b6b51d, #11616 WIP build, #11617 clauses 1-2). Deploy MEASURED, not assumed: /api/diag/version at 2026-09-09T23:56:04Z returned git_sha 7b8b6b51d. Clause (3) of WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG is an EXTERNAL EVENT nobody can schedule -- a real intent-reduce on a Bybit partial-tpsl account -- and the lane correctly did not manufacture it. Nothing owed to this lane.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "last_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "session_id": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
@@ -4144,7 +4228,7 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator answered this decision 2026-09-09 (all_three): fix F-11, F-12 and F-13 together, because the COMPOSITION is the finding — the one mechanism that can independently contradict 'this trade is closed' cannot see a failed read, cannot cover ~half its own timeline, writes where nobody can look, and pages at a level that never reaches the operator. Its 14.7-day zero is not evidence of anything. This is the cycle priority CY-20260906-TRADING-TRUTH exactly: repair the MEASUREMENT before acting on what it says.",
-      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
       "confirmed_at": "2026-09-09T21:51:10Z",
       "last_observed": {
         "at": "2026-09-09T23:43:00Z",
@@ -4172,7 +4256,40 @@
             "manager_note": "IDLE at 22:17:33Z having opened PR #11603 while CI was still in flight; its own post_turn_summary reads review_ready. MEASURED SINCE, which its summary could not know: `guards` PASSED at 22:18:09Z and pytest-run is still running. Tier-2 landing:hold — the merge is the manager's or the operator's, and the diff has NOT yet been read by the manager."
           }
         }
-      }
+      },
+      "previous_observation": {
+        "state": "idle",
+        "last_observed": {
+          "at": "2026-09-09T23:43:00Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
+          "state": "idle",
+          "detail": "MI-228 / audit F-11+F-12+F-13. IDLE, disconnected, status_category 'completed'. PR #11603 merged a34bc556. Carried onward by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN — a planted violation has NOT been observed reported end to end.",
+          "previous_observation": {
+            "at": "2026-09-09T23:26:30Z",
+            "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+            "source": "github",
+            "session_status": "PR_MERGED",
+            "platform_updated_at": "2026-09-09T23:05:50Z",
+            "branch": "claude/mi-228-closed-flat-invariant-can-see",
+            "pr": 11603,
+            "manager_note": "DONE — #11603 merged as a34bc556, the first of the six operator-approved audit decisions on main. It filed its own loud OPEN-ITEMS row OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN: merged is not proven, nothing observed on the fleet.",
+            "previous_observation": {
+              "at": "2026-09-09T22:26:30Z",
+              "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+              "source": "get_session",
+              "session_status": "SESSION_STATUS_IDLE",
+              "platform_updated_at": "2026-09-09T22:17:33Z",
+              "branch": "claude/mi-228-closed-flat-invariant-can-see",
+              "pr": 11603,
+              "manager_note": "IDLE at 22:17:33Z having opened PR #11603 while CI was still in flight; its own post_turn_summary reads review_ready. MEASURED SINCE, which its summary could not know: `guards` PASSED at 22:18:09Z and pytest-run is still running. Tier-2 landing:hold — the merge is the manager's or the operator's, and the diff has NOT yet been read by the manager."
+            }
+          }
+        }
+      },
+      "observation": "MI-228. LIVE 00:33Z: IDLE, disconnected, completed. #11603 merged as a34bc556c. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN, which is loud:true and stays OPEN: merged is not deployed and deployed is not a row.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "last_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "session_id": "session_01TM8XjkvVpvMxH4EcLtTsvP",
@@ -4185,7 +4302,7 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator answered this decision 2026-09-09 (collapse): delete the second registry, do not merely test parity. The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a SECOND builder registry holding 16 of 55 strategies, so exercising the sanctioned rollback would silently stop 35 of 45 live legs (78%) as skipped warnings. A rollback that causes an outage is not a rollback. Parents to IN-20260903-TRADING-SYSTEM-HEALTH.",
-      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
       "confirmed_at": "2026-09-09T23:07:01Z",
       "last_observed": {
         "at": "2026-09-09T23:43:00Z",
@@ -4203,7 +4320,30 @@
           "pr": null,
           "manager_note": "LIVE, 18 min in: 'replacing registry with resolver; fixing tests, docs, guards'. That is the COLLAPSE the operator chose, not the parity test they declined. No PR yet."
         }
-      }
+      },
+      "previous_observation": {
+        "state": "running",
+        "last_observed": {
+          "at": "2026-09-09T23:43:00Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
+          "state": "running",
+          "detail": "MI-229 / audit F-28. RUNNING, connected. task_summary 'MI-229 fix in flight; guards running, PR opening' on claude/mi229-collapse-builder-registry. No PR yet at this read. Building the COLLAPSE the operator chose (delete _STRATEGY_BUILDERS), not the parity test they declined.",
+          "previous_observation": {
+            "at": "2026-09-09T23:26:30Z",
+            "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+            "source": "get_session",
+            "session_status": "SESSION_STATUS_RUNNING",
+            "platform_updated_at": "2026-09-09T23:24:49Z",
+            "branch": "claude/mi229-collapse-builder-registry",
+            "pr": null,
+            "manager_note": "LIVE, 18 min in: 'replacing registry with resolver; fixing tests, docs, guards'. That is the COLLAPSE the operator chose, not the parity test they declined. No PR yet."
+          }
+        }
+      },
+      "observation": "MI-229. LIVE via list_sessions 2026-09-10T00:33Z: SESSION_STATUS_RUNNING, connected, updated_at 00:31:31Z. PR #11615 is OPEN with guards/pytest-collect/repo-inventory GREEN on head f606e4d4 and pytest-run still in flight; an EARLIER head (31b9893c) had pytest-run FAIL at 00:22:07Z and the lane pushed a fix itself -- the manager did NOT route it and nothing was owed. !! ITS OWN post_turn_summary CITES 'PR #31030', WHICH DOES NOT EXIST IN THIS REPO; the real PR is #11615. Recorded rather than corrected on its behalf, as an instance of why the cadence tick says judge by MERGED OUTPUT and never by post_turn_summary. #11615 is Tier-2 signal path, landing: hold, auto-merge deliberately NOT armed; the operator's approval (chosen: collapse_to_one_registry) is recorded on WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE and MUST NOT be re-sought -- what it waits on is a merge click.",
+      "observed_at": "2026-09-10T00:33:00Z",
+      "last_observed_at": "2026-09-10T00:33:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
