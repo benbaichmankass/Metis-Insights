@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
     "branch": "claude/mgr-hb-20260910T1631",
-    "claimed_at": "2026-09-10T16:31:51Z",
-    "purpose": "manager lease heartbeat 16:25Z + MI-255 supervision record"
+    "claimed_at": "2026-09-10T16:54:31Z",
+    "purpose": "PR #11711 -- FOURTEENTH takeover today. Prior holder automation/data-commit-34503537558-1 is TERMINAL: PR #11714 merged 16:43:37Z as efc5e2958, read off the PR's merged_at, not off the absent branch ref (a deleted ref is not proof of a merge). Manager registers only; the operator's Workflow page is stale until this lands."
   },
   "active_sessions": [
     {
