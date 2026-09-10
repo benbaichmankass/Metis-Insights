@@ -7,11 +7,8 @@
   "merge_slot": {
     "held_by": "session_017vNWUL48WWrtxssFv2EDMf",
     "branch": "claude/mi231-f39-openitems-observation",
-    "pr": null,
-    "claimed_at": "2026-09-10T04:50:00Z",
-    "purpose": "MI-231 session-end. RECORDS ONLY -- one OPEN-ITEMS observation (F-39 clause (1) MET, (2) and (3) NOT), one new operator-owed row (OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO), the regenerated session brief, and this branch's own pr-landing declaration. Every path is Tier-1 surface: no src/, tests/, scripts/, config/, deploy/ or workflows, so this self-lands where the build PR (#11630, merged c88c7ff9e) could not. THE RE-ATTACH IS NOT APPLIED: no database written, no order placed, modified or cancelled on any account.",
-    "found_stale": "Claimed over github-actions[bot] · trainer-capture-watch run 34439024253 / branch automation/data-commit-34439024253-1 (claimed 2026-09-10T05:05:44Z). TERMINAL, not live: an automated commit-to-main data run (trainer capture-watch receipt, #11641) whose own commit is already on origin/main at 8fdcf4d9d, so the slot is released by the merge and never by the claimant. THIRD terminal holder this branch has displaced tonight -- the other two were claude/mi230-closeout-... (#11635) and a session-reaper run (#11637), both likewise already merged. That every displaced holder has been terminal is the point of BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE: R13 fails an armed branch carrying no claim, so the mirror necessarily accumulates a stale-looking holder after every armed merge, and the automated data-commit runs make that happen several times an hour.",
-    "concurrent_sibling": "scope-overlap on PR #11630 named two LIVE sessions declaring `.github/pr-landing/` -- ASSESSED BENIGN, not waved past: that directory holds 569 files, one per branch slug, so a per-PR file cannot collide and both declarations were directory-level. The one genuinely shared file it named, scripts/ops/system_invariants.py (claude/mi230-exit-eval-near-miss-restart-gap), auto-merged with BOTH sessions' additions verified present (9 invariants registered, self-test 48/48), and that session posted a DONE."
+    "claimed_at": "2026-09-10T05:30:59Z",
+    "purpose": "MI-231 session-end. RECORDS + one tooling self-test repair, every path inside TIER1_SURFACE (docs/**, scripts/ops/**): the F-39 OPEN-ITEMS observation, OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO, one health-backlog row, the regenerated brief, and constraint_readout.py's self-test decoupled from the live register. Tier-1, self-landing. THE RE-ATTACH IS NOT APPLIED: no database written, no order placed, modified or cancelled on any account."
   },
   "active_sessions": [
     {
