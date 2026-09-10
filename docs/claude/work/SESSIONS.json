@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T01:16:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager supervision)",
+  "updated_at": "2026-09-10",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4302,46 +4302,16 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator answered this decision 2026-09-09 (collapse): delete the second registry, do not merely test parity. The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a SECOND builder registry holding 16 of 55 strategies, so exercising the sanctioned rollback would silently stop 35 of 45 live legs (78%) as skipped warnings. A rollback that causes an outage is not a rollback. Parents to IN-20260903-TRADING-SYSTEM-HEALTH.",
-      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
+      "observed_source_url": "get_session on each id at 2026-09-10T01:23-01:25Z",
       "confirmed_at": "2026-09-09T23:07:01Z",
       "last_observed": {
-        "at": "2026-09-09T23:43:00Z",
+        "at": "2026-09-10T01:25:00Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
-        "state": "running",
-        "detail": "MI-229 / audit F-28. RUNNING, connected. task_summary 'MI-229 fix in flight; guards running, PR opening' on claude/mi229-collapse-builder-registry. No PR yet at this read. Building the COLLAPSE the operator chose (delete _STRATEGY_BUILDERS), not the parity test they declined.",
-        "previous_observation": {
-          "at": "2026-09-09T23:26:30Z",
-          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-          "source": "get_session",
-          "session_status": "SESSION_STATUS_RUNNING",
-          "platform_updated_at": "2026-09-09T23:24:49Z",
-          "branch": "claude/mi229-collapse-builder-registry",
-          "pr": null,
-          "manager_note": "LIVE, 18 min in: 'replacing registry with resolver; fixing tests, docs, guards'. That is the COLLAPSE the operator chose, not the parity test they declined. No PR yet."
-        }
+        "source": "get_session per id — platform truth, read 2026-09-10T01:23–01:25Z",
+        "state": "running"
       },
-      "previous_observation": {
-        "state": "running",
-        "last_observed": {
-          "at": "2026-09-09T23:43:00Z",
-          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-          "source": "list_sessions(mine=true, limit=14) — platform truth, read 2026-09-09T23:41Z",
-          "state": "running",
-          "detail": "MI-229 / audit F-28. RUNNING, connected. task_summary 'MI-229 fix in flight; guards running, PR opening' on claude/mi229-collapse-builder-registry. No PR yet at this read. Building the COLLAPSE the operator chose (delete _STRATEGY_BUILDERS), not the parity test they declined.",
-          "previous_observation": {
-            "at": "2026-09-09T23:26:30Z",
-            "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-            "source": "get_session",
-            "session_status": "SESSION_STATUS_RUNNING",
-            "platform_updated_at": "2026-09-09T23:24:49Z",
-            "branch": "claude/mi229-collapse-builder-registry",
-            "pr": null,
-            "manager_note": "LIVE, 18 min in: 'replacing registry with resolver; fixing tests, docs, guards'. That is the COLLAPSE the operator chose, not the parity test they declined. No PR yet."
-          }
-        }
-      },
-      "observation": "MI-229. LIVE via list_sessions 2026-09-10T00:33Z: SESSION_STATUS_RUNNING, connected, updated_at 00:31:31Z. PR #11615 is OPEN with guards/pytest-collect/repo-inventory GREEN on head f606e4d4 and pytest-run still in flight; an EARLIER head (31b9893c) had pytest-run FAIL at 00:22:07Z and the lane pushed a fix itself -- the manager did NOT route it and nothing was owed. !! ITS OWN post_turn_summary CITES 'PR #31030', WHICH DOES NOT EXIST IN THIS REPO; the real PR is #11615. Recorded rather than corrected on its behalf, as an instance of why the cadence tick says judge by MERGED OUTPUT and never by post_turn_summary. #11615 is Tier-2 signal path, landing: hold, auto-merge deliberately NOT armed; the operator's approval (chosen: collapse_to_one_registry) is recorded on WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE and MUST NOT be re-sought -- what it waits on is a merge click.",
+      "previous_observation": "MI-229. LIVE via list_sessions 2026-09-10T00:33Z: SESSION_STATUS_RUNNING, connected, updated_at 00:31:31Z. PR #11615 is OPEN with guards/pytest-collect/repo-inventory GREEN on head f606e4d4 and pytest-run still in flight; an EARLIER head (31b9893c) had pytest-run FAIL at 00:22:07Z and the lane pushed a fix itself -- the manager did NOT route it and nothing was owed. !! ITS OWN post_turn_summary CITES 'PR #31030', WHICH DOES NOT EXIST IN THIS REPO; the real PR is #11615. Recorded rather than corrected on its behalf, as an instance of why the cadence tick says judge by MERGED OUTPUT and never by post_turn_summary. #11615 is Tier-2 signal path, landing: hold, auto-merge deliberately NOT armed; the operator's approval (chosen: collapse_to_one_registry) is recorded on WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE and MUST NOT be re-sought -- what it waits on is a merge click.",
+      "observation": "MI-229 (F-28). LIVE via get_session 2026-09-10T01:25Z: RUNNING, connected, branch claude/fix-merge-slot-diff-metric. post_turn_summary.status_category='need_input', needs_action='reply `go` to merge PR #11628' -- IT IS BLOCKED ON THE MANAGER, not working. !! ITS FINDING IS CONFIRMED AND main IS RED: I reproduced tests/test_claim_merge_slot.py on main at 844d513c0 (my own #11629 merge) -- 2 failed / 9 passed, '87 lines change ... assert 87 <= 6'. The metric is a POSITIONAL zip() comparison, so a claim whose key count differs from the outgoing one shifts every following line and the remainder reads as changed. !! THE INSTANCE ON MAIN IS MINE: I hand-added `found_stale` and `concurrent_sibling`, making the slot 7 keys against the 4 claim_merge_slot.py writes. R13 requires only branch/held_by/claimed_at -- those extra keys were never schema, they were my own practice of using a single-holder MIRROR as a narrative ledger. That practice ends here: this branch claims with the script's canonical 4 keys, which turns main green with NO test touched, and the narrative moves to the PR body where it belongs. !! I ANSWERED ITS R12 STAND-DOWN MYSELF rather than making it wait for the operator: it asked one question -- does the new bound still refuse a whole-file re-serialisation -- and I planted the reformats independently against main's real 7-key board on its head 27f1342cc: correct splice 11, indent=1 175, indent=4 175, sort_keys=True 109, all against a bound of 15; 18 passed; self-test PASS. R12's concern is that the change and its own approval are the same act, and a different session planting its own controls dissolves exactly that. !! BUT I REFUSED THE MERGE ON A DEFECT IT COULD NOT SEE: its body says 'This PR therefore touches the board NOT AT ALL', which is true of its base 513640f5f and FALSE of main -- the diff rewrites merge_slot back to pr 11624 / branch claude/mgr-close-audit-objects-20260910T0055, a branch that merged and is gone, and would destroy the found_stale evidence for #11625 and #11629. Poked at 01:26Z (trig_01RjppWN2bAHQxBL2K6vQngR) to rebase, DROP the board hunk, correct that sentence, and push -- I merge it, no operator wait, landing stays `hold`.",
       "observed_at": "2026-09-10T00:33:00Z",
       "last_observed_at": "2026-09-10T00:33:00Z"
     },
@@ -4356,14 +4326,18 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Audit F-50. The M20 promise was BROKEN on 2026-09-07 and today clears by 48.8ms. Operator chose near_miss_and_restart_gap 2026-09-09.",
-      "observed_source_url": "get_session on each id at 2026-09-10T01:16Z",
+      "observed_source_url": "get_session on each id at 2026-09-10T01:23-01:25Z",
       "confirmed_at": "2026-09-10T00:57:57Z",
-      "previous_observation": {
-        "state": "working"
-      },
-      "observation": "MI-230 (F-50). LIVE via get_session 2026-09-10T01:16Z: RUNNING, connected, updated_at 01:15:35Z, branch claude/mi230-exit-eval-near-miss-restart-gap. task_summary: 'wired restart-gap alert+read; fixing test fixtures'. !! IT IS ON THE HARDER HALF, which is the read that matters: the RESTART GAP (last pass of process N to first pass of N+1) is the one interval M20's promise covers and the instrument excludes BY CONSTRUCTION, because max_interval_ms is per-process and the trader restarts on every merge to main. A lane that shipped only the near-miss band would have looked done and not been. Nothing owed to it.",
+      "previous_observation": "MI-230 (F-50). LIVE via get_session 2026-09-10T01:16Z: RUNNING, connected, updated_at 01:15:35Z, branch claude/mi230-exit-eval-near-miss-restart-gap. task_summary: 'wired restart-gap alert+read; fixing test fixtures'. !! IT IS ON THE HARDER HALF, which is the read that matters: the RESTART GAP (last pass of process N to first pass of N+1) is the one interval M20's promise covers and the instrument excludes BY CONSTRUCTION, because max_interval_ms is per-process and the trader restarts on every merge to main. A lane that shipped only the near-miss band would have looked done and not been. Nothing owed to it.",
+      "observation": "MI-230 (F-50). LIVE via get_session 2026-09-10T01:23Z: RUNNING, connected, updated_at 01:23:02Z, branch claude/mi230-exit-eval-near-miss-restart-gap. task_summary: '67 bash calls; fixing guard/test logic & filing PR #xyz'. IT HAS SHIPPED A PR -- #11631 'Grade the exit-eval near-miss band and the restart gap (audit F-50)', opened 01:22:39Z. Still on the harder half (the restart gap) per the 01:16Z read, which is the half M20's instrument excludes by construction. !! IT IS RUNNING pytest-run AGAINST A RED main: #11631's pytest-run was still in_progress at 01:25Z while tests/test_claim_merge_slot.py fails on main. If that check comes back red, THE FAILURE IS NOT ITS OWN and must not be routed to it as its bug -- that is what #11628 fixes and what my canonical-4-key claim on this branch turns green. Nothing is owed to this lane; the manager owns the red.",
       "observed_at": "2026-09-10T01:16:00Z",
-      "last_observed_at": "2026-09-10T01:16:00Z"
+      "last_observed_at": "2026-09-10T01:16:00Z",
+      "last_observed": {
+        "at": "2026-09-10T01:25:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session per id — platform truth, read 2026-09-10T01:23–01:25Z",
+        "state": "running"
+      }
     },
     {
       "session_id": "session_017vNWUL48WWrtxssFv2EDMf",
@@ -4376,14 +4350,18 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Audit F-39. Operator chose detector_and_reattach 2026-09-09: promote package_leg_coverage to a suite FAIL, and re-attach legs 4347, 5265, 5474, 5475.",
-      "observed_source_url": "get_session on each id at 2026-09-10T01:16Z",
+      "observed_source_url": "get_session on each id at 2026-09-10T01:23-01:25Z",
       "confirmed_at": "2026-09-10T00:57:57Z",
-      "previous_observation": {
-        "state": "working"
-      },
-      "observation": "MI-231 (F-39, REAL MONEY adjacent). LIVE 01:16Z: RUNNING, connected, updated_at 01:15:46Z. task_summary: 'invariant fails on live data; testing planted controls + verifying venue truth before writeback'. !! ALL THREE HALVES OF THAT ARE THE RIGHT SHAPE: the invariant failing on live data is the finding reproducing rather than a harness passing; PLANTED CONTROLS are the stated criterion (a continuing zero from the promoted detector is not evidence until it has been seen failing on a planted stranded live leg, because the latch it replaces was quiet for exactly the reason nobody read it); and verifying venue truth BEFORE the writeback is the scope limit the operator's own chosen option carries - journal/state repair only, no order touched on any account, emphatically not bybit_2. Nothing owed to it, and its re-attach diff comes back to the operator before it is applied.",
+      "previous_observation": "MI-231 (F-39, REAL MONEY adjacent). LIVE 01:16Z: RUNNING, connected, updated_at 01:15:46Z. task_summary: 'invariant fails on live data; testing planted controls + verifying venue truth before writeback'. !! ALL THREE HALVES OF THAT ARE THE RIGHT SHAPE: the invariant failing on live data is the finding reproducing rather than a harness passing; PLANTED CONTROLS are the stated criterion (a continuing zero from the promoted detector is not evidence until it has been seen failing on a planted stranded live leg, because the latch it replaces was quiet for exactly the reason nobody read it); and verifying venue truth BEFORE the writeback is the scope limit the operator's own chosen option carries - journal/state repair only, no order touched on any account, emphatically not bybit_2. Nothing owed to it, and its re-attach diff comes back to the operator before it is applied.",
+      "observation": "MI-231 (F-39, REAL MONEY adjacent). LIVE via get_session 2026-09-10T01:23Z: RUNNING, connected, updated_at 01:23:17Z, branch claude/mi231-f39-package-leg-reachability, context 396,505 / 1,000,000 tokens (40%), cost $18.52. task_summary: 'Adding the manual-only declaration and re-run the guard'. PR #11630 is open as a DRAFT, which is the right posture for a Tier-2 lane whose journal re-attach has not yet been put back to the operator. The 01:16Z reading still holds and the new summary is consistent with it: it verified venue truth BEFORE any writeback, which is the operator's own scope limit on MI-231 (journal/state repair only; no order placed, modified or cancelled on any account, emphatically not bybit_2; the re-attach's exact diff returns to the operator before it is applied). Nothing is owed to this lane.",
       "observed_at": "2026-09-10T01:16:00Z",
-      "last_observed_at": "2026-09-10T01:16:00Z"
+      "last_observed_at": "2026-09-10T01:16:00Z",
+      "last_observed": {
+        "at": "2026-09-10T01:25:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session per id — platform truth, read 2026-09-10T01:23–01:25Z",
+        "state": "running"
+      }
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

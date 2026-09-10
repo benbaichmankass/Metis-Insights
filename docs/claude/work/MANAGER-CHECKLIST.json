@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T23:45:00Z",
+  "updated_at": "2026-09-10",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -3038,9 +3038,18 @@
       "note": "Routed 2026-09-10T00:57Z. Operator answered 2026-09-09, chosen: detector_and_reattach -- the Tier-2 approval. !! THE SCOPE LIMIT IS PART OF THE APPROVAL, NOT A MANAGER GLOSS, and it was stated in the option the operator selected: JOURNAL/STATE REPAIR ONLY. No order may be placed, modified or cancelled on ANY account, emphatically not bybit_2. The venue positions are not to be touched. !! THE RE-ATTACH IS NOT PRE-APPROVED AS A DIFF -- it is a Tier-2 DB writeback whose exact change returns to the operator before it is applied. !! And a continuing zero from the promoted detector is NOT evidence until it has been OBSERVED failing on a planted stranded live leg: the latch it replaces was quiet for exactly the reason nobody read it. Sequencing note: scripts/ops/system_invariants.py was contended by MI-227, which merged as 7b8b6b51d, so that contention is over.",
       "state_observed_at": "2026-09-10T00:58:00Z",
       "added": "2026-09-10"
+    },
+    {
+      "id": "BLOCKER-20260910-MAIN-IS-RED-ON-THE-MERGE-SLOT-SIZE-GUARD",
+      "title": "main is RED: tests/test_claim_merge_slot.py fails on clean main because the slot-size metric is a positional zip(), and the instance on main is the MANAGER's own 7-key claim",
+      "state": "in_flight",
+      "owner": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "note": "UNFORESEEN BLOCKER, added as its own item per the adaptive-checklist rule. CONFIRMED BY THE MANAGER, not taken on report: tests/test_claim_merge_slot.py on main at 844d513c0 gives 2 failed / 9 passed with '87 lines change ... assert 87 <= 6'. !! THE CAUSE ON MAIN RIGHT NOW IS MINE. The guard's metric compares line i of the old board to line i of the new one, so a claim whose KEY COUNT differs from the outgoing one shifts every following line. I had been hand-adding `pr`, `found_stale` and `concurrent_sibling` to the slot -- 7 keys against the 4 claim_merge_slot.py writes. check_pr_landing R13 requires only branch/held_by/claimed_at, so those keys were never schema; I was using a SINGLE-HOLDER MIRROR as a narrative ledger, which it is not. That practice stops: manager claims now go through the script's canonical 4-key shape and the narrative goes in the PR body. TWO FIXES, DIFFERENT LIFETIMES, do not confuse them: (a) my canonical claim turns main green NOW as a side effect of a commit already being made, with no test touched or weakened; (b) #11628 repairs the METRIC (difflib add+remove, bounded by the two slots' own size) so the next session that adds a key does not re-red main. (a) is a data shape, (b) is the durable fix, and (a) is NOT a substitute for (b). MERGE DECISION: #11628 is landing: hold under R12 (it edits the landing machinery). I answered its stand-down question myself by planting whole-file reformats against main's real board on its head -- 175/175/109 caught against a bound of 15, correct splice 11, 18 passed, self-test PASS -- so the teeth are verified by a session other than the author, which is what R12 is for. I REFUSED THE MERGE ANYWAY on a defect the lane could not see: its board hunk reverts merge_slot to pr 11624, a merged and deleted branch. Poked 01:26Z to rebase, drop the board hunk, and correct the body sentence 'This PR therefore touches the board NOT AT ALL' (true of its base, false of main). The manager merges it on that push -- it does not wait for the operator.",
+      "state_observed_at": "2026-09-10T01:27:00Z",
+      "added": "2026-09-10"
     }
   ],
-  "as_of": "2026-09-09T09:00:34Z",
+  "as_of": "2026-09-10T01:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
