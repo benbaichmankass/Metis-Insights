@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
-    "branch": "claude/file-r13-merge-slot-recurrence",
-    "claimed_at": "2026-09-10T20:30:00Z",
-    "purpose": "Tier-1 docs-only, PR #11728 -- the backlog row recording that R13 makes concurrent armed self-landing PRs conflict by construction. RE-CLAIMED over a prior holder, recorded rather than silent: previous was session_01FyYyybxWC7VD1Rq1doEEdf for claude/fix-adopt-population-and-id-transposition, claimed 2026-09-10T17:31:00Z. ⚠️ THIS CLAIM IS ITSELF AN INSTANCE OF WHAT THE PR DOCUMENTS -- R13 requires it, it cannot be omitted, and it is the exact line that made #11717 conflict ten times. Released on merge, to the extent that is possible, which is the point of both rows."
+    "branch": "claude/scope-the-r13-race-figure",
+    "claimed_at": "2026-09-10T20:42:00Z",
+    "purpose": "Tier-1 docs-only, one-line correction to the R13 backlog row that landed in #11728. RE-CLAIMED over session_01FyYyybxWC7VD1Rq1doEEdf for claude/file-r13-merge-slot-recurrence (claimed 2026-09-10T20:30:00Z), whose PR is MERGED as f50be7e98 -- read off main's log. ⚠️ FRESH BRANCH BECAUSE #11728 IS MERGED and a merged PR must never be reused; the correction was pushed to it at ~20:31Z and auto-merge had taken it at 20:30:09Z. That is the documented post-arming race, and a 20-second docs-only CI cycle loses it almost every time -- fast CI makes a PR easy to LAND and nearly impossible to AMEND."
   },
   "active_sessions": [
     {
