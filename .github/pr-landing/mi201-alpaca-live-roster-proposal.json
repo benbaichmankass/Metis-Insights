@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 evidence + registers only: a research doc under docs/research/, its DOCUMENT-INDEX row, two health-review-backlog rows filed through backlog_append.py, and this session's own work object. The config/accounts.yaml roster edit this document PROPOSES is Tier-3 and is NOT in this diff — it is written out as a diff block inside the proposal for the operator to approve separately. No src/, no config/, no deploy/, no .github/workflows/."
+}
