@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-10T18:40:23+00:00",
+  "generated_at": "2026-09-10T21:51:10+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 10,
-      "note": "freshness=stale age=80.2h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=stale age=83.3h cadence=daily (cron 20 5 * * *) | 2 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-10T18:40:14+00:00, age 0.0h"
+      "note": "digest 2026-09-10T21:51:04+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -395,7 +395,7 @@
     {
       "source": "probes",
       "id": "PROBE-REPORT-STALE",
-      "title": "probe report is 80.2h old — expected daily (cron 20 5 * * *)",
+      "title": "probe report is 83.3h old — expected daily (cron 20 5 * * *)",
       "why_due": "EVERY probe verdict below was observed at 2026-09-07T10:31:05.344186+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.",
       "age_days": 3,
       "loud": true,
@@ -603,7 +603,7 @@
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -612,7 +612,7 @@
       "source": "probes",
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
       "title": "Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -621,7 +621,7 @@
       "source": "probes",
       "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
       "title": "A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any ",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -630,7 +630,7 @@
       "source": "probes",
       "id": "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED",
       "title": "Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fresh / stale (ran befo",
-      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "probe FAILED — its declared observation did not hold [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": true,
       "link": ""
@@ -737,8 +737,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x36 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 36 rows 2026-09-04T19:13:36 → 2026-09-10T16:28:42 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x37 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 37 rows 2026-09-04T19:13:36 → 2026-09-10T21:21:54 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -755,8 +755,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-fa77ad80",
-      "title": "[error] x31 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 31 rows 2026-09-04T21:55:38 → 2026-09-10T16:28:42 · symbols=MES — decide: fix now, or file to a backlog",
+      "title": "[error] x32 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 32 rows 2026-09-04T21:55:38 → 2026-09-10T21:21:54 · symbols=MES — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -791,8 +791,17 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-72e2ad1e",
-      "title": "[error] x28 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 28 rows 2026-09-08T19:46:55 → 2026-09-10T18:13:01 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x31 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 31 rows 2026-09-08T19:46:55 → 2026-09-10T21:15:32 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "age_days": 2,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-f754bb5d",
+      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-08T19:22:45 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog",
       "age_days": 2,
       "loud": false,
       "link": ""
@@ -817,18 +826,9 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-42b3c86c",
-      "title": "[error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ADAUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-10T16:21:21 → 2026-09-10T16:21:21 · accounts=bybit_1 symbols=ADAUSDT — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-4b08cc99",
-      "title": "[error] NEW x1 api_call bybit_place_order_failed: <REDACTED_TOKEN>: PartialTakeProfit:N set for Sell position should be lower than base_price:N??LastPrice ",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-10T17:40:41 → 2026-09-10T17:40:41 · symbols=AVAXUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-0957e995",
+      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: AVAXUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: ",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-10T19:01:50 → 2026-09-10T19:01:50 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -836,8 +836,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "98 cause groups over 1395 rows (66 error-level, 32 warn-level, 2 new since the last digest)",
-      "why_due": "56 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-10T14:35:42.609326+00:00`.",
+      "title": "99 cause groups over 1403 rows (67 error-level, 32 warn-level, 1 new since the last digest)",
+      "why_due": "57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-10T18:39:18.675340+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -846,7 +846,7 @@
       "source": "probes",
       "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -855,7 +855,7 @@
       "source": "probes",
       "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -864,7 +864,7 @@
       "source": "probes",
       "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -873,7 +873,7 @@
       "source": "probes",
       "id": "OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -882,7 +882,7 @@
       "source": "probes",
       "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
       "title": "probe could not run (exit_2)",
-      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 80.2h ago]",
+      "why_due": "we did not look — this row is currently unwatched [observed 2026-09-07T10:31:05.344186+00:00, 83.3h ago]",
       "age_days": null,
       "loud": false,
       "link": ""
