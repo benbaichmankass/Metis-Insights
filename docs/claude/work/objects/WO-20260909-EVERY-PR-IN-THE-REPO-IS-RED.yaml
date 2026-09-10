@@ -245,6 +245,13 @@ sweeper_first_verified_unstrand: >-
   own words apply to the claim as much as to any step: what is observed is that
   the SCRIPT works, not that the MECHANISM runs.
 
+  ⚠️ THAT PARAGRAPH IS NOW FALSE AND IS KEPT ONLY AS THE RECORD OF WHAT WAS TRUE
+  WHEN IT WAS WRITTEN. #11519 merged 2026-09-10T15:09:10Z: the sweeper IS on
+  `main` and it DOES have a cron. Read
+  `the_mechanism_is_DEPLOYED_and_its_first_scheduled_run_is_STILL_UNOBSERVED`
+  below for what did and did not change. The last sentence survives the
+  correction in a narrower form: what is observed is still that the SCRIPT works.
+
   ⚠️ WHY IT MATTERED NOW: main's `docs/claude/work/PR-QUEUE-WATCH.json` reads
   `2026-09-08T16:50:32Z` against `check_pr_queue_watch.py`'s 30h window, so main
   would have gone red repo-wide on a SECOND receipt guard at about
@@ -651,6 +658,69 @@ finding_five_CORRECTED_the_branch_instrument_already_exists: >-
   the RECOMMENDATION, not work delivered. And the deeper point stands: the
   repo already owned an instrument that had seen this failure, it ran nowhere,
   and nobody read it for ten days. That is the same sentence as the WO's thesis.
+
+the_mechanism_is_DEPLOYED_and_its_first_scheduled_run_is_STILL_UNOBSERVED: >-
+  ⚠️ CORRECTING THIS OBJECT, 2026-09-10T15:11Z. Throughout this WO — in
+  `sweeper_first_verified_unstrand`, in #11519's body, and in its `hold_text` —
+  I wrote: "Every run was hand-run. The workflow is not on `main`, so it has no
+  cron: the SCRIPT is proven, the MECHANISM is not." Every one of those
+  sentences was true when written and the first two clauses are now FALSE. A
+  session reading this object top-to-bottom would otherwise carry a claim the
+  merge falsified.
+
+  WHAT IS NOW TRUE, verified on `main` rather than taken from the merge report.
+  #11519 merged as a1ec4a5c0 at 2026-09-10T15:09:10Z. On `main`:
+  `scripts/ops/sweep_stale_automation_prs.py`,
+  `tests/test_sweep_stale_automation_prs.py` and
+  `.github/workflows/stale-automation-sweep.yml` all present; the workflow
+  carries `schedule: cron '17 */2 * * *'` and `workflow_dispatch`; both the
+  workflow and the script are registered in `LANDING_MACHINERY`
+  (`scripts/ops/check_pr_landing.py:296-297`), so the sweeper is itself covered
+  by R8/R12 and cannot self-land a change to its own machinery; 1 catalog row
+  names it. GitHub's own view agrees and is the part that could not be read from
+  the tree: workflow id 355025104, path `.github/workflows/stale-automation-sweep.yml`,
+  `state: active`, created 2026-09-10T15:09:12Z. So the cron is REGISTERED, not
+  merely written down in a file.
+
+  ⚠️ WHAT IS STILL NOT OBSERVED, AND THIS IS THE HALF THAT MUST NOT COLLAPSE
+  INTO THE HALF ABOVE. POPULATION: every run of workflow 355025104, all events,
+  all branches, no status filter — `list_workflow_runs` returns
+  `total_count: 0`. ZERO. The mechanism is DEPLOYED and has NEVER RUN. Those are
+  two different states and this repo's own doctrine is that "we could not look"
+  and "we looked and found nothing" must stay distinguishable; so must "it is
+  installed" and "it ran". The next scheduled slot after the merge is 15:17Z,
+  ~8 minutes after registration, and a newly registered cron is not owed its
+  first slot.
+
+  HOW THE FIRST RUN MUST BE READ, stated now so a later session cannot grade it
+  loosely. (1) The run must EXIST with `event: schedule` — a `workflow_dispatch`
+  I fire by hand proves the workflow file parses and nothing about the cadence,
+  which is the entire class fix. (2) Read the SWEEP JOB'S OWN conclusion, never
+  the run's top-level `success`: this WO already records the trap — work-digest
+  run 34383191261 concluded `success` with its `digest` job SKIPPED behind a
+  gate. (3) The sweeper exits 2 for COULD NOT LOOK, so a non-zero exit is not
+  automatically a failed sweep and a zero exit is not automatically a completed
+  one; read which. (4) Any refresh it claims must be verified as EFFECT against
+  the merge-base, as every hand-run refresh in this WO was, and never from the
+  sweeper's own report.
+
+  ⚠️ AND WHAT A CLEAN FIRST RUN WOULD STILL NOT PROVE. Today's live triage
+  grades 0 PRs `refresh` (the actionable state), so the likely first scheduled
+  run does nothing and reports nothing to do. That IS the mechanism observed
+  running — it is not the refresh path observed running in CI, which needs a
+  `refresh` PR to exist at a slot boundary. The refresh path has been verified
+  seven times end to end, all seven HAND-RUN from this session's tree, on a
+  checkout this session controlled. CI runs it on a clean checkout with a
+  different token and different push rights; the one operational failure this
+  session hit (a dirty working tree) is precisely the difference between those
+  two environments, so it is the untested half.
+
+  NOTHING HERE CHANGES THE CLASS ANSWER. It remains (a) — the automation
+  workflow should rebase-or-reopen — with the qualification stated in
+  `findings`: the actor must OUTLIVE the producing run, which is why it is a
+  cadence job and not another input to `commit-to-main`. What changes is only
+  the status line: the answer is now SHIPPED and awaiting its first
+  self-triggered execution, rather than proven-in-principle and unshipped.
 
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09

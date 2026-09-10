@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
     "branch": "claude/mgr-rescue-pit-artifacts-20260910T1320",
-    "claimed_at": "2026-09-10T15:34:18Z",
-    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable comms/ artifacts -- the last remaining half after its registers were split to #11703. TWELFTH takeover today, from a TERMINAL holder: the prior claim named this manager's own claude/mgr-hb-20260910T1530, whose PR #11707 merged as 82905ab82 (main's own tip). Released on merge."
+    "claimed_at": "2026-09-10T16:02:01Z",
+    "purpose": "PR #11697 -- THIRTEENTH takeover today, and the count is the point rather than a complaint. Its CI is a correct 20-minute run (comms/ is in pytest-run's full-suite filter DELIBERATELY, added 2026-08-13 as the third recurrence of config-only PRs merging green while reddening main), and automation merges inside that window every time, so a green head is invalidated before auto-merge can fire. Prior claim TERMINAL: #11706 merged as 1b63f7206. Released on merge."
   },
   "active_sessions": [
     {
