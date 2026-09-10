@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-259 OPS lane (session_01M3FPDA7Yp9dmMXFqsYzGi3)",
-    "branch": "claude/mi259-close-the-work-object",
-    "claimed_at": "2026-09-10T22:40:00Z",
-    "purpose": "PR #11743 — Tier-1 close-out: reconciles WO-20260910-DISPOSITION-THE-34-... from dormant to done now its done_condition is met and verified on main. Final PR of the MI-259 lane. Prior holder 'MI-259 OPS lane (session_01M3FPDA7Yp9dmMXFqsYzGi3)'."
+    "held_by": "github-actions[bot] · session-reaper run 34540876557",
+    "branch": "automation/session-reaper-34540876557-1",
+    "claimed_at": "2026-09-10T23:10:29Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
