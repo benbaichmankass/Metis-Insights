@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T10:15:00Z",
+  "updated_at": "2026-09-10T10:43:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3454,9 +3454,28 @@
       "resolution_criteria": "SPLG returns enough 1d bars for splg_trend_long_1d to EVALUATE — read off /api/bot/candles against the strategy's declared lookback — and a signal-path read confirms the leg evaluates rather than skipping. ⚠️ A green test clears nothing here; the feed is live infrastructure.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it; it needs a session."
+    },
+    {
+      "id": "MI-255-FIX-THE-BYBIT-WRONG-BOOK-CLOSE-AND-THE-READOPT-FLAP",
+      "title": "Fix the Bybit wrong-book flat read that closes live positions, and the re-adopt flap key",
+      "state": "queued",
+      "tier": 2,
+      "priority": "P1",
+      "lane": "ops",
+      "added": "2026-09-10T10:43:00Z",
+      "owner": "unassigned — route to the ops lane when it frees",
+      "source": "OPERATOR APPROVED 2026-09-10T~10:42Z on a pop-up put by manager session_01HrmZ1RRNM4UnEUaFdrPEjj: 'Approve both fixes', over 'only the book-selection fix' and over 'not yet — measure first'. The blocked_on edge on WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE had stood since 2026-09-08 and HAD NEVER BEEN PUT TO THE OPERATOR — it sat two days because nobody asked, not because they had not answered.",
+      "scope": "src/runtime/order_monitor.py, two changes. (a) _bybit_position_protection's BOOK SELECTION — it grades a symbol off rows[0] with no zero-size skip and no book selection, so since hedge mode was armed 2026-08-30 a zero-size sibling book listed first returns _flat for a symbol that is NOT flat. (b) _recently_closed_adopted_orphan's exit_reason ALLOWLIST omits `netting_attributed`, so the position is re-adopted as a fresh adopted_orphan 3-4 min later.",
+      "⚠️_the_obvious_fix_is_the_wrong_one": "Widening RECONCILER_READOPT_GUARD_SECONDS FIXES NOTHING. The guard is working as designed; it is its KEY that misses. CLAUDE.md states this in terms.",
+      "evidence": "Trade 5568 (bybit_1 ETHUSDT long 26.05) CLOSED on exchange_qty 0.0 with a FABRICATED +$63.8225 while the venue held the position and 5568's own tracked SL leg was still resting. 12 of 21 applied soak rows read exchange_qty == 0.0. 7 of 49 `netting_attributed` closes are on REAL-MONEY bybit_2. Patches already written out in docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md, unapplied. BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-...",
+      "⚠️_build_the_denominator_too": "The soak carries no position_idx and no source, so `genuinely flat`, `wrong book` and `the list came back empty` are ONE value — which is why twelve of these accrued unexamined. Make that distinction recordable or the fix cannot be shown to have worked.",
+      "resolution_criteria": "Both changes shipped and the POST-STATE VERIFIED on the fleet (Tier-2 discipline), plus a soak row that can name which of the three states it saw. ⚠️ A green test suite clears nothing — a harness cannot reach a hedged venue book.",
+      "explicitly_not_in_scope": "No order placed, modified or cancelled on any account by hand. Does NOT authorise remediating an over-covered book by cancelling legs (BL-20260820). Does NOT settle trade 5569's own reconcile_status — that is the parent object's separate done_condition.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — the operator_decision edge was the blocker and it is answered; what it needs now is a session."
     }
   ],
-  "as_of": "2026-09-10T10:15:00Z",
+  "as_of": "2026-09-10T10:43:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
