@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Work-store state only: two objects whose builds merged move in_flight -> waiting, each gaining a TRUE typed blocked_on edge naming the fleet observation its own done_condition demands. Recording work state into docs/claude/work/** is a management act. No src/, tests/, scripts/, config/, deploy/ or workflow path. No order placed, modified or cancelled on any account."
+}
