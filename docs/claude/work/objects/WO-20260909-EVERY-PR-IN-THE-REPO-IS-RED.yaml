@@ -780,6 +780,83 @@ the_cadence_WAS_SIZED_AGAINST_DECLARED_SLOTS_AND_GITHUB_DELIVERS_ONE_EVERY_4_9H:
   finding; filing it would be the duplicate the backlog's own check exists to
   refuse.
 
+the_mechanism_is_OBSERVED_first_scheduled_run_1908Z_and_it_LANDED_A_STRAND: >-
+  ⚠️ DEPLOYED -> OBSERVED, 2026-09-10T19:08:22Z. The sweeper's FIRST scheduled
+  run exists, and it is the first time in this WO that the whole path ran with
+  no session in it: run 34518595813, `run_number: 1`, `event: schedule`. Graded
+  by the four rules the previous section fixed in advance, so this cannot be
+  read as a loose pass.
+
+  (1) EVENT IS `schedule`, not a hand-fired `workflow_dispatch` — the cadence is
+  what was in question and the cadence is what fired. (2) THE SWEEP JOB'S OWN
+  conclusion is `success`, and all six of its steps executed with real durations
+  (self-test 1s, read open-PR list <1s, Sweep 18s, Report the verdict) — none
+  SKIPPED. That check is not ceremony: this WO records work-digest run
+  34383191261 concluding `success` with its `digest` job skipped behind a gate,
+  and the same reading applied here would have been wrong for the same reason.
+  (3) THE EXIT CODE WAS 0, read off the verdict step's own `case "0"` branch,
+  so this is not the exit-2 COULD NOT LOOK path being mistaken for an empty
+  queue. (4) The one refresh it claims is verified as EFFECT below.
+
+  WHAT IT SAW. POPULATION: 47 open PRs read from the API, 44 of them carrying an
+  `automation/*` head ref and graded against origin/main. TRIAGE: `refresh` 1 ·
+  `superseded_older` 24 · `carries_append_only` 6 · `absent_on_main` 2 ·
+  `undated_payload` 11 — which sums to 44. It refused 19 of them out loud as
+  NEEDING A HUMAN READ and touched none of them, which is the never-closes
+  safety property behaving as designed rather than as documented. `absent_on_main`,
+  the eighth state added the day before, fired on two live PRs (#11361, #11475).
+
+  ⚠️ AND IT LANDED THE ONE ACTIONABLE STRAND. #11710
+  (`automation/session-reaper-34501786024-1`, a reaper-observations receipt
+  opened 16:24:22Z) graded `refresh`, was refreshed and pushed at 19:08:59Z, and
+  MERGED AT 19:11:26Z — two minutes twenty-seven seconds later, on green, with
+  no human act and no session in the loop.
+
+  VERIFIED AS EFFECT, FOUR WAYS, NONE OF THEM THE SWEEPER'S OWN REPORT — the
+  discipline every hand-run in this WO was held to. (1) The branch's head
+  commit `8038c342` is authored by `github-actions[bot]` at 19:08:59Z, subject
+  "Re-assert this branch's R13 merge-slot claim after merging main". (2)
+  `merge_slot` at that head reads `held_by: github-actions[bot] ·
+  stale-automation-sweep run 34518595813` — the SAME run id as the scheduled run
+  — naming that branch, at that second. (3) `main`'s tip at sweep time
+  (`df0116b7`) IS an ancestor of the refreshed head, so the branch genuinely
+  caught up; the strand is gone, not reported gone. (4) It merged, so the
+  required checks re-ran on the new sha and passed.
+
+  ⚠️ WHAT THIS PROVES THAT SEVEN HAND-RUNS DID NOT. The previous section named
+  the untested half exactly: CI runs the refresh on a clean checkout, with a
+  different token and different push rights, unattended — and the one
+  operational failure this session hit was a dirty working tree, which is
+  precisely that difference. That half is now tested. The branch it unstranded
+  was also one no session had touched, so this is not a session verifying its
+  own earlier work.
+
+  THE FIRST-RUN LAG, RECORDED AS A DATUM FOR
+  BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27: the
+  cron was registered 15:09:12Z and the first run started 19:08:22Z, 3h59m
+  later. It fired BEFORE the 19:17Z slot, and a cron cannot fire early, so this
+  is the 17:17Z slot delivered 1h51m late — or the 15:17Z slot 3h51m late.
+  Either reading sits inside the ~4.9h plateau measured this afternoon, and
+  either way TWO declared slots produced ONE run: the coalescing that section
+  measured on another workflow, now observed on this one.
+
+  ⚠️ WHAT IS STILL NOT PROVEN, because one run is not a cadence. This workflow's
+  own history is n=1: there is no gap between its own runs to measure yet, so
+  the "about one sweep per 6h window" figure still rests on purge-artifacts'
+  plateau and not on the sweeper's own record. The next scheduled run is what
+  turns that from inference into measurement. And the sizing defect it implies
+  is unfixed for the reason already stated: the wrong premise is in the
+  workflow's own comment, that file is LANDING_MACHINERY, and R12 means a human
+  reads that correction.
+
+  THIS OBJECT STAYS `in_flight`, DELIBERATELY. `done_condition_met` has read MET
+  since 2026-09-09 and the class answer is delivered and now observed — but
+  `what_was_not_done` still lists live items, chief among them that 24
+  `superseded_older` and 11 `undated_payload` PRs are open with recorded reasons
+  and no DISPOSITION, which is a human act by this object's own argument.
+  Closing on the strength of a good run would be the tick-the-box move the
+  work order forbids in its own words.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 

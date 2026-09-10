@@ -21,8 +21,26 @@ ETHUSDT long **17.67**, adopted and attributed to ``pairs_sol_eth_b``, closed
 a position it did not open, because the journal told it the leg was its own.
 17.67 is an exact match for trade 5420, ``trend_donchian_eth``, closed 3264 s
 earlier; ``pairs_sol_eth_b``'s own 80 ETHUSDT legs in that window top out at
-**2.10**. Of 5 judgeable adopts, **2 named a strategy whose own size
-distribution excludes the position**, and both wrong ones named a pairs sleeve.
+**2.10**.
+
+⚠️ **THE DENOMINATOR HERE READ "Of 5 judgeable adopts" AND NAMED NO POPULATION
+— CORRECTED 2026-09-10 BY THIS MODULE'S OWN AUTHOR.** That is the rule this repo
+promoted to top level (*"ALWAYS STATE THE POPULATION"*), broken in the file that
+justifies a refusal on a live order path. Re-measured by grading **every** named
+adopt with this module over a population that IS stated — the 1000 rows
+``/api/diag/journal`` returns for ``trades`` (ids 4653..5652): **15** carry
+``setup_type='adopted_orphan'``, all 15 name a strategy, **zero are bare**, and
+the verdicts are **13 supported / 2 size_implausible (5448, 5453) / 0 no_history
+/ 0 unreadable**. So it is **2 of 15**, and both wrong ones named a pairs sleeve.
+
+⚠️ **THE CORRECTION MAKES THIS GATE RARER, NOT COMMONER, AND THAT DIRECTION IS
+THE POINT** — the rarer the refusal, the WEAKER "no refusals seen" is as
+evidence the gate works. ⚠️ **AND THE OLD FIGURE IS NOT THEREBY WRONG**: its
+population was never recorded, so the two cannot be compared; that absence IS
+the defect. ⚠️ The hand-scored set behind it also included a row that is **not
+an adopt at all** (trade 5568, ``exit_reason: netting_attributed``), so its
+denominator was additionally off by one — see
+``tests/test_orphan_attribution_size_gate.py``'s correction header.
 
 ⚠️ **THIS SIZES A CONTAMINATION, NOT A LOSS.** Trade 5453's ``pnl`` is
 **+612.705681** — phantom *profit* booked onto a sleeve whose real legs that
@@ -70,7 +88,22 @@ STATES = (
 #: What justifies it is that the verdict is ROBUST to the choice over the only
 #: population that exists: the two mis-attributions sit **8.4x** and **21.5x**
 #: outside their claimed strategy's range, so every band from ~1.5 to ~8 refuses
-#: both and passes all three correct ones. n = 5 judgeable adopts is small.
+#: both and passes every correct one in the hand-scored set.
+#:
+#: ⚠️ **THIS COMMENT READ "n = 5 judgeable adopts is small" UNTIL 2026-09-10 AND
+#: THAT WAS THE UNSTATED DENOMINATOR THE MODULE DOCSTRING NOW CORRECTS.** Over a
+#: STATED population (the 1000-row journal page, ids 4653..5652) it is **2 of 15**
+#: named adopts, not 2 of 5. The band is still CHOSEN rather than derived and the
+#: robustness argument above is untouched — what changes is that the evidence
+#: behind it now names what it was measured over.
+#:
+#: ⚠️ **2-of-15 IS AN UPPER BOUND ON REFUSALS, and the bound has a direction:**
+#: history enters only through ``min`` and ``max``, so MORE history can only
+#: WIDEN the band — a ``supported`` verdict is stable under more history and a
+#: ``size_implausible`` one can only soften. The journal page truncates history
+#: and the runtime caller reads its own ``limit=200`` per (strategy, symbol) — a
+#: THIRD basis again. None of the three is *the* population; name which one any
+#: quoted number came from.
 DEFAULT_BAND = 2.0
 
 #: Below this many historical sizes the verdict is ``no_history`` — *we could
