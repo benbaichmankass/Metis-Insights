@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
-    "branch": "claude/file-r13-merge-slot-recurrence",
-    "claimed_at": "2026-09-10T20:30:00Z",
-    "purpose": "Tier-1 docs-only, PR #11728 -- the backlog row recording that R13 makes concurrent armed self-landing PRs conflict by construction. RE-CLAIMED over a prior holder, recorded rather than silent: previous was session_01FyYyybxWC7VD1Rq1doEEdf for claude/fix-adopt-population-and-id-transposition, claimed 2026-09-10T17:31:00Z. ⚠️ THIS CLAIM IS ITSELF AN INSTANCE OF WHAT THE PR DOCUMENTS -- R13 requires it, it cannot be omitted, and it is the exact line that made #11717 conflict ten times. Released on merge, to the extent that is possible, which is the point of both rows."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-hb-20260910T2026",
+    "claimed_at": "2026-09-10T20:31:14Z",
+    "purpose": "PR #11729 -- manager lease heartbeat 20:27Z + MI-260 cleared. Rebased once over #11728, which is itself the backlog row ABOUT this conflict class."
   },
   "active_sessions": [
     {
