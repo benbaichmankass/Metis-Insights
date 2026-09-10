@@ -43,27 +43,7 @@
   "as_of": "2026-09-08T14:22:00Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [
-    {
-      "pr": 11519,
-      "title": "WO-20260909: an automation PR has no owner after its producing run exits — the class, not the one red",
-      "owner_session": "session_01NcYsS6kFNrzxEKcrNy9eXP",
-      "checklist_item": "MI-212-LANE-4-STALE-AUTOMATION-LANDING",
-      "tier": "tier_1",
-      "state": "draft_held",
-      "draft": true,
-      "opened_at": "2026-09-09T08:27:24Z",
-      "blocker": "held as draft by the manager — the sweeper it proposes acts on 51 open automation PRs at once and has not been reviewed for blast radius",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": "Tier-1 — the draft hold is the MANAGER's, pending a blast-radius read of the sweeper across ~25 open automation PRs. No operator approval was sought for the hold and none is owed.",
-        "decided_on": "2026-09-09",
-        "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
-      },
-      "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites."
-    }
-  ],
+  "open_prs": [],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -2076,10 +2056,33 @@
       "settled_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
       "reason": "SUPERSEDED_OLDER — graded by scripts/ops/sweep_stale_automation_prs.py against the live open set at 2026-09-09T12:58Z (population: 60 open PRs, 53 with automation/* head refs). Its ONE payload file is STRICTLY OLDER than main's, so merging it would REWIND main. That is why it is CLOSED and not merged: merging a superseded receipt to tick a box would undo work already on main. ⚠️ Checked before closing, and this is the check that matters: the classifier tests `carries_append_only` BEFORE `superseded_older`, and this branch's diff against its merge-base touches NO append-only payload — its docs/claude/pending-pings.jsonl is a strict SUBSET of main's, so no operator notification is dropped by this close. (Seven other work-digest PRs DO carry an unmerged pending-pings row and are deliberately NOT closed here; they need the #10974 rescue-by-value first.) MEASURED: this branch's docs/claude/work/OPEN-PRS.json is stamped 2026-09-08T08:30:00Z against main's 2026-09-09T10:46:00Z. WHY IT NEVER LANDED: Same as #11499 and not the R13 story: post-#11494, carries its own merge-slot claim, and pr-landing-guard run locally under the real branch name reads `pr-landing: OK — state=declared_self_land`. Superseded while waiting.",
       "disposition": "SUPERSEDED_OLDER — graded by scripts/ops/sweep_stale_automation_prs.py against the live open set at 2026-09-09T12:58Z (population: 60 open PRs, 53 with automation/* head refs). Its ONE payload file is STRICTLY OLDER than main's, so merging it would REWIND main. That is why it is CLOSED and not merged: merging a superseded receipt to tick a box would undo work already on main. ⚠️ Checked before closing, and this is the check that matters: the classifier tests `carries_append_only` BEFORE `superseded_older`, and this branch's diff against its merge-base touches NO append-only payload — its docs/claude/pending-pings.jsonl is a strict SUBSET of main's, so no operator notification is dropped by this close. (Seven other work-digest PRs DO carry an unmerged pending-pings row and are deliberately NOT closed here; they need the #10974 rescue-by-value first.) MEASURED: this branch's docs/claude/work/OPEN-PRS.json is stamped 2026-09-08T08:30:00Z against main's 2026-09-09T10:46:00Z. WHY IT NEVER LANDED: Same as #11499 and not the R13 story: post-#11494, carries its own merge-slot claim, and pr-landing-guard run locally under the real branch name reads `pr-landing: OK — state=declared_self_land`. Superseded while waiting."
+    },
+    {
+      "pr": 11519,
+      "title": "WO-20260909: an automation PR has no owner after its producing run exits — the class, not the one red",
+      "owner_session": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+      "checklist_item": "MI-212-LANE-4-STALE-AUTOMATION-LANDING",
+      "tier": "tier_1",
+      "state": "draft_held",
+      "draft": true,
+      "opened_at": "2026-09-09T08:27:24Z",
+      "blocker": "held as draft by the manager — the sweeper it proposes acts on 51 open automation PRs at once and has not been reviewed for blast radius",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": "Tier-1 — the draft hold is the MANAGER's, pending a blast-radius read of the sweeper across ~25 open automation PRs. No operator approval was sought for the hold and none is owed.",
+        "decided_on": "2026-09-09",
+        "text": "Not required. Recorded by the manager, NOT quoting the operator. ⚠️ Do not convert this into an operator hold — attributing a manager hold to the operator was done once today (#11510) and had to be corrected."
+      },
+      "note": "⚠️ HELD BY ME, NOT BY THE OPERATOR — do not record this as an operator hold and do not re-ask them for an approval they were never asked for (that mistake was made on #11510 today and had to be corrected). Subject is the CLASS: an automation PR is orphaned the moment its producing run exits, which is why ~25 sit open. THE AUTOMATION QUEUE IS NOT WORK and must not be drained by hand — that is the standing rule this PR exists to mechanise, not to violate. ⚠️ THE FIGURE IN THIS PR'S OWN FRAMING (~25) IS AN UNDERCOUNT — the measured backlog is 51, double it, so any blast-radius read must be done against 51 and not against the number the PR cites.",
+      "terminal": "merged",
+      "merge_sha": "a1ec4a5c064e96668620bb307e65fee3ffecc37a",
+      "observed_at": "2026-09-10T15:09:28Z",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-09T15:59:41Z",
-  "last_reconciled_sha": "07c2d12e4f1307c10a8b3981c6c06344b8a114b9",
+  "last_reconciled_at": "2026-09-10T15:09:28Z",
+  "last_reconciled_sha": "a1ec4a5c064e96668620bb307e65fee3ffecc37a",
   "updated_at": "2026-09-09T10:46:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }
