@@ -20,33 +20,35 @@ why: >-
 source: >-
   operator directive 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'
 
-blocked_on:
-- kind: operator_decision
-  ref: DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION
-  since: '2026-09-10'
-  note: >-
-    NARROWED 2026-09-10T09:3xZ by MI-201, and the two halves are DIFFERENT FACTS.
-    (a) MI-247 (session_01Ek2KDXDeLAMrN4JH4aEXWf) REPORTS that the operator chose
-    Option A on 2026-09-10 from a four-option pop-up built on this proposal, and
-    has opened PR #11671 enacting it — Tier-3, landing: hold, correctly unarmed
-    and claiming no merge slot, so what it waits on is a human MERGE CLICK, not a
-    decision. VERIFIED BY ME: #11671 exists, is Tier-3, declares landing: hold,
-    and carries exactly the Option A diff from § 5.1 of the proposal.
-    (b) ⚠️ I DID NOT WITNESS THE APPROVAL and I am not recording it as observed.
-    No human input reached this session. The claim reaches me only through
-    another session's PR body.
-    ⚠️ AND IT IS RECORDED NOWHERE DURABLE: git grep for
-    DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION across origin/main:docs/ returns
-    exactly ONE file — this one — so on the evidence available to me an operator
-    decision authorising a REAL-MONEY roster change lives only in a PR body and
-    in this note. That is the shape OPEN-PRS.json's own doctrine warns about
-    ("a row recording a verdict without its condition is WORSE than a missing
-    row"), and it is why the typed operator_decision object exists. Raised to
-    MI-247 and the manager on the coordination board rather than written by me,
-    because a session that did not hear the operator must not author the record
-    of what they said.
-    The four secondary questions (side_filter, funding, the short side, SPLG)
-    are NOT reported as answered by anything I can see, and remain open.
+blocked_on: []
+⚠️_the_operator_decision_edge_was_CLEARED_2026_09_10T1040Z: >-
+  CLEARED by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. The edge named
+  DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION and had stood since 2026-09-08.
+  IT IS ANSWERED: the operator chose Option A — add tlt_pullback_1d,
+  ief_pullback_1d, slv_pullback_1d and iaum_pullback_1d to alpaca_live — and
+  PR #11671 enacts exactly that diff. What it waits on is a human MERGE CLICK
+  (R4 bars a Tier-3 diff from self-landing whatever its approval state), which
+  is not a decision and must not be re-sought.
+  ⚠️ MI-201'S CAUTION IS ANSWERED, NOT OVERRULED, AND THAT MATTERS. Its note
+  recorded — correctly and carefully — that it DID NOT WITNESS the approval,
+  that the claim reached it only through another session's PR body, and that
+  git grep for the DEC id across origin/main returned exactly ONE file, so an
+  operator decision authorising a REAL-MONEY roster change lived only in a PR
+  body. That was the right refusal: a session that did not hear the operator
+  must not author the record of what they said. I DID hear it — the pop-up was
+  put by this session and answered in this conversation — so I am authoring it,
+  which is the case MI-201's own note was holding the slot for.
+  ⚠️ THE FOUR SECONDARY QUESTIONS ARE ALSO NOW ANSWERED, and MI-201's note
+  saying they "remain open" is superseded: answered 2026-09-10T10:15Z and
+  recorded as MI-249..MI-252 in MANAGER-CHECKLIST.json — side_filter KEEP;
+  funding STAYS at ~$200 (raising is off the table); the dead short side is to
+  be addressed by SCOPING INVERSE ETFs, with broker margin/shorting offered and
+  explicitly NOT taken; SPLG is to have its CANDLE FEED REPAIRED, with swapping
+  the proxy and recording-it-dead both offered and not taken.
+  ⚠️ THIS ROW IS NOT DONE — lifecycle stays `waiting`, on the merge, not on a
+  decision. Nothing here authorises a wider roster change: Option A is four
+  legs, and scha_trend_long_1d and slv_trend_1h were both excluded on the
+  record.
 blocked_on_basis: >-
   ASSESSED 2026-09-10 by MI-201 (session_01UxsiSgFa9dKwBFw5RTbLGA). This is a
   TRUE edge, written after doing the work rather than inferred: the proposal

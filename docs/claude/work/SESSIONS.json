@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T10:02:00Z",
+  "updated_at": "2026-09-10T11:28:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -3887,7 +3887,12 @@
       "previous_observation": "MI-217 (lane-3). LIVE get_session 2026-09-10T02:47Z: IDLE, CONNECTED, updated_at 02:36:31Z, branch claude/mi217-packet-reads-offline-evidence, status_category review_ready, post_turn_summary 'PR #11626 green 24min, awaiting merge click; next check ~03:22Z'. ⚠️ THAT STATUS LINE IS WRONG AND I CORRECTED IT RATHER THAN LEAVING IT TO IDLE 40 MINUTES ON A FALSE PREMISE. #11626 is NOT awaiting a merge click: I attempted the merge at 02:41Z and the API refused 405 'Pull Request has merge conflicts'; mergeable_state reads `dirty` against main ac69e16bd, base 15318eb4c, head 30e88b06b unchanged. Cause is tail-append vs tail-append on docs/claude/health-review-backlog.json against my own #11634. POKED 02:44Z (trig_018eEM3mx4DnsFriXzGGf78U) to merge origin/main in, keep BOTH backlog rows, and push; it keeps its queue position and is the one entry `rebasing`. ⚠️ DELIVERY OF THAT POKE IS NOT CONFIRMED — fire_trigger returned run id cse_01MrTjuoRpBb7spyQLydXmmT, which is a trigger-RUN id and not a wake receipt; that is exactly BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE. Confirm by this session's updated_at advancing past 02:36:31Z, not by the id.",
       "observation": "MI-217 (lane-3). LIVE get_session 2026-09-10T04:16Z: IDLE, connected, updated_at 04:15:31Z. ⚠️ THE POKE LANDED, AND *THIS* IS THE EVIDENCE — not the id fire_trigger returned. Its updated_at moved 02:36:31Z -> 04:15:31Z, i.e. it woke and worked after the 02:44Z poke, and its status_detail now names the conflict remedy it was told about ('backlog.json collision hazard — use backlog_union_merge.py if dirty'). The run id cse_01MrTjuoRpBb7spyQLydXmmT proved nothing, which is BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE exactly. IT PUSHED THE FIX: #11626 head 30e88b06b -> 9a4f292ab, 4 -> 7 commits, additions unchanged at 566/13 over 7 files, so it merged main in and resolved rather than rewriting its diff. ⚠️ ITS OWN STATUS STILL READS need_input 'needs human merge click' AND STILL NAMES A COMMIT SHA AS A PR NUMBER ('PR #30e88b06b') — a stale, self-authored line, the class BL-20260905-A-SESSIONS-OWN-STATUS-LINE-IS-WHAT-IT-LAST-SAID-NOT-WHAT-BECAME-TRUE-SO-FINISHED-WORK-READS-AS-IN-FLIGHT names. Do not read it as the current state. ⚠️ AND IT IS BEHIND AGAIN: base 182fe3e85 while main is c88c7ff9e after #11630 merged; mergeable_state read `unknown` (recomputing) at 04:45Z.",
       "observed_at": "2026-09-10T00:33:00Z",
-      "last_observed_at": "2026-09-10T00:33:00Z"
+      "last_observed_at": "2026-09-10T00:33:00Z",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T09:25:01Z",
+      "manager_observation": "MI-215. IDLE at 09:25:01Z. Not re-dispatched; outside the 3-lane cap.",
+      "updated_at": "2026-09-10T11:28:00Z"
     },
     {
       "session_id": "session_01FoASvmUGuahCphE1cewPPs",
@@ -4006,8 +4011,11 @@
         "source": "get_session per id — platform truth",
         "state": "stalled_poked"
       },
-      "manager_observation": "MEASURED from a live list_sessions/get_session read at 2026-09-10T09:58Z, not inferred from a PR or a post_turn_summary. THE POKE WORKED AND THAT IS A MECHANISM FINDING, NOT JUST A STATUS. This lane was SESSION_STATUS_REQUIRES_ACTION / BUCKET_BLOCKED from 06:55:58Z on a pending tool permission only it could answer. Poked 09:54Z; read at 09:58Z it is SESSION_STATUS_IDLE / BUCKET_COMPLETED, updated_at 09:57:34Z, tokens 350,930 -> 372,328 and cost $72.47 -> $77.65 — it ran a real turn, so a poke DOES reach a permission-blocked session. Previously UNPROVEN. Its merge claim (#11550, #11566) verified on main by git (72be558d3, 985375d3f), not taken from its summary. It reports the detector UNSATISFIABLE AS SPECIFIED and needing re-dispatch with a corrected premise — a rewrite of the brief, not a resume.",
-      "updated_at": "2026-09-10T10:02:00Z"
+      "manager_observation": "MI-222. IDLE at 09:57:34Z. NEEDS A RE-DISPATCH WITH A CORRECTED PREMISE, not a resumption: the detector is unsatisfiable as originally specified (roster at src/units/accounts/clients.py:1410; control plant MI-221 § 12). Unrouted while the lane cap holds at 3.",
+      "updated_at": "2026-09-10T11:28:00Z",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T09:57:34Z"
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
@@ -4396,8 +4404,11 @@
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:37:04Z",
-      "updated_at": "2026-09-10T10:02:00Z",
-      "manager_observation": "MEASURED from a live list_sessions/get_session read at 2026-09-10T09:58Z, not inferred from a PR or a post_turn_summary. READ working AND WAS NOT — exactly the decay MI-238's own sessions panel exists to expose, found in its own row. Live: SESSION_STATUS_IDLE / BUCKET_BLOCKED, need_input \"merge PR #212\", updated 09:39:53Z. It was blocked ON THE MANAGER for a second PR I did not know about. Cleared: #212 merged 10:00Z as 8d164c953 after 4/4 green + mergeable_state clean; Pages run 34463687301 started 09:59:53Z. Both halves of MI-238 are now in. Still owed: the OPERATOR confirming the page renders (clause 3) — and the panels live on the EXISTING Work page, not a second Workflow nav entry."
+      "updated_at": "2026-09-10T11:28:00Z",
+      "manager_observation": "MI-238. ⚠️ REQUIRES_ACTION since 10:38:50Z — ~45 minutes blocked on a permission prompt with nobody answering it, caught only because the manager ran a live list_sessions at 11:22Z. POKED 11:25:05Z (trig_015xtA6sD8L2T9UGS95f8zx2); delivery CONFIRMED by matching the returned cse_ suffix against the target session id. Re-briefed onto MI-254 (the decisions inbox grades on `answer` alone) and told explicitly NOT to chase the retracted collapse report. A blocked session is invisible unless somebody looks — supervision is a live read, never an inference from the registry.",
+      "live_status": "REQUIRES_ACTION",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T10:38:50Z"
     },
     {
       "session_id": "session_01FyYyybxWC7VD1Rq1doEEdf",
@@ -4411,8 +4422,11 @@
       "why": "Operator approved the XRPUSDT half 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED), completing the earlier paper-first approval. Tool already merged as #11630/c88c7ff9e.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:57:32Z",
-      "updated_at": "2026-09-10T10:02:00Z",
-      "manager_observation": "MEASURED from a live list_sessions/get_session read at 2026-09-10T09:58Z, not inferred from a PR or a post_turn_summary. Live: SESSION_STATUS_IDLE / BUCKET_REVIEW_READY, updated 09:51:11Z. Resolved its own conflict and rebased to 80461ffc at 09:48Z; mergeable_state blocked only on pytest-run. Waiting on the manager's merge click alone. MERGING ARMS NOTHING — dry-run by default; the apply is a separate operator act."
+      "updated_at": "2026-09-10T11:28:00Z",
+      "manager_observation": "MI-241. IDLE at 11:21:41Z. #11652 head 80461ffcf merges CLEAN into the new main (merge-tree exit 0), so no further rebase is owed; pytest-run is re-running from 11:19:55Z now that main is green. Also resolved #11680's merge_slot conflict earlier by DISARMING its own slot claim — the right call, since a landing: hold PR never needed one.",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T11:21:41Z"
     },
     {
       "session_id": "session_01UxsiSgFa9dKwBFw5RTbLGA",
@@ -4426,8 +4440,11 @@
       "why": "Operator asked 2026-09-10 why alpaca_live shows no live trades weeks after reactivation. MI-140's merged verdict (#11271) says it is NOT broken: it was asked twice, both times to short, both suppressed by the operator-directed side_filter: long gate. The real cause is a roster of ONE leg. This row has read ready/unassigned since 2026-09-08 and was never routed.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T08:14:52Z",
-      "updated_at": "2026-09-10T10:02:00Z",
-      "manager_observation": "MEASURED from a live list_sessions/get_session read at 2026-09-10T09:58Z, not inferred from a PR or a post_turn_summary. READ working AND WAS NOT (the second decayed row in this pass). Live: SESSION_STATUS_IDLE / BUCKET_BLOCKED, need_input, updated 09:37:33Z, $83.41 spent. MI-201 is CLOSED and its two PRs landed (#11667, #11673). What it is blocked on is FOUR SECONDARY DECISIONS it raised and nobody has answered: side_filter / funding / shorts / SPLG, plus confirming a trader restart clears the live latch. Those are operator decisions with no owner — the drop class this manager exists to catch."
+      "updated_at": "2026-09-10T11:28:00Z",
+      "manager_observation": "MI-201. IDLE at 09:37:33Z, work COMPLETE and merged (#11665 the screen, #11666 the latch repair). Its refusal to author the Option A approval record it had not witnessed was CORRECT; the manager heard the operator and authored it (#11683).",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T09:37:33Z"
     },
     {
       "session_id": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
@@ -4441,10 +4458,18 @@
       "why": "Operator approved Option A from MI-201's screen (#11665, merged): tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d. Tier-3 config/accounts.yaml change on a REAL-MONEY account; R4 bars self-landing.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T09:01:05Z",
-      "updated_at": "2026-09-10T10:02:00Z",
-      "manager_observation": "MEASURED from a live list_sessions/get_session read at 2026-09-10T09:58Z, not inferred from a PR or a post_turn_summary. Live: SESSION_STATUS_IDLE / BUCKET_REVIEW_READY, disconnected, updated 09:46:58Z. Work is DONE and waiting on the manager alone. #11671 rebased clean on e756230c, mergeable_state blocked only on pytest-run. Diff re-verified by the manager at 09:59Z: the ONLY non-comment change is the four legs tlt/ief/slv/iaum_pullback_1d; both deletions are comment rewraps; no symbols:, no alpaca_portfolio, no scha_trend_long_1d, no slv_trend_1h. Tier-3, R4 bars self-landing — merge by hand when green."
+      "updated_at": "2026-09-10T11:28:00Z",
+      "manager_observation": "MI-247. IDLE at 11:23:13Z having REBASED #11671 onto f681755a1 (head 3aa0374a5); the ported test_manager_wake.py correctly rebased away now that main carries it. It did NOT arm auto-merge and did NOT claim the merge slot, exactly as instructed — landing: hold is correct for a Tier-3 diff. Awaiting the manager's merge click once CI (started 11:22:47Z) is green.",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "live_updated_at": "2026-09-10T11:23:13Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "Reconciled 2026-09-10T09:58Z against a live list_sessions read by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. TWO ROWS READ `working` WHILE BOTH LANES WERE IDLE (MI-238, MI-201) — the register decays and nothing decays it (MI-236, unowned). NO LANE IS CURRENTLY RUNNING: all five live lanes are IDLE and every one of them is waiting on the MANAGER — two on a merge click, two on decisions nobody has answered, one on a re-dispatch. That is a manager-side queue, not a worker-side one, and it is the state this reconcile exists to make visible."
+  "⚠️_last_live_reconcile": {
+    "read_at": "2026-09-10T11:22:35Z",
+    "how": "list_sessions(mine=true, limit=30) -> ccr.data, n=30 rows returned",
+    "graded": "6 rows carry a live status here; the remaining 24 returned rows are earlier, completed sessions and are unchanged.",
+    "⚠️": "This is an OBSERVATION with a timestamp, not a standing claim. handoff_check.py grades `unknown` — never `ready` — without a live read for exactly this reason, and there is deliberately no flag asserting the registry is fine, because asserting it is what failed twice (MI-15). THE FINDING FROM THIS READ: MI-238 had been REQUIRES_ACTION for ~45 minutes and nothing surfaced it. A blocked sub-session looks IDENTICAL to a working one in the registry; only the live read separates them. That is the drop class the manager exists to catch."
+  }
 }
