@@ -184,6 +184,41 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "manager_status.status_basis",
+        # No `producer_field`, for the same reason `manager_status.tree_state`
+        # below gives: the states are named module constants
+        # (`STATUS_BASIS_AGREE = "agree"`), so the literal never shares a line
+        # with the word `status_basis`.
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\bstatus_basis\b|\bSTATUS_BASES\b|"
+                           r"\bSTATUS_BASIS_[A-Z_]+\b|\beffective_state\b"),
+        "states": ["state_only", "status_only", "agree", "disagree",
+                   "undeclared"],
+        "why": (
+            "`MANAGER-CHECKLIST.json` carries TWO competing status fields and "
+            "this is the basis on which they were reconciled. MEASURED "
+            "2026-09-10 over all 244 items: 179 carry `state`, 83 carry "
+            "`status`, 18 carry both and 13 of those DISAGREE -- four of them "
+            "reading `state: in_flight` against `status: done`. So the merged "
+            "value alone is not enough information: an `in_flight` reached on "
+            "`agree` and one reached on `disagree` are the same value and very "
+            "different facts, and a renderer that sees only the value reports "
+            "a contested row as a settled one. `status_only` is the 65 rows "
+            "that carry NO `state` -- invisible to every existing consumer, "
+            "since `manager_status.build_sections` and "
+            "`scripts/ops/manager_view.py` both key on `state` alone -- so "
+            "collapsing it into `state_only` would assert those rows were read "
+            "the way every other row was. `undeclared` is *the row declares no "
+            "status at all*, measured at ZERO today and kept apart precisely "
+            "because a state measured at zero is not a state that cannot "
+            "occur: folded into `status_only` it would render a row with "
+            "nothing declared as one whose status came from `status`. The "
+            "whole contract exists so the merge has ONE owner: a second "
+            "implementation in a renderer becomes a second definition of an "
+            "item's status, free to drift from the one the manager guards read."
+        ),
+    },
+    {
         "name": "manager_status.tree_state",
         # No `producer_field` is declared, and deliberately -- the same reason
         # `research_queue.power_state` above gives. The states are named module

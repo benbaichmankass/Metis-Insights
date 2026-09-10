@@ -244,6 +244,94 @@ def render_tree_stamp(tree: TreeProvenance) -> str:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Per-FILE commit provenance — the as-of stamp
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: ⚠️ `read_tree_provenance` above grades the WHOLE TREE against `origin/main`.
+#: That is necessary and it is NOT the same question as *how old is the
+#: checklist I am serving*. A tree can be perfectly `synced` while the
+#: checklist on it was last written three hours ago, and a reader shown only
+#: the tree stamp would read that as fresh. So the file gets its own stamp.
+#:
+#: THE FAILURE THIS EXISTS TO PREVENT is the coordination board's, 2026-09-07:
+#: a frozen board served reads byte-identically to a live one, and the
+#: documented staleness check passed on every attempt, so ~20h of death went
+#: unnoticed. A workflow page whose checklist stopped updating must not read
+#: identically to one whose checklist is current.
+
+FILE_COMMIT_KNOWN = "known"
+FILE_COMMIT_UNCOMMITTED = "uncommitted"
+FILE_COMMIT_UNKNOWN = "unknown"
+
+#: Three states, never collapsed. `uncommitted` is *git knows this tree and has
+#: no commit touching this path* — a real and reportable condition (a file
+#: written but never committed, so no other session can see it). `unknown` is
+#: *we could not look* (git unreadable). Folding the second into the first
+#: would report a git failure as a definite statement about the file, and
+#: folding either into `known` with a null timestamp would let a page render an
+#: absent as-of stamp as merely blank.
+FILE_COMMIT_STATES = (FILE_COMMIT_KNOWN, FILE_COMMIT_UNCOMMITTED,
+                      FILE_COMMIT_UNKNOWN)
+
+
+@dataclass(frozen=True)
+class FileCommit:
+    """When the served file was last COMMITTED, and whether the tree matches it.
+
+    ``dirty`` is ``True``/``False`` when we established it and ``None`` when we
+    could not look — never defaulted to ``False``. A dirty file means the
+    commit timestamp describes different bytes than the ones being served, so a
+    fabricated ``False`` would attach a trustworthy-looking stamp to content
+    that commit never contained. On the live VM this should always be ``False``
+    (``ict-git-sync`` fast-forwards a clean tree); a ``True`` there is itself
+    the finding.
+    """
+
+    state: str
+    sha: Optional[str] = None
+    committed_at: Optional[str] = None
+    age_hours: Optional[float] = None
+    dirty: Optional[bool] = None
+    note: str = ""
+
+
+def read_file_commit(
+    relpath: str, *,
+    repo_dir: Optional[Path] = None,
+    git: Optional[GitRunner] = None,
+    now: Optional[datetime] = None,
+) -> FileCommit:
+    """Grade one path's last commit. Never raises; never fabricates a time."""
+    repo = Path(repo_dir) if repo_dir else Path(_repo_root())
+    run = git or _default_git(repo)
+    ref = now or datetime.now(timezone.utc)
+
+    out, err = run(["log", "-1", "--format=%H%x09%cI", "--", relpath])
+    if out is None:
+        return FileCommit(FILE_COMMIT_UNKNOWN,
+                          note=f"could not read the file log ({err or 'no output'})")
+    if not out.strip():
+        # git answered and had nothing: the path has no commit on this history.
+        return FileCommit(FILE_COMMIT_UNCOMMITTED,
+                          note=f"git reports no commit touching {relpath} on this tree")
+
+    sha, _, stamp = out.strip().partition("\t")
+    parsed = _parse_iso(stamp)
+    age = (max(0.0, (ref - parsed).total_seconds() / 3600.0)
+           if parsed is not None else None)
+
+    status, status_err = run(["status", "--porcelain", "--", relpath])
+    dirty: Optional[bool] = None if status is None else bool(status.strip())
+
+    return FileCommit(
+        FILE_COMMIT_KNOWN, sha=sha[:12] or None,
+        committed_at=stamp.strip() or None, age_hours=age, dirty=dirty,
+        note=("" if dirty is not None
+              else f"working-tree cleanliness unread ({status_err or 'no output'})"),
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Reading the checklist + the sub-session registry
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -264,7 +352,166 @@ _BLOCKED = ("blocked",)
 _RECENTLY_DONE = ("done", "landed_unproven")
 _NEXT = ("ready", "queued", "triage")
 
+#: Every status the four sections below actually cover. Derived from the four
+#: tuples rather than restated, so a section gaining a state can never leave
+#: this out of date — the drift that would make the population line lie.
+_SECTIONED_STATES = frozenset(_IN_FLIGHT + _BLOCKED + _RECENTLY_DONE + _NEXT)
+
 _SESSION_ID_RE = re.compile(r"^session_[A-Za-z0-9]+$")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# The `state` / `status` merge — THE ONE OWNER
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: THE CHECKLIST CARRIES TWO COMPETING STATUS FIELDS AND THIS IS THE ONLY PLACE
+#: THEY ARE RECONCILED.
+#:
+#: MEASURED 2026-09-10 over all 244 items of `MANAGER-CHECKLIST.json` at
+#: `origin/claude/mgr-checklist-schema-20260910T0718` (population: every entry
+#: in `items`, re-derived for this change rather than inherited — MI-237's
+#: earlier reading of 177/83 was taken on a smaller file and must not be
+#: re-quoted as current):
+#:
+#:     carry `state`            179
+#:     carry `status`            83
+#:     carry BOTH                18   of which 13 DISAGREE
+#:     carry NEITHER              0
+#:
+#: So **65 items carry `status` and no `state`**. Nothing in this repo reads
+#: `status` on this file — `build_sections` here and
+#: `scripts/ops/manager_view.py::ACTIVE_CHECKLIST_STATES` both key on `state`
+#: alone — so those 65 rows land in NO section of the readout and surface only
+#: as `(no state) 65` in the counts line. That is the state of the world this
+#: function is written against, not a defect it introduces.
+#:
+#: ⚠️ **WHY THE MERGE LIVES HERE AND MAY NOT BE REPEATED IN A RENDERER.** A
+#: second implementation — in the SPA's TypeScript, in a route, in a report —
+#: becomes a SECOND definition of an item's status, free to drift from the one
+#: the guards read. That is the class this repo has a guard family for. Both
+#: consumers (the Telegram `/status` readout and `GET /api/bot/work/checklist`)
+#: call THIS function, so the page and the guards cannot disagree.
+#:
+#: ⚠️ **`state` WINS WHEN BOTH ARE PRESENT, AND THAT CHOICE IS NOT ARBITRARY.**
+#: It is precisely the field every existing consumer already reads, so
+#: preferring it means the new surfaces agree with `manager_view.py` and the
+#: guards BY CONSTRUCTION rather than by coincidence. Where `state` is absent
+#: those consumers see nothing at all, so falling back to `status` there cannot
+#: contradict them either. A disagreement is never silently resolved — it is
+#: REPORTED as `disagree`, because which of the two is right is a question for
+#: whoever owns the row, not for a renderer.
+
+STATUS_BASIS_STATE_ONLY = "state_only"
+STATUS_BASIS_STATUS_ONLY = "status_only"
+STATUS_BASIS_AGREE = "agree"
+STATUS_BASIS_DISAGREE = "disagree"
+STATUS_BASIS_UNDECLARED = "undeclared"
+
+#: The closed vocabulary. Registered with `collapsed-state-guard` as
+#: `manager_status.status_basis`.
+#:
+#: `undeclared` is *the row declares no status at all* and is deliberately kept
+#: apart from every other value even though it is measured at ZERO today. Were
+#: it folded into `status_only`, a row with nothing declared would render as a
+#: row whose status came from `status` — asserting a reading nobody wrote. A
+#: state measured at zero is not a state that cannot occur.
+STATUS_BASES = (
+    STATUS_BASIS_STATE_ONLY,
+    STATUS_BASIS_STATUS_ONLY,
+    STATUS_BASIS_AGREE,
+    STATUS_BASIS_DISAGREE,
+    STATUS_BASIS_UNDECLARED,
+)
+
+#: The checklist file declares its own `states` vocabulary in a top-level
+#: `states` object. This is the fallback used when that cannot be read; the
+#: file's own declaration wins whenever it is present, because the file is the
+#: field and this constant is prose about it.
+DECLARED_STATE_VOCABULARY = (
+    "done", "landed_unproven", "in_flight", "blocked", "queued", "triage",
+    "dropped",
+)
+
+
+@dataclass(frozen=True)
+class EffectiveState:
+    """One item's reconciled status, WITH the basis it was reconciled on.
+
+    ``value`` is what a renderer should group and label by. ``basis`` says how
+    it was arrived at and is never inferable from ``value`` alone — a row
+    reading ``in_flight`` on `disagree` and one reading ``in_flight`` on
+    `agree` are the same value and very different facts.
+
+    ``in_declared_vocabulary`` is FALSE for a value the file's own `states`
+    block does not declare. Measured on the same 244-item population: `state`
+    carries ``deferred`` and ``waiting``, and `status` carries ``superseded``,
+    ``filed_not_taken``, ``operator_approved``, ``failed``, ``unassigned`` and
+    ``duplicate_of_MI-180`` — none of them declared. Such a value is passed
+    through VERBATIM and flagged, never mapped into a declared bucket: guessing
+    that ``superseded`` means ``dropped`` would invent a decision nobody made.
+    """
+
+    value: Optional[str]
+    basis: str
+    state: Optional[str]
+    status: Optional[str]
+    in_declared_vocabulary: bool
+
+    @property
+    def disagrees(self) -> bool:
+        return self.basis == STATUS_BASIS_DISAGREE
+
+
+def _declared_vocabulary(checklist: Optional[dict[str, Any]]) -> tuple[str, ...]:
+    """The file's own `states` keys, falling back to the constant above."""
+    if isinstance(checklist, dict):
+        declared = checklist.get("states")
+        if isinstance(declared, dict) and declared:
+            return tuple(str(k) for k in declared)
+    return DECLARED_STATE_VOCABULARY
+
+
+def _field(item: dict[str, Any], key: str) -> Optional[str]:
+    raw = item.get(key)
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    return text or None
+
+
+def effective_state(
+    item: dict[str, Any], *, vocabulary: Optional[tuple[str, ...]] = None,
+) -> EffectiveState:
+    """Reconcile one item's `state` and `status`. The ONE owner of this merge.
+
+    See the block comment above for the measured population and for why `state`
+    wins a disagreement. Never raises: a non-mapping item grades `undeclared`.
+    """
+    vocab = vocabulary or DECLARED_STATE_VOCABULARY
+    if not isinstance(item, dict):
+        return EffectiveState(None, STATUS_BASIS_UNDECLARED, None, None, False)
+
+    state = _field(item, "state")
+    status = _field(item, "status")
+
+    if state is not None and status is not None:
+        basis = (STATUS_BASIS_AGREE if state == status
+                 else STATUS_BASIS_DISAGREE)
+        value = state
+    elif state is not None:
+        basis, value = STATUS_BASIS_STATE_ONLY, state
+    elif status is not None:
+        basis, value = STATUS_BASIS_STATUS_ONLY, status
+    else:
+        basis, value = STATUS_BASIS_UNDECLARED, None
+
+    return EffectiveState(
+        value=value,
+        basis=basis,
+        state=state,
+        status=status,
+        in_declared_vocabulary=value in vocab if value is not None else False,
+    )
 
 
 def _parse_iso(value: Any) -> Optional[datetime]:
@@ -415,9 +662,18 @@ def _blocked_line(item: dict[str, Any], registered: Optional[set[str]]) -> str:
             f"    {blocker}")
 
 
-def _labelled_line(item: dict[str, Any], registered: Optional[set[str]]) -> str:
+def _labelled_line(
+    item: dict[str, Any], registered: Optional[set[str]],
+    vocabulary: Optional[tuple[str, ...]] = None,
+) -> str:
     owner, _ = grade_owner(item.get("owner"), registered)
-    return (f"• [{item.get('state')}] {item.get('id') or '(no id)'} — "
+    eff = effective_state(item, vocabulary=vocabulary)
+    # A row whose two status fields disagree is LABELLED as such rather than
+    # rendered as an ordinary row under the winning value. `state` winning is
+    # a rule for picking a value, not a finding that `status` was wrong.
+    mark = f" ⚠️status={eff.status}" if eff.disagrees else ""
+    return (f"• [{eff.value or 'no status declared'}{mark}] "
+            f"{item.get('id') or '(no id)'} — "
             f"{_clip(item.get('title'), _TITLE_CHARS, empty='(no title declared)')}  [{owner}]")
 
 
@@ -436,7 +692,10 @@ def _short_id(item: dict[str, Any]) -> str:
     return match.group(1) if match else raw[:16]
 
 
-def _compact_by_state(items: list[dict[str, Any]]) -> list[str]:
+def _compact_by_state(
+    items: list[dict[str, Any]],
+    vocabulary: Optional[tuple[str, ...]] = None,
+) -> list[str]:
     """One line per state: ``done (11): MI-05, MI-12, …``.
 
     Grouped BY STATE rather than flattened, so `done` and `landed_unproven`
@@ -447,7 +706,8 @@ def _compact_by_state(items: list[dict[str, Any]]) -> list[str]:
     """
     groups: dict[str, list[str]] = {}
     for item in items:
-        groups.setdefault(str(item.get("state") or "(no state)"), []).append(
+        eff = effective_state(item, vocabulary=vocabulary)
+        groups.setdefault(eff.value or "(no status declared)", []).append(
             _short_id(item))
     out = []
     for state in sorted(groups, key=lambda k: (_STATE_ORDER.index(k)
@@ -460,19 +720,38 @@ def _compact_by_state(items: list[dict[str, Any]]) -> list[str]:
 
 def build_sections(
     items: list[dict[str, Any]], registered: Optional[set[str]],
+    vocabulary: Optional[tuple[str, ...]] = None,
 ) -> list[Section]:
-    """The five sections, in the operator's binding DISPLAY order."""
+    """The five sections, in the operator's binding DISPLAY order.
+
+    ⚠️ Every status read here goes through `effective_state`, the one owner of
+    the `state`/`status` merge. Reading `item["state"]` directly — which this
+    function used to do — silently drops the 65 items that carry only
+    `status`, and re-introducing that read makes this a second definition of
+    an item's status.
+    """
     def pick(states: tuple[str, ...]) -> list[dict[str, Any]]:
-        got = [i for i in items if isinstance(i, dict) and i.get("state") in states]
+        got = [i for i in items if isinstance(i, dict)
+               and effective_state(i, vocabulary=vocabulary).value in states]
         # Sorted by id -- deterministic, and honest: see the `recently done`
         # caveat for why this is not sorted by recency.
         return sorted(got, key=lambda i: str(i.get("id") or ""))
 
     counts: dict[str, int] = {}
+    bases: dict[str, int] = {b: 0 for b in STATUS_BASES}
+    off_vocab: list[str] = []
+    unsectioned: list[str] = []
     for i in items:
-        if isinstance(i, dict):
-            counts[str(i.get("state") or "(no state)")] = counts.get(
-                str(i.get("state") or "(no state)"), 0) + 1
+        if not isinstance(i, dict):
+            continue
+        eff = effective_state(i, vocabulary=vocabulary)
+        key = eff.value or "(no status declared)"
+        counts[key] = counts.get(key, 0) + 1
+        bases[eff.basis] = bases.get(eff.basis, 0) + 1
+        if eff.value is not None and not eff.in_declared_vocabulary:
+            off_vocab.append(eff.value)
+        if eff.value not in _SECTIONED_STATES:
+            unsectioned.append(eff.value or "(no status declared)")
     ordered = sorted(
         counts.items(),
         key=lambda kv: (_STATE_ORDER.index(kv[0])
@@ -489,9 +768,44 @@ def build_sections(
     owner_line = "owners (in_flight+blocked): " + (
         " · ".join(f"{k} {v}" for k, v in sorted(grades.items())) or "none")
 
+    # State the basis of the status column rather than letting a merged value
+    # read as a single declared one. `disagree` is called out on its own line
+    # because it is the only basis that means a row is telling two stories.
+    # ⚠️ THESE LINES ARE DELIBERATELY TERSE, AND THE FULL EXPLANATIONS LIVE ON
+    # THE WORKFLOW PAGE INSTEAD. This section is MANDATORY, so every character
+    # spent here is taken from the checklist rows the operator actually asked
+    # for — a first draft cost ~450 characters and pushed the omission footer
+    # itself over the cap under a tight budget, which is the readout blinding
+    # itself to what it dropped. `GET /api/bot/work/checklist` has no character
+    # budget and carries the same facts in full; that split is much of the
+    # argument for the page existing.
+    basis_line = "status basis: " + " · ".join(
+        f"{b} {bases.get(b, 0)}" for b in STATUS_BASES)
+    lines = [count_line, owner_line, basis_line]
+    if bases.get(STATUS_BASIS_DISAGREE):
+        lines.append(
+            f"⚠️ {bases[STATUS_BASIS_DISAGREE]} item(s): `state` ≠ `status` — "
+            f"shown by `state`; both kept, neither edited.")
+    if unsectioned:
+        # THE POPULATION STATEMENT. Without it the four sections below read as
+        # the whole checklist while covering only part of it: measured
+        # 2026-09-10 over the real 244-item file, 18 items carry a status no
+        # section covers and appear in the counts line and NOWHERE ELSE.
+        lines.append(
+            f"⚠️ {len(unsectioned)} of {len(items)} item(s) have a status NO "
+            f"section below covers ({', '.join(sorted(set(unsectioned)))}).")
+    if off_vocab:
+        # No list of values here: `unsectioned` above already names the ones
+        # that go unrendered, and the rest (`ready`) are drift in the file's
+        # own `states` block rather than a row nobody reads. Full detail is on
+        # the page as `summary.offDeclaredVocabulary`.
+        lines.append(
+            f"ℹ️ {len(off_vocab)} item(s) use a status the file's own `states` "
+            f"block does not declare (shown verbatim, never remapped).")
+
     return [
         Section("counts", "📋 CHECKLIST — {n} items".format(n=len(items)),
-                [count_line, owner_line], mandatory=True),
+                lines, mandatory=True),
         Section("in_flight", f"▶️ IN FLIGHT ({len(in_flight)})",
                 [_item_line(i, registered) for i in in_flight], mandatory=True),
         Section("blocked", f"⛔ BLOCKED ({len(blocked)})",
@@ -499,9 +813,10 @@ def build_sections(
         Section(
             "recently_done", "✅ RECENTLY DONE ({n})".format(
                 n=len(pick(_RECENTLY_DONE))),
-            [_labelled_line(i, registered) for i in pick(_RECENTLY_DONE)],
+            [_labelled_line(i, registered, vocabulary)
+             for i in pick(_RECENTLY_DONE)],
             mandatory=False,
-            compact_lines=_compact_by_state(pick(_RECENTLY_DONE)),
+            compact_lines=_compact_by_state(pick(_RECENTLY_DONE), vocabulary),
             # State the population rather than implying a window we cannot
             # compute. Measured 2026-09-02: only 17 of 57 items carry `added`
             # and NO item carries a completion timestamp of any kind, so
@@ -512,9 +827,10 @@ def build_sections(
                     "effect NOT observed."),
         ),
         Section("next", "⏭️ NEXT ({n})".format(n=len(pick(_NEXT))),
-                [_labelled_line(i, registered) for i in pick(_NEXT)],
+                [_labelled_line(i, registered, vocabulary)
+                 for i in pick(_NEXT)],
                 mandatory=False,
-                compact_lines=_compact_by_state(pick(_NEXT))),
+                compact_lines=_compact_by_state(pick(_NEXT), vocabulary)),
     ]
 
 
@@ -986,7 +1302,8 @@ def build_status(
         header.append(f"⚠️ {dropped} checklist entr(ies) were not objects and "
                       f"were dropped before grading.")
 
-    sections = build_sections(items, registered)
+    sections = build_sections(
+        items, registered, _declared_vocabulary(checklist.data))
 
     if expandable:
         text, omissions, truncated = render_expandable_message(
@@ -1023,6 +1340,19 @@ __all__ = [
     "TREE_STATES",
     "TREE_SYNCED",
     "TREE_UNKNOWN",
+    "DECLARED_STATE_VOCABULARY",
+    "STATUS_BASES",
+    "STATUS_BASIS_AGREE",
+    "STATUS_BASIS_DISAGREE",
+    "STATUS_BASIS_STATE_ONLY",
+    "STATUS_BASIS_STATUS_ONLY",
+    "STATUS_BASIS_UNDECLARED",
+    "EffectiveState",
+    "FILE_COMMIT_KNOWN",
+    "FILE_COMMIT_STATES",
+    "FILE_COMMIT_UNCOMMITTED",
+    "FILE_COMMIT_UNKNOWN",
+    "FileCommit",
     "FileRead",
     "Omission",
     "Section",
@@ -1030,9 +1360,11 @@ __all__ = [
     "TreeProvenance",
     "build_sections",
     "build_status",
+    "effective_state",
     "render_expandable_message",
     "grade_owner",
     "pack_messages",
+    "read_file_commit",
     "read_json_file",
     "read_tree_provenance",
     "render_tree_stamp",
