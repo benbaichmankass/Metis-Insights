@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-mi262-negctl-20260910T1811",
-    "claimed_at": "2026-09-10T18:13:51Z",
-    "purpose": "PR #11721 -- the MI-262 negative control, completing criterion (1)."
+    "branch": "claude/mgr-hb-20260910T1826",
+    "claimed_at": "2026-09-10T18:29:00Z",
+    "purpose": "PR #11723 -- manager lease heartbeat 18:25Z + the MI-255 corrected-figure supervision record."
   },
   "active_sessions": [
     {
