@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only: the ROADMAP M15 row and a supersession caveat on a research doc. Every path is inside TIER1_SURFACE (`*.md`, `docs/**`, `.github/**`). No src/, config/, deploy/ or workflows."
+}

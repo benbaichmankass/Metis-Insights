@@ -58,6 +58,7 @@ import hmac
 import logging
 import os
 import re
+import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,6 +69,10 @@ from fastapi import APIRouter, Header, HTTPException, Request
 # Phase H — the decision round-trip. ONE owner for the transit contract and the
 # four answer states; this router never re-derives either (two copies of "what
 # counts as committed" is how a committed answer stops grading as committed).
+# The manager checklist's ONE grading owner. Imported whole rather than
+# cherry-picking helpers, so a reader of this route can see that every status
+# reading here is `manager_status`'s and none of it is re-derived locally.
+from src.runtime import manager_status
 from src.runtime.work_decisions import (
     ANSWER_STATES,
     ASKED_BY_RECORDED,
@@ -622,6 +627,442 @@ def get_work_object(object_id: str) -> dict[str, Any]:
 # SUBMISSION to the live layer and nothing else; `committed` is read back off
 # the object YAML in the repo. See `src/runtime/work_decisions.py` for why that
 # is the whole transit contract rather than an implementation detail.
+
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# The manager checklist — the live Workflow page's other half
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: ⚠️ THIS ROUTE COMPUTES NO STATUS OF ITS OWN. Every status reading below
+#: comes from ``src/runtime/manager_status.py`` — the same module that renders
+#: the Telegram ``/status`` command — so the page and the bot cannot tell the
+#: operator two different stories about the same row. The `state`/`status`
+#: merge in particular has ONE owner (`manager_status.effective_state`) and
+#: re-deriving it here, or in the SPA's TypeScript, would create a SECOND
+#: definition of an item's status, free to drift from the one
+#: `scripts/ops/manager_view.py` and the manager guards read. That is the class
+#: this repo keeps a guard family for.
+
+_CHECKLIST_CACHE_TTL_S = 20.0
+_checklist_cache: tuple[float, dict[str, Any]] | None = None
+
+#: A page must be able to say WHY a row's status is what it is, not just what
+#: it is. The wording lives here rather than in `manager_status` because it is
+#: PRESENTATION for this surface — `manager_status` renders the same five bases
+#: for Telegram, under its own character budget. ⚠️ The wording is per-surface;
+#: **the merge is not**. `effective_state` remains the one owner of which value
+#: wins, and nothing below re-decides that.
+_STATUS_BASIS_NOTES = {
+    manager_status.STATUS_BASIS_STATE_ONLY: (
+        "Only `state` is declared. This is the ordinary row and the field "
+        "every other consumer of this file reads."
+    ),
+    manager_status.STATUS_BASIS_STATUS_ONLY: (
+        "Only `status` is declared — no `state`. ⚠️ Nothing else in the repo "
+        "reads `status` on this file, so this row is invisible to the Telegram "
+        "/status sections and to scripts/ops/manager_view.py. Measured "
+        "2026-09-10: 65 of 244 rows are in this position."
+    ),
+    manager_status.STATUS_BASIS_AGREE: (
+        "`state` and `status` are both declared and identical. Nothing to "
+        "reconcile."
+    ),
+    manager_status.STATUS_BASIS_DISAGREE: (
+        "⚠️ `state` and `status` are both declared and DIFFERENT. `state` is "
+        "shown because it is what every other consumer reads — that is a rule "
+        "for picking a value, NOT a finding that `status` is wrong. Which one "
+        "is right is a question for whoever owns the row; neither field was "
+        "edited. Measured 2026-09-10: 13 of 244 rows, four of them reading "
+        "`state: in_flight` against `status: done`."
+    ),
+    manager_status.STATUS_BASIS_UNDECLARED: (
+        "Neither `state` nor `status` is declared, so this row asserts no "
+        "status at all. That is not the same as a status of `triage` and it is "
+        "not a rendering gap — nobody has said."
+    ),
+}
+
+
+def _freshness_warnings(
+    tree: Any, commit: Any, *, stale_after_hours: float = 3.0,
+) -> list[str]:
+    """What makes THIS page's data untrustworthy right now, in plain words.
+
+    ⚠️ This is the half that stops a frozen page reading identically to a live
+    one — the coordination board's 2026-09-07 failure, where a board at
+    GitHub's comment cap served reads byte-identically to a working one for
+    ~20h and the documented staleness check passed every time.
+
+    An empty list means the three things below were CHECKED and none of them
+    fired; it does not mean nothing was wrong, and the page states the raw
+    readings beside it so a consumer is never left with only this verdict.
+    """
+    out: list[str] = []
+
+    if tree.state == manager_status.TREE_BEHIND:
+        out.append(
+            f"The VM's tree is {tree.behind_commits} commit(s) BEHIND "
+            f"origin/main, so a checklist edit already pushed may not be here "
+            f"yet. ict-git-sync pulls roughly every 5 minutes."
+        )
+    elif tree.state == manager_status.TREE_UNKNOWN:
+        out.append(
+            f"The VM's tree could not be graded against origin/main "
+            f"({tree.note or 'no detail'}) — this is *we could not look*, NOT "
+            f"a clean tree. Treat the rows below as unverified."
+        )
+    elif tree.state != manager_status.TREE_SYNCED:
+        out.append(f"Unrecognised tree state {tree.state!r}.")
+
+    if commit.state == manager_status.FILE_COMMIT_UNCOMMITTED:
+        out.append(
+            "The checklist has NO commit on this tree, so it has never been "
+            "pushed and no other session can see it."
+        )
+    elif commit.state == manager_status.FILE_COMMIT_UNKNOWN:
+        out.append(
+            f"The checklist's last commit could not be read "
+            f"({commit.note or 'no detail'}) — the as-of stamp below is "
+            f"absent because we could not look, not because it is new."
+        )
+    elif commit.age_hours is not None and commit.age_hours >= stale_after_hours:
+        out.append(
+            f"The checklist was last COMMITTED {commit.age_hours:.1f}h ago. A "
+            f"manager is expected to push it before answering a status "
+            f"request, so this page is {commit.age_hours:.1f}h behind whatever "
+            f"they are actually working on."
+        )
+
+    if commit.dirty:
+        out.append(
+            "The checklist differs from its last commit in the VM's working "
+            "tree, so the as-of stamp describes different bytes than the rows "
+            "being served. On the live VM this should never happen."
+        )
+    elif commit.dirty is None and commit.state == manager_status.FILE_COMMIT_KNOWN:
+        out.append(
+            "Whether the served file matches its last commit could not be "
+            "established — the as-of stamp may not describe these bytes."
+        )
+    return out
+
+
+def _checklist_item(
+    item: dict[str, Any],
+    vocabulary: tuple[str, ...],
+    registered: set[str] | None,
+) -> dict[str, Any]:
+    """One checklist row: every declared field VERBATIM, plus the grading.
+
+    ⚠️ The whole row is passed through untouched under ``fields``. The
+    operator's ask is that a collapsed row expands to *every* remaining detail,
+    and the checklist's keys are free-form prose that no allowlist here could
+    keep up with — measured on the real file, items carry keys like
+    ``the_one_owner_rule_that_decides_the_design`` and
+    ``⚠️_ITS_BLOCKER_IS_GONE_AND_SO_IS_ITS_PATH``. An allowlist would silently
+    drop exactly the detail the page exists to show.
+    """
+    eff = manager_status.effective_state(item, vocabulary=vocabulary)
+    owner_rendered, owner_grade = manager_status.grade_owner(
+        item.get("owner"), registered)
+    return {
+        "id": item.get("id"),
+        "title": item.get("title"),
+        "owner": item.get("owner"),
+        "ownerRendered": owner_rendered,
+        "ownerGrade": owner_grade,
+        "lane": item.get("lane"),
+        "tier": item.get("tier"),
+        "priority": item.get("priority"),
+        "status": {
+            # `value` is what a renderer groups and labels by. `basis` says how
+            # it was arrived at and is NOT inferable from `value`: an
+            # `in_flight` on `disagree` and an `in_flight` on `agree` are the
+            # same value and different facts.
+            "value": eff.value,
+            "basis": eff.basis,
+            "declaredState": eff.state,
+            "declaredStatus": eff.status,
+            "disagrees": eff.disagrees,
+            "inDeclaredVocabulary": eff.in_declared_vocabulary,
+            "note": _STATUS_BASIS_NOTES.get(
+                eff.basis, f"unrecognised basis {eff.basis!r}"),
+        },
+        "sectioned": eff.value in manager_status._SECTIONED_STATES,
+        "fields": _jsonable(item),
+    }
+
+
+#: Why a lane's state may or may not be trusted, per observation grade. The
+#: wording is PRESENTATION for this surface; the grading itself has one owner in
+#: `manager_status.observe_session` and is not re-derived here.
+_OBSERVATION_NOTES = {
+    manager_status.OBS_RECENT: (
+        "Observed within the manager lease's own TTL, so the state below is as "
+        "current as this system can make it."
+    ),
+    manager_status.OBS_STALE: (
+        "⚠️ Nobody has looked at this lane for longer than the manager lease's "
+        "TTL, so its state may simply be OUT OF DATE rather than wrong. "
+        "Measured 2026-09-10: two lanes read `working` while both were idle and "
+        "completed. Do not read the state below as live."
+    ),
+    manager_status.OBS_UNKNOWN: (
+        "⚠️ No usable observation timestamp on this row, so how stale its state "
+        "is could not be established. That is *we did not look*, NOT a fresh "
+        "lane."
+    ),
+}
+
+
+def _sessions_panel() -> dict[str, Any]:
+    """Live lanes from the sub-session registry, WITH how stale each reading is.
+
+    ⚠️ THIS IS NOT A LIVE FEED AND THE PAYLOAD SAYS SO. `list_sessions` is an
+    ``mcp__*`` tool no route holds, so a lane's state is only ever as good as
+    the last MANAGER OBSERVATION written into the registry. Publishing it
+    without that caveat is how a dead lane reads as a running one.
+    """
+    repo = Path(repo_root())
+    read = manager_status.read_json_file(repo / manager_status.SESSIONS_RELPATH)
+    lease = manager_status.read_json_file(repo / manager_status.LEASE_RELPATH)
+    stale_minutes = manager_status._observation_stale_minutes(
+        lease.data if lease.state == "read" else None)
+
+    if read.state != "read":
+        # ⚠️ NOT "no lanes are running". We could not read the register.
+        return {
+            "present": False,
+            "readState": read.state,
+            "reason": read.error,
+            "lanes": [],
+            "summary": {"live": 0, "byObservationState": {
+                s: 0 for s in manager_status.OBSERVATION_STATES}},
+            "staleAfterMinutes": stale_minutes,
+            "note": _SESSIONS_NOTE,
+        }
+
+    rows = read.data.get("sessions")
+    rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    lanes = []
+    by_obs = {s: 0 for s in manager_status.OBSERVATION_STATES}
+    for row in rows:
+        if row.get("state") not in manager_status.LIVE_SESSION_STATES:
+            continue
+        obs = manager_status.observe_session(row, stale_minutes=stale_minutes)
+        by_obs[obs.state] = by_obs.get(obs.state, 0) + 1
+        lanes.append({
+            "sessionId": row.get("session_id"),
+            "title": row.get("title"),
+            "item": row.get("checklist_item"),
+            "object": row.get("owns_object"),
+            "state": row.get("state"),
+            "blockedOn": _jsonable(row.get("needs_action")
+                                   or row.get("depends_on")),
+            "branches": _jsonable(row.get("branches") or (
+                [row["branch"]] if row.get("branch") else [])),
+            "prs": _jsonable(row.get("prs") or (
+                [row["pr"]] if row.get("pr") else [])),
+            "spawnedAt": row.get("spawned_at"),
+            "observation": {
+                "state": obs.state,
+                "basis": obs.basis,
+                "at": obs.at,
+                # The FIELD the timestamp came from. Measured 2026-09-10, the
+                # newest observation lives under five different key names across
+                # the 21 live rows, and they do not mean the same thing — so a
+                # reader must be able to see which one answered.
+                "fromField": obs.from_field,
+                "ageMinutes": (round(obs.age_minutes, 1)
+                               if obs.age_minutes is not None else None),
+                "note": _OBSERVATION_NOTES.get(obs.state, ""),
+            },
+        })
+
+    # Stalest first: the rows most likely to be lying are the ones to read.
+    lanes.sort(key=lambda lane: -(lane["observation"]["ageMinutes"] or 1e9))
+    return {
+        "present": True,
+        "readState": read.state,
+        "asOf": read.data.get("updated_at"),
+        "lanes": lanes,
+        "summary": {"live": len(lanes), "registryRows": len(rows),
+                    "byObservationState": by_obs},
+        "staleAfterMinutes": stale_minutes,
+        "note": _SESSIONS_NOTE,
+    }
+
+
+_SESSIONS_NOTE = (
+    "Session state is only as fresh as the last MANAGER OBSERVATION written "
+    "into docs/claude/work/SESSIONS.json. This is NOT a live feed: reading the "
+    "platform's own session list needs `list_sessions`, an mcp__* tool no API "
+    "route holds. Read each lane's observation age beside its state."
+)
+
+
+def _checklist_payload() -> dict[str, Any]:
+    """Build the checklist envelope. Best-effort: never raises to the caller."""
+    repo = Path(repo_root())
+    read = manager_status.read_json_file(repo / manager_status.CHECKLIST_RELPATH)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    commit = manager_status.read_file_commit(
+        manager_status.CHECKLIST_RELPATH, repo_dir=repo)
+
+    freshness = {
+        "path": manager_status.CHECKLIST_RELPATH,
+        # ⚠️ THE PAGE MUST BE ABLE TO TELL FRESH FROM STALE. The route reads the
+        # VM's WORKING TREE, which `ict-git-sync` pulls roughly every 5
+        # minutes, so the page is exactly as fresh as the last PUSH plus that
+        # sync interval. There is no separate "update the page" step — which is
+        # the point — but it means a manager must PUSH the checklist BEFORE
+        # answering a status request, not after. These three readings are what
+        # let a stale page announce itself instead of reading like a live one.
+        "commitState": commit.state,
+        "commitSha": commit.sha,
+        "committedAt": commit.committed_at,
+        "commitAgeHours": (round(commit.age_hours, 3)
+                           if commit.age_hours is not None else None),
+        # `None` is "we could not look", never "clean". A dirty file means the
+        # commit stamp describes different bytes than the ones being served.
+        "workingTreeDirty": commit.dirty,
+        "treeState": tree.state,
+        "treeHeadSha": tree.head_sha,
+        "treeMainSha": tree.main_sha,
+        "treeBehindCommits": tree.behind_commits,
+        "treeNote": tree.note,
+        "stamp": manager_status.render_tree_stamp(tree),
+        "note": commit.note,
+        # ⚠️ An EMPTY list means the checks ran and none fired. It is not a
+        # claim that the data is correct, and the raw readings above are served
+        # beside it precisely so a consumer is never left with only a verdict.
+        "warnings": _freshness_warnings(tree, commit),
+    }
+
+    if read.state != "read":
+        # ⚠️ NOT an empty checklist. "we could not read it" and "there is no
+        # work" are opposite statements and only one of them is good news.
+        return {
+            "present": False,
+            "readState": read.state,
+            "reason": read.error,
+            "items": [],
+            "declaredStates": {},
+            "summary": _checklist_summary([], 0),
+            "freshness": freshness,
+            # The lanes are a DIFFERENT register: an unreadable checklist says
+            # nothing about whether the session registry can be read.
+            "sessions": _sessions_panel(),
+        }
+
+    raw_items = read.data.get("items")
+    items = ([i for i in raw_items if isinstance(i, dict)]
+             if isinstance(raw_items, list) else [])
+    dropped = ((len(raw_items) - len(items))
+               if isinstance(raw_items, list) else 0)
+
+    vocabulary = manager_status._declared_vocabulary(read.data)
+    sessions = manager_status.read_json_file(
+        repo / manager_status.SESSIONS_RELPATH)
+    registered = manager_status._registered_session_ids(sessions)
+
+    rows = [_checklist_item(i, vocabulary, registered) for i in items]
+    return {
+        "present": True,
+        "readState": read.state,
+        # ⚠️ Explicitly None on the HEALTHY envelope, matching `/api/bot/work`
+        # and the decision inbox. A key that VANISHES makes a consumer branch on
+        # absence, and absence is not one of the states. Caught by the SPA's own
+        # api-contract checker (ict-trader-dashboard/webapp/tests/api-contract.mjs)
+        # against a real captured payload, which is exactly the direction
+        # `provenance-consumer-guard` cannot see.
+        "reason": None,
+        "asOf": read.data.get("as_of") or read.data.get("updated_at"),
+        "cycle": read.data.get("cycle"),
+        "managerSession": read.data.get("manager_session"),
+        "schemaVersion": read.data.get("schema_version"),
+        # The file's OWN vocabulary, served rather than restated, so the page
+        # renders the definitions the file declares instead of a copy of them.
+        "declaredStates": _jsonable(read.data.get("states") or {}),
+        # `None` is "we could not look" — the owner column then says so rather
+        # than reporting every owner as unregistered, which would be a
+        # fabricated finding about the register MI-15 already tracks.
+        "sessionsRegistryState": sessions.state,
+        "items": rows,
+        "summary": _checklist_summary(rows, dropped),
+        "freshness": freshness,
+        "sessions": _sessions_panel(),
+    }
+
+
+def _checklist_summary(rows: list[dict[str, Any]], dropped: int) -> dict[str, Any]:
+    """Counts that SUM to the population, so the partition is checkable.
+
+    ``byBasis`` ships all five states with explicit zeros for the same reason
+    ``lifecycle`` above does: a key that vanishes makes a consumer branch on
+    absence, and absence is not one of the states.
+    """
+    by_status: dict[str, int] = {}
+    by_basis = {b: 0 for b in manager_status.STATUS_BASES}
+    off_vocabulary = 0
+    unsectioned = 0
+    for row in rows:
+        status = row["status"]
+        key = status["value"] or "(no status declared)"
+        by_status[key] = by_status.get(key, 0) + 1
+        by_basis[status["basis"]] = by_basis.get(status["basis"], 0) + 1
+        if status["value"] is not None and not status["inDeclaredVocabulary"]:
+            off_vocabulary += 1
+        if not row["sectioned"]:
+            unsectioned += 1
+    return {
+        "total": len(rows),
+        "byStatus": by_status,
+        "byBasis": by_basis,
+        # The finding the page must not bury: measured 2026-09-10 over the real
+        # 244-item file, 13 rows declare a `state` and a `status` that
+        # DISAGREE, and 18 carry a status no `/status` section covers.
+        "disagreeing": by_basis.get(manager_status.STATUS_BASIS_DISAGREE, 0),
+        "statusOnly": by_basis.get(manager_status.STATUS_BASIS_STATUS_ONLY, 0),
+        "offDeclaredVocabulary": off_vocabulary,
+        "unsectioned": unsectioned,
+        "nonObjectEntriesDropped": dropped,
+    }
+
+
+@router.get("/checklist")
+def get_work_checklist() -> dict[str, Any]:
+    """The manager checklist, graded — the live Workflow page's data source.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    an unreadable checklist degrades to ``present: false`` WITH its read state,
+    never a 5xx and never an empty list that reads as "no work".
+    """
+    global _checklist_cache
+    now = time.monotonic()
+    cached = _checklist_cache
+    if cached is not None and (now - cached[0]) < _CHECKLIST_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _checklist_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract), and a checklist page that 500s is invisible rather than empty.
+        logger.warning("work: checklist read failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"checklist read failed: {exc}",
+            "items": [],
+            "declaredStates": {},
+            "summary": _checklist_summary([], 0),
+            "freshness": {"path": manager_status.CHECKLIST_RELPATH,
+                          "commitState": manager_status.FILE_COMMIT_UNKNOWN,
+                          "treeState": manager_status.TREE_UNKNOWN,
+                          "workingTreeDirty": None,
+                          "note": "payload build failed before provenance was read"},
+        }
+    _checklist_cache = (now, payload)
+    return payload
 
 
 def _decision_inbox() -> dict[str, Any]:
