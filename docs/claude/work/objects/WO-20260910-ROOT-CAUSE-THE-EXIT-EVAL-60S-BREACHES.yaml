@@ -1,30 +1,186 @@
+# Authored 2026-09-10 by session_01Ww2pZVK5VUqV8xFFtTs9B1, the lane that did the work.
+# Spawned by the manager (session_01HrmZ1RRNM4UnEUaFdrPEjj); registry key
+# pending-20260910T061026Z. Every figure below is TRANSCRIBED from
+# docs/claude/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md, which carries the
+# populations, the reads and the arithmetic reconciliations.
 id: WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES
 type: question
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
-  Root-cause the exit-eval 60s breaches: 17.4% of restart boundaries (max 210.4s) and a within-process recurrence of 1216 against a row closed as resolved
-stage: QUESTION
-lifecycle: dormant
-owner: null
-opened_at: 2026-09-10
+  The exit-eval 60s breaches have TWO different causes - a closed within-process episode plus a
+  live IBKR-reset-window residual, and a structural restart gap with no headroom
+stage: DIAGNOSIS
+lifecycle: waiting
+owner: claude
+opened_at: '2026-09-10'
 closed_at: null
+
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  WAITING ON AN OPERATOR CHOICE, not on more measurement. The cause is established and written
+  up; two exact Tier-2 remedies (R1, R2) are proposed with one-env-flip rollbacks and are NOT
+  applied. !! DO NOT RE-MEASURE THIS. The two populations are COMPLETE CENSUSES (1218 of 1218
+  breaching rows, 444 of 444 measured boundaries), not samples, and re-reading the same route
+  will reproduce them without adding anything. What is owed is a decision.
+
 done_condition: >-
-  The CAUSE of the restart-boundary breach is established and named against evidence (not inferred), AND an exact Tier-2 remedy is put to the operator as a proposal with its rollback stated. Explicitly NOT done by: re-measuring, a green test, or any arming — the measurement is already complete and the remedy is not this object's to apply.
+  ALREADY MET FOR THE DIAGNOSIS HALF, and the object stays open for the DECISION half. The cause
+  is named and evidenced: (1) within-process breaches are 100% slow-PASS - 1218 of 1218 have
+  pass_ms > 30s and 0 have a residual above one cadence period, so no scheduler or sleep-overrun
+  hypothesis survives - and 1182 of 1218 (97.0%) predate 2026-08-22, leaving 14 in 18 days of
+  which 10 sit in the 04:00-05:00Z IBKR reset window where each IB package costs a serialized
+  29.0s pinned-thread queue timeout (91,187ms pass = 3 x 29.0s + ~4s, reconciled against the
+  journal); (2) the restart gap decomposes as residual cadence sleep 0-30s + systemd downtime
+  ~0.3s + startup-to-thread 6-15s + COLD first pass 12.7-16.9s, reconciling EXACTLY on all four
+  boundaries measured, i.e. 19-60s by construction against a 60s requirement. What REMAINS is the
+  operator answering DEC-20260910-EXIT-EVAL-60S-REMEDY below.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260910-EXIT-EVAL-60S-REMEDY
+    since: '2026-09-10'
+blocked_on_basis: >-
+  ASSESSED 2026-09-10 by the lane that did the work, from the code and the live reads rather than
+  from the dispatch brief. Nothing technical blocks the remedies - both are written out exactly,
+  both are small, both have a rollback. What blocks them is that each is Tier-2 (R1 reorders live
+  startup; R2 changes what an exit pass does when a broker fetch times out) and neither is a
+  session's call.
+
+captured_by: session_01Ww2pZVK5VUqV8xFFtTs9B1 (the investigating lane)
+
+# ⚠️ THIS OBJECT WAS CAPTURED TWICE, and the two halves are MERGED rather than one
+# overwriting the other. The manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) captured the
+# DORMANT stub via scripts/ops/capture_idea.py and landed it on main while this lane was
+# working; the lane wrote the completed object on its branch, and the two collided as an
+# add/add. The stub's `why` and `source` are the record of WHY the work was commissioned
+# and are preserved verbatim below; everything else is the lane's, because the stub's
+# `lifecycle: dormant` / `stage: QUESTION` / `owner: null` describe a parked idea and the
+# work is done. `done_condition` above is the lane's restatement of the stub's, which read:
+#   "The CAUSE of the restart-boundary breach is established and named against evidence
+#    (not inferred), AND an exact Tier-2 remedy is put to the operator as a proposal with
+#    its rollback stated. Explicitly NOT done by: re-measuring, a green test, or any arming"
+#  -- met, and the lane's version adds WHICH evidence.
+source: manager (captured via scripts/ops/capture_idea.py), completed by the lane
 
 why: >-
   MI-230 shipped the instrument and its FIRST complete read contradicts what the OPEN-ITEMS row predicted. Two filed, open, high-severity backlog rows carry the measurement and DELIBERATELY do not propose a cause. Population is complete, not a sample: 442 process boundaries, ungradeable 0, overlapping 0, unattributed_rows 0. A restart boundary breaches ~10x more often than a within-process interval (17.4% vs 1.803%), and a deploy is exactly when the trader is least likely to be evaluating exits. Nobody owns either row.
 
-source: >-
-  manager
 
-blocked_on: []
-blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+evidence: docs/claude/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md
 
-captured_by: scripts/ops/capture_idea.py
+drives:
+  - BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL
+  - BL-20260910-RESTART-GAP-BREACHES-THE-60S-REQUIREMENT-ON-17-PERCENT-OF-RESTARTS-MAX-210S
+  - BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET
+filed:
+  - BL-20260910-PROCESS-STARTED-UTC-IS-THE-FIRST-PASS-COMPLETION-NOT-THE-PROCESS-START
+
+corrections_this_object_makes:
+  - >-
+    THE TWO BREACH POPULATIONS DO NOT SHARE A CAUSE. The dispatch brief flagged the 10x ratio as
+    a hint they might differ; they do, and forcing one story would have produced a wrong remedy
+    for whichever half it did not fit.
+  - >-
+    "1216 lifetime, did not cease" is true of the COUNT and misleading about the RATE. 1182 of
+    1218 predate 2026-08-22; the post-fix rate is of order 0.03% against a lifetime 1.795%,
+    roughly 60x lower. The lifetime figure is a pooled rate over a bimodal population and must
+    not be quoted as current.
+  - >-
+    OI-20260910-...'s expectation of `within` on 11 gaps of 25.3-53.9s is CONTRADICTED by the
+    complete 444-boundary read (17.3% lifetime / 6.2% post-fix). That was an under-powered
+    one-day sample of a distribution whose 94th percentile IS the requirement, not an instrument
+    fault. The row's expectation is corrected; the instrument is working.
+  - >-
+    DEPLOY SPEED IS NOT THE CAUSE AND MUST NOT BE PROPOSED AS THE FIX. Measured systemd downtime
+    is ~0.3s on all four boundaries - the process exits cleanly on SIGTERM. The dominant variable
+    term is the un-slept remainder of the loop's OWN 30s cadence, which even a zero-downtime
+    deploy would not remove.
+  - >-
+    BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET is marked `resolved` with no resolved_at and
+    no recorded resolution while its mechanism is still firing, and its criterion 1 ("COUNT IT
+    FIRST - how OFTEN it fires is UNMEASURED") is what this work supplies. Re-opened as a
+    RECURRENCE rather than minting a fourth id.
+
+not_established:
+  - >-
+    The two large post-fix outliers (210.4s on 2026-08-26, 112.6s on 2026-09-07) are UNEXPLAINED
+    and may be a different mechanism. The A+B+C+D model caps a nominal restart near 60s; the
+    journal does not retain back to either date, so the decomposition that worked for the four
+    2026-09-10 boundaries is unavailable for them. 2 of 325 post-fix boundaries.
+  - >-
+    That the set_leverage block is the tail driver in the BREACHING restarts specifically. It was
+    measured on four boundaries, none of which breached. That step is INFERRED.
+  - >-
+    A per-day denominator for the within-process rate - `breached_only` returns no non-breaching
+    rows and the route has no offset, so ~2,800 intervals/day is derived from 68,312 rows / 24.7
+    days rather than counted.
+  - The firing rate of the sibling _IB_USAGE_LOCK_WAIT_S (24.0s) path.
+  - >-
+    Why the trader restarts 18.1x/day - whether the restarts surviving deploy_pull_restart.sh's
+    non-runtime skip are all genuinely runtime-affecting was not measured against merge history.
+
+decision_requests:
+  - id: DEC-20260910-EXIT-EVAL-60S-REMEDY
+    question: >-
+      The exit-eval 60s promise is breached on 6.2% of restarts (20 of 325 post-fix, max 210.4s)
+      and on 14 within-process intervals in 18 days. Both causes are now named. Two exact Tier-2
+      remedies are ready, independent of each other, each with a one-env-flip rollback. Which, if
+      any, should be armed - and is the restart boundary in scope for the 60s promise at all?
+    urgency: routine
+    asked_on: '2026-09-10'
+    context: >-
+      MEASURED 2026-09-10T06:13Z from GET /api/bot/exit-interval/soak (whole-file summary +
+      breached_only=true&limit=2000, both COMPLETE censuses: 1218 of 1218 breach rows, 444 of 444
+      measured boundaries), plus four /api/diag/journalctl restart windows and a 1000-row
+      /api/diag/log_file tail. RESTART GAP: min 17.5s, median 40.5s, p90 56.0s, p95 60.9s post-fix;
+      it decomposes as residual cadence sleep 0-30s + systemd downtime ~0.3s + startup-to-thread
+      6-15s + cold first pass 12.7-16.9s, reconciling exactly on all four measured boundaries -
+      i.e. 19-60s BY CONSTRUCTION against a 60s requirement, with essentially no headroom, at 18.1
+      restarts/day. Total exposure 756 s/day (12.6 min/day, 0.875% of wall clock) in which no open
+      position's exit is evaluated - and 93.8% of that is from COMPLIANT restarts, so the breach
+      rate understates it. WITHIN-PROCESS: 97.0% of the 1218 predate 2026-08-22; the live residual
+      is 14 breaches in 18 days, 10 of them in the 04:00-05:00Z IBKR reset window, where each
+      IB-routed package pays a serialized 29.0s pinned-thread queue timeout so a pass costs
+      n_IB_packages x 29s and crosses 60s at THREE packages.
+    options:
+      - key: r2_only
+        label: Arm R2 only - the per-pass IB circuit breaker
+        implication: >-
+          The larger effect on the larger live residual. Once one IB fetch returns a pinned-thread
+          queue timeout, skip the remaining IB packages in THAT pass. Changes NOTHING about what
+          any package receives - a skipped package gets the same candles=None it would have got
+          29s later - it bounds the cost of an outcome already determined. Pass cost in the reset
+          window falls from n x 29s to ~35s. Rollback EXIT_LOOP_IB_BREAKER_DISABLED. Cost: during
+          a transient (non-outage) queue timeout, later IB packages are skipped for one pass and
+          retried 30s later.
+      - key: both
+        label: Arm R2 and R1
+        implication: >-
+          R1 additionally moves _start_exit_loop above _apply_per_account_leverage in
+          src/main.py::main() - measured 2.0-10.0s off the startup term, median ~3s, and it is the
+          10s tail it targets. Must stay AFTER boot_reconcile so a pass cannot evaluate a journal
+          row the reconciler is about to void. Rollback EXIT_LOOP_EARLY_START_DISABLED. Cost: the
+          cold first pass then overlaps the leverage pre-flight on a 2-core box.
+      - key: r1_only
+        label: Arm R1 only
+        implication: >-
+          Touches only startup ordering and no fetch behaviour - the smaller blast radius of the
+          two - but it addresses the persistent 6.2% restart-gap tail and leaves the reset-window
+          residual entirely.
+      - key: decide_the_scope_instead
+        label: Record a DECIDED on whether the restart boundary is in scope, and arm nothing
+        implication: >-
+          A legitimate answer. The restart gap is 19-60s by construction, so keeping the 60s
+          promise across a restart means changing one of the four measured terms - there is no
+          version of the current design that comfortably clears it. If the boundary is declared
+          out of scope, that must be RECORDED with its consequence stated (756 s/day unevaluated),
+          never left looking like a fix about to happen.
+    allows_free_text: true
+    answer: null
+    asked_by:
+      session_id: session_01Ww2pZVK5VUqV8xFFtTs9B1
+      recorded_at: '2026-09-10T06:5x:00Z'
+      note: >-
+        The investigating lane. NOT a re-ask of DEC-20260909-M20-EXIT-EVAL-NEAR-MISS, which was
+        about INSTRUMENTATION and is answered and discharged; this is the CAUSE question that
+        decision explicitly left open ("investigate_the_tail ... is a separate question about
+        CAUSE, where this decision is about INSTRUMENTATION").
