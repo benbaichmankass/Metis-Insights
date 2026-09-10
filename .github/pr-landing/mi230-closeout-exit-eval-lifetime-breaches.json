@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. Two backlog rows filed through scripts/ops/backlog_append.py, one OPEN-ITEMS observation + verified_at, and the regenerated CLAUDE.md SESSION-BRIEF block. NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/, NO order path, NO env knob, NO VM mutation. Every path is inside TIER1_SURFACE (docs/**, .github/pr-landing/**), which is why this one CAN self-land where the build PR it closes out could not: #11631 touched src/runtime/** and was correctly held on `unvouchable_paths`. Filing a backlog row is explicitly permitted with no cap, and recording an observation into docs/claude/** is the session-end duty CLAUDE.md requires. The observations reported here are MEASURED off the live fleet (/api/diag/version ancestry, summary.restart_gap on /api/bot/exit-interval/soak, /api/diag/log_file?name=exit_loop_health) and are stated with their populations; no remedy is proposed for either finding, because the cause is an operator decision that was offered and not chosen."
+}
