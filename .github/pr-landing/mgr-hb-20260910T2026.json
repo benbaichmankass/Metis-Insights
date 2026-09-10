@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): a lease heartbeat, MI-260 cleared on all three criteria with the evidence recorded, and the correction of a loose end the manager had logged as unexplained. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed."
+}
