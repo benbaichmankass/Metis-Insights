@@ -323,12 +323,59 @@ starvation, not by policy — and no roster edit can change that.
 ```
 
 **No `symbols:` change is required** — TLT, IEF, SLV and IAUM are all already in
-`alpaca_live.symbols`. (Verified separately: the account-level `symbols:` list is
-**inert for Alpaca**. Its only consumers are `clients.py::_configured_symbols`,
-used by the **Bybit** per-symbol position cross-check, and
-`exchange_accounts.py`, which filters `exchange == "bybit"`. Routing is decided
-solely by `accounts.yaml::<account>.strategies` in
-`coordinator._dispatch_exclusion_reason`.)
+`alpaca_live.symbols`, **and** each is independently carried by
+`alpaca_paper.symbols`, so the tick loop's symbol union is unchanged either way.
+
+> ⚠️ **CORRECTION, 2026-09-10, to this document's own first version — I got this
+> wrong and the wrong version is on `main` in commit `145101e54`.** It said the
+> account-level `symbols:` list is *"**inert for Alpaca**. Its only consumers are
+> `clients.py::_configured_symbols` … and `exchange_accounts.py`"*. **That is
+> false.** I swept two consumers and generalised from them, which is the exact
+> shape RULE ONE's ledger calls *a search returning nothing read as proof of
+> absence* — and I did it while writing a document whose whole subject is
+> measurements that decay.
+>
+> **`src/main.py::_resolve_tick_symbols` reads `acct.symbols` and it decides
+> which symbols the tick loop runs.** A symbol carried by NO configured,
+> non-opted-out account is never fetched, so no strategy on it can ever
+> generate a signal. `CLAUDE.md` says this correctly (*"the symbol set is
+> derived from `config/accounts.yaml`"*) — **field beats comment, and here the
+> field agreed with the comment and disagreed with me.**
+>
+> **The complete consumer set, enumerated rather than sampled:**
+>
+> | consumer | scope |
+> |---|---|
+> | `src/main.py::_resolve_tick_symbols` | **ALL accounts — the tick loop's symbol set, as a UNION.** An explicit `strategies: []` opts an account out of it. |
+> | `clients.py::_bybit_configured_symbols` (→ `account_open_positions`, `_bybit_position_protection`) | Bybit only |
+> | `exchange_accounts.py::bybit_fill_accounts` | Bybit only (`exchange == "bybit"` filter) |
+> | `clients.py::account_ib_venue_session` (first-symbol fallback) | IB only |
+>
+> ⚠️ **`src/main.py::_symbols_for_account` is a DIFFERENT function and is not
+> this one** — it reads each STRATEGY's `symbols` and is used only for the Bybit
+> `set_leverage` pre-flight. Confusing the two is what produced the error.
+>
+> **The conclusion survives, on the correct reason.** Measured against
+> `config/accounts.yaml`: TLT is carried by `ib_paper`, `alpaca_paper`,
+> `alpaca_portfolio` and `alpaca_live`; IEF and SLV by `alpaca_paper`,
+> `alpaca_portfolio` and `alpaca_live`; IAUM by `alpaca_paper` and
+> `alpaca_live`; **SCHA by `alpaca_paper`** — all with non-empty rosters. So
+> every Option A and Option A+ symbol is already in the union, and the tick loop
+> fetches it today. That is why `scha_trend_long_1d` produces eval rows at all.
+>
+> ⚠️ **THE DANGEROUS READING THIS CORRECTS:** a session acting on *"the list is
+> inert"* could delete or neglect an account's `symbols:` and silently stop the
+> tick loop fetching a symbol no other account carries — a whole sleeve going
+> dark with no error, which is `splg_trend_long_1d`'s failure mode arrived at
+> from the other direction.
+
+**What IS true, and was verified directly:** the account `symbols:` list is **not
+a routing gate**. Routing is decided solely by
+`accounts.yaml::<account>.strategies` in
+`coordinator._dispatch_exclusion_reason`, whose Alpaca path tests only
+`pkg.strategy not in assigned` (the `symbol_exchange_routing` test above it is
+gated on `interactive_brokers`). So adding a leg to `alpaca_live.strategies`
+routes it, and nothing about `symbols:` can block that.
 
 **No `alpaca_portfolio` change is required** — verified against the invariant in
 §1.6 with a positive and a negative control.
@@ -495,11 +542,23 @@ measurement at all.
   fidelity **`faithful`**, fee **0.0 bps**, **66 emitted trades** over 3650 days,
   `end_return_mean 31.8%`, `P(breach) 0.0`, `survival 1.0` against the standard
   gate (survival ≥ 0.9, P(breach) ≤ 0.1). `alpaca_portfolio` ROUTEs on the same
-  ledger. ⚠️ **n=66 over ten years is ~6.6 trades/year** — consistent with
-  `BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS`, and it is a Monte-Carlo over
-  a bootstrapped R-ledger, not 66 independent live outcomes. Remaining runs:
-  `ief_pullback_1d` (#11658), `slv_pullback_1d` and `iaum_pullback_1d`
-  (re-dispatched via `workflow_dispatch` — see §10).
+  ledger.
+  **`slv_pullback_1d` → `alpaca_live`: ROUTE** (run `34456190565`, landed
+  2026-09-10T08:38:07Z — **95 emitted trades**, `end_return_mean 15.16%`,
+  `P(breach) 0.0`, `survival 1.0`).
+  Read both off the committed corpus `docs/research/gld-compat-matrix-verdicts.jsonl`
+  on `main`, not off a run comment.
+  ⚠️ **n=66 and n=95 over ten years are ~6.6 and ~9.5 trades/year** — consistent
+  with `BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS`,
+  and each is a Monte-Carlo over a **bootstrapped** R-ledger, not that many
+  independent live outcomes. So **`ROUTE` here means "clears the account's
+  survival/breach gate on this ledger", NOT "has a track record"** — §1.5's
+  `insufficient_n` verdict stands unchanged beside it.
+  **Still outstanding:** `ief_pullback_1d` (issue #11658, run `34455459855`) and
+  `iaum_pullback_1d` (run `34456197195`). Both **computed their verdicts
+  successfully** (the scoring step succeeded on each) and are queued in
+  `Land the corpus on main` — so they are a landing-queue wait, not a failed
+  measurement. Whoever picks this up should read the corpus rather than re-run.
   ⚠️ **A compat-matrix `ROUTE` does
   NOT establish affordability** — it scores an R-ledger and never runs the
   whole-share cash wall; `gld_pullback_1h` carries `ROUTE` for `alpaca_live` in
