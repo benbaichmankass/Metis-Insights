@@ -10,8 +10,9 @@
     "pr": 11624,
     "claimed_at": "2026-09-10T00:57:00Z",
     "purpose": "Work-store state: two objects whose builds merged move in_flight -> waiting, each gaining a TRUE typed external_event blocked_on edge. Tier-1, no worker path, no order touched.",
-    "found_stale": "Claimed over my OWN just-merged claim for pr 11622 (branch claude/mgr-hb-20260910T0035), which merged as 2832abf10 and released nothing -- nothing does. !! I FIRST DECLINED TO RE-CLAIM, reasoning that overwriting my own claim with a second one adds a record without adding information, and pr-landing R13 REFUSED that and was right: on this route arming IS the merge (claude-pr-automerge enables auto-merge and GitHub lands it on green with no further act), and the PreToolUse merge-slot hook is structurally blind to it because the merge is performed by a workflow under GITHUB_TOKEN and calls neither merge_pull_request nor enable_pr_auto_merge. So the claim is made in the push that arms or it is not made at all, and 'the same holder already appears there' is not a substitute for an attributable claim naming THIS branch. Recorded because the reasoning I had to abandon is the more useful half. !! TONIGHT'S GHOST SEQUENCE, for the record: work-digest 34420408024 -> #11618 (dirtied #11619), error-feed-digest 34421732450 -> #11621 (dirtied #11622 twice), then my own #11622 -> this. Two of four were BOTS.",
-    "concurrent_sibling": "None known. This branch touches only docs/claude/work/objects/*.yaml (two files) plus the landing pair, and no live session has declared those two object files on the board."
+    "found_stale": "RESTORED 2026-09-10T01:40Z by MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E). I claimed this slot at 01:35Z intending to self-land, then pr-landing R5 refused self-landing for this diff (src/runtime/** is outside TIER1_SURFACE, so the guard declines to certify it whatever the declared tier). A PR that waits on a human merge click must not hold the merge slot -- that would stall every other lane for a merge I cannot perform -- so the previous block is restored VERBATIM rather than left showing me as holder. Its own note is preserved below in `prior_note`. Nothing about pr 11624 changed; it had already merged as 7b16fb603 before either claim.",
+    "prior_note": "pr 11624 had ALREADY MERGED as 7b16fb603 when MI-230 read this block. That is not a lapse by its holder: a terminal claim cannot be cleared by the mechanism that sets it (R13 fails an armed branch carrying no claim, so a release-only PR would need a claim in order to land its own release), so this file accumulates a stale-looking holder after every armed merge. Per docs/claude/coordination-board.md the BOARD COMMENT is the authoritative live claim and this file is its mirror; the manager's release is posted there. See BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE.",
+    "concurrent_sibling": "None known."
   },
   "active_sessions": [
     {
@@ -80,6 +81,14 @@
       "branch": "claude/mi195-tp-decisions-and-examine",
       "started_at": "2026-09-08T09:59:45Z",
       "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
+    },
+    {
+      "session": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
+      "branch": "claude/mi230-exit-eval-near-miss-restart-gap",
+      "repo": "benbaichmankass/Metis-Insights",
+      "status": "active",
+      "started_at": "2026-09-10T00:57:00Z",
+      "scope": "MI-230 / WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED (audit F-50). Tier-1 CI/observability. Touching: src/runtime/exit_loop_health.py, src/runtime/exit_interval_soak.py, NEW src/runtime/exit_restart_gap.py, src/web/api/routers/exit_interval.py, scripts/ci/check_collapsed_states.py (contract entries), scripts/ops/system_invariants.py (one function body + one self-test line only -- MI-231 owns the INVARIANTS list), tests/, CLAUDE.md's EXIT_LOOP_DECOUPLE_DISABLED row, docs/claude/OPEN-ITEMS.json, the work object. NOT touching config/, deploy/, .github/workflows/, or any order path. No order placed, modified or cancelled on any account."
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
