@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager lease heartbeat plus the supervision record and two checklist edits. docs/claude/** exclusively -- no src/, tests/, scripts/, workflows, config/ or deploy/, no runtime, no order path. A lease heartbeat and a supervision write are base manager duties, and recording an operator-facing finding into docs/claude/work/** is explicitly management rather than an item taken."
+}

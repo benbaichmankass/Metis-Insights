@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T14:26:00Z",
+  "updated_at": "2026-09-10T15:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4374,10 +4374,10 @@
       "why": "OPERATOR-DECIDED 2026-09-10T06:09Z via popup, chosen: 'Recover it with a fresh session'. #11519 carries 2056 lines and 21 tests that fix the ~16 stranded automation PRs, and its author session_01NcYsS6kFNrzxEKcrNy9eXP has been IDLE/DISCONNECTED/completed since 2026-09-09T20:21:52Z. Measured 2026-09-10T06:07Z: draft=true, mergeable_state=dirty, check_runs total_count=0, base pinned to 6295bce38 — so its own closing claim 'green (7/7)' is STALE AND FALSE, and the zero check runs are the merge conflict, not CI-not-started.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T06:09:17Z",
-      "updated_at": "2026-09-10T14:26:00Z",
-      "manager_observation": "MI-260 dispatched 13:59Z (rebase #11519, operator approved arming). ACTED: branch head moved 8e7d0a16a -> 1d1941c89. Reports 'test suite PASS 71 FAIL 0 with all tools; yielding for CI'. VERIFIED BY THE BRANCH HEAD, not by that summary.",
-      "live_status": "review_ready",
-      "live_status_read_at": "2026-09-10T14:26:00Z"
+      "updated_at": "2026-09-10T15:27:00Z",
+      "manager_observation": "MI-260 / #11519. DONE AND MERGED as a1ec4a5c0 at ~15:16Z. Verified independently before merging, not from its report: PR head 0a3c1f352 matched the 4/4 green checks, corrected merge check exit=0, and the backlog union measured main 1436 -> PR 1441 with 0 ids lost from main and 0 duplicates. ⚠️ Its FIRST reply reported 'PASS 71 FAIL 0, yielding for CI' on a branch that still could not merge -- a green suite is not a mergeable head, and the second poke got the actual rebase.",
+      "live_status": "completed",
+      "live_status_read_at": "2026-09-10T15:27:00Z"
     },
     {
       "session_id": "session_01Ww2pZVK5VUqV8xFFtTs9B1",
@@ -4406,10 +4406,10 @@
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:37:04Z",
-      "updated_at": "2026-09-10T14:26:00Z",
-      "manager_observation": "MI-238 poked 14:07Z (resolve #11692's two-row OPEN-ITEMS conflict; also corrected its own false '#11691 merged' claim). ACTED: branch head moved f512004b1 -> 274b51b8f. Its resolution is NOT yet verified by me -- the per-row union direction still needs checking against both sides.",
-      "live_status": "idle",
-      "live_status_read_at": "2026-09-10T14:26:00Z",
+      "updated_at": "2026-09-10T15:27:00Z",
+      "manager_observation": "MI-238 / #11692 MERGED as 5cdbd0109. Its two-row OPEN-ITEMS union verified by me directly: POSITION-READ-STATE-SOAK identical to main's 3183 chars (correctly took main), WORKFLOW-PAGE 8170 chars CONTAINING main's 1885 (nothing lost), 76 items both sides.",
+      "live_status": "completed",
+      "live_status_read_at": "2026-09-10T15:27:00Z",
       "live_updated_at": "2026-09-10T13:22:37Z"
     },
     {
@@ -4424,10 +4424,10 @@
       "why": "Operator approved the XRPUSDT half 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED), completing the earlier paper-first approval. Tool already merged as #11630/c88c7ff9e.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:57:32Z",
-      "updated_at": "2026-09-10T14:26:00Z",
-      "manager_observation": "MI-241. ⚠️ A REAL DROP, RECORDED RATHER THAN GLOSSED: MI-255 (Bybit wrong-book close, P1 Tier-2, real money) was dispatched to this lane at 13:32Z with delivery confirmed, and the lane worked #11699/#11700 instead. MI-255 still reads state=queued / owner=unassigned on main at 14:26Z, so nothing carried it. The lane is now IDLE+completed. Re-dispatch is owed.",
-      "live_status": "idle",
-      "live_status_read_at": "2026-09-10T14:26:00Z",
+      "updated_at": "2026-09-10T15:27:00Z",
+      "manager_observation": "MI-255. ⚠️ IT DID PICK THE ITEM UP -- my 14:26Z record that it was 'dropped' described the 13:32Z dispatch and is superseded for the RE-dispatch. It ran the analysis and then sat BLOCKED ON ME from ~14:35Z: status_bucket BLOCKED / need_input, asking to 'dispatch BL-20260908 to build size-plausibility gate + refusal logic'. Unblocked at 15:27Z with the build authorised (Tier-2, propose-do-not-arm). It reports 4 defects, 3 fixed+deployed, and +$612.71 on pairs_sol_eth -- ⚠️ NONE OF WHICH I HAVE VERIFIED, and I have asked it for the population, the per-row pnl provenance and the sign before that number is quoted anywhere.",
+      "live_status": "blocked_on_manager_now_released",
+      "live_status_read_at": "2026-09-10T15:27:00Z",
       "live_updated_at": "2026-09-10T12:07:15Z"
     },
     {
@@ -4442,10 +4442,10 @@
       "why": "Operator asked 2026-09-10 why alpaca_live shows no live trades weeks after reactivation. MI-140's merged verdict (#11271) says it is NOT broken: it was asked twice, both times to short, both suppressed by the operator-directed side_filter: long gate. The real cause is a roster of ONE leg. This row has read ready/unassigned since 2026-09-08 and was never routed.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T08:14:52Z",
-      "updated_at": "2026-09-10T11:28:00Z",
-      "manager_observation": "MI-201. IDLE at 09:37:33Z, work COMPLETE and merged (#11665 the screen, #11666 the latch repair). Its refusal to author the Option A approval record it had not witnessed was CORRECT; the manager heard the operator and authored it (#11683).",
-      "live_status": "IDLE",
-      "live_status_read_at": "2026-09-10T11:22:35Z",
+      "updated_at": "2026-09-10T15:27:00Z",
+      "manager_observation": "MI-201. ⚠️ READS status_bucket BLOCKED / need_input AND THAT IS A FROZEN SUMMARY, NOT A LIVE BLOCK -- all five of its listed questions were answered by the operator on 2026-09-10 and its work is merged. Do NOT re-ask them. Recorded here because a successor reading only the bucket would re-open settled decisions; post_turn_summary freezes in BOTH directions.",
+      "live_status": "false_block_do_not_action",
+      "live_status_read_at": "2026-09-10T15:27:00Z",
       "live_updated_at": "2026-09-10T09:37:33Z"
     },
     {
@@ -4468,5 +4468,5 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-10T14:26Z, live list_sessions(mine=true, limit=8). THREE lanes graded against WHAT WAS DISPATCHED, not against post_turn_summary: two acted and their BRANCH HEADS MOVED (MI-260 #11519, MI-238 #11692); ONE DROPPED ITS DISPATCH (MI-241 never took MI-255, which still reads queued/unassigned on main). All three are IDLE, so all three lanes are free. ⚠️ THIS IS A PARTIAL READ (limit=8 of a 204-row registry), not a full reconcile -- do not quote it as one."
+  "⚠️_last_live_reconcile": "2026-09-10T15:27Z, live list_sessions(mine=true, limit=5). FOUR lanes graded against WHAT WAS DISPATCHED. ONE WAS BLOCKED ON THE MANAGER (MI-255, ~52 min) and is released; ONE reads BLOCKED and is a FROZEN summary, not a live block (MI-201 -- do not re-ask); two completed and their PRs are merged and independently verified. ⚠️ PARTIAL READ (limit=5 of a 204-row registry), not a full reconcile."
 }

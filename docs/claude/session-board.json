@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
     "branch": "claude/mgr-rescue-pit-artifacts-20260910T1320",
-    "claimed_at": "2026-09-10T15:03:19Z",
-    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable comms/ artifacts -- the LAST remaining half after its manager registers were split to #11703 and landed as 158effe7aa. TENTH takeover today, from a TERMINAL holder: the prior claim named this manager's own claude/mgr-registers-20260910T1455, whose PR #11703 merged as 158effe7aa (main's own tip). Released on merge."
+    "claimed_at": "2026-09-10T15:34:18Z",
+    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable comms/ artifacts -- the last remaining half after its registers were split to #11703. TWELFTH takeover today, from a TERMINAL holder: the prior claim named this manager's own claude/mgr-hb-20260910T1530, whose PR #11707 merged as 82905ab82 (main's own tip). Released on merge."
   },
   "active_sessions": [
     {
