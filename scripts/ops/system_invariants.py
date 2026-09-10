@@ -646,6 +646,199 @@ def inv_protective_leg_matches_row(ctx) -> Result:
                f"{leg_qty_unreadable} · unreadable position_size: {size_unreadable}")
 
 
+# ------------------------------------------- package-leg reachability (F-39)
+#
+# THE VERDICT IS NOT RE-DERIVED HERE. `src/runtime/package_leg_coverage.py`
+# declares itself the single owner ("one assessor, two consumers"); this is the
+# third consumer. When the import fails the invariant reports `not_measured`
+# rather than falling back to an inline copy -- a second copy of the rule is
+# precisely how the live alert and this suite would come to disagree about a
+# package, which is what that module exists to prevent. (`_protective_leg_side`
+# above keeps an inline fallback because it is a 6-line pure classifier this
+# file can be shown to reproduce byte-faithfully; a 4-verdict assessor is not.)
+try:  # pragma: no cover - import path depends on host deps
+    sys.path.insert(0, str(REPO))
+    from src.runtime.package_leg_coverage import (  # type: ignore  # noqa: E402
+        assess as _assess_package_legs,
+    )
+    _PACKAGE_ASSESSOR_SOURCE = "src.runtime.package_leg_coverage"
+except Exception:
+    _assess_package_legs = None  # type: ignore[assignment]
+    _PACKAGE_ASSESSOR_SOURCE = "unavailable"
+
+
+def _package_index(payload: Any) -> tuple:
+    """``(packages by id, linked_trade_id -> package id)``.
+
+    From ``/api/diag/journal?table=order_packages``. The route orders
+    ``datetime(updated_at) DESC``, so ``setdefault`` keeps the NEWEST package
+    naming a given trade rather than an older superseded one.
+    """
+    rows = payload if isinstance(payload, list) else (payload or {}).get("rows") or []
+    by_id: Dict[str, dict] = {}
+    by_linked: Dict[str, str] = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        pid = r.get("order_package_id")
+        if pid in (None, ""):
+            continue
+        by_id[str(pid)] = r
+        linked = r.get("linked_trade_id")
+        if linked not in (None, ""):
+            by_linked.setdefault(str(linked), str(pid))
+    return by_id, by_linked
+
+
+def _open_book(payload: Any) -> List[Dict[str, Any]]:
+    """Open positions from ``/api/bot/positions?include_paper=true``.
+
+    ⚠️ **THIS IS WHY THE INVARIANT DOES NOT READ ``journal_trades`` ALONE.**
+    ``/api/diag/journal`` is hard-clamped to ``_MAX_LIMIT = 1000`` rows ordered
+    ``id DESC`` (``src/web/api/routers/diag.py:912``), so an open leg older than
+    the newest 1000 rows **is not in that payload at all**. MEASURED
+    2026-09-10T01:0xZ: the window ran **4618..5617** while stranded leg **4347**
+    (``alpaca_paper``/SPY, open since 2026-08-03) sat below it -- one of the four
+    legs this invariant exists to catch, invisible on the surface the suite's
+    own docstring names. Grading the journal payload alone would have reported
+    that leg CLEAN, which is audit F-37's class (the instrument truncating its
+    own population) reproduced inside the fix for F-39.
+
+    ``include_paper=true`` matters for the same reason: the default is
+    ``False`` and returns 1 of 26 rows (F-37).
+    """
+    rows = payload if isinstance(payload, list) else (payload or {}).get("positions") or []
+    return [p for p in rows if isinstance(p, dict) and p.get("id") not in (None, "")]
+
+
+def inv_package_legs_reachable(ctx) -> Result:
+    """Every STANDING open leg must belong to a package the exit loop can select.
+
+    Audit F-39, operator-approved Tier-2 on
+    ``WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS``
+    (``chosen: detector_and_reattach``, 2026-09-09).
+
+    ``order_monitor`` drives exits per ORDER PACKAGE -- it selects
+    ``status="open"`` packages and resolves ONE row from ``linked_trade_id`` --
+    so a package flipped to ``closed`` while any leg is still open leaves the
+    loop's ``status="open"`` filter unable to select it ever again. The
+    survivors then exit only on their own resting bracket or the reconciler.
+    MEASURED live 2026-09-10T01:0xZ: three closed packages held four open legs,
+    one of them trade **5474 on real-money ``bybit_2``** -- and 5474 is the
+    package's own ``linked_trade_id``, so it is the MANAGED leg that was
+    stranded, not merely a sibling.
+
+    WHY THIS RECOMPUTES INSTEAD OF READING THE LATCH
+    ------------------------------------------------
+    ``package_leg_coverage`` already computes this verdict and it lands only in
+    ``runtime_logs/package_leg_coverage_state.json`` -- a latch whose clear path
+    is unreachable once a package's last leg closes (audit F-38), so **17 of its
+    20 entries described conditions that no longer existed**, the oldest 22 days
+    stale. **That 15%-live figure is what "restricted to LIVE legs" refers to,
+    and honouring it is this invariant's whole design:** it recomputes over the
+    CURRENT open book and never opens the latch file. Failing the suite off the
+    latch would red the build on 22-day-old ghosts -- the desensitised-alarm P1
+    with a red build attached.
+
+    ⚠️ **ONLY ``{stranded, divergent}`` ARE VIOLATIONS**, which is the scope the
+    operator chose. ``linked_unresolvable`` is *we could not identify the managed
+    leg*; it is counted and named in ``detail`` but is **not** a FAIL, because
+    "we did not look" must no more render as a violation than as a pass.
+
+    Population: standing open legs resolvable to an order package.
+    """
+    pop = "standing open legs resolvable to an order package"
+    pkg_payload = ctx.get("order_packages")
+    pos_payload = ctx.get("positions")
+    tr_payload = ctx.get("journal_trades")
+
+    if _assess_package_legs is None:
+        return Result(NOT_MEASURED, pop, 0,
+                      detail="src.runtime.package_leg_coverage.assess is not "
+                             "importable -- refusing to re-derive the verdict "
+                             "from a second copy of the rule")
+    if pkg_payload is None or (pos_payload is None and tr_payload is None):
+        return Result(NOT_MEASURED, pop, 0,
+                      detail="order_packages payload absent, or neither "
+                             "positions nor journal_trades present")
+
+    packages, by_linked = _package_index(pkg_payload)
+    legs: Dict[str, Dict[str, Any]] = {}
+    klass: Dict[str, str] = {}
+
+    # The journal is the least-reduced source and carries `order_package_id`
+    # directly, so it is preferred wherever it reaches.
+    for r in (_open_journal_trades(tr_payload) if tr_payload is not None else []):
+        legs[str(r.get("id"))] = {
+            "id": r.get("id"), "account_id": r.get("account_id"),
+            "symbol": r.get("symbol"),
+            "position_size": _num(r.get("position_size")),
+            "stop_loss": _num(r.get("stop_loss")),
+            "order_package_id": r.get("order_package_id"),
+            "strategy_name": r.get("strategy_name"),
+        }
+
+    outside_window = 0
+    recovered_via_link = 0
+    for p in (_open_book(pos_payload) if pos_payload is not None else []):
+        tid = str(p.get("id"))
+        klass[tid] = str(p.get("accountClass") or "")
+        if tid in legs:
+            continue
+        # Below the journal payload's 1000-row window. The package can still be
+        # recovered from the REVERSE direction -- order_packages.linked_trade_id
+        # -- which is how leg 4347 is graded at all.
+        outside_window += 1
+        pid = by_linked.get(tid)
+        if pid:
+            recovered_via_link += 1
+        legs[tid] = {
+            "id": p.get("id"), "account_id": p.get("account"),
+            "symbol": p.get("symbol"),
+            "position_size": abs(_num(p.get("qty")) or 0.0),
+            "stop_loss": _num(p.get("stopLoss")),
+            "order_package_id": pid,
+            "strategy_name": p.get("pattern"),
+        }
+
+    verdicts = _assess_package_legs(list(legs.values()), packages)
+
+    graded = 0
+    ungraded = 0
+    viol: List[str] = []
+    for pkg_id, row in verdicts.items():
+        v = row.get("verdict")
+        n_legs = int(row.get("leg_count") or 0)
+        if v == "linked_unresolvable":
+            ungraded += n_legs
+            continue
+        graded += n_legs
+        if v not in ("stranded", "divergent"):
+            continue
+        for leg in row.get("legs", []):
+            tid = str(leg.get("trade_id"))
+            cls = klass.get(tid) or "account-class-unknown"
+            viol.append(
+                f"{leg.get('account')}/{row.get('symbol')} trade {tid} "
+                f"[{cls}]: {str(v).upper()} -- {row.get('reason')} "
+                f"(package {pkg_id}, strategy {row.get('strategy')})")
+
+    xcheck = ("ran" if pos_payload is not None else
+              "DID NOT RUN -- positions payload absent, so any open leg below "
+              "the journal's 1000-row window is invisible here")
+    detail = (f"packages examined: {len(verdicts)} · legs graded: {graded} · "
+              f"legs UNGRADED as linked_unresolvable (we could not identify the "
+              f"managed leg -- never a pass): {ungraded} · open legs below the "
+              f"journal payload's 1000-row window: {outside_window}, of which "
+              f"{recovered_via_link} recovered via "
+              f"order_packages.linked_trade_id · open-book cross-check: "
+              f"{xcheck} · assessor: {_PACKAGE_ASSESSOR_SOURCE}")
+
+    if graded == 0:
+        return Result(NOT_MEASURED, pop, 0, detail=detail)
+    return Result(FAIL if viol else PASS, pop, graded, viol, detail=detail)
+
+
 INVARIANTS: List[Dict[str, Any]] = [
     {"id": "INV-PROTECT-STOP", "blast": "money-at-risk",
      "q": "Does every open IB position have a resting stop covering its size?",
@@ -668,6 +861,9 @@ INVARIANTS: List[Dict[str, Any]] = [
     {"id": "INV-EXIT-INTERVAL", "blast": "money-at-risk",
      "q": "Is the exit loop meeting its 60s re-evaluation requirement?",
      "fn": inv_exit_loop_meets_requirement},
+    {"id": "INV-PACKAGE-LEG-REACHABLE", "blast": "money-at-risk",
+     "q": "Is every standing open leg still selectable by the exit loop?",
+     "fn": inv_package_legs_reachable},
     {"id": "INV-BLIND-COUNT-NULL", "blast": "observability",
      "q": "Does a blind read report count=null rather than 0?",
      "fn": inv_count_null_when_blind},
@@ -802,6 +998,78 @@ def _fx_naked() -> Dict[str, Any]:
     fx["ib_open_orders"]["accounts"][0]["orders"] = []
     fx["ib_open_orders"]["accounts"][0]["count"] = 0
     return fx
+
+
+def _fx_pkg_legs(stranded: bool = True) -> Dict[str, Any]:
+    """THE LIVE F-39 SHAPE, transcribed from the 2026-09-10T01:0xZ read.
+
+    ``pkg-293021e2e84a48db`` (xrp_pullback_2h/XRPUSDT) closed
+    ``reconciler_filled`` with ``linked_trade_id`` 5474, while BOTH 5474
+    (``bybit_2``, REAL MONEY, 58.5) and 5475 (``bybit_portfolio``, 11903.8)
+    were still open. Note it is the LINKED leg that is stranded here, not just
+    a sibling -- the managed row itself fell out of the loop.
+
+    ``stranded=False`` flips only ``status`` to ``open``: the linked id is then
+    among the open legs and the two stops agree, so the same fixture must grade
+    ``managed``. That pair IS the planted-control contract -- fail with the
+    condition planted, pass once it is removed, one field apart.
+    """
+    return {
+        "order_packages": [
+            {"order_package_id": "pkg-293021e2e84a48db",
+             "strategy_name": "xrp_pullback_2h", "symbol": "XRPUSDT",
+             "status": "closed" if stranded else "open",
+             "sl": 1.34631429, "tp": 1.5535464,
+             "linked_trade_id": 5474, "close_reason": "reconciler_filled"}],
+        "journal_trades": [
+            {"id": 5474, "account_id": "bybit_2", "symbol": "XRPUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 58.5,
+             "stop_loss": 1.34631429,
+             "order_package_id": "pkg-293021e2e84a48db"},
+            {"id": 5475, "account_id": "bybit_portfolio", "symbol": "XRPUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 11903.8,
+             "stop_loss": 1.34631429,
+             "order_package_id": "pkg-293021e2e84a48db"}],
+        "positions": [
+            {"id": "5474", "account": "bybit_2", "symbol": "XRPUSDT",
+             "qty": 58.5, "stopLoss": 1.34631429, "accountClass": "real_money"},
+            {"id": "5475", "account": "bybit_portfolio", "symbol": "XRPUSDT",
+             "qty": 11903.8, "stopLoss": 1.34631429, "accountClass": "paper"}],
+    }
+
+
+def _fx_pkg_leg_below_journal_window() -> Dict[str, Any]:
+    """Leg **4347** as it really is: open, and BELOW the journal's 1000-row cap.
+
+    MEASURED 2026-09-10T01:0xZ -- ``/api/diag/journal?table=trades`` returned
+    ids 4618..5617, so 4347 (``alpaca_paper``/SPY, open since 2026-08-03, its
+    package ``pkg-32a5162bbbdd4ef6`` closed ``exchange_flat_reconciled``) is
+    **absent from journal_trades entirely** while sitting in the open book.
+
+    ``journal_trades`` here holds one unrelated, healthy in-window row so the
+    graded denominator is non-zero -- otherwise a PASS and a vacuous
+    ``not_measured`` would be indistinguishable.
+    """
+    return {
+        "order_packages": [
+            {"order_package_id": "pkg-32a5162bbbdd4ef6",
+             "strategy_name": "spy_trend_long_1d", "symbol": "SPY",
+             "status": "closed", "sl": 744.47714286, "tp": 830.42638,
+             "linked_trade_id": 4347,
+             "close_reason": "exchange_flat_reconciled"},
+            {"order_package_id": "pkg-healthy", "strategy_name": "s",
+             "symbol": "AVAXUSDT", "status": "open", "sl": 7.8, "tp": 7.6,
+             "linked_trade_id": 5617, "close_reason": None}],
+        "journal_trades": [
+            {"id": 5617, "account_id": "bybit_1", "symbol": "AVAXUSDT",
+             "status": "open", "is_backtest": 0, "position_size": 20065.4,
+             "stop_loss": 7.81461429, "order_package_id": "pkg-healthy"}],
+        "positions": [
+            {"id": "5617", "account": "bybit_1", "symbol": "AVAXUSDT",
+             "qty": 20065.4, "stopLoss": 7.81461429, "accountClass": "paper"},
+            {"id": "4347", "account": "alpaca_paper", "symbol": "SPY",
+             "qty": 11.0, "stopLoss": 744.47714286, "accountClass": "paper"}],
+    }
 
 
 def _self_test() -> int:
@@ -942,6 +1210,58 @@ def _self_test() -> int:
     bt_rows["journal_trades"][1]["is_backtest"] = 1
     expect("a backtest row is out of population",
            "INV-PROTECT-LEG-MATCHES-ROW", bt_rows, PASS)
+
+    # ---------------------------------------------------------------- F-39
+    # (f1/f2) THE PLANTED-CONTROL PAIR, one field apart. A check that cannot be
+    #         shown to FAIL on the real condition, and to stop failing once the
+    #         condition is removed, is evidence of nothing.
+    expect("package-leg detects the live F-39 stranded shape (real-money 5474)",
+           "INV-PACKAGE-LEG-REACHABLE", _fx_pkg_legs(stranded=True), FAIL)
+    expect("...and PASSES once the package is no longer closed",
+           "INV-PACKAGE-LEG-REACHABLE", _fx_pkg_legs(stranded=False), PASS)
+
+    # (f3/f4) THE LOAD-BEARING CONTROL. Leg 4347 sits BELOW the diag journal's
+    #         1000-row cap, so a journal-only reading cannot see it at all. f3
+    #         asserts the invariant still catches it (via the open book plus
+    #         order_packages.linked_trade_id); f4 asserts that the SAME fixture
+    #         WITHOUT the positions payload reports CLEAN -- i.e. that the
+    #         open-book cross-check is load-bearing rather than decorative. If
+    #         these two ever agree, this invariant has gone blind to exactly the
+    #         leg class F-39 named and would say so with a green tick.
+    below = _fx_pkg_leg_below_journal_window()
+    expect("package-leg catches a stranded leg BELOW the journal's 1000-row cap",
+           "INV-PACKAGE-LEG-REACHABLE", below, FAIL)
+    journal_only = {k: v for k, v in below.items() if k != "positions"}
+    expect("...while the journal-only view reports it clean (the cap is real)",
+           "INV-PACKAGE-LEG-REACHABLE", journal_only, PASS)
+
+    # (f5) `linked_unresolvable` is *we could not identify the managed leg*. It
+    #      is counted, never a violation -- "we did not look" must no more read
+    #      as a FAIL than as a pass. One healthy row keeps the denominator > 0
+    #      so this is a real PASS rather than a vacuous not_measured.
+    unresolvable = _fx_pkg_leg_below_journal_window()
+    unresolvable["order_packages"] = [
+        pk for pk in unresolvable["order_packages"]
+        if pk["order_package_id"] == "pkg-healthy"]
+    expect("an unresolvable leg is counted, not failed",
+           "INV-PACKAGE-LEG-REACHABLE", unresolvable, PASS)
+
+    # (f6) The other half of the operator's chosen scope: an OPEN package whose
+    #      siblings hold different stops. A trail moved the linked leg only.
+    divergent = _fx_pkg_legs(stranded=False)
+    divergent["journal_trades"][1]["stop_loss"] = 1.29
+    divergent["positions"][1]["stopLoss"] = 1.29
+    expect("package-leg detects divergent sibling stops on an open package",
+           "INV-PACKAGE-LEG-REACHABLE", divergent, FAIL)
+
+    # (f7) THE F-38 GHOST, and the reason this invariant recomputes instead of
+    #      reading the latch: a CLOSED package whose legs have ALL since closed
+    #      is not a standing condition and must NOT fail the suite. 17 of the
+    #      latch's 20 entries were exactly this, the oldest 22 days stale.
+    ghost = _fx_pkg_leg_below_journal_window()
+    ghost["positions"] = [q for q in ghost["positions"] if q["id"] != "4347"]
+    expect("a closed package whose legs have all closed does NOT fail the suite",
+           "INV-PACKAGE-LEG-REACHABLE", ghost, PASS)
 
     # (e) small-n must NOT read as a pass
     small = _fx_good()
