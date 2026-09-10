@@ -376,6 +376,17 @@ def inv_exit_loop_meets_requirement(ctx) -> Result:
     Reads ``requirement_state`` BESIDE ``intervals_measured``: the grade is
     per-process, so ``within`` on a tiny n can mean "no process lived long
     enough to draw the tail", not "the requirement was met".
+
+    ⚠️ ``near_miss`` IS GRADED BEFORE THE SMALL-n REFUSAL, and that asymmetry is
+    deliberate. ``within`` at n=4 is an ABSENCE of observation and is refused;
+    ``near_miss`` at n=4 is a POSITIVE observation — a gap really did reach 90% of
+    the requirement — and a small sample does not un-see it. It returns ``pass``
+    because the invariant asserted here is "the loop MET its 60s requirement", and
+    a near miss met it; the margin is carried in ``detail`` rather than promoted
+    to a violation, because spending FAIL on a promise that was KEPT is how a
+    suite gets ignored. The WARN half is the operator ping in
+    ``exit_loop_health.run_exit_loop_health_check``, which is where a warning
+    belongs.
     """
     h = ctx.get("exit_loop_health")
     if not h:
@@ -395,6 +406,17 @@ def inv_exit_loop_meets_requirement(ctx) -> Result:
     if state == "breached":
         return Result(FAIL, "exit-loop inter-evaluation intervals", n,
                       [f"requirement_state=breached, max_interval={mx}ms over n={n}"])
+    if state == "near_miss":
+        ratio = _num((body or {}).get("requirement_ratio"))
+        pct = f"{round(ratio * 100, 1)}%" if ratio is not None else "unknown%"
+        req = (body or {}).get("requirement_s")
+        return Result(PASS, "exit-loop inter-evaluation intervals", n,
+                      detail=f"NEAR MISS — max_interval={mx}ms is {pct} of the "
+                             f"{req}s requirement over n={n}. INSIDE the "
+                             f"requirement, so not a violation — but `within` and "
+                             f"this are not the same fact, and the margin is the "
+                             f"finding. Measured 2026-09-09: the promise cleared "
+                             f"by 48.8ms and every instrument read `within`.")
     if n < 30:
         return Result(NOT_MEASURED, "exit-loop inter-evaluation intervals", n,
                       detail=f"within, but n={n} is too small to have drawn the tail")
@@ -926,6 +948,18 @@ def _self_test() -> int:
     small["exit_loop_health"] = {"requirement_state": "within",
                                  "intervals_measured": 4, "max_interval_ms": 20000}
     expect("exit-interval refuses to pass on n=4", "INV-EXIT-INTERVAL", small, NOT_MEASURED)
+
+    # (e2) a NEAR MISS is a positive observation and passes on its own n — it is
+    #      not refused the way a small-n `within` is, because something was seen.
+    #      It must not be graded FAIL: the requirement was met.
+    nearmiss = _fx_good()
+    nearmiss["exit_loop_health"] = {"requirement_state": "near_miss",
+                                    "intervals_measured": 4,
+                                    "requirement_s": 60.0,
+                                    "requirement_ratio": 0.9992,
+                                    "max_interval_ms": 59951.2}
+    expect("a near miss passes on n=4 rather than being refused",
+           "INV-EXIT-INTERVAL", nearmiss, PASS)
 
     ok = sum(1 for _, good_, _ in checks if good_)
     for name, good_, why in checks:

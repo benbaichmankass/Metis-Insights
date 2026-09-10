@@ -146,6 +146,64 @@ def record_exit_interval(record: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def read_tail_records(limit: int = 50) -> List[Dict[str, Any]]:
+    """The last ``limit`` rows, in FILE (chronological) order. Never raises.
+
+    ``read_soak_records`` deliberately reads the WHOLE file, because a
+    cross-process max truncated to the newest N would reintroduce in the reader
+    exactly the per-process sampling bias this module exists to remove. That is
+    right for a read surface and wrong for the live trader: the log is measured
+    at ~2.9k rows/day and was 6.29 MB on 2026-08-25, and the restart-gap grade
+    runs inside the process it is grading.
+
+    So this is the BOUNDED read, and it is bounded for a reason that also makes
+    it sufficient: a restart gap joins the LAST row of one process to the FIRST
+    row of the next, and those two rows are ADJACENT in an append-only file. A
+    handful of rows is enough to see the boundary; the whole file is not needed
+    and its cost is not affordable on a tick.
+
+    ⚠️ IT IS A TAIL, SO ITS POPULATION IS THE TAIL. A caller must not report a
+    grade computed here as a statement about the log's whole history — the
+    honest scope is "the most recent process boundary", and
+    ``grade_restart_gaps`` carries ``population`` saying which it got.
+
+    Reads the last ~256 KiB rather than the whole file, then keeps the final
+    ``limit`` complete lines. The first line of that window is usually torn and
+    is dropped — a torn line is skipped by the parser anyway, and dropping it
+    keeps the count honest rather than silently short.
+    """
+    try:
+        limit = max(int(limit), 1)
+        path = soak_log_path()
+        if not path.exists():
+            return []
+        size = path.stat().st_size
+        window = min(size, 262_144)
+        with path.open("rb") as fh:
+            fh.seek(size - window)
+            blob = fh.read(window)
+        text = blob.decode("utf-8", errors="replace")
+        lines = text.splitlines()
+        if window < size and lines:
+            lines = lines[1:]          # the leading fragment, cut mid-line
+        out: List[Dict[str, Any]] = []
+        for line in lines[-limit:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                continue               # a torn line is skipped, never fails the read
+            if isinstance(obj, dict):
+                out.append(obj)
+        return out
+    except OSError:
+        return []
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def read_soak_records(
     *,
     limit: int = 200,
@@ -213,6 +271,47 @@ def read_soak_records(
             summary["max_interval_process"] = peak.get("process_started_utc")
         if breaches:
             summary["last_breach_utc"] = breaches[-1].get("logged_at_utc")
+
+        # --- THE RESTART GAP, over the WHOLE log --------------------------------
+        #
+        # The one interval the requirement covers and every per-process surface
+        # excludes by construction: last completed pass of process N to first of
+        # N+1. It is computable ONLY here, because a cross-process quantity cannot
+        # be computed by a process — which is the same reason this file exists at
+        # all, one level up.
+        #
+        # Computed over every row on disk, like the rest of the summary and for
+        # the same reason: a boundary max truncated to the newest page would be
+        # the per-process bias reintroduced in the reader. The live trader uses
+        # `read_tail_records` instead, because it needs ONE boundary rather than
+        # the history and must not read 6 MB on a tick.
+        #
+        # ⚠️ `processes_seen == 1` here means there is no boundary at all, and the
+        # grade is `not_measured` — NOT `within`. Read it beside `gaps_measured`.
+        #
+        # Imported HERE rather than at module scope: the grader imports
+        # `exit_loop_health` for the one definition of the requirement and the
+        # band, and this module is imported from that module's write path.
+        #
+        # ⚠️ NO INNER try/except, DELIBERATELY. `grade_restart_gaps` cannot raise
+        # by construction (it owns its own handler and degrades to `unknown`), so
+        # the only failure reachable here is an ImportError — i.e. the module is
+        # missing from the deploy. That is a DEPLOY DEFECT, and the honest
+        # response is the one the enclosing handler already gives: no `summary` at
+        # all. Catching it and stamping the grader's could-not-look value here
+        # would have re-declared that vocabulary in a file which branches on none
+        # of it — the collapse one level up, a state literal with no consumer
+        # behind it. (The value is deliberately not spelled out in this comment:
+        # `collapsed-state-guard` credits state literals found in COMMENTS as
+        # consumer evidence, so writing it would make this file a false consumer
+        # of two contracts it does not read. That is the KNOWN, OPEN
+        # BL-20260817-COLLAPSED-STATE-GUARD-READS-PROSE, whose own text predicts
+        # it "leaves the next author to rediscover it"; this comment is that
+        # prediction coming true on 2026-09-09, and is left here so the next
+        # author does not pay for it a fourth time.)
+        from src.runtime.exit_restart_gap import grade_restart_gaps
+        summary["restart_gap"] = grade_restart_gaps(
+            rows, population="every row on disk")
         out["summary"] = summary
 
         page = [r for r in rows if r.get("over_requirement") is True] if breached_only else rows

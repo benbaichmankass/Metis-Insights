@@ -328,3 +328,137 @@ def test_state_file_carries_the_requirement_grade(tmp_path, monkeypatch):
     assert payload["requirement_state"] == "breached"
     assert payload["requirement_s"] == 60.0
     assert payload["max_interval_ms"] == 70_000.0
+
+
+# --- the NEAR-MISS band (audit F-50, operator decision 2026-09-09) ------------
+#
+# `requirement_state` was binary about the thing that matters. Measured
+# 2026-09-09 over n=989 intervals across 12 processes, the worst gap was
+# 59951.2ms against a 60000ms requirement — the promise cleared by 48.8ms and
+# every instrument read `within`, identically to a comfortable 20s max.
+
+def _pass_at(monkeypatch, times):
+    """Drive `record_pass` at a scripted sequence of monotonic times."""
+    t = [times[0]]
+    monkeypatch.setattr(h.time, "monotonic", lambda: t[0])
+    for v in times:
+        t[0] = v
+        h.record_pass(1_000.0)
+    return t
+
+
+def test_near_miss_is_a_distinct_state_from_within(monkeypatch):
+    """THE F-50 SHAPE, to the millisecond. 59951.2ms against 60s used to grade
+    `within` — the same value as a 20s max, which is the collapse."""
+    _pass_at(monkeypatch, [1000.0, 1000.0 + 59.9512])
+    st = h.status()
+    assert st["max_interval_ms"] == 59951.2
+    assert st["requirement_state"] == "near_miss"
+    assert st["requirement_state"] != "breached"      # the promise was KEPT
+    assert st["requirement_ratio"] == round(59951.2 / 60_000.0, 4)
+
+
+def test_a_comfortable_max_still_reads_within(monkeypatch):
+    """The band must not swallow the healthy case — 30s of 60s is 50%."""
+    _pass_at(monkeypatch, [1000.0, 1030.0])
+    assert h.status()["requirement_state"] == "within"
+
+
+def test_the_band_edge_is_inclusive_at_exactly_the_fraction(monkeypatch):
+    """0.9 exactly is a near miss, and a hair under it is not. Pinned because an
+    off-by-one on a `>=` here is invisible in production — both sides look calm."""
+    _pass_at(monkeypatch, [1000.0, 1054.0])           # 54s / 60s == 0.90
+    assert h.status()["requirement_state"] == "near_miss"
+    h._reset_for_tests()
+    _pass_at(monkeypatch, [1000.0, 1053.9])           # 0.8983
+    assert h.status()["requirement_state"] == "within"
+
+
+def test_a_breach_is_never_downgraded_to_a_near_miss(monkeypatch):
+    """ORDER CONTROL. `breached` is tested first; if the band were tested first,
+    every breach would render as a warning — the dangerous direction, because the
+    ALERT is the one that means a live trade went unevaluated."""
+    _pass_at(monkeypatch, [1000.0, 1075.0])           # 75s, ratio 1.25
+    st = h.status()
+    assert st["requirement_state"] == "breached"
+    assert st["requirement_ratio"] == 1.25
+
+
+def test_not_measured_carries_no_ratio(monkeypatch):
+    """`None`, never 0.0. A ratio of zero is a real reading (a 0ms max); "no
+    interval exists" is not a ratio at all."""
+    monkeypatch.setattr(h.time, "monotonic", lambda: 1000.0)
+    assert h.status()["requirement_ratio"] is None
+    h.record_pass(1_000.0)
+    st = h.status()
+    assert st["requirement_state"] == "not_measured"
+    assert st["requirement_ratio"] is None
+
+
+def test_unknown_carries_no_ratio(monkeypatch):
+    """A read failure must not be able to report a margin either.
+
+    Fails `stale_seconds`, not `time.monotonic`: with zero passes `status()`
+    returns before it ever reads the clock, so patching the clock would test
+    `not_measured` while claiming to test `unknown`.
+    """
+    def boom() -> float:
+        raise RuntimeError("state unreadable")
+    monkeypatch.setattr(h, "stale_seconds", boom)
+    st = h.status()
+    assert st["requirement_state"] == "unknown"
+    assert st["requirement_ratio"] is None
+
+
+def test_near_miss_warns_once_per_process(monkeypatch, _clean):
+    sent = _clean
+    _pass_at(monkeypatch, [1000.0, 1055.0])
+    h.run_exit_loop_health_check()
+    h.run_exit_loop_health_check()
+    h.run_exit_loop_health_check()
+    warns = [m for m in sent if "NEAR MISS" in m]
+    assert len(warns) == 1
+    assert "[WARN]" in warns[0] and "[ALERT]" not in warns[0]
+    assert "NOT a breach" in warns[0]
+
+
+def test_a_warned_process_can_still_alert_when_it_later_breaches(monkeypatch, _clean):
+    """THE REGRESSION THE SEPARATE LATCH KEY EXISTS FOR. A process that warns and
+    then breaches must produce BOTH; a shared key would let the earlier, quieter
+    warning suppress the ALERT that means a trade really did go unevaluated."""
+    sent = _clean
+    t = [1000.0]
+    monkeypatch.setattr(h.time, "monotonic", lambda: t[0])
+    h.record_pass(1_000.0)
+    t[0] = 1055.0
+    h.record_pass(1_000.0)                            # 55s → near miss
+    h.run_exit_loop_health_check()
+    assert len([m for m in sent if "NEAR MISS" in m]) == 1
+
+    t[0] = 1130.0
+    h.record_pass(1_000.0)                            # 75s → breach
+    h.run_exit_loop_health_check()
+    assert h.status()["requirement_state"] == "breached"
+    assert len([m for m in sent if "INTERVAL BREACHED" in m]) == 1
+    # and the warning does not repeat now that the grade has moved on
+    h.run_exit_loop_health_check()
+    assert len([m for m in sent if "NEAR MISS" in m]) == 1
+
+
+def test_a_stale_recovery_does_not_re_arm_the_near_miss_warning(monkeypatch, _clean):
+    """The breach latch already had this bug once. The near-miss key is carried
+    across the same write rather than trusted to a different pattern."""
+    sent = _clean
+    t = [1000.0]
+    monkeypatch.setattr(h.time, "monotonic", lambda: t[0])
+    h.record_pass(1_000.0)
+    t[0] = 1055.0
+    h.record_pass(1_000.0)
+    h.run_exit_loop_health_check()
+    assert len([m for m in sent if "NEAR MISS" in m]) == 1
+
+    t[0] = 1055.0 + h.stale_seconds() + 1             # go stale
+    h.run_exit_loop_health_check()
+    h.record_pass(1_000.0)                            # recover
+    h.run_exit_loop_health_check()
+    assert len([m for m in sent if "NEAR MISS" in m]) == 1

@@ -38,6 +38,7 @@ raise into it.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -81,6 +82,42 @@ _DEFAULT_STALE_S = 180.0
 _REQUIREMENT_ENV = "EXIT_EVAL_MAX_INTERVAL_SECONDS"
 _DEFAULT_REQUIREMENT_S = 60.0
 
+# --- the NEAR-MISS band, which is a third question again ----------------------
+#
+# `requirement_state` was BINARY about the thing that matters: a max of 59951.2ms
+# against a 60000ms requirement graded `within`, exactly like a max of 20000ms.
+# Measured 2026-09-09 (audit F-50) that is not a hypothetical margin -- it is the
+# actual reading. Population: `exit_interval_soak`, n=989 intervals over 12
+# processes, 08:36:14Z-16:54:41Z; mean 29880.6, median 29993.1, p95 34886.9,
+# MAX 59951.2, `over_requirement` 0 of 1000. The promise cleared by **48.8ms**
+# and every instrument said `within`.
+#
+# It is not a margin that has been shrinking, and this comment must not be read
+# as saying so: against 2026-08-25 (n=991, same window shape) the BODY is
+# unmoved -- mean 29879 -> 29880.6, median 29970 -> 29993.1. Only the tail moved
+# (MAX 45034 -> 59951.2). And the requirement was already BREACHED once, on
+# 2026-09-07T22:48:54Z: recorded fact from `requirement_breach_process` in the
+# alert latch, which is written ONLY when a breach fires the alert.
+#
+# So the band is a WARN, deliberately a DISTINCT state from `breached` rather
+# than a widening of it. A near miss is not a broken promise -- no trade went
+# unevaluated past the requirement -- and grading it as one would train the
+# operator past the alert that means a trade DID (the desensitized-alarm P1).
+# Nor may it collapse into `within`, which is the defect above.
+#
+# 0.9 is the operator's number, chosen on 2026-09-09
+# (`WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED`,
+# `chosen: near_miss_and_restart_gap`). It is a CHOSEN threshold, not a tuned
+# one, and is stated as such rather than dressed up as measured.
+#
+# Deliberately NOT an env knob. Every other threshold in this module is one
+# because it is a cadence or a window an operator may need to move on a live VM
+# without a redeploy; this is the recorded content of a decision, and a knob
+# would make it silently disableable -- which is the one direction that must not
+# be cheap. CLAUDE.md's env table is explicitly "a curated subset", with other
+# load-bearing flags "documented at their call sites"; this is that.
+NEAR_MISS_FRACTION = 0.9
+
 _lock = threading.Lock()
 _passes: int = 0
 _last_pass_monotonic: Optional[float] = None
@@ -96,6 +133,12 @@ _max_interval_ms: Optional[float] = None
 _max_interval_at_utc: Optional[str] = None
 _breaches: int = 0
 _last_breach_utc: Optional[str] = None
+# Graded at most ONCE per process — the restart gap is a fact about this
+# process's START, so re-grading it every tick would re-read a file to
+# recompute a value that cannot change.
+_restart_gap_graded: bool = False
+
+logger = logging.getLogger(__name__)
 
 
 def stale_seconds() -> float:
@@ -238,12 +281,29 @@ def status() -> Dict[str, Any]:
         # `not_measured` is the one that earns its keep: with fewer than two
         # completed passes there IS no interval, and reporting that as `within`
         # would let a process that has evaluated nothing read as compliant.
+        # FIVE states, never collapsed — the same discipline as `state` above.
+        # `not_measured` is the one that earns its keep: with fewer than two
+        # completed passes there IS no interval, and reporting that as `within`
+        # would let a process that has evaluated nothing read as compliant.
+        # `near_miss` is the one added 2026-09-09: `within` covered both a
+        # comfortable 20s max and a 59951.2ms max against a 60s requirement, and
+        # those are not the same fact. ORDER MATTERS — `breached` is tested
+        # FIRST, so a genuine breach can never be downgraded to a warning by the
+        # band that sits just underneath it.
+        requirement_ms = requirement_s * 1000.0
         if intervals < 1 or max_interval is None:
             snap["requirement_state"] = "not_measured"
-        elif max_interval > requirement_s * 1000.0:
-            snap["requirement_state"] = "breached"
+            # None, never 0.0. A ratio of zero is a real reading (a max of 0ms);
+            # "no interval exists" is not a ratio at all.
+            snap["requirement_ratio"] = None
         else:
-            snap["requirement_state"] = "within"
+            snap["requirement_ratio"] = round(max_interval / requirement_ms, 4)
+            if max_interval > requirement_ms:
+                snap["requirement_state"] = "breached"
+            elif max_interval >= requirement_ms * NEAR_MISS_FRACTION:
+                snap["requirement_state"] = "near_miss"
+            else:
+                snap["requirement_state"] = "within"
         if last_mono is None:
             # NOT stale — nothing has run yet. Collapsing these would make a
             # booting process indistinguishable from a wedged one.
@@ -263,7 +323,7 @@ def status() -> Dict[str, Any]:
         return {"state": "unknown", "stale": False, "passes": None,
                 "age_seconds": None, "last_pass_utc": None,
                 "requirement_state": "unknown", "max_interval_ms": None,
-                "intervals_measured": None}
+                "requirement_ratio": None, "intervals_measured": None}
 
 
 def write_state_file(runtime_dir: Optional[str] = None) -> Optional[str]:
@@ -344,6 +404,7 @@ def write_disabled_state_file(runtime_dir: Optional[str] = None) -> Optional[str
             # things depending on mode.
             "requirement_s": requirement_seconds(),
             "requirement_state": "not_measured",
+            "requirement_ratio": None,
             "intervals_measured": 0,
             "max_interval_ms": None,
             "max_interval_at_utc": None,
@@ -370,8 +431,9 @@ def _reset_for_tests() -> None:
     global _passes, _last_pass_monotonic, _last_pass_utc, _last_pass_ms
     global _max_pass_ms, _max_pass_at_utc, _started_utc
     global _intervals_measured, _max_interval_ms, _max_interval_at_utc
-    global _breaches, _last_breach_utc
+    global _breaches, _last_breach_utc, _restart_gap_graded
     with _lock:
+        _restart_gap_graded = False
         _passes = 0
         _last_pass_monotonic = None
         _last_pass_utc = None
@@ -451,6 +513,92 @@ def _send(message: str) -> None:
         pass
 
 
+def _check_restart_gap(st: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Grade THIS process's restart gap, once. Never raises; returns the grade.
+
+    ⚠️ THE GAP THIS GRADES IS THE ONE ``status()`` CANNOT SEE. ``max_interval_ms``
+    is a per-process accumulator, so the interval joining the previous process's
+    last pass to this one's first is excluded by construction — and a deploy is
+    exactly when the trader is least likely to be evaluating exits. See
+    ``src/runtime/exit_restart_gap.py`` for the full argument.
+
+    ONCE per process, deliberately, and cheaply: it is a fact about this process's
+    start, so it cannot change, and re-deriving it every tick would re-read a file
+    to recompute a constant. It runs from the MAIN tick rather than from
+    ``record_pass`` on purpose — the grade needs a file read and can end in a
+    Telegram send, and neither belongs on the exit loop's own thread, which is the
+    thing whose latency this whole line of work is about.
+
+    It waits for ``passes >= 1`` because the boundary needs BOTH endpoints, and
+    this process's endpoint is its own first soak row.
+    """
+    global _restart_gap_graded
+    try:
+        if _restart_gap_graded:
+            return None
+        proc = st.get("process_started_utc")
+        if not proc or not (st.get("passes") or 0):
+            return None                      # our own first row is not on disk yet
+        _restart_gap_graded = True           # set before the work: one attempt, win or lose
+
+        from src.runtime.exit_restart_gap import (
+            RESTART_GAP_BREACHED, RESTART_GAP_NEAR_MISS, RESTART_GAP_NOT_MEASURED,
+            RESTART_GAP_UNKNOWN, RESTART_GAP_WITHIN, grade_this_process,
+        )
+        g = grade_this_process(proc)
+        state = g.get("restart_gap_state")
+        gap_s = round((g.get("max_gap_ms") or 0) / 1000.0, 1)
+        req = g.get("requirement_s")
+
+        # All five branched HERE, explicitly. Letting three of them fall into one
+        # silent `else` is the collapse this vocabulary exists to prevent — the
+        # three quiet states mean "it was fine", "there was no boundary" and "we
+        # could not look", and only the first is good news.
+        if state == RESTART_GAP_BREACHED:
+            _send(
+                "\U0001F534 [ALERT] EXIT-EVAL RESTART GAP BREACHED - the trader "
+                f"restarted and open trades went {gap_s}s without re-evaluation "
+                f"across the boundary (requirement {req}s). This is the interval "
+                "max_interval_ms CANNOT see: it resets on restart, so every "
+                "per-process surface will still read 'within'."
+            )
+        elif state == RESTART_GAP_NEAR_MISS:
+            _send(
+                "\U0001F7E1 [WARN] EXIT-EVAL RESTART GAP NEAR MISS - the gap "
+                f"across the last restart was {gap_s}s against a {req}s "
+                f"requirement ({round((g.get('max_gap_ratio') or 0) * 100, 1)}% of "
+                "it). NOT a breach. Per-process surfaces cannot see this interval "
+                "at all, so it will not appear in max_interval_ms."
+            )
+        elif state == RESTART_GAP_NOT_MEASURED:
+            # No boundary in the tail — the first process to write the log, or a
+            # freshly rotated one. Correct, and NOT compliance.
+            logger.info("exit restart gap: not_measured (%s) - no prior process "
+                        "boundary in the population, so no gap exists to grade",
+                        g.get("population"))
+        elif state == RESTART_GAP_UNKNOWN:
+            # WE COULD NOT LOOK, and this is logged rather than passed over
+            # precisely because a permanently-unknown grade reads exactly like a
+            # working one — the lesson the IB venue-session gate records (its
+            # `unknown` is fail-permissive AND logged, for that exact reason; the
+            # env-var name is not cited here on purpose, because doing so makes
+            # this file match that contract's consumer token and fire the
+            # collapsed-state guard on a coincidence). It does not
+            # PAGE: it is an instrument gap, not a trade going unevaluated.
+            logger.warning(
+                "exit restart gap: UNKNOWN - the boundary could not be graded "
+                "(%d ungradeable, %d overlapping, %d unattributed rows over %s). "
+                "This is 'we did not look', NOT 'the gap was fine'.",
+                g.get("ungradeable_gaps") or 0, g.get("overlapping_gaps") or 0,
+                g.get("unattributed_rows") or 0, g.get("population"))
+        elif state == RESTART_GAP_WITHIN:
+            logger.info("exit restart gap: within - %sms across the restart "
+                        "(requirement %ss)", g.get("max_gap_ms"), req)
+        return g
+    except Exception:  # noqa: BLE001 — observability must never break the tick
+        return None
+
+
 def run_exit_loop_health_check() -> Dict[str, Any]:
     """Called once per MAIN tick. Latched alert on the exit loop going stale.
 
@@ -469,7 +617,7 @@ def run_exit_loop_health_check() -> Dict[str, Any]:
         # either would fire on every restart and teach the operator to ignore this.
         if state not in ("fresh", "stale"):
             return dict(st, alerted=False, recovered=False,
-                        requirement_alerted=False)
+                        requirement_alerted=False, requirement_warned=False)
 
         prev = _load_alert_state()
         was_stale = bool(prev.get("stale"))
@@ -504,7 +652,8 @@ def run_exit_loop_health_check() -> Dict[str, Any]:
         # There is deliberately NO recovery ping: a maximum cannot decrease, so a
         # breach is a fact about the process, not a condition it can leave. That
         # also makes the alert inherently once-per-process — no rate limiter needed.
-        breached = st.get("requirement_state") == "breached"
+        grade = st.get("requirement_state")
+        breached = grade == "breached"
         proc = st.get("process_started_utc")
         already = prev.get("requirement_breach_process")
         requirement_alerted = False
@@ -518,19 +667,61 @@ def run_exit_loop_health_check() -> Dict[str, Any]:
             )
             requirement_alerted = True
 
-        if is_stale != was_stale or requirement_alerted:
+        # --- the NEAR-MISS band, a THIRD condition -----------------------------
+        #
+        # A separate latch key from the breach, deliberately. A process can warn
+        # first and breach later, and both are news: folding them into one key
+        # would let the earlier warning suppress the later ALERT, which is the
+        # dangerous direction. The reverse cannot happen -- `requirement_state`
+        # holds ONE value and `breached` is tested first -- so a breached process
+        # never also warns.
+        #
+        # WARN, not ALERT: no trade went unevaluated past the requirement, and
+        # spending the ALERT vocabulary on a promise that was KEPT is how the
+        # operator gets trained past the one that means it was not.
+        #
+        # No recovery ping, for the same reason the breach has none: a maximum
+        # cannot decrease, so this is a fact about the process rather than a
+        # condition it can leave. That also makes it inherently once-per-process,
+        # with no rate limiter needed.
+        near_miss = grade == "near_miss"
+        warned_proc = prev.get("requirement_near_miss_process")
+        requirement_warned = False
+        if near_miss and proc is not None and warned_proc != proc:
+            _send(
+                "\U0001F7E1 [WARN] EXIT-EVAL INTERVAL NEAR MISS - the worst gap "
+                f"between exit evaluations was "
+                f"{round((st.get('max_interval_ms') or 0) / 1000.0, 1)}s against a "
+                f"{st.get('requirement_s')}s requirement "
+                f"({round((st.get('requirement_ratio') or 0) * 100, 1)}% of it, "
+                f"n={st.get('intervals_measured')} this process). NOT a breach - "
+                "the requirement was met. Read it beside n: the max is "
+                "per-process and a short-lived process has not drawn the tail."
+            )
+            requirement_warned = True
+
+        if is_stale != was_stale or requirement_alerted or requirement_warned:
             new_state = {"stale": is_stale,
                          "at": datetime.now(timezone.utc).isoformat()}
-            # Carry the breach latch forward across a stale/recovery write, or a
-            # recovery ping would silently re-arm the breach alert for the same
-            # process and it would fire twice.
+            # Carry BOTH latches forward across any write, or a recovery ping
+            # would silently re-arm them for the same process and they would fire
+            # twice. This bit me once already on the breach key; the near-miss
+            # key is carried the same way rather than being trusted to a
+            # different pattern.
             new_state["requirement_breach_process"] = (
                 proc if requirement_alerted else already
             )
+            new_state["requirement_near_miss_process"] = (
+                proc if requirement_warned else warned_proc
+            )
             _save_alert_state(new_state)
+        gap = _check_restart_gap(st)
         return dict(st, alerted=alerted, recovered=recovered,
-                    requirement_alerted=requirement_alerted)
+                    requirement_alerted=requirement_alerted,
+                    requirement_warned=requirement_warned,
+                    restart_gap=gap)
     except Exception:  # noqa: BLE001
         return {"state": "unknown", "stale": False, "alerted": False,
                 "recovered": False, "requirement_alerted": False,
+                "requirement_warned": False,
                 "requirement_state": "unknown"}
