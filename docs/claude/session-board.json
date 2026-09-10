@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · work-digest run 34518915044",
-    "branch": "automation/work-digest-34518915044-1",
-    "claimed_at": "2026-09-10T19:12:26Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-hb-20260910T1926",
+    "claimed_at": "2026-09-10T19:32:48Z",
+    "purpose": "PR #11726 -- manager lease heartbeat 19:28Z + the record of a decision routing the manager owed a tick earlier."
   },
   "active_sessions": [
     {
