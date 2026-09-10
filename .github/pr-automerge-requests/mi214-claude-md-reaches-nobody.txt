@@ -1,0 +1,1 @@
+MI-214 session-end doc-freshness: CLAUDE.md asserted a claim its own cited backlog row records as false. Tier-1, one sentence.

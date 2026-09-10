@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-09T22:26:30Z",
+  "updated_at": "2026-09-09T23:26:30Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4074,7 +4074,7 @@
     {
       "session_id": "session_0178Pn128KK71u6nCzLeVH6w",
       "registry_key": "pending-20260909T214948Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-227 — F-36: intent_reduce orphans an oversized protective leg (operator-approved Tier-2, order path)",
       "owns_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG",
       "checklist_item": "MI-227-INTENT-REDUCE-ORPHAN-PROTECTIVE-LEG",
@@ -4085,20 +4085,30 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T21:50:30Z",
       "last_observed": {
-        "at": "2026-09-09T22:26:30Z",
+        "at": "2026-09-09T23:26:30Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
         "source": "get_session",
-        "session_status": "SESSION_STATUS_RUNNING",
-        "platform_updated_at": "2026-09-09T22:25:02Z",
+        "session_status": "SESSION_STATUS_IDLE",
+        "platform_updated_at": "2026-09-09T23:16:55Z",
         "branch": "claude/mi227-intent-reduce-resize-tracked-leg",
         "pr": 11604,
-        "manager_note": "LIVE and working ('MI-227 fix in flight: wiring resize + audit row gap'). PR #11604 is open, not a draft, and its `guards` check FAILED at 22:19:51Z. NOT TOUCHED BY THE MANAGER: it is a worker path (src/) and check_manager_scope R2 grades COMMITS IN RANGE, so a manager fix there is a violation however small. The lane is running and owns it."
+        "manager_note": "POKE WORKED — the merge conflict is RESOLVED. New head 0ef788cd; guards GREEN 23:17:47Z, pytest-run in flight. It correctly scheduled its own 23:52Z re-check rather than declaring done. MERGE IT once pytest-run passes: the operator's Tier-2 approval is on WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG and must not be re-sought.",
+        "previous_observation": {
+          "at": "2026-09-09T22:26:30Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "get_session",
+          "session_status": "SESSION_STATUS_RUNNING",
+          "platform_updated_at": "2026-09-09T22:25:02Z",
+          "branch": "claude/mi227-intent-reduce-resize-tracked-leg",
+          "pr": 11604,
+          "manager_note": "LIVE and working ('MI-227 fix in flight: wiring resize + audit row gap'). PR #11604 is open, not a draft, and its `guards` check FAILED at 22:19:51Z. NOT TOUCHED BY THE MANAGER: it is a worker path (src/) and check_manager_scope R2 grades COMMITS IN RANGE, so a manager fix there is a violation however small. The lane is running and owns it."
+        }
       }
     },
     {
       "session_id": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
       "registry_key": "pending-20260909T215040Z",
-      "state": "review_ready",
+      "state": "completed",
       "title": "MI-228 — F-11 + F-12 + F-13: the closed-flat invariant cannot report a violation (operator-approved Tier-2)",
       "owns_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ",
       "checklist_item": "MI-228-CLOSED-FLAT-INVARIANT-CANNOT-FALSIFY",
@@ -4109,14 +4119,48 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-09T21:51:10Z",
       "last_observed": {
-        "at": "2026-09-09T22:26:30Z",
+        "at": "2026-09-09T23:26:30Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session",
-        "session_status": "SESSION_STATUS_IDLE",
-        "platform_updated_at": "2026-09-09T22:17:33Z",
+        "source": "github",
+        "session_status": "PR_MERGED",
+        "platform_updated_at": "2026-09-09T23:05:50Z",
         "branch": "claude/mi-228-closed-flat-invariant-can-see",
         "pr": 11603,
-        "manager_note": "IDLE at 22:17:33Z having opened PR #11603 while CI was still in flight; its own post_turn_summary reads review_ready. MEASURED SINCE, which its summary could not know: `guards` PASSED at 22:18:09Z and pytest-run is still running. Tier-2 landing:hold — the merge is the manager's or the operator's, and the diff has NOT yet been read by the manager."
+        "manager_note": "DONE — #11603 merged as a34bc556, the first of the six operator-approved audit decisions on main. It filed its own loud OPEN-ITEMS row OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN: merged is not proven, nothing observed on the fleet.",
+        "previous_observation": {
+          "at": "2026-09-09T22:26:30Z",
+          "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+          "source": "get_session",
+          "session_status": "SESSION_STATUS_IDLE",
+          "platform_updated_at": "2026-09-09T22:17:33Z",
+          "branch": "claude/mi-228-closed-flat-invariant-can-see",
+          "pr": 11603,
+          "manager_note": "IDLE at 22:17:33Z having opened PR #11603 while CI was still in flight; its own post_turn_summary reads review_ready. MEASURED SINCE, which its summary could not know: `guards` PASSED at 22:18:09Z and pytest-run is still running. Tier-2 landing:hold — the merge is the manager's or the operator's, and the diff has NOT yet been read by the manager."
+        }
+      }
+    },
+    {
+      "session_id": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "registry_key": "pending-20260909T230624Z",
+      "state": "working",
+      "title": "MI-229 — F-28: collapse the second builder registry (operator-approved Tier-2, signal path)",
+      "owns_object": "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE",
+      "checklist_item": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
+      "spawned_at": "2026-09-09T23:06:24Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator answered this decision 2026-09-09 (collapse): delete the second registry, do not merely test parity. The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes to a SECOND builder registry holding 16 of 55 strategies, so exercising the sanctioned rollback would silently stop 35 of 45 live legs (78%) as skipped warnings. A rollback that causes an outage is not a rollback. Parents to IN-20260903-TRADING-SYSTEM-HEALTH.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-09T23:07:01Z",
+      "last_observed": {
+        "at": "2026-09-09T23:26:30Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session",
+        "session_status": "SESSION_STATUS_RUNNING",
+        "platform_updated_at": "2026-09-09T23:24:49Z",
+        "branch": "claude/mi229-collapse-builder-registry",
+        "pr": null,
+        "manager_note": "LIVE, 18 min in: 'replacing registry with resolver; fixing tests, docs, guards'. That is the COLLAPSE the operator chose, not the parity test they declined. No PR yet."
       }
     }
   ],

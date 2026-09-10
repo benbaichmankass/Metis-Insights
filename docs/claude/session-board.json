@@ -5,19 +5,21 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "branch": "claude/mgr-lease-hb-20260909T2248",
-  "claimed_at": "2026-09-09T22:26:30Z",
-  "purpose": "Manager: lease heartbeat + fresh supervision record for the two live lanes. Supersedes the GHOST claim left on claude/mgr-route-two-lanes-20260909T2152, which merged as 42d3310be (BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST)"
+  "held_by": "session_0178Pn128KK71u6nCzLeVH6w",
+  "branch": "claude/mi227-work-object-waiting",
+  "pr": 11616,
+  "claimed_at": "2026-09-09T23:49:00Z",
+  "purpose": "MI-227 session-end record-keeping (Tier-1, one work-object YAML: lifecycle in_flight -> waiting after #11604 merged, plus one true external_event blocked_on edge)",
+  "found_stale": "Claimed over a STALE holder rather than jumping a live queue, recorded rather than quietly taken: the slot read session_01FoASvmUGuahCphE1cewPPs / claude/mi214-claude-md-reaches-nobody claimed 2026-09-09T23:27:58Z, and that branch's PR #11613 MERGED at 2026-09-09T23:38:35Z without the slot being released. Verified against GitHub (search_pull_requests on the head branch: state closed, merged_at 23:38:35Z), not inferred from the commit subject on main."
  },
  "active_sessions": [
   {
    "session": "session_01TM8XjkvVpvMxH4EcLtTsvP",
    "branch": "claude/mi229-collapse-builder-registry",
    "repo": "benbaichmankass/Metis-Insights",
-   "status": "active",
+   "status": "done",
    "started_at": "2026-09-09T22:05:00Z",
-   "ended_at": null,
+   "ended_at": "2026-09-09T23:59:00Z",
    "scope": "MI-229 (audit F-28, operator-approved 'collapse'). Tier-2 SIGNAL PATH: deletes pipeline._STRATEGY_BUILDERS (the second registry) and routes multiplexed_signal_builder + monitor_unit_for through intent_multiplexer._resolve_builders(). Also: intent_multiplexer docstring, 7 tests that named the deleted symbol, a new re-split detector test, .claude/skills/new-strategy/SKILL.md + docs/strategies/supported_strategies.md (both instructed authors to register in the dict being deleted), the WO yaml, session-board.json.",
    "note": "Places/modifies/cancels NO order and flips NO env var. Does NOT touch src/units/accounts/execute.py or scripts/ops/system_invariants.py (MI-227 is live in both). Landing: PR opened ready with landing:hold, tier 2 - manager or operator merges; auto-merge NOT armed so no merge_slot is claimed."
   },

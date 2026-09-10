@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one work-object YAML under docs/claude/work/objects/ — record-keeping only. No runtime, order path, config, test or CI behaviour is touched; the Tier-2 code this row tracks already merged separately as 7b8b6b51d (#11604). Flips lifecycle in_flight -> waiting so a delivered build stops holding a WIP slot under a dead owner, and writes one TRUE typed blocked_on edge (kind: external_event) for the live reduce the done-condition still owes."
+}
