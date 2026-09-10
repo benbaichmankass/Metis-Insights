@@ -39,8 +39,8 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T07:15:00Z",
-  "cycle": "CY-20260903-MANAGER-CONTROL",
+  "updated_at": "2026-09-10T09:05:00Z",
+  "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
     "landed_unproven": "merged; effect NOT yet observed on the fleet",
@@ -2617,7 +2617,8 @@
       "note": "OPERATOR DIRECTIVE 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'. MEASURED 12:22Z: alpaca_live is mode: live / real_money with a roster of ONE leg (tlt_pullback_1h, routed 2026-08-31 by #10633); since that routing it has signalled EXACTLY ONCE and that signal was rejected with no recorded reason. It is idle because almost nothing is assigned to it. ⚠️ THREE CONSTRAINTS BOUND THE CANDIDATE SET: it is a CASH account (~$200, multiplier 1) so T+1 settlement binds and ALPACA_CASH_SETTLEMENT_MODE is already armed apply/alpaca_live; Alpaca is in WHOLE_UNIT_QTY_EXCHANGES so a leg whose risk budget cannot buy ONE WHOLE SHARE can never place; and accounts.yaml states that adding a leg to this account IS the live-trading moment and is Tier-3 in its own right, with no second gate behind it. ⚠️ The candidate pool is real, not hypothetical — alpaca_paper runs 19 legs and alpaca_portfolio 14 on the same venue — so the question is which clear a real-money bar on a cash account, not which could be written. ⚠️ insufficient_n is a legitimate per-leg outcome and must be reported per leg: all 44 enabled live legs currently grade that way under MI-155's floor, so a proposal assuming gradeable paper evidence claims something this system does not have. NOTHING IS ENACTED FROM THIS ITEM — the roster edit is a separate Tier-3 act after the operator answers. NOT YET SPAWNED: sequenced behind MI-199 and MI-200, which are the operator's other two directives from the same message. —— UPDATE 13:01Z: STILL NOT SPAWNED, and MI-200's finding STRENGTHENS the reason rather than merely restating it — the exit instrument itself is unreliable (28.3% of closes are not strategy exits; two API surfaces disagree on 38.9% of rows; 446 of 447 rows are not broker-truth-reconciled), so wiring more legs to a real-money cash account now would add trades this system cannot yet grade. That is a sequencing judgement, NOT a refusal of the operator's directive, and the item stays 'ready' rather than being blocked. —— ⚠️ OPERATOR DECIDED 2026-09-08T14:20Z, ASKED AS A POP-UP AND ANSWERED: 'Find the gate first'. The roster proposal is NOT the next step. VERIFY MI-200's UNVERIFIED claim that alpaca_live has been idle ~8 days behind a DRY-RUN GATE before proposing any leg — if the account is gated, adding legs to it changes nothing and the whole proposal would be built on a wrong diagnosis. This SUPERSEDES my own sequencing argument (which was 'the exit instrument is unreliable'): the operator's reason is sharper and is about this account specifically. ⚠️ THE GATE CLAIM IS A SESSION-SUMMARY LINE, NOT A MEASUREMENT — it must be established from the LIVE /api/bot/config (never the YAML; this repo has been bitten by exactly that difference today), naming which gate, which config field, the read surface and the 8-day basis. ⚠️ AND IF THE GATE IS REAL, FLIPPING IT IS TIER-3 (an account-mode/execution-gate change on a real-money account) — propose, never enact. —— GATE VERIFIED 21:29Z AND THE PREMISE IS REFUTED. The operator's answer was 'find the gate first', and it comes back the OTHER WAY: THERE IS NO GATE. Read from the LIVE /api/bot/config (as_of 2026-09-08T21:29:32Z), never the YAML: trading_mode.live_per_account['alpaca_live'] = TRUE — and that field's own note says it is 'the pipeline's runtime view', i.e. the running process, not the static config. halted: false. The account block reads yaml_mode: live, enabled: true, account_class: real_money. Its one routed leg tlt_pullback_1h reads enabled: true AND execution: 'live', so BOTH of the two declared execution gates are OPEN. ⚠️ POSITIVE CONTROL, because a field that always says true would prove nothing: the same live_per_account map reads FALSE for ib_live and oanda_practice. So the value discriminates. ⚠️ THE 'idle ~8 days behind a DRY-RUN GATE' CLAIM WAS A SESSION-SUMMARY LINE AND IS NOT TRUE. The operator was right to refuse to build a proposal on it; the verification simply falsifies it rather than confirming it. NOTHING WAS FLIPPED — this was a read. ⚠️ SO THE IDLENESS HAS A DIFFERENT CAUSE, AND THAT IS NOW THE QUESTION: the account holds ONE leg on a ~$200 CASH account where Alpaca requires WHOLE SHARES and T+1 settlement is armed (ALPACA_CASH_SETTLEMENT_MODE=apply, ACCOUNTS=alpaca_live). A leg whose risk budget cannot buy one whole share can never place. That is a SIZING constraint, not a gate, and it is what a roster proposal must actually answer. The proposal is UNBLOCKED by this reading; it is still Tier-3 to enact and still unassigned.",
       "state": "in_flight",
       "spawned_at": "2026-09-10T08:14:40Z",
-      "manager_note_on_the_delay": "⚠️ RECORDED AGAINST THE MANAGER, not the lane. This row read `ready` / `owner: unassigned` from 2026-09-08 until 2026-09-10T08:14Z — TWO DAYS — while it was the actual answer to a question the operator then had to ask ('why am I still not seeing any live trades weeks after we reactivated this account?'). It was waiting on a SESSION SLOT and nothing else. This is the second time this exact class has been recorded against a manager on this same account: MI-140's row already carries the note that it read 'unassigned — operator-selected, waiting on a session slot' for a whole day while the manager reported it as 'queued'."
+      "manager_note_on_the_delay": "⚠️ RECORDED AGAINST THE MANAGER, not the lane. This row read `ready` / `owner: unassigned` from 2026-09-08 until 2026-09-10T08:14Z — TWO DAYS — while it was the actual answer to a question the operator then had to ask ('why am I still not seeing any live trades weeks after we reactivated this account?'). It was waiting on a SESSION SLOT and nothing else. This is the second time this exact class has been recorded against a manager on this same account: MI-140's row already carries the note that it read 'unassigned — operator-selected, waiting on a session slot' for a whole day while the manager reported it as 'queued'.",
+      "lane": "research"
     },
     {
       "id": "MI-204-BYBIT-HEDGE-BOOK-FLAT-READ",
@@ -3138,7 +3139,8 @@
       "title": "Write the operator's no-retirement policy into SUNSET-DISPOSITIONS.json — the manager is barred from doing it",
       "note": "OPERATOR POLICY 2026-09-10 (verbatim in POLICY-20260910-NO-RETIREMENT-THE-FLOOR-IS-PAPER on this checklist) has NOT reached docs/claude/SUNSET-DISPOSITIONS.json, which is the register the sunset machinery actually reads. The manager tried and manager-scope-guard R2 CORRECTLY refused: that file is not manager surface, so writing it is a manager doing an item. Filing a scope exception to get past R2 is a standing prohibition, so it was backed out rather than forced.",
       "why_it_matters": "Until this lands, the policy exists only where the MANAGER looks and not where the SUNSET PASS looks, which is the same class of defect as MI-203.",
-      "done_when": "SUNSET-DISPOSITIONS.json carries the policy verbatim, and a sunset pass run afterwards proposes `demote`/`repair`/`keep`/`wire` rather than `retired`/`retire_proposed` for an underperforming leg."
+      "done_when": "SUNSET-DISPOSITIONS.json carries the policy verbatim, and a sunset pass run afterwards proposes `demote`/`repair`/`keep`/`wire` rather than `retired`/`retire_proposed` for an underperforming leg.",
+      "lane": "engineering"
     },
     {
       "id": "MI-234-SESSION-BRIEF-RE-ASKS-SUNSET-BECAUSE-IT-NEVER-READS-THE-ANSWER",
@@ -3150,7 +3152,8 @@
       "title": "The CLAUDE.md session brief renders sunset candidates from the PASS and never reads SUNSET-DISPOSITIONS — so every session re-asks a settled question",
       "note": "MEASURED 2026-09-10: the operator has now answered the retire-or-not question THREE times — DEC-20260904-DEMOTE-AND-TUNE-FLOW (recorded on turtle_soup as operator_decision `refused`), a re-affirmation logged as MI-203, and again 2026-09-10 when THIS MANAGER re-asked it after reading the brief. The brief's SUNSET block is rendered from the sunset PASS output and never joins it to the dispositions register, so ten already-dispositioned candidates render as ten open questions to every fresh session.",
       "why_it_matters": "This is the operator's own complaint made mechanical: 'We aren't using the backlog/lessons learned logs correctly if we still keep running into the same fuck ups.' A brief that re-asks settled questions manufactures them indefinitely, and each re-ask costs an operator interaction.",
-      "done_when": "The rendered brief either omits a candidate that carries a disposition, or renders it WITH its recorded answer. Verified by a fresh render, not by reading the renderer."
+      "done_when": "The rendered brief either omits a candidate that carries a disposition, or renders it WITH its recorded answer. Verified by a fresh render, not by reading the renderer.",
+      "lane": "engineering"
     },
     {
       "id": "MI-235-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION-IS-NEVER-TOLD-WHEN-IT-HAPPENS",
@@ -3162,7 +3165,8 @@
       "title": "A sub-session blocked on a manager action has no mechanism that tells it the action happened — measured at 13h and 3.5 days",
       "note": "MEASURED 2026-09-10 on two lanes. MI-222 (session_01WmFdLwfq4U5aLLjFRDDy6b) recorded need_input 'close PR #11579' at 2026-09-09T17:53:18Z; #11579 was closed at 19:41:11Z, about two hours later, and the lane sat BLOCKED for THIRTEEN HOURS. MI-139 (session_017UnyG4ArXmXKpB8rmEGv1j) recorded need_input 'write disposition for PR #11105' at 2026-09-06T19:10:07Z; #11105 had been closed at 10:22:01Z — NINE HOURS BEFORE it asked — and the lane sat blocked THREE AND A HALF DAYS. Both were freed only because a manager happened to run get_session over the roster.",
       "why_it_matters": "SESSIONS.json is a REGISTRY, not a channel. `needs_action` is written by the blocked session and read by nobody on a schedule. The poke channel exists (create_trigger + fire_trigger) and works, but firing it depends on a manager noticing — which is exactly what failed here, twice, for a combined ~4 days of lane time.",
-      "done_when": "A blocked session is OBSERVED being woken by something other than a manager reading the roster by hand — either the condition it named being detected, or a cadence that grades needs_action rows against live PR/repo state. A reminder to the manager is NOT a mechanism and does not close this."
+      "done_when": "A blocked session is OBSERVED being woken by something other than a manager reading the roster by hand — either the condition it named being detected, or a cadence that grades needs_action rows against live PR/repo state. A reminder to the manager is NOT a mechanism and does not close this.",
+      "lane": "engineering"
     },
     {
       "id": "MI-236-SIX-IN-FLIGHT-ROWS-WERE-STALE-AND-NOTHING-DECAYS-THEM",
@@ -3174,7 +3178,8 @@
       "title": "Six of nineteen in_flight checklist rows had owners that were finished, dead or archived — in_flight goes false by time passing",
       "note": "MEASURED 2026-09-10 by get_session over thirteen owners: MI-230 (owner completed 03:29Z, work deployed a7cc62a24), MI-212 (dead 2026-09-09 20:21Z), MI-221 (completed 02:07Z, its premise REFUTED), MI-210 (completed 2026-09-09 08:34Z), MI-211 (completed 2026-09-09 11:58Z, null recommendation), and MI-136 (ARCHIVED 2026-09-06 — the row had read in_flight for FOUR DAYS). MI-215/MI-217's owner completed 04:52Z. This is the same class as MI-178, where all 17 SESSIONS.json `working` rows were false.",
       "why_it_matters": "A checklist that claims nineteen items are being worked, when six are not, misprices every capacity decision made from it — including the manager's own read of the 3-session cap.",
-      "done_when": "The six rows carry their true state, AND something other than a manual sweep grades a row whose owner has gone terminal. The state correction alone is a one-off and does not close this."
+      "done_when": "The six rows carry their true state, AND something other than a manual sweep grades a row whose owner has gone terminal. The state correction alone is a one-off and does not close this.",
+      "lane": "engineering"
     },
     {
       "id": "MI-237-THE-MANAGER-CHECKLIST-HAS-NO-SCHEMA-SO-IT-CANNOT-BE-READ-SORTED-OR-GRADED",
@@ -3183,7 +3188,7 @@
       "state": "ready",
       "tier": 1,
       "priority": "high",
-      "lane": "workflow-implementation",
+      "lane": "engineering",
       "added": "2026-09-10",
       "note": "OPERATOR-RAISED 2026-09-10, verbatim: \"The fact that it's not organized is also a workflow issue that needs to be resolved (as part of the workflow implementation lane).\" Raised after asking for the whole checklist as a detailed table and receiving a summary instead — the summary happened BECAUSE the file cannot be tabulated: there is no column set to tabulate on. MEASURED 2026-09-10 over all 242 items at docs/claude/work/MANAGER-CHECKLIST.json (population = every element of items[]): 152 DISTINCT FIELD NAMES; 95 of them appear EXACTLY ONCE and 111 appear three times or fewer. Only `id` (242) is universal; `owner` 240, `title` 238, `note` 220. The one-off names are prose smuggled into keys — e.g. `⚠️_platform_state_20260909T042657Z`, `what_actually_prevents_it`, `the_honest_residual`, `⚠️_I_MARKED_THIS_OWNED_BEFORE_IT_WAS`. !! THE LOAD-BEARING FINDING IS NOT THE COUNT, IT IS A COLLAPSED STATUS. There are TWO competing status fields: `state` (177 rows) and `status` (83 rows). Every row has at least one, so nothing is stateless — an earlier reading of this as '65 items carry no state' was WRONG and must not be re-quoted, because it points at the wrong fix (backfilling a field rather than collapsing two). 18 rows carry BOTH, and 13 of those 18 DISAGREE. The disagreements are in the dangerous direction: MI-136 / MI-138 / MI-139 / MI-143 each read `state: in_flight` while `status: done`, and MI-144 / MI-145 read `state: queued` while `status: done`. A reader (human or script) that picks one field gets a different answer about what is running than one that picks the other. !! THIS IS NOT COSMETIC AND IT HAS ALREADY COST SOMETHING: this session found SIX rows sitting `in_flight` whose sessions were DEAD or ARCHIVED (MI-136 archived 2026-09-06, read `in_flight` for four days), and the two-field split is a sufficient explanation for at least four of them. `check_manager_scope.py` R6 and `session-registry-guard` both read `items[].state`/`owner`, so a row that records its truth in `status` is INVISIBLE to the guards that exist to catch a lost sub-session. !! AND THE VOCABULARIES ARE NOT THE SAME SET: `status` carries values `state` never uses — `superseded` (5), `operator_approved` (2), `filed_not_taken` (2), `unassigned` (2), `filed`, `failed`, and one literal `duplicate_of_MI-180`. So this is not a rename; some of those are real distinctions that a collapse must preserve or deliberately drop, and `duplicate_of_MI-180` is a POINTER wearing a status field's clothes.",
       "what_this_item_is_not": "NOT a request to prune the checklist, and NOT a rendering problem for a reader to work around. A session that 'fixes' this by writing a nicer renderer has not touched the defect — the file is the state of record a COLD manager reads, and the renderer is downstream of it. !! AND IT IS NOT A LICENCE TO DELETE THE ONE-OFF FIELDS WHOLESALE: several carry real evidence (`what_actually_prevents_it`, `the_honest_residual`) that exists nowhere else, so they must be moved into a declared field, not dropped. Deleting knowledge to satisfy a schema is the exact failure the OPEN-ITEMS cap produced on 2026-08-26.",
@@ -3191,7 +3196,8 @@
       "why_it_is_tier_1": "docs/claude/work/** plus a scripts/ci guard. It touches no order path, no strategy config and no risk cap. The MIGRATION half is a judgement call per row and is why this is a session's work rather than a script's.",
       "blocked_on": [],
       "blocked_on_basis": "NOT_ASSESSED",
-      "source": "operator (conversational), 2026-09-10"
+      "source": "operator (conversational), 2026-09-10",
+      "lane_was": "workflow-implementation"
     },
     {
       "id": "MI-238-THE-LIVE-WORKFLOW-PAGE-THE-MANAGER-CHECKLIST-AND-THE-DECISION-INBOX-ON-THE-SPA",
@@ -3200,7 +3206,7 @@
       "state": "in_flight",
       "tier": 1,
       "priority": "high",
-      "lane": "workflow-implementation",
+      "lane": "engineering",
       "added": "2026-09-10",
       "repos": [
         "Metis-Insights (route)",
@@ -3218,7 +3224,8 @@
       "owns_object": "WO-20260910-THE-LIVE-WORKFLOW-PAGE-MANAGER-CHECKLIST-WITH",
       "spawned_at": "2026-09-10T07:36:58Z",
       "operator_clarification_20260910T0800Z": "VERBATIM, and it changes the SCOPE of this item rather than merely emphasising it: \"just to be clear the organized workflow isn't a backstop - it's the way we need to work in general, and part of that is making the work page on the UI clear so that I can keep track of the work sessions without needing to ask for ad hoc updates all the time.\" !! TWO CONSEQUENCES, AND THE FIRST IS A REAL GAP IN WHAT WAS FILED. (1) THE PAGE NEEDS A THIRD PANEL: LIVE WORK SESSIONS. As originally filed this item covered the CHECKLIST and the DECISION inbox only. The operator's stated purpose is tracking the work SESSIONS, and that is a different source: docs/claude/work/SESSIONS.json (the sub-session registry). The panel must show, per live lane: which item it owns, its session id, its state, WHEN IT WAS LAST OBSERVED, and what it is blocked on. Without that the operator still has to ask, which is the exact cost this item exists to remove. (2) IT IS NOT A STOPGAP FOR A MISSING PAGE. The page reflects the discipline; it does not create it. So the CLAUDE.md/role-pack half (half 3) is not optional polish — working from the page IS the workflow, and the page is only as good as the registers behind it.",
-      "the_sessions_panel_and_the_trap_it_must_avoid": "⚠️ `state` IN SESSIONS.json DECAYS AND NOTHING DECAYS IT. Measured 2026-09-10T07:47Z: MI-232 and LANE4-RECOVERY both read `working` on main while both were IDLE and COMPLETED — false BY TIME PASSING, not by anyone being wrong when they wrote it. 17 rows were false the same way on 2026-09-08, one of them 42 minutes after it was written. So a panel that renders `state` verbatim will confidently show dead lanes as running, which is WORSE than no panel: the operator would stop asking precisely because it looks live. ⚠️ THE FIX IS NOT TO GUESS. Render the row's own `updated_at` BESIDE its state and make staleness visible — a `working` row last observed 90 minutes ago is not the same fact as one observed 2 minutes ago, and the page must not collapse them. MI-236 already carries the underlying defect (nothing decays a stale in_flight row); this panel must not silently depend on that being fixed first, and must not paper over it either. ⚠️ AND THE PAGE CANNOT READ list_sessions: that is an mcp__* tool no route holds, so the live session state is only ever as good as the last MANAGER OBSERVATION written into the registry. Say so on the page rather than implying a live feed."
+      "the_sessions_panel_and_the_trap_it_must_avoid": "⚠️ `state` IN SESSIONS.json DECAYS AND NOTHING DECAYS IT. Measured 2026-09-10T07:47Z: MI-232 and LANE4-RECOVERY both read `working` on main while both were IDLE and COMPLETED — false BY TIME PASSING, not by anyone being wrong when they wrote it. 17 rows were false the same way on 2026-09-08, one of them 42 minutes after it was written. So a panel that renders `state` verbatim will confidently show dead lanes as running, which is WORSE than no panel: the operator would stop asking precisely because it looks live. ⚠️ THE FIX IS NOT TO GUESS. Render the row's own `updated_at` BESIDE its state and make staleness visible — a `working` row last observed 90 minutes ago is not the same fact as one observed 2 minutes ago, and the page must not collapse them. MI-236 already carries the underlying defect (nothing decays a stale in_flight row); this panel must not silently depend on that being fixed first, and must not paper over it either. ⚠️ AND THE PAGE CANNOT READ list_sessions: that is an mcp__* tool no route holds, so the live session state is only ever as good as the last MANAGER OBSERVATION written into the registry. Say so on the page rather than implying a live feed.",
+      "lane_was": "workflow-implementation"
     },
     {
       "id": "MI-239-A-MONITORING-WORKFLOW-THAT-LETS-MONITORED-ITEMS-BE-FOLLOWED-WITHOUT-GENERATING-NOISE",
@@ -3227,7 +3234,7 @@
       "state": "ready",
       "tier": 1,
       "priority": "high",
-      "lane": "workflow-implementation",
+      "lane": "engineering",
       "added": "2026-09-10",
       "note": "OPERATOR-RAISED 2026-09-10, verbatim, IN PLACE OF ANSWERING a decision request: \"We should have a workflow for monitoring that allows us to follow mo itores items in a clean wya that doesn't generate noise, if we don't then we need to understand how that fits into the workflow lane. The problem here is not correctly framed for a structurally sound workflow.\" !! THE OPERATOR REJECTED THE UNIT OF DECISION, NOT THE PARTICULAR ROW. They were asked whether ONE loud OPEN-ITEMS row should be removed given a deviation from its written clause (1). Answering that question either way would have reproduced per-row adjudication, which is the thing that does not scale: OPEN-ITEMS.json carries 26 monitoring items DUE in the CLAUDE.md session brief today, each with a multi-paragraph clears_when, and every one of them is a candidate for exactly this argument. !! THE MEASURED SHAPE OF THE PROBLEM, so the lane does not start from prose: the brief's monitoring block is the single largest thing a session reads before acting, several rows have carried `verified_at: never` since they were opened (the closed-flat invariant and the rollback registry both do today), and the register has NO CAP by deliberate operator decision (2026-08-26: check_open_items.py sets MAX_ITEMS = None, because \"we don't want to cap the number of bugs we can track, we want to ensure that they are actually being tracked, fixed, and learned from\"). So the answer is NOT to prune and is NOT to cap — both were already tried and the cap was reversed as a bandaid that \"bounded the LIST rather than making anything get read or fixed\". The answer is a way to FOLLOW them.",
       "what_this_is_not": "NOT a licence to delete monitoring rows, shorten clears_when, or reintroduce a cap — all three are the failure the operator already ruled out. NOT a renderer: MI-238's page will DISPLAY monitored items, and displaying them is not following them. And NOT a per-row triage pass: doing 26 adjudications by hand is the very thing being rejected, one order of magnitude larger.",
@@ -3238,7 +3245,8 @@
       ],
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-238: that page displays monitored items, and the operator's point is that displaying is not following.",
-      "source": "operator (conversational), 2026-09-10"
+      "source": "operator (conversational), 2026-09-10",
+      "lane_was": "workflow-implementation"
     },
     {
       "id": "MI-240-ARM-R2-THE-PER-PASS-IB-CIRCUIT-BREAKER-OPERATOR-APPROVED",
@@ -3247,14 +3255,15 @@
       "state": "ready",
       "tier": 2,
       "priority": "high",
-      "lane": "trading-truth",
+      "lane": "ops",
       "added": "2026-09-10",
       "note": "Operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY (WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES), 2026-09-10T07:52Z, from a four-option popup that stated each remedy, its measured effect and its rollback. R2: after one IB queue timeout in a pass, later IB packages are skipped and retried 30s later — it bounds the cost of an outcome already determined, since a skipped package gets the same candles=None it would have got 29s later. Pass cost in the 04:00–05:00Z IBKR reset window falls from n×29s to ~35s. Rollback EXIT_LOOP_IB_BREAKER_DISABLED, one env flip, no redeploy. MI-232 measured the cause and the remedy is already written.",
       "explicitly_not_approved": "R1 — moving _start_exit_loop above _apply_per_account_leverage in main() — was OFFERED and NOT chosen. Do not arm it, do not let it ride along, and do not treat `both` as the safer reading of `r2_only`. !! AND THE SCOPE QUESTION IS STILL OPEN: whether the restart boundary is in scope for the 60s promise at all was option 4 and was not chosen, so it is unsettled rather than settled by implication. !! R2 DOES NOT ADDRESS THE RESTART-GAP TAIL (6.2%, max 210.4s) — that is R1 territory. Do not report the 60s promise as fixed.",
       "resolution_criteria": "Tier-2: shipped AND the post-state verified on the fleet. (1) The env is read back off /proc/<MainPID>/environ via get-env, never from the .env, which says only what the NEXT restart picks up. (2) A pass in the reset window is OBSERVED costing ~35s rather than n×29s, read off /api/diag/log_file or the exit-interval soak. !! A GREEN TEST SUITE CLEARS NEITHER — a harness cannot reach a wedged IB queue. !! MERGING CLEARS NOTHING: a merge is not a deploy and a deploy is not an observed pass.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — the approval is recorded and the remedy is written; nothing blocks the build.",
-      "source": "operator decision DEC-20260910-EXIT-EVAL-60S-REMEDY"
+      "source": "operator decision DEC-20260910-EXIT-EVAL-60S-REMEDY",
+      "lane_was": "trading-truth"
     },
     {
       "id": "MI-241-APPLY-THE-F39-REATTACH-ALL-THREE-PACKAGES-INCLUDING-REAL-MONEY-XRPUSDT",
@@ -3263,7 +3272,7 @@
       "state": "in_flight",
       "tier": 2,
       "priority": "high",
-      "lane": "trading-truth",
+      "lane": "ops",
       "added": "2026-09-10",
       "note": "⚠️ THE MANAGER'S STANDING HOLD ON pkg-293021e2e84a48db IS LIFTED. Operator approved the XRPUSDT half at 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED on WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS), completing the earlier \"paper first\" approval of the two alpaca_paper packages. All THREE are now approved: pkg-32a5162bbbdd4ef6 (SPY -> leg 4347, alpaca_paper), pkg-785d9a600c894c81 (TLT -> 5265, alpaca_paper), pkg-293021e2e84a48db (XRPUSDT -> 5474 bybit_2 REAL MONEY + 5475 bybit_portfolio). Diff: status closed->open, close_reason->NULL, prior values kept under meta.reattach_repair. Tool: scripts/ops/reattach_stranded_package_legs.py, dry-run by default. The operator was shown the consequence in the option text they chose: once a package is open again the strategy's monitor() may trail, tighten or CLOSE leg 5474 on real money.",
       "conditions_that_are_part_of_the_approval": "(a) RE-READ ALL FOUR LEGS LIVE IMMEDIATELY BEFORE --apply. They were confirmed open and venue-backed at PR time; a leg that has since CLOSED at the venue must be reconciled as CLOSED, not re-attached. The script already refuses that case and THE REFUSAL IS THE CORRECT OUTCOME, not an obstacle. (b) It requires a freshly captured --exchange-positions payload, refuses without one, and treats an unreadable account as a REFUSAL never a flat — do not weaken either. (c) VERIFY THE POST-STATE by reading back off /api/bot/positions AND the journal (order_packages.status='open' for the three ids), NEVER from the script's own output. (d) THE APPROVAL IS FOR THE DB WRITEBACK ONLY — it does not authorise placing, modifying or cancelling any order by hand. What may act on 5474 afterwards is the strategy's own monitor(), which is the point of the repair.",
@@ -3272,7 +3281,8 @@
       "blocked_on_basis": "ASSESSED — the approval is recorded and the tool is merged (#11630, c88c7ff9e). Nothing blocks the apply.",
       "source": "operator decision DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED",
       "owns_object": "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
-      "spawned_at": "2026-09-10T07:57:23Z"
+      "spawned_at": "2026-09-10T07:57:23Z",
+      "lane_was": "trading-truth"
     },
     {
       "id": "MI-242-ADD-SCRIPTS-BACKTEST-STAR-TO-TIER1-SURFACE-OPERATOR-APPROVED",
@@ -3281,14 +3291,15 @@
       "state": "ready",
       "tier": 1,
       "priority": "medium",
-      "lane": "workflow-implementation",
+      "lane": "engineering",
       "added": "2026-09-10",
       "note": "Operator chose `add_it` on DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE, 2026-09-10T07:52Z, and re-confirmed it when asked which question they meant. TIER1_SURFACE allows scripts/{ci,ops,research,reports}/** but not scripts/*.py, so the research harnesses cannot be touched by a self-landing Tier-1 PR — while the canonical Tier-1 examples explicitly name \"Backtest tooling that does not alter live runtime behavior\". The guard contradicted the definition it enforces, and that contradiction shaped a real design decision in the session that surfaced it.",
       "the_constraint_the_approval_does_not_remove": "⚠️ EDITING check_pr_landing.py IS LANDING_MACHINERY, so R12 HOLDS THAT PR FOR A HUMAN BY DESIGN. The approval does not make it self-landing: declare `landing: hold` with `hold_reason: changes_landing_machinery`, which the guard VERIFIES against the diff. A PR that declares itself self-landing while editing the landing route fails its own guard, which is the mechanism working. ⚠️ Widen scripts/backtest_*.py ONLY — this is not a licence to admit scripts/*.py generally.",
       "resolution_criteria": "scripts/backtest_*.py is in TIER1_SURFACE and the change is exercised by a PLANTED CONTROL both ways: a diff touching scripts/backtest_foo.py declared Tier-1 self-land PASSES, and one touching a still-excluded scripts/*.py FAILS. Verified by RUNNING both, never by reading the constant.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — approval recorded; R12's human-merge requirement is a landing constraint on the PR, not a blocker on the work.",
-      "source": "operator decision DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE"
+      "source": "operator decision DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE",
+      "lane_was": "workflow-implementation"
     },
     {
       "id": "MI-243-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND-GIVE-SOAK-BOUND-WORK-ITS-OWN-STATUS",
@@ -3307,9 +3318,133 @@
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks the sweep itself. It is deliberately NOT blocked on MI-238: the page makes the list visible and visibility is not triage.",
       "source": "operator (conversational), 2026-09-10, reading the deployed SPA Work page"
+    },
+    {
+      "id": "MI-244-THE-THREE-LANE-MODEL-IS-THE-OPERATING-MODEL-AND-THE-MANAGER-WAS-NOT-RUNNING-IT",
+      "title": "Restore the three-lane model — ops / engineering / research, each with a ROLE, not three fungible slots",
+      "owner": "unassigned — needs a session",
+      "state": "ready",
+      "tier": 1,
+      "priority": "high",
+      "lane": "engineering",
+      "added": "2026-09-10",
+      "note": "OPERATOR CORRECTION 2026-09-10, and it is a correction of THE MANAGER'S MODEL, not a new feature. Their words: \"we built out a good work plan for how we were gonna work in organized fashions that we could have multiple lanes running and have the manager session everything, and then we pause that in the middle, and we didn't execute on it properly. And now we're paying the price for that... there's supposed to be three lanes, ops, engineering, and research\". !! WHAT THE MANAGER HAD WRONG: it treated the cap of 3 as THREE FUNGIBLE SLOTS and filled them by priority order, so which KIND of work was running at any moment was an accident. The model is THREE NAMED LANES WITH ROLES, and a slot is not interchangeable with another lane's slot. THE THREE ROLES, as the operator states them: (1) ENGINEERING — DEDICATED TO IMPLEMENTING THE WORK PLAN. Their words: \"everything that we're discussing here about the UI and the... all the manager... manager bugs, that's what that lane is for for fixing that so that we can keep going and not keep on getting stuck on the same problems over and over again.\" So MI-235/236/237/238/239/242/243 are not competing miscellany — they ARE the engineering lane's queue. (2) OPS — the system review, the audit, trade grading, monitoring what is soaking. AND, PRIORITISED ABOVE its own backlog: \"that lane should be prioritized for unsticking things that are stuck. Right? That's what it's there for... we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.\" **Ops backlog work is PAUSABLE to unstick.** That is a standing priority rule, not a judgement call per incident. (3) RESEARCH — the trading/strategy work (roster proposals, backtests, ML). !! THIS SESSION IS THE EVIDENCE FOR WHY IT MATTERS, which is the operator's actual point: today three lanes sat blocked on manager actions whose blockers had ALREADY cleared (MI-140 ~63h, MI-139 3.5 days, MI-222 13h), two registry rows read `working` while dead, MI-201 sat unrouted for two days while being the answer to a question the operator then had to ask, and an operator-answered audit decision was dropped entirely (see MI-245). Every one of those is a thing an ops lane prioritised for unsticking would have caught. The manager did not have such a lane because it was not running the model.",
+      "what_this_is_not": "NOT a request to raise the cap — the operator explicitly noted \"we also seem to be having a hard time correctly managing 3 lanes as it is\", and the manager recommended against more lanes on measured grounds. This is about giving the THREE their roles, not adding a fourth. NOT a re-design either: the operator says the work plan already EXISTS and was paused mid-execution. FIND IT AND READ IT before proposing anything — docs/design/operating-model-DESIGN.md and its three siblings, plus the build plan's phase order. Re-deriving a model that is already written down is the built-a-mechanism-that-already-existed class.",
+      "resolution_criteria": "(1) The three lanes and their ROLES are written into CLAUDE.md's manager-duty section and the role packs, including the standing rule that OPS BACKLOG IS PAUSABLE TO UNSTICK. ⚠️ That half is a WORKER path for manager-scope-guard, which is why this is routed to a session and cannot be done by a manager. (2) Every checklist row carries a `lane` of ops/engineering/research — which is MI-237's schema migration, so do it THERE rather than as a second pass. (3) A manager is OBSERVED spawning by lane role rather than by priority order, and says which lane each spawn fills. !! A GREEN GUARD CLEARS (1) AND NOT (3): prose existing is a deploy, not a reading — the same distinction that keeps OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER open.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — the design documents already exist; nothing blocks reading them and writing the roles into canon.",
+      "source": "operator (conversational), 2026-09-10"
+    },
+    {
+      "id": "MI-245-AN-OPERATOR-ANSWERED-AUDIT-DECISION-WAS-RECORDED-IN-PROSE-AND-THEN-DROPPED",
+      "title": "REAL ROUTING DEFECT, operator-answered and unrouted: the unlisted-strategy arbitration fallback WINS instead of losing",
+      "owner": "unassigned — needs a session",
+      "state": "ready",
+      "tier": 3,
+      "priority": "high",
+      "lane": "ops",
+      "added": "2026-09-10",
+      "note": "FOUND 2026-09-10 while answering the operator's question \"I still haven't heard back [on the audit]\". THE AUDIT DID DELIVER: MI-225's /full-system-audit landed 2026-09-09 as 566c0ff4c (#11571) — 68 findings, 19 backlog rows, SIX operator decisions, at docs/audits/full-system-audit-2026-09-09.md. FIVE of the six were answered AND routed, becoming MI-227 / MI-228 / MI-229 / MI-230 / MI-231, all of which have merged code. !! THE SIXTH WAS ANSWERED AND DROPPED. WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED's TITLE reads 'operator answered: fix the constant AND map the five legs' — but its decision_request carries `chosen: None` and `answered_at: None`, it appears on NO checklist row, and it has NO owner. The answer was recorded in PROSE, in a title, where no register and no guard reads it. It has sat `ready` since 2026-09-09. THE FINDING ITSELF IS LIVE AND IS TIER-3 ROUTING: `_UNKNOWN_STRATEGY_PRIORITY = 10` is DOCUMENTED as 'deliberately below the in-scope strategies', and 45 of 50 mapped legs now sit BELOW 10 — so an UNLISTED strategy WINS arbitration instead of losing it, which is the inversion of the documented intent. FIVE declared-live legs are absent from the map, with LIVE SLV CONTENTION ON THREE ACCOUNTS. !! DO NOT RE-ASK THE OPERATOR FOR THE DECISION — it is given ('fix the constant AND map the five legs'). What is owed is TYPING it into the object and doing the work. ⚠️ AND VERIFY THE ANSWER AGAINST THE ORIGINAL WORDING BEFORE ACTING: a verdict surviving only in a title is exactly the 'a row recording a verdict without its condition is WORSE than a missing row' hazard CLAUDE.md names for OPEN-PRS. Read the audit section and the object history; if the conditions cannot be recovered, ask for the CONDITIONS, not for the decision.",
+      "why_this_is_the_ops_lane": "It is a STUCK THING — operator-answered, unrouted, live. Under the operator's 2026-09-10 direction the ops lane is prioritised for unsticking, above its own backlog. This is the first test of that rule.",
+      "resolution_criteria": "(1) The answer is TYPED into the object (`chosen` + `answered_at` + scope/condition) so a register reads it rather than a title. (2) The constant is fixed and the five unmapped legs are mapped — Tier-3, so propose the exact diff and land it by the normal Tier-3 route, not self-landing. (3) OBSERVED on the fleet: an arbitration tick where an unlisted strategy LOSES to a mapped one, read off the live audit surface. !! A GREEN TEST CLEARS (3) NOT AT ALL — a harness cannot reach an arbitration contest. !! AND THE SLV CONTENTION MUST BE RE-READ LIVE before proposing: it was measured 2026-09-09.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — the decision is given; nothing blocks typing it and doing the work.",
+      "source": "audit F-series via MI-225; surfaced 2026-09-10 by the operator asking why they had not heard back",
+      "operator_decision_on_the_basis": "ASKED 2026-09-10 and answered `Act on it — the answer stands as recorded`. So the lane TYPES the operator's 2026-09-09 answer ('fix the constant AND map the five legs') into the object's `chosen` and `answered_at` and does the work. It does NOT re-ask the decision and does NOT re-ask for conditions. ⚠️ ONE THING IS STILL OWED AND IS NOT WAIVED BY THIS: the live SLV contention on three accounts was measured 2026-09-09 and must be RE-READ LIVE before the diff is proposed — an answer standing does not make a day-old measurement current. ⚠️ AND IT IS STILL TIER-3: propose the exact diff and land it by the normal route; R4 bars a Tier-3 diff from self-landing whatever its approval state."
+    },
+    {
+      "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
+      "title": "THE THIRD DROP CLASS: a row filed and never routed has no age, no owner and no alarm — filing is not routing",
+      "owner": "unassigned — needs a session",
+      "state": "ready",
+      "tier": 1,
+      "priority": "high",
+      "lane": "engineering",
+      "added": "2026-09-10",
+      "note": "OPERATOR DIRECTIVE 2026-09-10, stating the manager's core mandate: \"your job as a manager session or part of it at least is to ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session and things don't just fall between the cracks. That's the main thing that you need to be focused on... the main impetus for moving to a new system with the manager session was to prevent these kinds of things from happening.\" !! THIS IS THE THIRD MEMBER OF A FAMILY AND THE ONLY ONE NOT YET FILED. MI-235 covers a session BLOCKED on a manager action never being told when it clears. MI-236 covers an `in_flight` row going stale because nothing decays it. NEITHER covers a row that was FILED, correctly, with a real owner-shaped gap — and then simply never routed to anyone. Such a row sits at `ready` / `owner: unassigned` indefinitely: it has no age, nothing computes how long it has been unrouted, and no surface reports it. FILING IS NOT ROUTING, and today the register made those two indistinguishable. MEASURED ON THIS SESSION, and every instance was found only because the operator asked a question that happened to touch it: (1) MI-201-ALPACA-LIVE-ROSTER-EXPANSION — `ready`/`unassigned` from 2026-09-08 to 2026-09-10T08:14Z, TWO DAYS, while being the actual answer to 'why am I still not seeing any live trades'. The operator had to ask before it moved. (2) WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED — the operator ANSWERED it on 2026-09-09 ('fix the constant AND map the five legs'), the answer was written into the object's TITLE while `chosen`/`answered_at` stayed None, and it reached no checklist row and no owner. Found 2026-09-10 only because the operator said 'I still haven't heard back'. Now MI-245. (3) MI-140-ALPACA-LIVE-CANNOT-PLACE — its verdict MERGED 2026-09-07 as #11271 and its row read `state: queued` / `status: in_flight` for three days after. Different proximate cause (MI-237's two status fields) and the SAME outcome: a settled thing that no surface reported as settled. !! AND A FOURTH, ON THE FILE ITSELF: this checklist's `cycle` field declared CY-20260903-MANAGER-CONTROL, superseded 2026-09-06 — so the manager's own state of record carried the wrong named priority for four days and nothing noticed.",
+      "what_this_is_not": "NOT another reminder, and NOT more documentation. The operator's point is EXECUTION: \"we actually finish things and execute them\". A row saying 'the manager should route filed rows promptly' is precisely the reminder-is-not-a-mechanism non-fix this repo has already paid for twice on MI-15. Whatever is built must SURFACE or REFUSE without anyone choosing to look. NOT a licence to auto-route either: spawning against an unread row is worse than leaving it, and the operator's cap of 3 is deliberate.",
+      "the_shape_that_would_have_caught_all_four": "They differ in proximate cause and share one property: a row whose STATE stopped matching reality, with no elapsed-time term anywhere. So the candidate mechanism is an AGE on the state transition — `state_since` — plus a surface that reports rows whose state has held longer than that state should last. `ready` for two days is a finding; `in_flight` owned by a dead session is a finding (MI-236); `blocked` past its blocker's clearance is a finding (MI-235). ⚠️ ESTABLISH THE THRESHOLDS FROM THE DATA, not by choosing round numbers — measure how long rows ACTUALLY hold each state before they move, and state the population. ⚠️ AND IT MUST DISTINGUISH `we did not look` FROM `nothing is stale`: a surface that cannot say which is which reproduces the collapsed-state class this repo has a guard family for.",
+      "resolution_criteria": "(1) A row that has held `ready`/`unassigned` past a measured threshold is SURFACED somewhere a manager reads before it plans — not in a 5.1 MB backlog, and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row is reported before the operator asks about it. !! (2) IS THE WHOLE POINT AND (1) DOES NOT SUBSTITUTE — every mechanism in this family has shipped and then not been read; that is what OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION and OI-20260902-ROLE-PACKS-... both still record. !! A GREEN GUARD CLEARS (1) ONLY. !! AND IF THE ANSWER IS THAT MI-235/MI-236/MI-237 SUBSUME THIS ONCE BUILT, that is a legitimate finding — say so and CLOSE this row explicitly rather than leaving a fourth near-duplicate accruing, which is itself the class.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-237: the schema migration would give the field a home, but the missing thing is an elapsed-time term and a surface, which do not depend on it.",
+      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
+    },
+    {
+      "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
+      "title": "Apply Option A — add tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d to alpaca_live (Tier-3, operator-approved)",
+      "owner": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
+      "state": "in_flight",
+      "tier": 3,
+      "priority": "high",
+      "lane": "research",
+      "added": "2026-09-10",
+      "spawned_at": "2026-09-10T09:00:59Z",
+      "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
+      "note": "Operator approved Option A 2026-09-10T09:0xZ from a four-option pop-up built on MI-201's screen (#11665, merged). REAL MONEY: alpaca_live is mode: live, a CASH account (~$200.22, multiplier 1). ⚠️ APPROVED ON A STATED BASIS THAT MUST NOT BE OVERSOLD: not one of the four legs has a positive MEASURED record at gradeable n, and the operator approved it as PLUMBING AND UTILISATION, explicitly not as an edge bet. It buys 6 long packages in 101 days against the incumbent's 33 (~+18% long flow), diversifying WHEN a long is available (bonds/silver/gold) rather than position count. Risk $0.89–$3.90 per trade, 0.4–1.9% of equity; structural ceiling unchanged at 1.5 × $4.0044 = $6.01. ⚠️ OPTION A+ (scha_trend_long_1d) WAS OFFERED AND NOT CHOSEN — do not add a fifth leg.",
+      "what_mi201_established_and_must_not_be_undone": "(1) NO `symbols:` change is required — the account-level list is INERT for Alpaca (its only consumers are the Bybit per-symbol cross-check and an exchange=='bybit' filter); routing is decided solely by accounts.yaml::<account>.strategies. (2) NO alpaca_portfolio change is required, verified with a POSITIVE and a NEGATIVE control against test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies — and iaum_pullback_1d is a declared PROXY, deliberately exempt from the mirror; do not 'fix' that. (3) slv_trend_1h is excluded by a standing Tier-3 demote and has the BEST long-flow profile in the set — that is the trap; do not propose it back.",
+      "the_finding_that_supersedes_the_earlier_framing": "⚠️ `shorting_enabled: false` ON THE ACCOUNT. All three packages since the roster was armed 2026-08-31 were SHORT and are unexecutable AT THE VENUE, before side_filter is consulted — so the manager's earlier relay (that the operator-directed side_filter: long gate was the suppressor) was true but pointed at the wrong remedy: DROPPING THE GATE WOULD BUY ZERO TRADES. And the incumbent's LONG side fired 18x in June, 2x in July, 13x in August and 0x in September — it went quiet the day before the account was armed. ⚠️ THE ORDER PATH REMAINS UNTESTED, NOT PROVEN WORKING: zero long signals have ever reached it, so this change may be what first exercises it.",
+      "resolution_criteria": "(1) The four legs are on config/accounts.yaml::alpaca_live.strategies and the PR is MERGED — Tier-3, so R4 bars self-landing whatever the approval state; a human clicks merge and the approval must NOT be re-sought. (2) DEPLOYED — /api/diag/version shows the merge commit as git_sha and git_sha_on_disk with restart_pending false. (3) OBSERVED — a LONG order package from one of the four reaches the venue. ⚠️ (3) IS THE ONE THAT MATTERS and may take weeks: these are 1d legs and the incumbent produced zero longs in September. Do NOT report the roster change as working on the strength of (1) or (2); a merge is not a deploy and a deploy is not a placed order.",
+      "explicitly_not_in_scope": "The silent_refusal_alert latch fix. MI-201 diagnosed it — SILENT_REFUSAL_SKIP='alpaca_live' on the running process, and BOTH loops that could clear the latch continue on the same skip condition, so a skipped account's latch is IMMORTAL and silent_accounts() has handed every review skill a 20-day-old alerting:true. THE SKIP IS CORRECT AND MUST NOT BE REMOVED. The fix is Tier-2 and ships separately; folding it into a Tier-3 roster PR would widen a real-money diff.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — approved and spawned; the only gate is the Tier-3 human merge click, which is a landing constraint rather than a blocker on the work.",
+      "source": "operator decision 2026-09-10, on MI-201's proposal (#11665)"
     }
   ],
-  "as_of": "2026-09-10T07:15:00Z",
+  "as_of": "2026-09-10T09:05:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08"
+  "_lane_model": {
+    "declared_by": "operator (conversational), 2026-09-10",
+    "lanes": [
+      "ops",
+      "engineering",
+      "research"
+    ],
+    "roles": {
+      "ops": "System review, the audit, trade grading, monitoring what is soaking — AND, PRIORITISED ABOVE its own backlog, UNSTICKING THINGS THAT ARE STUCK. Operator, verbatim: 'that lane should be prioritized for unsticking things that are stuck. Right? That's what it's there for... we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.' Ops backlog is PAUSABLE to unstick; that is a standing rule, not a per-incident judgement.",
+      "engineering": "DEDICATED to implementing the work plan — the UI work page, the manager bugs, the workflow machinery. Operator, verbatim: 'that's what that lane is for for fixing that so that we can keep going and not keep on getting stuck on the same problems over and over again.'",
+      "research": "Trading and strategy work — roster proposals, backtests, ML."
+    },
+    "what_the_manager_had_wrong": "It treated the cap of 3 as three FUNGIBLE SLOTS and filled them in priority order, so which KIND of work was running at any moment was an accident. A slot in one lane is not interchangeable with another lane's slot.",
+    "coverage": "⚠️ PARTIAL AND DELIBERATELY SO. Only the rows this manager created or is actively running carry a lane today; the remaining ~237 do NOT. Bulk-tagging them is MI-237's schema migration and belongs there, done once with a declared rule, rather than as a second uncoordinated pass. Absence of a `lane` on a row means NOBODY HAS ASSIGNED ONE — it does not mean the row is unlaned by decision."
+  },
+  "cycle_was": "CY-20260903-MANAGER-CONTROL — SUPERSEDED 2026-09-06 by operator decision (four options, tradeoffs stated; they chose \"Trading truth becomes the priority\"). It is NOT retired: manager-control continues UNDERNEATH, in the operator's own framing. This file declared the superseded id for four days, so a manager reading its own state of record was carrying the wrong named priority. Authoritative source is docs/claude/CYCLE-PRIORITY.json::current.cycle_id — read it there, never from this field.",
+  "updated_removed_note": "Removed a THIRD name for the same fact (value was '2026-09-08', two days stale while `updated_at` and `as_of` read 07:15Z). MI-237's two-competing-status-fields defect exists at the HEADER level too, not only in items[] — and this copy was the stalest of the three, which is exactly how a duplicate field misleads. Collapsed rather than corrected in three places.",
+  "_lane_queues": {
+    "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
+    "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
+    "engineering": {
+      "now": "MI-238 — the live Workflow page.",
+      "then": [
+        "MI-235 (tell a blocked session when its blocker clears)",
+        "MI-236 (decay stale in_flight rows)",
+        "MI-246 (a filed-but-unrouted row has no age)",
+        "MI-237 (the checklist schema migration)",
+        "MI-244 (write the three-lane roles into CLAUDE.md + role packs)",
+        "MI-239 (the monitoring workflow)",
+        "MI-233 / MI-234 (sunset policy never reached its register; the brief re-asks it)",
+        "MI-242 (add scripts/backtest_*.py to TIER1_SURFACE)"
+      ],
+      "operator_decision": "ASKED DIRECTLY 2026-09-10 and answered `Finish MI-238 first, then the infra`. The manager RECOMMENDED the opposite — switching to MI-235/236/246 immediately, on the grounds that those three would have caught 6 of the 8 things dropped in that single session — and the operator chose the page first. THE RECOMMENDATION IS RECORDED AS OVERRIDDEN, NOT AS ADOPTED: a later session must not read this order as the manager's own judgement, and must not silently re-order it back.",
+      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness."
+    },
+    "ops": {
+      "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",
+      "then": [
+        "MI-245 (unlisted-strategy arbitration inversion — operator-answered, was dropped) — UNSTICK, outranks backlog",
+        "MI-240 (arm R2, the per-pass IB circuit breaker) — operator-approved Tier-2 fix for a measured live breach",
+        "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ — plant a violation and observe end to end. LANE ASSIGNED BY THE OPERATOR 2026-09-10: ops, because it is a live-fleet observation on an alert-only mechanism, not analysis. Its OI row reads verified_at: never.",
+        "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE — flip MULTI_STRATEGY_INTENT_LAYER=false on a trader, observe one tick, flip back. LANE ASSIGNED BY THE OPERATOR 2026-09-10: ops, because it is a Tier-2 env flip on a LIVE TRADER and the risk is operational, not analytical. Its OI row reads verified_at: never.",
+        "MI-243 (sweep the 623 dormant work objects) — BACKLOG, explicitly pausable under the unstick-first rule"
+      ],
+      "standing_rule": "Operator, 2026-09-10: this lane is PRIORITISED FOR UNSTICKING THINGS THAT ARE STUCK, above its own backlog — \"we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.\" MI-243 is backlog and is explicitly pausable; MI-245 is an unstick and outranks it.",
+      "why_this_order": "MI-241 is in flight on REAL MONEY. MI-245 is next because it is an UNSTICK (operator-answered on 2026-09-09 and then dropped) and the operator's standing rule puts unsticking above this lane's own backlog. MI-240 follows as an approved Tier-2 fix for a MEASURED live breach. The two `verified_at: never` observations come next — they are carried by nothing else and have never been scheduled. MI-243 is last and is named as the pausable backlog item, per the same rule."
+    },
+    "research": {
+      "now": "MI-247 — apply Option A: add four legs to alpaca_live (Tier-3, operator-approved 2026-09-10). session_01Ek2KDXDeLAMrN4JH4aEXWf.",
+      "then": [
+        "MI-29 (starved legs — measure which legs, how often, bring the options back). LANE ASSIGNED BY THE OPERATOR 2026-09-10: research, because it is strategy-selection analysis feeding a Tier-3 proposal and nothing about it is operationally stuck. Blocked on the operator 2026-09-01 -> 2026-09-10."
+      ]
+    },
+    "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
+  }
 }
