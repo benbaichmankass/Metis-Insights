@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T08:33:00Z",
+  "updated_at": "2026-09-10T09:05:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3368,9 +3368,29 @@
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-237: the schema migration would give the field a home, but the missing thing is an elapsed-time term and a surface, which do not depend on it.",
       "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
+    },
+    {
+      "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
+      "title": "Apply Option A — add tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d to alpaca_live (Tier-3, operator-approved)",
+      "owner": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
+      "state": "in_flight",
+      "tier": 3,
+      "priority": "high",
+      "lane": "research",
+      "added": "2026-09-10",
+      "spawned_at": "2026-09-10T09:00:59Z",
+      "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
+      "note": "Operator approved Option A 2026-09-10T09:0xZ from a four-option pop-up built on MI-201's screen (#11665, merged). REAL MONEY: alpaca_live is mode: live, a CASH account (~$200.22, multiplier 1). ⚠️ APPROVED ON A STATED BASIS THAT MUST NOT BE OVERSOLD: not one of the four legs has a positive MEASURED record at gradeable n, and the operator approved it as PLUMBING AND UTILISATION, explicitly not as an edge bet. It buys 6 long packages in 101 days against the incumbent's 33 (~+18% long flow), diversifying WHEN a long is available (bonds/silver/gold) rather than position count. Risk $0.89–$3.90 per trade, 0.4–1.9% of equity; structural ceiling unchanged at 1.5 × $4.0044 = $6.01. ⚠️ OPTION A+ (scha_trend_long_1d) WAS OFFERED AND NOT CHOSEN — do not add a fifth leg.",
+      "what_mi201_established_and_must_not_be_undone": "(1) NO `symbols:` change is required — the account-level list is INERT for Alpaca (its only consumers are the Bybit per-symbol cross-check and an exchange=='bybit' filter); routing is decided solely by accounts.yaml::<account>.strategies. (2) NO alpaca_portfolio change is required, verified with a POSITIVE and a NEGATIVE control against test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies — and iaum_pullback_1d is a declared PROXY, deliberately exempt from the mirror; do not 'fix' that. (3) slv_trend_1h is excluded by a standing Tier-3 demote and has the BEST long-flow profile in the set — that is the trap; do not propose it back.",
+      "the_finding_that_supersedes_the_earlier_framing": "⚠️ `shorting_enabled: false` ON THE ACCOUNT. All three packages since the roster was armed 2026-08-31 were SHORT and are unexecutable AT THE VENUE, before side_filter is consulted — so the manager's earlier relay (that the operator-directed side_filter: long gate was the suppressor) was true but pointed at the wrong remedy: DROPPING THE GATE WOULD BUY ZERO TRADES. And the incumbent's LONG side fired 18x in June, 2x in July, 13x in August and 0x in September — it went quiet the day before the account was armed. ⚠️ THE ORDER PATH REMAINS UNTESTED, NOT PROVEN WORKING: zero long signals have ever reached it, so this change may be what first exercises it.",
+      "resolution_criteria": "(1) The four legs are on config/accounts.yaml::alpaca_live.strategies and the PR is MERGED — Tier-3, so R4 bars self-landing whatever the approval state; a human clicks merge and the approval must NOT be re-sought. (2) DEPLOYED — /api/diag/version shows the merge commit as git_sha and git_sha_on_disk with restart_pending false. (3) OBSERVED — a LONG order package from one of the four reaches the venue. ⚠️ (3) IS THE ONE THAT MATTERS and may take weeks: these are 1d legs and the incumbent produced zero longs in September. Do NOT report the roster change as working on the strength of (1) or (2); a merge is not a deploy and a deploy is not a placed order.",
+      "explicitly_not_in_scope": "The silent_refusal_alert latch fix. MI-201 diagnosed it — SILENT_REFUSAL_SKIP='alpaca_live' on the running process, and BOTH loops that could clear the latch continue on the same skip condition, so a skipped account's latch is IMMORTAL and silent_accounts() has handed every review skill a 20-day-old alerting:true. THE SKIP IS CORRECT AND MUST NOT BE REMOVED. The fix is Tier-2 and ships separately; folding it into a Tier-3 roster PR would widen a real-money diff.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — approved and spawned; the only gate is the Tier-3 human merge click, which is a landing constraint rather than a blocker on the work.",
+      "source": "operator decision 2026-09-10, on MI-201's proposal (#11665)"
     }
   ],
-  "as_of": "2026-09-10T08:33:00Z",
+  "as_of": "2026-09-10T09:05:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3410,16 +3430,21 @@
     "ops": {
       "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",
       "then": [
-        "MI-245 (the unlisted-strategy arbitration inversion — operator-answered, was dropped)",
-        "MI-240 (arm R2, the per-pass IB circuit breaker)",
-        "MI-243 (sweep the 623 dormant work objects)"
+        "MI-245 (unlisted-strategy arbitration inversion — operator-answered, was dropped) — UNSTICK, outranks backlog",
+        "MI-240 (arm R2, the per-pass IB circuit breaker) — operator-approved Tier-2 fix for a measured live breach",
+        "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ — plant a violation and observe end to end. LANE ASSIGNED BY THE OPERATOR 2026-09-10: ops, because it is a live-fleet observation on an alert-only mechanism, not analysis. Its OI row reads verified_at: never.",
+        "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE — flip MULTI_STRATEGY_INTENT_LAYER=false on a trader, observe one tick, flip back. LANE ASSIGNED BY THE OPERATOR 2026-09-10: ops, because it is a Tier-2 env flip on a LIVE TRADER and the risk is operational, not analytical. Its OI row reads verified_at: never.",
+        "MI-243 (sweep the 623 dormant work objects) — BACKLOG, explicitly pausable under the unstick-first rule"
       ],
-      "standing_rule": "Operator, 2026-09-10: this lane is PRIORITISED FOR UNSTICKING THINGS THAT ARE STUCK, above its own backlog — \"we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.\" MI-243 is backlog and is explicitly pausable; MI-245 is an unstick and outranks it."
+      "standing_rule": "Operator, 2026-09-10: this lane is PRIORITISED FOR UNSTICKING THINGS THAT ARE STUCK, above its own backlog — \"we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.\" MI-243 is backlog and is explicitly pausable; MI-245 is an unstick and outranks it.",
+      "why_this_order": "MI-241 is in flight on REAL MONEY. MI-245 is next because it is an UNSTICK (operator-answered on 2026-09-09 and then dropped) and the operator's standing rule puts unsticking above this lane's own backlog. MI-240 follows as an approved Tier-2 fix for a MEASURED live breach. The two `verified_at: never` observations come next — they are carried by nothing else and have never been scheduled. MI-243 is last and is named as the pausable backlog item, per the same rule."
     },
     "research": {
-      "now": "MI-201 — the alpaca_live roster proposal.",
-      "then": []
+      "now": "MI-247 — apply Option A: add four legs to alpaca_live (Tier-3, operator-approved 2026-09-10). session_01Ek2KDXDeLAMrN4JH4aEXWf.",
+      "then": [
+        "MI-29 (starved legs — measure which legs, how often, bring the options back). LANE ASSIGNED BY THE OPERATOR 2026-09-10: research, because it is strategy-selection analysis feeding a Tier-3 proposal and nothing about it is operationally stuck. Blocked on the operator 2026-09-01 -> 2026-09-10."
+      ]
     },
-    "not_yet_laned": "The three queued decision lanes (closed-flat, rollback-registry, MI-29) are NOT assigned a lane here. That is a real gap and is stated rather than papered over: they are trading-truth observations that could sit in ops or research, and the manager has not established which. ⚠️ DO NOT GUESS — put it to the operator, per their own instruction that the manager should ask when unsure."
+    "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
   }
 }
