@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One row appended to docs/claude/health-review-backlog.json via scripts/ops/backlog_append.py::append_row (13 lines added, 0 removed, no reformatting), plus this declaration, the arming file and the R13 merge-slot claim. docs/** only. No src/, no tests/, no config/, no deploy/, no workflow, no order path. It records a RECURRENCE with a named mechanism and a measurement: R13 requires every armed self-landing PR to write the same merge_slot line in a shared register and its own docstring concedes it does not serialize, so concurrent armed PRs conflict by construction. Filed with similar_ok=True after reading the candidate it recurs on."
+}
