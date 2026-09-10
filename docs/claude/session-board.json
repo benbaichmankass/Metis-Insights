@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
-    "branch": "claude/scope-the-r13-race-figure",
-    "claimed_at": "2026-09-10T20:42:00Z",
-    "purpose": "Tier-1 docs-only, one-line correction to the R13 backlog row that landed in #11728. RE-CLAIMED over session_01FyYyybxWC7VD1Rq1doEEdf for claude/file-r13-merge-slot-recurrence (claimed 2026-09-10T20:30:00Z), whose PR is MERGED as f50be7e98 -- read off main's log. ⚠️ FRESH BRANCH BECAUSE #11728 IS MERGED and a merged PR must never be reused; the correction was pushed to it at ~20:31Z and auto-merge had taken it at 20:30:09Z. That is the documented post-arming race, and a 20-second docs-only CI cycle loses it almost every time -- fast CI makes a PR easy to LAND and nearly impossible to AMEND."
+    "held_by": "github-actions[bot] · session-reaper run 34528819952",
+    "branch": "automation/session-reaper-34528819952-1",
+    "claimed_at": "2026-09-10T20:52:04Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
