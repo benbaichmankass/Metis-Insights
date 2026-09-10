@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "manager · session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T0932",
-    "claimed_at": "2026-09-10T09:39:28Z",
-    "purpose": "PR #11675 — manager lease heartbeat 09:29:29Z + the 09:28Z supervision record (Tier-1, two register files). Re-claimed after #11673 merged over the slot. Released on merge."
+    "held_by": "MI-247 · session_01Ek2KDXDeLAMrN4JH4aEXWf",
+    "branch": "claude/mi247-fix-manager-wake-cycle-pin",
+    "claimed_at": "2026-09-10T10:20:00Z",
+    "purpose": "PR #11679 — `main` is RED (pytest-run fails on clean origin/main: test_manager_wake pinned a live register's cycle value, which 84d8e2d49 correctly moved at 09:24:19Z). One test file. Taking the slot because the prior claim names claude/mi201-session-end-doc-landing for #11673, which is ALREADY MERGED (f1e979fe1) — stale by OPEN-PRS.json's own definition, not a live holder being displaced. Released on merge."
   },
   "active_sessions": [
     {

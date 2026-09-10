@@ -1,0 +1,1 @@
+MI-247 main-is-red fix — PR #11679, Tier-1 self-land (one test file; main is red without it).
