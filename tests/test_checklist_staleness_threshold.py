@@ -32,8 +32,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import pytest
-
 from src.runtime import manager_status as ms
 from src.web.api.routers import work as wk
 
@@ -154,6 +152,35 @@ def test_an_unknown_fetch_age_warns_and_never_reads_as_fresh():
     assert len(msgs) == 1
     assert "could not be established" in msgs[0]
     assert "0m" not in msgs[0]
+
+
+def test_a_behind_or_unknown_tree_does_not_ALSO_get_the_fetch_warning():
+    """One condition, one alarm — across all three tree states.
+
+    ⚠️ The fetch warning exists because `synced` cannot justify itself. A tree
+    already reporting `behind_main` or `unknown` has ALREADY announced that it
+    is not to be trusted, and adding a second line about its fetch age would
+    put two alarms on one condition. This repo's own P1 is the desensitised
+    alarm: the fastest way to make the operator walk past this banner is to
+    print more of it than the situation warrants.
+
+    This also branches on all three of `manager_status.tree_state`, which is
+    what `collapsed-state-guard` asks of a consumer — satisfied by testing the
+    states rather than by annotating the question away.
+    """
+    stale = 45.0 / 60.0
+
+    synced = _warnings(state=ms.TREE_SYNCED, main_ref_age_hours=stale)
+    assert any("FETCH" in w for w in synced), "positive control: synced must warn"
+
+    behind = _warnings(state=ms.TREE_BEHIND, behind_commits=4,
+                       main_ref_age_hours=stale)
+    assert any("BEHIND origin/main" in w for w in behind)
+    assert not any("FETCH" in w for w in behind), behind
+
+    unknown = _warnings(state=ms.TREE_UNKNOWN, main_ref_age_hours=stale)
+    assert any("could not look" in w for w in unknown)
+    assert not any("FETCH" in w for w in unknown), unknown
 
 
 def test_the_two_thresholds_are_independent_quantities():
