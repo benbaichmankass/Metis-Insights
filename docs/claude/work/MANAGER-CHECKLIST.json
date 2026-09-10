@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T13:36:00Z",
+  "updated_at": "2026-09-10T16:34:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3464,7 +3464,7 @@
     {
       "id": "MI-255-FIX-THE-BYBIT-WRONG-BOOK-CLOSE-AND-THE-READOPT-FLAP",
       "title": "Fix the Bybit wrong-book flat read that closes live positions, and the re-adopt flap key",
-      "state": "in_flight",
+      "state": "review_ready",
       "tier": 2,
       "priority": "P1",
       "lane": "ops",
@@ -3480,7 +3480,11 @@
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — the operator_decision edge was the blocker and it is answered; what it needs now is a session.",
       "⚠️_this_item_was_DROPPED_and_that_is_recorded_2026_09_10T1426Z": "DISPATCHED to session_01FyYyybxWC7VD1Rq1doEEdf (MI-241) at 13:32Z with DELIVERY CONFIRMED (the cse_ suffix matched), and the lane worked #11699/#11700 instead and went idle. Measured at 14:26Z on main: this row still reads state=queued / owner=unassigned, so NOTHING carried it -- not the lane, not the registry, not this checklist. ⚠️ A CONFIRMED POKE IS NOT A CONFIRMED PICKUP, and that is the general finding: delivery was verified and the WORK was not. The manager duty this misses is the read-back -- after dispatching, check that the OWNER field and the lane's actual output agree with what was sent. This is a P1 Tier-2 REAL-MONEY item (Bybit wrong-book close reads a hedge book as flat and closes a live position), so the drop is not cosmetic.",
-      "⚠️_and_then_it_was_blocked_on_the_MANAGER_for_52_minutes": "The re-dispatch at 14:32Z DID land -- correcting my own 14:26Z note, which described the FIRST dispatch. The lane analysed it and went BLOCKED (need_input) at ~14:35Z asking the manager to authorise the build, and sat there until 15:27Z. So this item was dropped ONCE by a lane and then held ONCE by the manager, for roughly the same duration each time. The second is the worse of the two: the lane did its job and asked."
+      "⚠️_and_then_it_was_blocked_on_the_MANAGER_for_52_minutes": "The re-dispatch at 14:32Z DID land -- correcting my own 14:26Z note, which described the FIRST dispatch. The lane analysed it and went BLOCKED (need_input) at ~14:35Z asking the manager to authorise the build, and sat there until 15:27Z. So this item was dropped ONCE by a lane and then held ONCE by the manager, for roughly the same duration each time. The second is the worse of the two: the lane did its job and asked.",
+      "⚠️_DELIVERED_2026_09_10T1547Z_AS_11708_AND_IT_CORRECTS_MY_OWN_FLAGGED_FIGURE": "The lane delivered #11708 (branch claude/mi255-orphan-adopt-size-gate, head aaf4e98bcc37, opened 15:47:51Z, 750 additions / 22 deletions over 4 files, CI 5/5 green, corrected merge check exit=0). ⚠️ IT MATERIALLY CORRECTS THE +$612.71 I FLAGGED AS UNVERIFIED AT 15:27Z, and the correction runs in the SAFER direction on three axes at once: the POPULATION is ONE ROW (trade 5453, bybit_1 ETHUSDT long 17.67 attributed to pairs_sol_eth_b whose own 80 ETHUSDT legs top out at 2.10, flattened 14.09s later) — not a range and not a sum; the SIGN is POSITIVE, i.e. phantom PROFIT booked onto the wrong strategy, not realised loss; and the ACCOUNT is bybit_1, is_demo=1, so PAPER not real money. PROVENANCE IS STILL NOT VERIFIED — /api/diag/journal returns 41 columns and exit_price_source / pnl_source are not among them, so nobody has established how that pnl was derived. ⚠️ THE DEMO QUALIFICATION DOES NOT LOWER THE SEVERITY and the lane said so itself: the matcher reads NO account field at all, and bybit_2 is real money on the same code path. ⚠️ THE LANE DISCLOSED ITS OWN ERROR RATHER THAN QUIETLY RESTATING: 'I did not originally measure this — MI-204 did, and I quoted it while writing \"measured\", which claimed a measurement I had not made.' That is the disclosure this repo asks for and it is recorded as such.",
+      "⚠️_it_caught_a_self_inflicted_live_order_bug_before_shipping": "The obvious implementation would have converted a JOURNAL mis-attribution into a LIVE REDUCE-ONLY CLOSE: _reattach_adopted_orphans' own docstring says an un-recoverable orphan is FLATTENED by _close_unattributable_orphan, so a refusal returned as 'no candidate' would have flattened a real position. It returns a typed _OrphanAttribution instead, and test_a_refusal_is_distinguishable_from_no_candidate is MUTATION-CHECKED so the distinction cannot be collapsed by a later edit.",
+      "⚠️_this_PR_cannot_close_this_row_and_the_lane_says_so": "New module src/runtime/orphan_attribution.py, four never-collapsed states (supported / size_implausible — the ONLY refusal / no_history / unreadable), opt-in per call site, guards PASS 70 · FAIL 0 · SKIP 23. The row's resolution_criteria need a LIVE OBSERVED REFUSAL on the fleet; a green harness cannot reach a hedged venue book. Merging #11708 clears the CODE half only.",
+      "⚠️_it_is_TIER_2_and_R4_bars_it_from_self_landing": "landing: hold / tier_2_3_needs_approval. It is 5/5 green and mergeable (exit=0) and it still needs ONE operator OK before it ships — which is exactly what I told the lane at 15:27Z: 'PROPOSE AND BUILD, DO NOT ARM.' Routed to the operator as a pop-up decision by manager session_01HrmZ1RRNM4UnEUaFdrPEjj on 2026-09-10 at the 16:24Z cadence tick."
     },
     {
       "id": "MI-254-THE-DECISIONS-INBOX-GRADES-ON-THE-WRONG-FIELD-SO-ANSWERED-READS-AS-UNANSWERED",
