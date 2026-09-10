@@ -1,0 +1,5 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "Tier-2: adds a system-action that performs a money-DB writeback on trade_journal.db, one of whose targets (pkg-293021e2e84a48db) carries REAL-MONEY leg 5474 on bybit_2. Touches .github/workflows/system-actions.yml and scripts/ops/. The re-attach itself is operator-approved (WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS chosen: detector_and_reattach, and DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED 2026-09-10T07:52Z), but R4 bars a Tier-2 diff from landing itself whatever its approval state, so this waits on a human merge click. It is NOT waiting on the approval — that is recorded and must not be re-sought. NOTE the wrapper ARMS NOTHING on merge: it is dry-run by default and only fires when an operator opens a labelled system-action issue carrying apply: true. The action places, modifies and cancels no order on any account."
+}
