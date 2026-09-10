@@ -9,14 +9,21 @@ title: >-
   M20's 60s exit-eval promise was broken on 2026-09-07 and today clears by 48.8ms - operator
   answered: near-miss band plus grade the restart gap
 stage: DECISION
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: claude
 opened_at: '2026-09-09'
 closed_at: null
 
 review_trigger: >-
-  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2
-  observability BUILD. The distribution is in the audit at F-50.
+  PICKED UP 2026-09-10 by MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E). The DECISION is
+  discharged; what remains is the observability BUILD, now in flight. !! THE TIER LINE
+  BELOW IS CORRECTED: the decision text and this object's own option list called it
+  "Tier-2 observability", and the BUILT change touches no runtime knob, no order path, no
+  config and no deploy file -- it is CI/observability, i.e. Tier-1, which is what MI-230's
+  dispatch declared and what it self-landed under. Recorded rather than silently
+  reclassified, because a session reading "Tier-2" would go looking for an operator OK
+  that was never required for the build (the OK that WAS required -- the decision itself --
+  is recorded below and must not be re-sought). The distribution is in the audit at F-50.
 
 done_condition: >-
   BOTH: (a) exit_loop_health emits a NEAR-MISS band (max_interval_ms / requirement_ms >= 0.9 ->
