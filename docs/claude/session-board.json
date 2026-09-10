@@ -5,13 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
-    "branch": "claude/mi230-closeout-exit-eval-lifetime-breaches",
-    "pr": null,
-    "claimed_at": "2026-09-10T02:52:00Z",
-    "purpose": "MI-230 close-out. RECORDS ONLY -- two backlog rows, one OPEN-ITEMS observation, the regenerated session brief. Every path inside TIER1_SURFACE, so this self-lands where the build PR (#11631, merged a7cc62a24) could not.",
-    "found_stale": "Claimed over session_01HrmZ1RRNM4UnEUaFdrPEjj / branch claude/mgr-hb-20260910T0222. Per docs/claude/coordination-board.md the BOARD COMMENT is the authoritative live claim and this file is its mirror; a terminal claim cannot be cleared by the mechanism that sets it (R13 fails an armed branch carrying no claim), so this block accumulates a stale-looking holder after every armed merge. See BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE.",
-    "concurrent_sibling": "None known on these paths. The health backlog was union-merged against origin/main with scripts/ops/backlog_union_merge.py and ASSERTED BY ID SET: 1420 base + 1 theirs + 2 ours = 1423, 0 missing, 0 invented, 0 duplicates. The one row from another session (BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE) is intact."
+    "held_by": "github-actions[bot] · session-reaper run 34438123644",
+    "branch": "automation/session-reaper-34438123644-1",
+    "claimed_at": "2026-09-10T04:41:37Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
