@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Committed data artifacts + docs only: rescued PIT/dated artifacts under comms/, a disposition record and work-store bookkeeping under docs/claude/work/. No src/, no config/, no .github/workflows/, no deploy/, no order path. Tier-1 by path per docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers."
+}
