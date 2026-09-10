@@ -35455,7 +35455,9 @@
         "#11622",
         "PR #11640",
         "claude/lane4-stale-automation-landing-20260909"
-      ]
+      ],
+      "tier": "1 (CI / tooling; no runtime, order path or config)",
+      "resolution_criteria": "EITHER of two OBSERVABLE outcomes, and they are different -- say which. (a) GUARDED: a planted commit that changes docs/claude/session-board.json's indentation is REFUSED -- either by a CI check that fails on it, or by a single writer that round-trips the file's existing serialisation and raises rather than writing a reformatted file, the shape scripts/ops/backlog_append.py already implements and whose refusal is exercised by a planted control. Verified by RUNNING that control and seeing a non-zero return, never by the guard being registered: a presence-only marker is the failure this repo has already paid for. (b) RETIRED: the operator decides an unguarded shared JSON file is acceptable here, and it is RECORDED as that decision with the consequence stated -- every branch cut before a re-serialisation gets a whole-file conflict on the coordination board, and a hand resolution of that can silently revert the merge slot. !! THE ORIGINATING INSTANCE CLEARING IS NOT SUFFICIENT AND MUST NOT BE READ AS THIS ROW CLOSING: once claude/lane4-stale-automation-landing-20260909 merges or is abandoned, its whole-file conflict disappears while NOTHING prevents the next re-serialisation. That is the trap -- the symptom is self-clearing and the class is not. !! NOR DOES A QUIET PERIOD CLEAR IT: no conflict for a week means nobody re-serialised the file that week, which is a statement about the week and not about the file. !! AND CHECK BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT BEFORE CLOSING EITHER: observed once on 2026-09-10, backlog_union_merge.py now reports 'reproducing origin/main's serialisation' rather than hardcoding it, so that sibling row may already be repaired -- but ONE observation of a tool printing the right thing is not a verification, and this row is not evidence for closing that one."
     }
   ]
 }
