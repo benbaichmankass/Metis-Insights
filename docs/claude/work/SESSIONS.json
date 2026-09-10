@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T20:27:00Z",
+  "updated_at": "2026-09-10T21:33:16Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4442,10 +4442,10 @@
       "why": "Operator asked 2026-09-10 why alpaca_live shows no live trades weeks after reactivation. MI-140's merged verdict (#11271) says it is NOT broken: it was asked twice, both times to short, both suppressed by the operator-directed side_filter: long gate. The real cause is a roster of ONE leg. This row has read ready/unassigned since 2026-09-08 and was never routed.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T08:14:52Z",
-      "updated_at": "2026-09-10T15:27:00Z",
-      "manager_observation": "MI-201. ⚠️ READS status_bucket BLOCKED / need_input AND THAT IS A FROZEN SUMMARY, NOT A LIVE BLOCK -- all five of its listed questions were answered by the operator on 2026-09-10 and its work is merged. Do NOT re-ask them. Recorded here because a successor reading only the bucket would re-open settled decisions; post_turn_summary freezes in BOTH directions.",
-      "live_status": "false_block_do_not_action",
-      "live_status_read_at": "2026-09-10T15:27:00Z",
+      "updated_at": "2026-09-10T21:34Z",
+      "manager_observation": "MI-201 research lane. task_summary \"Running the full guard suite on the current head\"; post_turn_summary review_ready \"PR #11735 appended 22 rows, guards passing; monitoring 60m\". VERIFIED INDEPENDENTLY rather than taken from the summary: #11735 read mergeable_state=blocked with pytest-run/pytest-collect/repo-inventory/open-and-automerge success and `guards` in_progress since 21:27:30Z. The lane CORRECTED THE MANAGER on this PR — see MI-259.",
+      "live_status": "RUNNING/connected",
+      "live_status_read_at": "2026-09-10T21:34Z",
       "live_updated_at": "2026-09-10T09:37:33Z"
     },
     {
@@ -4465,8 +4465,44 @@
       "live_status": "IDLE",
       "live_status_read_at": "2026-09-10T13:26:00Z",
       "live_updated_at": "2026-09-10T12:44:46Z"
+    },
+    {
+      "session_id": "session_01CTPC91xaHrK6ES33UKjkTY",
+      "registry_key": "pending-20260910T213114Z",
+      "state": "working",
+      "title": "ENGINEERING LANE — MI-240: arm R2, the per-pass IB circuit breaker (Tier-2, operator-approved)",
+      "owns_object": "WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES",
+      "checklist_item": "MI-240-ARM-R2-THE-PER-PASS-IB-CIRCUIT-BREAKER-OPERATOR-APPROVED",
+      "spawned_at": "2026-09-10T21:31:14Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator chose r2_only on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z. The remedy is written and the approval is recorded; it has sat unassigned since. Approved work sitting undone is the drop class the manager exists to stop.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-10T21:32:01Z",
+      "live_status": "PENDING (spawned 21:31:56Z)",
+      "live_status_read_at": "2026-09-10T21:34Z",
+      "manager_observation": "ENGINEERING LANE, MI-240 arm R2. Registered BEFORE spawn as pending-20260910T213114Z and confirmed after. No output yet — PENDING is a spawn state, not a report.",
+      "updated_at": "2026-09-10T21:34Z"
+    },
+    {
+      "session_id": "session_01M3FPDA7Yp9dmMXFqsYzGi3",
+      "registry_key": "pending-20260910T213243Z",
+      "state": "working",
+      "title": "OPS LANE — disposition the 34 remaining automation PRs; rescue what cannot be regenerated (MI-259)",
+      "owns_object": "WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND",
+      "checklist_item": "MI-259-OPERATOR-DECISION-RESCUE-THREE-PIT-ARTIFACTS-AND-CLOSE-NINE-SUPERSEDED-AUTOMATION-PRS",
+      "spawned_at": "2026-09-10T21:32:43Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator directed this twice: 'rescue the 3, close the 9' (13:20Z pop-up) and 'we need a specific session in the ops lane (when opens ups)'. That condition is now met. 34 PRs remain undispositioned under a check #11735 proved was the wrong test.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-10T21:33:16Z",
+      "live_status": "PENDING (spawned 21:33:11Z)",
+      "live_status_read_at": "2026-09-10T21:34Z",
+      "manager_observation": "OPS LANE, MI-259 disposition the 34 automation PRs. Registered BEFORE spawn as pending-20260910T213243Z and confirmed after. No output yet.",
+      "updated_at": "2026-09-10T21:34Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-10T20:26Z — PARTIAL. Two lanes re-read off MERGED OUTPUT on main (#11717, #11722, #11727) rather than any post_turn_summary. The remaining rows were NOT re-read this pass; an absent or older live_status_read_at means nobody looked, never that the lane is fine."
+  "⚠️_last_live_reconcile": "2026-09-10T21:34Z — PARTIAL, and that is stated rather than implied. The LIVE half is a real list_sessions(mine=true, limit=14) read taken 21:29Z: exactly ONE lane was RUNNING/connected (MI-201) and every other sub-session in that page read IDLE/disconnected. has_more was true, so this is the newest 14 and NOT the whole registry — 205 rows are carried here and only 3 were re-read this pass. The two PENDING rows are this manager's OWN spawns from four minutes ago, so their state is known by construction, not observed. ⚠️ THE FREE-LANE READING IS WHAT THIS PASS WAS FOR: two of the operator's cap of three were idle, which is the condition MI-259 explicitly deferred on. Both were filled this tick (ENGINEERING/MI-240, OPS/MI-259), each registered BEFORE the spawn and confirmed after. Lanes are now at the cap of 3, one per operator-named role: ops / engineering / research."
 }
