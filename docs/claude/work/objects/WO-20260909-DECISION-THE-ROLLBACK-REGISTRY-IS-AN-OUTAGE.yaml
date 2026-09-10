@@ -17,7 +17,12 @@ closed_at: '2026-09-10'
 review_trigger: >-
   CLOSED 2026-09-10. The DECISION was discharged by the operator on 2026-09-09 and the BUILD
   that implements it MERGED as PR #11615 (squashed to `main` as 2ee21f4e5, merged
-  2026-09-10T00:42:51Z by the operator, head f606e4d4d, all 6 checks green). Nothing here is
+  2026-09-10T00:42:51Z BY THE MANAGER holding the lease (session_01HrmZ1RRNM4UnEUaFdrPEjj) - NOT by the
+  operator, which this line said until 2026-09-10T01:1xZ. The operator's part was the DECISION on
+  2026-09-09 (chosen: collapse_to_one_registry); the merge click was a management act on the
+  recorded approval. Attribution matters here because pr-landing R4 bars a Tier-3 diff from landing
+  itself whatever its approval state, so 'who clicked' is exactly what such a row exists to show.
+  Head f606e4d4d, all 6 checks green). Nothing here is
   owed. ⚠️ `done` ON THIS OBJECT MEANS THE DECISION AND ITS BUILD ARE COMPLETE — IT DOES NOT
   MEAN THE EFFECT WAS OBSERVED ON THE FLEET, and collapsing those two is the failure this repo
   keeps paying for. The fleet question is carried by
@@ -34,11 +39,17 @@ done_condition: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-09 by the manager. Nothing blocks the BUILD: the finding is measured, the
-  detector is named in the audit, and the operator has now answered. What gated it was the
-  decision itself, and that gate is discharged. !! IT IS NOT SCHEDULED: the WIP ceiling stood at
-  8 of 8 in_flight when this was recorded, so no lane could be spawned. `ready` means answered
-  and buildable, NEVER in progress.
+  ASSESSED 2026-09-09 by the manager, and the closing sentence below is PRESERVED AS THE RECORD OF
+  WHAT WAS TRUE THEN rather than as a live claim - it read "IT IS NOT SCHEDULED: the WIP ceiling
+  stood at 8 of 8 in_flight when this was recorded, so no lane could be spawned", which is FALSE as
+  of 2026-09-09T23:06Z: a lane WAS spawned (MI-229, session_01TM8XjkvVpvMxH4EcLtTsvP - this
+  object's own `owner` field names it), it built the collapse, and #11615 merged. A session reading
+  that sentence as current would conclude this is unstarted work. The original text: "Nothing blocks
+  the BUILD: the finding is measured, the detector is named in the audit, and the operator has now
+  answered. What gated it was the decision itself, and that gate is discharged. `ready` means
+  answered and buildable, NEVER in progress." !! `blocked_on: []` HERE IS A REAL CLAIM AND NOT AN
+  UNASSESSED DEFAULT: nothing blocks this object, because the fleet observation it does NOT cover is
+  carried by OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED.
 
 captured_by: manager session_01HrmZ1RRNM4UnEUaFdrPEjj (routing the landed full-system audit)
 
