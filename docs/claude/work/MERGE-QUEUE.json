@@ -53,7 +53,7 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T02:47:00Z",
+  "updated_at": "2026-09-10T04:53:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "note": "STATE 2026-09-10T02:47Z. ONE entry `rebasing` (#11626) and that is the R8 invariant, not a coincidence — its owner is poked and cleared; nothing else may rebase until it lands. TONIGHT'S LEDGER, recorded here rather than left in my session context (MI-102's whole lesson): #11629, #11632, #11628, #11631, #11634 merged by me, each now carried as a `merged` entry with its commit. #11628 and #11632 are the two independent halves of a RED MAIN I CAUSED and neither substitutes for the other — #11632 fixed the DATA (a 7-key merge_slot claim I wrote), #11628 fixed the METRIC (a positional line-compare that read every following line as changed once the key count differed). ⚠️ THE 44 `blocked` AUTOMATION ENTRIES BELOW ARE STALE AND I AM NOT DRAINING THEM. They were measured 2026-09-09T04:16Z and many have since merged or closed; this file has not been reconciled against a live open-PR list since. That is stated rather than silently carried, and it is deliberate: the census in this same file records that the queue GREW 30 -> 42 across a window in which ten PRs were merged, because every merge to main spawns a reconcile-open-prs — draining one at a time while still merging does not converge. A successor must NOT open a session on 'drain the queue'. What IS current in this file is the non-automation entries and tonight's ledger. ⚠️ AND DO NOT READ THE `blocked` COUNT AS A BACKLOG OF WORK — R13 blocks every bot-opened PR by construction (a bot writes no merge_slot claim), so `blocked` there is the steady state of a mechanism, not a queue of things waiting on a decision.",
   "entries": [
@@ -386,17 +386,17 @@
     },
     {
       "pr": 11626,
-      "state": "rebasing",
+      "state": "merged",
       "tier": 1,
       "blocked_on": "",
-      "note": "MI-217 (session_01MrTjuoRpBb7spyQLydXmmT), lane-3. Green on all six checks (pytest-run 02:12:03Z, head 30e88b06b) and `landing: hold` / `unvouchable_paths` — a MERGE-CLICK state, NOT `tier_2_3_needs_approval`; the operator approval for the substance is recorded in MANAGER-CHECKLIST.json row MI-217-PACKET-EMITS-NO-OFFLINE-EVIDENCE-INSTEAD-OF-HOLD and must NOT be re-sought. I attempted the merge 02:41Z and the API refused: 405, 'Pull Request has merge conflicts'; re-read confirms mergeable_state dirty against ac69e16bd. Cause is tail-append vs tail-append on docs/claude/health-review-backlog.json, against my own #11634. ⚠️ MY LOCAL TEST-MERGE SAID CLEAN AND WAS WRONG — merge.jsonregister is armed in this clone and GitHub does not run it; filed as BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY. The driver's RESOLUTION is correct though, and I verified it as a true union (1421+1421 -> 1422, symmetric difference empty, both new rows present, 94 tests pass on the merged tree), so the owner's resolution is 'keep both rows'. State is `rebasing` because I POKED the owner at 02:44Z to merge origin/main in and push — it is the one entry cleared to rebase (R8)."
+      "note": "MERGED d597d2451 (2026-09-10T04:51Z) by the manager under `landing: hold` / `unvouchable_paths` — a merge click, NOT an operator gate; the approval for the substance is recorded on the MI-217 checklist row and was not re-sought. The owner ACTED on the 02:44Z poke: head 30e88b06b -> 9a4f292ab, 4 -> 7 commits, additions unchanged at 566/13, i.e. main merged in and both backlog rows kept. ⚠️ THE FIRST MERGE ATTEMPT (02:41Z) WAS REFUSED 405 AND MY LOCAL TEST-MERGE HAD SAID CLEAN — merge.jsonregister is armed in this clone and GitHub runs no custom driver, so that clean result was the driver, not a fact about the PR (BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY). This merge was called from `mergeable_state: clean` read off the API at 04:51Z, not from a worktree."
     },
     {
       "pr": 11630,
-      "state": "blocked",
+      "state": "merged",
       "tier": 2,
-      "blocked_on": "DRAFT, and deliberately. MI-231 (session_017vNWUL48WWrtxssFv2EDMf), audit F-39, REAL-MONEY ADJACENT. Its Tier-2 journal re-attach diff must go to the OPERATOR before it is applied — operator-set scope limit: JOURNAL/STATE REPAIR ONLY, no order placed, modified or cancelled on any account, emphatically not bybit_2, venue positions untouched. Not a queue blockage to clear; it is waiting on a decision that is not mine.",
-      "note": "MI-231 lane, F-39 package-leg reachability"
+      "blocked_on": "",
+      "note": "MERGED c88c7ff9e (2026-09-10 ~04:07Z) — OPERATOR-APPROVED, asked as a popup and answered 'Merge it now'. ⚠️ THE MERGE DOES NOT AUTHORIZE THE RE-ATTACH and the operator's answer said so: the 3-row order_packages repair (closed->open) is UNAPPLIED and returns as its own decision with its exact diff. Verified in the diff before asking: the tool is dry-run by default, requires a captured exchange payload, refuses without it, and has NO caller outside its own tests — no database was written. It was a DRAFT and had to be marked ready first."
     },
     {
       "pr": 11629,
@@ -432,6 +432,27 @@
       "tier": 1,
       "blocked_on": "",
       "note": "MERGED ac69e16bd (2026-09-10, by the manager). manager heartbeat, three-lane supervision, two backlog filings."
+    },
+    {
+      "pr": 11635,
+      "state": "merged",
+      "tier": 1,
+      "blocked_on": "",
+      "note": "MERGED 182fe3e85 (MI-230 close-out, self-landed). ⚠️ IT CARRIES A FINDING, NOT A PASS: the restart gap BREACHES the 60s requirement on 77 of 442 restarts (17.4%), worst 210.4s — against an OPEN-ITEMS row that predicted `within` and said not to hold out for a breach."
+    },
+    {
+      "pr": 11636,
+      "state": "merged",
+      "tier": 1,
+      "blocked_on": "",
+      "note": "MERGED 050849104 — manager heartbeat 02:49:05Z, four-lane supervision, tonight's ledger, one backlog filing."
+    },
+    {
+      "pr": 11637,
+      "state": "merged",
+      "tier": 1,
+      "blocked_on": "",
+      "note": "MERGED 91faf047f — chore(ops): record what each session left behind (automation)."
     }
   ],
   "digest_clearance": {
