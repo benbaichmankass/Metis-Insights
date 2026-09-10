@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T06:11:04Z",
+  "updated_at": "2026-09-10T07:06:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -2502,7 +2502,7 @@
     {
       "session_id": "session_017UnyG4ArXmXKpB8rmEGv1j",
       "registry_key": "pending-20260906T105926Z-2",
-      "state": "idle",
+      "state": "stalled_poked",
       "title": "MI-139b — APPLY the Tier-3 Bybit close-qty fix (operator approved both parts)",
       "owns_object": "WO-20260906-A-BYBIT-REDUCE-ONLY-CLOSE-IS-REJECTED",
       "checklist_item": "MI-139-BYBIT-QTYSTEP",
@@ -2513,7 +2513,15 @@
       ],
       "why": "OPERATOR APPROVAL 2026-09-06: both parts of the #11112 proposal approved; a reduce-only close cannot be flattened today",
       "confirmed_at": "2026-09-06T11:00:41Z",
-      "observed_at": "2026-09-08T03:31:00Z"
+      "observed_at": "2026-09-10T06:55:00Z",
+      "observation": "MEASURED 2026-09-10T06:4xZ: IDLE, disconnected, status_bucket BLOCKED, need_input 'write disposition for PR #11105' recorded 2026-09-06T19:10:07Z — THREE AND A HALF DAYS. #11105 was closed 2026-09-06T10:22:01Z, NINE HOURS BEFORE it asked, so the ask was never 'close it' but 'record a disposition for a closed-unmerged PR'; I read it as the former and it was already true. #11162/#11170/#11171, the three PRs it said were blocked, are no longer open. POKED 06:55Z. ⚠️ IT CARRIES A LIVE ORDER-PATH FINDING worth more than the disposition: a Bybit reduce-only close serialising qty '33.299999999999955' without quantising to the symbol's qtyStep, refused 10001, so the position cannot be flattened by the normal path. Asked whether that is still live. NOT proposed for fix — Tier-3.",
+      "last_observed_at": "2026-09-10T06:55:00Z",
+      "last_observed": {
+        "at": "2026-09-10T06:55:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session per id — platform truth",
+        "state": "stalled_poked"
+      }
     },
     {
       "session_id": "session_01SKvbp9rm3fiyD9uHxpeFKM",
@@ -3985,18 +3993,19 @@
         "claude/mi-222-venue-truth-detector"
       ],
       "why": "Operator-directed 2026-09-09: nothing detects a live position absent from BOTH the account-wide venue list and the journal open rows; journal_venue_audit.py reads the blind list so it is not this capability",
-      "state": "blocked",
-      "observed_at": "2026-09-10T00:33:00Z",
-      "observation": "MI-222. LIVE 00:33Z: IDLE, disconnected, BLOCKED with an explicit needs_action addressed to the manager: 'close PR #11579 and delete claude/mi-222-report-green branch' -- auto-merge armed but R13 (unslotted auto-merge) refuses it. Closing a PR is a MANAGEMENT act and is the manager's to do; it is queued in this tick and is NOT a build.",
+      "state": "stalled_poked",
+      "observed_at": "2026-09-10T06:55:00Z",
+      "observation": "MEASURED 2026-09-10T06:4xZ: IDLE, disconnected, status_bucket BLOCKED, need_input 'close PR #11579 and delete claude/mi-222-report-green' recorded 2026-09-09T17:53:18Z. #11579 was ALREADY CLOSED at 2026-09-09T19:41:11Z — about two hours after it asked — so this lane sat blocked on a satisfied request for THIRTEEN HOURS because nothing tells a session when a manager action happens. POKED 06:55Z with the measured close and asked to verify it itself, delete the branch only if nothing unmerged is on it, and say plainly whether the venue-truth detector is DONE. MANAGER DEFECT, not a lane defect.",
       "status": "blocked_resolved",
-      "last_observed_at": "2026-09-10T00:33:00Z",
-      "previous_observation": {
-        "state": "blocked",
-        "observation": "Live get_session 19:41Z: SESSION_STATUS_IDLE, disconnected, status_bucket BLOCKED, needs_action \"close PR #11579 and delete claude/mi-222-report-green branch\". ACTED ON, 19:43Z: #11579 CLOSED by this manager on the author's own disposition, with a comment recording exactly what the close does and does not lose (88 lines, all automation/** relay inputs plus the receipt; no src/tests/config/deploy/workflow path; commits and branch survive a close). The board post itself is NOT lost - board-post.yml fails its run on a failed post and this one wrote a receipt naming issue #11336 comment 5606175880. I DID NOT independently re-read that comment and said so on the PR rather than implying a verification I did not perform. Root cause of the block was pr-landing R13: the branch armed without holding merge_slot, and re-slotting it would have serialised a lease heartbeat behind a relay receipt.",
-        "last_observed_at": "2026-09-09T19:44:00Z",
-        "observed_at": "2026-09-09T16:28:00Z"
-      },
-      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z"
+      "last_observed_at": "2026-09-10T06:55:00Z",
+      "previous_observation": "MI-222. LIVE 00:33Z: IDLE, disconnected, BLOCKED with an explicit needs_action addressed to the manager: 'close PR #11579 and delete claude/mi-222-report-green branch' -- auto-merge armed but R13 (unslotted auto-merge) refuses it. Closing a PR is a MANAGEMENT act and is the manager's to do; it is queued in this tick and is NOT a build.",
+      "observed_source_url": "list_sessions(mine=true, limit=18) at 2026-09-10T00:33Z",
+      "last_observed": {
+        "at": "2026-09-10T06:55:00Z",
+        "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+        "source": "get_session per id — platform truth",
+        "state": "stalled_poked"
+      }
     },
     {
       "session_id": "session_01GXpHkCHCx3bLrDGVNkVPrP",
