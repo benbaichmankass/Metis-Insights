@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The MI-254 dispatch that produced this row said, verbatim: \"Do NOT arm auto-merge and do NOT claim the merge slot -- I merge by hand.\" That instruction was given about the MI-254 PRs; this backlog row is a byproduct of the same session, so it is held under the same instruction rather than self-landing around it. Stating the scope rather than overclaiming: the manager did not name this PR, because it did not exist when the instruction was given.",
+  "why": "One appended row in docs/claude/health-review-backlog.json -- docs only, no runtime, order path, test or config touched. Tier-1 by content AND by path (the Tier-1 allowlist covers docs/), so this would qualify to self-land; it is the instruction, not the tier, that holds it."
+}
