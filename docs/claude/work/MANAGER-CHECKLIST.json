@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T09:05:00Z",
+  "updated_at": "2026-09-10T10:15:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -2884,12 +2884,13 @@
       "object": "WO-20260909-NO-DETECTOR-CAN-SEE-A-POSITION-MISSING-FROM-THE-VENUE-LIST",
       "blocked_on": [],
       "note": "Operator-directed 2026-09-09 after the bybit_2 ETHUSDT P1. THE CAPABILITY DOES NOT EXIST, and the near-miss is the point: scripts/ops/journal_venue_audit.py was built 2026-09-08 for this exact class, (a) nothing runs it (its own header says manual-only, deliberately not on a cadence) and (b) it reads the venue via _diag(\"exchange_positions\") = account_open_positions, THE LIST THIS POSITION IS MISSING FROM — so on an hourly cadence since it was written it would have reported bybit_2 clean on every run. Scheduling it buys a green light over an unread book. Reuse its JOURNAL side (the two silent read caps + the /api/diag/exposure uncapped-SUM cross-check) wholesale; replace the venue side with a roster-driven enumeration from config/accounts.yaml::symbols, which is complete BY CONSTRUCTION and contains ETHUSDT for bybit_2. One open parameter — whether a symbol-scoped bybit read sees it — is MI-221 clause (A); it gates the read choice, not the start. Detector routes into the EXISTING baseline repair chain and owns no order path of its own.\n\n⚠️ UPDATED 2026-09-09T14:28Z BY THE MANAGER — MY OWN STRUCTURAL CLAIM ABOVE IS PARTIALLY REFUTED BY THE LANE (#11550) AND I ACCEPT THE REFUTATION. 'Replace the venue side with a roster-driven enumeration from config/accounts.yaml::symbols' describes work that ALREADY EXISTS: account_open_positions' bybit branch already runs a roster sweep at src/units/accounts/clients.py:1410, iterating _bybit_configured_symbols(account) and issuing a per-symbol get_positions. Building it again would have been RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. THE REAL GAP IS ONE THE LANE FOUND AND I DID NOT: the COLLAPSED READ at clients.py:1379-1381 — `size = _f(p.get('size')); if size <= 0: return` — with no counter, no log and no position_idx, so THREE venue answers become one silent value: genuinely flat / a zero-size row returned / no row returned at all. That return value feeds a live real-money close decision at order_monitor.py:4348, which makes the FIX Tier-2/3 and MINE to put to the operator — #11550 itself is Tier-1 (tests + evidence, no live-path change) and does not touch it. The 'one open parameter' sentence above is also SETTLED, not open: a symbol-scoped bybit read DOES see the symbol and returns both hedge books (MI-221 §12). Do not re-derive it.",
-      "updated_at": "2026-09-09T14:28:00Z",
-      "status": "in_flight",
+      "updated_at": "2026-09-10T10:00:00Z",
+      "status": "needs_redispatch_premise_is_wrong",
       "notes": [
         "2026-09-09T17:28Z — THE OPERATOR APPROVAL FOR THIS ITEM WAS RECORDED NOWHERE, AND THAT IS MY FAILURE, NOT THE BUILD LANE'S. The lane raised it on PR #11566 in as many words: 'I could not confirm the operator's approval from any repo surface ... a Tier-2 diff on the module gating a real-money close should not self-land on an approval its own repo cannot show.' They were RIGHT and they were right to refuse to self-land on it. MEASURED before writing this: this row on main carried status None, owner unassigned and ZERO notes, and the same row on my own unmerged #11547 carried the same — so the approval was not merely unmerged, it was never written down at all. I relayed it through a scheduled-trigger poke and no further. WHAT WAS APPROVED, stated so the scope is checkable rather than remembered: Tier-2, OBSERVABLE-FIRST. Make the collapsed position read at src/units/accounts/clients.py:1379-1381 COUNTABLE — the `if size <= 0: return` that discards a row with no counter, no log and no positionIdx, so that 'genuinely flat', 'a zero-size row came back' and 'no row came back at all' reach every caller as the same empty list. THE BINDING CONSTRAINT, and it is the whole basis of the approval: `account_open_positions`'s RETURN VALUE stays BYTE-IDENTICAL. That return feeds _exchange_position_set (order_monitor.py:2884) which gates the close decision at order_monitor.py:4348 on real money; if the returned set changed by one element this would be a TIER-3 change that was NOT approved. Repairing the dedupe itself is explicitly NOT in scope. PROVENANCE, stated honestly rather than dressed up: this is MY ATTESTATION of an approval the operator gave in conversation on 2026-09-09, written down after the fact. It is not a quotable operator message and no repo surface corroborates it. A future session weighing it should weigh it as that. THE PROCESS FAILURE IS THE TRANSFERABLE PART: an approval that lives only in a manager's context is, to every other session and to the manager's own successor, indistinguishable from no approval — and the cost is not abstract, it stalled a green Tier-2 PR and forced its author to publish a caveat questioning their own authority to ship. Operator feedback and operator approvals both become canon by being WRITTEN, at the moment they are relayed, not at the moment they are convenient.",
         "2026-09-09T19:43Z: #11579 (the MI-222 board-relay carrier) CLOSED by the manager on its author's own recorded disposition (needs_action: 'close PR #11579 and delete claude/mi-222-report-green branch'). Cause was pr-landing R13 - it armed auto-merge without holding merge_slot, and the slot is held for the lease heartbeat. What the close loses: 88 lines of automation/** relay inputs plus a receipt; commits and branch survive. What it does NOT lose: the board post, which board-post.yml would have failed the run over had it not succeeded. I did not independently re-read board comment 5606175880 and said so on the PR."
-      ]
+      ],
+      "manager_observation_20260910T1000Z": "THIS ROW READ state: ready / status: in_flight -- one of the 12 DISAGREE rows -- and BOTH halves were stale. Resolved to one truth from a live get_session read at 09:58Z: the session is SESSION_STATUS_IDLE / BUCKET_COMPLETED, so nothing is in flight; and the ITEM is not done, so it is not done either. *** THE SESSION WAS BLOCKED FOR ~3 HOURS AND NO REGISTER FIELD SHOWED IT: it sat SESSION_STATUS_REQUIRES_ACTION / BUCKET_BLOCKED from 06:55:58Z on a PENDING TOOL PERMISSION for a pull_request_read on #11579, which only that session can answer. Cost 350,930 tokens / $72.47 while stalled. *** MEASURED MECHANISM FINDING, previously UNPROVEN and now established: a create_trigger + fire_trigger POKE DOES REACH A PERMISSION-BLOCKED SESSION AND CLEARS IT. Poked 09:54Z; at 09:58Z the session read IDLE/COMPLETED with updated_at 09:57:34Z, tokens 350,930 -> 372,328 and cost $72.47 -> $77.65, i.e. it genuinely ran a turn rather than merely being re-labelled. Do not re-derive this. *** ITS REPORT, VERIFIED NOT INHERITED: it claims #11550 and #11566 merged, and both are on main (72be558d3, 985375d3f) -- checked with git rather than taken from post_turn_summary, which has been wrong in the reassuring direction twice this session. *** THE DROP THIS ROW NOW CARRIES: it reports the detector is UNSATISFIABLE AS SPECIFIED and needs a RE-DISPATCH with a corrected premise -- see the roster at src/units/accounts/clients.py:1410 and the control plant in MI-221 section 12. That is a rewrite of the brief, not a resumption, so the next session must NOT be handed the original spec."
     },
     {
       "id": "MI-223-PROMOTION-GATE-COUNTS-OBSERVATIONS-OF-MECHANICS-NOT-TIME-OR-TRADES",
@@ -3225,7 +3226,8 @@
       "spawned_at": "2026-09-10T07:36:58Z",
       "operator_clarification_20260910T0800Z": "VERBATIM, and it changes the SCOPE of this item rather than merely emphasising it: \"just to be clear the organized workflow isn't a backstop - it's the way we need to work in general, and part of that is making the work page on the UI clear so that I can keep track of the work sessions without needing to ask for ad hoc updates all the time.\" !! TWO CONSEQUENCES, AND THE FIRST IS A REAL GAP IN WHAT WAS FILED. (1) THE PAGE NEEDS A THIRD PANEL: LIVE WORK SESSIONS. As originally filed this item covered the CHECKLIST and the DECISION inbox only. The operator's stated purpose is tracking the work SESSIONS, and that is a different source: docs/claude/work/SESSIONS.json (the sub-session registry). The panel must show, per live lane: which item it owns, its session id, its state, WHEN IT WAS LAST OBSERVED, and what it is blocked on. Without that the operator still has to ask, which is the exact cost this item exists to remove. (2) IT IS NOT A STOPGAP FOR A MISSING PAGE. The page reflects the discipline; it does not create it. So the CLAUDE.md/role-pack half (half 3) is not optional polish — working from the page IS the workflow, and the page is only as good as the registers behind it.",
       "the_sessions_panel_and_the_trap_it_must_avoid": "⚠️ `state` IN SESSIONS.json DECAYS AND NOTHING DECAYS IT. Measured 2026-09-10T07:47Z: MI-232 and LANE4-RECOVERY both read `working` on main while both were IDLE and COMPLETED — false BY TIME PASSING, not by anyone being wrong when they wrote it. 17 rows were false the same way on 2026-09-08, one of them 42 minutes after it was written. So a panel that renders `state` verbatim will confidently show dead lanes as running, which is WORSE than no panel: the operator would stop asking precisely because it looks live. ⚠️ THE FIX IS NOT TO GUESS. Render the row's own `updated_at` BESIDE its state and make staleness visible — a `working` row last observed 90 minutes ago is not the same fact as one observed 2 minutes ago, and the page must not collapse them. MI-236 already carries the underlying defect (nothing decays a stale in_flight row); this panel must not silently depend on that being fixed first, and must not paper over it either. ⚠️ AND THE PAGE CANNOT READ list_sessions: that is an mcp__* tool no route holds, so the live session state is only ever as good as the last MANAGER OBSERVATION written into the registry. Say so on the page rather than implying a live feed.",
-      "lane_was": "workflow-implementation"
+      "lane_was": "workflow-implementation",
+      "manager_observation_20260910T1000Z": "BOTH HALVES ARE NOW MERGED AND THE ROW STAYS in_flight ON PURPOSE. Bot half #11651 -> 4875f407a (09:27:59Z), DEPLOYED and READ OFF THE LIVE HOST: GET https://ict-bot.duckdns.org/api/bot/work/checklist -> 200 at 09:29:42Z, 253 items, byBasis state_only 172 / status_only 64 / agree 5 / DISAGREE 12 summing to 253, freshness warnings []. SPA half ict-trader-dashboard#212 -> 8d164c953, merged by the manager 10:00Z after reading 4/4 green and mergeable_state clean; Pages deploy run 34463687301 started 09:59:53Z. *** WHERE TO LOOK: the panels were folded into the EXISTING 'Work' page, NOT a second 'Workflow' nav entry -- MI-238's third commit deleted the duplicate entry after a manager correction at 08:13Z, because two adjacent entries called Work and Workflow defeat the operator's actual ask of ONE place to look. A session telling the operator to open 'Workflow' would send them somewhere that does not exist. *** WHAT IS STILL OWED and why this is not done: clause (3) needs the OPERATOR to confirm the page RENDERS on GitHub Pages with rows collapsed, the decisions section, and the live-sessions panel showing each lane's state BESIDE how stale that reading is; clause (4) needs a manager to give a status update having PUSHED first. Neither is observable by a session -- a merge is not a deploy and for this half a deploy is not a render."
     },
     {
       "id": "MI-239-A-MONITORING-WORKFLOW-THAT-LETS-MONITORED-ITEMS-BE-FOLLOWED-WITHOUT-GENERATING-NOISE",
@@ -3388,9 +3390,73 @@
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — approved and spawned; the only gate is the Tier-3 human merge click, which is a landing constraint rather than a blocker on the work.",
       "source": "operator decision 2026-09-10, on MI-201's proposal (#11665)"
+    },
+    {
+      "id": "MI-249-OPERATOR-DECISION-ALPACA-LIVE-SIDE-FILTER-KEEP",
+      "title": "DECIDED: keep `side_filter: long` on alpaca_live",
+      "state": "done",
+      "tier": 1,
+      "lane": "research",
+      "added": "2026-09-10T10:15:00Z",
+      "owner": "manager — recorded, no build follows",
+      "source": "OPERATOR DECISION, answered in-conversation 2026-09-10T10:15Z on a four-question pop-up put up by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. Grounded in docs/research/alpaca-live-roster-candidates-2026-09-10.md § 9, which MI-201 surfaced and which nobody had answered — the four had been sitting as an unowned block while MI-201 sat BLOCKED on them.",
+      "decision": "KEEP. Chosen option: 'Keep it'.",
+      "why": "Dropping it buys ZERO trades. Alpaca reports shorting_enabled: false on this account, so a short is refused AT THE VENUE before our gate is consulted. Keeping the key is strictly better for MEASUREMENT: our suppression is journalled as a would-be trade and stays countable, where a broker rejection is not.",
+      "⚠️_what_this_is_not": "This is NOT a finding that the short side works. It is a decision to keep the instrument that MEASURES the short side while it does not. The short side itself is MI-251.",
+      "resolution_criteria": "Recorded. No code change follows — the key is already `long` in config/strategies.yaml. Nothing to build, nothing to deploy."
+    },
+    {
+      "id": "MI-250-OPERATOR-DECISION-ALPACA-LIVE-FUNDING-STAYS-AT-200",
+      "title": "DECIDED: alpaca_live funding stays at ~$200 — raising it is OFF the table",
+      "state": "done",
+      "tier": 1,
+      "lane": "research",
+      "added": "2026-09-10T10:15:00Z",
+      "owner": "manager — recorded, no build follows",
+      "source": "OPERATOR DECISION, answered in-conversation 2026-09-10T10:15Z on a four-question pop-up put up by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. Grounded in docs/research/alpaca-live-roster-candidates-2026-09-10.md § 9, which MI-201 surfaced and which nobody had answered — the four had been sitting as an unowned block while MI-201 sat BLOCKED on them.",
+      "decision": "NO — keep $200. Chosen option: 'No — keep $200'.",
+      "⚠️_the_consequence_is_accepted_not_unknown": "MEASURED by MI-201: at $200 this account CANNOT touch 4 of its own 11 declared symbols at ANY risk setting — the whole-share cash wall, an arithmetic property of the sizer, not a config choice. The operator has accepted that constraint knowingly. The 7 reachable symbols are the working set.",
+      "⚠️_stop_re_surfacing_it": "This is the row that exists so the next roster proposal does NOT re-open the funding question. MI-201's own doc calls raising the balance the thing that 'unlocks more than any roster edit' — that framing is now SUPERSEDED BY A DECISION. Cite this row instead of re-arguing it.",
+      "resolution_criteria": "Recorded. Option A (#11671) is unaffected and still lands — it was chosen precisely because all four legs are affordable at this balance."
+    },
+    {
+      "id": "MI-251-SCOPE-THE-INVERSE-ETF-ROUTE-FOR-THE-DEAD-SHORT-SIDE",
+      "title": "Scope inverse ETFs so alpaca_live can express the 57–88% of flow that is short",
+      "state": "queued",
+      "tier": 1,
+      "priority": "P2",
+      "lane": "research",
+      "added": "2026-09-10T10:15:00Z",
+      "owner": "unassigned — needs a session",
+      "source": "OPERATOR DECISION, answered in-conversation 2026-09-10T10:15Z on a four-question pop-up put up by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. Grounded in docs/research/alpaca-live-roster-candidates-2026-09-10.md § 9, which MI-201 surfaced and which nobody had answered — the four had been sitting as an unowned block while MI-201 sat BLOCKED on them.",
+      "decision": "SCOPE INVERSE ETFs FIRST. Chosen option: 'Scope inverse ETFs first'.",
+      "⚠️_what_was_explicitly_NOT_chosen": "Enabling shorting + margin at the broker was OFFERED AND NOT TAKEN. Do not propose it as a next step. It would END the cash-account regime and the T+1 settlement gate with it — and that gate is ARMED AND BINDING on this account today (ALPACA_CASH_SETTLEMENT_MODE=apply, ACCOUNTS=alpaca_live). Recording it as knowingly dead was also offered and not taken.",
+      "note": "A 2026-08-25 sweep already found 9 affordable inverse ETFs; the gap is filed as BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED. This recovers short exposure WITHOUT the regime change.",
+      "⚠️_scope_is_MEASURE_AND_PROPOSE_NOT_WIRE": "This item wires NOTHING. Declaring an instrument on alpaca_live touches a real-money `symbols:` list AND the CI-enforced alpaca_portfolio mirror equality (tests/test_paper_portfolio_accounts.py), so any actual wiring is a separate Tier-3 decision with its own approval. A session that ends by opening a config PR has exceeded this item.",
+      "resolution_criteria": "A written screen of the 9 candidates against THIS account's two hard walls — the whole-share cash wall at ~$200 (MI-250 fixed the balance, so use $200, not a hoped-for one) and candle availability — naming which are affordable and which have data, plus a Tier-3 proposal for the operator. `insufficient_n` on track record is the EXPECTED reading and is not a blocker: this is a plumbing/expressibility question, not an edge bet.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — nothing blocks it; it needs a session, and the lane cap is what holds it."
+    },
+    {
+      "id": "MI-252-REPAIR-THE-SPLG-CANDLE-FEED",
+      "title": "Repair the SPLG candle feed — it is alpaca_live's ONLY S&P proxy and it has starved 35 → 12 bars",
+      "state": "queued",
+      "tier": 1,
+      "priority": "P2",
+      "lane": "ops",
+      "added": "2026-09-10T10:15:00Z",
+      "owner": "unassigned — needs a session",
+      "source": "OPERATOR DECISION, answered in-conversation 2026-09-10T10:15Z on a four-question pop-up put up by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. Grounded in docs/research/alpaca-live-roster-candidates-2026-09-10.md § 9, which MI-201 surfaced and which nobody had answered — the four had been sitting as an unowned block while MI-201 sat BLOCKED on them.",
+      "decision": "REPAIR THE FEED. Chosen option: 'Repair the feed'.",
+      "⚠️_what_was_explicitly_NOT_chosen": "'Record it as knowingly dead' and 'swap in a different S&P proxy' were both offered and NOT taken. Do not do either. In particular do NOT swap the instrument — that touches a real-money `symbols:` list and the CI-enforced mirror equality, and it is a larger Tier-3 change than it looks. ⚠️ AND RETIRING THE LEG IS NOT ON THE TABLE AT ALL under the standing no-retirement policy — lowest rank is paper; it was deliberately not offered as an option.",
+      "note": "Two rows already filed: BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE (kept_open) and PB-20260902-SPLG-TREND-LONG-1D-IS-CANDLE-STARVED-AND-CANNOT-SIGNAL (open). MI-201 measured the starvation DEEPENING: 35 bars → 12. /api/bot/candles?symbol=SPLG&timeframe=1d is the read surface.",
+      "⚠️_the_denominator_first": "Establish WHY 12 bars come back before changing anything — a fix aimed at a cause nobody measured is the unprovenanced-diagnostic class this repo has a guard for. Say whether the 12 are stale, truncated, or all the upstream has, and name which upstream answered.",
+      "resolution_criteria": "SPLG returns enough 1d bars for splg_trend_long_1d to EVALUATE — read off /api/bot/candles against the strategy's declared lookback — and a signal-path read confirms the leg evaluates rather than skipping. ⚠️ A green test clears nothing here; the feed is live infrastructure.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED — nothing blocks it; it needs a session."
     }
   ],
-  "as_of": "2026-09-10T09:05:00Z",
+  "as_of": "2026-09-10T10:15:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
