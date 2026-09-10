@@ -1,8 +1,10 @@
 # Scoping the inverse-ETF route for `alpaca_live`'s dead short side
 
-> **Doc status:** `live` · category `research` · MI-251 · written `2026-09-10` by
-> `session_01Ek2KDXDeLAMrN4JH4aEXWf` · **MEASURE AND PROPOSE ONLY — this doc
-> changes no config, arms nothing, and declares no instrument.**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-10` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+
+**MI-251 · written 2026-09-10 by `session_01Ek2KDXDeLAMrN4JH4aEXWf` · MEASURE AND
+PROPOSE ONLY — this doc changes no config, arms nothing, and declares no
+instrument.**
 
 Operator answer, 2026-09-10, on a pop-up: *"Scope inverse ETFs first."* Chosen
 over leaving the short side dead and over other routes.
@@ -62,8 +64,8 @@ lifetime** — older rows exist and are not in it. `order_packages` carries **no
 short side is **55.9%** of the roster's flow. That is not a handful.
 
 This is consistent with, and independently reproduces, the figure already
-recorded in `config/accounts.yaml` beside `side_filter` — **57.7% short over 100%
-of `order_packages` (3,984 rows, 2026-05-02…2026-08-23)** — and with the
+recorded in `config/accounts.yaml` beside `side_filter`: **57.7% short (n=3,984
+order_packages, 100% of the population, 2026-05-02…2026-08-23)** — and with the
 per-leg note there that *"the short 55.4% of this leg's flow is structurally
 unexecutable"*. Three windows, three methods, same answer.
 
@@ -200,12 +202,12 @@ two rows.
 
 | | cost | per median 4.54-day hold on $178.36 |
 |---|---|---|
-| **TBF / TBX expense ratio** | 0.95%/yr | **$0.021** |
+| **TBF / TBX expense ratio** | 0.95%/yr <!-- population-ok: a published fund fee, an instrument property, not a measurement over a population --> | **$0.021** |
 | Alpaca equity commission | $0 | $0 |
 | Short borrow (the alternative) | n/a — **`shorting_enabled: false` at the venue** | — |
 
-Against ~**$0.98** of per-trade risk, the expense ratio is **~2%** of the risk
-budget. **Not a blocker.** *(Hold times: n=6 closed packages, median 4.54 d, mean
+Against ~**$0.98** of per-trade risk, the expense ratio is
+**~2% ($0.021 / $0.98, n=6 closed packages)** of the risk budget. **Not a blocker.** *(Hold times: n=6 closed packages, median 4.54 d, mean
 8.51 d, max 30.05 d — small n, and `updated_at` is a proxy for the close, not a
 broker stamp.)*
 
@@ -233,8 +235,9 @@ unsettled funds is a good-faith violation that gets the account restricted. At
 leg went live.
 
 ⚠️ **Opening the short side roughly DOUBLES turnover on a book that already
-recycles fully.** Today the account can act on ~44% of its roster's flow; making
-the other ~56% actionable means roughly twice as many round trips through a
+recycles fully.** Today the account can act only on the long side —
+**44% (15 of 34 packages, the 56.2-day window of §1)** — and making the short side
+**56% (19 of 34, same window)** actionable means roughly twice as many round trips through a
 settlement constraint that binds hardest exactly when the balance is fully
 recycled. **The inverse route does not interact with T+1 neutrally — it tightens
 it.** That is a reason to prefer a *paper* book for the first exercise of this
@@ -350,7 +353,8 @@ rather than a bad order. And a paper book has neither the cash wall nor the T+1
 constraint, so it settles the candle-availability and mechanism questions for
 free.
 
-**Scope for whoever picks this up:** it is a **one-symbol problem** (TLT, 89.5%).
+**Scope for whoever picks this up:** it is a **one-symbol problem** — TLT is
+**17 of the 19 lost shorts (89.5%)** in the 56.2-day window of §1.
 Do not build a general inverse-mapping framework for 17 packages in 56 days.
 
 ---
