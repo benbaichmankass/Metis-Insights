@@ -19,7 +19,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 108 of 108 routes documented (100%).**
+> **Coverage, computed rather than counted: 109 of 109 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -55,7 +55,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **74 rows in the table below**;
+Endpoints a consumer hits directly without a JWT. **75 rows in the table below**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
