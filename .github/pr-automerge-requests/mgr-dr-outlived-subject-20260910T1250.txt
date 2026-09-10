@@ -1,0 +1,10 @@
+Arm auto-merge for the decision record + MI-258 (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+Files: docs/claude/work/MANAGER-CHECKLIST.json and
+docs/claude/work/objects/WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS.yaml.
+Manager registers only.
+
+Merge slot taken over from whatever terminal holder is on main at push time,
+asserted so that only the merge_slot key differs from origin/main.

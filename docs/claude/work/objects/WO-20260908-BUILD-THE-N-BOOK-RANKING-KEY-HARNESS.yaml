@@ -192,3 +192,34 @@ refs:
 - .github/workflows/ranking-key-ab.yml
 - scripts/backtest_system.py
 - WO-20260908-DECISION-TRADE-PRIORITISATION-HARNESS
+
+"⚠️_DR_CLEAR_THE_LOUD_TRADE_PRIORITISATION_ROW_ANSWERED_AND_MOOT_2026_09_10T1250Z": >-
+  THE OPERATOR ANSWERED THIS AT ~2026-09-10T12:50Z AND THE QUESTION WAS ALREADY MOOT WHEN IT WAS PUT
+  TO THEM. Recorded in that order deliberately, because the second fact is the finding.
+  CHOSEN: "Reword clause (1) to name the CAPABILITY, then remove the row", over "remove the row as it
+  stands" and over "keep it open until scripts/backtest_system.py itself carries the mode".
+  THE ROW WAS ALREADY GONE. OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST
+  was removed from docs/claude/OPEN-ITEMS.json on 2026-09-09T10:34:23+0300 by ba5fccc1a (#11509),
+  whose own subject line reads "the trade-prioritisation row closed on its own null". MEASURED: the
+  row is absent from OPEN-ITEMS.json at 001b842bb and at every head since, and `git log -S` over that
+  file returns ba5fccc1a as the removing commit. So the QUESTION OUTLIVED ITS SUBJECT BY MORE THAN A
+  DAY, on an object whose own lifecycle already read `done`, and it kept rendering to the operator as
+  work waiting on them the entire time.
+  THE OPERATOR'S ANSWER IS STILL APPLIED, because the reason of record was thinner than the truth.
+  #11509 closed the row on "its own null" -- a bookkeeping technicality. The SUBSTANTIVE reason, which
+  is what a future reader needs, is that clause (1) named a FILE (scripts/backtest_system.py grows an
+  N-book mode) while the CAPABILITY was built as a parity-asserted SIBLING: scripts/research/nbook_portfolio.py,
+  scripts/research/ranking_keys.py and scripts/research/rank_arm_report.py, all three VERIFIED PRESENT
+  on main at 2406d5145, while scripts/backtest_system.py was VERIFIED to carry no N-book mode. It went
+  there because check_pr_landing.py's TIER1_SURFACE admits scripts/research/** and NOT scripts/*.py, so
+  a self-landing Tier-1 PR could not touch the named file.
+  THE CORRECTED CLAUSE, recorded here so it survives the row it belonged to: "an N-book ranking-key
+  harness EXISTS and is drift-proof" -- which tests the CAPABILITY rather than its path, and which was
+  met. DO NOT RE-CREATE THE ROW; it is closed on the corrected reason, not merely on the null.
+  verdict approved / chosen reword_clause_then_remove / answered_by operator (conversational) /
+  answered_at 2026-09-10T12:50:00Z.
+  MANAGER ERROR, recorded as one: the manager put this to the operator without checking whether the
+  row still existed. It verified the INTERESTING half (that scripts/backtest_system.py carries no
+  N-book mode) and ASSUMED the boring half (that the row was still open), then told the operator
+  "verified just now on main" -- a claim true of the FILE and not of the PREMISE. A check that was
+  never run is not a negative.
