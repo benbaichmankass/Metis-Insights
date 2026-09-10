@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T12:10:00Z",
+  "updated_at": "2026-09-10T13:26:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4404,11 +4404,11 @@
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:37:04Z",
-      "updated_at": "2026-09-10T12:10:00Z",
-      "manager_observation": "MI-238 → MI-254. RUNNING on claude/mi254-decision-inbox-verdict after the 11:32Z interrupt cleared its 54-minute block. Reports: awaitingOperator corrected 3 → 1 by grading verdicts at the owner, `reframed_not_answered` added as its own state, 12 mutation-tested cases over the real object store. 3 → 1 is the RIGHT number — the one that legitimately remains is the reframed_not_answered row. ⚠️ At ~721k/1000k context; should finish MI-254 and hand off rather than take anything further.",
-      "live_status": "RUNNING",
-      "live_status_read_at": "2026-09-10T11:54:00Z",
-      "live_updated_at": "2026-09-10T11:54:14Z"
+      "updated_at": "2026-09-10T13:26:00Z",
+      "manager_observation": "MI-238 -> MI-254. ⚠️ ITS post_turn_summary CLAIMS '#11691 merged' AND #11691 IS OPEN. Measured against GitHub, not its summary: state open, and it was `dirty` when I last read it. Its own recent_action says 'ready for hand-merge', which is the accurate half — status_detail overclaims. This is the stale-optimistic freeze the cadence tick warns about, caught by judging on merged output. Head did move (7d3859e -> fda7251b), so it likely DID resolve the conflict and push; what it did not do is merge, because I merge by hand. Verify before crediting either reading.",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T13:26:00Z",
+      "live_updated_at": "2026-09-10T13:22:37Z"
     },
     {
       "session_id": "session_01FyYyybxWC7VD1Rq1doEEdf",
@@ -4422,11 +4422,11 @@
       "why": "Operator approved the XRPUSDT half 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED), completing the earlier paper-first approval. Tool already merged as #11630/c88c7ff9e.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T07:57:32Z",
-      "updated_at": "2026-09-10T12:10:00Z",
-      "manager_observation": "MI-241. #11652 MERGED BY THE MANAGER 12:0xZ as 35a723944. It went red first on the pre-#11680 test rather than on its own diff; rebased and re-run 5/5 green, with tests/test_manager_wake.py asserted byte-identical to main's by md5. ⚠️ IT MERGED MAIN IN RATHER THAN REBASING as instructed — accepted, not re-run: R2 grades MANAGER commits and this is a worker session, and `guards` passed on the head. Recorded so the instruction is not read as having been followed. Next: MI-255 (the Bybit wrong-book close + re-adopt flap key, Tier-2 operator-approved, P1) when it picks up.",
+      "updated_at": "2026-09-10T13:26:00Z",
+      "manager_observation": "MI-241. #11652 merged 35a723944. Its own summary says 'Moving to MI-255' — ⚠️ AND IT HAS NOT: IDLE and DISCONNECTED since 12:07:15Z, i.e. ~80 minutes with the P1 Tier-2 Bybit wrong-book close unstarted. THAT IS A STATED INTENT, NOT AN OBSERVED ONE, and the tick's own warning applies — a lane can read healthy while working on nothing. Needs a poke.",
       "live_status": "IDLE",
-      "live_status_read_at": "2026-09-10T11:54:00Z",
-      "live_updated_at": "2026-09-10T11:50:05Z"
+      "live_status_read_at": "2026-09-10T13:26:00Z",
+      "live_updated_at": "2026-09-10T12:07:15Z"
     },
     {
       "session_id": "session_01UxsiSgFa9dKwBFw5RTbLGA",
@@ -4458,18 +4458,18 @@
       "why": "Operator approved Option A from MI-201's screen (#11665, merged): tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d. Tier-3 config/accounts.yaml change on a REAL-MONEY account; R4 bars self-landing.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T09:01:05Z",
-      "updated_at": "2026-09-10T12:10:00Z",
-      "manager_observation": "MI-247. RUNNING. #11671 MERGED e88ef612a and its deploy INDEPENDENTLY CROSS-CHECKED by the manager (/api/bot/config: five legs; /api/diag/version git_sha e88ef612a) — its own three-way evidence (version / snapshot bot_uptime_s 44 / config) agrees. Opened #11690 to record clauses (1) and (2) as OBSERVED and correctly left clause (3) OPEN. #11690's only red check is pr-landing R6 (declared landing: self, not yet armed) — the documented intermediate state. Told at 11:56Z that the merge slot is free. Then MI-251 (inverse-ETF scoping, dispatched 11:52:50Z). ⚠️ At ~760k/1000k context; told to hand back a paste-ready brief rather than start MI-251 and run out mid-way.",
-      "live_status": "RUNNING",
-      "live_status_read_at": "2026-09-10T11:54:00Z",
-      "live_updated_at": "2026-09-10T11:54:00Z"
+      "updated_at": "2026-09-10T13:26:00Z",
+      "manager_observation": "MI-247 -> MI-251. COMPLETED and merged (#11693 -> 7fd285536). ⚠️ IT RETURNED A REAL RESULT AND IT CUTS AGAINST THE PREMISE I DISPATCHED IT ON: the lost bearish flow is a 55.9% MAJORITY of the account's signal flow, not a handful — TLT alone 89.5% bearish — so the short side being dead at the venue is not a rounding error. Its verdict is that the TRANSLATION MECHANISM is missing and that the honest next test is the already-armed legs, NOT a new inverse wire. Backlog rows and defects filed. Read #11693 before acting on any of it; I have not yet verified its numbers.",
+      "live_status": "IDLE",
+      "live_status_read_at": "2026-09-10T13:26:00Z",
+      "live_updated_at": "2026-09-10T12:44:46Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
   "⚠️_last_live_reconcile": {
-    "read_at": "2026-09-10T11:54:00Z",
-    "how": "list_sessions(mine=true, limit=8) -> ccr.data",
-    "graded": "3 rows carry a live status here — the three lanes at the operator's cap of 3 (ops MI-241, engineering MI-238, research MI-247).",
-    "⚠️": "An OBSERVATION with a timestamp, never a standing claim. THE FINDING FROM THIS READ: MI-201 still renders `needs_action: approve Option A durably; decide side_filter/funding/shorts/SPLG` and its status_bucket reads BLOCKED — ALL FIVE of those are ANSWERED and its own work is merged (#11665, #11666). post_turn_summary FREEZES at a turn boundary; here it froze PESSIMISTIC, which is the safer direction but is still a session that looks blocked and is not. Judge by MERGED OUTPUT."
+    "read_at": "2026-09-10T13:26:00Z",
+    "how": "list_sessions(mine=true, limit=4) -> ccr.data",
+    "graded": "3 lane rows carry a live status.",
+    "⚠️": "THE FINDING FROM THIS READ IS THAT TWO OF THREE SUMMARIES ARE WRONG IN OPPOSITE DIRECTIONS. MI-238 claims a PR merged that is OPEN (stale-optimistic). MI-241 claims it moved to MI-255 and has been IDLE and DISCONNECTED for ~80 minutes without starting it (stated intent read as progress). Neither is visible from any state field; both needed the merged-output check the cadence contract demands. Judge by MERGED OUTPUT, never post_turn_summary."
   }
 }
