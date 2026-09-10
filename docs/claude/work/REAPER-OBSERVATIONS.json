@@ -174,6 +174,134 @@
       }
     },
     {
+      "generated_at": "2026-09-08T23:23:19Z",
+      "rows_graded": 176,
+      "by_state": {
+        "active": 2,
+        "stalled_with_work": 84,
+        "landed": 12,
+        "no_landing_evidence": 34,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 78,
+        "recovered_from_commit_trailer": 54,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T21:25:06Z",
+      "rows_graded": 174,
+      "by_state": {
+        "active": 1,
+        "stalled_with_work": 83,
+        "landed": 12,
+        "no_landing_evidence": 34,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 78,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T20:54:01Z",
+      "rows_graded": 174,
+      "by_state": {
+        "active": 1,
+        "stalled_with_work": 83,
+        "landed": 12,
+        "no_landing_evidence": 34,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 78,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T20:12:41Z",
+      "rows_graded": 174,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 84,
+        "landed": 12,
+        "no_landing_evidence": 34,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 78,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T16:37:34Z",
+      "rows_graded": 174,
+      "by_state": {
+        "active": 3,
+        "stalled_with_work": 82,
+        "landed": 12,
+        "no_landing_evidence": 33,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 78,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T14:14:09Z",
+      "rows_graded": 173,
+      "by_state": {
+        "active": 5,
+        "stalled_with_work": 79,
+        "landed": 12,
+        "no_landing_evidence": 33,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 77,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T13:32:45Z",
+      "rows_graded": 173,
+      "by_state": {
+        "active": 7,
+        "stalled_with_work": 77,
+        "landed": 12,
+        "no_landing_evidence": 33,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 77,
+        "recovered_from_commit_trailer": 52,
+        "none_found": 44
+      }
+    },
+    {
+      "generated_at": "2026-09-08T11:17:59Z",
+      "rows_graded": 169,
+      "by_state": {
+        "active": 5,
+        "stalled_with_work": 75,
+        "landed": 12,
+        "no_landing_evidence": 33,
+        "unreadable": 44
+      },
+      "by_branch_source": {
+        "registry_declared": 75,
+        "recovered_from_commit_trailer": 50,
+        "none_found": 44
+      }
+    },
+    {
       "generated_at": "2026-09-08T04:34:08Z",
       "rows_graded": 152,
       "by_state": {
