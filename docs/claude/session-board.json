@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-decisions-writeback-20260910T1043",
-    "claimed_at": "2026-09-10T11:38:04Z",
-    "purpose": "Manager registers (Tier-1, docs-only): the checklist refresh the operator is owed, supervision from a live 11:22Z list_sessions, the lease heartbeat, and the two corrections above. FOURTH TAKEOVER IN FOURTEEN MINUTES -- prior holders were the work-digest, session-reaper and trainer-capture-watch automation runs, each claimed-then-merged (11:17:59Z, 11:28:50Z, 11:31:51Z) and each now TERMINAL. There is no way around this: R13 requires the claim in the SAME push that arms, verified by running the guard with the claim dropped, so an armed branch cannot decline to contend. Released on merge."
+    "branch": "claude/mgr-alpaca-close-decision-20260910T1145",
+    "claimed_at": "2026-09-10T11:48:55Z",
+    "purpose": "Manager registers (Tier-1, docs-only): records the operator's 11:45Z decision that the Alpaca qty-scoped partial close confirms STRICT on the trade's own quantity delta, clearing the LAST blocking edge on the operator's Workflow page. PR #11689, opened by me first so it carries a real pull_request event and CI fires -- claude-pr-automerge ADOPTS it rather than creating it under GITHUB_TOKEN, which is the zero-check trap. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
   },
   "active_sessions": [
     {

@@ -1,0 +1,14 @@
+Arm auto-merge for the Alpaca close-confirmation decision record (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+Files: docs/claude/work/objects/WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND.yaml
+(blocked_on -> [] plus the decision record) and docs/claude/work/MANAGER-CHECKLIST.json.
+Manager registers only. No src/, tests/, scripts/, workflows, config/, deploy/.
+
+Merge slot: taken over from whatever terminal automation holder is on main at
+push time, and asserted -- only the merge_slot key may differ from origin/main.
+R13 requires the claim in the SAME push that arms; verified by running
+check_pr_landing.py with the claim dropped, so an armed branch cannot decline
+to contend for that single-holder key. That contention is a filed defect, not
+a thing this branch chose.

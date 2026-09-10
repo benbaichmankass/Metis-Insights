@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T11:38:00Z",
+  "updated_at": "2026-09-10T11:47:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3287,7 +3287,7 @@
       "spawned_at": "2026-09-10T07:57:23Z",
       "lane_was": "trading-truth",
       "pr": "#11652",
-      "status_note": "AWAITING THE MANAGER'S MERGE CLICK. Tier-2, landing: hold, hold_reason tier_2_3_needs_approval. NOT waiting on the re-attach approval — that is recorded twice (WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS chosen detector_and_reattach, and DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED) and must not be re-sought. Head 80461ffcf; merges clean into main (git merge-tree --write-tree exit 0), so the OPEN-ITEMS.json union it resolved twice still holds against the new base. CI: guards / pytest-collect / repo-inventory PASS at 09:48Z; pytest-run re-running from 11:19:55Z now that main is green again. ⚠️ MERGING ARMS NOTHING — the dispatch path is dry-run by default and fires only on a labelled system-action issue carrying apply: true. DO NOT RUN THE APPLY as part of the merge."
+      "status_note": "RED, AND NOT ON ITS OWN DIFF. MEASURED from run 34462674201 / job 102849725040 (pytest-run, 11:19:55Z -> 11:39:41Z): '1 failed, 16127 passed, 14 skipped' — tests/test_manager_wake.py::test_brief_is_self_contained_state_not_a_link_to_go_read, the SAME red-main assertion #11680 fixed at ~11:17Z. Head 80461ffcf's last act was 'Merge origin/main (004858c46)', which PREDATES the fix. guards / pytest-collect / repo-inventory are all green on that head, so the diff itself is fine. Dispatched to the owner 11:41:47Z (trig_01VjKvSrBZAdeaAHLWiNr4Pc, delivery confirmed by the matching cse_ suffix): rebase — NOT merge main in — resolve OPEN-ITEMS.json as a verified union, guards in their OWN command, and ASSERT tests/test_manager_wake.py is byte-identical to main's BEFORE pushing, so a bad rebase does not cost another 19-minute cycle. Still landing: hold; I merge by hand; the approval is recorded twice and must not be re-sought. MERGING ARMS NOTHING — dry-run by default."
     },
     {
       "id": "MI-242-ADD-SCRIPTS-BACKTEST-STAR-TO-TIER1-SURFACE-OPERATOR-APPROVED",
@@ -3378,7 +3378,7 @@
       "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
       "title": "Apply Option A — add tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d to alpaca_live (Tier-3, operator-approved)",
       "owner": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "tier": 3,
       "priority": "high",
       "lane": "research",
@@ -3394,7 +3394,7 @@
       "blocked_on_basis": "ASSESSED — approved and spawned; the only gate is the Tier-3 human merge click, which is a landing constraint rather than a blocker on the work.",
       "source": "operator decision 2026-09-10, on MI-201's proposal (#11665)",
       "pr": "#11671",
-      "status_note": "AWAITING THE MANAGER'S MERGE CLICK. Tier-3, landing: hold (R4 bars a Tier-3 diff from self-landing whatever its approval state), so this cannot land itself and is NOT waiting on a decision — the operator approved Option A 2026-09-10 and that approval MUST NOT be re-sought. Head 3aa0374a5 (rebased onto f681755a1 at ~11:22Z; the earlier ported test/test_manager_wake.py correctly rebased AWAY now that #11680 carries it on main). RE-VERIFIED BY THE MANAGER ON THIS HEAD, three-dot against origin/main: exactly 3 files; the config/accounts.yaml non-comment diff is EXACTLY the four legs (tlt/ief/slv/iaum _pullback_1d) and nothing else — no symbols:, no alpaca_portfolio, no scha_trend_long_1d, no slv_trend_1h; zero src/ tests/ scripts/ config/strategies.yaml deploy/ workflows/ risk-cap paths; merges clean into main (git merge-tree --write-tree exit 0). CI at 11:22:47Z: pytest-collect PASS, repo-inventory PASS, guards + pytest-run IN PROGRESS. ⚠️ THE MERGE IS THE ARMING — ict-git-sync pulls config/accounts.yaml and there is no separate deploy step, so four legs go live on a REAL-MONEY $200 cash account the moment it lands. That is why the manager re-verifies the diff on EVERY head change rather than once."
+      "status_note": "MERGED BY THE MANAGER, BY HAND, 2026-09-10T11:42Z as e88ef612a. landed_unproven, NOT done — the code is in and its effect has NOT been seen on the fleet, and collapsing those two is the failure this repo keeps paying for. RE-VERIFIED ON THE EXACT MERGED HEAD 3aa0374a5 immediately before the click: exactly 3 files; the config/accounts.yaml non-comment diff is EXACTLY the four legs (tlt/ief/slv/iaum _pullback_1d) and nothing else — no symbols:, no alpaca_portfolio, no scha_trend_long_1d, no slv_trend_1h; zero src/ tests/ scripts/ config/strategies.yaml deploy/ workflows/ risk-cap paths. CI 5/5 green. ⚠️ THE MERGE WAS THE ARMING — ict-git-sync pulls config/accounts.yaml and there is no separate deploy step, so the four legs go live on REAL-MONEY alpaca_live on its next ~5-minute pull. WHAT REMAINS UNOBSERVED, and it is the whole of what 'proven' would mean here: no long signal has EVER reached this account's order path — the incumbent's long side fired 18x Jun / 2x Jul / 13x Aug / 0x Sep — so the order path is UNTESTED, not proven working, and these legs may be what first exercises it. Not one of the four has a positive measured record at gradeable n and three have no closed rows anywhere; this was approved as PLUMBING AND UTILISATION, explicitly not as an edge bet."
     },
     {
       "id": "MI-249-OPERATOR-DECISION-ALPACA-LIVE-SIDE-FILTER-KEEP",
@@ -3491,10 +3491,25 @@
       "source": "OPERATOR, 2026-09-10, reading the live Work page: 'i do want to point out that the page doesn't seem to be very up to date - at least an hour old and I don't think all these decisions are still waiting for me'. BOTH HALVES WERE RIGHT AND NEITHER WAS THE PAGE'S FAULT. The staleness half was the MANAGER's — MANAGER-CHECKLIST.json did not change between 84d8e2d49 (09:24:19Z) and d5fe81aed (~10:22Z) and a status update was given inside that gap, i.e. answered-before-pushing, the exact order the operator canonized. The '59m ago' banner measured that lateness accurately and this is the FIRST time the freshness contract has caught anything.",
       "scope": "MEASURED over every *.yaml in docs/claude/work/objects/ — 21 objects carrying 26 decision_requests. The page's 'Waiting on you' shows exactly 3 as NOT SUBMITTED and ALL THREE ARE ANSWERED: DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE (verdict approved / chosen add_it), DEC-20260910-EXIT-EVAL-60S-REMEDY (approved / r2_only), and DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW (reframed_not_answered) — all answered_at 2026-09-10T07:52:00Z, and `answer` is None on all three. TWO RECORDING SHAPES FOR ONE FACT: an answer given through the SPA/Telegram POST route writes an `answer` block; an answer given IN CONVERSATION is recorded by hand as verdict + chosen + answered_at + answered_by. The inbox knows only the first, so 'nobody answered' and 'answered through the other channel' render IDENTICALLY. That is a collapsed state on the surface built to prevent collapsed states, and its cost is the panel's credibility, which is the entire point of the panel.",
       "resolution_criteria": "The page distinguishes AT LEAST answered_via_route / answered_in_conversation / reframed_not_answered / genuinely_unanswered / unknown, names WHICH channel carried each answer, and the three rows above no longer read NOT SUBMITTED — verified by the OPERATOR on the deployed page, not by a local harness. ⚠️ IT MUST NOT BE FIXED BY TREATING ANY `verdict` AS ANSWERED: reframed_not_answered is a real verdict meaning the question was NOT answered, and collapsing it into 'answered' would hide a genuinely open decision — worse than the bug. ⚠️ THE STALENESS BANNER MUST NOT BE SOFTENED as part of this; it was correct.",
+      "blocked_on": [],
+      "status_note": "In flight with MI-238 since 11:33Z. The operator re-confirmed the symptom at ~11:40Z with a screenshot of the deployed page: three NOT SUBMITTED / ROUTINE rows, all three already answered, plus a 'BLOCKING YOU, WITH NO ANSWERABLE REQUEST ATTACHED (3)' list. #11683 (merged 11:42:39Z) cleared TWO of those three blocking rows and this branch clears the THIRD, so that list should go to zero. The three NOT SUBMITTED rows are MI-254's own subject and remain until it lands."
+    },
+    {
+      "id": "MI-256-OPERATOR-DECISION-ALPACA-PARTIAL-CLOSE-CONFIRMS-STRICT-MIRRORING-IB",
+      "title": "Operator decision: the Alpaca qty-scoped close confirms STRICT on the trade's own quantity delta, mirroring the IB ruling",
+      "state": "done",
+      "tier": 3,
+      "priority": "P2",
+      "lane": "ops",
+      "added": "2026-09-10T11:47:00Z",
+      "owner": "manager — recorded, no build follows (it ratifies behaviour already built)",
+      "source": "OPERATOR ANSWERED 2026-09-10T~11:45Z on a pop-up put by manager session session_01HrmZ1RRNM4UnEUaFdrPEjj: 'Mirror IB — strict', over 'keep whole-symbol flatness for both' and over 'hold until ?qty= is seen working live'. This was the LAST of the three rows on the Workflow page's 'BLOCKING YOU, WITH NO ANSWERABLE REQUEST ATTACHED' list, and it had stood since 2026-09-08 because NOBODY ASKED — not because nobody answered.",
+      "scope": "Clears the single operator_decision edge on WO-20260908-TRADE-SCOPE-THE-ALPACA-CLOSE-OPERATION-AND. The qty-scoped partial close confirms on the TRADE'S OWN quantity delta; a short delta REFUSES (retCode 1) and the journal row stays OPEN for the existing reconcilers. The whole-symbol path keeps its flatness gate untouched. Same asymmetry the operator chose for IB on 2026-09-08 — 'erring toward a phantom OPEN row that existing reconcilers clean up, rather than a phantom CLOSED row that fabricates PnL on the remainder and leaves lots naked' — applied to the mirror venue, which #11279's approval scope had EXPLICITLY excluded and deferred.",
+      "resolution_criteria": "RECORDED, which is the whole of it — this ratifies behaviour already built rather than commissioning a change, so nothing is owed beyond the write. ⚠️ WHAT IT DOES NOT DECIDE: place_protective stays symbol-wide and is out of scope (BL-20260908-ALPACA-PLACE-PROTECTIVE-IGNORES-OCA-KEY-SO-EVERY-RE-ARM-IS-SYMBOL-WIDE), so an Alpaca re-arm still cannot be placed without cancelling every leg on the symbol, and the 56 naked TLT shares on trade 5414 STAY naked until a scoped protective-attach exists. ⚠️ AND live acceptance of `?qty=` against a real Alpaca position is STILL NOT ESTABLISHED — no broker call was made from any session. That is an observation owed, not a thing this decision asserts.",
       "blocked_on": []
     }
   ],
-  "as_of": "2026-09-10T11:38:00Z",
+  "as_of": "2026-09-10T11:47:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3552,38 +3567,29 @@
     "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
   },
   "_merge_queue": {
-    "as_of": "2026-09-10T11:38:00Z",
+    "as_of": "2026-09-10T11:47:00Z",
     "run_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager)",
     "note": "The manager SCHEDULES merges rather than resolving the conflicts that not scheduling them causes. At most one entry may be `rebasing` (check_manager_scope.py R8).",
-    "main_head": "ef11e3eab",
+    "main_head": "e88ef612a",
     "main_state": "GREEN since ~11:17Z. It was RED from ~09:24Z to ~11:17Z — tests/test_manager_wake.py pinned a live register's cycle id that #11655 had CORRECTLY corrected, so every PR whose diff triggered the full pytest-run was blocked for ~1h53m. Fixed by #11680 (f681755a1); verified green by running the module on main itself (28 passed), not by trusting the merge.",
     "entries": [
-      {
-        "pr": "#11671",
-        "item": "MI-247",
-        "tier": 3,
-        "landing": "hold",
-        "state": "awaiting_ci_then_manager_merge",
-        "head": "3aa0374a5",
-        "why_held": "R4 bars a Tier-3 diff from self-landing; approved, needs the click, not a decision."
-      },
       {
         "pr": "#11652",
         "item": "MI-241",
         "tier": 2,
         "landing": "hold",
-        "state": "awaiting_ci_then_manager_merge",
+        "state": "red_on_a_stale_base_owner_rebasing",
         "head": "80461ffcf",
-        "why_held": "R4 bars a Tier-2 diff from self-landing; approval recorded twice, needs the click."
+        "why_held": "R4 bars a Tier-2 diff from self-landing. pytest-run red on the pre-#11680 test, not on its own diff; owner dispatched 11:41:47Z to rebase. I merge by hand on green."
       },
       {
-        "pr": "#11683",
-        "item": "manager registers",
+        "pr": "(this branch)",
+        "item": "MI-256",
         "tier": 1,
         "landing": "self",
-        "state": "arming_now",
-        "head": "(this branch)",
-        "why_held": "Deliberately unarmed until #11680 landed, so as not to conflict its rebase on the merge_slot key a second time. #11680 is in; arming now."
+        "state": "arming",
+        "head": "(pending)",
+        "why_held": "Manager registers only; clears the last blocking decision edge."
       }
     ],
     "merged_this_session": [
@@ -3591,7 +3597,9 @@
       "#11678 (d5fe81aed) — registers + the MI-222 poke-clears-a-blocked-session finding",
       "#11682 (be2755992) — lease heartbeat 10:27:25Z",
       "#11680 (f681755a1) — the red-main fix",
-      "(main also moved under us twice while merging: #11685 e9f8618d5 and #11686 ef11e3eab, both github-actions automation commits)"
+      "(main also moved under us twice while merging: #11685 e9f8618d5 and #11686 ef11e3eab, both github-actions automation commits)",
+      "#11671 (e88ef612a) — MI-247 Option A, four legs onto REAL-MONEY alpaca_live, merged by hand at 11:42Z after re-verifying the diff on its exact head",
+      "#11683 (e88a778c3) — manager registers + the checklist refresh the operator was owed, auto-merged 11:42:39Z on green"
     ],
     "closed_this_session": [
       "#11679 — DUPLICATE of #11680 for the same red-main fix. THE MANAGER'S ROUTING FAILURE: MI-241 was dispatched without telling MI-247, so two sessions built the same fix. Closed with a comment taking the blame and recording the GITHUB_TOKEN zero-check trap it hit."
