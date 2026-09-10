@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
-    "branch": "claude/mi251-inverse-etf-scope",
-    "claimed_at": "2026-09-10T12:30:28Z",
-    "purpose": "PR #11693 - MI-251 inverse-ETF scoping research doc (Tier-1, docs only). Taken over from claude/mgr-hb-tlt-correction-20260910T1210, TERMINAL: PR #11694 carries merged_at 2026-09-10T12:27:57Z. TERMINALITY IS READ FROM merged_at, NEVER FROM ANCESTRY - this repo squash-merges, so git merge-base --is-ancestor reports every merged branch as LIVE and makes this single-holder slot read permanently occupied. Note PR #11694's API row also shows merged: false BESIDE merged_at being set; trust merged_at. Filed in PR #11695."
+    "branch": "claude/mi251-stuck-branch-ancestry-finding",
+    "claimed_at": "2026-09-10T12:37:22Z",
+    "purpose": "PR #11695 - one appended health-review-backlog row (Tier-1, no src/, no config/). Taken over from my OWN branch claude/mi251-inverse-etf-scope, TERMINAL: PR #11693 carries merged_at 2026-09-10T12:36:44Z. TERMINALITY IS READ FROM merged_at, NEVER FROM ANCESTRY - this repo squash-merges, so git merge-base --is-ancestor reports every merged branch as LIVE and makes this single-holder slot read permanently occupied. Note the API row also shows merged: false BESIDE merged_at being set; trust merged_at."
   },
   "active_sessions": [
     {

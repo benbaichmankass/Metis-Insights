@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "hold_text": "Sequencing only, not a decision. This appends ONE row to docs/claude/health-review-backlog.json, and #11690 currently holds the R13 merge_slot for this same session. A single session cannot hold the slot for two branches at once, so this waits behind #11690 rather than displacing my own armed branch mid-flight. Flip to landing: self once #11690 is merged or closed.",
-  "why": "One appended backlog row, filed through scripts/ops/backlog_append.py::append_row (15 insertions, 0 deletions — an append, not a reformat). No src/, no config/, no tests, no workflows, no order path. It reports a defect in scripts/ops/stuck_automation_branches.py and deliberately does NOT fix it — filing is the act of not taking the item."
+  "landing": "self",
+  "why": "One appended backlog row, filed through scripts/ops/backlog_append.py::append_row (17 insertions, 0 deletions — an append, not a reformat). No src/, no config/, no tests, no workflows, no order path. It REPORTS a defect in scripts/ops/stuck_automation_branches.py and deliberately does NOT fix it — filing is the act of not taking the item.\n\nTHIS WAS `landing: \"hold\"` WITH `hold_reason: \"depends_on_unmerged_pr\"` NAMING #11690 UNTIL 12:3xZ. That was SEQUENCING, never a decision: a single session cannot hold the R13 merge_slot for two branches at once, so this waited behind my own armed branches rather than displacing them mid-flight. #11690 merged 2026-09-10T12:17:29Z and #11693 merged 12:36:44Z, so the hold reason is SPENT and the declaration is corrected rather than left standing — merging while the committed record still read 'a human merges' would be exactly the record-vs-reality divergence this repo keeps paying for."
 }
