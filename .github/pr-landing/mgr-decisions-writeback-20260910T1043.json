@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: manager registers only — docs/claude/work/MANAGER-CHECKLIST.json and two docs/claude/work/objects/*.yaml. Recording an operator decision into docs/claude/work/** is explicitly a MANAGEMENT act per CLAUDE.md, and clearing a blocked_on edge the operator has answered is the same. No src/, tests/, scripts/, .github/workflows/, config/, deploy/, role packs or canonical prose. The operator is reading the page these files feed, so a stale push is worse than none."
+}

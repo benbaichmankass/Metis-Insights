@@ -1,0 +1,1 @@
+arming oi-position-read-state-soak-first-read — Tier-1 register observation; see .github/pr-landing/oi-position-read-state-soak-first-read.json

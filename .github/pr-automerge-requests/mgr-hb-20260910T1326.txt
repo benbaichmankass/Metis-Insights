@@ -1,0 +1,10 @@
+Arm auto-merge for the manager lease heartbeat (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+docs/claude/work/MANAGER-LEASE.json + docs/claude/work/SESSIONS.json.
+Manager registers only.
+
+Merge slot taken from this session's own #11697, deliberately: the lease
+expired at 13:39:07Z and #11697's CI would not have finished until ~13:41Z.
+Displacing myself rather than another session. #11697 gets one rebase.

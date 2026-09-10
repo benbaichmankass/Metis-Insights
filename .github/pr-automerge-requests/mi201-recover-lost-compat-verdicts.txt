@@ -1,0 +1,4 @@
+MI-201 — recover 22 gld-compat verdict rows discarded by the #11662/#11664
+batch closure. Tier-1: an append to a committed research corpus plus one
+backlog row. PR #11735, opened by hand before this file so CI fires on a real
+pull_request event.

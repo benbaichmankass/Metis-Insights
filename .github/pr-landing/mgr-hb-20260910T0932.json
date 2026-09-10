@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: two register files only — docs/claude/work/MANAGER-LEASE.json (the heartbeat) and docs/claude/work/SESSIONS.json (the supervision record R6 requires in the same commit). No src/, tests/, scripts/, config/, deploy/ or .github/workflows/. Nothing here reaches a runtime, an order path or a strategy; both are management acts."
+}

@@ -184,6 +184,71 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "manager_status.observation_state",
+        # No `producer_field`, same reason as its two siblings below: the states
+        # are named module constants (`OBS_RECENT = "recent"`).
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\bobservation_state\b|\bOBSERVATION_STATES\b|"
+                           r"\bOBS_RECENT\b|\bOBS_STALE\b|\bOBS_UNKNOWN\b|"
+                           r"\bobserve_session\b"),
+        "states": ["recent", "stale", "unknown"],
+        "why": (
+            "`state` in `docs/claude/work/SESSIONS.json` DECAYS and nothing "
+            "decays it. Measured 2026-09-10T07:47Z: `MI-232` and "
+            "`LANE4-RECOVERY` both read `working` on `main` while both were "
+            "IDLE and COMPLETED -- false BY TIME PASSING, not by anyone being "
+            "wrong when they wrote it; 17 rows were false the same way on "
+            "2026-09-08, one of them 42 minutes after it was written. So a "
+            "surface rendering `state` verbatim shows dead lanes as running, "
+            "which is WORSE than no surface: the operator stops asking "
+            "precisely because it looks live. Nothing here can call "
+            "`list_sessions` (an `mcp__*` tool no route holds), so the remedy "
+            "is not a truer state but publishing WHEN the state was last "
+            "looked at. `recent` and `stale` must therefore stay apart -- that "
+            "distinction IS the mechanism -- and `unknown` (*nobody recorded "
+            "when this was looked at*) must not fold into `recent`, which "
+            "would present an ungraded row as a checked one. Measured over the "
+            "21 live rows: 2 recent, 19 stale against the manager lease's own "
+            "90-minute TTL, so the split is discriminating rather than "
+            "decorative."
+        ),
+    },
+    {
+        "name": "manager_status.status_basis",
+        # No `producer_field`, for the same reason `manager_status.tree_state`
+        # below gives: the states are named module constants
+        # (`STATUS_BASIS_AGREE = "agree"`), so the literal never shares a line
+        # with the word `status_basis`.
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\bstatus_basis\b|\bSTATUS_BASES\b|"
+                           r"\bSTATUS_BASIS_[A-Z_]+\b|\beffective_state\b"),
+        "states": ["state_only", "status_only", "agree", "disagree",
+                   "undeclared"],
+        "why": (
+            "`MANAGER-CHECKLIST.json` carries TWO competing status fields and "
+            "this is the basis on which they were reconciled. MEASURED "
+            "2026-09-10 over all 244 items: 179 carry `state`, 83 carry "
+            "`status`, 18 carry both and 13 of those DISAGREE -- four of them "
+            "reading `state: in_flight` against `status: done`. So the merged "
+            "value alone is not enough information: an `in_flight` reached on "
+            "`agree` and one reached on `disagree` are the same value and very "
+            "different facts, and a renderer that sees only the value reports "
+            "a contested row as a settled one. `status_only` is the 65 rows "
+            "that carry NO `state` -- invisible to every existing consumer, "
+            "since `manager_status.build_sections` and "
+            "`scripts/ops/manager_view.py` both key on `state` alone -- so "
+            "collapsing it into `state_only` would assert those rows were read "
+            "the way every other row was. `undeclared` is *the row declares no "
+            "status at all*, measured at ZERO today and kept apart precisely "
+            "because a state measured at zero is not a state that cannot "
+            "occur: folded into `status_only` it would render a row with "
+            "nothing declared as one whose status came from `status`. The "
+            "whole contract exists so the merge has ONE owner: a second "
+            "implementation in a renderer becomes a second definition of an "
+            "item's status, free to drift from the one the manager guards read."
+        ),
+    },
+    {
         "name": "manager_status.tree_state",
         # No `producer_field` is declared, and deliberately -- the same reason
         # `research_queue.power_state` above gives. The states are named module
@@ -915,7 +980,9 @@ CONTRACTS: List[Dict[str, object]] = [
         "producer": "src/runtime/work_decisions.py",
         "consumer_token": (r"\banswer_state\b|\banswerState\b|\bANSWER_STATES\b|"
                            r"\bgrade_answer_state\b"),
-        "states": ["not_submitted", "in_transit", "committed", "unreadable"],
+        "states": ["not_submitted", "in_transit", "committed", "unreadable",
+                   "answered_in_conversation", "engaged_not_settled",
+                   "verdict_unrecognised"],
         "why": (
             "Phase H's decision round-trip, and the states carry the transit "
             "contract the schema design states outright: THREE NEVER "
@@ -932,7 +999,30 @@ CONTRACTS: List[Dict[str, object]] = [
             "back on the operator that they may already have answered and "
             "making a broken channel indistinguishable from a quiet one. That "
             "is exit_anchor.py's deferred/no_anchor distinction applied to a "
-            "write path."
+            "write path. "
+            "⚠️ WIDENED 2026-09-10 (MI-254) BECAUSE THE FOUR STATES WERE "
+            "THEMSELVES A COLLAPSE, on the surface built to prevent them. "
+            "There are TWO recording shapes for one fact: the route writes an "
+            "`answer` block, while an answer given IN CONVERSATION -- how the "
+            "overwhelming majority of decisions here are actually given -- is "
+            "written by hand as `verdict` + `chosen` + `answered_at`. Grading "
+            "only the first made *nobody has answered* and *answered through "
+            "the other channel* render IDENTICALLY. MEASURED over every "
+            "`docs/claude/work/objects/*.yaml` (21 objects, 26 requests): 23 "
+            "carry an `answer` block, 3 carry a `verdict` and NO answer block, "
+            "0 carry both -- and all three showed the operator as "
+            "`not_submitted` questions they had settled that morning, which is "
+            "the desensitised-alarm P1 aimed at the one panel whose whole "
+            "value is being believed. `answered_in_conversation` is kept apart "
+            "from `committed` rather than merged into it because only the "
+            "second round-trips, and `OI-20260901-DECISION-ROUNDTRIP-...` "
+            "turns on that distinction. ⚠️ `engaged_not_settled` is the one "
+            "that must never be folded: `reframed_not_answered` is the "
+            "operator responding WITHOUT settling, so calling it answered "
+            "would hide a genuinely open decision -- worse than the bug being "
+            "fixed. And `verdict_unrecognised` is *we could not grade it*, "
+            "because a grader that shrugs at a value outside its vocabulary IS "
+            "the collapse (`open_pr_record.VERDICTS` states the same rule)."
         ),
     },
     {

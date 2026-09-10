@@ -1,0 +1,1 @@
+MI-237/238/239/240/241/242 + heartbeat + supervision reconcile. Tier-1 registers only.

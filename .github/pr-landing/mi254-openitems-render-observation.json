@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The MI-254 dispatch said, verbatim: \"Do NOT arm auto-merge and do NOT claim the merge slot -- I merge by hand.\" This row-update is a byproduct of that session, so it is held under the same instruction. Scope stated rather than overclaimed: the manager did not name this PR. There is a second, independent reason not to self-land it -- OPEN-ITEMS.json is a heavily contended shared register, and R13's merge_slot claim is what repeatedly dirties such branches.",
+  "why": "One field of one row in docs/claude/OPEN-ITEMS.json -- docs only, no runtime, order path, test or config touched."
+}

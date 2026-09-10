@@ -1,0 +1,1 @@
+Arming request for claude/lane4-sweep-observed-20260910 — WO-20260909: DEPLOYED -> OBSERVED, first scheduled sweep run landed #11710 unattended. Docs only. PR #11727. 2026-09-10

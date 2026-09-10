@@ -1,0 +1,3 @@
+MI-251 / PR #11693 - arm auto-merge.
+Tier-1, docs only: one research doc + one DOCUMENT-INDEX row + this landing json.
+The PATH is the signal; these contents are never read.

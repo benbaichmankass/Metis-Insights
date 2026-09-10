@@ -759,3 +759,134 @@ def test_five_prop_refusals_alert_and_name_the_prop_cause() -> None:
     assert g["alerting"] is True
     assert g["alerting_basis"] == "total_floor"
     assert g["cause"] == "prop_balance_unreported"
+
+
+# ── a SKIPPED account's latch must not be immortal ─────────────────────
+#
+# MEASURED on the live VM 2026-09-10 (MI-201): `alpaca_live` read
+# `alerting: true, cause: risk_refused, verdict: signalled_never_placed` with
+# `updated_at` frozen at 2026-08-21T12:38:38Z while `__last_check__` was
+# 2026-09-10T07:58:20Z and all SEVEN other accounts carried that fresh stamp.
+# `get-env` (Actions run 34455224799) read `SILENT_REFUSAL_SKIP = 'alpaca_live'`
+# off /proc/<MainPID>/environ. BOTH loops in run_silent_refusal_check `continue`
+# on `aid in skip`, including the quiet-account RELEASE loop added for exactly
+# this symptom — so the latch could never clear and silent_accounts() kept
+# serving a 20-day-old alerting:true to every review skill.
+
+
+def _latch_alpaca_live(isolated: Path, sent: List[str], monkeypatch) -> None:
+    """Drive the account into a real `alerting: true` latch, NOT a hand-written
+    state file — a fabricated latch would prove nothing about the real path."""
+    from src.runtime import silent_refusal_alert as m
+
+    monkeypatch.delenv("SILENT_REFUSAL_SKIP", raising=False)
+    rows = [_row("alpaca_live", "rejected", "risk_refused") for _ in range(6)]
+    out = m.run_silent_refusal_check(rows=rows, force=True)
+    assert out["checked"] is True
+    assert "alpaca_live" in out["alerted"], out
+    assert "alpaca_live" in m.silent_accounts()
+
+
+def test_a_skipped_accounts_latch_is_retired_rather_than_left_immortal(
+    isolated: Path, sent: List[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.runtime import silent_refusal_alert as m
+
+    _latch_alpaca_live(isolated, sent, monkeypatch)
+    before = len(sent)
+
+    # The operator silences the account.
+    monkeypatch.setenv("SILENT_REFUSAL_SKIP", "alpaca_live")
+    out = m.run_silent_refusal_check(rows=[], force=True)
+
+    assert out["retired_skipped"] == ["alpaca_live"], out
+    latch = m._load_state()["alpaca_live"]
+    assert latch["alerting"] is False
+    assert latch["alert_disposition"] == m._DISPOSITION_ENV_SKIP
+    # THE RECORD SURVIVES: retiring is not deleting.
+    assert latch["last_graded_verdict"] == "signalled_never_placed"
+    assert latch["last_graded_cause"] == "risk_refused"
+    assert latch["last_graded_at"]
+    # And the consumer the review skills read stops reporting it.
+    assert "alpaca_live" not in m.silent_accounts()
+    # ⚠️ NO PING. Silence is what the skip buys, and a 🟢 [OK] would assert the
+    # account is placing orders again — which nobody measured.
+    assert len(sent) == before, sent[before:]
+
+
+def test_the_retirement_is_idempotent_and_does_not_churn_the_latch(
+    isolated: Path, sent: List[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.runtime import silent_refusal_alert as m
+
+    _latch_alpaca_live(isolated, sent, monkeypatch)
+    monkeypatch.setenv("SILENT_REFUSAL_SKIP", "alpaca_live")
+    m.run_silent_refusal_check(rows=[], force=True)
+    first = dict(m._load_state()["alpaca_live"])
+
+    out = m.run_silent_refusal_check(rows=[], force=True)
+    assert out["retired_skipped"] == [], out
+    assert m._load_state()["alpaca_live"] == first
+
+
+def test_silent_accounts_hides_a_skipped_account_even_on_a_pre_fix_state_file(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The READ half, which the WRITE half does not make redundant.
+
+    A state file written before the retirement pass existed — or a fleet whose
+    trader has not yet restarted onto it — still carries the frozen row. This is
+    the exact shape measured on the live VM, transcribed field for field.
+    """
+    from src.runtime import silent_refusal_alert as m
+
+    m._save_state({
+        m._LAST_CHECK_KEY: "2026-09-10T07:58:20.119204+00:00",
+        "alpaca_live": {"alerting": True, "cause": "risk_refused", "refused": 5,
+                        "placed": 0, "verdict": "signalled_never_placed",
+                        "updated_at": "2026-08-21T12:38:38.231569+00:00"},
+        "ib_paper": {"alerting": True, "cause": "other", "refused": 9,
+                     "placed": 0, "verdict": "signalled_never_placed",
+                     "updated_at": "2026-09-10T07:58:20.119204+00:00"},
+    })
+    monkeypatch.setenv("SILENT_REFUSAL_SKIP", "alpaca_live")
+    assert set(m.silent_accounts()) == {"ib_paper"}
+
+    # POSITIVE CONTROL — without the skip the same file reports BOTH, so the
+    # test above is measuring the skip and not an empty function.
+    monkeypatch.delenv("SILENT_REFUSAL_SKIP", raising=False)
+    assert set(m.silent_accounts()) == {"alpaca_live", "ib_paper"}
+
+
+def test_retirement_never_invents_a_latch_for_a_skipped_account_that_had_none(
+    isolated: Path, sent: List[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A skip on an account with no latch must write nothing.
+
+    Manufacturing a `suppressed_env_skip` row for an account that was never
+    graded would assert an observation nobody made — the same error as sending
+    the recovery ping.
+    """
+    from src.runtime import silent_refusal_alert as m
+
+    monkeypatch.setenv("SILENT_REFUSAL_SKIP", "bybit_2,never_seen_account")
+    out = m.run_silent_refusal_check(rows=[], force=True)
+    assert out["retired_skipped"] == []
+    state = m._load_state()
+    assert "never_seen_account" not in state
+    assert "bybit_2" not in state
+
+
+def test_an_unskipped_account_keeps_alerting_so_the_fix_cannot_silence_the_fleet(
+    isolated: Path, sent: List[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The blast-radius control: retiring skipped latches must not touch anyone
+    else's, and must not stop a NEW alert firing."""
+    from src.runtime import silent_refusal_alert as m
+
+    monkeypatch.setenv("SILENT_REFUSAL_SKIP", "alpaca_live")
+    rows = [_row("ib_paper", "rejected", "risk_refused") for _ in range(6)]
+    out = m.run_silent_refusal_check(rows=rows, force=True)
+    assert out["alerted"] == ["ib_paper"], out
+    assert "ib_paper" in m.silent_accounts()
+    assert any("ib_paper" in s for s in sent)

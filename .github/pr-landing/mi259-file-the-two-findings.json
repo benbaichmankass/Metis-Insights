@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One file: two rows appended to docs/claude/health-review-backlog.json via backlog_append.append_row (22 pure insertions, 0 deletions). No src/, no config/, no .github/workflows/, no deploy/, no order path. Tier-1 by path per docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers."
+}

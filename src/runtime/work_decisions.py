@@ -87,7 +87,54 @@ IN_TRANSIT = "in_transit"
 COMMITTED = "committed"
 UNREADABLE = "unreadable"
 
-ANSWER_STATES: tuple[str, ...] = (NOT_SUBMITTED, IN_TRANSIT, COMMITTED, UNREADABLE)
+#: ── The SECOND recording shape, added 2026-09-10 (MI-254) ──────────────────
+#:
+#: ⚠️ THERE ARE TWO WAYS AN ANSWER IS RECORDED ON THIS SYSTEM AND THE INBOX
+#: KNEW ONE. `POST /api/bot/work/decision` writes an `answer` block; an answer
+#: given IN CONVERSATION — which is how the overwhelming majority of decisions
+#: here are actually given — is written by hand as `verdict` + `chosen` +
+#: `answered_at` + `answered_by`. Grading only the first made *nobody has
+#: answered* and *answered through the other channel* render IDENTICALLY.
+#:
+#: MEASURED 2026-09-10 over every `docs/claude/work/objects/*.yaml` (population:
+#: 21 objects carrying 26 `decision_requests`): 23 carry an `answer` block, 3
+#: carry a `verdict` and NO answer block, 0 carry both. All three rendered as
+#: `not_submitted` — the operator was shown questions they had settled at
+#: 07:52Z that morning, which is the desensitised-alarm failure on the one
+#: surface built to prevent collapsed states.
+#:
+#: ⚠️ A VERDICT IS NOT AUTOMATICALLY AN ANSWER. `reframed_not_answered` is the
+#: operator engaging WITHOUT settling — a THIRD fact, and folding it into
+#: "answered" would hide a genuinely open decision, which is worse than the bug
+#: this fixes. Hence a closed vocabulary on each side and an explicit refusal
+#: for anything outside both: a grader that shrugs at what it does not
+#: understand IS the collapse (`open_pr_record.VERDICTS` says the same).
+ANSWERED_IN_CONVERSATION = "answered_in_conversation"
+ENGAGED_NOT_SETTLED = "engaged_not_settled"
+VERDICT_UNRECOGNISED = "verdict_unrecognised"
+
+#: Verdicts that SETTLE the question. Shares its spelling with
+#: `scripts/ops/open_pr_record.py::VERDICTS` where they overlap, deliberately —
+#: two vocabularies for "what the operator decided" would drift.
+TERMINAL_VERDICTS: tuple[str, ...] = (
+    "approved", "approved_with_conditions", "rejected", "not_required",
+)
+
+#: Verdicts that record ENGAGEMENT without settling. `pending` and
+#: `none_recorded` are `open_pr_record`'s own non-settling values;
+#: `reframed_not_answered` is the one observed on a live decision request.
+NON_TERMINAL_VERDICTS: tuple[str, ...] = (
+    "reframed_not_answered", "pending", "none_recorded",
+)
+
+ANSWER_STATES: tuple[str, ...] = (
+    NOT_SUBMITTED, IN_TRANSIT, COMMITTED, UNREADABLE,
+    ANSWERED_IN_CONVERSATION, ENGAGED_NOT_SETTLED, VERDICT_UNRECOGNISED,
+)
+
+#: The states that mean the question is SETTLED, whichever channel carried it.
+#: Exported so a consumer never re-derives the set and drifts from it.
+SETTLED_STATES: tuple[str, ...] = (COMMITTED, ANSWERED_IN_CONVERSATION)
 
 # ── how we got (or did not get) the transit log ──────────────────────────────
 # Deliberately separate from the answer states above: this says whether the
@@ -464,6 +511,9 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
                 "askedOn": str(raw.get("asked_on")) if raw.get("asked_on") is not None else None,
                 "context": raw.get("context") if isinstance(raw.get("context"), str) else None,
                 "answer": answer_block,
+                # Always present as a key — a key that vanishes makes a
+                # consumer branch on absence, and absence is not a state.
+                "conversationalAnswer": normalise_conversational_answer(raw),
             }
         )
     return out
@@ -602,6 +652,44 @@ def append_submission(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def normalise_conversational_answer(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """The hand-recorded answer shape, or ``None`` when the row carries none.
+
+    ⚠️ ``condition`` IS CARRIED AND MUST BE RENDERED. Measured on the live
+    objects, two of the three conversationally-answered requests carry a
+    load-bearing condition — one records that editing `check_pr_landing.py` is
+    LANDING_MACHINERY so the PR still waits for a human, the other that a
+    tail is explicitly NOT addressed. `docs/claude/work/OPEN-PRS.json`'s own
+    doctrine: *a row recording a verdict without its condition is WORSE than a
+    missing row, because it reads as complete.* Dropping it here would put that
+    failure on the operator's own screen.
+    """
+    if not isinstance(raw, dict):
+        return None
+    verdict = raw.get("verdict")
+    if not isinstance(verdict, str) or not verdict.strip():
+        return None
+    verdict = verdict.strip()
+    if verdict in TERMINAL_VERDICTS:
+        grade = ANSWERED_IN_CONVERSATION
+    elif verdict in NON_TERMINAL_VERDICTS:
+        grade = ENGAGED_NOT_SETTLED
+    else:
+        # Neither vocabulary recognises it. NOT quietly answered and NOT
+        # quietly unanswered — we could not grade it, and that is its own fact.
+        grade = VERDICT_UNRECOGNISED
+    return {
+        "verdict": verdict,
+        "grade": grade,
+        "chosen": raw.get("chosen") if isinstance(raw.get("chosen"), str) else None,
+        "answeredAt": str(raw["answered_at"]) if raw.get("answered_at") is not None else None,
+        "answeredBy": str(raw["answered_by"]) if raw.get("answered_by") is not None else None,
+        # Never dropped — see the docstring.
+        "condition": raw.get("condition") if isinstance(raw.get("condition"), str) else None,
+        "text": raw.get("text") if isinstance(raw.get("text"), str) else None,
+    }
+
+
 def grade_answer_state(
     request: dict[str, Any],
     submission: dict[str, Any] | None,
@@ -615,6 +703,13 @@ def grade_answer_state(
     """
     if request.get("answer"):
         return COMMITTED
+    # ⚠️ THE REPO'S OTHER RECORDING SHAPE, CHECKED HERE — before transit —
+    # for the same reason `answer` is: both are truth already written into the
+    # work object, and a decision already made cannot be un-made by a read
+    # failure on a channel it never travelled through.
+    conversational = request.get("conversationalAnswer")
+    if isinstance(conversational, dict) and conversational.get("grade"):
+        return str(conversational["grade"])
     if transit_state == TRANSIT_UNREADABLE:
         return UNREADABLE
     if submission is not None:

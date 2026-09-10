@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): a lease heartbeat plus the record that the manager owed an operator routing at the previous tick and missed it. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed."
+}

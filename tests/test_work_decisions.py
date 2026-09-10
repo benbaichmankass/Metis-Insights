@@ -93,10 +93,34 @@ def _write_object(root, object_id="WO-TEST", answer=None, options=("a", "b")):
 
 
 def test_the_four_states_are_distinct_values():
-    assert len(set(wd.ANSWER_STATES)) == 4
-    assert wd.ANSWER_STATES == (
+    """The original four stay present, distinct, and FIRST.
+
+    ⚠️ WIDENED 2026-09-10 (MI-254): this asserted a literal `== 4`, and the
+    vocabulary grew to seven when the inbox learned the second recording shape
+    (an answer given IN CONVERSATION, recorded as `verdict` rather than as an
+    `answer` block). The literal is what went stale; the INTENT — these states
+    are distinct and none is folded into another — is what the test is for, so
+    it is asserted directly instead of via a count that will go stale again.
+    """
+    assert len(set(wd.ANSWER_STATES)) == len(wd.ANSWER_STATES), \
+        "every declared state must be a distinct value"
+    # The original four, still present and still in their original order, so a
+    # rename or a silent drop is caught.
+    assert wd.ANSWER_STATES[:4] == (
         wd.NOT_SUBMITTED, wd.IN_TRANSIT, wd.COMMITTED, wd.UNREADABLE
     )
+    # And the ones added for the second channel are NOT aliases of them.
+    for added in (wd.ANSWERED_IN_CONVERSATION, wd.ENGAGED_NOT_SETTLED,
+                  wd.VERDICT_UNRECOGNISED):
+        assert added in wd.ANSWER_STATES
+        assert added not in (wd.NOT_SUBMITTED, wd.IN_TRANSIT, wd.COMMITTED,
+                             wd.UNREADABLE)
+    # ⚠️ Only these two mean SETTLED. `engaged_not_settled` must never join
+    # them: `reframed_not_answered` is the operator responding WITHOUT
+    # settling, and calling it answered hides a genuinely open decision.
+    assert wd.SETTLED_STATES == (wd.COMMITTED, wd.ANSWERED_IN_CONVERSATION)
+    assert wd.ENGAGED_NOT_SETTLED not in wd.SETTLED_STATES
+    assert wd.VERDICT_UNRECOGNISED not in wd.SETTLED_STATES
 
 
 def test_unreadable_transit_is_not_reported_as_not_submitted():

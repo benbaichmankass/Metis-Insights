@@ -1,0 +1,20 @@
+Arm auto-merge for #11683 — manager registers only (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+Files: docs/claude/work/MANAGER-CHECKLIST.json, docs/claude/work/SESSIONS.json,
+docs/claude/work/MANAGER-LEASE.json, two docs/claude/work/objects/*.yaml, and
+this branch's own .github/pr-landing declaration. Recording an operator
+decision into docs/claude/work/** and clearing a blocked_on edge the operator
+has answered are both explicitly MANAGEMENT acts under manager-scope-guard R2;
+so are a lease heartbeat and a supervision reconcile. No src/, tests/,
+scripts/, .github/workflows/, config/, deploy/, role packs, or canonical prose
+outside the generated SESSION-BRIEF block.
+
+Held back deliberately until #11680 landed, so this branch's merge_slot claim
+could not conflict MI-241's rebase a second time on that exact key. #11680 is
+in (f681755a1); arming now.
+
+Merge slot taken over from a TERMINAL holder: github-actions[bot] work-digest
+run 34470476984, whose PR #11685 merged as e9f8618d5. Asserted rather than
+assumed: only the merge_slot key differs from origin/main's board.

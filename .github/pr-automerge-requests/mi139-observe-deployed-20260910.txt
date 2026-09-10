@@ -1,19 +1,34 @@
-MI-139 fleet observation — registers only, Tier-1.
+MI-139 fleet observation — registers only, Tier-1. UNSTUCK by the OPS lane.
 
-OPEN-ITEMS OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET
-was due (check_every_days 4, last verified 2026-09-06) and is re-observed:
-clause (1) DEPLOYED is now SATISFIED, clauses (2) and (3) are not.
+This branch was opened by the claude-pr-automerge relay at 2026-09-10T07:08:09Z
+(its author session's GitHub MCP was read-only) and sat 16h mergeable_state=dirty
+against a base of 0504eb3a3. Its author session is gone. origin/main was merged
+IN rather than the branch rebased — it is not this session's history to rewrite.
 
-The fix is in the RUNNING process, established by ancestry rather than string
-equality: git_sha d597d2451, and `git merge-base --is-ancestor 9604b8a5
-d597d2451` succeeds; confirmed by reading snap_qty_str at that sha.
+OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET is
+CLEARED on its own clears_when, all three clauses addressed and said separately:
 
-Clause (2) is unmet and the read is too narrow to be evidence either way:
-2000 journal lines over an 8.5-minute window contained ZERO close attempts,
-with a positive control (order_monitor, 536 lines) proving the probe works.
+(1) DEPLOYED — /api/diag/version at 23:33:08Z: git_sha 04aa86d38, and
+    `git merge-base --is-ancestor 9604b8a5 04aa86d38` succeeds (ancestry, not
+    string equality). snap_qty_str appears 3x in execute.py at that sha.
+
+(2) THE SEAM IS REACHED — three live bybit_1 closes logged a qty_state:
+    18:02:50Z AVAXUSDT qty=12357.0, 18:04:01Z BNBUSDT qty=0.27,
+    18:04:02Z BTCUSDT qty=0.001 — all qty_state=unchanged, each returning an
+    orderId. `unchanged` is the value the row names as expected and sufficient.
+    Positive control: order_monitor matched 168 lines in the same window.
+
+(3) NO `snapped`, WITH A MEASURED WHY. Population: the 1000 newest trades rows
+    (ids 4661..5660), bybit_* non-backtest, n=765, 765 gradeable. IEEE-754
+    artifacts: 8 of 661 created BEFORE the merge (1.21%), 0 of 104 AFTER
+    (0.00%). Stated honestly: 0/104 at that base rate has P~0.28 of arising by
+    chance, so it is the WHY the clause asks for, not proof of extinction.
+
+The evidence is preserved in the work object's closing_observation so clearing
+the row does not delete the finding.
 
 Also files BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT
-— /api/diag/journalctl declares only unit/lines/since/until, so ?grep= is
-dropped silently and three different grep terms returned identical payloads.
+— premise re-verified against origin/main today: get_journalctl declares only
+unit/lines/since/until, so ?grep= is dropped silently.
 
-No src/, no config/, no order path.
+No src/, no config/, no order path. No order placed, modified or cancelled.

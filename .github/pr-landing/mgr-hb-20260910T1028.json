@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: one register file, docs/claude/work/MANAGER-LEASE.json — the lease heartbeat, which is a MANAGEMENT act by CLAUDE.md's own definition. No src/, tests/, scripts/, .github/workflows/, config/, deploy/, role packs, or canonical prose. SESSIONS.json was reconciled from a live 09:58Z read and landed on main as d5fe81aed (#11678) minutes ago, so the supervision record is fresher than this lease and manager-scope R2's positive duty is satisfied."
+}

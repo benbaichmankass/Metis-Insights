@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One-line correction to a backlog row that landed 12 minutes ago in #11728: it generalized '1-in-6 chance per attempt' with no statement of which PRs that covers, in the row whose own subject is stating populations. docs/** only, one row's detail field, 1 line changed. No src/, no tests/, no config/, no workflow, no order path. On a FRESH branch because #11728 is merged and a merged PR must not be reused -- the correction was pushed to that branch at ~20:31Z and auto-merge had taken it at 20:30:09Z, which is the documented post-arming race CLAUDE.md records against #11392."
+}

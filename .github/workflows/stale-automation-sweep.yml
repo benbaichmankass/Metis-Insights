@@ -1,0 +1,156 @@
+name: stale-automation-sweep
+
+# THE OWNER AN AUTOMATION PR DOES NOT HAVE AFTER ITS PRODUCING RUN EXITS.
+#
+# WHY THIS EXISTS.
+#   `.github/actions/commit-to-main` already does everything a producer CAN do
+#   for its own PR: all 25 of its call sites set `verify-merged: true` (measured
+#   2026-09-09 by parsing every workflow that references the action), and
+#   `refresh-stale-branch` merges `main` in ONCE when the wait is not
+#   progressing. But all of that lives inside the PRODUCING RUN'S OWN LIFETIME
+#   -- one `verify-timeout-minutes` window (default 30), one refresh attempt.
+#   When the job exits the branch has no owner: its checks ran once, on the sha
+#   it was opened with, and nothing in this repo ever looks at it again.
+#
+#   So any blocker outliving one 30-minute window strands the branch
+#   PERMANENTLY, while the producer's next cron opens another that strands the
+#   same way. MEASURED 2026-09-09, population = all 52 open PRs: 50 had
+#   `automation/*` head refs and 47 of those carried no R13 merge-slot claim,
+#   having been cut before MI-208/#11494 taught the action to write one. That is
+#   not 47 bugs. It is one missing lifecycle stage, and the next blocker refills
+#   the queue identically.
+#
+# WHY IT IS A SEPARATE WORKFLOW AND NOT ANOTHER INPUT TO `commit-to-main`.
+#   Because the producing run is OVER. A stranded branch needs an actor that
+#   outlives it. There is nothing left to add to the producer.
+#
+# ⚠️ WHY THE CADENCE IS TIGHTER THAN IT LOOKS LIKE IT NEEDS TO BE.
+#   FOUR always-run (`when: None`) guards grade a dated liveness receipt that
+#   must LAND on `main`: check_digest_liveness (6h window),
+#   check_trainer_capture_watch (15h), check_pr_queue_watch (30h) and
+#   check_manager_queue_watch. Each is a REQUIRED check, so a receipt that
+#   cannot land reds every open PR in the repository -- which is exactly what
+#   happened between 07:44:31Z and 07:56:53Z on 2026-09-09. The cadence is set
+#   off the TIGHTEST of those windows (6h) so a strand gets several sweeps
+#   before any guard's clock runs out, not off how often the queue fills.
+#
+# ⚠️ IT REFRESHES. IT NEVER CLOSES. That is a safety property, not an omission
+#   -- `scripts/ops/sweep_stale_automation_prs.py`'s docstring carries the
+#   reasoning: supersession is NOT decidable from a timestamp, and a first pass
+#   at this triage called 22 PRs cleanly superseded when the true figure was 15,
+#   with seven work-digest PRs each carrying a `pending-pings.jsonl` row absent
+#   from `main`. Auto-closing on that classification would have dropped seven
+#   operator notifications. Closing stays a human act with a recorded
+#   `disposition`, which `open_pr_record.py` grades.
+#
+# ⚠️ AND IT REFUSES TO REFRESH A SUPERSEDED PR. Every one of these PRs has
+#   auto-merge ARMED, so refreshing one is not "letting it be judged again", it
+#   is LANDING it on green. Refreshing a PR whose register is older than main's
+#   would REWIND main. The sweeper only ever touches a PR it has shown carries
+#   content main lacks and that nothing newer supersedes.
+#
+# ⚠️ NO `push:` TRIGGER, DELIBERATELY. This workflow pushes to branches that
+#   have open PRs; a push trigger would retrigger it -- the unbounded loop
+#   `reconcile-open-prs.yml` documents closing in exactly one hop.
+#
+# BLAST RADIUS. Reads the open-PR list; merges `origin/main` into stranded
+# `automation/*` branches and re-asserts their own R13 merge-slot claim. It
+# never merges, closes, un-drafts or comments on a pull request, and it touches
+# no branch outside `automation/*`. Tier-1: no order path, no strategy config,
+# no risk caps, no src/, no deploy/, no VM.
+
+on:
+  schedule:
+    # Every 2 hours, offset off the hour so it does not pile into the :00 rush.
+    # CHOSEN against the 6h window of `check_digest_liveness` -- the tightest of
+    # the four repo-wide receipt guards -- so a strand gets ~3 sweeps before
+    # that clock expires. NOT tuned against queue volume: the queue filling
+    # faster does not make a strand more urgent, the guard window does.
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Push the refreshes (false = report the triage only)'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  # One sweeper at a time. Two concurrent runs would each merge `main` into the
+  # same stranded branch and race the second push, and the loser's refresh would
+  # be a wasted CI cycle on a sha nobody is waiting for.
+  group: stale-automation-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN. A push authenticated as
+          # GITHUB_TOKEN does not create new workflow runs, so refreshing a
+          # branch with it would mint a new head sha that NOTHING GRADES -- the
+          # PR would go from "stranded with stale red checks" to "stranded with
+          # no checks at all", which is worse and reads as progress.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # ⚠️ LOAD-BEARING. The sweeper compares each branch's payload against
+          # `main` through `git merge-base` and `git show`. On a shallow clone
+          # the merge-base resolves wrong and every comparison would be graded
+          # against the wrong tree -- and the failure mode is a CONFIDENT wrong
+          # answer, not an error.
+          fetch-depth: 0
+
+      - name: Self-test the classifier before trusting it against live branches
+        # The classifier decides which PRs get pushed. Its every state is
+        # arguable here as planted fixtures, so it is argued here rather than
+        # against the live queue. ⚠️ A sweeper whose classifier is broken must
+        # fail loudly, not refresh a superseded PR onto `main`.
+        run: |
+          python3 scripts/ops/sweep_stale_automation_prs.py --self-test
+          python3 scripts/ops/claim_merge_slot.py --self-test
+
+      - name: Read the open-PR list
+        # ⚠️ ON FAILURE THIS WRITES NOTHING and the sweeper exits 2
+        # (`COULD NOT LOOK`). It deliberately does NOT fall back to an empty
+        # list: "we could not look" and "nothing is stranded" are opposite
+        # facts, and the `curl ... || echo '[]'` idiom that collapses them is a
+        # named failure class in this repo (a 403 read as `0 checks`).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+            > /tmp/open-prs.json
+          echo "read $(jq 'length' /tmp/open-prs.json) open PR(s)"
+
+      - name: Sweep
+        id: sweep
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          set +e
+          python3 scripts/ops/sweep_stale_automation_prs.py \
+            --open-prs /tmp/open-prs.json \
+            --held-by "github-actions[bot] · stale-automation-sweep run ${GITHUB_RUN_ID}" \
+            ${{ (github.event.inputs.apply || 'true') == 'true' && '--apply' || '' }} \
+            > /tmp/sweep.txt 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat /tmp/sweep.txt
+
+      - name: Report the verdict
+        # ⚠️ THREE OUTCOMES, NEVER COLLAPSED. `2` is a claim about US -- we could
+        # not read the open set -- and is NOT the same fact as "no branch was
+        # stranded". Reporting it as success is the failed-read-rendering-as-a-
+        # clean-negative this repo keeps paying for.
+        run: |
+          case "${{ steps.sweep.outputs.code }}" in
+            0) echo "::notice::stale-automation-sweep: every stranded branch that should land was refreshed; the rest are reported above for a human read." ;;
+            1) echo "::error::stale-automation-sweep: at least one refresh FAILED. The branches are unchanged -- read the per-PR reason above before re-running."; exit 1 ;;
+            2) echo "::error::stale-automation-sweep: COULD NOT LOOK -- the open-PR list was unreadable. This is NOT an empty queue; the sensor is blind and that is a defect."; exit 1 ;;
+            *) echo "::error::stale-automation-sweep: unexpected exit code from sweep_stale_automation_prs.py"; exit 1 ;;
+          esac

@@ -1323,15 +1323,63 @@ def _self_test() -> int:
     check("the operator-owed vocabulary is IMPORTED, not re-derived",
           (OPEN_STATUSES, TERMINAL_STATUSES),
           (("open", "dispatched", "snoozed"), ("resolved", "withdrawn")))
-    ob = operator_block({"blocked_objects": [], "basis_counts": {"unstated": 0},
-                         "population": 0}, date(2026, 9, 1))
-    reg = ob["operator_owed_register"]
+    # ⚠️ PLANTED, NOT THE LIVE REGISTER. This block used to call
+    # `operator_block` against the real `docs/claude/operator-owed-register.json`
+    # and assert `count == 0`, which passed only for as long as that file
+    # happened to hold nothing open — so the FIRST legitimately-open item filed
+    # to it turned this into a red build (measured 2026-09-10, on
+    # OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO). A register existing to carry
+    # open items must not have a test that fails when one is carried, and this
+    # file's own §5 already states the discipline: plant the input, so a vacuous
+    # pass is impossible AND a legitimate edit cannot manufacture a failure.
+    #
+    # The INTENT is unchanged and is now checked in BOTH directions, which the
+    # live-file version could not do: a terminal row must not be counted as
+    # open, and an open row MUST be counted. The old form would have passed
+    # just as happily if `count` were hardcoded to 0.
+    def _with_planted_register(payload: dict) -> dict:
+        import tempfile
+        global _OPERATOR_OWED
+        original = _OPERATOR_OWED
+        with tempfile.TemporaryDirectory() as td:
+            planted = Path(td) / "operator-owed-register.json"
+            planted.write_text(json.dumps(payload), encoding="utf-8")
+            _OPERATOR_OWED = planted
+            try:
+                return operator_block(
+                    {"blocked_objects": [], "basis_counts": {"unstated": 0},
+                     "population": 0}, date(2026, 9, 1))["operator_owed_register"]
+            finally:
+                _OPERATOR_OWED = original
+
+    reg = _with_planted_register({"carry_limit": 2, "items": [
+        {"id": "T1", "status": "resolved", "title": "t"},
+        {"id": "T2", "status": "withdrawn", "title": "t"},
+    ]})
     check("REGRESSION: a register of terminal items reports ZERO open, not all of them",
           reg["count"], 0)
     check("...and the terminal ones are counted, not silently dropped",
-          reg["terminal_count"] is not None and reg["terminal_count"] > 0, True)
-    check("...and nothing is bucketed as unrecognised on the real register",
-          reg["unrecognised"], [])
+          reg["terminal_count"], 2)
+    check("...and nothing is bucketed as unrecognised", reg["unrecognised"], [])
+
+    # POSITIVE CONTROL — the half the live-file form could never assert.
+    reg_open = _with_planted_register({"carry_limit": 2, "items": [
+        {"id": "T1", "status": "resolved", "title": "t"},
+        {"id": "O1", "status": "open", "title": "t"},
+    ]})
+    check("POSITIVE CONTROL: an OPEN item IS counted, so `count: 0` is not hardcoded",
+          reg_open["count"], 1)
+    check("...and the terminal sibling is still bucketed as terminal",
+          reg_open["terminal_count"], 1)
+
+    # ...and the REAL register is still exercised, for the one thing a planted
+    # input cannot tell you: whether anything on disk carries a status this
+    # vocabulary does not recognise. Deliberately NOT an assertion about how
+    # many items are open — that is the coupling this block just removed.
+    live = operator_block({"blocked_objects": [], "basis_counts": {"unstated": 0},
+                           "population": 0}, date(2026, 9, 1))["operator_owed_register"]
+    check("...and nothing on the REAL register is bucketed as unrecognised",
+          live["unrecognised"], [])
 
     # A parse failure is reported, never dropped.
     d3 = diagnose([], [{"path": "x.yaml", "error": "boom"}])

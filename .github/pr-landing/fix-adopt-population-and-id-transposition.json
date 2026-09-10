@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Corrects two factual defects in my own work merged earlier today (#11708, #11715), both documentation-only: a transposed trade id in a test's hand-scored table (5569 -> 5568; the row it named is not an adopted_orphan at all), and a quantitative claim with no stated population ('2 of 5 judgeable adopts'), re-measured as 2 of 15 over a population that IS named. Touches tests/**, docs/** and the rendered CLAUDE.md SESSION-BRIEF block only. NO src/, no config/, no deploy/, no workflow, no order path. The sibling correction to src/runtime/orphan_attribution.py's docstring is deliberately NOT in this PR: src/** is Tier-2 by path, so it is routed to the operator separately rather than smuggled in behind a Tier-1 declaration."
+}

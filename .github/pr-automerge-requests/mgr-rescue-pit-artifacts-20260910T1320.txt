@@ -1,0 +1,10 @@
+Arm auto-merge for the PIT-artifact rescue (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+comms/ data files salvaged from three automation PRs being closed, plus the
+manager checklist recording the operator's disposition. No runtime, no order
+path, no config.
+
+Merge slot taken over from a terminal holder; asserted so that only the
+merge_slot key differs from origin/main.
