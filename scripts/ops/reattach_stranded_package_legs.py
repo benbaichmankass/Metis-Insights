@@ -85,6 +85,14 @@ USAGE
     # apply (Tier-2 — operator approval on the EXACT diff required)
     ... --apply
 """
+# wiring: manual-only - a one-shot Tier-2 money-DB writeback the operator runs
+# by hand, ONCE, after reviewing the exact dry-run diff. It must never acquire a
+# scheduled caller: WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS
+# makes the operator's approval conditional on seeing that diff first, so a cron
+# or unit firing this would defeat the condition it was approved under. The
+# sibling repair_*/backfill_* tools under scripts/ops/ are dispatched the same
+# way. Deliberately NOT wired -- this is the answer to the guard, not a dodge.
+
 from __future__ import annotations
 
 import argparse
