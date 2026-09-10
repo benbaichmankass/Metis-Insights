@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-alpaca-close-decision-20260910T1145",
-    "claimed_at": "2026-09-10T11:48:55Z",
-    "purpose": "Manager registers (Tier-1, docs-only): records the operator's 11:45Z decision that the Alpaca qty-scoped partial close confirms STRICT on the trade's own quantity delta, clearing the LAST blocking edge on the operator's Workflow page. PR #11689, opened by me first so it carries a real pull_request event and CI fires -- claude-pr-automerge ADOPTS it rather than creating it under GITHUB_TOKEN, which is the zero-check trap. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
+    "held_by": "session_01Ek2KDXDeLAMrN4JH4aEXWf",
+    "branch": "claude/mi247-oi-option-a-observed",
+    "claimed_at": "2026-09-10T12:12:35Z",
+    "purpose": "PR #11690 - MI-247 register update (Tier-1, docs/claude/OPEN-ITEMS.json, 2 ins/2 del). Taken over from claude/mgr-alpaca-close-decision-20260910T1145, TERMINAL: its PR #11689 shows merged_at 2026-09-10T11:53:59Z. NOTE the ancestry test is INVALID here - this repo squash-merges, so git merge-base --is-ancestor reports a merged branch as LIVE. Establish terminality from the PR's merged_at, not from ancestry."
   },
   "active_sessions": [
     {
