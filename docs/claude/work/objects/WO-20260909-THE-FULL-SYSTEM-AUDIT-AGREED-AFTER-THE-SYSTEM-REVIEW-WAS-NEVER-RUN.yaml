@@ -139,8 +139,22 @@ closed_by_manager: >-
   already filled `done_condition_status` with every clause MET and simply never flipped
   `lifecycle`, so this object read `in_flight` while its work was on main - a false record
   that also held a slot against the WIP ceiling of 8. PR #11571 merged as 566c0ff4c.
-  !! WHAT IS CLOSED IS THE AUDIT, NOT ITS FINDINGS. 67 of 68 are filed in the two review
-  backlogs and the six operator decisions are carried by
+  !! WHAT IS CLOSED IS THE AUDIT, NOT ITS FINDINGS. The six operator decisions are carried by
   OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING,
-  which stays OPEN: four were answered 2026-09-09 (see the WO-20260909-DECISION-* objects,
-  landed e1518aecd) and TWO - F-11 and F-39 - have still not been put to the operator.
+  which stays OPEN. ALL SIX were answered 2026-09-09 - four at 21:15Z (landed e1518aecd) and the
+  last two, F-11 and F-39, at 21:33Z - each with a full answer block on its own
+  WO-20260909-DECISION-* object.
+  !! CORRECTED 2026-09-09T23:4xZ BY ITS OWN AUTHOR: this block read "67 of 68 are filed in the two
+  review backlogs" and THAT FIGURE IS FALSE. The audit filed NINETEEN backlog rows against SIXTY-EIGHT
+  findings - its own run_record (`backlog_rows_filed: 19`) and clause_4_detail ("19 backlog rows
+  filed") both say so, twice, on this same object, and the F-id count over the audit doc is 68. So
+  roughly 49 findings carry no backlog row, which is the audit's DESIGN and not a defect. The false
+  figure did real harm before it was caught: a later manager, finding no backlog row for F-50, read
+  that absence against "67 of 68" and reported it as evidence that a money-at-risk proposal had
+  reached the operator unfiled - a finding manufactured entirely by this sentence. F-50 lacking a row
+  was the NORMAL case. What was genuinely owed - a landing place for the operator's F-50 disposition -
+  is now filed as
+  BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS,
+  and it turned out to be a RECURRENCE of the resolved
+  BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT, which is a better row than the phantom would
+  have been. Read a count off the run_record, never off a manager's prose about it.

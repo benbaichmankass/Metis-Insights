@@ -114,13 +114,18 @@ class TestMultiplexerRespectsPauseFlag:
         monkeypatch.setattr(runtime_flags, "flags_dir", lambda: tmp_path)
 
         monkeypatch.setattr(pl, "STRATEGIES", ["vwap", "turtle_soup"])
-        monkeypatch.setattr(pl, "_STRATEGY_BUILDERS", {
+        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
+
+        # ``builders=`` replaces the module-global patch these tests used to
+        # do. pipeline._STRATEGY_BUILDERS — the SECOND builder registry — was
+        # deleted 2026-09-09 (audit F-28, MI-229) because it had drifted to 16
+        # names against the intent layer's 55, making the documented rollback
+        # MULTI_STRATEGY_INTENT_LAYER=false a 78% capability outage. The
+        # per-call injection point mirrors multiplexed_intent_signal_builder's.
+        result = pl.multiplexed_signal_builder({}, builders={
             "vwap":        self._make_builder("buy", "vwap"),
             "turtle_soup": self._make_builder("buy", "turtle_soup"),
         })
-        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
-
-        result = pl.multiplexed_signal_builder({})
         assert result.get("meta", {}).get("strategy_name") == "turtle_soup"
 
     def test_unpaused_strategy_fires_normally(self, tmp_path, monkeypatch):
@@ -130,13 +135,18 @@ class TestMultiplexerRespectsPauseFlag:
 
         monkeypatch.setattr(runtime_flags, "flags_dir", lambda: tmp_path)
         monkeypatch.setattr(pl, "STRATEGIES", ["vwap", "turtle_soup"])
-        monkeypatch.setattr(pl, "_STRATEGY_BUILDERS", {
+        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
+
+        # ``builders=`` replaces the module-global patch these tests used to
+        # do. pipeline._STRATEGY_BUILDERS — the SECOND builder registry — was
+        # deleted 2026-09-09 (audit F-28, MI-229) because it had drifted to 16
+        # names against the intent layer's 55, making the documented rollback
+        # MULTI_STRATEGY_INTENT_LAYER=false a 78% capability outage. The
+        # per-call injection point mirrors multiplexed_intent_signal_builder's.
+        result = pl.multiplexed_signal_builder({}, builders={
             "vwap":        self._make_builder("buy", "vwap"),
             "turtle_soup": self._make_builder("buy", "turtle_soup"),
         })
-        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
-
-        result = pl.multiplexed_signal_builder({})
         assert result.get("meta", {}).get("strategy_name") == "vwap"
 
     def test_all_paused_returns_no_signal(self, tmp_path, monkeypatch):
@@ -148,13 +158,18 @@ class TestMultiplexerRespectsPauseFlag:
         (tmp_path / "pause_turtle_soup").touch()
         monkeypatch.setattr(runtime_flags, "flags_dir", lambda: tmp_path)
         monkeypatch.setattr(pl, "STRATEGIES", ["vwap", "turtle_soup"])
-        monkeypatch.setattr(pl, "_STRATEGY_BUILDERS", {
+        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
+
+        # ``builders=`` replaces the module-global patch these tests used to
+        # do. pipeline._STRATEGY_BUILDERS — the SECOND builder registry — was
+        # deleted 2026-09-09 (audit F-28, MI-229) because it had drifted to 16
+        # names against the intent layer's 55, making the documented rollback
+        # MULTI_STRATEGY_INTENT_LAYER=false a 78% capability outage. The
+        # per-call injection point mirrors multiplexed_intent_signal_builder's.
+        result = pl.multiplexed_signal_builder({}, builders={
             "vwap":        self._make_builder("buy", "vwap"),
             "turtle_soup": self._make_builder("buy", "turtle_soup"),
         })
-        monkeypatch.setattr(pl, "is_strategy_paused", runtime_flags.is_strategy_paused)
-
-        result = pl.multiplexed_signal_builder({})
         assert result.get("side") == "none"
 
 

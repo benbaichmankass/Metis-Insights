@@ -173,7 +173,8 @@ operator-approved Tier-3 PR citing the change in chat.
 |------|--------|
 | `src/units/strategies/ict_scalp.py` | Pure unit; `order_package()` + `monitor()` + shadow helpers. |
 | `src/runtime/strategy_signal_builders.py::ict_scalp_signal_builder` | Pipeline-side builder; honours `enabled` flag. |
-| `src/runtime/pipeline.py` | Registers in `_STRATEGY_BUILDERS`; `STRATEGY=ict_scalp_5m` env override. |
+| `src/runtime/intent_multiplexer.py` | Registers in `_default_intent_builders` — the ONE builder roster. |
+| `src/runtime/pipeline.py` | `STRATEGY=ict_scalp_5m` env override only. ⚠️ It used to ALSO register in `_STRATEGY_BUILDERS`, a second registry deleted 2026-09-09 (audit F-28: it held 16 of 55 strategies, making the `MULTI_STRATEGY_INTENT_LAYER=false` rollback a 78% outage). |
 | `src/runtime/intent_multiplexer.py` | Registers in `_default_intent_builders`. |
 | `src/runtime/intents.py::DEFAULT_PRIORITIES` | Priority 30 (below vwap=40, turtle_soup=50). |
 | `config/strategies.yaml::ict_scalp_5m` | Live config, `enabled: true` since v2 live (2026-05-14). |

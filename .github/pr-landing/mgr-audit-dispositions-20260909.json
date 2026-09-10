@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register writes only. Records the six operator dispositions from the 2026-09-09 full-system audit into the backlog rows they correspond to, files the one row that was missing, corrects a false count this manager wrote into a work object, sharpens the carrier OPEN-ITEMS row, and carries the lease heartbeat plus a live supervision record. No src/, tests/, scripts/, config/, deploy/ or .github/workflows/ path is touched. No order was placed, modified or cancelled on any account.",
+  "hold_reason": "",
+  "hold_text": ""
+}

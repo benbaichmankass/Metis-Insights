@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T21:15:00Z",
+  "updated_at": "2026-09-10",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2771,7 +2771,11 @@
       "priority": "high",
       "tier": "tier_3",
       "added": "2026-09-09",
-      "note": "OPERATOR-DIRECTED 2026-09-09. ⚠️ THIS NOTE WAS REWRITTEN THE SAME DAY BECAUSE ITS FIRST VERSION WAS THE WRONG SHAPE. It read \"DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM\", and the operator rejected that framing outright: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question... it's that you don't understand how the system works. that's what we need to fix here, not the question\". THE PROHIBITION IS RETRACTED. Ask whatever you need to, window and floor included. Banning a question suppresses the symptom and leaves the misunderstanding intact, so the next session fails in a NEW way instead of asking a better question. THE THING TO CARRY IS THE MODEL, NOT A RULE: (1) EDGE is established OFFLINE — this repo has extensive backtesting infrastructure built for exactly that (purged walk-forward CV, replay_pregate_fleet, the point-in-time backfills), and that is where 'does this strategy work' is answered. (2) LIVE data establishes MECHANICS ONLY — that executions match the simulator — which canon says needs 1-2 executed trades, not calendar time. (3) SLOW LIVE ACCRUAL IS A FEATURE OF THE SYSTEM, NOT A BARRIER TO OVERCOME: a leg closing ~1.2 trades a week is not a problem to engineer around, and `none_gradeable` on a live window is not a defect. (4) Fewer legs does NOT raise trades-per-leg, and on paper accounts every leg runs regardless — the manager recommended that lever and the operator rejected it. WHAT THE WORK ACTUALLY IS: the review/validation layer is built on a LIVE-ACCRUAL model of evidence while the system's real evidence engine is the BACKTEST infrastructure. MIN_CLOSED_FOR_ACTION is a symptom of that mismatch, not the defect. The operator's own framing: \"our overall operation is clearly not built to suit the system's structure.\" THE RULE THIS CONTRADICTS ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), scope explicitly STRATEGY legs, clause 3 'No gate may require calendar-time accrual to prove edge', and it already names this as 'the recurring drift this rule kills'. THE GUARD HALF MUST ENFORCE THE RULE, NOT A PHRASE: a gate producing a STRATEGY verdict must source its edge from offline evidence. A guard that greps for forbidden words is the same wrong shape one level down. Keep the positive control — a guard silent because it scans nothing is indistinguishable from one silent because all is well. Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Retiring a strategy leg is Tier-3 and is not the answer here. Manager does not take this — it is ROUTED to session_01MrTjuoRpBb7spyQLydXmmT, which has been sent this correction directly."
+      "note": "OPERATOR-DIRECTED 2026-09-09. ⚠️ THIS NOTE WAS REWRITTEN THE SAME DAY BECAUSE ITS FIRST VERSION WAS THE WRONG SHAPE. It read \"DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM\", and the operator rejected that framing outright: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question... it's that you don't understand how the system works. that's what we need to fix here, not the question\". THE PROHIBITION IS RETRACTED. Ask whatever you need to, window and floor included. Banning a question suppresses the symptom and leaves the misunderstanding intact, so the next session fails in a NEW way instead of asking a better question. THE THING TO CARRY IS THE MODEL, NOT A RULE: (1) EDGE is established OFFLINE — this repo has extensive backtesting infrastructure built for exactly that (purged walk-forward CV, replay_pregate_fleet, the point-in-time backfills), and that is where 'does this strategy work' is answered. (2) LIVE data establishes MECHANICS ONLY — that executions match the simulator — which canon says needs 1-2 executed trades, not calendar time. (3) SLOW LIVE ACCRUAL IS A FEATURE OF THE SYSTEM, NOT A BARRIER TO OVERCOME: a leg closing ~1.2 trades a week is not a problem to engineer around, and `none_gradeable` on a live window is not a defect. (4) Fewer legs does NOT raise trades-per-leg, and on paper accounts every leg runs regardless — the manager recommended that lever and the operator rejected it. WHAT THE WORK ACTUALLY IS: the review/validation layer is built on a LIVE-ACCRUAL model of evidence while the system's real evidence engine is the BACKTEST infrastructure. MIN_CLOSED_FOR_ACTION is a symptom of that mismatch, not the defect. The operator's own framing: \"our overall operation is clearly not built to suit the system's structure.\" THE RULE THIS CONTRADICTS ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), scope explicitly STRATEGY legs, clause 3 'No gate may require calendar-time accrual to prove edge', and it already names this as 'the recurring drift this rule kills'. THE GUARD HALF MUST ENFORCE THE RULE, NOT A PHRASE: a gate producing a STRATEGY verdict must source its edge from offline evidence. A guard that greps for forbidden words is the same wrong shape one level down. Keep the positive control — a guard silent because it scans nothing is indistinguishable from one silent because all is well. Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Retiring a strategy leg is Tier-3 and is not the answer here. Manager does not take this — it is ROUTED to session_01MrTjuoRpBb7spyQLydXmmT, which has been sent this correction directly.",
+      "status": "in_flight",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11587 (MI-216, the producer) at its FIFTH conflict — every one a manager register write landing under it, which is a QUEUE failure and mine. Slot given to it 23:43Z; the manager's own register PR is written and HELD unpushed until it merges. git merge-tree vs current main: zero conflict markers. It declares landing: hold and awaits ONE manager merge click once CI is green."
+      ]
     },
     {
       "id": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
@@ -2924,6 +2928,10 @@
         "2026-09-09T20:20Z LANDED AND VERIFIED ON MAIN as 566c0ff4c - read off origin/main, not assumed, and docs/audits/full-system-audit-2026-09-09.md is present there. Deliverables verified by COUNT rather than by the PR body's claim: performance-review-backlog 117 rows of which 3 dated 20260909 (matches the declared 3); OPEN-ITEMS 69 rows of which 3 dated today, including the carrier OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING with loud: true, kind: monitoring, verified_at 2026-09-09. health-review-backlog is 1409 rows with 58 dated today, which is MORE than the audit's declared 16 - the rest are today's other lanes, so that number does NOT corroborate the audit's 16 on its own and is not quoted as if it did. Its CI restarted THREE times (19:11, 19:33, 19:55) and two of those restarts were mine - see MI-226's note and the R13 backlog row.",
         "2026-09-09T21:15Z: the operator asked for 'any decisions that are waiting for me as pop ups'. !! THE 2026-09-08 PRECEDENT WAS READ FIRST AND IS WHY THIS WAS DONE IN THE CHAT: WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING's answer block records that the LAST manager to get this exact phrasing built Telegram delivery instead of rendering the questions, and the operator had to ask twice. Four of the audit's six were rendered as an AskUserQuestion picker and ANSWERED; each is recorded on its own object with an answer block (F-29 Tier-3, F-36 Tier-2 order path, F-28 Tier-2 signal path, F-50 Tier-2 observability). TWO REMAIN UNASKED: F-11 and F-39. !! NONE ARE BUILT - WIP was 8 of 8 in_flight, so all four objects are `ready` and no lane was spawned. Measured while checking: the decision inbox holds 19 requests (17 committed, 2 awaiting the operator) plus 2 unanswerable operator edges; the two pending ones HAD already been delivered to ClaudeBot (suppressed_reached_preferred: 2), so they are un-tapped rather than undelivered.",
         "2026-09-09T21:30Z manager: work object WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-... closed (it read in_flight while the audit was on main). WIP 8 -> 6 with MI-226's, so two lanes are free."
+      ],
+      "status": "done",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] MERGED AND OBSERVED. #11571 landed 566c0ff4c; 68 findings, 19 backlog rows, nothing remediated (correct, per the object's must_not). All SIX operator decisions are now answered AND written into the backlog row each corresponds to — five annotated surgically, the sixth (F-50) filed as BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS, which turned out to be a RECURRENCE of the resolved BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
       ]
     },
     {
@@ -2939,12 +2947,16 @@
         "WHY THIS IS THE ONLY LANE ROUTED: the WIP ceiling read 7 of 8 in_flight when the audit landed, and this object takes it to exactly 8. Nothing further can be spawned until something closes. That is a stated constraint on routing, not a judgement that the other 67 findings matter less - they are FILED in the two review backlogs, which are the review lanes' standing to-do list.",
         "The six operator decisions are NOT routed and must not be: they are Tier-2/Tier-3 and the work object's must_not says the operator decides. They are carried by the loud OPEN-ITEMS row.",
         "2026-09-09T21:30Z manager: PR #11592 MERGED as 92f44a226; work object closed. landed_unproven NOT done — the new instrument scripts/ci/check_guard_selftest_coverage.py has NOT been observed grading on a PR other than the one that introduced it, which is the arming half. Coverage 52 -> 58 of 80. F-61 REFUTED on all four named instances (they ARE invoked; the audit's probe used a single-line grep against argv wrapped over two lines) — class is 4, not 8, and the audit doc was corrected in the same PR."
+      ],
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11592 merged 92f44a226; coverage 52 -> 58 of 80, F-61 REFUTED on all four named instances. NOT done: the new instrument has never graded on a PR other than the one that introduced it — registered, not armed."
       ]
     },
     {
       "id": "MI-227-INTENT-REDUCE-ORPHAN-PROTECTIVE-LEG",
       "title": "F-36: apply_intent_reduce_partial_close never resizes the reducing row's OWN protective leg — operator-approved Tier-2 (resize + INV-PROTECT-LEG-MATCHES-ROW)",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_0178Pn128KK71u6nCzLeVH6w",
       "notes": [
         "2026-09-09T21:50Z manager: SPAWNED. Registered before the spawn (pending-20260909T214948Z) and confirmed after. Operator answered `resize_and_invariant` 2026-09-09; the object WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG carries the answer and its scope limits. ⚠️ THE APPROVAL COVERS THE CODE PATH THAT RESIZES ON THE NEXT REDUCE PLUS THE INVARIANT — it does NOT authorise cancelling any currently-resting leg, and no order may be placed, modified or cancelled on any account. Chosen first because it is real money (3 of 21 rows on bybit_2) AND the root cause of 64 of the 112 rows in the operator ERROR feed.",
@@ -2952,12 +2964,22 @@
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
-      "work_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG"
+      "work_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG",
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11604 MERGED BY THE MANAGER 2026-09-09T23:4xZ as 7b8b6b51, all five checks green, landing: hold, operator Tier-2 order-path approval recorded and NOT re-sought. DEPLOY MEASURED 2026-09-09T23:56:04Z: /api/diag/version git_sha 7b8b6b51d == the merge commit, so the RUNNING trader carries it (git_sha_on_disk 4230ef10b + restart_pending true is ordinary steady state). NOT done: the resize has never run on a live reduce, and the PR states the Bybit qty-on-amend contract is from the V5 docs and unverified against the venue. The fully-consumed-parent case is COUNTED, not fixed."
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "MERGED AND DEPLOYED, NOT OBSERVED -- and this row read `in_flight` while all three of its PRs were on main, which is the false record the two states exist to prevent. #11604 (the resize + INV-PROTECT-LEG-MATCHES-ROW) merged as 7b8b6b51d; #11616 and #11617 followed. Deploy MEASURED: /api/diag/version at 2026-09-09T23:56:04Z returned git_sha 7b8b6b51d, so the running trader carries it. `landed_unproven` and not `done` because clause (3) needs a REAL intent-reduce to fire on a Bybit partial-tpsl account and then the shrunk row's tracked leg read back off the venue -- an external event nobody can schedule, class incidence 21 of 1000 journal rows. Carried by OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "id": "MI-228-CLOSED-FLAT-INVARIANT-CANNOT-FALSIFY",
       "title": "F-11 + F-12 + F-13: the closed-flat invariant reads a failed exchange read as flat, covers <=59% of its timeline, and pages where nobody looks — operator-approved Tier-2 (fix all three)",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
       "notes": [
         "2026-09-09T21:51Z manager: SPAWNED. Registered before the spawn (pending-20260909T215040Z) and confirmed after. Operator answered `all_three` 2026-09-09; the object WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ carries the answer. This is CY-20260906-TRADING-TRUTH exactly — repair the MEASUREMENT before acting on what it says. ⚠️ Nothing here touches an order path, and the first violation it reports must NOT be read as a regression: today's zero is uninformative by construction. ⚠️ Deliberately disjoint from MI-227, which is adding INV-PROTECT-LEG-MATCHES-ROW to system_invariants.py — F-39's fix lands in the same file, which is why F-39 was NOT paired here.",
@@ -2965,7 +2987,17 @@
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
-      "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ"
+      "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ",
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11603 merged a34bc556. A FOURTH blindness was found while building and it subsumes the other three: the size was read from qty/contracts while account_open_positions normalises all four venues to `size`, so every live residual graded FLAT since the module's first commit. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN; a planted violation has NOT been observed reported end to end."
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "MERGED, NOT OBSERVED -- same false-record correction as MI-227. #11603 merged as a34bc556c. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN (loud: true), whose criterion is a PLANTED violation seen end to end on the fleet -- a continued zero clears NOTHING, because a zero is exactly what the broken instrument produced for 14.7 days.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "id": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
@@ -2977,10 +3009,47 @@
       "work_object": "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE",
       "notes": [
         "2026-09-09T23:07Z manager: SPAWNED. Registered before the spawn (pending-20260909T230624Z), confirmed after. Routed once WIP fell to 7 of 8 on #11603 merging. ⚠️ DELETING THE SECOND REGISTRY IS THE POINT — the operator was offered a parity test alone and chose the collapse over it, so a test-only delivery is not this item. ⚠️ Scoped OFF src/units/accounts/execute.py and scripts/ops/system_invariants.py, where MI-227 is live resolving a conflict."
-      ]
+      ],
+      "status": "in_flight",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] session_01TM8XjkvVpvMxH4EcLtTsvP RUNNING at 23:41Z on claude/mi229-collapse-builder-registry, 'guards running, PR opening'. Building the COLLAPSE the operator chose, not the parity test they declined."
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "CORRECT AS `in_flight` -- stated so a reader knows it was checked, not skipped. PR #11615 open at 2026-09-10T00:33Z: guards / pytest-collect / repo-inventory GREEN on head f606e4d4, pytest-run in flight. An earlier head failed pytest-run at 00:22:07Z and the LANE fixed it unaided. Tier-2 signal path, landing: hold -- pr-landing R4/R5 bar an src/** diff from landing itself whatever its approval state, so it waits on a MERGE CLICK and NOT on the approval, which is already recorded (chosen: collapse_to_one_registry). Do not re-ask.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
+    },
+    {
+      "id": "MI-230-M20-EXIT-EVAL-NEAR-MISS-AND-RESTART-GAP",
+      "title": "F-50: M20's 60s exit-eval promise was BROKEN on 2026-09-07 and today clears by 48.8ms — build the near-miss band AND grade the restart gap",
+      "state": "in_flight",
+      "owner": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
+      "note": "Routed 2026-09-10T00:57Z. Operator answered 2026-09-09, chosen: near_miss_and_restart_gap, on WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED -- do NOT re-seek. TWO PARTS and the second is the harder one: (b) the RESTART GAP, last pass of process N to first pass of N+1, is the ONE interval the promise covers and the instrument excludes BY CONSTRUCTION, because max_interval_ms is per-process and the trader restarts on every merge to main. A build shipping only the near-miss band has not done it. !! F-51 is deliberately NOT in scope: the breach page never writes outcomes.jsonl, it was offered as a SUPERSET option and the operator picked the narrower one, so it is filed and UNANSWERED rather than rejected. !! The tail's CAUSE is a separate question from its INSTRUMENTATION.",
+      "state_observed_at": "2026-09-10T00:58:00Z",
+      "added": "2026-09-10"
+    },
+    {
+      "id": "MI-231-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+      "title": "F-39: three order packages closed while holding four open legs, one on REAL-MONEY bybit_2 — promote the detector to a suite FAIL and re-attach legs 4347/5265/5474/5475",
+      "state": "in_flight",
+      "owner": "session_017vNWUL48WWrtxssFv2EDMf",
+      "note": "Routed 2026-09-10T00:57Z. Operator answered 2026-09-09, chosen: detector_and_reattach -- the Tier-2 approval. !! THE SCOPE LIMIT IS PART OF THE APPROVAL, NOT A MANAGER GLOSS, and it was stated in the option the operator selected: JOURNAL/STATE REPAIR ONLY. No order may be placed, modified or cancelled on ANY account, emphatically not bybit_2. The venue positions are not to be touched. !! THE RE-ATTACH IS NOT PRE-APPROVED AS A DIFF -- it is a Tier-2 DB writeback whose exact change returns to the operator before it is applied. !! And a continuing zero from the promoted detector is NOT evidence until it has been OBSERVED failing on a planted stranded live leg: the latch it replaces was quiet for exactly the reason nobody read it. Sequencing note: scripts/ops/system_invariants.py was contended by MI-227, which merged as 7b8b6b51d, so that contention is over.",
+      "state_observed_at": "2026-09-10T00:58:00Z",
+      "added": "2026-09-10"
+    },
+    {
+      "id": "BLOCKER-20260910-MAIN-IS-RED-ON-THE-MERGE-SLOT-SIZE-GUARD",
+      "title": "main is RED: tests/test_claim_merge_slot.py fails on clean main because the slot-size metric is a positional zip(), and the instance on main is the MANAGER's own 7-key claim",
+      "state": "in_flight",
+      "owner": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+      "note": "UNFORESEEN BLOCKER, added as its own item per the adaptive-checklist rule. CONFIRMED BY THE MANAGER, not taken on report: tests/test_claim_merge_slot.py on main at 844d513c0 gives 2 failed / 9 passed with '87 lines change ... assert 87 <= 6'. !! THE CAUSE ON MAIN RIGHT NOW IS MINE. The guard's metric compares line i of the old board to line i of the new one, so a claim whose KEY COUNT differs from the outgoing one shifts every following line. I had been hand-adding `pr`, `found_stale` and `concurrent_sibling` to the slot -- 7 keys against the 4 claim_merge_slot.py writes. check_pr_landing R13 requires only branch/held_by/claimed_at, so those keys were never schema; I was using a SINGLE-HOLDER MIRROR as a narrative ledger, which it is not. That practice stops: manager claims now go through the script's canonical 4-key shape and the narrative goes in the PR body. TWO FIXES, DIFFERENT LIFETIMES, do not confuse them: (a) my canonical claim turns main green NOW as a side effect of a commit already being made, with no test touched or weakened; (b) #11628 repairs the METRIC (difflib add+remove, bounded by the two slots' own size) so the next session that adds a key does not re-red main. (a) is a data shape, (b) is the durable fix, and (a) is NOT a substitute for (b). MERGE DECISION: #11628 is landing: hold under R12 (it edits the landing machinery). I answered its stand-down question myself by planting whole-file reformats against main's real board on its head -- 175/175/109 caught against a bound of 15, correct splice 11, 18 passed, self-test PASS -- so the teeth are verified by a session other than the author, which is what R12 is for. I REFUSED THE MERGE ANYWAY on a defect the lane could not see: its board hunk reverts merge_slot to pr 11624, a merged and deleted branch. Poked 01:26Z to rebase, drop the board hunk, and correct the body sentence 'This PR therefore touches the board NOT AT ALL' (true of its base, false of main). The manager merges it on that push -- it does not wait for the operator.",
+      "state_observed_at": "2026-09-10T01:27:00Z",
+      "added": "2026-09-10"
     }
   ],
-  "as_of": "2026-09-09T09:00:34Z",
+  "as_of": "2026-09-10T01:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
