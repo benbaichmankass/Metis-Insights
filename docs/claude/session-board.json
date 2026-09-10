@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T0706",
-    "claimed_at": "2026-09-10T07:05:13Z",
-    "purpose": "record four operator decisions + the sunset standing policy; heartbeat 07:04:53Z"
+    "held_by": "github-actions[bot] · gld-compat-matrix run 34456190565",
+    "branch": "automation/gld-compat-verdicts-34456190565-1",
+    "claimed_at": "2026-09-10T08:38:08Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
