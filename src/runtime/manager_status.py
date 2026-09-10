@@ -108,6 +108,22 @@ class TreeProvenance:
     main_sha: Optional[str] = None
     behind_commits: Optional[int] = None
     main_age_hours: Optional[float] = None
+    #: How long ago this tree last FETCHED -- i.e. how old our VIEW of main is.
+    #:
+    #: ⚠️ **THIS IS THE FIELD THAT MAKES `synced` MEAN ANYTHING**, and until
+    #: 2026-09-10 it did not exist. `behind_commits` measures `HEAD..origin/main`
+    #: where `origin/main` is the LOCAL ref, so it answers "level with main as
+    #: we last saw it" and says NOTHING about how long ago that was. On the live
+    #: VM `scripts/deploy_pull_restart.sh` runs `git fetch` and then
+    #: `git reset --hard origin/main`, so HEAD is forced EQUAL to the local ref
+    #: in the same breath as fetching -- `behind_commits` is therefore **zero by
+    #: construction** there and the whole staleness of the page lives in this
+    #: number instead.
+    #:
+    #: ``None`` is *we could not establish when we last fetched*, never ``0.0``.
+    #: A fabricated zero would assert a fetch that just happened, which is the
+    #: exact direction this dataclass already warns about for ``behind_commits``.
+    main_ref_age_hours: Optional[float] = None
     note: str = ""
 
 
@@ -136,12 +152,83 @@ def _default_git(repo_dir: Path) -> GitRunner:
     return run
 
 
+def _render_hours(hours: Optional[float]) -> str:
+    """Render an age, keeping *we could not establish it* distinguishable.
+
+    ``None`` renders as "an unknown time", never "0m" -- a zero would read as
+    *just now*, which is the reassuring direction and therefore the one that
+    must never be fabricated.
+    """
+    if hours is None:
+        return "an unknown time"
+    if hours < 1.0:
+        return f"{round(hours * 60.0)}m"
+    if hours < 48.0:
+        return f"{hours:.1f}h"
+    return f"{hours / 24.0:.1f}d"
+
+
+def read_fetch_age_hours(
+    *,
+    repo_dir: Optional[Path] = None,
+    git: Optional[GitRunner] = None,
+    now: Optional[datetime] = None,
+    stat_mtime: Optional[Callable[[Path], Optional[float]]] = None,
+) -> "tuple[Optional[float], str]":
+    """How long ago this repo last FETCHED, and how we know.
+
+    Reads the mtime of ``FETCH_HEAD``, which git rewrites on EVERY fetch --
+    including one that brought nothing new, which is exactly the question:
+    *when did we last LOOK at the remote*, not *when did the remote last move*.
+
+    ⚠️ **This performs NO network call.** It is a `rev-parse --git-dir` plus a
+    `stat`. Fetching on an API request path is the wedge class this repo has
+    paid for twice (`BL-20260609-001`, the 2026-06-10 cold-start cascade), and
+    `ict-git-sync.timer` owns fetching. Establishing *how old our view is* is a
+    different question from *refreshing it*, and only the first is ours.
+
+    Returns ``(hours, note)``. ``hours`` is ``None`` whenever we could not
+    establish it -- no ``FETCH_HEAD`` (a clone that has never fetched), an
+    unreadable git dir, a stat failure -- and the note says which. **Never
+    ``0.0`` on failure**: a zero here reads as *we fetched just now*, which is
+    the reassuring direction and therefore the dangerous one.
+    """
+    repo = Path(repo_dir) if repo_dir else Path(_repo_root())
+    run = git or _default_git(repo)
+    ref = now or datetime.now(timezone.utc)
+
+    git_dir, err = run(["rev-parse", "--git-dir"])
+    if not git_dir:
+        return None, f"could not locate the git dir ({err or 'no output'})"
+
+    path = Path(git_dir)
+    if not path.is_absolute():
+        path = repo / path
+    head = path / "FETCH_HEAD"
+
+    def _default_stat(target: Path) -> Optional[float]:
+        try:
+            return target.stat().st_mtime
+        except OSError:
+            return None
+
+    mtime = (stat_mtime or _default_stat)(head)
+    if mtime is None:
+        # A clone that has never fetched has no FETCH_HEAD at all. That is
+        # *we cannot say how old our view of main is*, NOT *it is current*.
+        return None, "no readable FETCH_HEAD, so the age of our view of main is unknown"
+
+    fetched = datetime.fromtimestamp(mtime, tz=timezone.utc)
+    return max(0.0, (ref - fetched).total_seconds() / 3600.0), "FETCH_HEAD mtime"
+
+
 def read_tree_provenance(
     *,
     repo_dir: Optional[Path] = None,
     git: Optional[GitRunner] = None,
     now: Optional[datetime] = None,
     main_ref: str = "origin/main",
+    stat_mtime: Optional[Callable[[Path], Optional[float]]] = None,
 ) -> TreeProvenance:
     """Grade the working tree this status is about to be read from.
 
@@ -169,24 +256,33 @@ def read_tree_provenance(
     run = git or _default_git(repo)
     ref = now or datetime.now(timezone.utc)
 
+    # How old our VIEW of main is. Computed on EVERY path, including the
+    # failure ones: "we could not read HEAD" and "we have not fetched in an
+    # hour" are independent facts and a reader needs both.
+    fetch_age, fetch_note = read_fetch_age_hours(
+        repo_dir=repo, git=run, now=ref, stat_mtime=stat_mtime)
+
     head, head_err = run(["rev-parse", "--short", "HEAD"])
     if not head:
         return TreeProvenance(
-            state=TREE_UNKNOWN,
+            state=TREE_UNKNOWN, main_ref_age_hours=fetch_age,
             note=f"could not read HEAD ({head_err or 'no output'})",
         )
 
     main, main_err = run(["rev-parse", "--short", main_ref])
     if not main:
         return TreeProvenance(
-            state=TREE_UNKNOWN, head_sha=head,
+            state=TREE_UNKNOWN, head_sha=head, main_ref_age_hours=fetch_age,
             note=f"could not read {main_ref} ({main_err or 'no output'})",
         )
 
     if head == main:
         return TreeProvenance(
             state=TREE_SYNCED, head_sha=head, main_sha=main, behind_commits=0,
-            note=f"level with the local {main_ref} ref (this never fetches)",
+            main_ref_age_hours=fetch_age,
+            note=(f"level with the local {main_ref} ref as of the last fetch "
+                  f"{_render_hours(fetch_age)} ago ({fetch_note}); this never "
+                  f"fetches, so main may have moved since"),
         )
 
     raw, count_err = run(["rev-list", "--count", f"HEAD..{main_ref}"])
@@ -200,6 +296,7 @@ def read_tree_provenance(
     if behind is None:
         return TreeProvenance(
             state=TREE_UNKNOWN, head_sha=head, main_sha=main,
+            main_ref_age_hours=fetch_age,
             note=(f"HEAD differs from {main_ref} and the commit count could "
                   f"not be read ({count_err or 'unparseable'})"),
         )
@@ -210,7 +307,7 @@ def read_tree_provenance(
         # "behind" -- it is that we cannot say what of main it reflects.
         return TreeProvenance(
             state=TREE_UNKNOWN, head_sha=head, main_sha=main,
-            behind_commits=0,
+            behind_commits=0, main_ref_age_hours=fetch_age,
             note=(f"HEAD carries commits {main_ref} does not, so what of main "
                   f"this tree reflects could not be established"),
         )
@@ -223,7 +320,7 @@ def read_tree_provenance(
 
     return TreeProvenance(
         state=TREE_BEHIND, head_sha=head, main_sha=main, behind_commits=behind,
-        main_age_hours=age_hours,
+        main_age_hours=age_hours, main_ref_age_hours=fetch_age,
         note=f"{behind} commit(s) behind the local {main_ref} ref",
     )
 
@@ -232,7 +329,15 @@ def render_tree_stamp(tree: TreeProvenance) -> str:
     """The one-line provenance stamp. Always states which of the three it is."""
     head = tree.head_sha or "?"
     if tree.state == TREE_SYNCED:
-        return f"tree: synced · {head} == origin/main (as last fetched)"
+        # ⚠️ THE FETCH AGE IS NOT DECORATION -- IT IS WHAT `synced` MEANS.
+        # `HEAD == origin/main` is compared against the LOCAL ref, and
+        # `deploy_pull_restart.sh` hard-resets HEAD to that ref immediately
+        # after fetching, so on the live VM this equality holds BY
+        # CONSTRUCTION and carries no information about currency. All of the
+        # staleness lives in how long ago we last looked.
+        return (f"tree: synced · {head} == origin/main as last fetched "
+                f"{_render_hours(tree.main_ref_age_hours)} ago — this never "
+                f"fetches, so main may have moved since")
     if tree.state == TREE_BEHIND:
         age = (f", newest {tree.main_age_hours:.1f}h old"
                if tree.main_age_hours is not None else "")
@@ -1492,6 +1597,7 @@ __all__ = [
     "FILE_COMMIT_UNKNOWN",
     "FileCommit",
     "DEFAULT_OBSERVATION_STALE_MINUTES",
+    "read_fetch_age_hours",
     "LEASE_RELPATH",
     "LIVE_SESSION_STATES",
     "OBSERVATION_BASES",

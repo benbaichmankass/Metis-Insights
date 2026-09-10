@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · session-reaper run 34501786024",
+    "held_by": "github-actions[bot] · stale-automation-sweep run 34518595813",
     "branch": "automation/session-reaper-34501786024-1",
-    "claimed_at": "2026-09-10T16:34:33Z",
-    "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
+    "claimed_at": "2026-09-10T19:08:59Z",
+    "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
   },
   "active_sessions": [
     {

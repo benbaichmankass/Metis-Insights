@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): a lease heartbeat plus the supervision record of a lane that corrected a figure the manager had already merged, and the record of the manager's own unanswered board post. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed."
+}
