@@ -5,11 +5,14 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "github-actions[bot] · work-digest run 34420408024",
-  "branch": "automation/work-digest-34420408024-1",
-  "claimed_at": "2026-09-10T00:14:55Z",
-  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
- },
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-audit-dispositions-20260909",
+    "pr": 11619,
+    "claimed_at": "2026-09-10T00:16:00Z",
+    "purpose": "Manager register writes: the six 2026-09-09 audit dispositions written into the backlog rows they correspond to, a false filing count corrected at source on the audit work object, the carrier OPEN-ITEMS row sharpened into two clauses, plus the lease heartbeat and a live supervision record. Tier-1, no worker path, no order touched.",
+    "found_stale": "Claimed over a STALE holder, recorded rather than quietly taken: the slot read session_0178Pn128KK71u6nCzLeVH6w / claude/mi227-deploy-observed / pr 11617, claimed 2026-09-09T23:52:00Z, whose PR MERGED at 2026-09-10T00:12:12Z without releasing. Verified against GitHub (pull_request_read on #11617: state closed, merged true, merged_at 00:12:12Z), NOT inferred from main's commit subject -- the standard this field's previous occupant set, kept. !! THIS IS THE THIRD RECORDED DISPLACEMENT-OF-A-GHOST IN ONE EVENING and it is not three sessions misbehaving: BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST records that nothing releases the slot on merge, so the honest act available to a claimant is exactly this -- document whose ghost you stepped over. Its predecessor did the same over MI-214's #11613. !! REBASE 2026-09-10T00:2xZ -- A FOURTH GHOST, AND IT WAS NOT A SESSION: while this branch sat un-merged, .github/actions/commit-to-main claimed the slot for work-digest run 34420408024 (branch automation/work-digest-34420408024-1, claimed 00:14:55Z) and LANDED AS #11618 (main 6efbcb2a4) without releasing it, which is what made this PR mergeable_state=dirty and cost it every pull_request-event check run. !! I FIRST READ THAT AS A THIRD BRANCH WEDGE AND IT WAS NOT -- it is the ordinary conflict class CLAUDE.md names (dirty = merge conflict, blocked = no checks fired), and the remedy is this rebase, not a re-cut. Recorded because the automation queue is now a merge-slot claimant with no release path, so BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST is wider than sessions.",
+    "concurrent_sibling": "None. #11587 (MI-216) was merged by this manager at 00:0xZ BEFORE this branch was pushed, deliberately: it had been dirtied SIX times by manager register writes landing under it, and this PR touches docs/claude/health-review-backlog.json, the exact file it union-resolved each time. Holding this push until it landed is the merge-queue duty being performed rather than the conflict being resolved afterwards (BL-20260909-A-LANE-BRANCH-MERGED-MAIN-TWELVE-TIMES-CHASING-MANAGER-REGISTER-WRITES). !! R13 buys an attributable claim and explicitly does NOT serialize (BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE), so this claim is a record of who is landing, never a lock."
+  },
  "active_sessions": [
   {
    "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
