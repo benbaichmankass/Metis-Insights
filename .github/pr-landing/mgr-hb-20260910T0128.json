@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager state and governance records only: the manager lease heartbeat, the sub-session registry SESSIONS.json, MANAGER-CHECKLIST.json, and the merge-slot claim in session-board.json written through scripts/ops/claim_merge_slot.py rather than by hand. No runtime, no order path, no strategy config, no risk caps, no live-VM file, no test and no guard script is modified. It incidentally turns main green by writing the slot in the canonical 4-key shape the claim script itself produces; that is a data shape, not a weakening of tests/test_claim_merge_slot.py, whose metric is repaired separately by #11628."
+}
