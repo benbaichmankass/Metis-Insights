@@ -1141,6 +1141,13 @@ def _decision_inbox() -> dict[str, Any]:
                     "parentIntent": obj.get("parentIntent"),
                     "answerState": state,
                     "answerStateNote": _ANSWER_STATE_NOTES.get(state, ""),
+                    # ⚠️ PUBLISHED SO NO CONSUMER RE-DERIVES IT. The SPA
+                    # previously filtered its "Waiting on you" list on
+                    # `answerState !== "committed"` — a SECOND definition of
+                    # "answered" living in TypeScript, free to drift from this
+                    # one, and it is the same mistake as merging state/status.
+                    # Read from SETTLED_STATES, which `work_decisions` owns.
+                    "settled": state in SETTLED_STATES,
                     "transit": transit_window(
                         submission if state == IN_TRANSIT else None, now=now
                     ),
