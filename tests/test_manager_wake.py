@@ -161,10 +161,37 @@ def test_brief_lands_on_the_status_contract_in_order():
 
 
 def test_brief_is_self_contained_state_not_a_link_to_go_read():
-    """A woken manager may have no tools to go fetch anything with."""
+    """A woken manager may have no tools to go fetch anything with.
+
+    ⚠️ THE CYCLE ASSERTION READS THE REGISTER, IT DOES NOT PIN A CONSTANT.
+    It pinned ``CY-20260903-MANAGER-CONTROL`` until 2026-09-10 and that turned
+    `main` RED the moment the register was CORRECTED: MANAGER-CHECKLIST.json
+    had been declaring a cycle superseded on 2026-09-06, #11655 fixed it to
+    ``CY-20260906-TRADING-TRUTH``, and this test failed on the repair. Every
+    open PR in the repo went red for a change that was right.
+
+    A frozen id also tests the wrong thing. This test's own comment says "real
+    register content, not just section headers" -- i.e. that the brief carries
+    STATE rather than a link to go and read it. Whichever cycle happens to be
+    current is incidental to that; what matters is that the brief renders the
+    one the register declares. So we read it and assert THAT, which cannot
+    re-break on the next cycle change.
+
+    The emptiness check is not decoration: ``"" in text`` is vacuously true, so
+    a missing or blank ``cycle`` would turn this into a test that passes
+    without measuring anything.
+    """
     text = wake.brief(NOW)
     # Real register content, not just section headers.
-    assert "CY-20260903-MANAGER-CONTROL" in text
+    checklist = json.loads(wake.CHECKLIST_PATH.read_text(encoding="utf-8"))
+    cycle = str(checklist.get("cycle") or "").strip()
+    assert cycle, (
+        "MANAGER-CHECKLIST.json declares no `cycle`, so the assertion below "
+        "would pass vacuously — that is a finding about the register, not a "
+        "reason to skip the check")
+    assert cycle in text, (
+        f"the brief must carry the cycle the register declares ({cycle!r}); "
+        f"it is the first line of the CHECKLIST section a woken manager reads")
     assert "Merge queue" in text
     assert "Sub-sessions" in text
     assert len(text) > 2000

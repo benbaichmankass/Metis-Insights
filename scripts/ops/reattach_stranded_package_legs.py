@@ -62,6 +62,12 @@ rather than fetched, so this tool never opens a socket.
 ``positions`` absent, means *we could not look*; treating that as "no position"
 is the collapse that would turn a read failure into a repair decision.
 
+**And a payload naming NO accounts is refused up front**, because blindness is
+derived PER ACCOUNT: a payload with no ``accounts`` names nobody, so nothing
+lands in the blind set, every lookup misses, and each leg grades FLAT. The
+output then reads as a considered verdict -- *all four legs have closed,
+reconcile them* -- when in fact nothing was read.
+
 SAFETY
 ------
 Every target carries its expected CURRENT signature (status, close_reason,
@@ -160,6 +166,31 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
 
     venue_payload = json.loads(Path(a.exchange_positions).read_text())
+
+    # ⚠️ AN EMPTY PAYLOAD READS AS *EVERY LEG FLAT*, NOT AS *BLIND* — refuse it
+    # up front. `_venue_index` derives blindness PER ACCOUNT, from an `error`
+    # or a null `positions`; a payload carrying no `accounts` at all names no
+    # account, so nothing lands in `blind`, every lookup misses, and each leg
+    # is graded FLAT. The output then reads as a considered verdict — "all
+    # four legs have closed at the venue, reconcile them as closed" — when in
+    # fact nothing was read. MEASURED 2026-09-10 by feeding `{}`: 0 planned,
+    # 3 refused, every refusal saying FLAT. That is the unasserted-denominator
+    # class in CLAUDE.md § "Diagnostic provenance" (sub-class C), landing on
+    # the one script whose refusals are its entire safety argument.
+    #
+    # This can only ADD a refusal, never permit a write, which is the only
+    # safe direction for a money-DB repair. The `*_action.sh` wrapper already
+    # aborts on a failed capture rather than passing `{}` through — this is
+    # the second, independent guard for a hand-run invocation, which the
+    # wrapper cannot cover.
+    if not isinstance(venue_payload, dict) or not venue_payload.get("accounts"):
+        print("REFUSED: the venue payload names no accounts.")
+        print("  This is NOT evidence that the legs are flat — it is evidence")
+        print("  that nothing was read. A truncated or empty capture would")
+        print("  otherwise grade every leg FLAT and read as a verdict.")
+        print("  Re-capture /api/diag/exchange_positions and re-run.")
+        return 1
+
     sizes, blind = _venue_index(venue_payload)
 
     conn = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True)

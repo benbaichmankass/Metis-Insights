@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "claude session_01Ww2pZVK5VUqV8xFFtTs9B1 · PR #11647",
-    "branch": "claude/mi-exit-eval-60s-rootcause",
-    "claimed_at": "2026-09-10T06:40:02Z",
-    "purpose": "Tier-1 docs-only: exit-eval 60s root cause + DEC-20260910-EXIT-EVAL-60S-REMEDY. Taken from session_01HrmZ1RRNM4UnEUaFdrPEjj / claude/mgr-hb-20260910T0610, whose branch is ALREADY MERGED to main — a completed claim, not a live one."
+    "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
+    "branch": "claude/oi-position-read-state-soak-first-read",
+    "claimed_at": "2026-09-10T13:43:17Z",
+    "purpose": "Tier-1 register-only observation on OI-20260909-POSITION-READ-STATE-SOAK (2 files, 2-line OPEN-ITEMS numstat + the re-rendered session brief). TAKEN FROM A STALE CLAIM, NOT FROM LIVE WORK: the prior holder's branch claude/mgr-hb-20260910T1326 merged as #11698 at 13:34:14Z (verified via pull_request_read, merged: true) and its own purpose said 'Released on merge' — the release write never landed. Released on merge."
   },
   "active_sessions": [
     {

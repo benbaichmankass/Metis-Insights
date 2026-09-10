@@ -97,6 +97,15 @@ finishing the current small thing before closing out.
    (the constraint readout currently refuses to name a stage for want of
    assessed edges). Do not invent one to be helpful: a false blocker is read by
    the computation as real and is worse than a missing one.
+   ⚠️ **If you are MANAGING, PUSH `docs/claude/work/MANAGER-CHECKLIST.json`
+   AS PART OF THE HANDOFF, BEFORE THE PROMPT** (operator, 2026-09-10). It is
+   served to the operator as the live **Workflow page** on the SPA
+   (`GET /api/bot/work/checklist`, read off the VM's working tree), so an
+   unpushed checklist means BOTH your successor and the operator are looking
+   at the outgoing manager's stale picture — and the operator has no way to
+   tell that from a quiet shift. The page stamps the checklist's own commit
+   time, so lateness is visible; that is the reason to push, not a reason it
+   is covered.
 3. **No loose ends** — verify, don't assume:
    - **CI is green and the PR is landed or landing — BEFORE you write the
      handoff prompt, not after.** If any downstream session (the next serial

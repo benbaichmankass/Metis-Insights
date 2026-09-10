@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: two manager register files only — docs/claude/work/MANAGER-CHECKLIST.json and docs/claude/work/SESSIONS.json. No src/, no tests/, no scripts/, no .github/workflows/, no config/, no deploy/, no role packs, no canonical prose. Keeping the manager's state of record current is a management act, and both files are read by the live Workflow page the operator is about to open, so a stale push is worse than none."
+}

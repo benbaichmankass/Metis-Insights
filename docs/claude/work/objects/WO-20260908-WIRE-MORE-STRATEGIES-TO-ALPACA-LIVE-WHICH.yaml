@@ -4,8 +4,8 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Wire more strategies to alpaca_live, which runs one leg on a 200 dollar cash account
 stage: DECISION
-lifecycle: dormant
-owner: null
+lifecycle: waiting
+owner: MI-201 (session_01UxsiSgFa9dKwBFw5RTbLGA)
 opened_at: 2026-09-08
 closed_at: null
 review_trigger: >-
@@ -21,10 +21,71 @@ source: >-
   operator directive 2026-09-08: 'we need to add a workplan item to try and get more startegies wired to alpaca live'
 
 blocked_on: []
+⚠️_the_operator_decision_edge_was_CLEARED_2026_09_10T1040Z: >-
+  CLEARED by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. The edge named
+  DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION and had stood since 2026-09-08.
+  IT IS ANSWERED: the operator chose Option A — add tlt_pullback_1d,
+  ief_pullback_1d, slv_pullback_1d and iaum_pullback_1d to alpaca_live — and
+  PR #11671 enacts exactly that diff. What it waits on is a human MERGE CLICK
+  (R4 bars a Tier-3 diff from self-landing whatever its approval state), which
+  is not a decision and must not be re-sought.
+  ⚠️ MI-201'S CAUTION IS ANSWERED, NOT OVERRULED, AND THAT MATTERS. Its note
+  recorded — correctly and carefully — that it DID NOT WITNESS the approval,
+  that the claim reached it only through another session's PR body, and that
+  git grep for the DEC id across origin/main returned exactly ONE file, so an
+  operator decision authorising a REAL-MONEY roster change lived only in a PR
+  body. That was the right refusal: a session that did not hear the operator
+  must not author the record of what they said. I DID hear it — the pop-up was
+  put by this session and answered in this conversation — so I am authoring it,
+  which is the case MI-201's own note was holding the slot for.
+  ⚠️ THE FOUR SECONDARY QUESTIONS ARE ALSO NOW ANSWERED, and MI-201's note
+  saying they "remain open" is superseded: answered 2026-09-10T10:15Z and
+  recorded as MI-249..MI-252 in MANAGER-CHECKLIST.json — side_filter KEEP;
+  funding STAYS at ~$200 (raising is off the table); the dead short side is to
+  be addressed by SCOPING INVERSE ETFs, with broker margin/shorting offered and
+  explicitly NOT taken; SPLG is to have its CANDLE FEED REPAIRED, with swapping
+  the proxy and recording-it-dead both offered and not taken.
+  ⚠️ THIS ROW IS NOT DONE — lifecycle stays `waiting`, on the merge, not on a
+  decision. Nothing here authorises a wider roster change: Option A is four
+  legs, and scha_trend_long_1d and slv_trend_1h were both excluded on the
+  record.
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-10 by MI-201 (session_01UxsiSgFa9dKwBFw5RTbLGA). This is a
+  TRUE edge, written after doing the work rather than inferred: the proposal
+  named in `observation` below is complete against every clause of this object's
+  own done_condition, and the ONLY thing outstanding is a Tier-3 answer. Nothing
+  else blocks it — the evidence is measured, the CI coupling is verified with a
+  positive and a negative control, and the diff is written out. ⚠️ It is
+  deliberately NOT also blocked on the four compat-matrix runs: they are
+  dispatched (#11657-#11660) and are corroborating evidence, and the whole-share
+  cash wall in §1.4 of the proposal is what actually decides affordability — a
+  compat-matrix ROUTE never runs it.
 
 captured_by: scripts/ops/capture_idea.py
+
+observation: >-
+  2026-09-10, MI-201. PROPOSAL WRITTEN:
+  docs/research/alpaca-live-roster-candidates-2026-09-10.md. Every clause of the
+  done_condition is answered — per-leg paper performance with its population and
+  provenance split (§1.5), the share price against what 2% of $200.22 buys in
+  WHOLE shares (§1.2, §1.4, run through RiskManager.position_size rather than
+  hand arithmetic), and the T+1 / one-position-at-a-time consequence (§2).
+  insufficient_n is reported PER LEG and is the honest verdict for all of them:
+  three survivors have NO closed rows anywhere.
+  ⚠️ THE `why` BLOCK ABOVE IS CORRECTED IN TWO PLACES BY THIS WORK, and a later
+  session must not re-quote it. (1) It says the account 'has signalled EXACTLY
+  ONCE and that one signal was rejected with NO recorded reason'. MEASURED over
+  the complete population (signals, event=pipeline_result, since=2026-08-31,
+  /api/diag/audit_query, read 2026-09-10): THREE packages — 2026-09-01T16:05:36Z,
+  09-03T13:30:33Z, 09-08T13:30:28Z — and all three are SELL, which #11271 already
+  attributed to the side_filter gate. The reason was recorded; it simply was not
+  read from this route. (2) The account cannot short AT THE BROKER either:
+  /api/diag/broker_account_status reads shorting_enabled: false (2026-09-10T08:16:55Z),
+  so the side_filter gate is not what makes the short side unexecutable and
+  removing it would buy zero trades.
+  ⚠️ THE MEASUREMENT CONSTRAINT NOBODY HAD NAMED: the account is not short of
+  legs so much as short of INSTRUMENTS. Four of its eleven declared symbols
+  (SPY/QQQ/GLD/IWM) are cash-refused at ANY risk setting against the $180.20
+  buffered wall, and a fifth (SPLG) has returned zero candles since 2026-07-23,
+  so alpaca_live has no live route to S&P exposure at all. A roster edit cannot
+  reach that; funding or new strategy cells on the cheap proxies can.

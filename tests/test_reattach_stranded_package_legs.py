@@ -194,3 +194,38 @@ def test_apply_writes_and_preserves_the_prior_values(tmp_path: Path) -> None:
         assert meta["audit_finding"] == "F-39"
     assert json.loads(rows["pkg-293021e2e84a48db"]["meta"]
                       )["reattach_repair"]["reattached_open_legs"] == [5474, 5475]
+
+
+def test_refuses_a_payload_that_names_no_accounts_rather_than_grading_flat(
+        tmp_path: Path) -> None:
+    """An EMPTY payload must refuse — it is *we did not read*, never *flat*.
+
+    ⚠️ This is the one refusal the other six could not reach, and it failed
+    before the guard existed. Blindness is derived PER ACCOUNT from an
+    ``error`` or a null ``positions``; a payload carrying no ``accounts`` at
+    all names nobody, so nothing lands in the blind set, every lookup misses,
+    and each leg is graded FLAT. MEASURED 2026-09-10 by feeding ``{}``:
+    0 planned, 3 refused, and every refusal said *"is FLAT at the venue — it
+    must be reconciled as CLOSED"*.
+
+    That is the dangerous direction. It does not merely fail to repair — it
+    reports the OPPOSITE repair as the indicated one, on a real-money leg, in
+    the voice of a considered verdict. `curl … || echo '{}'` is precisely how
+    such a payload arrives, which is why the `*_action.sh` wrapper aborts on a
+    failed capture; this is the second, independent guard, for the hand-run
+    invocation the wrapper cannot cover.
+    """
+    db = _db(tmp_path)
+    empty = tmp_path / "empty.json"
+    empty.write_text("{}")
+    r = _run(db, empty)
+
+    assert r.returncode == 1, r.stdout
+    assert "names no accounts" in r.stdout
+    # The refusal must NOT be phrased as a venue observation.
+    assert "FLAT at the venue" not in r.stdout, (
+        "an unread payload was graded as a flat venue — the collapse this "
+        "control exists to catch")
+    # And nothing may be planned off it.
+    assert "would be updated" not in r.stdout
+

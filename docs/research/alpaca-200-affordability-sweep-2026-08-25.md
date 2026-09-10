@@ -51,6 +51,37 @@ Verdicts below come from **`RiskManager.position_size`** at `equity 200.0`,
 `risk_pct 0.05`, `whole_units=True`, `available_usd=200.0` — the real sizer, not
 arithmetic over the table.
 
+> ## ⚠️ SUPERSEDED IN PART, 2026-09-10 (MI-201) — READ THIS BEFORE ACTING ON ANY VERDICT BELOW
+>
+> **Reachability is a function of PRICE and VOLATILITY, and this document records
+> it as though it were a property of the account.** Both move without a commit,
+> so every verdict below decays on its own and the page cannot tell you which
+> ones have.
+>
+> **One is already known to have flipped.** `GDX` is listed as reachable at
+> `risk_pct 0.02` via the round-up relaxation ($74.59 price / $5.28 stop).
+> MEASURED 2026-09-10
+> by running `RiskManager.position_size` over **all 59** of `gdx_pullback_1d`'s
+> observed long setups since 2026-06-01 at the live balance ($200.22,
+> `risk_pct 0.02`): **0 of 59 size.** GDX is **$99.43** with a **7.665** median
+> stop against a **$6.0066** ceiling. Nothing in the code changed.
+>
+> ⚠️ **The drift is in the PERMISSIVE direction** — a session reading this page
+> would propose a leg that cannot place. The reverse also happens silently: a
+> symbol can fall back INTO the set and nobody would notice.
+>
+> ⚠️ **DO NOT "fix" this by editing the GDX line.** That is the same defect with
+> a different value and it goes stale on the next meaningful move. The claim
+> under repair is that the set is CONSTANT. Filed as
+> `BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT`.
+>
+> **The other 41 verdicts were NOT re-measured** — *we did not look*, which is
+> not the same as *they still hold*. The METHOD below (run the sizer, not the
+> arithmetic; the $180.20 buffered wall; the round-up relaxation) is sound and
+> is what MI-201 reused. Treat the prices as of **2026-08-24** and the roster as
+> a direction, never as a current answer:
+> `docs/research/alpaca-live-roster-candidates-2026-09-10.md`.
+
 ## Result: 42 of 51 reachable
 
 ### ⚠️ Two things that decide the answer, and neither is obvious

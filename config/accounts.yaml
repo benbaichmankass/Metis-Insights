@@ -995,8 +995,13 @@ accounts:
                                        # NEGATIVE venue_cash, which under `apply` yields basis 0.00 and
                                        # would halt it outright.
                                        #
-                                       # ROLLBACK: restore `strategies: []`. That is the entire gate —
-                                       # there is no mode flip in front of it.
+                                       # ROLLBACK (this leg): restore `strategies: []`. That is the
+                                       # entire gate — there is no mode flip in front of it.
+                                       # ⚠️ STALE AS A ROLLBACK FOR THE WHOLE LIST as of 2026-09-10:
+                                       # four more legs were added below (Option A), so `[]` now
+                                       # reverts FIVE Tier-3 decisions, not one. To roll back only
+                                       # THIS leg, restore `[]`; to roll back only Option A, delete
+                                       # the four entries below and leave `[tlt_pullback_1h]`.
                                        #
                                        # PRIOR — EMPTY BY DIRECTION, operator 2026-08-29. The 16-leg
                                        # Tier-3 pilot roster (approved 2026-06-25, extended 2026-06-27
@@ -1030,6 +1035,99 @@ accounts:
                                        # here costs no data — the record keeps accruing.
                                        # ROLLBACK: this is not a rollback candidate; re-adding any leg is
                                        # a fresh Tier-3 decision requiring the evidence above.
+      # ── OPTION A — four affordable legs, Tier-3, operator-approved 2026-09-10 ──
+      # DECIDED 2026-09-10 (operator, from a four-option pop-up built on MI-201's
+      # screen). The evidence is `docs/research/alpaca-live-roster-candidates-
+      # 2026-09-10.md` § 5.1, merged as #11665 (`145101e54`) — read it there
+      # rather than re-deriving; the screen is done.
+      #
+      # ⚠️ THIS IS PLUMBING AND UTILISATION, EXPLICITLY NOT AN EDGE BET, AND THE
+      # OPERATOR APPROVED IT ON THAT BASIS. NOT ONE OF THE FOUR HAS A POSITIVE
+      # MEASURED RECORD AT GRADEABLE n; three have no closed rows anywhere. Do
+      # not report this as a roster selected on performance — it is the same
+      # framing `tlt_pullback_1h` above carries, widened by four legs.
+      #
+      # WHAT IT BUYS, stated as MI-201 stated it: 6 long packages between the
+      # four in 101 days against the incumbent's 33 — roughly +18% LONG FLOW,
+      # diversifying WHEN a long is available (bonds / silver / gold open in
+      # different regimes), NOT position count. Contention is unchanged (at most
+      # one position at a time) and all four are 1d, so the incumbent's slot is
+      # rarely taken.
+      #
+      # RISK: $0.89-$3.90 per trade at the declared stop = 0.4-1.9% of the
+      # $200.22 equity read 2026-09-10 — the min and max across all 407 observed
+      # setups, not a central estimate. The structural ceiling is UNCHANGED at
+      # the round-up bound `1.5 x $4.0044 = $6.01` (3.0% of that equity), an
+      # arithmetic property of the sizer rather than a measurement; no Option A
+      # leg approaches it (widest observed is slv_pullback_1d at $3.90).
+      #
+      # ⚠️ THE ORDER PATH ON THIS ACCOUNT IS UNTESTED, NOT PROVEN WORKING.
+      # Zero long signals have ever reached it: `tlt_pullback_1h`'s long side
+      # fired 18x Jun / 2x Jul / 13x Aug / 0x Sep, going quiet the day before
+      # the account was armed, and all three packages since 08-31 were SHORT.
+      # These four legs may be the thing that first exercises it.
+      #
+      # ⚠️ AND THE SHORT SIDE IS DEAD AT THE VENUE, NOT BY CONFIG.
+      # `/api/diag/broker_account_status` reads `shorting_enabled: false` here,
+      # so a short is unexecutable BEFORE `side_filter: long` is consulted.
+      # That is not a config choice to revisit.
+      - tlt_pullback_1d      # TLT 1d pullback. 44/44 observed long setups size
+                             # (2 sh, $3.03-3.22 risk). Already in
+                             # alpaca_portfolio -> ROSTER-SYNC clean.
+      - ief_pullback_1d      # IEF 1d pullback. 67/67 (1 sh, $0.89-0.94).
+                             # Already in alpaca_portfolio.
+      - slv_pullback_1d      # SLV 1d pullback. 217/217 (1 sh, $3.54-3.90).
+                             # Already in alpaca_portfolio.
+      - iaum_pullback_1d     # IAUM 1d pullback — the declared GOLD AFFORDABILITY
+                             # PROXY. 79/79 (2 sh, $3.30-3.58).
+                             # ⚠️ IT IS DELIBERATELY EXEMPT FROM THE
+                             # alpaca_portfolio MIRROR — it is in
+                             # tests/test_paper_portfolio_accounts.py::
+                             # _ALPACA_PROXY_STRATEGIES, so ROSTER-SYNC drops it
+                             # before the subset assertion. DO NOT "fix" that by
+                             # adding it to alpaca_portfolio; that would break
+                             # the strict `symbols` equality one line below,
+                             # which excludes SPLG/IAUM by construction.
+      #
+      # ⚠️ scha_trend_long_1d IS NOT HERE ON PURPOSE. It was offered as Option A+
+      # and the operator did NOT choose it. It is also the one candidate that
+      # WOULD cost a mirror edit (SCHA is not a declared proxy, so
+      # alpaca_portfolio would need the leg AND `SCHA` appended to BOTH `symbols`
+      # lists under strict ordered equality). Re-adding it is a fresh Tier-3
+      # decision, not an extension of this one.
+      #
+      # ⚠️ slv_trend_1h IS NOT HERE AND MUST NOT BE PROPOSED BACK, and it is the
+      # trap in this set: it has the BEST long-flow profile of any affordable
+      # candidate (longs in every month including September, 116/116 sizing), so
+      # ranking by activity puts it near the top. Its blocker is a standing
+      # Tier-3 DEMOTE (operator, 2026-08-24: 0 wins in 13 closed, -$5,375), taken
+      # specifically to keep the fleet's worst leg off the account being funded.
+      # Same shape as the USO constraint recorded above, and it holds the same way.
+      #
+      # ⚠️ NO `symbols:` EDIT IS REQUIRED — and the reason recorded in #11665 was
+      # WRONG, corrected by its own author 2026-09-10T09:02Z. That doc says the
+      # account-level `symbols:` list is "inert for Alpaca". It is NOT:
+      # `src/main.py::_resolve_tick_symbols` reads `acct.symbols` and decides the
+      # union of symbols the TICK LOOP fetches, so a symbol carried by no
+      # non-opted-out account is never fetched and no strategy on it can signal
+      # at all. The conclusion survives on the correct reason: TLT/IEF/SLV/IAUM
+      # are ALREADY in this account's `symbols` below, and this account has a
+      # non-empty roster, so all four are already in the union. What was verified
+      # directly and still stands is narrower: `symbols:` is not a ROUTING gate —
+      # `coordinator._dispatch_exclusion_reason`'s Alpaca path tests only
+      # `pkg.strategy not in assigned`.
+      #
+      # ⚠️ A COMPAT-MATRIX `ROUTE` IS NOT A TRACK RECORD AND NOT AFFORDABILITY.
+      # tlt_pullback_1d (n=66) and slv_pullback_1d (n=95) carry ROUTE for this
+      # account in docs/research/gld-compat-matrix-verdicts.jsonl. That scores a
+      # bootstrapped R-ledger at ~6.6-9.5 trades/year and never runs the
+      # whole-share cash wall — `gld_pullback_1h` carries ROUTE there while GLD
+      # at ~$400 cannot buy one share. Every Option A leg still grades
+      # `insufficient_n`.
+      #
+      # ROLLBACK (Option A only): delete the four entries above, leaving
+      # `[tlt_pullback_1h]`. That is the entire gate — there is no mode flip in
+      # front of it, and no deploy step beyond ict-git-sync pulling the change.
     symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, SPLG, IAUM]   # instrument identity
                                        # (mirrors alpaca_paper; sub-$100 proxies SPLG/IAUM
                                        # added 2026-07-07 for the promotion).

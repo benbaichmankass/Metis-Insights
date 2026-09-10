@@ -1,0 +1,16 @@
+Arm auto-merge for the manager's lease heartbeat + the TLT correction (Tier-1).
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+Files: docs/claude/work/{MANAGER-CHECKLIST.json,SESSIONS.json,MANAGER-LEASE.json}
+plus this branch's landing declaration. Manager registers only.
+
+Merge slot taken over from a TERMINAL holder -- this session's own
+claude/mgr-alpaca-close-decision-20260910T1145, whose PR #11689 merged as
+6354f3f74. Asserted, not assumed: only the merge_slot key differs from
+origin/main.
+
+NOTE FOR #11690 (MI-247): that branch was told at 11:56Z the slot was free and
+has not armed 12 minutes later. This claim is deliberately short-lived -- a
+docs-only diff whose pytest-run path-skips in ~20s -- so the slot returns
+quickly. MI-247 should re-take it after this lands.
