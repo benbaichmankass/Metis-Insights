@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T08:30:00Z",
+  "updated_at": "2026-09-10T08:33:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3349,7 +3349,8 @@
       "resolution_criteria": "(1) The answer is TYPED into the object (`chosen` + `answered_at` + scope/condition) so a register reads it rather than a title. (2) The constant is fixed and the five unmapped legs are mapped — Tier-3, so propose the exact diff and land it by the normal Tier-3 route, not self-landing. (3) OBSERVED on the fleet: an arbitration tick where an unlisted strategy LOSES to a mapped one, read off the live audit surface. !! A GREEN TEST CLEARS (3) NOT AT ALL — a harness cannot reach an arbitration contest. !! AND THE SLV CONTENTION MUST BE RE-READ LIVE before proposing: it was measured 2026-09-09.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — the decision is given; nothing blocks typing it and doing the work.",
-      "source": "audit F-series via MI-225; surfaced 2026-09-10 by the operator asking why they had not heard back"
+      "source": "audit F-series via MI-225; surfaced 2026-09-10 by the operator asking why they had not heard back",
+      "operator_decision_on_the_basis": "ASKED 2026-09-10 and answered `Act on it — the answer stands as recorded`. So the lane TYPES the operator's 2026-09-09 answer ('fix the constant AND map the five legs') into the object's `chosen` and `answered_at` and does the work. It does NOT re-ask the decision and does NOT re-ask for conditions. ⚠️ ONE THING IS STILL OWED AND IS NOT WAIVED BY THIS: the live SLV contention on three accounts was measured 2026-09-09 and must be RE-READ LIVE before the diff is proposed — an answer standing does not make a day-old measurement current. ⚠️ AND IT IS STILL TIER-3: propose the exact diff and land it by the normal route; R4 bars a Tier-3 diff from self-landing whatever its approval state."
     },
     {
       "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
@@ -3369,7 +3370,7 @@
       "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
     }
   ],
-  "as_of": "2026-09-10T08:30:00Z",
+  "as_of": "2026-09-10T08:33:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3387,5 +3388,38 @@
     "coverage": "⚠️ PARTIAL AND DELIBERATELY SO. Only the rows this manager created or is actively running carry a lane today; the remaining ~237 do NOT. Bulk-tagging them is MI-237's schema migration and belongs there, done once with a declared rule, rather than as a second uncoordinated pass. Absence of a `lane` on a row means NOBODY HAS ASSIGNED ONE — it does not mean the row is unlaned by decision."
   },
   "cycle_was": "CY-20260903-MANAGER-CONTROL — SUPERSEDED 2026-09-06 by operator decision (four options, tradeoffs stated; they chose \"Trading truth becomes the priority\"). It is NOT retired: manager-control continues UNDERNEATH, in the operator's own framing. This file declared the superseded id for four days, so a manager reading its own state of record was carrying the wrong named priority. Authoritative source is docs/claude/CYCLE-PRIORITY.json::current.cycle_id — read it there, never from this field.",
-  "updated_removed_note": "Removed a THIRD name for the same fact (value was '2026-09-08', two days stale while `updated_at` and `as_of` read 07:15Z). MI-237's two-competing-status-fields defect exists at the HEADER level too, not only in items[] — and this copy was the stalest of the three, which is exactly how a duplicate field misleads. Collapsed rather than corrected in three places."
+  "updated_removed_note": "Removed a THIRD name for the same fact (value was '2026-09-08', two days stale while `updated_at` and `as_of` read 07:15Z). MI-237's two-competing-status-fields defect exists at the HEADER level too, not only in items[] — and this copy was the stalest of the three, which is exactly how a duplicate field misleads. Collapsed rather than corrected in three places.",
+  "_lane_queues": {
+    "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
+    "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
+    "engineering": {
+      "now": "MI-238 — the live Workflow page.",
+      "then": [
+        "MI-235 (tell a blocked session when its blocker clears)",
+        "MI-236 (decay stale in_flight rows)",
+        "MI-246 (a filed-but-unrouted row has no age)",
+        "MI-237 (the checklist schema migration)",
+        "MI-244 (write the three-lane roles into CLAUDE.md + role packs)",
+        "MI-239 (the monitoring workflow)",
+        "MI-233 / MI-234 (sunset policy never reached its register; the brief re-asks it)",
+        "MI-242 (add scripts/backtest_*.py to TIER1_SURFACE)"
+      ],
+      "operator_decision": "ASKED DIRECTLY 2026-09-10 and answered `Finish MI-238 first, then the infra`. The manager RECOMMENDED the opposite — switching to MI-235/236/246 immediately, on the grounds that those three would have caught 6 of the 8 things dropped in that single session — and the operator chose the page first. THE RECOMMENDATION IS RECORDED AS OVERRIDDEN, NOT AS ADOPTED: a later session must not read this order as the manager's own judgement, and must not silently re-order it back.",
+      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness."
+    },
+    "ops": {
+      "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",
+      "then": [
+        "MI-245 (the unlisted-strategy arbitration inversion — operator-answered, was dropped)",
+        "MI-240 (arm R2, the per-pass IB circuit breaker)",
+        "MI-243 (sweep the 623 dormant work objects)"
+      ],
+      "standing_rule": "Operator, 2026-09-10: this lane is PRIORITISED FOR UNSTICKING THINGS THAT ARE STUCK, above its own backlog — \"we can pause other work going on there. That's, like, backlog work, if we need to unstick things also.\" MI-243 is backlog and is explicitly pausable; MI-245 is an unstick and outranks it."
+    },
+    "research": {
+      "now": "MI-201 — the alpaca_live roster proposal.",
+      "then": []
+    },
+    "not_yet_laned": "The three queued decision lanes (closed-flat, rollback-registry, MI-29) are NOT assigned a lane here. That is a real gap and is stated rather than papered over: they are trading-truth observations that could sit in ops or research, and the manager has not established which. ⚠️ DO NOT GUESS — put it to the operator, per their own instruction that the manager should ask when unsure."
+  }
 }
