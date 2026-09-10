@@ -41,13 +41,78 @@ from tests.fixtures.real_schema_db import (
 # The five judgeable adopts MI-204 scored, verified against the live journal on
 # 2026-09-10 (`/api/diag/journal?table=trades&limit=1000`, ids 4651..5650).
 # id, claimed strategy, adopted size, that strategy's own observed range, verdict
+# ⚠️ CORRECTED 2026-09-10 BY ITS OWN AUTHOR, AND BOTH CORRECTIONS RUN AGAINST
+# THE GATE RATHER THAN FOR IT. This table shipped in #11708 carrying an id
+# transposition and an unstated denominator; neither changes a verdict, and
+# both would have misled the next reader who checked it against the journal.
+#
+# (1) THE ID WAS TRANSPOSED, AND THE ROW IT NAMED IS NOT AN ADOPT AT ALL.
+#     The entry read `(5569, "ict_scalp_eth_15m", 26.05, ...)`. Measured on the
+#     live journal: **5568** is the size-26.05 row, and its `setup_type` is
+#     `ict_scalp_eth_15m` with `exit_reason: netting_attributed` -- i.e. it is
+#     the wrong-book netting close CLAUDE.md documents, NOT an adopted orphan.
+#     The real **5569** is `setup_type: adopted_orphan`, size **0.47**. So the
+#     hand-scored population did not merely mislabel a row, it INCLUDED A
+#     NON-ADOPT, which means the "5 judgeable adopts" denominator was itself
+#     off by one. Both rows are kept below, labelled for what they are.
+#
+# (2) "2 OF 5" HAD NO STATED POPULATION, WHICH IS THE ONE RULE THIS REPO
+#     PROMOTED TO TOP LEVEL. Re-measured 2026-09-10 by grading EVERY named
+#     adopt with this module -- population: the 1000 rows `/api/diag/journal`
+#     returns for `trades` (ids 4653..5652), of which **15** carry
+#     `setup_type='adopted_orphan'` and all 15 name a strategy (zero are bare).
+#     Verdicts: **13 supported, 2 size_implausible (5448, 5453), 0 no_history,
+#     0 unreadable**. So the refusal rate over a STATED population is 2 of 15,
+#     not 2 of 5 -- the gate is ~3x RARER than the original figure implies,
+#     which is the direction that matters: it makes "no refusals seen" even
+#     weaker as evidence that the gate works.
+#
+#     ⚠️ THAT 2-OF-15 IS AN UPPER BOUND ON REFUSALS, and the bound has a
+#     direction worth keeping: history entered only through `min` and `max`, so
+#     MORE history can only WIDEN the band. A `supported` verdict is therefore
+#     stable under more history, and a `size_implausible` one can only soften.
+#     The 1000-row page truncates history, and the runtime gate reads its own
+#     `limit=200` per (strategy, symbol) -- a THIRD basis again. None of the
+#     three is "the" population; each must be named when its number is quoted.
+#
+#     ⚠️ AND IT IS NOT EVIDENCE THE ORIGINAL "2 OF 5" WAS WRONG. Its population
+#     was never recorded, so the two figures cannot be compared -- that absence
+#     IS the defect being fixed, not a disagreement being resolved.
+#
+# Fields: (trade_id, strategy, size, hand-scored (lo, hi), expected verdict).
+# The bands are the HAND-SCORED ones from the original measurement and are
+# deliberately NOT refreshed from the live journal: these cases pin the
+# module's ARITHMETIC on frozen inputs, and re-deriving them from a moving
+# table would make the test assert whatever the journal currently says.
 MEASURED_ADOPTS = [
     (5453, "pairs_sol_eth_b", 17.67, (0.37, 2.10), "size_implausible"),
     (5448, "pairs_sol_eth_a", 1236.30, (2.0, 57.5), "size_implausible"),
     (5288, "pairs_sol_eth_a", 11.90, (2.0, 57.5), "supported"),
     (5555, "ict_scalp_sol_15m", 545.0, (9.1, 2511.7), "supported"),
-    (5569, "ict_scalp_eth_15m", 26.05, (5.31, 114.47), "supported"),
+    # 5568 is NOT an adopt (setup_type ict_scalp_eth_15m, exit_reason
+    # netting_attributed). Retained because the arithmetic it pins is real and
+    # was genuinely computed; relabelled so nobody re-derives "an adopt of size
+    # 26.05" from it. See correction (1) above.
+    (5568, "ict_scalp_eth_15m", 26.05, (5.31, 114.47), "supported"),
+    # The REAL 5569 -- an adopted_orphan of size 0.47, graded supported against
+    # ict_scalp_eth_15m's own ETHUSDT history on 2026-09-10.
+    (5569, "ict_scalp_eth_15m", 0.47, (0.165, 228.9), "supported"),
 ]
+
+#: The stated population behind correction (2). Quoted rather than recomputed,
+#: so a reader knows WHICH denominator any "N of M" in this file refers to.
+MEASURED_POPULATION = {
+    "source": "/api/diag/journal?table=trades&limit=1000",
+    "read_at": "2026-09-10T17:2xZ",
+    "trades_rows": 1000,
+    "trade_id_range": (4653, 5652),
+    "adopted_orphan_rows": 15,
+    "named_a_strategy": 15,
+    "bare_orphan_adopt": 0,
+    "verdicts": {"supported": 13, "size_implausible": 2,
+                 "no_history": 0, "unreadable": 0},
+    "refused_trade_ids": (5448, 5453),
+}
 
 
 @pytest.mark.parametrize(
@@ -55,7 +120,8 @@ MEASURED_ADOPTS = [
     ids=[f"{t}-{s}" for t, s, _, _, _ in MEASURED_ADOPTS],
 )
 def test_reproduces_every_measured_verdict(trade_id, strategy, size, rng, expected):
-    """5 of 5 — the gate agrees with the hand-scored population."""
+    """The gate agrees with every hand-scored case (see MEASURED_ADOPTS'
+    correction header for what that population is, and is not)."""
     lo, hi = rng
     history = [lo, (lo + hi) / 2.0, hi]
     got = oa.assess_size_support(size=size, history_sizes=history)
