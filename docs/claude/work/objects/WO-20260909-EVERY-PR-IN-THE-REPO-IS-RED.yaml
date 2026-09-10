@@ -857,6 +857,85 @@ the_mechanism_is_OBSERVED_first_scheduled_run_1908Z_and_it_LANDED_A_STRAND: >-
   Closing on the strength of a good run would be the tick-the-box move the
   work order forbids in its own words.
 
+the_GAP_is_measured_3_50h_and_the_queue_this_WO_was_about_is_EMPTY: >-
+  ⚠️ THE SECOND SCHEDULED RUN EXISTS, SO THE CADENCE IS NOW MEASURED RATHER THAN
+  INFERRED — and it corrects a figure I put on this object myself. Run
+  34538411238, `run_number: 2`, `event: schedule`, 2026-09-10T22:38:07Z. Graded
+  by the same four rules: event is `schedule`; the SWEEP JOB'S own conclusion is
+  `success` with every step executed and none SKIPPED; exit 0, read off the
+  verdict step's `case "0"`; and no refresh was claimed, so there is nothing to
+  verify as effect.
+
+  THE GAP: 19:08:22Z -> 22:38:07Z = 3.50h against a declared 2h. Slot
+  accounting since registration at 15:09:12Z — declared 15:17, 17:17, 19:17,
+  21:17; DELIVERED two of those four, at +1.85h (17:17 -> 19:08) and +1.35h
+  (21:17 -> 22:38). So coalescing is real and is MILDER here than the two
+  controls: 50% of slots against error-feed-digest's 27%, and a 1.35-1.85h lag
+  against purge-artifacts' ~4.9h plateau.
+
+  ⚠️ WHICH MAKES MY OWN EARLIER FIGURE WRONG IN THE ALARMING DIRECTION, and it
+  is corrected here rather than left standing. The previous section says the
+  sweeper "gets about ONE sweep" per the 6h `check_digest_liveness` window. At
+  the measured 3.50h it gets 6/3.50 = 1.72. The DIRECTION of that finding holds
+  — 1.72 is not the "~3" the workflow's own comment claims, so the sizing
+  premise is still wrong and the correction is still owed — but the MAGNITUDE
+  was overstated, and an overstated defect is still a defect in the record.
+  ⚠️ AND THE SAMPLE IS ONE GAP. n=2 runs means n=1 interval; 3.50h is a
+  measurement of this workflow and not yet a distribution. It should be re-read
+  before anyone designs against it.
+
+  WHAT RUN 2 SAW, AND WHY IT IS NOT THE SWEEPER'S DOING. "read 2 open PR(s)" ->
+  "POPULATION: 0 open PR(s) with an `automation/*` head ref" -> "nothing to
+  sweep". Three and a half hours earlier run 1 read 47 open and 44 automation.
+  THE QUEUE THIS ENTIRE WORK ORDER IS ABOUT IS EMPTY, and the sweeper did not
+  empty it: #11739 (MI-259, `ops: disposition all 43 open automation PRs;
+  rescue 6 artifacts a row count would have discarded`) merged at 22:21:45Z,
+  with the closures batched 21:56Z-22:23Z.
+
+  READ FROM THE RECORD RATHER THAN THE PR TITLE:
+  `docs/claude/work/AUTOMATION-PR-DISPOSITIONS-2026-09-10.json` states its
+  population the way this object demands one — 44 open PRs from a single
+  `perPage=100` page, 43 automation plus #11648 explicitly excluded as a
+  session PR, broken down by producer — records SIX artifacts rescued to main
+  and the rest closed as superseded, and grades every verdict as a CONTENT
+  SET-DIFFERENCE, never a row count.
+
+  ⚠️ SO `what_was_not_done` ITEM (1) IS DISCHARGED, BY ANOTHER LANE, NOT BY ME.
+  This object said 24 `superseded_older` and 11 `undated_payload` PRs were open
+  with recorded reasons and no DISPOSITION, and that closing them was a human
+  act. It was done, and done to a higher standard than "closed".
+
+  ⚠️ A SCOPING CORRECTION I NEARLY GOT WRONG MYSELF, recorded because the next
+  session will reach for the same instrument. `open_pr_record.py --strict`
+  reads `settled=settled_graded — all 91 settled row(s) carry a recognised
+  terminal`. THAT DOES NOT VERIFY THESE 43. Their dispositions live in the
+  dated one-off file above; `OPEN-PRS.json` still holds the same 91 settled
+  rows, and its `open_prs` list is EMPTY with `as_of 2026-09-08T14:22:00Z`. The
+  grader passing is a statement about the register's own rows, not about the
+  closures — which is exactly the gap MI-259 itself filed via #11742 ("a dated
+  one-off file that nothing routes to a review").
+
+  ONE CORRESPONDENCE WORTH RECORDING, STATED AS CORRESPONDENCE AND NOT AS
+  CAUSATION: the two states this WO's fix added the day before name precisely
+  the artifacts that pass rescued. #11475 graded `absent_on_main` and its
+  point-in-time capture was RESCUED as unrecoverable; its
+  `econ_calendar_snapshots.jsonl` — the append-only class the structural
+  detector was written for — contributed 427 rows main lacked. Whether that
+  lane read the sweep output or found it independently, I did not establish and
+  do not claim. What is established is that the refusal states flagged the
+  cases a content-blind pass would have destroyed.
+
+  AND THE HAZARD WAS NOT HYPOTHETICAL: #11735, the same day, RECOVERED 22
+  gld-compat verdict rows that had been "closed as superseded on a row count".
+  That is the motivating mistake behind this sweeper's never-close rule,
+  committed independently, at a measured cost of 22 rows.
+
+  ⚠️ FINALLY, WHAT A 0-POPULATION SWEEP DOES AND DOES NOT PROVE. It proves the
+  cadence fires unattended and the sensor reads — and that "nothing to sweep"
+  prints on the exit-0 path while COULD NOT LOOK is exit 2, so the two states
+  stay distinguishable in live output rather than only in the tests. It does
+  NOT re-prove the refresh path; that was proven once, in run 1, on #11710.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 
