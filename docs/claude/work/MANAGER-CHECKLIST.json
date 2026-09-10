@@ -3193,8 +3193,8 @@
     {
       "id": "MI-238-THE-LIVE-WORKFLOW-PAGE-THE-MANAGER-CHECKLIST-AND-THE-DECISION-INBOX-ON-THE-SPA",
       "title": "Build the live Workflow page: the manager checklist with collapsible rows + the decisions waiting on the operator",
-      "owner": "unassigned — needs a session",
-      "state": "ready",
+      "owner": "session_01MQ2EzPomkBsM6uxJMCrJbF",
+      "state": "in_flight",
       "tier": 1,
       "priority": "high",
       "lane": "workflow-implementation",
@@ -3211,7 +3211,9 @@
       "why_it_is_tier_1": "A read-only GET route on the existing work router, a new SPA page, and canon prose. It touches no order path, no strategy config, no risk cap, and adds no write surface -- the decision inbox's write route already exists and is token-gated and fail-closed; this item does not widen it.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it. The two things it plausibly depends on were checked and neither is a blocker: the decision-inbox route already exists (so part (d) has no dependency), and MI-237's schema work is order-independent PROVIDED the state/status merge has a single bot-side owner, which this item's design requires anyway.",
-      "source": "operator (conversational), 2026-09-10"
+      "source": "operator (conversational), 2026-09-10",
+      "owns_object": "WO-20260910-THE-LIVE-WORKFLOW-PAGE-MANAGER-CHECKLIST-WITH",
+      "spawned_at": "2026-09-10T07:36:58Z"
     }
   ],
   "as_of": "2026-09-10T07:15:00Z",

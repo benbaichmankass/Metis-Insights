@@ -1,0 +1,30 @@
+id: WO-20260910-THE-LIVE-WORKFLOW-PAGE-MANAGER-CHECKLIST-WITH
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The live Workflow page: manager checklist with collapsible rows + the decisions waiting on the operator
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-10
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A read route serves the checklist through manager_status existing grading, so the state/status merge has ONE owner and is never re-derived in the SPA; the SPA page renders on the deployed GitHub Pages site with rows collapsed by default and a decisions section off the existing route; the page carries an as-of stamp so a stale render cannot read as a live one; and the duty to work from it is written into CLAUDE.md and the role packs. A green test suite clears none of these and a merge is not a deploy.
+
+why: >-
+  Operator-directed 2026-09-10 and confirmed as a high-priority work-queue item: the full-detail manager checklist becomes a page on the Svelte SPA with COLLAPSIBLE rows, listing the open decisions waiting on the operator beside it, sourced from the same repo file the manager works in so the UI and the repo cannot disagree. Its stated purpose is that every manager session works from it and the operator can track session progress without pulling the detail into chat each time. Most of it already exists and must be reused rather than rebuilt: src/runtime/manager_status.py already reads MANAGER-CHECKLIST.json and owns the grading that serves Telegram /status, and src/web/api/routers/work.py already serves /api/bot/work/decisions, so the decisions half needs no new bot route. Checklist row MI-238 carries the full brief.
+
+source: >-
+  operator (conversational), 2026-09-10
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
