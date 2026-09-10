@@ -1,0 +1,1 @@
+arming oi-orphan-adopt-size-gate-unobserved — Tier-1 register observation; see .github/pr-landing/oi-orphan-adopt-size-gate-unobserved.json

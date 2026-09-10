@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T1631",
-    "claimed_at": "2026-09-10T16:55:32Z",
-    "purpose": "PR #11711 -- manager registers only; the operator's Workflow page is stale until this lands. Resolved by MERGING main in, because the board carries no merge driver and my branch had two slot commits, so a 3-way merge conflicts on the same lines however clean the final content is."
+    "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
+    "branch": "claude/oi-orphan-adopt-size-gate-unobserved",
+    "claimed_at": "2026-09-10T17:00:35Z",
+    "purpose": "Tier-1 register-only, PR #11715. RE-CLAIMED over a STALE claim -- TWICE, and both are recorded rather than silent. (1) At 17:00:35Z the holder was session_01NcYsS6kFNrzxEKcrNy9eXP for claude/lane4-sweep-cadence-20260910, whose PR #11713 was ALREADY MERGED as 9071b8321. (2) Merging main in at ~17:10Z surfaced a DIFFERENT holder that had landed meanwhile -- the manager, session_01HrmZ1RRNM4UnEUaFdrPEjj, claimed 16:55:32Z for claude/mgr-hb-20260910T1631. That claim is stale too: its PR #11711 MERGED at 2026-09-10T17:00:40Z, verified by reading the PR (state closed, merged true, merged_at), NOT inferred from the branch being gone. So the claim landed on main five seconds AFTER the work it was protecting had finished. Neither re-claim was taken from live work. That is the SIXTH stale claim this session has reasoned past (manager 13:43Z; #11701 14:06Z; #11714 16:40Z; lane4 17:00Z; manager 16:55Z; plus my own I have no mechanism to release), and the series is the measured basis for BL-20260910-THE-MERGE-SLOT-HAS-A-DOCUMENTED-RELEASE-STEP-WITH-NO-MECHANISM-SO-EVERY-CLAIM-READS-HELD-FOREVER. Released on merge -- to the extent that is possible, which is that row's whole point."
   },
   "active_sessions": [
     {
