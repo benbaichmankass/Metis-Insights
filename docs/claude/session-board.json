@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "manager · session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-page-landed-20260910T1002",
-    "claimed_at": "2026-09-10T10:16:41Z",
-    "purpose": "PR #11678 — manager registers + four operator decisions answered 2026-09-10T10:15Z. Tier-1, register files only. Released on merge."
+    "branch": "claude/mgr-hb-20260910T1028",
+    "claimed_at": "2026-09-10T10:30:23Z",
+    "purpose": "PR #11682 — manager lease heartbeat 10:27:25Z. Tier-1, one register file. Taken over from claude/mgr-page-landed-20260910T1002, a TERMINAL holder whose PR #11678 merged as d5fe81aed and is an ancestor of main — the claim was stale, not live. NOTE: the slot is never released and CANNOT be (check_pr_landing.py:443 fails R13 on an absent merge_slot object), so takeover from a terminal holder is the only sanctioned path; \"Released on merge\" in these purpose strings describes a mechanism that does not exist."
   },
   "active_sessions": [
     {
