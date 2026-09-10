@@ -115,6 +115,14 @@ this prevents.)
 skipped.** `python3 scripts/ops/session_registry.py register --title … --why …
 --spawned-by "$CLAUDE_SESSION_ID"` appends the row to
 `docs/claude/work/SESSIONS.json` **and prints the prompt**, then
+
+⚠️ **A spawn is not recorded until the checklist is PUSHED.**
+`docs/claude/work/MANAGER-CHECKLIST.json` is served to the operator as the
+live **Workflow page** on the SPA (`GET /api/bot/work/checklist`, read off
+the VM's working tree), so an item whose `owner` you set locally is, to the
+operator, still unassigned — and the operator's stated purpose for that page
+is tracking session progress as it happens. Push after you register, not at
+the end of the shift.
 `… confirm --registry-key <key> --session-id <the new id>` closes it out. That
 file is the only thing a manager arriving COLD can read to pick up your
 sub-sessions, and it has been measured incomplete **twice** — 3 of 6 on
