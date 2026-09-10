@@ -39,8 +39,8 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T07:15:00Z",
-  "cycle": "CY-20260903-MANAGER-CONTROL",
+  "updated_at": "2026-09-10T08:27:00Z",
+  "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
     "landed_unproven": "merged; effect NOT yet observed on the fleet",
@@ -3352,9 +3352,8 @@
       "source": "audit F-series via MI-225; surfaced 2026-09-10 by the operator asking why they had not heard back"
     }
   ],
-  "as_of": "2026-09-10T07:15:00Z",
+  "as_of": "2026-09-10T08:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated": "2026-09-08",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -3369,5 +3368,7 @@
     },
     "what_the_manager_had_wrong": "It treated the cap of 3 as three FUNGIBLE SLOTS and filled them in priority order, so which KIND of work was running at any moment was an accident. A slot in one lane is not interchangeable with another lane's slot.",
     "coverage": "⚠️ PARTIAL AND DELIBERATELY SO. Only the rows this manager created or is actively running carry a lane today; the remaining ~237 do NOT. Bulk-tagging them is MI-237's schema migration and belongs there, done once with a declared rule, rather than as a second uncoordinated pass. Absence of a `lane` on a row means NOBODY HAS ASSIGNED ONE — it does not mean the row is unlaned by decision."
-  }
+  },
+  "cycle_was": "CY-20260903-MANAGER-CONTROL — SUPERSEDED 2026-09-06 by operator decision (four options, tradeoffs stated; they chose \"Trading truth becomes the priority\"). It is NOT retired: manager-control continues UNDERNEATH, in the operator's own framing. This file declared the superseded id for four days, so a manager reading its own state of record was carrying the wrong named priority. Authoritative source is docs/claude/CYCLE-PRIORITY.json::current.cycle_id — read it there, never from this field.",
+  "updated_removed_note": "Removed a THIRD name for the same fact (value was '2026-09-08', two days stale while `updated_at` and `as_of` read 07:15Z). MI-237's two-competing-status-fields defect exists at the HEADER level too, not only in items[] — and this copy was the stalest of the three, which is exactly how a duplicate field misleads. Collapsed rather than corrected in three places."
 }
