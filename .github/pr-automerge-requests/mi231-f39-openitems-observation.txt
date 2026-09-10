@@ -1,0 +1,5 @@
+claude/mi231-f39-openitems-observation
+MI-231 session-end: OPEN-ITEMS observation (F-39 clause (1) MET; (2) and (3) NOT),
+one operator-owed row for the pending yes/no on the re-attach diff, the regenerated
+session brief, and this branch's landing declaration + merge-slot claim.
+Tier-1, registers and generated docs only. PR #11640.
