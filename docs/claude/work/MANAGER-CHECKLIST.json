@@ -2956,7 +2956,7 @@
     {
       "id": "MI-227-INTENT-REDUCE-ORPHAN-PROTECTIVE-LEG",
       "title": "F-36: apply_intent_reduce_partial_close never resizes the reducing row's OWN protective leg — operator-approved Tier-2 (resize + INV-PROTECT-LEG-MATCHES-ROW)",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_0178Pn128KK71u6nCzLeVH6w",
       "notes": [
         "2026-09-09T21:50Z manager: SPAWNED. Registered before the spawn (pending-20260909T214948Z) and confirmed after. Operator answered `resize_and_invariant` 2026-09-09; the object WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG carries the answer and its scope limits. ⚠️ THE APPROVAL COVERS THE CODE PATH THAT RESIZES ON THE NEXT REDUCE PLUS THE INVARIANT — it does NOT authorise cancelling any currently-resting leg, and no order may be placed, modified or cancelled on any account. Chosen first because it is real money (3 of 21 rows on bybit_2) AND the root cause of 64 of the 112 rows in the operator ERROR feed.",
@@ -2968,12 +2968,18 @@
       "status": "landed_unproven",
       "manager_notes": [
         "[2026-09-09T23:45:00Z] #11604 MERGED BY THE MANAGER 2026-09-09T23:4xZ as 7b8b6b51, all five checks green, landing: hold, operator Tier-2 order-path approval recorded and NOT re-sought. DEPLOY MEASURED 2026-09-09T23:56:04Z: /api/diag/version git_sha 7b8b6b51d == the merge commit, so the RUNNING trader carries it (git_sha_on_disk 4230ef10b + restart_pending true is ordinary steady state). NOT done: the resize has never run on a live reduce, and the PR states the Bybit qty-on-amend contract is from the V5 docs and unverified against the venue. The fully-consumed-parent case is COUNTED, not fixed."
-      ]
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "MERGED AND DEPLOYED, NOT OBSERVED -- and this row read `in_flight` while all three of its PRs were on main, which is the false record the two states exist to prevent. #11604 (the resize + INV-PROTECT-LEG-MATCHES-ROW) merged as 7b8b6b51d; #11616 and #11617 followed. Deploy MEASURED: /api/diag/version at 2026-09-09T23:56:04Z returned git_sha 7b8b6b51d, so the running trader carries it. `landed_unproven` and not `done` because clause (3) needs a REAL intent-reduce to fire on a Bybit partial-tpsl account and then the shrunk row's tracked leg read back off the venue -- an external event nobody can schedule, class incidence 21 of 1000 journal rows. Carried by OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "id": "MI-228-CLOSED-FLAT-INVARIANT-CANNOT-FALSIFY",
       "title": "F-11 + F-12 + F-13: the closed-flat invariant reads a failed exchange read as flat, covers <=59% of its timeline, and pages where nobody looks — operator-approved Tier-2 (fix all three)",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "session_01UFEDvWwTCMqAsBoQCh9Kz1",
       "notes": [
         "2026-09-09T21:51Z manager: SPAWNED. Registered before the spawn (pending-20260909T215040Z) and confirmed after. Operator answered `all_three` 2026-09-09; the object WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ carries the answer. This is CY-20260906-TRADING-TRUTH exactly — repair the MEASUREMENT before acting on what it says. ⚠️ Nothing here touches an order path, and the first violation it reports must NOT be read as a regression: today's zero is uninformative by construction. ⚠️ Deliberately disjoint from MI-227, which is adding INV-PROTECT-LEG-MATCHES-ROW to system_invariants.py — F-39's fix lands in the same file, which is why F-39 was NOT paired here.",
@@ -2985,7 +2991,13 @@
       "status": "landed_unproven",
       "manager_notes": [
         "[2026-09-09T23:45:00Z] #11603 merged a34bc556. A FOURTH blindness was found while building and it subsumes the other three: the size was read from qty/contracts while account_open_positions normalises all four venues to `size`, so every live residual graded FLAT since the module's first commit. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN; a planted violation has NOT been observed reported end to end."
-      ]
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "MERGED, NOT OBSERVED -- same false-record correction as MI-227. #11603 merged as a34bc556c. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN (loud: true), whose criterion is a PLANTED violation seen end to end on the fleet -- a continued zero clears NOTHING, because a zero is exactly what the broken instrument produced for 14.7 days.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
     },
     {
       "id": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
@@ -3001,7 +3013,13 @@
       "status": "in_flight",
       "manager_notes": [
         "[2026-09-09T23:45:00Z] session_01TM8XjkvVpvMxH4EcLtTsvP RUNNING at 23:41Z on claude/mi229-collapse-builder-registry, 'guards running, PR opening'. Building the COLLAPSE the operator chose, not the parity test they declined."
-      ]
+      ],
+      "previous_state_note": {
+        "state": "in_flight",
+        "note": null
+      },
+      "note": "CORRECT AS `in_flight` -- stated so a reader knows it was checked, not skipped. PR #11615 open at 2026-09-10T00:33Z: guards / pytest-collect / repo-inventory GREEN on head f606e4d4, pytest-run in flight. An earlier head failed pytest-run at 00:22:07Z and the LANE fixed it unaided. Tier-2 signal path, landing: hold -- pr-landing R4/R5 bar an src/** diff from landing itself whatever its approval state, so it waits on a MERGE CLICK and NOT on the approval, which is already recorded (chosen: collapse_to_one_registry). Do not re-ask.",
+      "state_observed_at": "2026-09-10T00:33:00Z"
     }
   ],
   "as_of": "2026-09-09T09:00:34Z",
