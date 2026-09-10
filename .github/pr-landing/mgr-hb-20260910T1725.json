@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): a lease heartbeat plus the supervision record of two lanes that delivered this hour. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed. Recording what a lane returned -- including a correction it made to the manager's own diagnosis -- into the manager's state of record is management, not a build."
+}
