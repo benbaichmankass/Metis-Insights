@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T04:45:00Z",
+  "updated_at": "2026-09-10T05:32:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4317,7 +4317,7 @@
     {
       "session_id": "session_017vNWUL48WWrtxssFv2EDMf",
       "registry_key": "pending-20260910T005702Z",
-      "state": "idle",
+      "state": "running",
       "title": "MI-231 — F-39: three order packages closed while holding four open legs, one on real-money bybit_2 (operator-approved Tier-2)",
       "owns_object": "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
       "checklist_item": "MI-231-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
@@ -4327,15 +4327,15 @@
       "why": "Audit F-39. Operator chose detector_and_reattach 2026-09-09: promote package_leg_coverage to a suite FAIL, and re-attach legs 4347, 5265, 5474, 5475.",
       "observed_source_url": "get_session on each id at 2026-09-10T02:47Z",
       "confirmed_at": "2026-09-10T00:57:57Z",
-      "previous_observation": "MI-231 (F-39, REAL MONEY adjacent). LIVE get_session 2026-09-10T02:21Z: IDLE, connected, updated_at 02:19:02Z, status_bucket=REVIEW_READY, context 655,650/1,000,000 (66%), cost $32.12. 'CI check-in: guards OK, pytest-run running (~19min); PR body stale diff corrected'. Draft PR #11630. It is running its own CI check-in cadence and correcting its own PR body against the real diff, which is the right shape for a Tier-2 lane whose journal re-attach has not yet gone back to the operator. The 01:16Z reading still holds: venue truth verified BEFORE any writeback, which is the operator's own scope limit on MI-231 (journal/state repair only; no order placed, modified or cancelled on any account, emphatically not bybit_2; the re-attach's exact diff returns to the operator before it is applied). Nothing is owed to this lane by me.",
-      "observation": "MI-231 (F-39, REAL-MONEY ADJACENT). LIVE get_session 2026-09-10T02:47Z: IDLE and DISCONNECTED, updated_at 02:34:07Z, status_category COMPLETED, branch claude/mi231-f39-package-leg-reachability. post_turn_summary: 'PR #11630 green, mergeable; merge & re-attach decision yours'. ⚠️ I DID NOT MERGE IT, AND ITS OWN STATUS LINE MISDESCRIBES WHOSE DECISION IT IS. #11630 declares tier 2 / landing hold / hold_reason `tier_2_3_needs_approval` — an OPERATOR gate, categorically different from #11626's `unvouchable_paths`, which is a manager merge click. R4 bars a Tier-2 diff from self-landing whatever its approval state. VERIFIED IN THE DIFF RATHER THAN FROM THE PR TEXT: the re-attach tool scripts/ops/reattach_stranded_package_legs.py is dry-run by default (`--apply` required), REQUIRES a captured --exchange-positions payload and refuses without it, and has NO CALLER anywhere outside its own file and tests — so merging it writes to no database. NO DB WAS WRITTEN. The operator's scope limit stands: journal/state repair only, no order placed, modified or cancelled on any account, emphatically not bybit_2, venue positions untouched, and the re-attach's exact diff (3 order_packages rows, closed->open, close_reason->NULL) returns to the operator before it is applied. PUT TO THE OPERATOR AS A POPUP THIS CYCLE, scoped to the MERGE only and stating in terms that answering it does not authorize the re-attach. ⚠️ AND THE LANE FILED A SECOND, INDEPENDENT GAP WORTH MORE THAN THE MERGE: system_invariants.py has NO SCHEDULED CALLER (measured with a positive control), so the detector half was built to reach nothing.",
-      "observed_at": "2026-09-10T01:16:00Z",
-      "last_observed_at": "2026-09-10T01:16:00Z",
+      "previous_observation": "MI-231 (F-39, REAL-MONEY ADJACENT). LIVE get_session 2026-09-10T02:47Z: IDLE and DISCONNECTED, updated_at 02:34:07Z, status_category COMPLETED, branch claude/mi231-f39-package-leg-reachability. post_turn_summary: 'PR #11630 green, mergeable; merge & re-attach decision yours'. ⚠️ I DID NOT MERGE IT, AND ITS OWN STATUS LINE MISDESCRIBES WHOSE DECISION IT IS. #11630 declares tier 2 / landing hold / hold_reason `tier_2_3_needs_approval` — an OPERATOR gate, categorically different from #11626's `unvouchable_paths`, which is a manager merge click. R4 bars a Tier-2 diff from self-landing whatever its approval state. VERIFIED IN THE DIFF RATHER THAN FROM THE PR TEXT: the re-attach tool scripts/ops/reattach_stranded_package_legs.py is dry-run by default (`--apply` required), REQUIRES a captured --exchange-positions payload and refuses without it, and has NO CALLER anywhere outside its own file and tests — so merging it writes to no database. NO DB WAS WRITTEN. The operator's scope limit stands: journal/state repair only, no order placed, modified or cancelled on any account, emphatically not bybit_2, venue positions untouched, and the re-attach's exact diff (3 order_packages rows, closed->open, close_reason->NULL) returns to the operator before it is applied. PUT TO THE OPERATOR AS A POPUP THIS CYCLE, scoped to the MERGE only and stating in terms that answering it does not authorize the re-attach. ⚠️ AND THE LANE FILED A SECOND, INDEPENDENT GAP WORTH MORE THAN THE MERGE: system_invariants.py has NO SCHEDULED CALLER (measured with a positive control), so the detector half was built to reach nothing.",
+      "observation": "MI-231 (F-39, REAL-MONEY ADJACENT). LIVE get_session 2026-09-10T05:29:56Z: RUNNING and CONNECTED, status_category review_ready ('waiting on current test suite to finish'), branch claude/mi231-f39-openitems-observation, context 584,260/1,000,000 (58%). THE LANE WAS POKED THIS CYCLE (trig_01WgtWXTzsbR8mM5at8cjVyu, fired 05:29:4xZ; delivery evidenced by updated_at advancing to 05:29:56Z, NOT by the cse_* id fire_trigger returns, which is a trigger-RUN id and never matches a session id). WHY: its session-end PR #11640 is BLOCKED ON TWO INDEPENDENT THINGS and I diagnosed both rather than fixing either, because the diff carries scripts/ops/constraint_readout.py — a worker path R2 grades. (1) guards RED on the CURRENT head c86e869c2 (job 102753476857, started 05:13:31Z): PASS 71 - FAIL 1, and the single failing guard is artifact-validity-guard (check_backlog_criteria.py --base origin/main). I ran it myself against their head: its own new coordination-board-re-serialisation row (the id is deliberately NOT quoted here: that row exists only on their branch, so naming it makes artifact-validity-guard fail THIS PR for an unresolvable reference — which is exactly what it did on my first attempt) has no resolution_criteria, no tier, and uses the legacy `opened` key rather than `opened_at` — the pre-append_row shape, i.e. filed by hand. MEASURED that it is THEIRS and not inherited: origin/main carries 1425 items with that id ABSENT; their head carries 1426 with it present exactly once. (2) mergeable_state: dirty — a MERGE CONFLICT, which is the more urgent half because it makes a fresh CI round report zero/stale checks that read as 'CI has not started'. The poke also carried tonight's armed-clone finding, since they will test-merge locally and get a false clean. THE F-39 RE-ATTACH REMAINS UNAPPLIED and the operator's scope limit is unchanged: the operator approved the #11630 MERGE only, never the --apply; no order placed, modified or cancelled on any account, emphatically not bybit_2; the exact diff (3 order_packages rows, closed->open, close_reason->NULL, one re-attaching real-money trade 5474) returns to the operator before it is applied.",
+      "observed_at": "2026-09-10T05:29:56Z",
+      "last_observed_at": "2026-09-10T05:29:56Z",
       "last_observed": {
-        "at": "2026-09-10T02:21:00Z",
+        "at": "2026-09-10T05:29:56Z",
         "by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-        "source": "get_session per id — platform truth, read 2026-09-10T02:21Z",
-        "state": "idle"
+        "source": "get_session per id — platform truth, read 2026-09-10T05:29:56Z",
+        "state": "running"
       }
     }
   ],

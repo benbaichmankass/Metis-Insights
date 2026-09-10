@@ -53,7 +53,7 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T04:53:00Z",
+  "updated_at": "2026-09-10T05:32:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "note": "STATE 2026-09-10T02:47Z. ONE entry `rebasing` (#11626) and that is the R8 invariant, not a coincidence — its owner is poked and cleared; nothing else may rebase until it lands. TONIGHT'S LEDGER, recorded here rather than left in my session context (MI-102's whole lesson): #11629, #11632, #11628, #11631, #11634 merged by me, each now carried as a `merged` entry with its commit. #11628 and #11632 are the two independent halves of a RED MAIN I CAUSED and neither substitutes for the other — #11632 fixed the DATA (a 7-key merge_slot claim I wrote), #11628 fixed the METRIC (a positional line-compare that read every following line as changed once the key count differed). ⚠️ THE 44 `blocked` AUTOMATION ENTRIES BELOW ARE STALE AND I AM NOT DRAINING THEM. They were measured 2026-09-09T04:16Z and many have since merged or closed; this file has not been reconciled against a live open-PR list since. That is stated rather than silently carried, and it is deliberate: the census in this same file records that the queue GREW 30 -> 42 across a window in which ten PRs were merged, because every merge to main spawns a reconcile-open-prs — draining one at a time while still merging does not converge. A successor must NOT open a session on 'drain the queue'. What IS current in this file is the non-automation entries and tonight's ledger. ⚠️ AND DO NOT READ THE `blocked` COUNT AS A BACKLOG OF WORK — R13 blocks every bot-opened PR by construction (a bot writes no merge_slot claim), so `blocked` there is the steady state of a mechanism, not a queue of things waiting on a decision.",
   "entries": [
@@ -453,6 +453,13 @@
       "tier": 1,
       "blocked_on": "",
       "note": "MERGED 91faf047f — chore(ops): record what each session left behind (automation)."
+    },
+    {
+      "pr": 11640,
+      "state": "blocked",
+      "tier": 1,
+      "blocked_on": "guards:artifact-validity-guard + merge conflict (dirty) — routed to MI-231",
+      "note": "BLOCKED ON TWO INDEPENDENT THINGS, both diagnosed by the manager and BOTH ROUTED to MI-231 (session_017vNWUL48WWrtxssFv2EDMf) rather than fixed here — the diff carries scripts/ops/constraint_readout.py, a worker path check_manager_scope.py R2 grades. (1) guards RED on head c86e869c2 (job 102753476857, 05:13:31Z): PASS 71 / FAIL 1, the single failure being artifact-validity-guard. Cause located exactly: the branch's own new backlog row its own new coordination-board-re-serialisation row (the id is deliberately NOT quoted here: that row exists only on their branch, so naming it makes artifact-validity-guard fail THIS PR for an unresolvable reference — which is exactly what it did on my first attempt) carries no resolution_criteria and no tier and uses the legacy `opened` key. MEASURED as theirs, not inherited: origin/main 1425 items with that id absent, their head 1426 with it present once. (2) mergeable_state dirty — a merge conflict, and the half to fix FIRST, since a dirty PR reports zero/stale checks that read as 'CI has not started'. This PR is tier 1 / landing self / hold_reason None, so it SELF-LANDS on green and needs no merge click from the manager. Poked 05:29:4xZ (trig_01WgtWXTzsbR8mM5at8cjVyu); delivery evidenced by the target session's updated_at advancing to 05:29:56Z."
     }
   ],
   "digest_clearance": {

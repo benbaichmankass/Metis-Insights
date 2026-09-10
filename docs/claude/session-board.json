@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_017vNWUL48WWrtxssFv2EDMf",
     "branch": "claude/mi231-f39-openitems-observation",
-    "claimed_at": "2026-09-10T05:30:59Z",
-    "purpose": "MI-231 session-end. RECORDS + one tooling self-test repair, every path inside TIER1_SURFACE (docs/**, scripts/ops/**): the F-39 OPEN-ITEMS observation, OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO, one health-backlog row, the regenerated brief, and constraint_readout.py's self-test decoupled from the live register. Tier-1, self-landing. THE RE-ATTACH IS NOT APPLIED: no database written, no order placed, modified or cancelled on any account."
+    "claimed_at": "2026-09-10T05:55:19Z",
+    "purpose": "MI-231 session-end records + one tooling self-test repair. Tier-1, self-landing, CI GREEN on dd89de99f (all 5 checks). Re-taken after #11644; see the PR comment for why this branch keeps losing the slot."
   },
   "active_sessions": [
     {
