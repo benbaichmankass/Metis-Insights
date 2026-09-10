@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A single test-file change: tests/test_manager_wake.py stops pinning a superseded cycle id and reads the one MANAGER-CHECKLIST.json declares. No src/, no config/, no workflows, no deploy, no order path, no register mutation. Tier-1 by the canonical doc's own examples (tests). It UNBLOCKS main, which is currently red for every open PR in the repo."
+}
