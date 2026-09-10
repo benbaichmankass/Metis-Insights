@@ -71,3 +71,19 @@ outcome: >-
   that hour (this one and MI-240's #11738).
 
 evidence: docs/claude/work/AUTOMATION-PR-DISPOSITIONS-2026-09-10.json
+
+close_out_note: >-
+  ⚠️ THE CLOSE-OUT PR ITSELF (#11743) HIT THE ZERO-CHECK TRAP, recorded because
+  it is a RECURRENCE and this lane is the third mechanism-failure it has paid
+  for in one sitting. The arming file rode the SAME push as the content, so
+  `claude-pr-automerge` opened the PR under GITHUB_TOKEN before the session
+  could — and GitHub fires no `pull_request` event for a GITHUB_TOKEN push, so
+  `guards` / `pytest-run` / `pytest-collect` never attached. MEASURED:
+  `get_check_runs` returned total_count 1, the workflow's own `open-and-automerge`,
+  conclusion SUCCESS. A PR with one green check and no CI reads as READY, which
+  is precisely why the trap is dangerous rather than merely annoying.
+  CLAUDE.md records six instances on 2026-09-08 alone and prescribes the fix:
+  open the PR yourself FIRST, then push the arming file — two pushes, in that
+  order. This lane did exactly that for #11739 and #11742 and both attached CI
+  normally; it batched the two pushes here and reproduced the trap. The remedy
+  applied was the documented one: push one ordinary commit so CI attaches.
