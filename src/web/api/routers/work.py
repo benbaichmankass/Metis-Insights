@@ -860,6 +860,13 @@ def _checklist_payload() -> dict[str, Any]:
     return {
         "present": True,
         "readState": read.state,
+        # ⚠️ Explicitly None on the HEALTHY envelope, matching `/api/bot/work`
+        # and the decision inbox. A key that VANISHES makes a consumer branch on
+        # absence, and absence is not one of the states. Caught by the SPA's own
+        # api-contract checker (ict-trader-dashboard/webapp/tests/api-contract.mjs)
+        # against a real captured payload, which is exactly the direction
+        # `provenance-consumer-guard` cannot see.
+        "reason": None,
         "asOf": read.data.get("as_of") or read.data.get("updated_at"),
         "cycle": read.data.get("cycle"),
         "managerSession": read.data.get("manager_session"),

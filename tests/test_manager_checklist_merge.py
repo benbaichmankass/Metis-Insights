@@ -270,6 +270,23 @@ def test_bases_in_the_summary_ship_with_explicit_zeros(tmp_path, monkeypatch):
     assert sum(summary["byBasis"].values()) == summary["total"]
 
 
+def test_reason_is_present_on_the_healthy_envelope_too(tmp_path, monkeypatch):
+    """A key that VANISHES makes a consumer branch on absence.
+
+    Found by the SPA's own api-contract checker against a real captured
+    payload — the direction `provenance-consumer-guard` cannot see (a consumer
+    reading a key with no writer). `Workflow.svelte` reads `checklist?.reason`
+    to render a degraded read; on the healthy shape that resolved to
+    `undefined`, which is indistinguishable from a reason nobody wrote.
+    """
+    root = _checklist(tmp_path, {"items": [{"id": "A", "state": "done"}]})
+    monkeypatch.setattr(wk, "repo_root", lambda: root)
+    with TestClient(app) as client:
+        body = client.get("/api/bot/work/checklist").json()
+    assert body["present"] is True
+    assert "reason" in body and body["reason"] is None
+
+
 def test_an_unreadable_checklist_is_not_an_empty_one(tmp_path, monkeypatch):
     """*we could not read it* and *there is no work* are opposite statements."""
     root = tmp_path / "repo"
