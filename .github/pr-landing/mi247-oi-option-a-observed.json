@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One register file. docs/claude/OPEN-ITEMS.json only: clauses (1) MERGED and (2) DEPLOYED of OI-20260910-ALPACA-LIVE-OPTION-A-... are cleared against observations made this session, and clause (3) is left OPEN because it is not met and cannot be for weeks. No src/, no config/, no tests, no workflows, no order path. The Tier-3 change this row tracks landed separately as #11671 by a human merge click."
+}
