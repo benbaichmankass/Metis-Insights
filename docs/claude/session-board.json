@@ -5,12 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
   "merge_slot": {
-  "held_by": "session_0178Pn128KK71u6nCzLeVH6w",
-  "branch": "claude/mi227-work-object-waiting",
-  "pr": 11616,
-  "claimed_at": "2026-09-09T23:49:00Z",
-  "purpose": "MI-227 session-end record-keeping (Tier-1, one work-object YAML: lifecycle in_flight -> waiting after #11604 merged, plus one true external_event blocked_on edge)",
-  "found_stale": "Claimed over a STALE holder rather than jumping a live queue, recorded rather than quietly taken: the slot read session_01FoASvmUGuahCphE1cewPPs / claude/mi214-claude-md-reaches-nobody claimed 2026-09-09T23:27:58Z, and that branch's PR #11613 MERGED at 2026-09-09T23:38:35Z without the slot being released. Verified against GitHub (search_pull_requests on the head branch: state closed, merged_at 23:38:35Z), not inferred from the commit subject on main."
+  "held_by": "github-actions[bot] · work-digest run 34420408024",
+  "branch": "automation/work-digest-34420408024-1",
+  "claimed_at": "2026-09-10T00:14:55Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
  },
  "active_sessions": [
   {

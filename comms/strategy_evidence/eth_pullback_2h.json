@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "eth_pullback_2h",
+  "symbol": "ETHUSDT",
+  "timeframe": "2h",
+  "config_fingerprint": "sha256:b57f7181f7ccad10646715b8f9bcda00",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "trail_decay_stall_bars",
+    "trail_decay_tight_mult"
+  ],
+  "net_r_oos": 3.3242,
+  "expectancy_r_oos": 0.0594,
+  "n_trades_oos": 56,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 14,
+      "net_r": 6.3188,
+      "expectancy_r": 0.4513,
+      "start": "2025-09-13 18:00:00+00:00",
+      "end": "2025-11-14 16:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 14,
+      "net_r": -2.9164,
+      "expectancy_r": -0.2083,
+      "start": "2025-12-02 00:00:00+00:00",
+      "end": "2026-03-08 20:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 14,
+      "net_r": 2.7685,
+      "expectancy_r": 0.1978,
+      "start": "2026-03-17 16:00:00+00:00",
+      "end": "2026-06-07 12:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 14,
+      "net_r": -2.8467,
+      "expectancy_r": -0.2033,
+      "start": "2026-06-09 02:00:00+00:00",
+      "end": "2026-08-22 10:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-09T18:47:12.843091+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/8d441366-3e41-531c-b951-e40532b296b1/scratchpad/mi216/eth_pullback_2h__trades.jsonl",
+  "error": null,
+  "harness": "pullback"
+}
