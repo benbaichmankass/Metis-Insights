@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-registers-20260910T1455",
-    "claimed_at": "2026-09-10T14:53:08Z",
-    "purpose": "The manager's registers ONLY -- checklist (266), supervision record, and the 14:26:32Z lease heartbeat -- SPLIT OUT of #11697 deliberately. #11697 carries 65k lines of comms/ rescue data, so pytest-run takes ~20 min, and automation lands 2-4 times inside that window and takes this slot: that PR has now been dirtied THREE times (14:04, 14:30, 14:52) and can essentially never win the race. A docs/claude-only diff path-skips pytest, so this one closes in minutes. TAKEN FROM A TERMINAL HOLDER: github-actions[bot]'s automation/error-feed-digest-34490231725-1, whose PR #11702 merged as c69b1b4ac (main's own tip). NINTH takeover today. Released on merge."
+    "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+    "branch": "claude/lane4-stale-automation-landing-20260909",
+    "claimed_at": "2026-09-10T15:19:42Z",
+    "purpose": "WO-20260909 correction: sweeper DEPLOYED, first scheduled run UNOBSERVED (PR #11706)"
   },
   "active_sessions": [
     {

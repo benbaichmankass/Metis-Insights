@@ -1,0 +1,1 @@
+Arming request for claude/lane4-stale-automation-landing-20260909 — WO-20260909 correction: the sweeper is DEPLOYED (#11519, cron registered as workflow 355025104) and its first scheduled run is UNOBSERVED (0 runs). Docs-only, one file. PR #11706. 2026-09-10
