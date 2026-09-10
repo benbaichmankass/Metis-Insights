@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
     "branch": "claude/oi-orphan-adopt-size-gate-unobserved",
-    "claimed_at": "2026-09-10T16:57:13Z",
-    "purpose": "Tier-1 register-only (1 OPEN-ITEMS row + the re-rendered brief; 22 lines added, 0 removed, zero pre-existing rows changed). PR #11715. TAKEN FROM A STALE CLAIM, recorded rather than silent: the prior holder was github-actions[bot] - pr-queue-watch run 34503537558 for automation/data-commit-34503537558-1, claimed 16:40:57Z, whose PR #11714 MERGED at 16:43:37Z (verified via list_pull_requests, merged_at 16:43:37Z) -- 2m36s after the claim, release never landed. NOT taken from live work. FOURTH stale claim this session has reasoned past, which is the measured series behind BL-20260910-THE-MERGE-SLOT-HAS-A-DOCUMENTED-RELEASE-STEP-WITH-NO-MECHANISM-SO-EVERY-CLAIM-READS-HELD-FOREVER. Released on merge -- to the extent that is possible, which is this row's point."
+    "claimed_at": "2026-09-10T17:00:35Z",
+    "purpose": "Tier-1 register-only, PR #11715. RE-CLAIMED over a STALE claim, recorded rather than silent: the prior holder was session_01NcYsS6kFNrzxEKcrNy9eXP for claude/lane4-sweep-cadence-20260910, whose PR #11713 is ALREADY MERGED -- it is the commit 9071b8321 at main's tip. Not taken from live work. This is the FIFTH stale claim this session has reasoned past (manager 13:43Z; #11701 14:06Z; #11714 16:40Z; this one; plus two of my own I had no mechanism to release), and that series is the measured basis for BL-20260910-THE-MERGE-SLOT-HAS-A-DOCUMENTED-RELEASE-STEP-WITH-NO-MECHANISM-SO-EVERY-CLAIM-READS-HELD-FOREVER. Released on merge -- to the extent that is possible, which is the row's point."
   },
   "active_sessions": [
     {
