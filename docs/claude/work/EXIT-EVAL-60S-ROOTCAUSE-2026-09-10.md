@@ -14,7 +14,7 @@
 ## 0. The one-paragraph answer
 
 **The two breach populations have DIFFERENT causes and must not be given one
-story.** The **within-process** breaches are ~95 % a closed four-day episode
+story.** The **within-process** breaches are 1157 of 1218 (95.0 %) a closed four-day episode
 (2026-08-19 → 08-22) whose fix landed, plus a small live residual confined to
 the **IBKR nightly reset window**, where each IB-routed open package costs a
 serialized **29.0 s** pinned-thread queue timeout so a pass costs
@@ -56,7 +56,7 @@ the interval denominator exactly once. The file reconciles.
 
 ---
 
-## 2. Within-process breaches — 95 % of them are HISTORY, and the row's headline needs correcting
+## 2. Within-process breaches — 1157 of 1218 (95.0 %) are HISTORY, and the row's headline needs correcting
 
 ### 2.1 The mechanism, established over the complete breach population (n = 1218)
 
@@ -99,7 +99,8 @@ post-2026-08-23 rate is of order **0.03 %**, roughly **60× lower** than the
 lifetime figure.
 
 ⚠️ **CORRECTION TO THIS WORK'S OWN INHERITED FRAMING.**
-`BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-…` reads the move
+`BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL`
+reads the move
 1204 → 1216 as "the breaches did not cease". That is true **of the count** and
 misleading **about the rate**: +14 over 16 days is the residual, not a
 continuation of the episode. `BL-20260825-…-CESSATION-UNCONFIRMED` was closed
