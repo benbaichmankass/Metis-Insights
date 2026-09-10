@@ -68,6 +68,7 @@ from src.runtime import bybit_leg_sides as _bybit_leg_sides  # noqa: E402
 from src.runtime import bybit_coverage_basis as _bybit_cov_basis  # noqa: E402
 from src.runtime import bybit_position_book as _bybit_book  # noqa: E402
 from src.runtime import bybit_coverage_soak as _bybit_cov_soak  # noqa: E402
+from src.runtime import orphan_attribution as _orphan_attr  # noqa: E402
 from src.runtime.monitor_verdict import (  # noqa: E402
     KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
     interpret_verdict,
@@ -3216,10 +3217,26 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 # (2-observation confirmed). Re-check recoverability first
                 # (cheap) so a row that just became reattachable is never closed.
                 try:
-                    if _recover_orphan_order_package(
+                    _attr = _recover_orphan_attribution(
                         db=db, symbol=sym, direction=r["direction"],
                         entry_price=float(r["entry_price"] or 0.0),
-                    ) is None:
+                        # Armed here NOT to refuse anything — this site places
+                        # no attribution — but so a REFUSAL is never mistaken
+                        # for "no candidate exists" and acted on with a venue
+                        # close. Without it the size gate would convert a
+                        # journal mis-attribution into a live reduce-only
+                        # flatten, which is strictly worse than the bug.
+                        position_size=r["position_size"],
+                    )
+                    if _attr.refused:
+                        # A candidate EXISTS; we just cannot prove it owns this
+                        # size. That is not "no rational exit strategy", so the
+                        # position keeps resting on its static stop.
+                        _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(tid_int, None)
+                        summary["attribution_refused"] = (
+                            summary.get("attribution_refused", 0) + 1
+                        )
+                    elif _attr.package is None:
                         _close_unattributable_orphan(db, r, summary)
                     else:
                         _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(tid_int, None)
@@ -3746,27 +3763,99 @@ def _canon_dir(direction: Any) -> Optional[str]:
     return None
 
 
-def _recover_orphan_order_package(
+def _strategy_symbol_size_history(
+    db, *, strategy_name: str, symbol: str, limit: int = 200,
+) -> Optional[list]:
+    """The claimed strategy's OWN ``position_size`` history on this symbol.
+
+    ``None`` on any read failure — *we could not look* — which
+    :func:`orphan_attribution.assess_size_support` grades ``unreadable`` and
+    does NOT refuse on. An empty list is the different fact *we looked and this
+    strategy has never traded this symbol*.
+    """
+    if not strategy_name or not symbol:
+        return None
+    try:
+        rows = db.get_trades(
+            filters={"strategy_name": str(strategy_name), "symbol": str(symbol)},
+            limit=limit,
+        )
+    except Exception:  # noqa: BLE001 — best-effort; `None` never refuses
+        return None
+    return _orphan_attr.sizes_from_trades(rows)
+
+
+@dataclass(frozen=True)
+class _OrphanAttribution:
+    """What the orphan matcher concluded, and WHY — never collapsed to ``None``.
+
+    ``package is None`` has two very different causes and the caller's correct
+    response differs for each, which is the whole reason this type exists:
+
+    * ``refused=False`` — **no candidate package exists at all.** The position
+      has no recoverable exit thesis. This is the long-standing
+      "un-recoverable" state and the caller may flatten it
+      (:func:`_close_unattributable_orphan`, operator decision 2026-06-15).
+    * ``refused=True`` — **a candidate EXISTS and we cannot prove it owns this
+      size.** The position has a plausible owner we simply cannot confirm.
+      Flattening it would exit a live position for a bookkeeping reason, which
+      is strictly worse than the mis-attribution this gate exists to prevent.
+    """
+
+    package: Optional[dict] = None
+    refused: bool = False
+    #: The rejected candidate's claimed strategy, for the operator alert only.
+    refused_strategy: Optional[str] = None
+    detail: str = ""
+
+
+def _recover_orphan_attribution(
     *, db, symbol: str, direction: str, entry_price: float,
     max_rel_diff: float = 0.02, limit: int = 30,
-) -> Optional[dict]:
-    """Best-effort find the order package that originally opened an exchange
-    orphan, so the position can be returned to its strategy's monitoring.
+    position_size: Optional[float] = None,
+) -> _OrphanAttribution:
+    """Find the order package that opened an exchange orphan, and say whether
+    its ``strategy_name`` can be SUPPORTED.
 
-    Matches newest-first on ``symbol`` + normalised ``direction``, requiring
-    the package ``entry`` within ``max_rel_diff`` (relative) of the exchange
-    entry to count as a confident match — so we never mis-attribute a
-    position to the wrong strategy (which would apply the wrong exit rules).
-    Returns the package dict, or ``None`` when no confident match exists
-    (caller then falls back to a bare ``orphan_adopt`` row).
+    Matches newest-first on ``symbol`` + normalised ``direction``, requiring the
+    package ``entry`` within ``max_rel_diff`` (relative) of the exchange entry.
+
+    ⚠️ **THE MATCHER'S DOCSTRING USED TO CLAIM THE ENTRY-PRICE TOLERANCE MEANT
+    "we never mis-attribute a position to the wrong strategy (which would apply
+    the wrong exit rules)". THAT WAS FALSE AND WAS MEASURED FALSE** — field
+    beats comment. The tolerance constrains PRICE and says nothing about SIZE,
+    so the first candidate within 2% wins even when the position is orders of
+    magnitude outside anything the named strategy has ever traded. Trade 5453
+    was attributed to ``pairs_sol_eth_b`` at 17.67 ETHUSDT against that sleeve's
+    observed maximum of 2.10, and the pairs executor flattened it 14.09 s later
+    (``BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-
+    SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW``).
+
+    ⚠️ **``position_size`` IS OPT-IN PER CALL SITE, AND THAT IS A SAFETY
+    PROPERTY RATHER THAN A CONVENIENCE.** Passing it consults
+    :mod:`src.runtime.orphan_attribution`; omitting it leaves the behaviour
+    byte-for-byte what it was. It is armed only on the callers that WRITE
+    ``strategy_name`` (:func:`_reattach_adopted_orphans`, :func:`_adopt_orphan`)
+    and on the flatten probe in
+    :func:`_reconcile_orphan_exchange_positions` — the last one NOT to refuse
+    anything, but so that a refusal is not mistaken for "no candidate" and
+    acted on with a venue close.
+
+    ⚠️ It is deliberately NOT armed on ``_sweep_local_pnl_for_unpriced``'s
+    opportunistic re-link, which writes only ``order_package_id`` and never
+    ``strategy_name`` — a different, lesser defect and out of scope here.
+
+    ⚠️ **A REFUSAL NEVER PROPOSES A SECOND CANDIDATE.** It stops at the first
+    price-match rather than walking on to the next-best guess: picking again is
+    exactly the behaviour that produced the incident.
     """
     want = _canon_dir(direction)
     if not want or not entry_price:
-        return None
+        return _OrphanAttribution(detail="no direction or no entry price")
     try:
         candidates = db.get_recent_order_packages_for_symbol(symbol, limit=limit)
     except Exception:  # noqa: BLE001 — best-effort; fall back to orphan_adopt
-        return None
+        return _OrphanAttribution(detail="order-package read failed")
     for c in candidates:
         if _canon_dir(c.get("direction")) != want:
             continue
@@ -3774,11 +3863,54 @@ def _recover_orphan_order_package(
         if pe is None:
             continue
         try:
-            if abs(float(pe) - entry_price) / entry_price <= max_rel_diff:
-                return c
+            if abs(float(pe) - entry_price) / entry_price > max_rel_diff:
+                continue
         except (TypeError, ValueError, ZeroDivisionError):
             continue
-    return None
+
+        if position_size is None:
+            return _OrphanAttribution(package=c, detail="price match, size ungated")
+
+        claimed = str(c.get("strategy_name") or "")
+        verdict = _orphan_attr.assess_size_support(
+            size=position_size,
+            history_sizes=_strategy_symbol_size_history(
+                db, strategy_name=claimed, symbol=symbol,
+            ),
+        )
+        if not verdict.refuses:
+            return _OrphanAttribution(package=c, detail=verdict.detail)
+        # ⚠️ REFUSING IS NOT FREE, SO IT IS NOT SILENT. The row stays a BARE
+        # orphan: no `monitor()`, resting on a static stop. That is worse than a
+        # CORRECT attribution and better only than a WRONG one, which is ACTED
+        # ON by the strategy it names.
+        logger.warning(
+            "_recover_orphan_attribution: %s REFUSED attribution to %r — %s. "
+            "The row stays a BARE orphan rather than being attributed to a "
+            "guess, and is NOT flattened: a candidate exists, so this is not "
+            "the 'no rational exit strategy' state.",
+            symbol, claimed, verdict.detail,
+        )
+        return _OrphanAttribution(
+            refused=True, refused_strategy=claimed, detail=verdict.detail,
+        )
+    return _OrphanAttribution(detail="no price-matching candidate")
+
+
+def _recover_orphan_order_package(
+    *, db, symbol: str, direction: str, entry_price: float,
+    max_rel_diff: float = 0.02, limit: int = 30,
+) -> Optional[dict]:
+    """Back-compat thin wrapper over :func:`_recover_orphan_attribution`.
+
+    Ungated by construction — it takes no ``position_size``, so it can only
+    return the package or ``None`` exactly as it always did. Callers that must
+    tell a REFUSAL apart from NO CANDIDATE call the rich form directly.
+    """
+    return _recover_orphan_attribution(
+        db=db, symbol=symbol, direction=direction, entry_price=entry_price,
+        max_rel_diff=max_rel_diff, limit=limit,
+    ).package
 
 
 def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
@@ -3819,10 +3951,29 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
             entry_price = float(r["entry_price"] or 0.0)
         except (TypeError, ValueError):
             continue
-        recovered = _recover_orphan_order_package(
+        attribution = _recover_orphan_attribution(
             db=db, symbol=r["symbol"], direction=r["direction"],
-            entry_price=entry_price,
+            entry_price=entry_price, position_size=r["position_size"],
         )
+        recovered = attribution.package
+        if attribution.refused:
+            # ⚠️ REFUSED IS NOT "UN-RECOVERABLE", AND COLLAPSING THE TWO WOULD
+            # FLATTEN A LIVE POSITION. This function's own docstring says an
+            # un-recoverable orphan is FLATTENED by the caller's per-account
+            # pass. A refused attribution is the opposite situation: a
+            # candidate package EXISTS and we simply cannot prove it owns this
+            # size, so the position has a plausible exit thesis and must be
+            # left resting on its static stop, not exited for a bookkeeping
+            # reason. The flatten probe in
+            # `_reconcile_orphan_exchange_positions` makes the SAME call and
+            # declines on the same verdict, so no shared marker state is
+            # needed — both sites read the position, not a flag one set for
+            # the other.
+            _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(int(r["id"]), None)
+            summary["attribution_refused"] = (
+                summary.get("attribution_refused", 0) + 1
+            )
+            continue
         if recovered is None:
             # Un-recoverable here. The flatten decision is made in the
             # per-account loop below, where the position's exchange-aliveness is
@@ -4049,9 +4200,16 @@ def _adopt_orphan_position(
     account_class = _resolve_account_class(account_id)
     is_demo = int(account_class == "paper")
 
-    recovered = _recover_orphan_order_package(
+    # The size gate is armed here because THIS is where a `strategy_name` is
+    # first written onto an adopted position — and the strategy it names then
+    # runs its own `monitor()` against that position. A refusal falls through
+    # to the bare-orphan branch below, which is the row this function already
+    # writes 6 times in 13 and the honest state when the owner is not
+    # established. It never picks a different candidate.
+    recovered = _recover_orphan_attribution(
         db=db, symbol=symbol, direction=direction, entry_price=entry_price,
-    )
+        position_size=size,
+    ).package
     if recovered is not None:
         opid = recovered.get("order_package_id")
         strategy_name = recovered.get("strategy_name")
