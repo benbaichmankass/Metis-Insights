@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-2326z-20260910",
-    "claimed_at": "2026-09-10T23:32:11Z",
-    "purpose": "manager tick 23:26Z — heartbeat, MI-259 done, re-lane 11648"
+    "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
+    "branch": "claude/lane4-sweep-gap-20260910",
+    "claimed_at": "2026-09-10T23:47:24Z",
+    "purpose": "WO-20260909: sweeper gap measurement and queue-empty record (PR #11747)"
   },
   "active_sessions": [
     {
