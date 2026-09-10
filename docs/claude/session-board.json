@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01FyYyybxWC7VD1Rq1doEEdf",
-    "branch": "claude/oi-position-read-state-soak-first-read",
-    "claimed_at": "2026-09-10T13:43:17Z",
-    "purpose": "Tier-1 register-only observation on OI-20260909-POSITION-READ-STATE-SOAK (2 files, 2-line OPEN-ITEMS numstat + the re-rendered session brief). TAKEN FROM A STALE CLAIM, NOT FROM LIVE WORK: the prior holder's branch claude/mgr-hb-20260910T1326 merged as #11698 at 13:34:14Z (verified via pull_request_read, merged: true) and its own purpose said 'Released on merge' — the release write never landed. Released on merge."
+    "branch": "claude/backlog-merge-slot-release-and-automerge-order",
+    "claimed_at": "2026-09-10T13:57:25Z",
+    "purpose": "Tier-1 backlog-only (2 rows, numstat 20/0). CONTINUATION of this session's own claim, not a takeover: re-pointed from claude/oi-position-read-state-soak-first-read, merged as #11699 / 197129680. See .github/pr-landing/backlog-merge-slot-release-and-automerge-order.json::merge_slot_note for why this PR HOLDS rather than RELEASES the slot — R13 requires an armed branch to hold it, so a release-and-arm PR fails by construction, which is exactly the finding Row 1 files."
   },
   "active_sessions": [
     {
