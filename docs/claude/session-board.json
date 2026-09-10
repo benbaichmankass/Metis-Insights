@@ -6,12 +6,12 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-route-f39-f50-20260910T0100",
-    "pr": 11625,
-    "claimed_at": "2026-09-10T01:00:00Z",
-    "purpose": "Route the last two buildable audit items: MI-230 (F-50, near-miss band + restart gap) and MI-231 (F-39, detector promotion + journal re-attach). Two registry confirmations and two checklist rows. Tier-1, no worker path, no order touched.",
-    "found_stale": "Claimed over my own #11624 claim (branch claude/mgr-close-audit-objects-20260910T0055), which merged and released nothing -- nothing does. FOURTH manager claim in a row tonight, and the sequence including bots is: work-digest 34420408024 -> #11618, error-feed-digest 34421732450 -> #11621, then #11619, #11622, #11624, each releasing nothing. TWO OF THE SIX WERE AUTOMATION RUNS, which is why BL-20260909-MERGE-SLOT-IS-NEVER-RELEASED-AFTER-A-MERGE-SO-EVERY-CLAIMANT-DISPLACES-A-GHOST is wider than sessions.",
-    "concurrent_sibling": "MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E) and MI-231 (session_017vNWUL48WWrtxssFv2EDMf) were spawned MINUTES ago and will post their own board STARTs. MI-231 declares scripts/ops/system_invariants.py; this branch touches neither that file nor any worker path, so no collision is expected -- but both lanes append to docs/claude/work/ and MANAGER-CHECKLIST.json, so a later conflict there must be resolved as a VERIFIED UNION over id sets, never by taking a side."
+    "branch": "claude/mgr-supervise-230-231-20260910T0120",
+    "pr": 11629,
+    "claimed_at": "2026-09-10T01:20:00Z",
+    "purpose": "Live supervision record on MI-230 and MI-231, and a second instance appended to the OPEN row BL-20260823-SCHEDULED-ROUTINE-CARRIED-STALE-REPAIR-VERDICTS rather than filed as a new one. Tier-1, no worker path, no order touched.",
+    "found_stale": "Claimed over my own #11625 claim, which merged and released nothing. Fifth manager claim tonight; including automation the sequence is work-digest 34420408024 -> #11618, error-feed-digest 34421732450 -> #11621, then #11619, #11622, #11624, #11625, none released.",
+    "concurrent_sibling": "MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E, branch claude/mi230-exit-eval-near-miss-restart-gap) and MI-231 (session_017vNWUL48WWrtxssFv2EDMf) are both RUNNING as of 01:16Z. !! MI-231 declares scripts/ops/system_invariants.py and MI-230 declares src/runtime/exit_loop_health.py -- this branch touches NEITHER, and no worker path at all. Both lanes will append to docs/claude/work/ and the health backlog, so any conflict there is resolved as a VERIFIED UNION over ID SETS. !! COMPARE ID SETS, NOT ROW COUNTS: #11627 deleted a row from health-review-backlog.json tonight while the count stayed 1419 -> 1419, because one row was added as one was removed, and the loss was invisible in the diff."
   },
   "active_sessions": [
     {
