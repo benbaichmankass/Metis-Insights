@@ -164,7 +164,8 @@ closing_observation: >-
   outstanding. THREE live Bybit closes logged a qty_state, read from
   /api/diag/journalctl?unit=ict-trader-live with the window pinned by
   `since`/`until` and FILTERED CLIENT-SIDE (never `?grep=`, which is silently
-  dropped — see BL-20260910-DIAG-JOURNALCTL-...):
+  dropped — see
+  BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT):
     2026-09-10T18:02:50Z  bybit_1 AVAXUSDT Sell-side close qty=12357.0
                           (sent=12357.0, qty_state=unchanged) -> orderId 9784e410-...
     2026-09-10T18:04:01Z  bybit_1 BNBUSDT  qty=0.27
