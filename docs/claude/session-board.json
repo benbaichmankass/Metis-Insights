@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-259 OPS lane (session_01M3FPDA7Yp9dmMXFqsYzGi3)",
-    "branch": "claude/mi259-ops-lane-disposition-automation-prs",
-    "claimed_at": "2026-09-10T22:05:00Z",
-    "purpose": "PR #11739 — Tier-1. Rescues 6 artifacts (2 PIT captures, 1 dated packet, a newer probe snapshot, 8 reaper run rows) that a ROW COUNT would have discarded, and records a per-PR disposition for all open automation PRs. Arming auto-merge IS the merge, so R13 takes the slot here. Prior holder was 'github-actions[bot] · work-digest run 34534639747', whose PR has already merged; slot taken, not contested."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/manager-status-2218z-20260910",
+    "claimed_at": "2026-09-10T22:25:19Z",
+    "purpose": "manager status update 22:18Z — heartbeat, three-lane supervision, MI-263"
   },
   "active_sessions": [
     {
