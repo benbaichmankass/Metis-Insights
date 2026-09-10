@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T07:06:00Z",
+  "updated_at": "2026-09-10T07:15:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -3124,9 +3124,74 @@
       "blocked_on": "",
       "title": "OPERATOR POLICY: no strategy retirement — the lowest rank is paper-only, underperformers are tweaked and re-tested",
       "note": "OPERATOR POLICY 2026-09-10, recorded verbatim in docs/claude/SUNSET-DISPOSITIONS.json::_standing_policy. Retirement is off the table until the sunsetting infra and processes are reliable enough; the LOWEST rank a strategy may hold is trading on PAPER; nothing is left that is not accruing data; underperformers are tweaked and re-tested because the experiments are how the system generates data and gets tested. ⚠️ THIS IS THE THIRD TIME THE OPERATOR HAS ANSWERED IT — 2026-09-04 (DEC-20260904-DEMOTE-AND-TUNE-FLOW, recorded on turtle_soup as operator_decision `refused`), a re-affirmation logged as MI-203, and again today, when THIS MANAGER re-asked it. Cause: the CLAUDE.md session brief renders the sunset candidate list from the sunset PASS and never reads the dispositions register, so every fresh session sees ten undecided candidates. Filed as its own defect. `done` because the DECISION is settled; the brief defect is the open work."
+    },
+    {
+      "id": "MI-233-SUNSET-POLICY-NEVER-REACHED-THE-SUNSET-REGISTER",
+      "state": "ready",
+      "owner": "unassigned — needs a session",
+      "added": "2026-09-10",
+      "tier": 1,
+      "blocked_on": "",
+      "title": "Write the operator's no-retirement policy into SUNSET-DISPOSITIONS.json — the manager is barred from doing it",
+      "note": "OPERATOR POLICY 2026-09-10 (verbatim in POLICY-20260910-NO-RETIREMENT-THE-FLOOR-IS-PAPER on this checklist) has NOT reached docs/claude/SUNSET-DISPOSITIONS.json, which is the register the sunset machinery actually reads. The manager tried and manager-scope-guard R2 CORRECTLY refused: that file is not manager surface, so writing it is a manager doing an item. Filing a scope exception to get past R2 is a standing prohibition, so it was backed out rather than forced.",
+      "why_it_matters": "Until this lands, the policy exists only where the MANAGER looks and not where the SUNSET PASS looks, which is the same class of defect as MI-203.",
+      "done_when": "SUNSET-DISPOSITIONS.json carries the policy verbatim, and a sunset pass run afterwards proposes `demote`/`repair`/`keep`/`wire` rather than `retired`/`retire_proposed` for an underperforming leg."
+    },
+    {
+      "id": "MI-234-SESSION-BRIEF-RE-ASKS-SUNSET-BECAUSE-IT-NEVER-READS-THE-ANSWER",
+      "state": "ready",
+      "owner": "unassigned — needs a session",
+      "added": "2026-09-10",
+      "tier": 1,
+      "blocked_on": "",
+      "title": "The CLAUDE.md session brief renders sunset candidates from the PASS and never reads SUNSET-DISPOSITIONS — so every session re-asks a settled question",
+      "note": "MEASURED 2026-09-10: the operator has now answered the retire-or-not question THREE times — DEC-20260904-DEMOTE-AND-TUNE-FLOW (recorded on turtle_soup as operator_decision `refused`), a re-affirmation logged as MI-203, and again 2026-09-10 when THIS MANAGER re-asked it after reading the brief. The brief's SUNSET block is rendered from the sunset PASS output and never joins it to the dispositions register, so ten already-dispositioned candidates render as ten open questions to every fresh session.",
+      "why_it_matters": "This is the operator's own complaint made mechanical: 'We aren't using the backlog/lessons learned logs correctly if we still keep running into the same fuck ups.' A brief that re-asks settled questions manufactures them indefinitely, and each re-ask costs an operator interaction.",
+      "done_when": "The rendered brief either omits a candidate that carries a disposition, or renders it WITH its recorded answer. Verified by a fresh render, not by reading the renderer."
+    },
+    {
+      "id": "MI-235-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION-IS-NEVER-TOLD-WHEN-IT-HAPPENS",
+      "state": "ready",
+      "owner": "unassigned — needs a session",
+      "added": "2026-09-10",
+      "tier": 1,
+      "blocked_on": "",
+      "title": "A sub-session blocked on a manager action has no mechanism that tells it the action happened — measured at 13h and 3.5 days",
+      "note": "MEASURED 2026-09-10 on two lanes. MI-222 (session_01WmFdLwfq4U5aLLjFRDDy6b) recorded need_input 'close PR #11579' at 2026-09-09T17:53:18Z; #11579 was closed at 19:41:11Z, about two hours later, and the lane sat BLOCKED for THIRTEEN HOURS. MI-139 (session_017UnyG4ArXmXKpB8rmEGv1j) recorded need_input 'write disposition for PR #11105' at 2026-09-06T19:10:07Z; #11105 had been closed at 10:22:01Z — NINE HOURS BEFORE it asked — and the lane sat blocked THREE AND A HALF DAYS. Both were freed only because a manager happened to run get_session over the roster.",
+      "why_it_matters": "SESSIONS.json is a REGISTRY, not a channel. `needs_action` is written by the blocked session and read by nobody on a schedule. The poke channel exists (create_trigger + fire_trigger) and works, but firing it depends on a manager noticing — which is exactly what failed here, twice, for a combined ~4 days of lane time.",
+      "done_when": "A blocked session is OBSERVED being woken by something other than a manager reading the roster by hand — either the condition it named being detected, or a cadence that grades needs_action rows against live PR/repo state. A reminder to the manager is NOT a mechanism and does not close this."
+    },
+    {
+      "id": "MI-236-SIX-IN-FLIGHT-ROWS-WERE-STALE-AND-NOTHING-DECAYS-THEM",
+      "state": "ready",
+      "owner": "unassigned — needs a session",
+      "added": "2026-09-10",
+      "tier": 1,
+      "blocked_on": "",
+      "title": "Six of nineteen in_flight checklist rows had owners that were finished, dead or archived — in_flight goes false by time passing",
+      "note": "MEASURED 2026-09-10 by get_session over thirteen owners: MI-230 (owner completed 03:29Z, work deployed a7cc62a24), MI-212 (dead 2026-09-09 20:21Z), MI-221 (completed 02:07Z, its premise REFUTED), MI-210 (completed 2026-09-09 08:34Z), MI-211 (completed 2026-09-09 11:58Z, null recommendation), and MI-136 (ARCHIVED 2026-09-06 — the row had read in_flight for FOUR DAYS). MI-215/MI-217's owner completed 04:52Z. This is the same class as MI-178, where all 17 SESSIONS.json `working` rows were false.",
+      "why_it_matters": "A checklist that claims nineteen items are being worked, when six are not, misprices every capacity decision made from it — including the manager's own read of the 3-session cap.",
+      "done_when": "The six rows carry their true state, AND something other than a manual sweep grades a row whose owner has gone terminal. The state correction alone is a one-off and does not close this."
+    },
+    {
+      "id": "MI-237-THE-MANAGER-CHECKLIST-HAS-NO-SCHEMA-SO-IT-CANNOT-BE-READ-SORTED-OR-GRADED",
+      "title": "The manager checklist has no schema — two competing status fields that disagree, 152 field names, 95 used once",
+      "owner": "unassigned — needs a session",
+      "state": "ready",
+      "tier": 1,
+      "priority": "high",
+      "lane": "workflow-implementation",
+      "added": "2026-09-10",
+      "note": "OPERATOR-RAISED 2026-09-10, verbatim: \"The fact that it's not organized is also a workflow issue that needs to be resolved (as part of the workflow implementation lane).\" Raised after asking for the whole checklist as a detailed table and receiving a summary instead — the summary happened BECAUSE the file cannot be tabulated: there is no column set to tabulate on. MEASURED 2026-09-10 over all 242 items at docs/claude/work/MANAGER-CHECKLIST.json (population = every element of items[]): 152 DISTINCT FIELD NAMES; 95 of them appear EXACTLY ONCE and 111 appear three times or fewer. Only `id` (242) is universal; `owner` 240, `title` 238, `note` 220. The one-off names are prose smuggled into keys — e.g. `⚠️_platform_state_20260909T042657Z`, `what_actually_prevents_it`, `the_honest_residual`, `⚠️_I_MARKED_THIS_OWNED_BEFORE_IT_WAS`. !! THE LOAD-BEARING FINDING IS NOT THE COUNT, IT IS A COLLAPSED STATUS. There are TWO competing status fields: `state` (177 rows) and `status` (83 rows). Every row has at least one, so nothing is stateless — an earlier reading of this as '65 items carry no state' was WRONG and must not be re-quoted, because it points at the wrong fix (backfilling a field rather than collapsing two). 18 rows carry BOTH, and 13 of those 18 DISAGREE. The disagreements are in the dangerous direction: MI-136 / MI-138 / MI-139 / MI-143 each read `state: in_flight` while `status: done`, and MI-144 / MI-145 read `state: queued` while `status: done`. A reader (human or script) that picks one field gets a different answer about what is running than one that picks the other. !! THIS IS NOT COSMETIC AND IT HAS ALREADY COST SOMETHING: this session found SIX rows sitting `in_flight` whose sessions were DEAD or ARCHIVED (MI-136 archived 2026-09-06, read `in_flight` for four days), and the two-field split is a sufficient explanation for at least four of them. `check_manager_scope.py` R6 and `session-registry-guard` both read `items[].state`/`owner`, so a row that records its truth in `status` is INVISIBLE to the guards that exist to catch a lost sub-session. !! AND THE VOCABULARIES ARE NOT THE SAME SET: `status` carries values `state` never uses — `superseded` (5), `operator_approved` (2), `filed_not_taken` (2), `unassigned` (2), `filed`, `failed`, and one literal `duplicate_of_MI-180`. So this is not a rename; some of those are real distinctions that a collapse must preserve or deliberately drop, and `duplicate_of_MI-180` is a POINTER wearing a status field's clothes.",
+      "what_this_item_is_not": "NOT a request to prune the checklist, and NOT a rendering problem for a reader to work around. A session that 'fixes' this by writing a nicer renderer has not touched the defect — the file is the state of record a COLD manager reads, and the renderer is downstream of it. !! AND IT IS NOT A LICENCE TO DELETE THE ONE-OFF FIELDS WHOLESALE: several carry real evidence (`what_actually_prevents_it`, `the_honest_residual`) that exists nowhere else, so they must be moved into a declared field, not dropped. Deleting knowledge to satisfy a schema is the exact failure the OPEN-ITEMS cap produced on 2026-08-26.",
+      "resolution_criteria": "THREE PARTS, and they are different facts — say WHICH you did. (1) A DECLARED SCHEMA exists for items[] — a required core (id, title, owner, ONE status field, lane, tier, added, updated) with a CLOSED status vocabulary that accounts for every value currently in BOTH `state` and `status`, including the ones only `status` has; free prose goes in a declared free-text field, never in a new key. (2) The 242 existing rows are MIGRATED onto it with the 13 known disagreements RESOLVED INDIVIDUALLY against the session registry and the PR record — never by a rule like 'status wins', which would mark four dead lanes done without anyone looking. (3) A CI guard refuses a row carrying an undeclared key or a status outside the vocabulary, so the drift cannot re-accumulate silently — a one-time cleanup with no guard is the reminder-is-not-a-mechanism non-fix this repo has already paid for on MI-15 twice. !! A GREEN GUARD ON A MIGRATED FILE CLEARS (3) AND NOT (2): the guard proves the shape, not that anyone established which of `in_flight` and `done` was true for MI-136.",
+      "why_it_is_tier_1": "docs/claude/work/** plus a scripts/ci guard. It touches no order path, no strategy config and no risk cap. The MIGRATION half is a judgement call per row and is why this is a session's work rather than a script's.",
+      "blocked_on": [],
+      "blocked_on_basis": "NOT_ASSESSED",
+      "source": "operator (conversational), 2026-09-10"
     }
   ],
-  "as_of": "2026-09-10T07:06:00Z",
+  "as_of": "2026-09-10T07:15:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
