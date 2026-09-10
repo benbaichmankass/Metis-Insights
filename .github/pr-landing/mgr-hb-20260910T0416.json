@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager surfaces ONLY: MANAGER-LEASE.json (a force re-claim carrying its recorded reason), SESSIONS.json, MANAGER-CHECKLIST.json, MERGE-QUEUE.json. No src/, no config/, no scripts/, no deploy/, no .github/workflows/, no role packs, nothing in CLAUDE.md outside the generated SESSION-BRIEF block — every path inside TIER1_SURFACE and none a worker path under check_manager_scope R2. The lease re-claim is operator-authorized (asked as a popup, answered 'Re-claim it, I am not running another manager') after I let my own lease lapse 24 minutes past its 90-minute TTL; the reason is recorded in the lease file itself rather than only here. Carries fresh supervision in the same commit so R6 grades a live registry, with SESSIONS.json::updated_at a full ISO timestamp rather than a bare date."
+}
