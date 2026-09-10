@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only. One new research doc under docs/research/ plus this landing declaration. MI-251 is a MEASURE-AND-PROPOSE task by the manager's own dispatch: it declares no instrument, changes no config, and touches no src/, tests/, workflows, config/ or deploy/. Every recommendation in it is explicitly Tier-3 and left for the operator."
+}
