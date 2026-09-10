@@ -6,9 +6,9 @@
  },
   "merge_slot": {
     "held_by": "session_01TM8XjkvVpvMxH4EcLtTsvP (MI-229 close-out)",
-    "branch": "claude/mi229-collapse-builder-registry",
-    "claimed_at": "2026-09-10T00:47:12Z",
-    "purpose": "Tier-1 records-only close-out after PR #11615 merged: work object in_flight -> done, and the OPEN-ITEMS observation records the merge. Arming auto-merge IS the merge, so R13 takes the slot."
+    "branch": "claude/mi229-closeout-records",
+    "claimed_at": "2026-09-10T00:47:57Z",
+    "purpose": "Tier-1 records-only close-out after PR #11615 merged. Arming auto-merge IS the merge, so R13 takes the slot."
   },
  "active_sessions": [
   {
