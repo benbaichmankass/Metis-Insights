@@ -14,7 +14,9 @@
     "'key' names the content key used. 'evidence' is what was read, not what was assumed.",
     "CLOSING THESE DOES NOT FIX THE CLASS — #11519 (session-board.json has no merge driver in",
     ".gitattributes while R13 forces every armed branch to claim merge_slot there) is the mechanism",
-    "and is still open. This clears the pile; it does not prevent the next one."
+    "and is still open. This clears the pile; it does not prevent the next one.",
+    "",
+    "⚠️ findings_raised[3] WAS CORRECTED IN PLACE after main moved — read it, do not re-quote its original text."
   ],
   "schema_version": 1,
   "as_of": "2026-09-10",
@@ -210,6 +212,6 @@
     "PROBES: main's docs/claude/PROBES.json last LANDED 2026-09-07T10:36:07 (commit 8d51945aa) — the probes producer has not landed in 3 days. The 09-08 snapshot rescued here is itself 2 days old. The fix is to run probes.yml, not to merge older snapshots.",
     "CONSTRAINT-READOUT: docs/claude/CONSTRAINT.json last LANDED 2026-09-08T11:47:41 (commit 1e1d3718f) — 2 days stale for the same reason.",
     "REAPER: main recorded 1 of 9 reaper passes on 2026-09-08. Anyone reading `runs` as a cadence record would have concluded the reaper nearly stopped that day; the cause was the merge jam.",
-    "THREE PRE-SPAWN RECORDS FOR THIS SESSION WERE DESCRIBED AS WRITTEN AND LANDED ON NO REF (git log --all -S): the registry key pending-20260910T213243Z, the object WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND, and a spawn-priority-exception block reason_20260910_ops_lane. An MI-15 recurrence. The session authored its own object and exception and self-registered."
+    "⚠️ CORRECTED — DO NOT RE-QUOTE THE ORIGINAL. This row read: 'Three pre-spawn records for this session were described as written and landed on NO REF — an MI-15 recurrence.' THAT WAS TRUE WHEN MEASURED (~2026-09-10T21:40Z, git log --all -S over every ref: the registry key pending-20260910T213243Z, the object WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND, and an ops-lane spawn-exception block were all absent) AND IT IS NOW FALSE. All three landed in #11736 (04151f4dd) at ~21:5xZ, complete and correct — main's pending row already carried this session's id and the right object, and main's exception file already carried a full ops-lane block. IT IS NOT AN MI-15 RECURRENCE AND MUST NOT BE FILED AS ONE; the manager wrote every record. WHAT SURVIVES IS NARROWER AND STILL REAL: registration is NOT ATOMIC WITH THE SPAWN, so a session that starts before its own pre-spawn PR merges will correctly measure its records as absent and may then duplicate them. This session did exactly that — it authored a second object (WO-20260910-DISPOSITION-THE-OPEN-AUTOMATION-PRS-RESCUE-THE) and a second exception block, then DELETED BOTH on discovering main's, adopting main's records wholesale. The cost was a duplicate object briefly existing and a three-way merge conflict; the fix is for the spawn prompt to name the PR that carries the records, so a cold session can tell 'not written' from 'not landed yet'."
   ]
 }

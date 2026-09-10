@@ -10,9 +10,9 @@
 
 decision: approved
 approved_by: operator (ben.baichmankass) — in conversation, directly
-approved_at: 2026-09-09
+approved_at: 2026-09-10
 # ⚠️ These fields carry the MOST RECENT approval (2026-09-08, the three-lane
-#    structure). The 2026-09-03 approval that opened this file is NOT erased —
+#    structure; superseded 2026-09-10 by the ops-lane block below). The 2026-09-03 approval that opened this file is NOT erased —
 #    it is the first `reason` block below and still covers its own six objects.
 #    Two approvals, one file, because the gate reads a single document.
 
@@ -36,8 +36,8 @@ covers:
   - WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED
   # -- added 2026-09-09, the security gate (operator-approved directly) --
   - WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
-  # -- added 2026-09-10, the ops lane / automation-PR disposition (see the block at the end) --
-  - WO-20260910-DISPOSITION-THE-OPEN-AUTOMATION-PRS-RESCUE-THE
+  # -- added 2026-09-10, the ops lane (operator-directed twice; see the block at the end) --
+  - WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -443,78 +443,54 @@ phase_d_addendum_2026_09_08:
 #
 # SCOPE - ONE object. NOT a standing grant, and it does not license Phase H.
 # The cycle priority remains CY-20260906-TRADING-TRUTH.
+# ---------------------------------------------------------------------------
+# ADDED 2026-09-10 — THE OPS LANE (WO-20260910-DISPOSITION-THE-34-...)
+# ---------------------------------------------------------------------------
+reason_20260910_ops_lane: >-
+  WHAT THE OPERATOR ACTUALLY SAID, quoted rather than paraphrased, because this
+  exception stands or falls on it. TWO separate directives, both in their own
+  words, both about this work:
 
-# ============================================================================
-# 2026-09-10 — THE OPS LANE / AUTOMATION-PR DISPOSITION
-#              (WO-20260910-DISPOSITION-THE-OPEN-AUTOMATION-PRS-RESCUE-THE)
-# ============================================================================
-#
-# ⚠️ READ THIS FIRST — THE BLOCK MY SPAWN PROMPT SAID WAS ALREADY HERE DID NOT
-# EXIST, AND I AM THE SESSION IT WAS WRITTEN FOR. The prompt for
-# session_01M3FPDA7Yp9dmMXFqsYzGi3 instructed it to read
-# `reason_20260910_ops_lane` in this file, "including the paragraph that says
-# plainly which part is the operator's words and which part is the manager's
-# inference". MEASURED 2026-09-10: no such key is in this file (grep, whole
-# file), and the file's newest commit was 88ceb9970, 2026-09-09 11:08:55 +0300.
-# TWO SIBLING RECORDS WERE ALSO ABSENT FROM EVERY REF, established with
-# `git log --all -S`: the pre-spawn registry key `pending-20260910T213243Z`, and
-# the object `WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND`
-# (never authored on any ref — this object is a NEW one, authored by the session
-# itself via capture_idea.py, and its id therefore DIFFERS from the prompt's).
-# So three pre-spawn records were described as written and none landed. That is
-# an MI-15 recurrence — "the moment a manager spawns is exactly the moment it is
-# least likely to stop and write a record" — and it is filed rather than papered
-# over, because a session that believed the prompt would have inherited a
-# displacement approval nobody ever gave.
-#
-# WHAT THE OPERATOR ACTUALLY DECIDED — DECIDED, ~2026-09-10T13:20Z, and it is
-# quotable rather than relayed: put to them as a decision pop-up with three
-# options (close all twelve and accept the loss / fix #11519 first, then let it
-# drain / rescue what cannot be regenerated and close what is superseded). They
-# chose the third: RESCUE WHAT CANNOT BE REGENERATED, CLOSE WHAT IS SUPERSEDED.
-# Recorded in MANAGER-CHECKLIST.json item MI-259 with its source line. That is
-# the one durable, dated, operator-grounded record behind this lane, and it is
-# sufficient to establish that the WORK was chosen by the operator.
-#
-# WHAT THE OPERATOR WAS NOT ASKED — INFERRED, and by the manager, not by them.
-# The pop-up asked WHICH DISPOSITION to apply. It did NOT ask whether this work
-# displaces CY-20260906-TRADING-TRUTH; that question was never put. Treating the
-# disposition choice as also a priority-displacement approval is the manager's
-# inference, and this file exists to make exactly that inference visible instead
-# of silent. It is recorded here as an inference and must not be re-quoted as
-# the operator's words.
-#
-# WHY IT NONETHELESS DISPLACES, ARGUED RATHER THAN ASSUMED — and it is the same
-# kind of case as the 2026-09-09 landing lane: it does not COMPETE with the
-# cycle, it is what lets the cycle land. MEASURED 2026-09-10 (list_pull_requests
-# state=open perPage=100, ONE page, 44 rows): 43 of the 44 open PRs are
-# `automation/**`. Every one claims `merge_slot` in docs/claude/session-board.json
-# under R13, that file carries no merge driver in .gitattributes, so each conflicts
-# bare the moment another lands (#11519). THE MOST-STUCK PRODUCER IS
-# reconcile-open-prs AT 14 OF 43 — the job that maintains OPEN-PRS.json, the file
-# carrying operator decisions WITH THEIR CONDITIONS, which CLAUDE.md names as the
-# dangerous half of a handoff. The register meant to track the queue is the single
-# biggest thing stuck in it.
-#
-# AND THE RESCUE HALF IS TIME-CRITICAL IN A WAY THE CLOSES ARE NOT. Three
-# artifacts in this population cannot be regenerated: a POINT-IN-TIME econ capture
-# (a later re-fetch returns REVISED consensus — the exact lookahead the macro
-# discipline forbids), the m28 valuation snapshots, and a DATED strategy-review
-# packet (the next run writes a LATER date, never the missing one). #11735
-# established the recovery window is not permanent: those rows survived only
-# because the closed branches still existed, and A PRUNED BRANCH MAKES THE LOSS
-# SILENT AND FINAL.
-#
-# THE COUNTER-ARGUMENT IS RECORDED, NOT SUPPRESSED. The operator's own second
-# option — "fix #11519 first, then let it drain" — is the better ENGINEERING
-# order, and clearing this pile does NOT fix the class: the next merge starts the
-# next pile. The operator did not choose it. This lane must not be reported as
-# having prevented anything.
-#
-# SCOPE — ONE object, and Tier-1 only: per-PR dispositions and artifact rescue BY
-# VALUE. It licenses no change to src/, config/, .github/workflows/, deploy/ or
-# any order path, and it does NOT license fixing #11519, which stays open.
-#
-# ⚠️ NOT A STANDING GRANT. It expires with this object, and it does not license a
-# standing "the ops lane may displace the cycle" reading. The cycle priority
-# remains CY-20260906-TRADING-TRUTH.
+  (1) 2026-09-10T13:20Z, answering a decision pop-up put to them after the manager
+  discovered it had reported the merge queue EMPTY while 20 PRs were open, over
+  two alternatives ("close all twelve and accept the loss" / "fix #11519 first,
+  then let it drain"): "Rescue the 3, close the 9."
+
+  (2) Earlier, unprompted: "there are over 600 dormant work items - we need a
+  specific session in the ops lane (when opens ups) to work through the list and
+  update it - these things either need to closed or qued (for future sessions, it
+  just doesn't make sense that our workflow has this many dormant items) - if some
+  of them are stuck on soaks/observations, then we need a status the describes
+  that". The condition they attached -- "when opens up" -- is MET as of this
+  filing: one lane is live (research/MI-201), so two of the operator's cap of
+  three are free.
+
+  ⚠️ WHAT IS INFERENCE AND MUST NOT BE READ AS THEIR WORDS: the operator approved
+  the WORK and named the LANE. They were not asked, and did not say, "displace the
+  cycle priority to do it". That step is the manager's, and this file is where it
+  is made visible rather than taken silently. If the operator disagrees, this is
+  the row to point at.
+
+  WHY IT GENUINELY DISPLACES RATHER THAN WAITS: the most-stuck producer in the
+  pile is `reconcile-open-prs`, the job that maintains OPEN-PRS.json -- the
+  register that carries operator decisions WITH THEIR CONDITIONS. Every merge to
+  main fires it, its PR conflicts bare on docs/claude/session-board.json, and the
+  next merge fires another; it has been generating its own backlog since
+  2026-09-08. The register meant to track the queue is the single biggest thing
+  stuck in it, which makes this an INTEGRITY defect in the instrument the manager
+  reads, not routine queue tidying. CLAUDE.md's own framing applies directly: a
+  row recording a verdict without its condition is WORSE than a missing row,
+  because it reads as complete.
+
+  AND IT IS NOT HYPOTHETICAL HARM. PR #11735 (2026-09-10T21:25Z) measured that
+  the manager's own row-count check on #11662/#11664 was the WRONG TEST -- the
+  corpus is append-only PER RUN, so a later run with MORE rows can still lack a
+  strategy an earlier run measured. 22 measured compat-matrix rows were discarded,
+  none superseded, and two of them were the ONLY alpaca_live verdicts for two
+  REAL-MONEY legs. The rows were recoverable only because the closed branches
+  still existed; a pruned branch would have made the loss silent and final. The
+  remaining 34 are undispositioned under that same wrong test.
+
+  SCOPE OF THE DISPLACEMENT -- ONE object, not a standing lane licence. Tier-1
+  dispositions and artifact rescue by value only. No src/, no config/, no
+  workflow, no order path.
