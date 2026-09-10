@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Disposition the 34 undispositioned automation PRs and rescue the artifacts that cannot be regenerated
 stage: INTEGRITY
-lifecycle: dormant
-owner: null
+lifecycle: done
+owner: session_01M3FPDA7Yp9dmMXFqsYzGi3 (OPS lane, MI-259)
 opened_at: 2026-09-10
-closed_at: null
+closed_at: 2026-09-10
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -28,3 +28,62 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+outcome: >-
+  DONE — MEASURED, and the population was re-measured rather than inherited.
+  `list_pull_requests state=open perPage=100` returned ONE page of 44 rows on
+  2026-09-10: 43 automation PRs + 1 session PR (#11648, not dispositioned here).
+  43 = 31 closed with a measured reason recorded ON EACH PR + 12 whose content
+  was rescued. Re-verified after the closes: ZERO `automation/**` PRs open.
+  Landed in PR #11739 (04aa86d38); findings filed in #11742.
+
+  EVERY VERDICT WAS A CONTENT SET-DIFFERENCE ON A NAMED KEY, never a row count,
+  which is this object's own done_condition. TWO PRs REPRODUCED THE #11735 TRAP
+  AND A COUNT WOULD HAVE DISCARDED BOTH:
+    #11386 valuation — main 432 rows, PR 432 rows, IDENTICAL COUNT, 9 rows only
+      in the PR. Denominator: main held 9 rows for every day 2026-09-01..09-09
+      EXCEPT 09-08, which had ZERO. Point-in-time: BAMLH0A0HYM2 cheap_score reads
+      0.0337 on 09-08 against 0.0739 on 09-09, so a re-fetch cannot reconstruct it.
+    #11475 econ — main 17975 rows > PR 17967 rows, main LARGER, 427 rows only in
+      the PR. Denominator: main's captures ran 09-07, 09-08, then 09-10.
+
+  RESCUED BY VALUE, byte-identity asserted with `git rev-parse` and VERIFIED ON
+  MAIN AFTER THE MERGE rather than assumed from it: valuation rows as_of 09-08
+  0 -> 9; econ rows observed_at 09-09 0 -> 427; reaper passes on 09-08 1 -> 9;
+  PROBES.json 09-07 -> 09-08; PIT capture US-20260909T002929Z and the dated
+  2026-09-08 strategy-review packet, both previously absent. Both .jsonl merges
+  were POSITIONAL SPLICES — main's lines preserved in order, rows only-on-main
+  dropped 0, diffs pure insertion (427 + 9).
+
+  ⚠️ THE CLASS IS NOT FIXED AND THIS OBJECT MUST NOT BE READ AS FIXING IT.
+  #11519 is the mechanism and is still open. It made BOTH of this work's PRs
+  `dirty` in one sitting; on #11742 `merge_slot` was the ONLY differing key
+  between the two sides — a bare conflict with no content behind it, four
+  minutes after the queue reached zero. Clearing the pile did not prevent the
+  next one.
+
+  ⚠️ TWO FINDINGS FILED RATHER THAN LEFT IN THE DATED DISPOSITION RECORD (#11742):
+  a jammed queue silently staled PROBES.json (last landed 2026-09-07, 8d51945aa)
+  and CONSTRAINT.json (2026-09-08, 1e1d3718f) while their SIBLINGS stayed current
+  because check_pr_queue_watch.py / check_trainer_capture_watch.py grade a dated
+  receipt every PR — nothing detects a producer that stops LANDING; and pre-spawn
+  registration is not atomic with the spawn, hit independently by two of two lanes
+  that hour (this one and MI-240's #11738).
+
+evidence: docs/claude/work/AUTOMATION-PR-DISPOSITIONS-2026-09-10.json
+
+close_out_note: >-
+  ⚠️ THE CLOSE-OUT PR ITSELF (#11743) HIT THE ZERO-CHECK TRAP, recorded because
+  it is a RECURRENCE and this lane is the third mechanism-failure it has paid
+  for in one sitting. The arming file rode the SAME push as the content, so
+  `claude-pr-automerge` opened the PR under GITHUB_TOKEN before the session
+  could — and GitHub fires no `pull_request` event for a GITHUB_TOKEN push, so
+  `guards` / `pytest-run` / `pytest-collect` never attached. MEASURED:
+  `get_check_runs` returned total_count 1, the workflow's own `open-and-automerge`,
+  conclusion SUCCESS. A PR with one green check and no CI reads as READY, which
+  is precisely why the trap is dangerous rather than merely annoying.
+  CLAUDE.md records six instances on 2026-09-08 alone and prescribes the fix:
+  open the PR yourself FIRST, then push the arming file — two pushes, in that
+  order. This lane did exactly that for #11739 and #11742 and both attached CI
+  normally; it batched the two pushes here and reproduced the trap. The remedy
+  applied was the documented one: push one ordinary commit so CI attaches.
