@@ -387,3 +387,136 @@ def test_the_real_checklist_partitions_and_is_served():
     assert set(body["freshness"]) >= {
         "commitState", "commitSha", "committedAt", "commitAgeHours",
         "workingTreeDirty", "treeState", "warnings"}
+
+
+# ── the live-sessions panel: a decayed state must not read as a live one ─────
+
+NOW = __import__("datetime").datetime(
+    2026, 9, 10, 12, 0, tzinfo=__import__("datetime").timezone.utc)
+
+
+def test_every_declared_observation_state_is_reachable():
+    produced = {
+        ms.observe_session(row, now=NOW, stale_minutes=90.0).state
+        for row in (
+            {"state_observed_at": "2026-09-10T11:30:00Z"},   # recent
+            {"state_observed_at": "2026-09-10T06:00:00Z"},   # stale
+            {"state": "working"},                            # unknown
+        )
+    }
+    assert produced == set(ms.OBSERVATION_STATES)
+
+
+def test_a_row_with_no_timestamp_is_unknown_not_recent():
+    """*nobody recorded when this was looked at* is not a fresh lane."""
+    obs = ms.observe_session({"state": "working"}, now=NOW)
+    assert obs.state == ms.OBS_UNKNOWN
+    assert obs.basis == ms.OBS_NONE
+    assert obs.age_minutes is None
+
+
+def test_spawned_at_is_never_treated_as_an_observation():
+    """THE REASSURING-DIRECTION ERROR THIS GUARDS.
+
+    Falling back to `spawned_at` would give every row a timestamp and make the
+    whole register look freshly checked. Spawn time is not an observation of a
+    state.
+    """
+    obs = ms.observe_session(
+        {"state": "working", "spawned_at": "2026-09-10T11:59:00Z"}, now=NOW)
+    assert obs.state == ms.OBS_UNKNOWN, "spawned_at must not confer freshness"
+
+
+def test_confirmed_at_grades_spawn_only_not_a_state_observation():
+    """Measured: `confirmed_at` equals `spawned_at` to within seconds on a
+    freshly spawned lane, so nobody has checked the STATE since."""
+    obs = ms.observe_session(
+        {"state": "working", "confirmed_at": "2026-09-10T11:59:00Z"}, now=NOW)
+    assert obs.basis == ms.OBS_SPAWN_ONLY
+    assert obs.state == ms.OBS_RECENT, "recent, but only as a spawn confirmation"
+    # positive control: a real observation field grades the other way, so the
+    # basis is reporting the FIELD rather than reporting everything.
+    assert ms.observe_session(
+        {"last_observed_at": "2026-09-10T11:59:00Z"}, now=NOW
+    ).basis == ms.OBS_STATE_GRADED
+
+
+def test_the_nested_last_observed_object_is_read():
+    """5 of the 21 live rows carry `last_observed` as an OBJECT whose time is
+    `.at`. A reader treating it as a string grades those `unknown`."""
+    obs = ms.observe_session(
+        {"last_observed": {"at": "2026-09-10T11:30:00Z", "by": "x"}}, now=NOW)
+    assert obs.state == ms.OBS_RECENT
+    assert obs.from_field == "last_observed"
+
+
+def test_the_most_specific_observation_field_wins():
+    obs = ms.observe_session(
+        {"state_observed_at": "2026-09-10T11:00:00Z",
+         "confirmed_at": "2026-09-10T11:59:00Z"}, now=NOW)
+    assert obs.from_field == "state_observed_at"
+    assert obs.basis == ms.OBS_STATE_GRADED
+
+
+def test_an_unparseable_timestamp_is_unknown_not_recent():
+    obs = ms.observe_session({"state_observed_at": "last tuesday"}, now=NOW)
+    assert obs.state == ms.OBS_UNKNOWN
+    assert obs.at == "last tuesday", "the value we could not read is still shown"
+
+
+def test_the_stale_threshold_comes_from_the_lease_not_a_constant():
+    assert ms._observation_stale_minutes({"ttl_minutes": 45}) == 45.0
+    for bad in ({}, {"ttl_minutes": 0}, {"ttl_minutes": "nope"}, None):
+        assert ms._observation_stale_minutes(bad) == \
+            ms.DEFAULT_OBSERVATION_STALE_MINUTES
+
+
+def test_the_panel_pairs_every_state_with_its_observation_age(tmp_path, monkeypatch):
+    """The whole point of the panel: a state is never published alone."""
+    root = _checklist(tmp_path, {"items": []})
+    (root / ms.SESSIONS_RELPATH).write_text(json.dumps({"sessions": [
+        {"session_id": "session_aaaaaa", "state": "working",
+         "checklist_item": "MI-1", "state_observed_at": "2020-01-01T00:00:00Z"},
+        {"session_id": "session_bbbbbb", "state": "idle",
+         "checklist_item": "MI-2"},
+    ]}), encoding="utf-8")
+    monkeypatch.setattr(wk, "repo_root", lambda: root)
+    with TestClient(app) as client:
+        panel = client.get("/api/bot/work/checklist").json()["sessions"]
+
+    assert panel["present"] is True
+    # `idle` is not a live lane; only working/running/blocked/... are.
+    assert panel["summary"]["live"] == 1
+    assert panel["summary"]["registryRows"] == 2
+    lane = panel["lanes"][0]
+    assert lane["state"] == "working"
+    assert lane["observation"]["state"] == ms.OBS_STALE
+    assert lane["observation"]["ageMinutes"] > 0
+    assert lane["observation"]["note"], "a stale lane must say why it is suspect"
+    assert set(panel["summary"]["byObservationState"]) == set(ms.OBSERVATION_STATES)
+    # The page must never imply a live feed.
+    assert "not a live feed" in panel["note"].lower()
+    assert "list_sessions" in panel["note"]
+
+
+def test_an_unreadable_registry_is_not_an_absence_of_lanes(tmp_path, monkeypatch):
+    root = _checklist(tmp_path, {"items": []})
+    (root / ms.SESSIONS_RELPATH).write_text("{ not json", encoding="utf-8")
+    monkeypatch.setattr(wk, "repo_root", lambda: root)
+    with TestClient(app) as client:
+        panel = client.get("/api/bot/work/checklist").json()["sessions"]
+    assert panel["present"] is False
+    assert panel["readState"] == "unreadable"
+    assert panel["lanes"] == []
+
+
+def test_the_real_registry_grades_every_live_lane():
+    with TestClient(app) as client:
+        panel = client.get("/api/bot/work/checklist").json()["sessions"]
+    if not panel["present"]:
+        pytest.skip(f"registry not readable here: {panel.get('reason')}")
+    by = panel["summary"]["byObservationState"]
+    assert sum(by.values()) == panel["summary"]["live"], "the partition must hold"
+    for lane in panel["lanes"]:
+        assert lane["observation"]["state"] in ms.OBSERVATION_STATES
+        assert lane["observation"]["basis"] in ms.OBSERVATION_BASES

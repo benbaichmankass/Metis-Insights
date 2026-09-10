@@ -614,6 +614,144 @@ def grade_owner(owner: Any, registered: Optional[set[str]]) -> tuple[str, str]:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# The sub-session registry — live lanes, and WHEN each was last looked at
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: ⚠️ **`state` IN `SESSIONS.json` DECAYS AND NOTHING DECAYS IT.** Measured
+#: 2026-09-10T07:47Z by the day manager: `MI-232` and `LANE4-RECOVERY` both read
+#: `working` on `main` while both were IDLE and COMPLETED — false BY TIME
+#: PASSING, not by anyone being wrong when they wrote it; 17 rows were false the
+#: same way on 2026-09-08, one of them 42 minutes after it was written. I
+#: re-confirmed both rows independently on 2026-09-10T08:2xZ against the
+#: coordination board, which carries `✅ DONE` for each.
+#:
+#: **So a surface that renders `state` verbatim will confidently show dead lanes
+#: as running, which is WORSE than no surface** — the operator stops asking
+#: precisely because it looks live. The remedy is NOT to guess a truer state
+#: (nothing here can call `list_sessions`, an `mcp__*` tool no route holds).
+#: It is to publish, beside every state, WHEN IT WAS LAST LOOKED AT and ON WHAT
+#: EVIDENCE, so a `working` observed 90 minutes ago cannot read as one observed
+#: two minutes ago.
+#:
+#: ⚠️ **AND THE TIMESTAMP HAS NO SINGLE HOME, which nothing had recorded.**
+#: MEASURED 2026-09-10 over the 21 live rows in `SESSIONS.json`: the newest
+#: observation sits under **five different key names** — `state_observed_at`
+#: (9), `last_observed` (5, a NESTED OBJECT whose time is `.at`),
+#: `last_observed_at` (4), `confirmed_at` (2), `observed_at` (1) — and ZERO rows
+#: carry none. A reader keying on any one field would grade most of the register
+#: `unknown`. `_OBSERVED_FIELDS` is that list, and the field a row's timestamp
+#: actually came from ships beside it, because the fields do not mean the same
+#: thing (see `OBS_SPAWN_ONLY`).
+
+#: Registry states that mean a lane is supposed to be DOING something. Read from
+#: the file's own values rather than invented: measured 2026-09-10, the register
+#: carries `idle` 119, `archived` 32, `blocked` 12, `completed` 8,
+#: `idle_delivered` 5, `done`/`review_ready`/`failed`/`working` 3 each,
+#: `stalled_poked` 2, `running` 1, and 8 rows with no state at all.
+LIVE_SESSION_STATES = ("working", "running", "blocked", "stalled_poked",
+                       "review_ready")
+
+#: Ordered most-specific-first. `state_observed_at` names the STATE it grades;
+#: the rest are progressively weaker evidence that someone looked.
+_OBSERVED_FIELDS = ("state_observed_at", "last_observed_at", "last_observed",
+                    "observed_at", "supervised_at", "confirmed_at")
+
+#: ⚠️ `spawned_at` IS DELIBERATELY NOT IN THAT LIST. Spawn time is not an
+#: observation of a state — falling back to it would give every row a
+#: timestamp and make the whole register look freshly checked, which is the
+#: reassuring direction and therefore the dangerous one.
+
+OBS_STATE_GRADED = "state_observation"
+OBS_SPAWN_ONLY = "spawn_confirmation"
+OBS_NONE = "none"
+
+#: What KIND of evidence the timestamp is. `spawn_confirmation` is kept apart
+#: because `confirmed_at` on a freshly spawned lane records that the SPAWN
+#: landed — measured, it equals `spawned_at` to within seconds — so nobody has
+#: checked the state since. Reporting that as a state observation would say a
+#: lane was verified when it was only started.
+OBSERVATION_BASES = (OBS_STATE_GRADED, OBS_SPAWN_ONLY, OBS_NONE)
+
+OBS_RECENT = "recent"
+OBS_STALE = "stale"
+OBS_UNKNOWN = "unknown"
+
+#: Three states, never collapsed. `unknown` is *nobody recorded when this was
+#: looked at*, and folding it into `recent` would present an ungraded row as a
+#: checked one. Registered with `collapsed-state-guard` as
+#: `manager_status.observation_state`.
+OBSERVATION_STATES = (OBS_RECENT, OBS_STALE, OBS_UNKNOWN)
+
+#: The staleness horizon, in minutes. NOT invented: it is the manager lease's
+#: own `ttl_minutes` — the repo's declared window after which another session
+#: may seize the lease, i.e. the longest a manager may be silent before the
+#: system stops assuming it is alive. The lease file's value wins when it can be
+#: read; this is the fallback.
+DEFAULT_OBSERVATION_STALE_MINUTES = 90.0
+LEASE_RELPATH = "docs/claude/work/MANAGER-LEASE.json"
+
+
+@dataclass(frozen=True)
+class SessionObservation:
+    """When a registry row's `state` was last looked at, and on what evidence."""
+
+    state: str
+    basis: str
+    at: Optional[str] = None
+    from_field: Optional[str] = None
+    age_minutes: Optional[float] = None
+
+
+def _observation_stale_minutes(lease: Optional[dict[str, Any]]) -> float:
+    if isinstance(lease, dict):
+        raw = lease.get("ttl_minutes")
+        try:
+            value = float(raw)  # type: ignore[arg-type]
+            if value > 0:
+                return value
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_OBSERVATION_STALE_MINUTES
+
+
+def observe_session(
+    row: dict[str, Any], *,
+    now: Optional[datetime] = None,
+    stale_minutes: float = DEFAULT_OBSERVATION_STALE_MINUTES,
+) -> SessionObservation:
+    """Grade ONE registry row's observation freshness. Never raises."""
+    ref = now or datetime.now(timezone.utc)
+    if not isinstance(row, dict):
+        return SessionObservation(OBS_UNKNOWN, OBS_NONE)
+
+    stamp: Optional[str] = None
+    field: Optional[str] = None
+    for key in _OBSERVED_FIELDS:
+        raw = row.get(key)
+        # `last_observed` is a nested object on 5 of the 21 live rows; its time
+        # is `.at`. A reader treating it as a string grades those `unknown`.
+        if isinstance(raw, dict):
+            raw = raw.get("at")
+        if isinstance(raw, str) and raw.strip():
+            stamp, field = raw.strip(), key
+            break
+
+    if stamp is None:
+        return SessionObservation(OBS_UNKNOWN, OBS_NONE)
+
+    basis = OBS_SPAWN_ONLY if field == "confirmed_at" else OBS_STATE_GRADED
+    parsed = _parse_iso(stamp)
+    if parsed is None:
+        # We found a value and could not read it. That is not freshness.
+        return SessionObservation(OBS_UNKNOWN, basis, at=stamp, from_field=field)
+
+    age = max(0.0, (ref - parsed).total_seconds() / 60.0)
+    graded = OBS_RECENT if age < stale_minutes else OBS_STALE
+    return SessionObservation(graded, basis, at=stamp, from_field=field,
+                              age_minutes=age)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Section building
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -1353,8 +1491,20 @@ __all__ = [
     "FILE_COMMIT_UNCOMMITTED",
     "FILE_COMMIT_UNKNOWN",
     "FileCommit",
+    "DEFAULT_OBSERVATION_STALE_MINUTES",
+    "LEASE_RELPATH",
+    "LIVE_SESSION_STATES",
+    "OBSERVATION_BASES",
+    "OBSERVATION_STATES",
+    "OBS_NONE",
+    "OBS_RECENT",
+    "OBS_SPAWN_ONLY",
+    "OBS_STALE",
+    "OBS_STATE_GRADED",
+    "OBS_UNKNOWN",
     "FileRead",
     "Omission",
+    "SessionObservation",
     "Section",
     "StatusReadout",
     "TreeProvenance",
@@ -1364,6 +1514,7 @@ __all__ = [
     "render_expandable_message",
     "grade_owner",
     "pack_messages",
+    "observe_session",
     "read_file_commit",
     "read_json_file",
     "read_tree_provenance",

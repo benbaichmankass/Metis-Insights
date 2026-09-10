@@ -794,6 +794,114 @@ def _checklist_item(
     }
 
 
+#: Why a lane's state may or may not be trusted, per observation grade. The
+#: wording is PRESENTATION for this surface; the grading itself has one owner in
+#: `manager_status.observe_session` and is not re-derived here.
+_OBSERVATION_NOTES = {
+    manager_status.OBS_RECENT: (
+        "Observed within the manager lease's own TTL, so the state below is as "
+        "current as this system can make it."
+    ),
+    manager_status.OBS_STALE: (
+        "⚠️ Nobody has looked at this lane for longer than the manager lease's "
+        "TTL, so its state may simply be OUT OF DATE rather than wrong. "
+        "Measured 2026-09-10: two lanes read `working` while both were idle and "
+        "completed. Do not read the state below as live."
+    ),
+    manager_status.OBS_UNKNOWN: (
+        "⚠️ No usable observation timestamp on this row, so how stale its state "
+        "is could not be established. That is *we did not look*, NOT a fresh "
+        "lane."
+    ),
+}
+
+
+def _sessions_panel() -> dict[str, Any]:
+    """Live lanes from the sub-session registry, WITH how stale each reading is.
+
+    ⚠️ THIS IS NOT A LIVE FEED AND THE PAYLOAD SAYS SO. `list_sessions` is an
+    ``mcp__*`` tool no route holds, so a lane's state is only ever as good as
+    the last MANAGER OBSERVATION written into the registry. Publishing it
+    without that caveat is how a dead lane reads as a running one.
+    """
+    repo = Path(repo_root())
+    read = manager_status.read_json_file(repo / manager_status.SESSIONS_RELPATH)
+    lease = manager_status.read_json_file(repo / manager_status.LEASE_RELPATH)
+    stale_minutes = manager_status._observation_stale_minutes(
+        lease.data if lease.state == "read" else None)
+
+    if read.state != "read":
+        # ⚠️ NOT "no lanes are running". We could not read the register.
+        return {
+            "present": False,
+            "readState": read.state,
+            "reason": read.error,
+            "lanes": [],
+            "summary": {"live": 0, "byObservationState": {
+                s: 0 for s in manager_status.OBSERVATION_STATES}},
+            "staleAfterMinutes": stale_minutes,
+            "note": _SESSIONS_NOTE,
+        }
+
+    rows = read.data.get("sessions")
+    rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    lanes = []
+    by_obs = {s: 0 for s in manager_status.OBSERVATION_STATES}
+    for row in rows:
+        if row.get("state") not in manager_status.LIVE_SESSION_STATES:
+            continue
+        obs = manager_status.observe_session(row, stale_minutes=stale_minutes)
+        by_obs[obs.state] = by_obs.get(obs.state, 0) + 1
+        lanes.append({
+            "sessionId": row.get("session_id"),
+            "title": row.get("title"),
+            "item": row.get("checklist_item"),
+            "object": row.get("owns_object"),
+            "state": row.get("state"),
+            "blockedOn": _jsonable(row.get("needs_action")
+                                   or row.get("depends_on")),
+            "branches": _jsonable(row.get("branches") or (
+                [row["branch"]] if row.get("branch") else [])),
+            "prs": _jsonable(row.get("prs") or (
+                [row["pr"]] if row.get("pr") else [])),
+            "spawnedAt": row.get("spawned_at"),
+            "observation": {
+                "state": obs.state,
+                "basis": obs.basis,
+                "at": obs.at,
+                # The FIELD the timestamp came from. Measured 2026-09-10, the
+                # newest observation lives under five different key names across
+                # the 21 live rows, and they do not mean the same thing — so a
+                # reader must be able to see which one answered.
+                "fromField": obs.from_field,
+                "ageMinutes": (round(obs.age_minutes, 1)
+                               if obs.age_minutes is not None else None),
+                "note": _OBSERVATION_NOTES.get(obs.state, ""),
+            },
+        })
+
+    # Stalest first: the rows most likely to be lying are the ones to read.
+    lanes.sort(key=lambda lane: -(lane["observation"]["ageMinutes"] or 1e9))
+    return {
+        "present": True,
+        "readState": read.state,
+        "asOf": read.data.get("updated_at"),
+        "lanes": lanes,
+        "summary": {"live": len(lanes), "registryRows": len(rows),
+                    "byObservationState": by_obs},
+        "staleAfterMinutes": stale_minutes,
+        "note": _SESSIONS_NOTE,
+    }
+
+
+_SESSIONS_NOTE = (
+    "Session state is only as fresh as the last MANAGER OBSERVATION written "
+    "into docs/claude/work/SESSIONS.json. This is NOT a live feed: reading the "
+    "platform's own session list needs `list_sessions`, an mcp__* tool no API "
+    "route holds. Read each lane's observation age beside its state."
+)
+
+
 def _checklist_payload() -> dict[str, Any]:
     """Build the checklist envelope. Best-effort: never raises to the caller."""
     repo = Path(repo_root())
@@ -843,6 +951,9 @@ def _checklist_payload() -> dict[str, Any]:
             "declaredStates": {},
             "summary": _checklist_summary([], 0),
             "freshness": freshness,
+            # The lanes are a DIFFERENT register: an unreadable checklist says
+            # nothing about whether the session registry can be read.
+            "sessions": _sessions_panel(),
         }
 
     raw_items = read.data.get("items")
@@ -881,6 +992,7 @@ def _checklist_payload() -> dict[str, Any]:
         "items": rows,
         "summary": _checklist_summary(rows, dropped),
         "freshness": freshness,
+        "sessions": _sessions_panel(),
     }
 
 

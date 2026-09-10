@@ -184,6 +184,36 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "manager_status.observation_state",
+        # No `producer_field`, same reason as its two siblings below: the states
+        # are named module constants (`OBS_RECENT = "recent"`).
+        "producer": "src/runtime/manager_status.py",
+        "consumer_token": (r"\bobservation_state\b|\bOBSERVATION_STATES\b|"
+                           r"\bOBS_RECENT\b|\bOBS_STALE\b|\bOBS_UNKNOWN\b|"
+                           r"\bobserve_session\b"),
+        "states": ["recent", "stale", "unknown"],
+        "why": (
+            "`state` in `docs/claude/work/SESSIONS.json` DECAYS and nothing "
+            "decays it. Measured 2026-09-10T07:47Z: `MI-232` and "
+            "`LANE4-RECOVERY` both read `working` on `main` while both were "
+            "IDLE and COMPLETED -- false BY TIME PASSING, not by anyone being "
+            "wrong when they wrote it; 17 rows were false the same way on "
+            "2026-09-08, one of them 42 minutes after it was written. So a "
+            "surface rendering `state` verbatim shows dead lanes as running, "
+            "which is WORSE than no surface: the operator stops asking "
+            "precisely because it looks live. Nothing here can call "
+            "`list_sessions` (an `mcp__*` tool no route holds), so the remedy "
+            "is not a truer state but publishing WHEN the state was last "
+            "looked at. `recent` and `stale` must therefore stay apart -- that "
+            "distinction IS the mechanism -- and `unknown` (*nobody recorded "
+            "when this was looked at*) must not fold into `recent`, which "
+            "would present an ungraded row as a checked one. Measured over the "
+            "21 live rows: 2 recent, 19 stale against the manager lease's own "
+            "90-minute TTL, so the split is discriminating rather than "
+            "decorative."
+        ),
+    },
+    {
         "name": "manager_status.status_basis",
         # No `producer_field`, for the same reason `manager_status.tree_state`
         # below gives: the states are named module constants
