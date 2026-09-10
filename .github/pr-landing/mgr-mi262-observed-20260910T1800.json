@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only (docs/claude/work/**): the MI-262 observation read off the deployed route, and the record of a false positive the manager's own probe produced. No src/, tests/, scripts/, config/, deploy/ or workflow path is touched, and no landing machinery is changed. Recording what was OBSERVED -- including the manager's own reading error -- into the manager's state of record is management, not a build."
+}
