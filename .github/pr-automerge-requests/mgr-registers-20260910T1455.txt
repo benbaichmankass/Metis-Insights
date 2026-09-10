@@ -1,0 +1,1 @@
+arming mgr-registers-20260910T1455 — Tier-1 manager registers split out of #11697; see .github/pr-landing/mgr-registers-20260910T1455.json
