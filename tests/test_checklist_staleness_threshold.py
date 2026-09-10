@@ -124,6 +124,51 @@ def test_an_hour_plus_checklist_still_renders_in_hours():
     assert "5.0h ago" in msg
 
 
+# ── the two REAL readings, captured live while the defect was happening ─────
+#
+# Not synthetic. Both are verbatim `GET /api/bot/work/checklist` freshness
+# blocks taken by the manager session on 2026-09-10, either side of #11711
+# merging — the before-case caught IN THE ACT of the operator's complaint.
+#
+# ⚠️ ASSERT ON `commitSha`, NEVER ON `len(items)`. The stale read served 266
+# items and `main` also carried 266, so the COUNT MATCHED while the content
+# was 87 minutes old. A matching count is not a matching checklist, and a
+# freshness test keyed on it would have passed straight through the defect.
+
+LIVE_BEFORE = {"commitSha": "82905ab829e4", "commitAgeHours": 1.448}   # 17:01Z
+LIVE_AFTER = {"commitSha": "b8cbbbf10585", "commitAgeHours": 0.061}    # 17:04Z
+
+
+def test_the_live_stale_read_that_prompted_this_would_now_warn():
+    """The before-case: served CLEAN at 87 minutes old under the 3.0h floor."""
+    msgs = _checklist_warnings(age_hours=LIVE_BEFORE["commitAgeHours"])
+    assert len(msgs) == 1, "the exact read the operator complained about must warn"
+    assert "1.4h ago" in msgs[0]
+
+
+def test_the_live_fresh_read_stays_clean_at_fifteen_minutes():
+    """The after-case, and the reason 15 minutes is tight rather than noisy.
+
+    MEASURED on the same pair: #11711 merged at 17:00:40Z and the page served
+    it at 17:04:21Z — a **3m41s** push-to-page cycle, so a 15-minute floor sits
+    roughly 4x above the mechanism's own latency and fires on a manager who has
+    genuinely gone quiet rather than on ordinary syncing.
+
+    ⚠️ STATE THE POPULATION: **n = 1** — one merge, one sync cycle. That bounds
+    the latency loosely; it is not a distribution, and 3m41s must not be quoted
+    as "the" sync latency.
+    """
+    assert _checklist_warnings(age_hours=LIVE_AFTER["commitAgeHours"]) == []
+
+
+def test_the_two_live_reads_are_distinguishable_by_the_field_that_moved():
+    """The count matched across both; only `commitSha` and the age moved."""
+    assert LIVE_BEFORE["commitSha"] != LIVE_AFTER["commitSha"]
+    stale = _checklist_warnings(age_hours=LIVE_BEFORE["commitAgeHours"])
+    fresh = _checklist_warnings(age_hours=LIVE_AFTER["commitAgeHours"])
+    assert bool(stale) is not bool(fresh), "the pair must land on opposite verdicts"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # (2) `synced` must justify itself
 # ═══════════════════════════════════════════════════════════════════════════
