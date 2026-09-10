@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01NcYsS6kFNrzxEKcrNy9eXP",
-    "branch": "claude/lane4-stale-automation-landing-20260909",
-    "claimed_at": "2026-09-10T15:35:38Z",
-    "purpose": "WO-20260909 correction: sweeper DEPLOYED, first scheduled run UNOBSERVED (PR #11706). Re-asserted over main after the third slot conflict in 15 minutes."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/mgr-rescue-pit-artifacts-20260910T1320",
+    "claimed_at": "2026-09-10T16:02:01Z",
+    "purpose": "PR #11697 -- THIRTEENTH takeover today, and the count is the point rather than a complaint. Its CI is a correct 20-minute run (comms/ is in pytest-run's full-suite filter DELIBERATELY, added 2026-08-13 as the third recurrence of config-only PRs merging green while reddening main), and automation merges inside that window every time, so a green head is invalidated before auto-merge can fire. Prior claim TERMINAL: #11706 merged as 1b63f7206. Released on merge."
   },
   "active_sessions": [
     {
