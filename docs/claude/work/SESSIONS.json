@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T08:14:52Z",
+  "updated_at": "2026-09-10T09:09:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4393,12 +4393,14 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-directed 2026-09-10, confirmed high priority. Reuses manager_status grading and the existing /api/bot/work/decisions route rather than rebuilding either.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-10T07:37:04Z"
+      "confirmed_at": "2026-09-10T07:37:04Z",
+      "updated_at": "2026-09-10T09:09:00Z",
+      "manager_observation": "MI-238 (engineering): poked 2026-09-10T08:13Z with a manager correction — a Work page ALREADY EXISTS on the deployed SPA and its brief did not say so; told to EXTEND it, not rebuild. Delivery confirmed (cse_ suffix matched the target id). Not re-read since; state below is its last observed value, not a fresh one."
     },
     {
       "session_id": "session_01FyYyybxWC7VD1Rq1doEEdf",
       "registry_key": "pending-20260910T075650Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-241 — apply the F-39 re-attach, all three packages incl. real-money XRPUSDT (Tier-2, operator-approved)",
       "owns_object": "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
       "spawned_at": "2026-09-10T07:56:50Z",
@@ -4406,12 +4408,14 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator approved the XRPUSDT half 2026-09-10T07:52Z (DEC-20260910-F39-REATTACH-XRPUSDT-APPROVED), completing the earlier paper-first approval. Tool already merged as #11630/c88c7ff9e.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-10T07:57:32Z"
+      "confirmed_at": "2026-09-10T07:57:32Z",
+      "updated_at": "2026-09-10T09:09:00Z",
+      "manager_observation": "MI-241 (ops, REAL MONEY): OBSERVED 2026-09-10T09:09Z — IDLE/connected, status_bucket REVIEW_READY, '3 guard checks green; awaiting pytest-run' on claude/mi241-f39-reattach-dispatch. ⚠️ A MANAGER CONCERN RAISED AT 08:42Z IS HEREBY WITHDRAWN, and it is recorded rather than deleted: its task_summary then read 'Hand-run every test in the system-actions module', which is not what it was dispatched to do, and the manager flagged possible drift WITHOUT asserting it. The later read shows it was validating tooling before touching a money DB and is now review_ready. The concern was correctly raised as unestablished and is correctly closed by observation, not by assumption."
     },
     {
       "session_id": "session_01UxsiSgFa9dKwBFw5RTbLGA",
       "registry_key": "pending-20260910T081408Z",
-      "state": "working",
+      "state": "completed",
       "title": "MI-201 — propose the alpaca_live roster expansion (Tier-1 proposal; the roster change itself is Tier-3)",
       "owns_object": "WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH",
       "spawned_at": "2026-09-10T08:14:08Z",
@@ -4419,7 +4423,9 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator asked 2026-09-10 why alpaca_live shows no live trades weeks after reactivation. MI-140's merged verdict (#11271) says it is NOT broken: it was asked twice, both times to short, both suppressed by the operator-directed side_filter: long gate. The real cause is a roster of ONE leg. This row has read ready/unassigned since 2026-09-08 and was never routed.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-10T08:14:52Z"
+      "confirmed_at": "2026-09-10T08:14:52Z",
+      "updated_at": "2026-09-10T09:09:00Z",
+      "manager_observation": "MI-201 (research): DELIVERED. PR #11665 merged as 145101e54 — the alpaca_live roster screen. Its answer supersedes the manager's earlier relay: shorting_enabled: false on the account, so all three post-arming packages were unexecutable AT THE VENUE before side_filter was consulted. Option A approved by the operator 09:0xZ and spawned as MI-247."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
