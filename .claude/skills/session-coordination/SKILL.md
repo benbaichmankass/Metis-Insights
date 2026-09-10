@@ -96,6 +96,18 @@ contract + generation discipline. This skill adds the two missing halves:
    that, and the object id can. If you are MANAGING, the lease
    (`scripts/ops/manager_lease.py status`) and the sub-session registry
    (`docs/claude/work/SESSIONS.json`) are separate obligations; see `CLAUDE.md`.
+   ⚠️ **AND IF YOU ARE MANAGING, `docs/claude/work/MANAGER-CHECKLIST.json` IS A
+   PUBLISHED SURFACE, NOT A PRIVATE NOTE** (operator, 2026-09-10). It is served
+   to the operator as the live **Workflow page** on the SPA via
+   `GET /api/bot/work/checklist`, which reads the file on the VM's working
+   tree. So **push the checklist BEFORE you answer a status request, not
+   after** — the page is exactly as fresh as your last push plus
+   `ict-git-sync`'s ~5-minute pull, and answering first hands the operator a
+   chat message and a page that contradict it. There is no separate "update
+   the page" step, which is the point. The page carries the checklist's own
+   commit sha, time and age, so a stale one announces itself to the OPERATOR
+   rather than only to a guard — that is the enforcement, not a licence to
+   push late.
 
 > ⚠️ **EVERY board post goes through `add_issue_comment`. NEVER `issue_write
 > method=update` — that REPLACES the issue body and destroys the board's pinned

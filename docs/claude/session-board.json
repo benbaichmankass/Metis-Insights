@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "MI-201 · session_01UxsiSgFa9dKwBFw5RTbLGA",
     "branch": "claude/mi201-session-end-doc-landing",
-    "claimed_at": "2026-09-10T09:25:00Z",
-    "purpose": "PR #11673 — MI-201 session-end doc-freshness landing: the M15 ROADMAP row learns a Tier-3 roster change was PROPOSED and is held on an operator decision, and the 2026-08-25 affordability sweep gains a supersession caveat. Docs only. Mirrored on the coordination board; released on merge."
+    "claimed_at": "2026-09-10T09:35:00Z",
+    "purpose": "PR #11673 — MI-201 session-end doc-freshness landing (ROADMAP M15 row + a supersession caveat). Docs only. Released on merge."
   },
   "active_sessions": [
     {
