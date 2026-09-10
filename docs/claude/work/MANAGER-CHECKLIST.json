@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-10T06:11:11Z",
+  "updated_at": "2026-09-10T07:06:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -3088,9 +3088,45 @@
       "blocked_on": "",
       "note": "CYCLE PRIORITY CY-20260906-TRADING-TRUTH, and the measurement-before-acting case that priority names: the instrument now works and reports worse than anyone believed. Owns WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES under IN-20260903-TRADING-SYSTEM-HEALTH. POPULATION IS COMPLETE, NOT A SAMPLE (ungradeable 0, overlapping 0, unattributed_rows 0): 442 process boundaries, 77 breached = 17.4%, max 210409 ms = 3.51x the 60s requirement; within-process over the same file 1216/67444 = 1.803%, max 120189 ms. THE COMPARISON IS THE FINDING — a restart boundary breaches ~10x more often than a within-process interval, and a deploy is exactly when the trader is least likely to be evaluating exits. ⚠️ The within-process half is a RECURRENCE against a row marked `resolved` (1204 -> 1216), so that the earlier fix did not hold is part of what is being explained. ⚠️ 0 -> non-zero is the mechanism STARTING TO WORK, not a regression; the OPEN-ITEMS row predicted `within` and the complete read contradicts it. ⚠️ SCOPE: INVESTIGATE AND PROPOSE ONLY. The measurement is Tier-1 and DONE; the cause and any remedy are Tier-2+ and go to the operator as an exact proposal with its rollback stated, never applied. No env knob armed, no order path touched, no order placed, modified or cancelled on any account.",
       "manager_note": "2026-09-10T06:11Z. Spawned + registered (pending-20260910T061026Z -> confirmed). Object created via capture_idea after spawn_gate correctly REFUSED a spawn naming no parent object."
+    },
+    {
+      "id": "DEC-20260910-ROLLBACK-REGISTRY-EXERCISE-IT",
+      "state": "queued",
+      "owner": "unassigned — next free slot",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "title": "OPERATOR DECIDED: exercise the intent-layer rollback on a trader and observe one tick",
+      "note": "OPERATOR DECISION 2026-09-10 via popup, chosen: 'Exercise it — flip the flag on a trader and observe one tick'. SCOPE: Tier-2 — set MULTI_STRATEGY_INTENT_LAYER=false on a trader, observe ONE tick, confirm the FULL declared roster evaluates (45 execution:live) rather than a subset, then flip back. WHY: MI-229 repaired a rollback that had rotted to routing 16 of 55 strategies, so exercising it would have stopped 35 of 45 live legs while LOOKING like it worked. Nobody has ever run it, before or after, so a repaired rollback and a broken one are still indistinguishable. ⚠️ CLEARS OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED clause (a). ⚠️ QUEUED NOT SPAWNED: the operator's own cap is 3 concurrent sessions (MI-64) and the manager was at 3."
+    },
+    {
+      "id": "DEC-20260910-CLOSED-FLAT-PLANT-A-VIOLATION",
+      "state": "queued",
+      "owner": "unassigned — next free slot",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "title": "OPERATOR DECIDED: fund a lane to plant a closed-flat violation and observe it end to end",
+      "note": "OPERATOR DECISION 2026-09-10 via popup, chosen: 'Fund a lane to plant a violation and observe it end-to-end'. SCOPE: plant a controlled violation; confirm it reaches BOTH /api/diag/log_file?name=invariant_violations AND the operator as a Level.ERROR. Alert-only — touches no order path. WHY: the closed->exchange-flat invariant is the ONE mechanism that can independently contradict 'this trade is closed', and it was silent for four independent reasons — including reading size from a field clients.py never populates, so a live residual graded FLAT on every account from the module's first commit. A continued zero clears nothing: that is exactly what the broken state looked like. ⚠️ CLEARS OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN. ⚠️ FIRST IN THE QUEUE when a session slot frees."
+    },
+    {
+      "id": "DEC-20260910-MI-29-MEASURE-THE-STARVED-LEGS-FIRST",
+      "state": "queued",
+      "owner": "unassigned — next free slot",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "title": "OPERATOR DECIDED: measure which legs are starved and how often BEFORE any Tier-3 disposition",
+      "note": "OPERATOR DECISION 2026-09-10 via popup, chosen: 'Route it — measure which legs, how often, and bring the options back'. This UNBLOCKS MI-29, which had been blocked on the operator since 2026-09-01. SCOPE: measurement only — which legs, how many ticks they lost a contest, and whether the per-account arbitration fan-out (armed on bybit_1 since 2026-08-31) already covers some of them. NO Tier-3 disposition is proposed off the existing evidence: the instrument has not been re-measured since the fan-out was armed, so some 'never traded' legs may now be trading. That is the cycle priority applied — repair the measurement before acting on it."
+    },
+    {
+      "id": "POLICY-20260910-NO-RETIREMENT-THE-FLOOR-IS-PAPER",
+      "state": "done",
+      "owner": "manager",
+      "added": "2026-09-10",
+      "blocked_on": "",
+      "title": "OPERATOR POLICY: no strategy retirement — the lowest rank is paper-only, underperformers are tweaked and re-tested",
+      "note": "OPERATOR POLICY 2026-09-10, recorded verbatim in docs/claude/SUNSET-DISPOSITIONS.json::_standing_policy. Retirement is off the table until the sunsetting infra and processes are reliable enough; the LOWEST rank a strategy may hold is trading on PAPER; nothing is left that is not accruing data; underperformers are tweaked and re-tested because the experiments are how the system generates data and gets tested. ⚠️ THIS IS THE THIRD TIME THE OPERATOR HAS ANSWERED IT — 2026-09-04 (DEC-20260904-DEMOTE-AND-TUNE-FLOW, recorded on turtle_soup as operator_decision `refused`), a re-affirmation logged as MI-203, and again today, when THIS MANAGER re-asked it. Cause: the CLAUDE.md session brief renders the sunset candidate list from the sunset PASS and never reads the dispositions register, so every fresh session sees ten undecided candidates. Filed as its own defect. `done` because the DECISION is settled; the brief defect is the open work."
     }
   ],
-  "as_of": "2026-09-10T06:11:11Z",
+  "as_of": "2026-09-10T07:06:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "updated": "2026-09-08"
 }
