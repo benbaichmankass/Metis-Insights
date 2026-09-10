@@ -329,6 +329,14 @@ class _T:
     def __init__(self, **kw):
         self.state = ms.TREE_SYNCED
         self.behind_commits = 0
+        # ⚠️ A HEALTHY TREE NOW REQUIRES A RECENT FETCH, and this default is
+        # the change (MI-262, 2026-09-10). `synced` compares HEAD against the
+        # LOCAL `origin/main` ref, and `deploy_pull_restart.sh` hard-resets
+        # HEAD to it right after fetching — so on the live VM the equality
+        # holds BY CONSTRUCTION and `behind_commits: 0` is guaranteed rather
+        # than measured. A stub with no fetch age is therefore not a healthy
+        # tree; it is one whose currency cannot be established.
+        self.main_ref_age_hours = 1.0 / 60.0
         self.note = ""
         self.__dict__.update(kw)
 
@@ -355,6 +363,10 @@ def test_a_healthy_page_produces_no_warnings():
     (_T(), _C(age_hours=3.4), "last COMMITTED 3.4h ago"),
     (_T(), _C(dirty=True), "differs from its last commit"),
     (_T(), _C(dirty=None), "could not be established"),
+    # MI-262: `synced` has to justify itself. Both of these describe a tree
+    # that reports `synced` / `behind 0` and is still not to be trusted.
+    (_T(main_ref_age_hours=45.0 / 60.0), _C(), "last FETCHED 45m ago"),
+    (_T(main_ref_age_hours=None), _C(), "last FETCHED could not be established"),
 ])
 def test_each_staleness_condition_announces_itself(tree, commit, expect):
     warnings = wk._freshness_warnings(tree, commit)
