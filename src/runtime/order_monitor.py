@@ -3828,8 +3828,7 @@ def _recover_orphan_attribution(
     magnitude outside anything the named strategy has ever traded. Trade 5453
     was attributed to ``pairs_sol_eth_b`` at 17.67 ETHUSDT against that sleeve's
     observed maximum of 2.10, and the pairs executor flattened it 14.09 s later
-    (``BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-
-    SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW``).
+    (``BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW``).
 
     ⚠️ **``position_size`` IS OPT-IN PER CALL SITE, AND THAT IS A SAFETY
     PROPERTY RATHER THAN A CONVENIENCE.** Passing it consults

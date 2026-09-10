@@ -14,8 +14,7 @@ strategy (which would apply the wrong exit rules)" — **that claim is false, an
 this module exists because it was measured false** (field beats comment; the
 docstring is corrected in the same change).
 
-MEASURED, MI-204, 2026-09-08 (``BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-
-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW``), and
+MEASURED, MI-204, 2026-09-08 (``BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW``), and
 re-verified against the live journal 2026-09-10. Trade 5453: ``bybit_1``
 ETHUSDT long **17.67**, adopted and attributed to ``pairs_sol_eth_b``, closed
 **14.09 s** later by ``pairs_half_open_cleanup`` — the pairs executor flattened
