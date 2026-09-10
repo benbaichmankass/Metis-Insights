@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · work-digest run 34456533719",
-    "branch": "automation/work-digest-34456533719-1",
-    "claimed_at": "2026-09-10T09:01:17Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "MI-201 · session_01UxsiSgFa9dKwBFw5RTbLGA",
+    "branch": "claude/mi201-session-end-doc-landing",
+    "claimed_at": "2026-09-10T09:25:00Z",
+    "purpose": "PR #11673 — MI-201 session-end doc-freshness landing: the M15 ROADMAP row learns a Tier-3 roster change was PROPOSED and is held on an operator decision, and the 2026-08-25 affordability sweep gains a supersession caveat. Docs only. Mirrored on the coordination board; released on merge."
   },
   "active_sessions": [
     {
