@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-09T21:15:00Z",
+  "updated_at": "2026-09-09T23:45:00Z",
   "cycle": "CY-20260903-MANAGER-CONTROL",
   "states": {
     "done": "merged AND its effect observed",
@@ -2771,7 +2771,11 @@
       "priority": "high",
       "tier": "tier_3",
       "added": "2026-09-09",
-      "note": "OPERATOR-DIRECTED 2026-09-09. ⚠️ THIS NOTE WAS REWRITTEN THE SAME DAY BECAUSE ITS FIRST VERSION WAS THE WRONG SHAPE. It read \"DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM\", and the operator rejected that framing outright: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question... it's that you don't understand how the system works. that's what we need to fix here, not the question\". THE PROHIBITION IS RETRACTED. Ask whatever you need to, window and floor included. Banning a question suppresses the symptom and leaves the misunderstanding intact, so the next session fails in a NEW way instead of asking a better question. THE THING TO CARRY IS THE MODEL, NOT A RULE: (1) EDGE is established OFFLINE — this repo has extensive backtesting infrastructure built for exactly that (purged walk-forward CV, replay_pregate_fleet, the point-in-time backfills), and that is where 'does this strategy work' is answered. (2) LIVE data establishes MECHANICS ONLY — that executions match the simulator — which canon says needs 1-2 executed trades, not calendar time. (3) SLOW LIVE ACCRUAL IS A FEATURE OF THE SYSTEM, NOT A BARRIER TO OVERCOME: a leg closing ~1.2 trades a week is not a problem to engineer around, and `none_gradeable` on a live window is not a defect. (4) Fewer legs does NOT raise trades-per-leg, and on paper accounts every leg runs regardless — the manager recommended that lever and the operator rejected it. WHAT THE WORK ACTUALLY IS: the review/validation layer is built on a LIVE-ACCRUAL model of evidence while the system's real evidence engine is the BACKTEST infrastructure. MIN_CLOSED_FOR_ACTION is a symptom of that mismatch, not the defect. The operator's own framing: \"our overall operation is clearly not built to suit the system's structure.\" THE RULE THIS CONTRADICTS ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), scope explicitly STRATEGY legs, clause 3 'No gate may require calendar-time accrual to prove edge', and it already names this as 'the recurring drift this rule kills'. THE GUARD HALF MUST ENFORCE THE RULE, NOT A PHRASE: a gate producing a STRATEGY verdict must source its edge from offline evidence. A guard that greps for forbidden words is the same wrong shape one level down. Keep the positive control — a guard silent because it scans nothing is indistinguishable from one silent because all is well. Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Retiring a strategy leg is Tier-3 and is not the answer here. Manager does not take this — it is ROUTED to session_01MrTjuoRpBb7spyQLydXmmT, which has been sent this correction directly."
+      "note": "OPERATOR-DIRECTED 2026-09-09. ⚠️ THIS NOTE WAS REWRITTEN THE SAME DAY BECAUSE ITS FIRST VERSION WAS THE WRONG SHAPE. It read \"DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM\", and the operator rejected that framing outright: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question... it's that you don't understand how the system works. that's what we need to fix here, not the question\". THE PROHIBITION IS RETRACTED. Ask whatever you need to, window and floor included. Banning a question suppresses the symptom and leaves the misunderstanding intact, so the next session fails in a NEW way instead of asking a better question. THE THING TO CARRY IS THE MODEL, NOT A RULE: (1) EDGE is established OFFLINE — this repo has extensive backtesting infrastructure built for exactly that (purged walk-forward CV, replay_pregate_fleet, the point-in-time backfills), and that is where 'does this strategy work' is answered. (2) LIVE data establishes MECHANICS ONLY — that executions match the simulator — which canon says needs 1-2 executed trades, not calendar time. (3) SLOW LIVE ACCRUAL IS A FEATURE OF THE SYSTEM, NOT A BARRIER TO OVERCOME: a leg closing ~1.2 trades a week is not a problem to engineer around, and `none_gradeable` on a live window is not a defect. (4) Fewer legs does NOT raise trades-per-leg, and on paper accounts every leg runs regardless — the manager recommended that lever and the operator rejected it. WHAT THE WORK ACTUALLY IS: the review/validation layer is built on a LIVE-ACCRUAL model of evidence while the system's real evidence engine is the BACKTEST infrastructure. MIN_CLOSED_FOR_ACTION is a symptom of that mismatch, not the defect. The operator's own framing: \"our overall operation is clearly not built to suit the system's structure.\" THE RULE THIS CONTRADICTS ALREADY EXISTS AND IS BINDING: docs/CLAUDE-RULES-CANONICAL.md § 'Promotion evidence — offline edge, live mechanics' (2026-07-26), scope explicitly STRATEGY legs, clause 3 'No gate may require calendar-time accrual to prove edge', and it already names this as 'the recurring drift this rule kills'. THE GUARD HALF MUST ENFORCE THE RULE, NOT A PHRASE: a gate producing a STRATEGY verdict must source its edge from offline evidence. A guard that greps for forbidden words is the same wrong shape one level down. Keep the positive control — a guard silent because it scans nothing is indistinguishable from one silent because all is well. Tier-3 where it changes what a KILL/DEMOTE rests on: propose, do not enact. Retiring a strategy leg is Tier-3 and is not the answer here. Manager does not take this — it is ROUTED to session_01MrTjuoRpBb7spyQLydXmmT, which has been sent this correction directly.",
+      "status": "in_flight",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11587 (MI-216, the producer) at its FIFTH conflict — every one a manager register write landing under it, which is a QUEUE failure and mine. Slot given to it 23:43Z; the manager's own register PR is written and HELD unpushed until it merges. git merge-tree vs current main: zero conflict markers. It declares landing: hold and awaits ONE manager merge click once CI is green."
+      ]
     },
     {
       "id": "MI-214-PROP-STATUS-REQUEST-ASKS-WHEN-NOTHING-HAS-CHANGED",
@@ -2924,6 +2928,10 @@
         "2026-09-09T20:20Z LANDED AND VERIFIED ON MAIN as 566c0ff4c - read off origin/main, not assumed, and docs/audits/full-system-audit-2026-09-09.md is present there. Deliverables verified by COUNT rather than by the PR body's claim: performance-review-backlog 117 rows of which 3 dated 20260909 (matches the declared 3); OPEN-ITEMS 69 rows of which 3 dated today, including the carrier OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING with loud: true, kind: monitoring, verified_at 2026-09-09. health-review-backlog is 1409 rows with 58 dated today, which is MORE than the audit's declared 16 - the rest are today's other lanes, so that number does NOT corroborate the audit's 16 on its own and is not quoted as if it did. Its CI restarted THREE times (19:11, 19:33, 19:55) and two of those restarts were mine - see MI-226's note and the R13 backlog row.",
         "2026-09-09T21:15Z: the operator asked for 'any decisions that are waiting for me as pop ups'. !! THE 2026-09-08 PRECEDENT WAS READ FIRST AND IS WHY THIS WAS DONE IN THE CHAT: WO-20260908-DECISION-BE-FLOOR-R-ARM-NOTHING's answer block records that the LAST manager to get this exact phrasing built Telegram delivery instead of rendering the questions, and the operator had to ask twice. Four of the audit's six were rendered as an AskUserQuestion picker and ANSWERED; each is recorded on its own object with an answer block (F-29 Tier-3, F-36 Tier-2 order path, F-28 Tier-2 signal path, F-50 Tier-2 observability). TWO REMAIN UNASKED: F-11 and F-39. !! NONE ARE BUILT - WIP was 8 of 8 in_flight, so all four objects are `ready` and no lane was spawned. Measured while checking: the decision inbox holds 19 requests (17 committed, 2 awaiting the operator) plus 2 unanswerable operator edges; the two pending ones HAD already been delivered to ClaudeBot (suppressed_reached_preferred: 2), so they are un-tapped rather than undelivered.",
         "2026-09-09T21:30Z manager: work object WO-20260909-THE-FULL-SYSTEM-AUDIT-AGREED-... closed (it read in_flight while the audit was on main). WIP 8 -> 6 with MI-226's, so two lanes are free."
+      ],
+      "status": "done",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] MERGED AND OBSERVED. #11571 landed 566c0ff4c; 68 findings, 19 backlog rows, nothing remediated (correct, per the object's must_not). All SIX operator decisions are now answered AND written into the backlog row each corresponds to — five annotated surgically, the sixth (F-50) filed as BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS, which turned out to be a RECURRENCE of the resolved BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
       ]
     },
     {
@@ -2939,6 +2947,10 @@
         "WHY THIS IS THE ONLY LANE ROUTED: the WIP ceiling read 7 of 8 in_flight when the audit landed, and this object takes it to exactly 8. Nothing further can be spawned until something closes. That is a stated constraint on routing, not a judgement that the other 67 findings matter less - they are FILED in the two review backlogs, which are the review lanes' standing to-do list.",
         "The six operator decisions are NOT routed and must not be: they are Tier-2/Tier-3 and the work object's must_not says the operator decides. They are carried by the loud OPEN-ITEMS row.",
         "2026-09-09T21:30Z manager: PR #11592 MERGED as 92f44a226; work object closed. landed_unproven NOT done — the new instrument scripts/ci/check_guard_selftest_coverage.py has NOT been observed grading on a PR other than the one that introduced it, which is the arming half. Coverage 52 -> 58 of 80. F-61 REFUTED on all four named instances (they ARE invoked; the audit's probe used a single-line grep against argv wrapped over two lines) — class is 4, not 8, and the audit doc was corrected in the same PR."
+      ],
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11592 merged 92f44a226; coverage 52 -> 58 of 80, F-61 REFUTED on all four named instances. NOT done: the new instrument has never graded on a PR other than the one that introduced it — registered, not armed."
       ]
     },
     {
@@ -2952,7 +2964,11 @@
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
-      "work_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG"
+      "work_object": "WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG",
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11604 MERGED BY THE MANAGER 2026-09-09T23:4xZ as 7b8b6b51, all five checks green, landing: hold, operator Tier-2 order-path approval recorded and NOT re-sought. DEPLOY MEASURED 2026-09-09T23:56:04Z: /api/diag/version git_sha 7b8b6b51d == the merge commit, so the RUNNING trader carries it (git_sha_on_disk 4230ef10b + restart_pending true is ordinary steady state). NOT done: the resize has never run on a live reduce, and the PR states the Bybit qty-on-amend contract is from the V5 docs and unverified against the venue. The fully-consumed-parent case is COUNTED, not fixed."
+      ]
     },
     {
       "id": "MI-228-CLOSED-FLAT-INVARIANT-CANNOT-FALSIFY",
@@ -2965,7 +2981,11 @@
       ],
       "opened_at": "2026-09-09",
       "tier": 2,
-      "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ"
+      "work_object": "WO-20260909-DECISION-CLOSED-FLAT-INVARIANT-CANNOT-SEE-A-FAILED-READ",
+      "status": "landed_unproven",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] #11603 merged a34bc556. A FOURTH blindness was found while building and it subsumes the other three: the size was read from qty/contracts while account_open_positions normalises all four venues to `size`, so every live residual graded FLAT since the module's first commit. Carried by OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN; a planted violation has NOT been observed reported end to end."
+      ]
     },
     {
       "id": "MI-229-ROLLBACK-BUILDER-REGISTRY-IS-AN-OUTAGE",
@@ -2977,6 +2997,10 @@
       "work_object": "WO-20260909-DECISION-THE-ROLLBACK-REGISTRY-IS-AN-OUTAGE",
       "notes": [
         "2026-09-09T23:07Z manager: SPAWNED. Registered before the spawn (pending-20260909T230624Z), confirmed after. Routed once WIP fell to 7 of 8 on #11603 merging. ⚠️ DELETING THE SECOND REGISTRY IS THE POINT — the operator was offered a parity test alone and chose the collapse over it, so a test-only delivery is not this item. ⚠️ Scoped OFF src/units/accounts/execute.py and scripts/ops/system_invariants.py, where MI-227 is live resolving a conflict."
+      ],
+      "status": "in_flight",
+      "manager_notes": [
+        "[2026-09-09T23:45:00Z] session_01TM8XjkvVpvMxH4EcLtTsvP RUNNING at 23:41Z on claude/mi229-collapse-builder-registry, 'guards running, PR opening'. Building the COLLAPSE the operator chose, not the parity test they declined."
       ]
     }
   ],
