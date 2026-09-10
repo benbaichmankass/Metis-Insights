@@ -11,22 +11,17 @@ from src.news.news_client import is_active as news_is_active
 from src.news.news_audit import log_news_decision
 from src.news.news_symbols import query_for_tags
 from src.news.news_events import event_risk_for_symbol
-# PR-6: signal builder functions extracted to strategy_signal_builders.py.
-# Re-exported here for back-compat (existing callers + tests import from pipeline).
+# PR-6: signal builder functions live in strategy_signal_builders.py.
+# ONLY the four the ``STRATEGY=<name>`` env override names directly are
+# imported here. The other twelve used to be imported for the sole purpose of
+# populating ``_STRATEGY_BUILDERS`` -- the SECOND builder registry deleted on
+# 2026-09-09 (audit F-28, MI-229). Re-adding a builder import here to build
+# another name->builder map is the re-split
+# ``tests/test_strategy_builder_registry_single_home.py`` fails on.
+# ``turtle_soup_signal_builder`` is additionally re-exported for back-compat
+# (``tests/test_s012_pipeline.py`` imports it from this module).
 from src.runtime.strategy_signal_builders import (  # noqa: E402
-    fade_breakout_4h_signal_builder,
-    fvg_range_15m_signal_builder,
-    htf_pullback_trend_2h_signal_builder,
-    mes_trend_long_1d_signal_builder,
-    mgc_pullback_1d_signal_builder,
-    mhg_pullback_1d_signal_builder,
-    squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
-    trend_donchian_1h_signal_builder,
-    trend_donchian_eth_signal_builder,
-    trend_donchian_eth_prop_signal_builder,
-    trend_donchian_sol_signal_builder,
-    trend_donchian_sol_prop_signal_builder,
     trend_donchian_signal_builder,
     turtle_soup_signal_builder,
     vwap_signal_builder,
@@ -368,71 +363,46 @@ STRATEGIES = _strategies_from_registry()
 # ``strategy-risk-guard`` CI check forbids re-introducing a per-strategy risk
 # field.
 
-_STRATEGY_BUILDERS: Dict[str, Callable[[dict], Dict[str, Any]]] = {
-    "turtle_soup": turtle_soup_signal_builder,
-    "vwap": vwap_signal_builder,
-    # ict_scalp_5m is live since 2026-05-14 (PR #1156, operator-approved
-    # post pre-live gate). The builder honours the YAML enabled flag as
-    # single source of truth — flipping enabled=false short-circuits to
-    # side="none" without code changes. Do not edit enabled here on the
-    # basis of any stale-comment-driven claim; see config/strategies.yaml
-    # § ict_scalp_5m STATUS block and the 2026-05-17 incident addendum.
-    "ict_scalp_5m": ict_scalp_signal_builder,
-    # trend_donchian — Donchian-breakout trend-follower going live on
-    # bybit_2 (real money) per docs/sprint-plans/TREND-GOLIVE-PLAN-
-    # 2026-05-23.md. Builder honours the YAML `enabled` flag as the
-    # single source of truth.
-    "trend_donchian": trend_donchian_signal_builder,
-    # fade_breakout_4h — the trend-follower's mirror (fades failed
-    # breakouts in chop). Wired execution:shadow (S9, 2026-05-24): runs +
-    # logs on real ticks for data collection, never sends a live order.
-    # Builder honours the YAML `enabled` flag.
-    "fade_breakout_4h": fade_breakout_4h_signal_builder,
-    # squeeze_breakout_4h — volatility-squeeze breakout, the validated
-    # member-#3 candidate. Wired execution:shadow (S9, 2026-05-24) for
-    # live data collection; never sends a live order. Honours `enabled`.
-    "squeeze_breakout_4h": squeeze_breakout_4h_signal_builder,
-    # htf_pullback_trend_2h — HTF-pullback trend-follower (overnight research
-    # 2026-06-01). Wired execution:shadow for live data collection; never
-    # sends a live order. Cleared net-of-fee + walk-forward + 3-fold + fee +
-    # correlation. Honours the YAML `enabled` flag.
-    "htf_pullback_trend_2h": htf_pullback_trend_2h_signal_builder,
-    # trend_donchian_1h — faster-TF/wider-trail shadow A/B of the live 2h
-    # trend_donchian (overnight research 2026-06-01). Distinct instance reusing
-    # the trend_donchian unit via its own config; execution:shadow, never sends
-    # a live order. Honours the YAML `enabled` flag.
-    "trend_donchian_1h": trend_donchian_1h_signal_builder,
-    # trend_donchian_sol / _eth — PROP-account alt variants (PB-20260616-004).
-    # Reuse the trend_donchian unit on SOLUSDT / ETHUSDT, routed to the Breakout
-    # manual-bridge account (ticket emit, no live exchange order). SOL execution:
-    # live, ETH execution: shadow. Honour the YAML `enabled` flag.
-    "trend_donchian_sol": trend_donchian_sol_signal_builder,
-    "trend_donchian_eth": trend_donchian_eth_signal_builder,
-    # SWAP-ROBUST prop exit variants (Unit C, Phase 0, 2026-06-29; DRAFT Tier-3).
-    # Tightened-exit (trail_mult 3.5 / tp_r 6.0) prop-only siblings of
-    # trend_donchian_sol/_eth on breakout_1; both execution: shadow (observe-only
-    # soak until the prop EV/survival gate passes). Honour the YAML `enabled` flag.
-    "trend_donchian_sol_prop": trend_donchian_sol_prop_signal_builder,
-    "trend_donchian_eth_prop": trend_donchian_eth_prop_signal_builder,
-    # mes_trend_long_1d — MES daily LONG-ONLY trend-follower (overnight research
-    # 2026-06-01). BTC-uncorrelated equity-index diversifier on IBKR ib_paper;
-    # reuses the trend_donchian unit, suppresses shorts. execution:shadow, never
-    # sends a live order. Honours the YAML `enabled` flag.
-    "mes_trend_long_1d": mes_trend_long_1d_signal_builder,
-    # mgc_pullback_1d / mhg_pullback_1d — the WS-A metals sleeve (2026-06-02).
-    # Micro Gold (MGC) + Micro Copper (MHG) daily HTF-pullback diversifiers on
-    # IBKR ib_paper; both reuse the htf_pullback_trend_2h unit (trade both
-    # directions — no long-only gate). execution: live (paper money; ib_paper
-    # exists to test strategies so it executes). Honour the YAML `enabled` flag.
-    "mgc_pullback_1d": mgc_pullback_1d_signal_builder,
-    "mhg_pullback_1d": mhg_pullback_1d_signal_builder,
-    # fvg_range_15m — FVG mean-reversion inside a confirmed STATIC horizontal
-    # range (the range member the roster was missing; the deliberate opposite
-    # of ict_scalp's directional FVG continuation). Wired execution:shadow
-    # (2026-05-30) for live data collection; never sends a live order.
-    # Honours the YAML `enabled` flag as the single source of truth.
-    "fvg_range_15m": fvg_range_15m_signal_builder,
-}
+def strategy_builders() -> Dict[str, Callable[[dict], Dict[str, Any]]]:
+    """The ONE strategy → builder roster. There is no second one, deliberately.
+
+    Until 2026-09-09 this module carried its own ``_STRATEGY_BUILDERS`` dict
+    beside the intent layer's ``_default_intent_builders()``, and the two were
+    kept in step by nothing at all. **Measured on 2026-09-09 (audit F-28,
+    re-measured here before the change): 55 names in the intent roster, 16 in
+    this module's, 39 missing — and 35 of the 45 ``execution: live`` legs (78%)
+    were among the missing.** ``multiplexed_signal_builder`` is what
+    ``MULTI_STRATEGY_INTENT_LAYER=false`` selects, and that flag is documented
+    below as *the* rollback — *"fall back to it without a code change"*. So the
+    sanctioned rollback was a **78% capability outage**, and it presented as
+    ordinary log noise: one ``logger.warning`` per missing leg per tick and
+    then ``continue``. Nothing failed; the legs simply stopped.
+
+    Operator decision, 2026-09-09 (``DEC-20260909-ROLLBACK-BUILDER-REGISTRY``,
+    ``chosen: collapse_to_one_registry``): **collapse, do not police.** A parity
+    test over two registries leaves the duplication that produced the drift; one
+    registry cannot drift from itself.
+
+    ⚠️ **THE COLLAPSE IS BEHAVIOUR-PRESERVING FOR THE 16 LEGS THAT WORKED, AND
+    THAT IS MEASURED RATHER THAN ASSUMED.** All 16 names in the deleted dict
+    resolved to the *identical builder object* in the intent roster (checked by
+    ``is``, not by name, before the deletion — the deleted dict was a strict
+    SUBSET of the roster, with zero names of its own). So the rollback path now
+    calls exactly the same callable for those 16 and gains the other 39.
+
+    ⚠️ **This is a resolution, NOT a store.** It holds no state and caches
+    nothing; the roster is owned by ``intent_multiplexer._resolve_builders()``,
+    which merges ``_default_intent_builders()`` with any test registration. The
+    import is local because ``intent_multiplexer`` imports from this module —
+    a module-level import would be circular at load time. It is deliberately
+    **not** wrapped in ``try/except``: a rollback that cannot resolve its roster
+    must fail loudly rather than resolve to an empty dict and silently trade
+    nothing, which is the exact failure mode this change exists to remove.
+    (``monitor_unit_for`` keeps its own permissive fallback — see there for why
+    the two differ.)
+    """
+    from src.runtime.intent_multiplexer import _resolve_builders
+    return _resolve_builders()
 
 
 def monitor_unit_for(strategy_name: str) -> str:
@@ -449,20 +419,31 @@ def monitor_unit_for(strategy_name: str) -> str:
     The drift guard ``tests/test_strategy_monitor_unit_resolution.py`` fails
     CI if any registered strategy resolves to a module with no ``monitor()``.
 
-    Roster note (BL-20260615-MGCNAKED): the IBKR/FX symbol sleeves
-    (``mgc_trend_1h``, ``xauusd_trend_1h``, ``spy_trend_long_1d``,
-    ``qqq_trend_long_1d``, ``gld_pullback_1d``, ``eth_pullback_2h``) live ONLY
-    in the intent-layer roster (``intent_multiplexer``), not in the legacy
-    ``_STRATEGY_BUILDERS`` below — signal generation runs through the intent
-    layer (``MULTI_STRATEGY_INTENT_LAYER`` default on). Without consulting that
-    superset roster, ``monitor_unit_for`` returned the strategy name verbatim
-    for those sleeves, the order-monitor failed to import a same-name module
-    (``No module named 'src.units.strategies.mgc_trend_1h'``), and their
-    positions ran with NO active ``monitor()`` — only static SL/TP, which is
-    how a netted IBKR MGC long drifted into a naked ``orphan_adopt``. We fall
-    back to the intent-layer roster so the sleeves resolve to their owning unit
-    (``trend_donchian`` / ``htf_pullback_trend_2h``) via the builder's
-    ``monitor_unit`` tag.
+    Roster note (BL-20260615-MGCNAKED), kept because it is WHY this resolves
+    through ``strategy_builders()`` and not through a local dict: the IBKR/FX
+    symbol sleeves (``mgc_trend_1h``, ``xauusd_trend_1h``, ``spy_trend_long_1d``,
+    ``qqq_trend_long_1d``, ``gld_pullback_1d``, ``eth_pullback_2h``) were absent
+    from this module's own ``_STRATEGY_BUILDERS``, so ``monitor_unit_for``
+    returned the strategy name verbatim for them, the order-monitor failed to
+    import a same-name module (``No module named
+    'src.units.strategies.mgc_trend_1h'``), and their positions ran with NO
+    active ``monitor()`` — only static SL/TP, which is how a netted IBKR MGC
+    long drifted into a naked ``orphan_adopt``. That was fixed in 2026-06 by
+    FALLING BACK to the intent roster after missing here; since 2026-09-09
+    (audit F-28, MI-229) there is nothing to fall back FROM — the second
+    registry is gone and this reads the one roster directly. ⚠️ Behaviour is
+    unchanged either way: the deleted dict was a strict subset of the roster
+    and every one of its 16 names mapped to the identical builder object, so a
+    hit that used to be served by the dict now resolves to the same callable
+    and therefore the same ``monitor_unit`` tag.
+
+    ⚠️ **This function stays fail-PERMISSIVE where ``strategy_builders()`` is
+    fail-LOUD, and the asymmetry is deliberate.** It runs on the order-monitor
+    path for every open position; an exception here would break monitoring of
+    positions that are already open, so an unresolvable roster degrades to the
+    same-name module (the pre-2026-06 behaviour). ``multiplexed_signal_builder``
+    is the opposite case — there, resolving to nothing means placing no orders,
+    which must never be silent.
     """
     # Pairs-sleeve legs (M22 D2) are journalled with per-leg strategy names
     # (``pairs_<name>_a`` / ``_b``) but are NOT in the strategy roster — the
@@ -473,25 +454,50 @@ def monitor_unit_for(strategy_name: str) -> str:
     # failing to import a same-name module every tick.
     if strategy_name.startswith("pairs_"):
         return "pairs_executor"
-    builder = _STRATEGY_BUILDERS.get(strategy_name)
-    if builder is None:
-        # Superset roster: the intent layer carries the symbol sleeves that the
-        # legacy multiplexer dict omits. Lazy import keeps the module-load order
-        # cheap and avoids a circular import at pipeline import time.
-        try:
-            from src.runtime.intent_multiplexer import _resolve_builders
-            builder = _resolve_builders().get(strategy_name)
-        except Exception:  # noqa: BLE001 — fall back to same-name module
-            builder = None
+    try:
+        builder = strategy_builders().get(strategy_name)
+    except Exception:  # noqa: BLE001 — fall back to same-name module
+        builder = None
     return getattr(builder, "monitor_unit", strategy_name)
 
 
-def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
+def multiplexed_signal_builder(
+    settings: dict,
+    *,
+    builders: Optional[Dict[str, Callable[[dict], Dict[str, Any]]]] = None,
+) -> Dict[str, Any]:
     """
     Loop STRATEGIES in order; return the first actionable signal.
 
+    **This is what ``MULTI_STRATEGY_INTENT_LAYER=false`` selects** — the
+    sanctioned, no-redeploy rollback for the intent layer (see ``run_pipeline``
+    below). It therefore has to revert BEHAVIOUR without reverting COVERAGE,
+    and until 2026-09-09 it did not: it resolved against this module's own
+    16-name dict while the intent layer had 55, so the rollback silently
+    dropped 35 of 45 ``execution: live`` legs. It now resolves through
+    ``strategy_builders()`` — the same roster the live path uses — so the flag
+    changes only HOW intents are combined (first-wins here, aggregate-and-elect
+    there), never WHICH legs run. Audit F-28 / MI-229.
+
     If a strategy raises an exception it is logged and skipped.
     Returns a side=none signal when no strategy fires.
+
+    A name still in ``STRATEGIES`` with no builder in the roster keeps its
+    ``warning`` + ``continue`` — but it now means the leg is registered
+    **nowhere**, which is the same condition (and the same log line) the intent
+    path reports in ``_collect_intents``. Before the collapse it also fired for
+    legs that were correctly registered and merely absent from this dict, which
+    is what made 35 real outages indistinguishable from log noise.
+
+    Parameters
+    ----------
+    settings : dict
+        Pipeline settings.
+    builders : dict, optional
+        Override the strategy → builder map. Mirrors
+        ``multiplexed_intent_signal_builder(builders=...)`` so a test can inject
+        a roster without reaching for a module global — which is what the
+        deleted registry was used for, and is why the tests kept it alive.
 
     S-026 G1: signals carry no qty — sizing is the per-account
     RiskManager's job. Strategies carry no risk level (the per-strategy
@@ -499,14 +505,18 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
     the per-trade size end-to-end (account basis × confidence scalar).
     """
     symbol = settings.get("SYMBOL", settings.get("symbol", "BTCUSDT"))
+    resolved_builders = builders if builders is not None else strategy_builders()
 
     for strategy_name in STRATEGIES:
         if is_strategy_paused(strategy_name):
             logger.info("Multiplexer: '%s' paused via runtime flag — skipping", strategy_name)
             continue
-        builder = _STRATEGY_BUILDERS.get(strategy_name)
+        builder = resolved_builders.get(strategy_name)
         if builder is None:
-            logger.warning("Multiplexer: unknown strategy '%s' — skipping", strategy_name)
+            logger.warning(
+                "Multiplexer: unknown strategy '%s' (no builder registered in the "
+                "single roster) — skipping", strategy_name,
+            )
             continue
         try:
             signal = builder(settings)
@@ -673,6 +683,16 @@ def run_pipeline(
         # path: export MULTI_STRATEGY_INTENT_LAYER=false to fall back to it
         # without a code change. See src/runtime/intent_multiplexer.py for the
         # contract.
+        #
+        # ⚠️ THE ROLLBACK REVERTS BEHAVIOUR, NOT COVERAGE — and that was FALSE
+        # until 2026-09-09. Both branches now resolve their roster through the
+        # SAME strategy_builders(); before the collapse the rollback branch read
+        # a 16-name dict local to this module while the default branch read 55,
+        # so flipping the flag silently dropped 35 of 45 execution:live legs
+        # (78%) as one warning apiece. Audit F-28, operator-approved collapse
+        # (DEC-20260909-ROLLBACK-BUILDER-REGISTRY), MI-229. Re-introducing a
+        # module-local name->builder map here re-opens it, which is what
+        # tests/test_strategy_builder_registry_single_home.py exists to catch.
         from src.runtime.intent_multiplexer import (
             intent_multiplexer_enabled,
             multiplexed_intent_signal_builder,

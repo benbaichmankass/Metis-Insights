@@ -173,18 +173,31 @@ def _is_transient_market_data_error(exc: Exception) -> bool:
 def _default_intent_builders() -> Dict[str, IntentBuilder]:
     """Strategy name → signal builder — the AUTHORITATIVE roster.
 
-    This is the full, authoritative strategy roster the live order path uses
-    (``MULTI_STRATEGY_INTENT_LAYER`` default on). ``pipeline._STRATEGY_BUILDERS``
-    is a legacy SUBSET (the pre-intent-layer path) — it is NOT a mirror to keep
-    in sync, and this dict must never be trimmed to match it. Where the two
-    diverge, THIS superset wins: ``pipeline.monitor_unit_for`` looks up the
-    legacy dict first and then FALLS BACK to this roster (``_resolve_builders``)
-    for the symbol sleeves the legacy dict omits — a fallback added to fix a
-    naked-orphan money-loss bug (BL-20260615-MGCNAKED), where a sleeve missing
-    here ran with no active ``monitor()`` and drifted into a naked orphan.
-    Adding a strategy means appending a row here (and, if it should also run on
-    the legacy path, in ``pipeline._STRATEGY_BUILDERS``). The intent-layer
-    aggregator itself does not change.
+    This is the full, authoritative strategy roster, and since 2026-09-09 it is
+    the ONLY one. **Adding a strategy means appending exactly one row here** —
+    there is no second place to also register it, deliberately.
+
+    ⚠️ **THERE USED TO BE, AND IT COST 78% OF THE ROLLBACK.**
+    ``pipeline._STRATEGY_BUILDERS`` was a second dict holding a SUBSET of these
+    names, kept in step by nothing. Measured 2026-09-09 (audit F-28): 55 here,
+    16 there, 39 missing, of which **35 were ``execution: live``, out of 45 live
+    legs.** Since ``MULTI_STRATEGY_INTENT_LAYER=false`` is documented as the
+    no-redeploy rollback and routes to that dict, exercising the rollback would
+    have stopped 78% of the live legs — each as one ``logger.warning`` and a
+    ``continue``, so it would have looked like it worked. The operator chose to
+    COLLAPSE rather than to add a parity test
+    (``DEC-20260909-ROLLBACK-BUILDER-REGISTRY``, ``chosen:
+    collapse_to_one_registry``): one registry cannot drift from itself.
+    ``pipeline.strategy_builders()`` and ``pipeline.monitor_unit_for`` now
+    resolve through ``_resolve_builders()``, i.e. through this dict.
+
+    The older note about ``monitor_unit_for`` FALLING BACK to this roster
+    (BL-20260615-MGCNAKED — a sleeve absent from the legacy dict ran with no
+    active ``monitor()`` and drifted into a naked orphan) is history now: there
+    is nothing left to fall back FROM. It is recorded because it is the first
+    time this duplication cost money, and F-28 is the second.
+
+    The intent-layer aggregator itself does not change.
     """
     return {
         "turtle_soup": turtle_soup_signal_builder,

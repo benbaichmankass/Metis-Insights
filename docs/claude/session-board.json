@@ -12,6 +12,16 @@
   },
  "active_sessions": [
   {
+   "session": "session_01TM8XjkvVpvMxH4EcLtTsvP",
+   "branch": "claude/mi229-collapse-builder-registry",
+   "repo": "benbaichmankass/Metis-Insights",
+   "status": "done",
+   "started_at": "2026-09-09T22:05:00Z",
+   "ended_at": "2026-09-09T23:59:00Z",
+   "scope": "MI-229 (audit F-28, operator-approved 'collapse'). Tier-2 SIGNAL PATH: deletes pipeline._STRATEGY_BUILDERS (the second registry) and routes multiplexed_signal_builder + monitor_unit_for through intent_multiplexer._resolve_builders(). Also: intent_multiplexer docstring, 7 tests that named the deleted symbol, a new re-split detector test, .claude/skills/new-strategy/SKILL.md + docs/strategies/supported_strategies.md (both instructed authors to register in the dict being deleted), the WO yaml, session-board.json.",
+   "note": "Places/modifies/cancels NO order and flips NO env var. Does NOT touch src/units/accounts/execute.py or scripts/ops/system_invariants.py (MI-227 is live in both). Landing: PR opened ready with landing:hold, tier 2 - manager or operator merges; auto-merge NOT armed so no merge_slot is claimed."
+  },
+  {
    "session": "session_01KSZCUtFKze3k7ZvxnTnD4T",
    "branch": "claude/mi218-count-calendar-time-edge-surfaces",
    "repo": "benbaichmankass/Metis-Insights",

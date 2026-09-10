@@ -9,14 +9,16 @@ title: >-
   The sanctioned intent-layer rollback is a 78% capability outage - operator answered: collapse
   the two registries into one
 stage: DECISION
-lifecycle: ready
-owner: null
+lifecycle: in_flight
+owner: session_01TM8XjkvVpvMxH4EcLtTsvP
 opened_at: '2026-09-09'
 closed_at: null
 
 review_trigger: >-
-  Re-read when a lane picks this up. The DECISION is discharged; what remains is a Tier-2 BUILD
-  on the signal path. The registry counts are in the audit at F-28.
+  PICKED UP 2026-09-09 by MI-229 (session_01TM8XjkvVpvMxH4EcLtTsvP). The BUILD is written and
+  is on PR #11615, `landing: hold` / `tier_2_3_needs_approval` — it needs a MERGE CLICK,
+  not another approval. Re-read `build` below before touching this; the DECISION is discharged
+  and re-asking the operator would be re-asking a settled question.
 
 done_condition: >-
   pipeline._STRATEGY_BUILDERS no longer exists as a second registry - multiplexed_signal_builder
@@ -107,3 +109,80 @@ decision_requests:
       recorded_at: '2026-09-09T21:15:00Z'
       note: >-
         Manager session. One of the six the full-system audit filed and did not take.
+
+build:
+  by: MI-229 · session_01TM8XjkvVpvMxH4EcLtTsvP (worker; manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  built_on: '2026-09-09'
+  pr: '#11615'
+  landing: hold / tier_2_3_needs_approval — auto-merge NOT armed, no merge slot claimed.
+  done_condition_grading: >-
+    BOTH halves delivered. (1) `pipeline._STRATEGY_BUILDERS` NO LONGER EXISTS — deleted, not
+    aliased and not turned into a view; `hasattr(pipeline, "_STRATEGY_BUILDERS")` is False and a
+    test asserts it. `multiplexed_signal_builder` and `monitor_unit_for` both resolve through
+    `pipeline.strategy_builders()`, which is a two-line delegation to
+    `intent_multiplexer._resolve_builders()` — the SAME call the primary path makes. (2) The
+    parity assertion exists as `tests/test_strategy_builder_registry_single_home.py`, 7 tests.
+    ⚠️ THE OPERATOR'S "DELETING IS THE POINT" WAS FOLLOWED LITERALLY: the test was not shipped
+    in place of the deletion.
+  measurement_reproduced: >-
+    ⚠️ F-28 WAS RE-MEASURED HERE, NOT TRANSCRIBED, and it reproduced EXACTLY. Population: all 55
+    strategies declared in `config/strategies.yaml`, of which 45 are `execution: live`. Intent
+    roster 55 · deleted pipeline registry 16 · gap 39 · live legs missing from the rollback
+    registry 35 of 45 = 78%. Sample matched the audit's verbatim (ada_pullback_2h,
+    eth_pullback_2h, gdx_pullback_1d, gld_pullback_1d, gld_pullback_1h, iaum_pullback_1d,
+    ict_scalp_avax_5m, ict_scalp_eth_15m). The audit's F-28 numbers are CONFIRMED; no correction
+    to file.
+  safety_claim_measured: >-
+    ⚠️ THE LOAD-BEARING CLAIM FOR A TIER-2 SIGNAL-PATH CHANGE, and it is measured rather than
+    argued. The deleted registry was a STRICT SUBSET of the surviving roster — `set(legacy) -
+    set(primary)` was EMPTY, so it contributed no name of its own — and all 16 of its names
+    mapped to the IDENTICAL builder OBJECT in the roster, compared with `is` rather than by
+    name (0 of 16 differed). So the collapse is strictly additive: the 16 legs that worked under
+    the rollback now call the byte-identical callable, and the 39 that were skipped are built.
+    Verified after the change: the rollback path resolves 45 of 45 live legs, up from 10 of 45,
+    and `monitor_unit_for` returns the same answer on all four probe classes (an intent-only
+    sleeve `mgc_trend_1h` -> trend_donchian, a legacy name `turtle_soup` -> turtle_soup, a pairs
+    leg -> pairs_executor, an unknown name -> itself).
+  what_was_NOT_done:
+    - >-
+      `MULTI_STRATEGY_INTENT_LAYER` was NOT flipped on any VM, and this PR must not be read as
+      asking for that. The flag is default-ON; the live path is untouched by this diff. The
+      operator's `free_text` says the build "is not done until the flag is exercised and all 45
+      live legs still build" — the CODE half of that is asserted by
+      `test_every_live_leg_is_buildable_on_both_paths` (45 of 45, from the config, through the
+      same roster the rollback path reads). EXERCISING THE FLAG ON THE FLEET IS A SEPARATE
+      TIER-2 ACT and is NOT covered by this approval; a test is not a fleet observation, which
+      is why the OPEN-ITEMS row below is filed rather than the claim being made here.
+    - >-
+      No order was placed, modified or cancelled on any account. No env var was changed.
+    - >-
+      `src/units/accounts/execute.py` and `scripts/ops/system_invariants.py` were not touched
+      (MI-227 was live in both).
+  a_test_of_mine_was_wrong_and_was_fixed: >-
+    ⚠️ RECORDED BECAUSE IT IS THE MORE USEFUL HALF. The first version of the behavioural test
+    swapped the single home's roster for one containing no real strategy name and asserted the
+    rollback returned `side == "none"`. It PASSED against a planted module-local dict — measured,
+    not suspected — because the real `turtle_soup` builder ALSO returns `none` on a bare settings
+    dict. A green for the wrong reason, i.e. an unasserted denominator in the detector itself.
+    Rewritten so the sentinel builder is registered under a REAL strategy name and must be
+    OBSERVED FIRING; it then failed the plant correctly. The lesson is the one this repo already
+    names: verify your own output, hardest when it confirms what you expected.
+  planted_controls: >-
+    Three plants, each reverted, each caught: (a) a 3-entry `_STRATEGY_BUILDERS` re-added to
+    pipeline -> 2 of 7 fail; (b) a module-local dict inside `multiplexed_signal_builder` -> the
+    behavioural test fails; (c) a local dict consulted first in `monitor_unit_for`, the
+    pre-2026-06 naked-orphan-MGC shape (the id the code comments use for that incident was
+    never filed as a backlog row, so it is deliberately not cited here as a tracking
+    reference) -> 2 of 7 fail. The detector also carries a standing
+    POSITIVE CONTROL asserting the AST scan can still find the one roster that SHOULD exist, so
+    a matcher that has silently stopped working cannot pass as a clean result.
+  detector_limits_stated: >-
+    The AST scan sees a dict LITERAL mapping >=3 string keys to `*_signal_builder` callables. A
+    registry assembled some other way — a loop, a decorator, a comprehension — is NOT caught.
+    Stated in the test module's own docstring rather than left to be discovered.
+  the_drift_mechanism_was_also_removed: >-
+    `.claude/skills/new-strategy/SKILL.md` step 3, `docs/strategies/supported_strategies.md`
+    step 2 and `docs/strategies/ict_scalp_5m.md` all INSTRUCTED an author to register the new
+    strategy in the dict that has now been deleted. That instruction is not a cosmetic stale
+    reference — it IS how the drift happened: skipping it changed nothing observable on the live
+    path, so 39 authors skipped it. All three now name the one home and say why.
