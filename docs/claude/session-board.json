@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-alpaca-close-decision-20260910T1145",
-    "claimed_at": "2026-09-10T11:48:55Z",
-    "purpose": "Manager registers (Tier-1, docs-only): records the operator's 11:45Z decision that the Alpaca qty-scoped partial close confirms STRICT on the trade's own quantity delta, clearing the LAST blocking edge on the operator's Workflow page. PR #11689, opened by me first so it carries a real pull_request event and CI fires -- claude-pr-automerge ADOPTS it rather than creating it under GITHUB_TOKEN, which is the zero-check trap. Taken over from a terminal holder; only the merge_slot key differs from origin/main. Released on merge."
+    "held_by": "github-actions[bot] · macro-valuation-snapshot run 34475833176",
+    "branch": "automation/valuation-snapshots-34475833176-1",
+    "claimed_at": "2026-09-10T12:17:12Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
