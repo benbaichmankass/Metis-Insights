@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T20:27:00Z",
+  "updated_at": "2026-09-10T21:39:31Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4465,6 +4465,21 @@
       "live_status": "IDLE",
       "live_status_read_at": "2026-09-10T13:26:00Z",
       "live_updated_at": "2026-09-10T12:44:46Z"
+    },
+    {
+      "session_id": "session_01CTPC91xaHrK6ES33UKjkTY",
+      "title": "MI-240 — arm R2, the per-pass IB circuit breaker",
+      "owns_object": "WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES",
+      "checklist_item": "MI-240-ARM-R2-THE-PER-PASS-IB-CIRCUIT-BREAKER-OPERATOR-APPROVED",
+      "spawned_at": "2026-09-10T21:39:31Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi240-arm-ib-per-pass-breaker"
+      ],
+      "why": "Tier-2, operator-approved DEC-20260910-EXIT-EVAL-60S-REMEDY (chosen r2_only, 2026-09-10T07:52Z). Bounds the cost of a congested pinned IB queue during the 04:00-05:00Z IBKR reset window.",
+      "note": "ROW WRITTEN BY THE CHILD, POST-HOC. The dispatch prompt named a pre-spawn key 'pending-20260910T213114Z' which does not exist on origin/main (46f9d6129): 112 pending- keys, newest pending-20260910T090025Z, zero occurrences of 20260910T2131 or MI-240 in SESSIONS.json. So the pre-spawn registration was made and never pushed -- a claim you did not PUSH protects nothing. Recorded rather than confirmed against a key that is not there.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
