@@ -722,6 +722,64 @@ the_mechanism_is_DEPLOYED_and_its_first_scheduled_run_is_STILL_UNOBSERVED: >-
   the status line: the answer is now SHIPPED and awaiting its first
   self-triggered execution, rather than proven-in-principle and unshipped.
 
+the_cadence_WAS_SIZED_AGAINST_DECLARED_SLOTS_AND_GITHUB_DELIVERS_ONE_EVERY_4_9H: >-
+  ⚠️ A DEFECT IN THE FIX THIS WO SHIPPED, FOUND 2026-09-10T16:25Z WHILE WAITING
+  FOR ITS FIRST RUN, AND IT IS IN THE PART I ARGUED HARDEST FOR. The workflow's
+  own header says the 2h cadence was CHOSEN — not defaulted — against the 6h
+  window of `check_digest_liveness`, the tightest of the four repo-wide receipt
+  guards, "so a strand gets ~3 sweeps before" that clock expires. That
+  arithmetic assumes GitHub runs a cron at roughly its declared time. In this
+  repo it does not, and the repo already knew.
+
+  MEASURED, by the method and the control that
+  BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27 itself
+  uses. POPULATION: purge-artifacts.yml (`0 3 * * *`), the 40 consecutive
+  `event=schedule` runs from 2026-08-02 to 2026-09-10, lag = run_started_at
+  minus the most recent 03:00Z, computed per run. Before 2026-08-27:
+  0.66-3.42h. The break that row records reproduces to its own four figures
+  (10.88, 12.01, 6.80, 5.98h). The eleven days SINCE are new: 6.43, 5.38, 4.70,
+  4.85, 4.78, 4.47, 4.70, 5.01, 4.88, 4.93, 4.93h — not reverted, no longer
+  drifting, SETTLED on a ~4.9h plateau.
+
+  SO THE SWEEPER GETS ABOUT ONE SWEEP PER `check_digest_liveness` WINDOW, NOT
+  THREE, and declaring 2h buys nothing a 4h declaration would not: 2h is BELOW
+  the lag. Worse for a tight cadence, the slots do not merely arrive late, they
+  COALESCE. POPULATION: error-feed-digest.yml, declared HOURLY at :35, its last
+  40 `event=schedule` runs spanning 146.9h to 2026-09-10T14:37Z — 40 runs
+  against ~147 declared slots is 27%, median gap 4.04h, fire minute scattered
+  over 31 distinct values and essentially never :35. A constant lag would
+  preserve the one-hour SPACING; four-hour spacing means a slot whose
+  predecessor is still outstanding produces no run at all.
+
+  ⚠️ AND IT REFRAMES THE OBSERVATION THIS WO IS WAITING ON, WHICH IS THE HALF A
+  LATER SESSION IS MOST LIKELY TO GET WRONG. No run at the 15:17Z slot is NOT
+  evidence of failure, and neither is no run at 17:17Z. Against a ~4.9h
+  plateau, the first scheduled run is due some hours after registration, and
+  absence only becomes evidence once the sweeper's OWN observed gap
+  distribution exceeds that envelope. The honest state remains: DEPLOYED,
+  NEVER RUN.
+
+  WHAT I DID NOT DO, AND WHY IT IS NOT AN OVERSIGHT. The wrong premise is in
+  `.github/workflows/stale-automation-sweep.yml`'s own comment, and that file is
+  registered `LANDING_MACHINERY`, so by R12 it cannot self-land: correcting it
+  needs a human-read PR, and this lane's queue is the thing this WO exists to
+  shrink. The measurement is therefore recorded HERE and on the backlog row
+  whose clause (2) asks for exactly this audit, rather than left in a commit
+  message. ⚠️ THE REMEDY IS ALSO NOT "DECLARE A TIGHTER CRON" — that is what
+  coalescing eats. It is to give the sweeper a second, non-cron trigger (the
+  producers themselves already run far more often than 4.9h), which changes what
+  the mechanism reacts to and is a design change, NOT SHIPPED and not smuggled
+  in beside a docs correction.
+
+  ⚠️ ONE THING I DID NOT FILE, DELIBERATELY. The R13 slot conflict I hit three
+  times in nineteen minutes landing #11706 is already measured harder than I
+  measured it, by
+  BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET
+  (seventeen cycles over ~6h on #11370; 20 of 20 consecutive commits on main
+  touching the slot file). A second, weaker measurement of a known row is not a
+  finding; filing it would be the duplicate the backlog's own check exists to
+  refuse.
+
 source: >-
   manager session_01HrmZ1RRNM4UnEUaFdrPEjj, merge-queue duty, 2026-09-09
 

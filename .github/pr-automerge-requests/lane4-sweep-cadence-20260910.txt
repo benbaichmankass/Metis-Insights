@@ -1,0 +1,1 @@
+Arming request for claude/lane4-sweep-cadence-20260910 — WO-20260909: the sweeper2h cadence was sized against DECLARED slots; GitHub delivers one every ~4.9h. Docs only. PR #11713. 2026-09-10
