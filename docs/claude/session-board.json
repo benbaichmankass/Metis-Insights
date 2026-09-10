@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "MI-201 · session_01UxsiSgFa9dKwBFw5RTbLGA",
-    "branch": "claude/mi201-correct-symbols-claim",
-    "claimed_at": "2026-09-10T09:05:00Z",
-    "purpose": "PR — MI-201 SELF-CORRECTION to #11665 (merged 145101e54): the account-level symbols: list is NOT inert, _resolve_tick_symbols reads it to size the tick loop. One file under docs/research/, plus two landed compat verdicts. Mirrored on the coordination board; released on merge."
+    "branch": "claude/mi201-session-end-doc-landing",
+    "claimed_at": "2026-09-10T09:35:00Z",
+    "purpose": "PR #11673 — MI-201 session-end doc-freshness landing (ROADMAP M15 row + a supersession caveat). Docs only. Released on merge."
   },
   "active_sessions": [
     {
