@@ -1,0 +1,1 @@
+arming mgr-hb-20260910T1530 — Tier-1 manager lease heartbeat + supervision record; see .github/pr-landing/mgr-hb-20260910T1530.json
