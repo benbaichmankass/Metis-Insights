@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-08-26",
+  "updated_at": "2026-09-10T04:45:00+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -166,6 +166,24 @@
       "snooze_trigger": null,
       "refs": [],
       "content_verified_merged": "2026-08-25 by session 017etXEZ: the branch holds ONE commit touching only docs/claude/health-review-backlog.json (+36 lines), adding BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE and BL-20260825-IB-BREAKER-FAILURE-REASON-IS-MISLABELLED-AS-A-TIMEOUT. Both are on main and compare BYTE-IDENTICAL field-by-field, and the branch introduces no id main lacks. Content carried by PR #10276."
+    },
+    {
+      "id": "OO-20260910-F39-REATTACH-EXACT-DIFF-YES-NO",
+      "opened_at": "2026-09-10T04:45:00+00:00",
+      "title": "Yes/no on the EXACT re-attach diff for the four F-39 stranded package legs (3 order_packages rows, one on real money)",
+      "detail": "Audit F-39 / MI-231. The operator ALREADY approved the SHAPE of this work on 2026-09-09 (WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS, chosen: detector_and_reattach, Tier-2), and that approval is NOT what this is waiting on -- do not re-ask for it. The work object makes the approval conditional on the operator seeing the EXACT change first, and that is the only thing outstanding. The diff is in PR #11630's body: three order_packages rows, status closed->open, close_reason->NULL, prior values preserved under meta.reattach_repair, re-attaching legs 4347 + 5265 (alpaca_paper) and 5474 + 5475 (bybit_2 REAL MONEY / bybit_portfolio). #11630 MERGED as c88c7ff9e on 2026-09-10, which lands the detector and the dry-run-by-default script and applies NOTHING: the repair has not been run against any database and no order has been placed, modified or cancelled on any account. THE CONSEQUENCE OF A YES, STATED RATHER THAN BURIED: once a package is open again the strategy's monitor() may trail, tighten or CLOSE the linked leg, including real-money 5474. That is the point -- they are unmanaged today -- but it is a live consequence, which is why the operator sees the diff first. BEFORE ANY --apply, RE-READ ALL FOUR LEGS LIVE: they were confirmed open and venue-backed at PR time, and a leg that has since closed at the venue must be reconciled as CLOSED, not re-attached. The script requires a freshly captured --exchange-positions payload, refuses without it, and treats an unreadable account as a REFUSAL never a flat.",
+      "severity": "medium",
+      "severity_basis": "Four legs including one on real money (bybit_2 XRPUSDT 58.5) sit OUTSIDE the exit loop for as long as this is unanswered -- no monitor(), no trailing, no strategy close. Not HIGH: each still carries its own venue-side protection and the condition has stood since well before this row, so it is a standing exposure rather than a deteriorating one. Deciding NO is a legitimate answer and must be RECORDED as one with that consequence stated, rather than left looking like a repair about to happen.",
+      "tier": "2 (money-DB writeback)",
+      "status": "open",
+      "owner_class": "genuinely_human",
+      "owner_class_basis": "This is a judgement call on a specific change to a money DB whose consequence is that a real-money leg becomes strategy-closable again. It needs no credential a session lacks and no broker -- the blocker is the decision itself, which is what genuinely_human means here rather than a missing wire.",
+      "refs": [
+        "PR #11630",
+        "WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS",
+        "OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO",
+        "scripts/ops/reattach_stranded_package_legs.py"
+      ]
     }
   ]
 }
