@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-07T10:31:05.344186+00:00",
+  "generated_at": "2026-09-10T09:51:53.500604+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 41,
-  "rows_with_a_probe": 14,
-  "rows_without_a_probe": 27,
+  "monitoring_rows": 56,
+  "rows_with_a_probe": 15,
+  "rows_without_a_probe": 41,
   "counts": {
-    "pass": 5,
+    "pass": 6,
     "fail": 4,
     "source_empty": 0,
-    "could_not_run": 32
+    "could_not_run": 46
   },
   "results": [
     {
@@ -81,11 +81,19 @@
         "--positive-control",
         "decision~stray_unkeyed,no_strays,could_not_look"
       ],
-      "matched": 1,
-      "scanned": 1,
+      "matched": 3,
+      "scanned": 21,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=1 scanned=1\nprobe: PASS — 1 of 1 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 1 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 1)"
+      "detail": "probe-counts: matched=3 scanned=21\nprobe: PASS — 3 of 21 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 21 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 21)"
+    },
+    {
+      "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE IS WRITEABLE AND DOES NOT EXIST, and that absence is itself the finding this row now carries — so it is declared rather than left blank. The check is mechanical and I performed it BY HAND this session: net every non-backtest status='open' row in `trades` per (account_id, symbol) and compare to /api/diag/exchange_positions; 26 of 27 pairs agreed and one did not. Nothing in the repo runs tha",
+      "checks": null,
+      "is_not": null
     },
     {
       "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
@@ -129,11 +137,11 @@
         "--positive-control",
         "pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h"
       ],
-      "matched": 2,
+      "matched": 3,
       "scanned": 200,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=2 scanned=200\nprobe: PASS — 2 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 41)"
+      "detail": "probe-counts: matched=3 scanned=200\nprobe: PASS — 3 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 42)"
     },
     {
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
@@ -151,11 +159,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 267,
-      "scanned": 371,
+      "matched": 337,
+      "scanned": 452,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=267 scanned=371\nprobe: PASS — 267 of 371 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 371 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=337 scanned=452\nprobe: PASS — 337 of 452 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 452 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -198,10 +206,10 @@
         "research_power_state=accruing"
       ],
       "matched": 0,
-      "scanned": 9954,
+      "scanned": 9976,
       "state": "fail",
       "reason": "exit_1",
-      "detail": "probe-counts: matched=0 scanned=9954\nprobe: FAIL — 0 of 9954 row(s) match ['research_power_state=infeasible'] (read 9954 row(s) from 3 file(s) [docs/research/e35-bracket-corpus.jsonl:8520, docs/research/m20-sweep-corpus.jsonl:1379, docs/research/gld-compat-matrix-verdicts.jsonl:55]; positive control 'research_power_state=accruing' matched 995)"
+      "detail": "probe-counts: matched=0 scanned=9976\nprobe: FAIL — 0 of 9976 row(s) match ['research_power_state=infeasible'] (read 9976 row(s) from 3 file(s) [docs/research/e35-bracket-corpus.jsonl:8520, docs/research/m20-sweep-corpus.jsonl:1379, docs/research/gld-compat-matrix-verdicts.jsonl:77]; positive control 'research_power_state=accruing' matched 995)"
     },
     {
       "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
@@ -428,7 +436,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 5.3h ago, inside the 30.0h window.\n  queue at last run: 2 PR(s) waiting on a merge decision, worst 85.5h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.6h ago, inside the 30.0h window.\n  queue at last run: 50 PR(s) waiting on a merge decision, worst 45.3h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
@@ -449,14 +457,6 @@
       "state": "could_not_run",
       "reason": "exit_2",
       "detail": "probe: COULD NOT LOOK — [work-digest.yml] work-digest.yml: 10 run(s) listed but NONE had readable logs (10 unread). That is an unread population, not an absent line."
-    },
-    {
-      "id": "OI-20260902-PER-MERGE-PING-SHIPPED-AND-NO-MERGE-HAS-BEEN-SEEN-PINGING",
-      "state": "could_not_run",
-      "reason": "no_probe_declared",
-      "detail": "The observable is a Telegram message arriving in the operator's Claude channel, which nothing in this repo can read. The nearest machine-checkable proxy — the ict-git-sync journal showing notify_on_pull enqueuing a merge body — is reachable only via /api/diag/journalctl and is evidence of an ENQUEUE, not of a delivery; declaring it as the probe would invite a green that means 'the queue accepted i",
-      "checks": null,
-      "is_not": null
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -512,17 +512,151 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 37,
-      "scanned": 754,
+      "matched": 33,
+      "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=37 scanned=754\nprobe: PASS — 37 of 754 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 754 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 754)"
+      "detail": "probe-counts: matched=33 scanned=1000\nprobe: PASS — 33 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "NO PROBE, DELIBERATELY. What must be re-read is a NUMBER FROM A TRAINER RUN that no repo-side predicate can produce: the harness needs the trainer's candle store, and this container cannot reach it. A probe over the repo would grade the SCRIPTS, which are green and are not the open question. The dispatch is one relay issue (see clears_when) and a session runs it.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND ONE CANNOT BE WRITTEN THAT WOULD CLEAR THIS ROW, and that is a property of the three conditions rather than of the effort available. (1) is an OPERATOR DECISION on a held Tier-3 PR — approve or reject, plus a stated choice between IB_CLOSE_CONFIRM_PARTIAL strict and reduction. CI cannot read a verdict that has not been given, and a probe that graded 'PR still open' would be rep",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING",
+      "checks": "A /api/diag/position_telemetry row exists whose `strategy` is one of the NINE legs MI-163 measured as structurally invisible (the 8 ict_scalp_* legs + squeeze_breakout_4h, ENUMERATED rather than pattern-matched so a leg added or renamed later cannot silently widen the predicate) AND whose `peak_state` is `measured`. Both are required and they are different facts: the first says the hook sits on a path that trades, the second says the row carries a REAL peak_r rather than a named absence. A row reading `unanchored` or `no_risk` is turtle_soup/vwap behaving correctly and says nothing about these nine. The positive control (`peak_state` present with ANY of its four values) separates 'the nine have not emitted yet' from 'the endpoint is unreadable or empty' -- it should match today on trend_donchian / htf_pullback_trend_2h rows, which have carried the hook all along, so a control that does NOT match means the probe is blind, not that the nine are silent.",
+      "is_not": "A PASS DOES NOT CLEAR THIS ROW, and establishes less than it looks like. (1) It is ONE row, not a corpus: MI-163's own gradeability floor is n=30 pooled, so a single measured peak makes the nine VISIBLE without making the ict_scalp one-shot mechanism MEASURED -- which was the point of hooking them. (2) peak_r is a LOWER BOUND by construction (peak_provenance: estimated); a bar-extreme peak cannot see an intrabar excursion. (3) It reads the telemetry table, never the venue, so it cannot say the peak matches what the position actually did. (4) It says nothing about Proposal B, which stays unbuilt and un-numbered.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/position_telemetry?limit=1000",
+        "--require",
+        "strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h",
+        "--require",
+        "peak_state=measured",
+        "--positive-control",
+        "peak_state~measured,unanchored,thin_window,no_risk"
+      ],
+      "matched": 19,
+      "scanned": 210,
+      "state": "pass",
+      "reason": "exit_0",
+      "detail": "probe-counts: matched=19 scanned=210\nprobe: PASS — 19 of 210 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 210 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 210)"
+    },
+    {
+      "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE CAN CLEAR CLAUSE (1) FROM CI, and that is a property of the condition. The observable is an alpaca_partial_stop_coverage row emitted by the live monitor tick against a real Alpaca account; CI holds no broker credentials and does not run the tick, so a harness can only re-assert the 23 unit assertions that already pass. Worse, a polling probe here would be actively misleading: once clause ",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO CI PROBE CAN CLEAR THIS, and it is a property of the condition rather than a missing build. The observable is which row Bybit's live API lists first for a hedge-armed symbol; CI holds no exchange credentials, does not run the monitor tick, and a fixture cannot reproduce venue row ordering — a harness can only re-assert assertions that already pass, which is the 'green while measuring nothing' f",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND THE HALF THAT MATTERS CANNOT HAVE ONE, which is a property of the condition rather than of the effort available. Clause (a) asks whether a GitHub Actions run of e35-bracket-sweep.yml SCHEDULED both legs and its fetch step returned real rows — that lives in a run log and in `actions_list`, and CI holds no mcp__github__* tool, so a probe running IN CI cannot read it. ⚠️ AND THE O",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260908-CANCEL-ACCEPTED-INEFFECTIVE-MERGED-AND-NEVER-EMITTED-ON-THE-FLEET",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE IS POSSIBLE FOR THE DENOMINATOR AND CANNOT SETTLE THE CLAIM, and the gap is a property of the condition rather than of the effort available. Grepping the give-up log / operator_alerts ring for the `cancel_accepted_ineffective` token WOULD establish whether the state has ever been emitted, and that is worth doing. What it cannot do is read a SILENCE. The exercising condition is two specific",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "[!] CORRECTED 2026-09-09T22:52Z — THE BLOCKING CONDITION THIS FIELD NAMED IS DISCHARGED, so do not re-derive 'a probe cannot clear this row' from the text below. #11546 (07c2d12e) is merged AND confirmed in the running process, so the verdict is durable in the cadence file and clause (1) IS probeable: last_request + last_verdict + last_assessed_at together separate 'ran and stayed quiet' from 'cra",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No probe is possible from inside the repo: what this row watches is whether a HUMAN has recorded a disposition against six proposals, and no surface a script can read distinguishes 'the operator considered it and has not answered yet' from 'nobody has looked'. The nearest mechanical proxy - the six backlog rows changing status - is exactly what a session could satisfy WITHOUT an operator decision,",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS POSSIBLE YET, and the reason is DATED rather than permanent -- two things must land first, in order. (1) This branch must MERGE: the diag allowlist entry for position_read_state_soak ships in the same commit as the writer, so /api/diag/log_file?name=position_read_state_soak 404s until then, and a probe written today would grade could_not_read forever while looking like a quiet negative",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS POSSIBLE YET, and the reason is DATED rather than permanent -- two things must land first, in order. (1) PR #11603 must MERGE AND DEPLOY: the diag allowlist entries for invariant_violations and closed_flat_coverage ship in the same commit as the writers, so both routes 404 until then, and a probe written today would grade could_not_read forever while looking like a quiet negative. (2) ",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS POSSIBLE YET, and the reason is DATED rather than permanent: the observation needs a reduce to FIRE on a partial-mode Bybit account after the deploy, and nothing in the repo can cause one -- the intent multiplexer decides when a netted position is trimmed. What DOES exist and is not armed is the detector: scripts/ops/system_invariants.py has no scheduled caller at all (the 2026-09-09 a",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND ONE CANNOT BE WRITTEN THAT WOULD CLEAR THIS ROW, and that is a property of the condition rather than of the effort available. Both clearing outcomes are acts nothing in this repo may perform. (a) EXERCISED requires `MULTI_STRATEGY_INTENT_LAYER=false` to be SET on a trader -- a Tier-2 VM mutation, not covered by this build's approval -- and then a tick OBSERVED under it. A probe",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260910-EXIT-EVAL-NEAR-MISS-BAND-AND-RESTART-GAP-SHIPPED-AND-NEITHER-HAS-GRADED-A-LIVE-BOUNDARY",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE TODAY, AND THE REASON IS A BUILDABLE GAP IN OUR OWN READER -- NOT A PROPERTY OF THE CONDITION, and it is written that way deliberately. probe_api.py's own docstring records that two earlier probe_absent_reason texts blamed a missing BEARER when the real blocker was a missing FETCHER, i.e. 'a buildable gap wearing the label of a permanent one, which is why those two reasons had to be corre",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "PARTIAL PROBE ONLY, and the gap is the point. `python3 scripts/ops/system_invariants.py --payloads <dir>` DOES answer part of this mechanically -- it exits 1 and names every stranded live leg -- but it needs three captured diag payloads (journal_trades, order_packages, and positions with include_paper=true) that CI cannot fetch, and NOTHING SCHEDULES IT. So no automated probe can clear this row to",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS POSSIBLE YET, and the reason is DATED rather than permanent. The probe for clause (2) is a one-liner and becomes buildable the moment Metis-Insights#11651 MERGES AND DEPLOYS -- until then GET /api/bot/work/checklist 404s on the live host, because the route does not exist there. !! ONCE IT IS DEPLOYED THIS REASON MUST BE REPLACED RATHER THAN RE-AFFIRMED: scripts/ops/probe_api.py --path ",
       "checks": null,
       "is_not": null
     }
