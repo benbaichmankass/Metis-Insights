@@ -222,6 +222,21 @@ def main(argv=None) -> int:
     return 0
 
 
+def _changed_lines(before: str, after: str) -> int:
+    """Real added+removed line count, the way git and a human see it.
+
+    Deliberately NOT ``zip(before, after)``: that compares line *i* to line *i*,
+    so a replacement with a different LINE COUNT shifts everything after it and
+    reports the whole remainder as changed. See the note in ``_self_test``.
+    """
+    import difflib
+    return sum(
+        1 for line in difflib.unified_diff(
+            before.split("\n"), after.split("\n"), n=0, lineterm="")
+        if line[:1] in "+-" and line[:3] not in ("+++", "---")
+    )
+
+
 def _self_test() -> int:
     ok = True
 
@@ -304,9 +319,32 @@ def _self_test() -> int:
         check("real board: claim reads back",
               json.loads(spliced)["merge_slot"]["branch"],
               "automation/work-digest-1-1")
-        d = sum(1 for x, y in zip(src.split("\n"), spliced.split("\n")) if x != y)
-        check("real board: at most 5 lines differ (no whole-file reformat)",
-              d <= 5, True)
+        # ⚠️ MEASURE A REAL DIFF, NOT A POSITIONAL LINE COMPARISON. This was
+        # `sum(... for x, y in zip(before, after) if x != y)`, which compares
+        # line *i* of the old file against line *i* of the new one — so a claim
+        # with a DIFFERENT NUMBER OF LINES than the one it replaces shifts every
+        # following line and reads as if the whole file had been rewritten. That
+        # is not hypothetical: on 2026-09-10 an outgoing 6-key claim (a manager
+        # had hand-added `found_stale` and `concurrent_sibling`) was replaced by
+        # this script's own 4-key claim, the board went 94 -> 91 lines, and the
+        # metric reported 87 changed against a budget of 5 — while the splice was
+        # byte-for-byte correct on both sides of the slot. It failed on `main`,
+        # so it failed `pytest-run` on every open PR.
+        # A real diff keeps the teeth it was built for: a whole-file
+        # re-serialisation still produces a diff far larger than a claim, which
+        # `tests/test_claim_merge_slot.py` asserts with a planted control.
+        # THE BOUND IS THE SLOT'S OWN SIZE, not a magic number: a claim replaces
+        # the old slot with the new one, so the honest ceiling is "the lines of
+        # both slots and nothing else". That scales when a session hand-adds keys
+        # to the outgoing claim (which is what broke the old fixed budget) and
+        # still fails loudly on a whole-file reformat, which touches lines
+        # belonging to neither slot.
+        _s, _e = find_top_level_value_span(src, "merge_slot")
+        _s2, _e2 = find_top_level_value_span(spliced, "merge_slot")
+        budget = src[_s:_e].count("\n") + spliced[_s2:_e2].count("\n") + 2
+        d = _changed_lines(src, spliced)
+        check("real board: the diff is confined to the slot (no whole-file reformat)",
+              d <= budget, True)
     else:  # pragma: no cover
         print("  self-test (real board): SKIPPED — file absent")
 
