@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
     "branch": "claude/mgr-rescue-pit-artifacts-20260910T1320",
-    "claimed_at": "2026-09-10T13:34:45Z",
-    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable artifacts. Re-taken after #11698 (the lease heartbeat) landed and displaced it -- a displacement this session caused deliberately, to itself, because the lease would otherwise have lapsed at 13:39:07Z. Prior holder now TERMINAL. Released on merge."
+    "claimed_at": "2026-09-10T14:00:50Z",
+    "purpose": "PR #11697, the operator-decided rescue of three unrecoverable artifacts, plus the MI-260 row recording the operator's approval to arm the stale-automation sweeper. TAKEN FROM A TERMINAL HOLDER, NOT FROM LIVE WORK: the prior claim named claude/oi-position-read-state-soak-first-read, whose PR #11699 merged at 13:52:42Z as squash commit 197129680 (main's own tip -- verified by reading the log, NOT by ancestry, which never proves a merge in a squash repo). Its release write never landed, which is the recurring defect. This is the SEVENTH merge-slot takeover today and the file has no merge driver, which is what #11519 exists to fix. Released on merge."
   },
   "active_sessions": [
     {
