@@ -27,6 +27,25 @@ written against — a mean that looks fine while a single interval breaches is t
 failure this whole line of work exists to catch — and a max over one process is
 the biased measurement the durable log replaced. ``processes_seen == 1`` means
 you are reading the per-process number again, wearing a cross-process label.
+
+**``summary.restart_gap`` is the OTHER thing only this surface can tell you**
+(added 2026-09-09, ``WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED``, audit
+F-50). ``summary.max_interval_ms`` is the worst gap WITHIN a process; the gap
+BETWEEN two — last completed pass of process N to first of N+1 — is excluded from
+every per-process instrument by construction, because ``max_interval_ms`` resets
+on restart and the trader restarts on every merge to ``main``. That is the one
+interval the 60 s promise covers and nothing measured, and a deploy is exactly
+when the trader is least likely to be evaluating exits.
+
+⚠️ **Read ``restart_gap.restart_gap_state`` beside ``restart_gap.gaps_measured``,
+and do not read ``not_measured`` as good news.** It means fewer than two
+processes are in the log, so no boundary EXISTS — which is not compliance.
+``unknown`` means boundaries existed and none could be graded (typically a
+rotated log, where the successor's earliest surviving row is not a genuine first
+pass); grading it anyway would yield an arbitrary within-process interval wearing
+a restart-gap label, systematically SHORT. ``overlapping_gaps`` counts boundaries
+where the processes overlapped during handover — real, and deliberately excluded
+from the max rather than clamped to zero.
 """
 from __future__ import annotations
 

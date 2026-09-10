@@ -569,7 +569,7 @@ CONTRACTS: List[Dict[str, object]] = [
         # every state would only buy three override annotations that assert nothing.
         # The guard is stronger keyed to the field itself.
         "consumer_token": r"\brequirement_state\b",
-        "states": ["within", "breached", "not_measured", "unknown"],
+        "states": ["within", "near_miss", "breached", "not_measured", "unknown"],
         "why": (
             "within = every MEASURED interval between exit evaluations was "
             "inside the 60s requirement; breached = at least one was not, so a "
@@ -585,7 +585,55 @@ CONTRACTS: List[Dict[str, object]] = [
             "both read healthy while the requirement sits at 60s. Measured "
             "2026-08-16 at a 58940.8ms worst pass (n=694), 1.1s inside the "
             "requirement, alarming nowhere. "
-            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT."
+            "BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT. "
+            "`near_miss` was ADDED 2026-09-09 on an operator decision "
+            "(WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED, audit F-50) "
+            "because `within` covered both a comfortable 20s max and a 59951.2ms "
+            "max against a 60s requirement -- a MEASURED reading, n=989 intervals "
+            "over 12 processes on 2026-09-09, clearing the promise by 48.8ms with "
+            "every instrument reading `within`. It is a WARN and is deliberately "
+            "NOT a widening of `breached`: no trade went unevaluated past the "
+            "requirement, and spending the ALERT vocabulary on a promise that was "
+            "KEPT is how the operator gets trained past the one that means it was "
+            "not. The producer tests `breached` FIRST, so the band underneath can "
+            "never downgrade a real breach."
+        ),
+    },
+    {
+        "name": "exit_restart_gap.restart_gap_state",
+        "producer": "src/runtime/exit_restart_gap.py",
+        # No `producer_field`, deliberately, for the reason the qty_legalize and
+        # research_queue entries give: the states are module CONSTANTS
+        # (`RESTART_GAP_WITHIN = "within"`), so the literal never shares a line
+        # with the word `restart_gap_state` and narrowing here would fail for a
+        # spelling reason rather than a correctness one. The hazard
+        # `producer_field` guards -- a SIBLING field in the same module standing
+        # in as evidence -- does not arise: the module's only other state field
+        # is `gap_state`, whose vocabulary (measured/overlapping/ungradeable) is
+        # disjoint from this one's.
+        "consumer_token": r"\brestart_gap_state\b|\bgrade_restart_gaps\b|\bgrade_this_process\b",
+        "states": ["within", "near_miss", "breached", "not_measured", "unknown"],
+        "why": (
+            "THE INTERVAL THE PROMISE COVERS AND THE INSTRUMENT EXCLUDES BY "
+            "CONSTRUCTION. M20 guarantees no live trade goes 60s without "
+            "re-evaluation; `exit_loop_health.max_interval_ms` grades that from a "
+            "module global that resets on every restart, and the live trader "
+            "restarts on every merge to main (12 processes in ~8.3h measured "
+            "2026-09-09). So the gap from the last pass of process N to the first "
+            "of N+1 is measured by NOBODY -- and a deploy is exactly when the "
+            "trader is least likely to be evaluating exits (old process stopped, "
+            "new one booting with cold caches). `not_measured` = fewer than two "
+            "processes in the population, so NO gap EXISTS; `unknown` = "
+            "boundaries existed and none could be graded, e.g. the successor's "
+            "earliest row is not a genuine first pass because the log was "
+            "rotated. BOTH must never collapse into `within`: a log with one "
+            "process in it has not demonstrated compliance, it has demonstrated "
+            "nothing, and a rotated log would otherwise yield an arbitrary "
+            "within-process interval wearing a restart-gap label -- "
+            "systematically SHORT, i.e. wrong in the reassuring direction. "
+            "Measured 2026-09-09: 11 restart gaps at 25.3-53.9s, 0 of 11 over "
+            "60s, 1.3% of wall clock -- clean, and watched by nothing. "
+            "WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED (audit F-50)."
         ),
     },
     {

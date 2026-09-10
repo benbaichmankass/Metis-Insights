@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-hb-20260910T0128",
-    "claimed_at": "2026-09-10T01:29:40Z",
-    "purpose": "Manager heartbeat (01:27:37Z), live three-lane supervision, and a canonical 4-key claim that closes the slot-size delta redding main. Narrative in PR #11632 body, not in this mirror. Tier-1, no worker path, no order touched."
+    "branch": "claude/mgr-hb-20260910T0246",
+    "claimed_at": "2026-09-10T02:50:26Z",
+    "purpose": "manager heartbeat 02:49:05Z + four-lane supervision + merge-queue ledger + one backlog filing"
   },
   "active_sessions": [
     {
@@ -77,6 +77,14 @@
       "branch": "claude/mi195-tp-decisions-and-examine",
       "started_at": "2026-09-08T09:59:45Z",
       "scope": "Examine qld_trend_long_1d + tqqq_trend_long_1d: unblock their e3.5 candle substrate (scripts/research/e35_shard_plan.py) and run the sweep. Verifies -- does NOT re-apply -- MI-158's tp_intent reader and gld_pullback_1h tp_r 4.0."
+    },
+    {
+      "session": "session_01N4QpvcvLWQ5cuKXUcCWJ8E",
+      "branch": "claude/mi230-exit-eval-near-miss-restart-gap",
+      "repo": "benbaichmankass/Metis-Insights",
+      "status": "active",
+      "started_at": "2026-09-10T00:57:00Z",
+      "scope": "MI-230 / WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED (audit F-50). Tier-1 CI/observability. Touching: src/runtime/exit_loop_health.py, src/runtime/exit_interval_soak.py, NEW src/runtime/exit_restart_gap.py, src/web/api/routers/exit_interval.py, scripts/ci/check_collapsed_states.py (contract entries), scripts/ops/system_invariants.py (one function body + one self-test line only -- MI-231 owns the INVARIANTS list), tests/, CLAUDE.md's EXIT_LOOP_DECOUPLE_DISABLED row, docs/claude/OPEN-ITEMS.json, the work object. NOT touching config/, deploy/, .github/workflows/, or any order path. No order placed, modified or cancelled on any account."
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
