@@ -688,8 +688,62 @@ _STATUS_BASIS_NOTES = {
 }
 
 
+def _render_age(hours: float) -> str:
+    """An age string in the unit a reader can act on.
+
+    ⚠️ **The thresholds mirror `Work.svelte`'s own `age()` helper on purpose.**
+    The two render the SAME quantity onto the SAME page -- the stamp line and
+    this warning sentence -- so a server that said "0.3h ago" beside a stamp
+    reading "18m ago" would look like two different measurements of two
+    different things. They are two renderings and they must agree.
+
+    ⚠️ This is a SECOND implementation of that formatting and it can drift;
+    the repo boundary is why it is not shared. What keeps it honest is that
+    both sides read the same `commitAgeHours` field, so any disagreement is
+    cosmetic and visible on one screen rather than silent.
+    """
+    if hours < 1.0:
+        return f"{round(hours * 60.0)}m"
+    if hours < 48.0:
+        return f"{hours:.1f}h"
+    return f"{hours / 24.0:.1f}d"
+
+
+#: How old this tree's VIEW OF MAIN may get before `synced` stops meaning
+#: anything.
+#:
+#: ⚠️ **A DIFFERENT QUANTITY FROM `CHECKLIST_STALE_AFTER_MINUTES`, WITH A
+#: DIFFERENT BASIS -- do not merge them if they ever coincide numerically.**
+#: That one is a recorded OPERATOR DECISION about how late a MANAGER's push may
+#: be. This one is a property of `ict-git-sync.timer`: it fires every 5 minutes
+#: (`OnUnitActiveSec=5min`, `RandomizedDelaySec=30`), so a view of main older
+#: than 20 minutes is roughly FOUR consecutive missed cycles -- a sync failure
+#: rather than jitter. Reusing one number for both would be a coincidence
+#: masquerading as a decision.
+TREE_FETCH_STALE_AFTER_MINUTES = 20.0
+
+#: How late a manager's checklist push may be before the page WARNS.
+#:
+#: ⚠️ **15 MINUTES IS AN OPERATOR DECISION, TYPED VERBATIM**
+#: (`DEC-20260910-WORKFLOW-PAGE-STALENESS-THRESHOLD`, 2026-09-10). They were
+#: offered ~1h or "leave it at 3.0h" and chose NEITHER, typing "15 min" --
+#: tighter than either. It is stored in MINUTES because that is the unit they
+#: answered in; expressing it as `0.25` hours would launder a decision into a
+#: rounded figure and make the next reader think it was derived.
+#:
+#: ⚠️ **IT IS EXPECTED TO FIRE OFTEN, AND THAT IS THE POINT.** The page is
+#: exactly as fresh as the last PUSH plus `ict-git-sync`'s ~5-minute pull, so
+#: at 15 minutes this warns whenever a manager goes two sync cycles without
+#: pushing. That makes manager lateness visible to the OPERATOR rather than
+#: only to a guard, which is the enforcement CLAUDE.md names. **Do not widen
+#: it back because it fires often, and do not add a softer second tier** --
+#: both were forbidden in terms when the decision was routed.
+CHECKLIST_STALE_AFTER_MINUTES = 15.0
+
 def _freshness_warnings(
-    tree: Any, commit: Any, *, stale_after_hours: float = 3.0,
+    tree: Any, commit: Any, *,
+    stale_after_minutes: float = CHECKLIST_STALE_AFTER_MINUTES,
+    fetch_stale_after_minutes: float = TREE_FETCH_STALE_AFTER_MINUTES,
 ) -> list[str]:
     """What makes THIS page's data untrustworthy right now, in plain words.
 
@@ -719,6 +773,35 @@ def _freshness_warnings(
     elif tree.state != manager_status.TREE_SYNCED:
         out.append(f"Unrecognised tree state {tree.state!r}.")
 
+    # ── `synced` has to justify itself ─────────────────────────────────────
+    # ⚠️ `synced` compares HEAD against the LOCAL `origin/main` ref, and
+    # `scripts/deploy_pull_restart.sh` runs `git fetch` then
+    # `git reset --hard origin/main` -- so on the live VM that equality holds
+    # BY CONSTRUCTION and `treeBehindCommits: 0` is guaranteed rather than
+    # measured. It cannot tell a tree that fetched 30 seconds ago from one
+    # whose sync died an hour back. MEASURED 2026-09-10: the page read
+    # `synced` / `behind 0` at 9071b8321 while GitHub's main was b8cbbbf10 --
+    # a strict ancestor, genuinely one commit behind. Nothing was wrong with
+    # the comparison; what was missing was the age of its base.
+    if tree.state == manager_status.TREE_SYNCED:
+        age = getattr(tree, "main_ref_age_hours", None)
+        if age is None:
+            out.append(
+                "How long ago this tree last FETCHED could not be established, "
+                "so `synced` cannot be trusted: it compares HEAD against the "
+                "LOCAL origin/main ref, and without a fetch age there is no "
+                "way to tell a current view of main from an ancient one. This "
+                "is *we could not look*, NOT a fresh tree."
+            )
+        elif age * 60.0 >= fetch_stale_after_minutes:
+            out.append(
+                f"This tree last FETCHED {_render_age(age)} ago, so `synced` "
+                f"only means it is level with main AS OF THEN. ict-git-sync "
+                f"pulls every ~5 minutes, so this is several missed cycles — "
+                f"treat the rows below as possibly behind whatever has landed "
+                f"since."
+            )
+
     if commit.state == manager_status.FILE_COMMIT_UNCOMMITTED:
         out.append(
             "The checklist has NO commit on this tree, so it has never been "
@@ -730,12 +813,18 @@ def _freshness_warnings(
             f"({commit.note or 'no detail'}) — the as-of stamp below is "
             f"absent because we could not look, not because it is new."
         )
-    elif commit.age_hours is not None and commit.age_hours >= stale_after_hours:
+    elif (commit.age_hours is not None
+          and commit.age_hours * 60.0 >= stale_after_minutes):
+        # ⚠️ RENDER THE UNIT THE READER CAN USE. This said `{age_hours:.1f}h`
+        # while the threshold was 3.0h, where it was fine. At a 15-MINUTE
+        # threshold the very first warning it can emit reads "0.3h ago" --
+        # true, and unreadable. The threshold change without the unit change
+        # would have shipped a banner nobody can act on.
+        said = _render_age(commit.age_hours)
         out.append(
-            f"The checklist was last COMMITTED {commit.age_hours:.1f}h ago. A "
-            f"manager is expected to push it before answering a status "
-            f"request, so this page is {commit.age_hours:.1f}h behind whatever "
-            f"they are actually working on."
+            f"The checklist was last COMMITTED {said} ago. A manager is "
+            f"expected to push it before answering a status request, so this "
+            f"page is {said} behind whatever they are actually working on."
         )
 
     if commit.dirty:
@@ -935,6 +1024,13 @@ def _checklist_payload() -> dict[str, Any]:
         "treeHeadSha": tree.head_sha,
         "treeMainSha": tree.main_sha,
         "treeBehindCommits": tree.behind_commits,
+        # ⚠️ THE FIELD THAT MAKES `treeState` READABLE. `treeBehindCommits` is
+        # zero by construction on the live VM (fetch, then hard-reset), so it
+        # is this number — how old our VIEW of main is — that carries the
+        # staleness. `None` is "we could not establish when we last fetched",
+        # never 0.0.
+        "mainRefAgeHours": (round(tree.main_ref_age_hours, 3)
+                            if tree.main_ref_age_hours is not None else None),
         "treeNote": tree.note,
         "stamp": manager_status.render_tree_stamp(tree),
         "note": commit.note,
