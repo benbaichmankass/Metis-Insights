@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · work-digest run 34443237065",
-    "branch": "automation/work-digest-34443237065-1",
-    "claimed_at": "2026-09-10T05:59:44Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "claude session_01Ww2pZVK5VUqV8xFFtTs9B1 · PR #11647",
+    "branch": "claude/mi-exit-eval-60s-rootcause",
+    "claimed_at": "2026-09-10T06:39:15Z",
+    "purpose": "Tier-1 docs-only: root-cause of the exit-eval 60s breaches + the operator decision request. Prior holder was github-actions[bot] work-digest run 34443237065 at 05:59:44Z, whose own purpose says arming auto-merge IS its merge — a stale automation claim, not a live session."
   },
   "active_sessions": [
     {
