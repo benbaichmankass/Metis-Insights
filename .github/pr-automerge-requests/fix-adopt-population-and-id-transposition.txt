@@ -1,0 +1,1 @@
+PR #11717 — Tier-1 correction of two documentation defects in my own merged work (a transposed trade id, an unstated denominator). tests/** + docs/** + rendered CLAUDE.md brief only.
