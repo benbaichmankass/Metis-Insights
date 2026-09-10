@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T05:32:00Z",
+  "updated_at": "2026-09-10T06:11:04Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4337,6 +4337,35 @@
         "source": "get_session per id — platform truth, read 2026-09-10T05:29:56Z",
         "state": "running"
       }
+    },
+    {
+      "session_id": "session_01QDXwpPzHmqY33qcCkNRdNR",
+      "registry_key": "pending-20260910T060841Z",
+      "state": "working",
+      "title": "Lane 4 RECOVERY — rebase, re-green and un-draft #11519 (the stale-automation sweeper), orphaned when its author went idle",
+      "owns_object": "WO-20260909-EVERY-PR-IN-THE-REPO-IS-RED",
+      "spawned_at": "2026-09-10T06:08:41Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/lane4-stale-automation-landing-20260909"
+      ],
+      "why": "OPERATOR-DECIDED 2026-09-10T06:09Z via popup, chosen: 'Recover it with a fresh session'. #11519 carries 2056 lines and 21 tests that fix the ~16 stranded automation PRs, and its author session_01NcYsS6kFNrzxEKcrNy9eXP has been IDLE/DISCONNECTED/completed since 2026-09-09T20:21:52Z. Measured 2026-09-10T06:07Z: draft=true, mergeable_state=dirty, check_runs total_count=0, base pinned to 6295bce38 — so its own closing claim 'green (7/7)' is STALE AND FALSE, and the zero check runs are the merge conflict, not CI-not-started.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-10T06:09:17Z"
+    },
+    {
+      "session_id": "session_01Ww2pZVK5VUqV8xFFtTs9B1",
+      "registry_key": "pending-20260910T061026Z",
+      "state": "working",
+      "title": "MI-232 — root-cause the exit-eval 60s breaches: 17.4% of RESTART boundaries (max 210.4s) and a within-process recurrence of 1216 against a row closed as resolved",
+      "owns_object": "WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES",
+      "spawned_at": "2026-09-10T06:10:26Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "CYCLE PRIORITY CY-20260906-TRADING-TRUTH, and the measurement-before-acting case the priority names. MI-230 shipped the instrument; its FIRST complete read contradicts what the OPEN-ITEMS row predicted. Two open high-severity rows carry the measurement and explicitly do NOT propose a cause: BL-20260910-RESTART-GAP-BREACHES-THE-60S-REQUIREMENT-ON-17-PERCENT-OF-RESTARTS-MAX-210S and BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL. Nobody owns either.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-10T06:11:04Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
