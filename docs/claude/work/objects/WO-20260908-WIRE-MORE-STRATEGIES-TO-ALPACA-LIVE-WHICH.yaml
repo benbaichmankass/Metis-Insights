@@ -25,11 +25,28 @@ blocked_on:
   ref: DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION
   since: '2026-09-10'
   note: >-
-    The proposal is WRITTEN and the object is held on the operator answering it.
-    config/accounts.yaml is Tier-3 and this object's own done_condition says
-    nothing is enacted from it. Three options are on the table (A / A+ / B, see
-    the proposal) plus four secondary questions (side_filter, funding, the short
-    side, SPLG).
+    NARROWED 2026-09-10T09:3xZ by MI-201, and the two halves are DIFFERENT FACTS.
+    (a) MI-247 (session_01Ek2KDXDeLAMrN4JH4aEXWf) REPORTS that the operator chose
+    Option A on 2026-09-10 from a four-option pop-up built on this proposal, and
+    has opened PR #11671 enacting it — Tier-3, landing: hold, correctly unarmed
+    and claiming no merge slot, so what it waits on is a human MERGE CLICK, not a
+    decision. VERIFIED BY ME: #11671 exists, is Tier-3, declares landing: hold,
+    and carries exactly the Option A diff from § 5.1 of the proposal.
+    (b) ⚠️ I DID NOT WITNESS THE APPROVAL and I am not recording it as observed.
+    No human input reached this session. The claim reaches me only through
+    another session's PR body.
+    ⚠️ AND IT IS RECORDED NOWHERE DURABLE: git grep for
+    DEC-20260910-ALPACA-LIVE-ROSTER-EXPANSION across origin/main:docs/ returns
+    exactly ONE file — this one — so on the evidence available to me an operator
+    decision authorising a REAL-MONEY roster change lives only in a PR body and
+    in this note. That is the shape OPEN-PRS.json's own doctrine warns about
+    ("a row recording a verdict without its condition is WORSE than a missing
+    row"), and it is why the typed operator_decision object exists. Raised to
+    MI-247 and the manager on the coordination board rather than written by me,
+    because a session that did not hear the operator must not author the record
+    of what they said.
+    The four secondary questions (side_filter, funding, the short side, SPLG)
+    are NOT reported as answered by anything I can see, and remain open.
 blocked_on_basis: >-
   ASSESSED 2026-09-10 by MI-201 (session_01UxsiSgFa9dKwBFw5RTbLGA). This is a
   TRUE edge, written after doing the work rather than inferred: the proposal
