@@ -495,7 +495,7 @@ GUARDS: List[Dict[str, Any]] = [
         # refusal path that never runs is indistinguishable from no refusal.
         # ⚠️ Self-test ONLY — it deliberately does NOT grade the live checklist.
         # CI would then red every PR while a real backlog of unrouted rows
-        # exists (70 of 270 on 2026-09-11), which is how a guard gets disabled
+        # exists (68 of 270 on 2026-09-11), which is how a guard gets disabled
         # instead of fixed. The SURFACE is the session brief and the due-list.
         "name": "checklist-routing-age-guard",
         "when": None,

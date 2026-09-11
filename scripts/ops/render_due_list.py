@@ -871,7 +871,7 @@ def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
     return SourceResult("sunset", "read", rows)
 
 
-def src_checklist_unrouted(root: Path, today: date) -> SourceResult:
+def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: today — the ages are derived at the register's OWN `generated_at`, not at render time, so using `today` here would silently re-date somebody else's measurement. That gap (a register whose producer has stopped running still renders as today's answer) is real and is filed as BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS — it is fixed by grading the register's age into its own STALE state, never by quietly stamping a fresh date onto a stale reading.
     """MI-246 — manager-checklist rows that were FILED and never ROUTED.
 
     WHY THIS IS A SOURCE. This renderer's own docstring names the defect it
@@ -882,7 +882,7 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:
     unlanded_automation, error_feed and sunset, and none of them is the
     checklist. So a scoped, agreed, owner-less item was due to nobody.
 
-    ⚠️ **IT REPORTS THE CROSSING, NOT THE STOCK.** MEASURED 2026-09-11: 70 of
+    ⚠️ **IT REPORTS THE CROSSING, NOT THE STOCK.** MEASURED 2026-09-11: 68 of
     270 rows were already past the threshold. Listing all of them here would
     reproduce inside the due-list exactly the flood the error-feed cap exists to
     collapse, so `checklist_routing_age` pages a row ONCE when it crosses and
@@ -917,10 +917,13 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:
 
     thr = reg.get("threshold_hours", "?")
     # ⚠️ BRANCH ON THE VOCABULARY, NOT ON THE SHAPE OF A LIST. `stall_counts` is
-    # keyed by the four state names `checklist_routing_age` declares, so a
-    # consumer that forgets one drops a KeyError rather than a signal. The four
-    # are not interchangeable: `newly_stalled` is news, `standing` is a count,
-    # `within` means nothing is owed, and `unknown` is WE DID NOT LOOK.
+    # keyed by the four state names `checklist_routing_age` declares, so reading
+    # it here is reading the contract rather than inferring the states back out
+    # of whichever list they happened to arrive in. The four are NOT
+    # interchangeable: `newly_stalled` is news, `standing` is a count, `within`
+    # means nothing is owed, and `unknown` is WE DID NOT LOOK. The per-field
+    # fallbacks are for a register written before `stall_counts` existed; they
+    # are a compatibility shim, not the reading.
     counts = reg.get("stall_counts") or {}
     n_newly = int(counts.get("newly_stalled", len(reg.get("newly_stalled") or [])))
     n_standing = int(counts.get("standing", reg.get("standing_count") or 0))

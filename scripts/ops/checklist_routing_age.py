@@ -36,10 +36,14 @@ revisions and derives the age. That is why `MI-246` is deliberately NOT blocked
 on `MI-237`: the missing thing was an elapsed-time term, and git has it.
 
 ⚠️ **A SHALLOW CLONE MUST REFUSE, NOT ANSWER.** `git log` on a truncated clone
-returns a plausible wrong answer with no error — `BL-20260730-SHALLOW-CLONE-
-DEFEATS-HISTORY-RULE`, the instance where the mandated history check was itself
-silently answering out of a truncated scope. So the derivation grades
-`could_not_read` rather than reporting a comfortable zero.
+returns a plausible wrong answer with no error. That is
+`BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE` — the instance where the
+mandated Tier-2/3 history check was itself silently answering out of a truncated
+scope. So the derivation grades `could_not_read` rather than reporting a
+comfortable zero. (The id is kept on ONE line deliberately: hyphen-wrapping it
+across a line break makes it resolve to a row that was never filed, which reads
+as tracked while being tracked by nobody — `check_backlog_refs` caught exactly
+that in this file's first draft.)
 
 THE THRESHOLD IS MEASURED, AND SO IS THE REASON IT IS NOT THE WHOLE DESIGN
 --------------------------------------------------------------------------
@@ -50,16 +54,19 @@ docs/claude/work/MANAGER-CHECKLIST.json on main**, 2026-09-02T00:36:53+03:00 →
 * time to first real owner, for rows that were ever open-and-unrouted and later
   got one — **n=37**: median **3.85 h**, p75 14.08, p90 22.37, **p95 24.24**,
   max 43.60. 94.6% routed within 24 h, 100% within 48 h.
-* currently open-and-unrouted: **75 of 270 rows**, of which **70 are older than
-  24 h**, 55 older than 48 h, oldest **228.2 h**.
+* currently open-and-unrouted: **74 of 270 rows**, of which **68 are older than
+  24 h**, oldest **228.2 h**. (A first, cruder scratch classifier read 75/70; the
+  shipped one is authoritative because it is what actually grades the rows — the
+  difference is `duplicate_of_*` prefixes and a status-field spelling. Quote the
+  shipped number, and re-derive it rather than trusting either.)
 
 So ``THRESHOLD_HOURS = 24`` is the p95 of observed routing latency — a measured
 quantile that happens to land on a round number, not a round number chosen by
 feel.
 
 ⚠️ **AND THE SECOND FIGURE KILLS THE OBVIOUS DESIGN.** A surface that reports
-every row past the threshold would report **70 rows today**. That is not a
-signal, it is a second backlog, and a list of 70 in the session brief is the
+every row past the threshold would report **68 rows today**. That is not a
+signal, it is a second backlog, and a list of 68 in the session brief is the
 desensitised alarm this repo calls its own worst failure mode — the same shape
 as the 62/86-manifest dataset audit that hid a real bug for weeks.
 
@@ -85,9 +92,8 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 CHECKLIST = "docs/claude/work/MANAGER-CHECKLIST.json"
 OUT = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
@@ -322,9 +328,9 @@ def build(repo: Path, *, now: datetime | None = None,
     """Grade every row. On the FIRST run the standing backlog is SEEDED, not paged.
 
     ⚠️ **THE COLD START IS THE WHOLE RISK AND IT IS HANDLED DELIBERATELY.**
-    MEASURED 2026-09-11: 70 of 270 rows are already past the threshold, several
+    MEASURED 2026-09-11: 68 of 270 rows are already past the threshold, several
     by more than 200 h. Reporting them all on the first run would produce one
-    70-row block — unreadable, skimmed, and then silent forever, so the
+    68-row block — unreadable, skimmed, and then silent forever, so the
     mechanism's first and only loud act would be the one nobody reads. That is
     the desensitised alarm, arrived at by being thorough.
 
@@ -334,7 +340,7 @@ def build(repo: Path, *, now: datetime | None = None,
     successful run) and the `soak-registered-guard` BASELINE — an escape hatch
     that is **visible, counted, and named in the artifact**, never silent.
 
-    ⚠️ **Seeding is NOT a disposition.** Those 70 rows remain unrouted and
+    ⚠️ **Seeding is NOT a disposition.** Those 68 rows remain unrouted and
     remain somebody's problem; this says only that they are not NEWS. They are
     `MI-243`/backlog territory, and `seeded_ids` names every one of them so the
     set is workable rather than lost.
@@ -433,7 +439,7 @@ def _envelope(now, hist_state, note, newly, standing, within, unknown,
         "within_count": within,
         "ungradeable_count": unknown,
         # The ledger is what makes a crossing LOUD ONCE. Without it the surface
-        # reports the standing stock every run — 70 rows today — which is the
+        # reports the standing stock every run — 68 rows today — which is the
         # desensitised alarm this module's docstring refuses.
         "reported_ids": reported,
     }
