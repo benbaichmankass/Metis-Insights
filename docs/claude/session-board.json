@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0328z-20260911",
-    "claimed_at": "2026-09-11T03:39:21Z",
-    "purpose": "manager tick 03:28Z"
+    "held_by": "claude session_01G4VneSjgv5QT4rMGj4izi5 · PR TBD (MI-258 fleet observation)",
+    "branch": "claude/mi258-observed-on-the-fleet",
+    "claimed_at": "2026-09-11T03:47Z",
+    "purpose": "Tier-1 registers only: record that MI-258's bot half is DEPLOYED and OBSERVED on the live /api/bot/work/decisions route, plus what that observation does NOT establish, and where MI-238 stands. PR #11757. !! I TOOK THIS SLOT ON A STALE READ AND THAT WAS MY ERROR, RECORDED RATHER THAN PAPERED OVER. I claimed at 03:42:42Z having checked that the PREVIOUS holder (github-actions[bot] session-reaper run 34558618293, 03:30:05Z) had no open PR -- which was correct. What I did NOT do was re-fetch origin/main IMMEDIATELY BEFORE claiming, so I did not see that session_01HrmZ1RRNM4UnEUaFdrPEjj had taken the slot at 03:39:21Z for claude/manager-tick-0328z-20260911 -- three minutes ahead of me. I overwrote a LIVE claim. Holding it now is defensible only because that branch has since LANDED (#11756 -> 93391fc05, confirmed on main), not because my check was sufficient. THE LESSON IS THE ORDER: verifying the OLD holder is stale is not the same as verifying the slot is FREE, and only a fetch taken at claim time can establish the second."
   },
   "active_sessions": [
     {
