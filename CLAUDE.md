@@ -116,9 +116,9 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 
 **🧭 No filed checklist row crossed 24h unrouted since the last reading.** (Generated — an empty list here means no NEW crossing, not that nothing is waiting; see the standing count below.)
 
-- ⚠️ **FIRST READING — armed over a pre-existing backlog of **67** row(s) already past 24h**, which are listed in `seeded_ids` and are deliberately NOT reported one by one (a 67-row block is the desensitised alarm, not a signal). **Seeding is not a disposition** — they are still unrouted.
+- ⚠️ **FIRST READING — armed over a pre-existing backlog of **69** row(s) already past 24h**, which are listed in `seeded_ids` and are deliberately NOT reported one by one (a 69-row block is the desensitised alarm, not a signal). **Seeding is not a disposition** — they are still unrouted.
 
-- Context, deliberately NOT a page: **0** row(s) already reported and still unrouted · **6** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
+- Context, deliberately NOT a page: **0** row(s) already reported and still unrouted · **4** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
 
 **32 monitoring item(s) DUE — check and record what you OBSERVED:**
 

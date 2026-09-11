@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "what_this_is": "How long each FILED manager-checklist row has sat with nobody to do it, derived from the git history of docs/claude/work/MANAGER-CHECKLIST.json by scripts/ops/checklist_routing_age.py. Read `history_state` BEFORE `newly_stalled`: on `could_not_read` an empty list means WE DID NOT LOOK, never that nothing is stalled.",
-  "generated_at": "2026-09-11T10:17:08+00:00",
+  "generated_at": "2026-09-11T10:39:09+00:00",
   "history_state": "derived",
-  "history_note": "197 revisions reachable, back to the commit that added the file",
+  "history_note": "198 revisions reachable, back to the commit that added the file",
   "threshold_hours": 24,
   "threshold_basis": "p95 of time-to-first-real-owner (24.24h) over n=37 rows that were ever open-and-unrouted and later got one, replayed from all 195 revisions of docs/claude/work/MANAGER-CHECKLIST.json on main, 2026-09-02T00:36:53+03:00 -> 2026-09-11T09:50:01Z. Re-derive with: python3 scripts/ops/checklist_routing_age.py --measure",
   "newly_stalled": [],
   "stall_counts": {
     "newly_stalled": 0,
     "standing": 0,
-    "within": 6,
+    "within": 4,
     "unknown": 0
   },
-  "seeded_count": 67,
+  "seeded_count": 69,
   "seeded_ids": [
     "MI-12-STALE-AUTOMATION-PR",
     "MI-19-SYSTEM-ACTION-CANCELLED-RUNS-ARE-SILENT",
@@ -81,10 +81,12 @@
     "MI-239-A-MONITORING-WORKFLOW-THAT-LETS-MONITORED-ITEMS-BE-FOLLOWED-WITHOUT-GENERATING-NOISE",
     "MI-242-ADD-SCRIPTS-BACKTEST-STAR-TO-TIER1-SURFACE-OPERATOR-APPROVED",
     "MI-244-THE-THREE-LANE-MODEL-IS-THE-OPERATING-MODEL-AND-THE-MANAGER-WAS-NOT-RUNNING-IT",
-    "MI-245-AN-OPERATOR-ANSWERED-AUDIT-DECISION-WAS-RECORDED-IN-PROSE-AND-THEN-DROPPED"
+    "MI-245-AN-OPERATOR-ANSWERED-AUDIT-DECISION-WAS-RECORDED-IN-PROSE-AND-THEN-DROPPED",
+    "MI-251-SCOPE-THE-INVERSE-ETF-ROUTE-FOR-THE-DEAD-SHORT-SIDE",
+    "MI-252-REPAIR-THE-SPLG-CANDLE-FEED"
   ],
   "standing_count": 0,
-  "within_count": 6,
+  "within_count": 4,
   "ungradeable_count": 0,
   "reported_ids": [
     "DEC-20260910-CLOSED-FLAT-PLANT-A-VIOLATION",
@@ -129,6 +131,8 @@
     "MI-242-ADD-SCRIPTS-BACKTEST-STAR-TO-TIER1-SURFACE-OPERATOR-APPROVED",
     "MI-244-THE-THREE-LANE-MODEL-IS-THE-OPERATING-MODEL-AND-THE-MANAGER-WAS-NOT-RUNNING-IT",
     "MI-245-AN-OPERATOR-ANSWERED-AUDIT-DECISION-WAS-RECORDED-IN-PROSE-AND-THEN-DROPPED",
+    "MI-251-SCOPE-THE-INVERSE-ETF-ROUTE-FOR-THE-DEAD-SHORT-SIDE",
+    "MI-252-REPAIR-THE-SPLG-CANDLE-FEED",
     "MI-26-CRON-DOES-FIRE-IN-THIS-REPO-BUT-HOURS-LATE",
     "MI-30-R-METRICS-ARE-CONTAMINATED-AND-FEED-PROMOTION-GATES",
     "MI-33-THE-CLOSE-FAILURE-ALARM-IS-INVISIBLE-ON-THE-FEED-REVIEWS-READ",

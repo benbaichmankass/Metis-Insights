@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T10:26:47+00:00",
+  "generated_at": "2026-09-11T10:39:48+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,22 +28,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.8h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 13,
+      "rows": 5,
       "note": ""
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 2,
+      "rows": 0,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-11T05:11:11+00:00, age 5.3h"
+      "note": "digest 2026-09-11T05:11:11+00:00, age 5.5h"
     },
     "sunset": {
       "state": "read",
@@ -57,8 +57,8 @@
     }
   },
   "counts": {
-    "due": 110,
-    "loud": 84
+    "due": 100,
+    "loud": 74
   },
   "rows": [
     {
@@ -620,24 +620,6 @@
       "link": ""
     },
     {
-      "source": "unlanded_automation",
-      "id": "#11785",
-      "title": "chore(ops): refresh the error-feed digest (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11785"
-    },
-    {
-      "source": "unlanded_automation",
-      "id": "#11786",
-      "title": "chore(ops): refresh the due-list (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11786"
-    },
-    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -704,10 +686,10 @@
       "source": "red_crons",
       "id": "constraint-readout",
       "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
+      "why_due": "latest scheduled run concluded 'cancelled'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34219035743"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34469714512"
     },
     {
       "source": "red_crons",
@@ -716,16 +698,7 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34213610709"
-    },
-    {
-      "source": "red_crons",
-      "id": "econ-calendar-produce",
-      "title": "econ-calendar-produce",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34295203763"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34587092798"
     },
     {
       "source": "red_crons",
@@ -734,7 +707,7 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34314012772"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34586914743"
     },
     {
       "source": "red_crons",
@@ -743,25 +716,7 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34224748936"
-    },
-    {
-      "source": "red_crons",
-      "id": "pr-queue-watch",
-      "title": "pr-queue-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34280346857"
-    },
-    {
-      "source": "red_crons",
-      "id": "probes",
-      "title": "probes",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34212052493"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34475833176"
     },
     {
       "source": "red_crons",
@@ -770,52 +725,7 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34205760509"
-    },
-    {
-      "source": "red_crons",
-      "id": "session-reaper",
-      "title": "session-reaper",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34311893227"
-    },
-    {
-      "source": "red_crons",
-      "id": "strategy-review-packets",
-      "title": "strategy-review-packets",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34207987310"
-    },
-    {
-      "source": "red_crons",
-      "id": "sunset-pass",
-      "title": "sunset-pass",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34110131942"
-    },
-    {
-      "source": "red_crons",
-      "id": "trainer-capture-watch",
-      "title": "trainer-capture-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34312725937"
-    },
-    {
-      "source": "red_crons",
-      "id": "work-digest",
-      "title": "work-digest",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34317101000"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34580398446"
     },
     {
       "source": "soaks",
@@ -1045,8 +955,8 @@
     {
       "source": "checklist_unrouted",
       "id": "checklist-unrouted-standing",
-      "title": "67 checklist row(s) unrouted past 24h, carried as a stock",
-      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 67 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
+      "title": "69 checklist row(s) unrouted past 24h, carried as a stock",
+      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 69 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
       "age_days": null,
       "loud": false,
       "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"

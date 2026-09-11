@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T10:26:47+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-11T10:39:48+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -126,10 +126,6 @@ _Generated 2026-09-11T10:26:47+00:00 · verdict **all_sources_read**_
   - Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (
 - 🔔 **OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER** (open_items · 1d) — loud row — must be reported on every session
   - MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without 
-- 🔔 **#11785** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): refresh the error-feed digest (auto)
-- 🔔 **#11786** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): refresh the due-list (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -144,32 +140,16 @@ _Generated 2026-09-11T10:26:47+00:00 · verdict **all_sources_read**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - 🔔 **OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED** (open_items) — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
-- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'cancelled'
   - constraint-readout
 - 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
   - due-list
-- 🔔 **econ-calendar-produce** (red_crons) — latest scheduled run concluded 'failure'
-  - econ-calendar-produce
 - 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'
   - error-feed-digest
 - 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
   - macro-valuation-snapshot
-- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
-  - pr-queue-watch
-- 🔔 **probes** (red_crons) — latest scheduled run concluded 'failure'
-  - probes
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
   - replay-pregate-nightly
-- 🔔 **session-reaper** (red_crons) — latest scheduled run concluded 'failure'
-  - session-reaper
-- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
-  - strategy-review-packets
-- 🔔 **sunset-pass** (red_crons) — latest scheduled run concluded 'failure'
-  - sunset-pass
-- 🔔 **trainer-capture-watch** (red_crons) — latest scheduled run concluded 'failure'
-  - trainer-capture-watch
-- 🔔 **work-digest** (red_crons) — latest scheduled run concluded 'failure'
-  - work-digest
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 9d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 9d) — monitoring row 9d since last observation (cadence 7d)
@@ -220,8 +200,8 @@ _Generated 2026-09-11T10:26:47+00:00 · verdict **all_sources_read**_
   - Monthly re-validation of every SHIPPED bracket-geometry cell on a live leg
 - **RQ-20260831-002** (research_queue) — research job still queued
   - Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
-- **checklist-unrouted-standing** (checklist_unrouted) — The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 67 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.
-  - 67 checklist row(s) unrouted past 24h, carried as a stock
+- **checklist-unrouted-standing** (checklist_unrouted) — The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 69 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.
+  - 69 checklist row(s) unrouted past 24h, carried as a stock
 
 _This list decides nothing. Every row is for a session to judge._
 
