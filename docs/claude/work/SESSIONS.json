@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T15:30:49Z",
+  "updated_at": "2026-09-11T17:00:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4482,7 +4482,10 @@
       "live_status": "IDLE/disconnected",
       "live_status_read_at": "2026-09-11T03:32:00Z",
       "manager_observation": "MI-240. post_turn_summary 'review_ready -- PR green after 2 main advances; next check 05:10Z'. #11738 re-verified by the manager at 03:29Z: mergeable_state=clean, head 841f7452b. IT IS WAITING ON ONE OPERATOR MERGE CLICK AND ON NOTHING ELSE. R4 bars a Tier-2 diff from self-landing whatever its approval state; the r2_only approval is already recorded and must NOT be re-sought.",
-      "updated_at": "2026-09-11T03:32:00Z"
+      "updated_at": "2026-09-11T03:32:00Z",
+      "last_observed_at": "2026-09-11T17:00:00Z",
+      "⚠️_STILL_RUNNING_AT_HANDOFF_AND_MY_FIRST_SWEEP_SAID_OTHERWISE": "CORRECTION, and it is the reason the operator asked for a rogue-session check. My handoff commit asserted 'NO sub-session is running -- all 7 spawned this shift read IDLE/COMPLETED'. THAT WAS FALSE. Read live via get_session at 2026-09-11T16:55:03Z: SESSION_STATUS_RUNNING, connection_status CONNECTED, task_summary 'auditing merge resolution; found dropped env-table row'. ⚠️ THE ROOT CAUSE OF THE MISS IS WORTH MORE THAN THE MISS: I swept the TOP 12 rows of list_sessions and treated that page as the population. This session was created 2026-09-10T21:31:56Z -- the day before -- so it fell off the page. A page is not a population; I have written that sentence into two findings today and then made the error.",
+      "✅_WHAT_IT_IS_DOING_AND_IT_IS_CORRECT_WORK": "It is auditing MY merge resolution on its own PR and it found a real defect: my CLAUDE.md conflict resolution dropped its hand-written EXIT_LOOP_IB_BREAKER_DISABLED env-table row. It pushed the repair itself (25eecf4dd, 16:49Z). This is a lane doing exactly what it should and it must NOT be interrupted or stood down. Filed as BL-20260911-TAKING-MAINS-CLAUDE-MD-WHOLESALE-TO-RESOLVE-A-SESSION-BRIEF-CONFLICT-SILENTLY-DROPS-THE-BRANCHS-OWN-HAND-WRITTEN-EDITS-TO-THAT-FILE."
     },
     {
       "session_id": "session_01M3FPDA7Yp9dmMXFqsYzGi3",
@@ -4724,5 +4727,6 @@
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T14:25Z — get_session on the ONE live lane (MI-269). COMPLETE for lanes this manager currently has running; the two that finished earlier today are recorded above and the 213 historical rows were not re-read. One of three operator slots in use."
+  "⚠️_last_live_reconcile": "2026-09-11T14:25Z — get_session on the ONE live lane (MI-269). COMPLETE for lanes this manager currently has running; the two that finished earlier today are recorded above and the 213 historical rows were not re-read. One of three operator slots in use.",
+  "⚠️_HANDOFF_NOTE_2026_09_11": "Manager session_01HrmZ1RRNM4UnEUaFdrPEjj handed off 2026-09-11T17:0xZ. ⚠️ CORRECTED: ONE sub-session IS RUNNING -- session_01CTPC91xaHrK6ES33UKjkTY (MI-240), confirmed RUNNING/connected at 16:55:03Z, auditing the manager's own merge resolution on #11738 and repairing a row that resolution dropped. DO NOT stand it down. The other 7 spawned this shift read IDLE/COMPLETED on a live 15:2xZ read. The three items the operator chose are QUEUED, not spawned (MI-271 research, MI-272 ops, MI-273 engineering) -- they asked to start those from a fresh manager session. The lease is RELEASED, so the incoming manager claims immediately."
 }
