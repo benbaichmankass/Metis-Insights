@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 08:17Z, prompted by an operator status request. Registers only: MANAGER-LEASE.json heartbeat (08:18:18Z, expires 09:48:18Z), SESSIONS.json (three rows graded against a live read + top-level updated_at for R6), MANAGER-CHECKLIST.json (TWO corrections to claims the manager itself made, the recorded decision to land #11767 unwidened, and one new row MI-264 filed so that decision's follow-up cannot be dropped). NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Recording a decision and keeping the registers is management, not an item."
+}
