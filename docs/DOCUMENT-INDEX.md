@@ -345,6 +345,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/colab-workflows.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/comms-architecture.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
 | `docs/claude/comms-timer-assessment.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
+| `docs/claude/blocked-lane-watch.md` | instruction | live | — | 2026-09-11 | `not-assessed / not-assessed` | — |
 | `docs/claude/coordination-board.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/board-body-template.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/debug-memory.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |

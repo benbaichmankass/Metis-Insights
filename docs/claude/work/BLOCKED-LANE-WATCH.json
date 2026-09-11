@@ -1,0 +1,21 @@
+{
+  "declared_rows": 0,
+  "generated_at": "2026-09-11T05:47:45Z",
+  "lane_state_counts": {
+    "cleared": 0,
+    "could_not_look": 0,
+    "still_blocking": 0,
+    "undeclared": 159
+  },
+  "latch": [],
+  "registry_rows_total": 209,
+  "rows_graded": 159,
+  "rows_skipped_terminal_with_declaration": 0,
+  "wake_list": [],
+  "world_readable": {
+    "branches_readable": true,
+    "merged_prs_readable": true,
+    "paths_readable": true,
+    "pr_states_readable": true
+  }
+}
