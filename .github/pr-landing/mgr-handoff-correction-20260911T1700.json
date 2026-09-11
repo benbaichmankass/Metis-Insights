@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Correction to the manager handoff, 2026-09-11. Registers and one backlog row only. It corrects a FALSE claim the handoff commit made (that no sub-session was running) and files the manager's own merge-resolution defect. No src/, config/, deploy/, workflows/ or scripts/. No order path. No order placed, modified or cancelled on any account."
+}
