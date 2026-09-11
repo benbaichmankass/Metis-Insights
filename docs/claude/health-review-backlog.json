@@ -35787,6 +35787,8 @@
     },
     {
       "id": "BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE",
+    "opened_at": "2026-09-11",
+    "resolution_criteria": "EITHER (a) a Data Explorer load in the DEPLOYED SPA returns 200 with real rows using the session it already holds -- observed on the live page, not inferred from a route decorator or a test; OR (b) it is established that it CANNOT, and that finding is recorded with the consequence stated (the single live consumer lost its Data Explorer on 2026-09-09) plus a decision on whether to restore it or retire the surface. A cheaper PARTIAL settlement that does NOT close this row on its own but narrows it: read the JWT envs off /proc/<MainPID>/environ on the web-api via get-env, or POST /api/auth/login with a WELL-FORMED body so the handler actually runs and returns 401 invalid_credentials (configured) vs 500 auth_unavailable (unset). !! NOT sufficient: any test suite -- #11517 already ships 34 passing tests and a harness cannot reach a deployed front end. !! NOT sufficient: an unauthenticated 401 from /api/bot/db/* -- that is the gate WORKING and is what both the healthy and the broken state look like from outside. !! AND A 422 FROM AN EMPTY LOGIN BODY IS NOT EVIDENCE AUTH IS CONFIGURED: Pydantic validation runs before the handler, so it never reaches the auth_unavailable branch.",
       "title": "The /api/bot/db/* gate merged while its own commit recorded both SPA preconditions as measured-FALSE, so the Data Explorer may have been permanently 401 since 2026-09-09 and nobody has looked",
       "severity": "high",
       "tier": 1,
