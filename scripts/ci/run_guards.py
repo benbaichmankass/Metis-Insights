@@ -487,6 +487,23 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MI-246 — a checklist row FILED and never ROUTED had no age, so nothing
+        # could report it. The ages are derived from git history, and a
+        # truncated history reports every row as young, which reads as an
+        # all-clear. The self-test is what keeps that refusal exercised: its
+        # `could_not_read` / `unknown` branches are the load-bearing ones, and a
+        # refusal path that never runs is indistinguishable from no refusal.
+        # ⚠️ Self-test ONLY — it deliberately does NOT grade the live checklist.
+        # CI would then red every PR while a real backlog of unrouted rows
+        # exists (68 of 270 on 2026-09-11), which is how a guard gets disabled
+        # instead of fixed. The SURFACE is the session brief and the due-list.
+        "name": "checklist-routing-age-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/checklist_routing_age.py", "--self-test"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [

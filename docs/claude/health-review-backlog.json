@@ -35798,6 +35798,17 @@
       "source": "MI-265 disposition pass (session_01NFnmLiu9zNDppY3qFXcJJA), 2026-09-11"
     },
     {
+      "id": "BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS",
+      "title": "checklist_routing_age's register stamps generated_at and no consumer grades it, so a producer that stops running renders a stale reading with a fresh look",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-11",
+      "detail": "MI-246 shipped scripts/ops/checklist_routing_age.py, whose register docs/claude/work/CHECKLIST-ROUTING-AGE.json is inlined into the CLAUDE.md session brief and rendered into docs/claude/DUE.md. The register HAS a `history_state` (derived / could_not_read) and it correctly refuses on a truncated git history -- but that grades the DERIVATION, never the AGE OF THE FILE. Nothing reads `generated_at`. So if its producer stops running -- it rides constraint-readout.yml, whose cron record in this repo is poor (this repo's own notes record 6 of 6 scheduled runs failing, and probes.yml firing ~4h50m late and once instead of daily) -- both surfaces keep rendering last week's reading, presented as today's answer, with no line saying so. That is the exact shape of the failure MI-246 exists to fix, one level up: a surface that cannot tell a working mechanism from a dead one. The repo already has the pattern to copy -- GET /api/bot/work/checklist carries the checklist's own commit sha, time and age beside the tree's state precisely so 'a page serving a three-hour-old checklist cannot read identically to a live one'. EVIDENCE, read 2026-09-11 from the shipped module: render_brief_lines() branches on `history_state` and on the four stall states and on nothing time-related; src_checklist_unrouted in render_due_list.py likewise. Positive control that the probe can find a positive: the same search finds `generated_at` written by _envelope(), so the field exists and is simply unread.",
+      "resolution_criteria": "render_brief_lines() and src_checklist_unrouted BOTH grade the register's own age against the producer's declared cadence and render a distinct STALE state -- a third value beside `derived` and `could_not_read`, never folded into either. Verified by a test that plants a register with an old `generated_at` and asserts the brief line says so, and by observing the stale line on a real surface. A green test alone clears the code half only.",
+      "source": "MI-246 build (session_01Uk4qLFBTyMEDMJXydYzSyw), 2026-09-11 -- filed by its own author as the honest residual"
+    },
+    {
       "id": "BL-20260910-A-START-HEADED-FILES-I-WILL-TOUCH-DECLARES-NOTHING-SO-THE-SCOPE-OVERLAP-AUDIT-REPORTS-NO-LIVE-SESSION",
       "opened": "2026-09-10",
       "severity": "medium",

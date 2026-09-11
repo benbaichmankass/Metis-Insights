@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0940z-20260911",
-    "claimed_at": "2026-09-11T09:45:36Z",
-    "purpose": "manager tick 09:40Z"
+    "held_by": "session_01Uk4qLFBTyMEDMJXydYzSyw (ENGINEERING LANE, MI-246)",
+    "branch": "claude/mi246-unrouted-row-age",
+    "claimed_at": "2026-09-11T10:39:02Z",
+    "purpose": "PR #11787 — Tier-1 self-land on green (R13). Arming IS the merge."
   },
   "active_sessions": [
     {
