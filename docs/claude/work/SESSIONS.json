@@ -4768,6 +4768,9 @@
     },
     {
       "session_id": "session_01W56JbiKrada5AM4pGtHxmg",
+      "branches": [
+        "claude/system-review-20260911"
+      ],
       "registry_key": "pending-20260911T174615Z-4",
       "state": "working",
       "title": "OPS LANE MI-272 — full /system-review",
