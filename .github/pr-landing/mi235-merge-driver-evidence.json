@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — one file, docs/claude/health-review-backlog.json, adding measured evidence to the `evidence` field of TWO rows that are already OPEN (BL-20260906 merge-driver-ships-unarmed, BL-20260902 monolithic-registers-reconflict). No new row: `backlog_append.py` refuses a restatement of an existing row, and both of these are open with their resolution_criteria unmet, so this is evidence on them rather than a duplicate. Spliced rather than re-serialised — 2 insertions / 2 deletions over 1457 rows, row count unchanged, id list identical, only the two intended rows differ. No src/, config/, deploy/, scripts/, workflows, order path, strategy or risk cap; no VM; no landing machinery; no order placed, modified or cancelled on any account."
+}
