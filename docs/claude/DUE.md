@@ -1,8 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
-
-> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
+_Generated 2026-09-11T10:01:19+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -96,6 +94,8 @@ _Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
   - THREE FACTS, and they are different — say WHICH you cleared. (1) EXAMINED, locally: MI-195 added a yfinance-direct last rung to e35_shard_plan.resolve_feed_source (planner matrix 41 -> 43 jobs, 0 remo
 - 🔔 **OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS** (open_items · 3d) — loud row — must be reported on every session
   - TWO MEASUREMENT TRAPS ON THE REAL-MONEY TRADE SURFACE, both of which have ALREADY produced a wrong operator-facing conclusion (2026-09-08, MI-200). Read this BEFORE measuring real-money performance. (
+- 🔔 **PROBE-REPORT-STALE** (probes · 3d) — EVERY probe verdict below was observed at 2026-09-08T09:50:48.490165+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.
+  - probe report is 72.2h old — expected daily (cron 20 5 * * *)
 - 🔔 **OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED** (open_items · 2d) — loud row — must be reported on every session
   - ⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (open_items · 2d) — loud row — must be reported on every session
@@ -118,8 +118,6 @@ _Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
   - [!] CORRECTED 2026-09-09T22:52Z — CLAUSE (1) IS CLEARED AND THIS ROW'S OWN ID NOW OVERSTATES WHAT IS OPEN. The id is deliberately NOT renamed (the generated SESSION BRIEF, MI-214's work object and MI-
 - 🔔 **OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING** (open_items · 2d) — loud row — must be reported on every session
   - The 2026-09-09 full-system audit (docs/audits/full-system-audit-2026-09-09.md, report RPT-20260909-171500-audit) filed 68 findings and 19 backlog rows and REMEDIATED NOTHING, correctly, per its work o
-- 🔔 **PROBE-REPORT-STALE** (probes · 2d) — EVERY probe verdict below was observed at 2026-09-08T09:50:48.490165+00:00, NOT today. The probes job did not land a fresh report, so treat its rows as a record of that run and check the workflow.
-  - probe report is 67.3h old — expected daily (cron 20 5 * * *)
 - 🔔 **OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED** (open_items · 1d) — loud row — must be reported on every session
   - alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and 
 - 🔔 **OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED** (open_items · 1d) — loud row — must be reported on every session
@@ -130,13 +128,17 @@ _Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
   - Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (
 - 🔔 **OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER** (open_items · 1d) — loud row — must be reported on every session
   - MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without 
-- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- 🔔 **#11782** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh probe results (auto)
+- 🔔 **#11785** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
-- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p
-- 🔔 **OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- 🔔 **OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any 
-- 🔔 **OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- 🔔 **OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED** (probes) — probe FAILED — its declared observation did not hold [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fresh / stale (ran befo
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
@@ -144,6 +146,12 @@ _Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - 🔔 **OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED** (open_items) — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'cancelled'
+  - constraint-readout
+- 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
+  - macro-valuation-snapshot
+- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
+  - replay-pregate-nightly
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 9d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 9d) — monitoring row 9d since last observation (cadence 7d)
@@ -176,15 +184,15 @@ _Generated 2026-09-11T05:11:17+00:00 · verdict **partial**_
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
 - **ERROR-FEED-SUMMARY** (error_feed) — 57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T00:02:52.841320+00:00`.
   - 101 cause groups over 1417 rows (67 error-level, 34 warn-level, 2 new since the last digest)
-- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - probe could not run (exit_2)
-- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - probe could not run (exit_2)
-- **OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- **OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - probe could not run (exit_2)
-- **OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- **OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - probe could not run (exit_2)
-- **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 67.3h ago]
+- **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (probes) — we did not look — this row is currently unwatched [observed 2026-09-08T09:50:48.490165+00:00, 72.2h ago]
   - probe could not run (exit_2)
 - **OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING** (open_items) — monitoring row has NEVER been observed
   - MI-255 (Tier-2, operator-approved via the manager 2026-09-10, PR #11708) added a size-plausibility gate to the orphan-adopt attribution path: src/runtime/orphan_attribution.py (a pure decision, four n
