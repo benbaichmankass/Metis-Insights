@@ -4557,7 +4557,43 @@
       "resolution_criteria": "Tier-3 -- arming a decision lever is a strategy-parameter change. Clears when EITHER exit_path_coverage.py is given a scheduled caller and its verdict distribution is tracked over time (so the ratio is a measured trend rather than a one-off reading), OR the operator records a decision that price-only exits are the intended design for these legs, with the reasoning. NOT SUFFICIENT: the ratio improving on its own between readings, without a scheduled measurement establishing the trend. NOT SUFFICIENT: writing new exit logic without first running the existing detector on a cadence -- it is on the standing list of shipped-and-unwired scripts.",
       "owner": "unassigned",
       "notes": "Found by the MI-225 full-system audit BEHAVIOR pass. The detector is not the gap; the scheduled invocation is."
+    },
+    {
+      "id": "BL-20260911-THE-BLEED-PREDATES-E35-BY-THREE-DAYS-AND-THE-BRIEFED-08-30-ONSET-IS-WRONG",
+      "opened": "2026-09-11",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "performance",
+      "summary": "The directional-leg bleed began 2026-08-27, THREE DAYS BEFORE the e35 bracket-geometry change shipped (2026-08-30T08:53:19Z), and the worst single day in the window is 2026-08-28 -- two days before it. OI-20260911 and its dispatch both frame the break as starting on/around 08-30, which makes e35 look like the prime suspect on timing alone. It is not exonerated, but it cannot be the primary cause of a decline that started before it.",
+      "evidence": "MEASURED 2026-09-11 over /api/diag/journal?table=trades&limit=1000 (ids 4701-5700, created_at 2026-08-17..2026-09-11). Population: status=closed AND NOT is_backtest AND pnl IS NOT NULL, account_id=bybit_1, daily realised PnL on CLOSE time. 16 consecutive losing days 2026-08-27..2026-09-11 totalling -$36,997; peak +$16,685 -> final -$20,312, maxDD $36,997. Daily: 08-26 +4173, 08-27 -897 (streak starts), 08-28 -6654 (worst day in window), 08-29 -631, 08-30 -1241 (e35 ships 08:53Z). Change census over config/{strategies,accounts,regime_policy,pairs,risk_caps}.yaml for 2026-08-14..09-12 shows the only commit on 08-27 (b05872423) is comment-only in both files -- no behavioural change landed at the onset. Full working: docs/research/bleed-attribution-2026-09-11.md section 4.1.",
+      "next_step": "Carry the 08-27 onset into OI-20260911 so a successor does not re-derive an 08-30 start. Any e35 revert proposal must state that it addresses at most 23% of the loss and that a second cause remains open.",
+      "resolution_criteria": "OI-20260911's `summary` field no longer reads '2026-08-28..09-11' / 'FIFTEEN CONSECUTIVE LOSING DAYS', and instead states the measured 2026-08-27 onset with the e35 deploy timestamp beside it -- read off docs/claude/OPEN-ITEMS.json on main, not off this row. ⚠️ A later session re-deriving an 08-30 onset from the stale summary does NOT close this; that is the recurrence this row exists to prevent, and it should be re-filed as one."
+    },
+    {
+      "id": "BL-20260911-THE-PROFITABLE-FORTNIGHT-BASELINE-RESTS-ON-A-WEEK-WITH-ZERO-MEASURED-ROWS",
+      "opened": "2026-09-11",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "area": "provenance",
+      "summary": "The '+$17,951 the fortnight before' baseline that the whole 'something broke on 08-30' framing rests on comes from a week containing ZERO broker-measured PnL rows. On rows that ARE broker truth, bybit_1 lost ~$6.4-6.9k in every week that can be measured at all, INCLUDING the week before the break. This does not prove the pre-period was unprofitable; it proves nobody can currently say it was profitable, and a before/after comparison across a period whose measured share DOUBLED is partly measuring the instrument.",
+      "evidence": "MEASURED 2026-09-11, same journal pull. Population: closed, non-backtest, pnl NOT NULL, account_id=bybit_1, bucketed by ISO week on closed_at, provenance via src/runtime/provenance.py::classify_pnl. Week 2026-08-17: measured rows = 0 (all-provenance +13,435). Week 08-24: -$6,399 (n=19). Week 08-31: -$6,829 (n=24). Week 09-07: -$6,936 (n=21). Provenance coverage across the 08-30 split roughly DOUBLED: untouched-control legs 0.318 -> 0.663, e35 legs 0.167 -> 0.304. Separately, the all-provenance pre-period is inverted in SIGN by a single row: ib_paper trade 4773, MGC 95 lots, +$249,185, exit_price_source=recorded_exit_price (ESTIMATED; CLAUDE.md: 'was never broker truth'), on the account carrying OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED (journal 54 lots vs venue 11).",
+      "next_step": "Any PnL before/after claim spanning 2026-08-30 must report the measured-only column beside the all-rows column, and must exclude ib_paper from money headlines until the journal-quantity divergence is resolved.",
+      "resolution_criteria": "Either (a) the pre-2026-08-30 period is re-measured over the FULL journal (not the 1000-row cap) with a stated measured-row count per week, establishing whether it was genuinely profitable; or (b) a decision is recorded that the pre-period baseline is UNGRADEABLE and must not be quoted as a profitable control. ⚠️ Coverage rising on its own does NOT close this -- newer rows being better measured says nothing about the 2026-08-17 week, which is the one in question. ⚠️ And a later reading that happens to agree does not close it either; name the population."
+    },
+    {
+      "id": "BL-20260911-THE-B4-GEOMETRY-CHANGE-LANDS-INSIDE-WHAT-EVERY-E35-ANALYSIS-CALLS-ITS-CONTROL",
+      "opened": "2026-09-11",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "research-method",
+      "summary": "e35 is not the only bracket-geometry change in the 2026-08-30 window. Commit 91de68b9c ('M20 B4: declare validated bracket geometry on 8 legs') merged 2026-08-29T17:08:30Z -- the day before -- changing atr_stop_mult and/or tp_r on eight further legs. Every one of them grades as 'untouched control' in an analysis that splits only on e35, so such an analysis compares CHANGED against PARTLY-CHANGED and calls the second one a control. Separately, e35 itself is not the uniform '2.5 -> 2.0 on 9 legs' in circulation.",
+      "evidence": "READ off the commits 2026-09-11, not off prose. 91de68b9c touches mgc_pullback_1d, spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, slv_trend_1h, tlt_pullback_1h, uso_trend_1h, scha_trend_long_1d. 892c9a2c (e35) is a FIVE-LEVEL ladder, not one value: -> 2.0 (trend_donchian, trend_donchian_eth_4h, trend_donchian_ada_4h, avax_pullback_2h); -> 1.5 (trend_donchian_sol_4h, trend_donchian_avax_4h); -> 3.0 i.e. WIDER (htf_pullback_trend_2h); tp_r ONLY with the stop untouched (ada_pullback_2h); 2.0 + tp_r 50->3 (trend_donchian_xrp_4h). trend_donchian_eth_prop HELD at 2.5. Remedy used in docs/research/bleed-attribution-2026-09-11.md: rebuild the control from legs declaring NEITHER atr_stop_mult NOR tp_r in config/strategies.yaml (the ict_scalp_* family), which are structurally immune rather than merely un-edited.",
+      "next_step": "Any future before/after on 2026-08-30 must hold B4 legs in their own group and must not treat the e35 change as a single dose.",
+      "resolution_criteria": "A geometry-change ledger exists that a session can read to learn, for any leg and any date, when its atr_stop_mult/tp_r last changed -- so a before/after analysis cannot silently include a changed leg in its control. Verified by finding the 2026-08-29 B4 legs and the 2026-08-30 e35 legs in it with their distinct dates. ⚠️ A prose note in one memo does NOT close this: docs/research/bleed-attribution-2026-09-11.md already carries the list, and the failure mode is the NEXT analysis not reading it."
     }
   ],
-  "updated_at": "2026-09-02T03:45:00+00:00"
+  "updated_at": "2026-09-11"
 }

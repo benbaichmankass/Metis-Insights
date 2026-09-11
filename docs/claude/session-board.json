@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/mgr-tick-1852z",
-    "claimed_at": "2026-09-11T18:54:31Z",
-    "purpose": "manager 18:52Z tick"
+    "held_by": "session_016dJtEibrgnsX32qD2gvDQY",
+    "branch": "claude/mi271-bleed-attribution",
+    "claimed_at": "2026-09-11T18:18:05Z",
+    "purpose": "MI-271 bleed attribution (PR #11815) — Tier-1 research + registers"
   },
   "active_sessions": [
     {
