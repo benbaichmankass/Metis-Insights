@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/mgr-board-start-gap",
-    "claimed_at": "2026-09-11T20:01:50Z",
-    "purpose": "file the board-START structural gap"
+    "branch": "claude/manager-2052z-tick",
+    "claimed_at": "2026-09-11T20:59:12Z",
+    "purpose": "manager 20:52Z tick: lane state for the three delivered PRs, and the fourth operator decision (#11827)"
   },
   "active_sessions": [
     {
