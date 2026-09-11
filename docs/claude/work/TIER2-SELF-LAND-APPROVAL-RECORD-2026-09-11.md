@@ -1,5 +1,7 @@
 # Letting an approved Tier-2 PR land — the design, and what #11738 revealed
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Evidence for `WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND`.
 > Lane `session_01SrUaz8LmKMcSwNZEr8JupC`, 2026-09-11, against `origin/main` @ `2901ccf44`.
 

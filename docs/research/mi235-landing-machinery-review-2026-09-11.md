@@ -1,6 +1,6 @@
 # MI-235 / PR #11767 — adversarial review of a landing-machinery change
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Review lane** `session_01PkGrU3GSYiWYAUyF99pEQi`, spawned by manager
 `session_01HrmZ1RRNM4UnEUaFdrPEjj`. PR **#11767** ("MI-235: tell a blocked lane

@@ -1,6 +1,6 @@
 # Backlog drain, 2026-09-09 — burn-down and the mechanism question
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 > Session `session_01Hw9mp8cEeZqF1KSGZHyHui` · object `WO-20260909-THE-HEALTH-BACKLOG-GREW-BY-49-WHILE`
 > under `IN-20260903-TRADING-SYSTEM-HEALTH` · registry key `pending-20260909T071304Z`.

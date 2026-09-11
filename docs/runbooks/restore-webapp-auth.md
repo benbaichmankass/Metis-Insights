@@ -1,6 +1,6 @@
 # Restoring the SPA auth gate (MI-266) — the ordered steps, and what to MEASURE
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **This runbook is WRITTEN, NOT EXECUTED.** Nothing in it has been run. It exists
 so that the moment the operator has minted the two secret values, restoring the

@@ -1,6 +1,6 @@
 # Sprint S-009 Summary
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-04-29
 **Checkpoint:** CP-2026-04-29-59 (see CHECKPOINT_LOG.md)

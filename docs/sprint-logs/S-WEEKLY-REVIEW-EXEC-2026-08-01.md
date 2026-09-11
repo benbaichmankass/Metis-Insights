@@ -1,6 +1,6 @@
 # Sprint Log — S-WEEKLY-REVIEW-EXEC-2026-08-01
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 Post-weekly-review operator-decision execution: report landing, SLV floor,
 SOL advisory swap, fabricated-exit backfill apply, MES baseline backfill via

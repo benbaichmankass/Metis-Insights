@@ -1,6 +1,6 @@
 # Sprint Log: S-XRP-TPSL-LEGCAP-2026-07-21
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-07-21T08:35:00Z (operator-flagged live screenshot: 23 open TP/SL entries for XRPUSDT on `bybit_2`)

@@ -1,5 +1,7 @@
 # Tier-2 landing approvals
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 One file per approved branch: **`docs/claude/work/approvals/{slug}.json`**.
 
 A record here is a **landing credential**. `pr-landing-guard`'s **R15**

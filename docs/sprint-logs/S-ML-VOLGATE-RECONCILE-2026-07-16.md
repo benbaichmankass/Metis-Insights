@@ -1,6 +1,6 @@
 # Sprint Log: S-ML-VOLGATE-RECONCILE-2026-07-16
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-16 (ML-forward continuation; picks up the `claude/ml-vol-regime-probe-21az61`
