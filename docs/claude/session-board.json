@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · session-reaper run 34558618293",
-    "branch": "automation/session-reaper-34558618293-1",
-    "claimed_at": "2026-09-11T03:30:05Z",
-    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+    "held_by": "claude session_01G4VneSjgv5QT4rMGj4izi5 · PR TBD (MI-258 fleet observation)",
+    "branch": "claude/mi258-observed-on-the-fleet",
+    "claimed_at": "2026-09-11T03:42:42Z",
+    "purpose": "Tier-1 registers only: record that MI-258's bot half is DEPLOYED and OBSERVED on the live /api/bot/work/decisions route, plus what that observation does NOT establish, and where MI-238 stands. One file. Taking a STALE slot: the previous holder was github-actions[bot] session-reaper run 34558618293 claimed 03:30:05Z, whose branch automation/session-reaper-34558618293-1 has NO open PR (checked against the live open-PR list: only #11755 and #11738 are open), so that claim's work is finished."
   },
   "active_sessions": [
     {
