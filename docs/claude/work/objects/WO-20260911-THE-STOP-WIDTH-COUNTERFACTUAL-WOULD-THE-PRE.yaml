@@ -51,8 +51,14 @@ outcome: >-
   (0.75-1.14x on the timeframes with real n) -- chop at unchanged volatility, not a
   vol regime change. || DOSE-RESPONSE INVERTS: the 20% tightening (2.5->2.0) gave a
   stop rate of 0.80 (p<0.0001) while the 40% tightening (2.5->1.5) gave 0.25
-  (p=0.47). Confounded by symbol/timeframe, and its decisive arm is EMPTY -- see
-  the backlog row. || INSTRUMENT WORK: 3 positive controls ran BEFORE the arms.
+  (p=0.47). Confounded by symbol/timeframe, and its DECISIVE ARM CANNOT REPORT AT ALL:
+  htf_pullback_trend_2h (the leg e35 WIDENED to 3.0) is `execution: shadow`, so it is
+  structurally incapable of opening a live position and all 8 of its rows in the window are
+  `rejected` -- i.e. A GEOMETRY CELL WAS SHIPPED TO A LEG THAT CANNOT ACT ON IT -- while
+  trend_donchian_eth_prop (the HELD within-family control) is routed only to breakout_1, the
+  PROP account, whose fills are isolated from `trades` by design. BOTH declared controls were
+  unable to report before a single trade was taken, so the e35 experiment was unfalsifiable on
+  its own controls from the day it shipped, and waiting fixes neither clock. See the backlog row. || INSTRUMENT WORK: 3 positive controls ran BEFORE the arms.
   PC1 basis FIT (OKX *-USDT-SWAP 1m; median deviation 0.0 bp, max 19.2, 0 of 33
   unfit). PC2 reproduction PASS (5 of 5, simulated touch within 0.1-3.3 min of the
   recorded closed_at) -- and PC2 is what CAUGHT a geometry error: the declared stop

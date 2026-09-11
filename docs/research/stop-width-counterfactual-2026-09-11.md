@@ -243,7 +243,12 @@ If stop width were the mechanism, the **dose must track the damage**: the legs t
 
 1. **The groups are confounded by symbol and timeframe**, not randomised. →1.5 is SOL-4h + AVAX-4h; →2.0 is BTC (1h), ETH-4h, ADA-4h, XRP-4h. A multiplier is not a comparable dose across timeframes — the same `atr_stop_mult` is a completely different price distance, measured here as a median stop distance of **92 bp** on `trend_donchian` (BTC, 1h) against **386 bp** on `trend_donchian_ada_4h`.
 2. **The within-symbol version is unavailable.** AVAX appears in both dose groups (`trend_donchian_avax_4h` →1.5 and `avax_pullback_2h` →2.0), which would have removed the confound — but `avax_pullback_2h` has **0 rows in the decision population**: all **46** of its rows in the window are `rejected` with a NULL `pnl` — it never opened a position here.
-3. ⚠️ **The single most decisive arm is EMPTY, and that is a *could not look*, not a negative.** `htf_pullback_trend_2h` is the leg e35 **widened** to 3.0, and it has **8 rows in the window, all 8 `rejected`** — it has never opened a position here. `trend_donchian_eth_prop`, the within-family control deliberately HELD at 2.5, has **0 rows**. **Both of the e35 experiment's designed controls have no observations.** Filed.
+3. ⚠️ **The single most decisive arm is not merely empty — it is STRUCTURALLY INCAPABLE of reporting, and so is the other control.** Read off `config/strategies.yaml` + `config/accounts.yaml` on 2026-09-11, not inferred:
+
+   - **`htf_pullback_trend_2h`** — the leg e35 **widened** to 3.0, and the one arm that could falsify a stop-width mechanism — is **`execution: shadow`**. It cannot open a live position at all, which is exactly why all **8** of its rows in the window are `rejected`. It is not a leg that happened not to trade. ⚠️ **And note what that says about e35 itself: a geometry cell was shipped to a leg that cannot act on it.**
+   - **`trend_donchian_eth_prop`** — the within-family control deliberately HELD at 2.5 — is `execution: live` but routed **only to `breakout_1`**, the PROP account: a manual Telegram-ticket bridge with no broker API, whose fills land in `prop_tickets`/`prop_fills` and are **ISOLATED from `trades` by design**. It can never appear in a `trades`-based population **by construction**.
+
+   **So both of the e35 experiment's designed controls were unable to report before a single trade was taken, for two different structural reasons.** Waiting does not fix either; both clocks are stopped. This is a *could not look* that cannot become a *we looked*, which is stronger and worse than an empty cell. Filed — and I found it only because `check_backlog_criteria.py` refused my first draft of that backlog row for naming an exit condition that could never be met.
 
 ---
 
@@ -342,12 +347,13 @@ The measured defect is **entry quality under the current regime**: favourable:ad
 - **ATR/price did NOT collapse** (0.75–1.14× on the timeframes with real n) — so this is chop at unchanged volatility, not a vol regime change.
 - The **deploy reached the trader**: all 33 packages' entry-frozen stop distances land exactly on their own era's multiplier.
 - **2 of 7 post-era stop-outs were ended by a trailed stop**, not by e35's width.
+- **Both of e35's declared controls were structurally unable to report** — the widened leg is `execution: shadow`, the held leg is prop-routed and isolated from `trades` — so the experiment was unfalsifiable on its own controls from the day it shipped.
 - MI-271's conclusions **survive** recomputation at package level; only its p-values weaken (e35 stop rate p = 0.023).
 - The MI-271 contradiction is a **mis-compression in one summary field**; the merged memo is right.
 
 **NOT established, and explicitly refused:**
 - **That e35 is harmless in general.** This is **n = 5 forward and 18 reverse packages** over 12 days on two symbols' worth of dose. It establishes that e35 did not cause *these* losses, not that the geometry is right.
-- **A dose-response.** The test inverts, but its groups are confounded by symbol and timeframe and its decisive arm (the WIDENED leg) has **zero** observations. It is corroboration, not evidence on its own.
+- **A dose-response.** The test inverts, but its groups are confounded by symbol and timeframe and its decisive arm — the WIDENED leg — is **`execution: shadow`** and therefore unable to report at all, as is the HELD within-family control (prop-routed, isolated from `trades`). It is corroboration, not evidence on its own, and it cannot be upgraded by waiting.
 - **What the counterfactual trade's PnL would have been.** The strategy's own levers cannot be re-simulated here, and at least one of them demonstrably rewrote a live stop in this very population. Only the touch question is answered.
 - **Why `ict_scalp_*` degraded.** It carries two-thirds of the loss, declares no bracket geometry, and is out of this unit's scope. §8's excursion collapse is measured on **e35 legs only** — whether it holds on the scalps is unmeasured and is the obvious next unit.
 - **Anything about real money at size.** Real-money e35 post-era exposure is **5 rows on `bybit_2` totalling −$14.06**.
