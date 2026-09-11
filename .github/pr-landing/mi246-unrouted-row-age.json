@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-246, Tier-1 by its own checklist row. Observability and tooling only: a new scripts/ops generator + its register, two existing generators gaining a block/source, a collapsed-state contract, a run_guards registration, a CI workflow checkout depth, tests, docs and generated registers. NO src/ runtime, NO config/, NO deploy/, NO order path, NO risk caps, NO VM mutation, and no order placed, modified or cancelled on any account. The one workflow edit is `fetch-depth: 0` plus two added steps on constraint-readout.yml, which touches no live system."
+}

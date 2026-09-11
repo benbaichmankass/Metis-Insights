@@ -225,6 +225,76 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "owner_liveness.owner_activity",
+        # No `producer_field`: the states are named module constants
+        # (`DORMANT = "dormant"`), so the literal never shares a line with the
+        # word `owner_activity` -- the same reason its `manager_status`
+        # siblings below declare none.
+        "producer": "scripts/ops/owner_liveness.py",
+        # ⚠️ The generic words (`ACTIVE`, `DORMANT`, `TERMINAL`) are matched
+        # ONLY behind the `ol.` module prefix. Bare `\bTERMINAL\b` pulled in
+        # five unrelated test files that happen to use the word, each then
+        # reported as a consumer collapsing this contract -- a false finding
+        # manufactured by the token, not by the code.
+        "consumer_token": (r"\bowner_activity\b|\bOWNER_ACTIVITIES\b|"
+                           r"\bgrade_owner_activity\b|\bUNGRADEABLE_OWNER\b|"
+                           r"\bUNKNOWN_TO_REGISTRY\b|\bUNRECOGNISED_STATE\b|"
+                           r"\bREGISTRY_UNREAD\b|\bol\.TERMINAL\b|"
+                           r"\bol\.DORMANT\b|\bol\.ACTIVE\b"),
+        "states": ["active", "dormant", "terminal", "unrecognised_state",
+                   "unknown_to_registry", "ungradeable_owner",
+                   "registry_unread"],
+        "why": (
+            "MI-236: `in_flight` goes false by time passing and nothing "
+            "decays it. The seven states are kept apart because each carries "
+            "a DIFFERENT REMEDY, and collapsing any pair destroys the remedy "
+            "rather than merely the label. `dormant` (idle) vs `terminal` "
+            "(archived/completed) reach the SAME verdict about the claim and "
+            "opposite actions -- a dormant owner is POKED awake (MI-235's "
+            "mechanism), a terminal one can only be RE-ROUTED -- and the "
+            "split is not decorative: measured on `main` 2026-09-11 over the "
+            "six rows the finding named, FIVE are `dormant` and ONE is "
+            "`terminal`, so a grader keyed on terminality alone catches 1 of "
+            "6. The three could-not-establish states must not fold into each "
+            "other either: `ungradeable_owner` is *the row names no session* "
+            "(8 rows read `manager` or `null`, fixed by naming an owner), "
+            "`unknown_to_registry` is *a real id the registry does not carry* "
+            "(the MI-15 registration gap, fixed in the registry), and "
+            "`registry_unread` is *we could not read the registry at all*. "
+            "`unrecognised_state` exists so a NEW vocabulary word cannot fall "
+            "silently into a bucket -- the registry already carries twelve "
+            "distinct `state` values and 8 rows with none. Above all, none of "
+            "the three may fold into `active`: that would report a row nobody "
+            "could grade as a checked one, which is the reassuring direction "
+            "and therefore the dangerous one."
+        ),
+    },
+    {
+        "name": "owner_liveness.claim_support",
+        "producer": "scripts/ops/owner_liveness.py",
+        # Same narrowing as its sibling above: bare `SUPPORTED` / `UNSUPPORTED`
+        # are ordinary English and matched five unrelated test files.
+        "consumer_token": (r"\bclaim_support\b|\bCLAIM_SUPPORTS\b|"
+                           r"\bCOULD_NOT_ESTABLISH\b|\bol\.SUPPORTED\b|"
+                           r"\bol\.UNSUPPORTED\b"),
+        "states": ["supported", "unsupported", "could_not_establish"],
+        "why": (
+            "This is a verdict about EVIDENCE, never about WORK: `unsupported` "
+            "says the register's own record does not support the claim that "
+            "somebody is working this row, and deliberately does NOT say the "
+            "work is abandoned. That framing is what makes the mechanism safe "
+            "to act on, and it is why `could_not_establish` must stay its own "
+            "state: folding it into `supported` would count a row nobody could "
+            "grade as one that was checked, and folding it into `unsupported` "
+            "would assert an absence nobody observed. Measured on `main` "
+            "2026-09-11 the split is discriminating, not decorative -- across "
+            "both registers, 10 supported / 17 unsupported / 8 "
+            "could_not_establish, and on the 8 work objects that FILL the WIP "
+            "ceiling it is 2 / 4 / 2, i.e. at most two of the eight slots "
+            "holding the ceiling shut have an owner the registry shows active."
+        ),
+    },
+    {
         "name": "manager_status.observation_state",
         # No `producer_field`, same reason as its two siblings below: the states
         # are named module constants (`OBS_RECENT = "recent"`).
@@ -1314,6 +1384,44 @@ CONTRACTS: List[Dict[str, object]] = [
             "page the operator on every IB gateway logout -- the opposite "
             "error and the desensitised-alarm P1 -- which is why the third "
             "value has to exist rather than be inferred from a boolean."
+        ),
+    },
+    {
+        "name": "checklist_routing_age.stall_state",
+        # The producer OWNS the vocabulary: the four states are module constants
+        # (`STALL_NEWLY = "newly_stalled"`), so no `producer_field` is declared —
+        # the literal never shares a line with the word `stall_state`, and
+        # narrowing here would fail for a spelling reason rather than a
+        # correctness one (the qty_legalize entry's reasoning).
+        "producer": "scripts/ops/checklist_routing_age.py",
+        # Scoped to THIS contract's own tokens. Emphatically NOT the bare state
+        # words: "standing", "within" and "unknown" are ordinary English that
+        # appear in dozens of unrelated modules, and matching on them would bind
+        # this contract to files that have never heard of a checklist row.
+        "consumer_token": (r"\bstall_state\b|\bstall_counts\b|\bSTALL_NEWLY\b|"
+                           r"\bSTALL_STANDING\b|\bSTALL_WITHIN\b|\bSTALL_UNKNOWN\b|"
+                           r"\bgrade_stall\b"),
+        "states": ["newly_stalled", "standing", "within", "unknown"],
+        "why": (
+            "MI-246, the THIRD member of a drop family that MI-235 and MI-236 do "
+            "not cover: a checklist row FILED correctly, with a real owner-shaped "
+            "gap, and then never ROUTED. It sat `ready`/`owner: unassigned` "
+            "indefinitely because the register had no elapsed-time term at all — "
+            "filing and routing were indistinguishable. All four states have to "
+            "stay apart. `newly_stalled` is a crossing and is LOUD ONCE. "
+            "`standing` is a row already said, carried as a COUNT — MEASURED "
+            "2026-09-11, 68 of 270 rows were past the threshold, so paging the "
+            "stock every run would put a 68-row block in the session brief and "
+            "train every session to skim it, which is this repo's own worst "
+            "failure mode. `within` is genuinely young and is the only state "
+            "that means nothing is owed. `unknown` is WE COULD NOT LOOK — a "
+            "truncated git history, or a status value in neither vocabulary — "
+            "and folding it into `within` is exactly the collapse that made the "
+            "four original instances invisible; folding it into `newly_stalled` "
+            "instead would manufacture stalls out of unreadable rows, the "
+            "opposite error. Consumers: the CLAUDE.md session brief and the "
+            "due-list, which are the two surfaces a session reads without "
+            "choosing to."
         ),
     },
     {

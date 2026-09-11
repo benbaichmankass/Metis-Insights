@@ -1,0 +1,132 @@
+id: WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  A filed row that is never routed has no age: give state transitions an elapsed-time term and a surface
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01Uk4qLFBTyMEDMJXydYzSyw
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  (1) A row holding ready/unassigned past a MEASURED threshold is SURFACED where a manager reads before it plans - not in a 5.1 MB backlog and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row reported BEFORE the operator asks about it. (2) is the whole point and (1) does not substitute - every mechanism in this family has shipped and then not been read. A green guard clears (1) ONLY. Thresholds must be established FROM THE DATA with the population stated, never chosen round numbers. The surface must distinguish 'we did not look' from 'nothing is stale'. If the honest answer is that MI-235/236/237 subsume this once built, saying so and CLOSING this row explicitly is a legitimate outcome - a fourth near-duplicate accruing IS the class.
+
+why: >-
+  THE THIRD DROP CLASS. MI-235 covers a session blocked on a manager action never told when it clears; MI-236 covers an in_flight row going stale because nothing decays it. NEITHER covers a row FILED correctly and then never routed: it sits ready/unassigned indefinitely with no age, nothing computes how long it has been unrouted, and no surface reports it. FILING IS NOT ROUTING and the register makes those indistinguishable. Four measured instances, every one found only because the operator happened to ask.
+
+source: >-
+  operator (conversational), 2026-09-10 — the manager-mandate directive
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-11T09:52Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager) —
+  nothing blocks it, and that is a claim rather than the capture default.
+
+  It is deliberately NOT blocked on MI-237 (the checklist schema migration).
+  The migration would give a `state_since` field a tidy home, but the missing
+  thing is an ELAPSED-TIME TERM and a SURFACE, and neither depends on the
+  schema landing first. Nor is it blocked on MI-235 or MI-236: those cover
+  different members of the same family and this one can be measured, built and
+  surfaced independently of both.
+
+  ⚠️ The checklist row for MI-246 carried this same assessment before the object
+  existed; it is restated here so the object is not read as unassessed merely
+  because it was captured later.
+
+captured_by: scripts/ops/capture_idea.py
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DELIVERY RECORD — appended 2026-09-11 by the ENGINEERING LANE that took it.
+# The manager's frame above is kept VERBATIM; nothing in it is rewritten.
+# ─────────────────────────────────────────────────────────────────────────────
+
+the_measurement: >-
+  MEASURED 2026-09-11 by `python3 scripts/ops/checklist_routing_age.py --measure`.
+  POPULATION: all 195 revisions of docs/claude/work/MANAGER-CHECKLIST.json reachable
+  from HEAD on main, 2026-09-01T21:36:53Z -> 2026-09-11T09:50:01Z, replayed commit by
+  commit, 0 unparseable. (1) Time to first real owner for rows that were ever
+  open-and-unrouted and later got one, n=37: median 3.85h, p75 14.08h, p90 22.37h,
+  p95 24.24h, max 43.60h — 94.6% routed within 24h, 100% within 48h. (2) Currently
+  open-and-unrouted: 74 of 270 rows, of which 68 are past 24h and the oldest is
+  228.2h. THRESHOLD_HOURS=24 is (1)'s p95 — a measured quantile that happens to land
+  on a round number, not a round number chosen by feel. An independent scratch
+  implementation reproduced n=37 / median 3.85 / p95 24.24 exactly, which is an
+  arithmetic cross-check rather than a re-read.
+
+the_finding_that_shaped_the_build: >-
+  ⚠️ THE SECOND FIGURE KILLS THE OBVIOUS DESIGN. A surface reporting every row past
+  the measured threshold would report 68 rows on its first run. That is a second
+  backlog, not a signal, and a 68-row block in the session brief is the desensitised
+  alarm this repo calls its own worst failure mode. So the surface reports the
+  CROSSING, not the STOCK: LOUD ONCE when a row crosses, a COUNT thereafter — the
+  pattern src/runtime/close_wedge_standing.py already uses. Crossings measured at
+  ~7/day (68 over 10 days) on the same population, which is a list a manager can work.
+
+what_was_built: >-
+  scripts/ops/checklist_routing_age.py — the age is DERIVED FROM GIT HISTORY, because
+  items[] carries no `state_since` and adding one by hand is a habit, not a mechanism.
+  That is the manager's `blocked_on_basis` reasoning vindicated: the missing thing was
+  an elapsed-time term, and git already had it. Register:
+  docs/claude/work/CHECKLIST-ROUTING-AGE.json. TWO SURFACES, neither behind a command
+  someone must choose to run — the CLAUDE.md SESSION BRIEF (the only channel that
+  reaches a session before its first tool call) and docs/claude/DUE.md via a new
+  `checklist_unrouted` source (the due-list read nine registers and the manager
+  checklist was not one of them, so a scoped owner-less item was due to nobody).
+  Registered with collapsed-state-guard as `checklist_routing_age.stall_state`;
+  self-test wired as `checklist-routing-age-guard`; the producer runs in
+  constraint-readout.yml, whose checkout needed `fetch-depth: 0` — it was a shallow
+  clone, where the derivation correctly REFUSES rather than reporting every row as
+  young. 33 tests.
+
+does_it_subsume_the_siblings: >-
+  NO, and the done_condition put the question explicitly. `blocked` (MI-235) and
+  `in_flight` (MI-236) are graded NOT-OPEN here, deliberately, with a parametrized
+  test pinning it, so this cannot double-report work those mechanisms own. What the
+  three SHARE is the shape the checklist row identified — a state that stopped
+  matching reality — so the honest long-run answer is that MI-237's schema work should
+  give `state_since` a declared home and all three should then read ONE clock instead
+  of three. That is a follow-up worth having and is NOT what was built today; building
+  it now would have meant migrating 270 rows before anything could be observed
+  catching a drop.
+
+resolution_status: >-
+  (1) MET — a row past the threshold is surfaced on two generated surfaces.
+  (2) NOT MET, and a green guard clears (1) only. The first reading SEEDED the 68-row
+  pre-existing backlog rather than paging it (visible, counted, every id named in
+  `seeded_ids`), so (2) needs the NEXT crossing; at a measured ~7/day it should arrive
+  within a day of the first scheduled constraint-readout run.
+  ⚠️ SEEDING IS NOT A DISPOSITION — those 68 rows are still unrouted and still
+  somebody's.
+
+the_honest_residual: >-
+  (a) The producer rides constraint-readout.yml, whose cron has a poor firing record
+  in this repo. If it does not fire, the register goes stale and the brief renders a
+  stale reading with a fresh look: the register carries `generated_at` and NOTHING
+  GRADES ITS OWN FRESHNESS. Filed as
+  BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS
+  rather than left in a PR body. (b) The 68 seeded rows are named, unrouted and
+  somebody's; this mechanism deliberately does not report them one by one. (c) If
+  MANAGER-CHECKLIST.json is ever RENAMED, git reports the rename as an add at the new
+  path and the derivation would read `derived` over a history beginning at the rename,
+  under-estimating every age — the reassuring direction. Stated in the module rather
+  than hidden.
+
+blocked_on_after_build: >-
+  STILL EMPTY, and that is a decision rather than an omission. ⚠️ I briefly wrote an
+  `observation` edge here and REMOVED it, because it was the wrong shape twice over.
+  (a) It CONTRADICTED the manager's `blocked_on_basis` above inside one file — a
+  register that disagrees with itself is exactly what a later session cannot reason
+  from, and `blocked_on` feeds the CONSTRAINT COMPUTATION, which reads an edge as a
+  real blocker. The work store's own README records that an invented edge is worse
+  than a missing one. (b) What is actually pending is EVIDENCE ACCRUING, not a chain
+  held up: clause (2) needs the next crossing to happen, which takes a day at the
+  measured ~7/day, and nothing is waiting on a decision or on another object. This
+  repo has a named home for that and it is not `blocked_on` — see
+  `docs/CLAUDE-RULES-CANONICAL.md` § "A soak must carry its own alarm": it does not
+  exist until a register row says when to come back for it. That row is
+  OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING
+  (`check_every_days: 2`), whose `clears_when` is the data condition and whose
+  `observation` records what the first reading actually showed.

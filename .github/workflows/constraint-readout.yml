@@ -88,6 +88,17 @@ jobs:
         with:
           ref: main
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # ⚠️ FULL HISTORY IS LOAD-BEARING HERE, not a convenience.
+          # checklist_routing_age.py derives how long each FILED checklist row
+          # has sat unrouted from the GIT HISTORY of MANAGER-CHECKLIST.json —
+          # the register carries no `state_since` and adding one by hand is a
+          # habit, not a mechanism (MI-246 / MI-237). On the default
+          # `fetch-depth: 1` the derivation REFUSES (history_state
+          # `could_not_read`) rather than reporting every row as young, so the
+          # failure would be honest but the mechanism would be inert.
+          # BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE is the same trap one
+          # level up: git answers a truncated question with no error at all.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -136,6 +147,10 @@ jobs:
           # which is strictly worse than the stale one this file replaces.
           python3 scripts/ops/constraint_readout.py --self-test
           python3 scripts/ops/render_session_brief.py --self-test
+          # MI-246. Its refusal branches are the load-bearing ones — a
+          # `could_not_read` that silently graded as "nothing is stalled" would
+          # put an all-clear in the session brief on a daily cadence.
+          python3 scripts/ops/checklist_routing_age.py --self-test
 
       - name: Regenerate the readout
         env:
@@ -153,6 +168,18 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/ops/constraint_readout.py --write
+
+      - name: Re-derive how long filed checklist rows have been unrouted
+        run: |
+          set -euo pipefail
+          # MUST run BEFORE the brief re-render below, for the same reason the
+          # readout does: the brief inlines this register, so rendering it from
+          # the OLD file would ship a fresh timestamp over a stale reading.
+          # ⚠️ NO `|| true`. This step writing nothing is a real outcome the
+          # register records as `history_state: could_not_read`; swallowing a
+          # crash instead would leave yesterday's file in place and the brief
+          # would present it as today's answer.
+          python3 scripts/ops/checklist_routing_age.py --write
 
       - name: Re-render the session brief from the new readout
         run: |

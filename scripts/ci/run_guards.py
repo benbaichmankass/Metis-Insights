@@ -362,6 +362,25 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # `when: None` — it runs on EVERY diff, for the same reason the
+        # wip-ceiling guard below does. A stale `in_flight` row is written by
+        # whoever is last to touch either register, and a check that only fires
+        # when someone happens to edit the work store is not a check. This is
+        # also the row's whole done-condition: `MI-236` forbids a manual sweep,
+        # so the carrier has to be something nobody chooses to run.
+        "name": "stale-in-flight-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
+            # Prints the census over the WHOLE population every run and fails
+            # only on what THIS diff adds — see the module docstring for why a
+            # flat fail on the absolute count would red every open PR on day
+            # one (17 of 35 rows are already unsupported) and get the guard
+            # disabled rather than fixed.
+            ["python3", "scripts/ci/check_stale_in_flight.py"],
+        ],
+    },
+    {
         # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
         # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
         # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped
@@ -465,6 +484,23 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_workflow_trigger_reachability.py",
              "--self-test"],
             ["python3", "scripts/ci/check_workflow_trigger_reachability.py"],
+        ],
+    },
+    {
+        # MI-246 — a checklist row FILED and never ROUTED had no age, so nothing
+        # could report it. The ages are derived from git history, and a
+        # truncated history reports every row as young, which reads as an
+        # all-clear. The self-test is what keeps that refusal exercised: its
+        # `could_not_read` / `unknown` branches are the load-bearing ones, and a
+        # refusal path that never runs is indistinguishable from no refusal.
+        # ⚠️ Self-test ONLY — it deliberately does NOT grade the live checklist.
+        # CI would then red every PR while a real backlog of unrouted rows
+        # exists (68 of 270 on 2026-09-11), which is how a guard gets disabled
+        # instead of fixed. The SURFACE is the session brief and the due-list.
+        "name": "checklist-routing-age-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/checklist_routing_age.py", "--self-test"],
         ],
     },
     {

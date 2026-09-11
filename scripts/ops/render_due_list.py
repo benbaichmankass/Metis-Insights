@@ -70,6 +70,7 @@ _RESEARCH_QUEUE = Path("research/queue")
 _SUNSET_DIR = Path("comms/sunset")
 _SUNSET_DISPOSITIONS = Path("docs/claude/SUNSET-DISPOSITIONS.json")
 _PROBES = Path("docs/claude/PROBES.json")
+_ROUTING_AGE = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 _ERROR_FEED = Path("docs/claude/ERROR-FEED-DIGEST.json")
 # How many error-level cause groups the due-list renders inline. A RENDERING
 # bound, never a triage decision: the count of everything is stated in the
@@ -870,10 +871,114 @@ def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
     return SourceResult("sunset", "read", rows)
 
 
+def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: today — the ages are derived at the register's OWN `generated_at`, not at render time, so using `today` here would silently re-date somebody else's measurement. That gap (a register whose producer has stopped running still renders as today's answer) is real and is filed as BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS — it is fixed by grading the register's age into its own STALE state, never by quietly stamping a fresh date onto a stale reading.
+    """MI-246 — manager-checklist rows that were FILED and never ROUTED.
+
+    WHY THIS IS A SOURCE. This renderer's own docstring names the defect it
+    exists for: *a detected signal has no owner*. The manager checklist is the
+    register where that is most literally true — a row can sit `ready` /
+    `owner: unassigned` for days — and it was **not a source here**. `SOURCES`
+    read open_items, soaks, operator_owed, research_queue, probes, red_crons,
+    unlanded_automation, error_feed and sunset, and none of them is the
+    checklist. So a scoped, agreed, owner-less item was due to nobody.
+
+    ⚠️ **IT REPORTS THE CROSSING, NOT THE STOCK.** MEASURED 2026-09-11: 68 of
+    270 rows were already past the threshold. Listing all of them here would
+    reproduce inside the due-list exactly the flood the error-feed cap exists to
+    collapse, so `checklist_routing_age` pages a row ONCE when it crosses and
+    counts it thereafter; the standing count rides as a single summary row.
+
+    ⚠️ **NOT `loud`**, on `src_sunset_dispositions`' reasoning: an unrouted row
+    is DUE, which is enough to be worked. It is not an emergency, and a
+    permanently-loud row is the thing sessions learn to scroll past.
+
+    ⚠️ **AN UNREADABLE OR UNDERIVED REGISTER IS `could_not_read`.** `history_state`
+    other than `derived` means the git history behind the ages was truncated —
+    *we did not look* — and grading that as an empty list is precisely the
+    `curl … || echo '{}'` collapse this module's docstring cites.
+    """
+    p = root / _ROUTING_AGE
+    if not p.exists():
+        return SourceResult("checklist_unrouted", "could_not_read",
+                            note=f"{_ROUTING_AGE} absent — nothing has computed how long "
+                                 f"filed rows have been unrouted. That is NOT 'none are'. "
+                                 f"Run: python3 scripts/ops/checklist_routing_age.py --write")
+    try:
+        reg = _load_json(p)
+    except Exception as exc:  # noqa: BLE001 — an unreadable register is a state
+        return SourceResult("checklist_unrouted", "could_not_read",
+                            note=f"{_ROUTING_AGE}: {type(exc).__name__}: {exc}")
+
+    hist = reg.get("history_state")
+    if hist != "derived":
+        return SourceResult("checklist_unrouted", "could_not_read",
+                            note=f"history_state={hist!r}: "
+                                 f"{reg.get('history_note', 'no reason recorded')}")
+
+    thr = reg.get("threshold_hours", "?")
+    # ⚠️ BRANCH ON THE VOCABULARY, NOT ON THE SHAPE OF A LIST. `stall_counts` is
+    # keyed by the four state names `checklist_routing_age` declares, so reading
+    # it here is reading the contract rather than inferring the states back out
+    # of whichever list they happened to arrive in. The four are NOT
+    # interchangeable: `newly_stalled` is news, `standing` is a count, `within`
+    # means nothing is owed, and `unknown` is WE DID NOT LOOK. The per-field
+    # fallbacks are for a register written before `stall_counts` existed; they
+    # are a compatibility shim, not the reading.
+    counts = reg.get("stall_counts") or {}
+    n_newly = int(counts.get("newly_stalled", len(reg.get("newly_stalled") or [])))
+    n_standing = int(counts.get("standing", reg.get("standing_count") or 0))
+    n_within = int(counts.get("within", reg.get("within_count") or 0))
+    n_unknown = int(counts.get("unknown", reg.get("ungradeable_count") or 0))
+    rows = []
+    for r in reg.get("newly_stalled") or []:
+        rows.append(_row(
+            "checklist_unrouted", str(r.get("id", "(no id)")),
+            str(r.get("title") or "(no title)")[:140],
+            f"FILED AND NEVER ROUTED — {r.get('unrouted_hours', '?')}h with "
+            f"owner `{r.get('owner', '?')}` and status `{r.get('status', '?')}`, past the "
+            f"measured {thr}h threshold. Route it, disposition it, or record why it stays "
+            f"unrouted; it is reported once and then becomes a count.",
+            age_days=int(float(r.get("unrouted_hours") or 0) // 24),
+            link="docs/claude/work/MANAGER-CHECKLIST.json"))
+
+    standing = n_standing + int(reg.get("seeded_count") or 0)
+    if standing:
+        rows.append(_row(
+            "checklist_unrouted", "checklist-unrouted-standing",
+            f"{standing} checklist row(s) unrouted past {thr}h, carried as a stock",
+            f"The standing stock, carried as ONE row deliberately — the register names "
+            f"every id under `seeded_ids`/`reported_ids`. {n_standing} have been said "
+            f"once already and {int(reg.get('seeded_count') or 0)} were SEEDED at the "
+            f"first reading (armed over, never announced — see the register). Saying "
+            f"them individually every run is the desensitised alarm, not a signal; they "
+            f"are all still unrouted, and seeding is not a disposition.",
+            link=str(_ROUTING_AGE)))
+
+    ung = n_unknown
+    if ung:
+        rows.append(_row(
+            "checklist_unrouted", "checklist-unrouted-ungradeable",
+            f"{ung} checklist row(s) whose status could not be graded",
+            "WE DID NOT LOOK — these rows carry no readable status, so whether they are "
+            "waiting on an owner is unknown (MI-237's two competing status fields). An "
+            "ungradeable row is not a clean one.",
+            link=str(_ROUTING_AGE)))
+
+    if not rows:
+        # `within` is the ONLY state that means nothing is owed, and an empty
+        # list here has to be attributable to it rather than to a source that
+        # quietly found nothing to say.
+        return SourceResult("checklist_unrouted", "read", [],
+                            note=f"nothing due: {n_newly} new crossing(s), "
+                                 f"{n_standing} standing, {n_within} within {thr}h, "
+                                 f"{n_unknown} ungradeable")
+    return SourceResult("checklist_unrouted", "read", rows)
+
+
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
-    src_sunset_dispositions,
+    src_sunset_dispositions, src_checklist_unrouted,
 )
 
 
@@ -1151,7 +1256,55 @@ def _self_test() -> int:
         ("an unreadable register defers NOTHING — the fail-safe direction is to "
          "keep reporting a probe fail as a due row, never to lose a signal")
 
-    print("due-list: self-test OK — 40 planted controls all fire")
+    # ── MI-246: checklist rows filed and never routed ──────────────────────
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "docs/claude/work").mkdir(parents=True)
+        # an ABSENT register is `could_not_read`, never a clean empty list
+        na = src_checklist_unrouted(root, today)
+        assert na.state == "could_not_read" and na.rows == [], \
+            "an absent routing register must not read as 'nothing is unrouted'"
+        assert "NOT 'none are'" in na.note, "and it must say so in the note"
+
+        # history_state other than `derived` is *we did not look*
+        (root / _ROUTING_AGE).write_text(json.dumps(
+            {"schema_version": 1, "history_state": "could_not_read",
+             "history_note": "the clone is SHALLOW"}), encoding="utf-8")
+        sh = src_checklist_unrouted(root, today)
+        assert sh.state == "could_not_read", \
+            "a truncated git history reports every row as young — that is not a read"
+        assert "SHALLOW" in sh.note, "and the reason travels with the verdict"
+
+        # a real crossing becomes a DUE row; the stock stays ONE row
+        (root / _ROUTING_AGE).write_text(json.dumps({
+            "schema_version": 1, "history_state": "derived", "threshold_hours": 24,
+            "newly_stalled": [{"id": "MI-999", "title": "filed, never given to anyone",
+                               "owner": "unassigned", "status": "ready",
+                               "unrouted_hours": 49.0}],
+            "standing_count": 60, "seeded_count": 8, "within_count": 3,
+            "ungradeable_count": 2}), encoding="utf-8")
+        got = src_checklist_unrouted(root, today)
+        ids = {r["id"] for r in got.rows}
+        assert got.state == "read"
+        assert "MI-999" in ids, "a row that crossed the threshold is DUE"
+        assert {r["age_days"] for r in got.rows if r["id"] == "MI-999"} == {2}, \
+            "49h is two days, not an unknown age"
+        assert "checklist-unrouted-standing" in ids, "the standing stock is carried"
+        assert "checklist-unrouted-ungradeable" in ids, \
+            "ungradeable rows are reported as 'we did not look', never dropped"
+        assert len(got.rows) == 3, \
+            ("68 standing rows must collapse to ONE summary row — listing them all is "
+             "the flood the error-feed cap already exists to prevent")
+        assert not any(r["loud"] for r in got.rows), \
+            ("DELIBERATELY not loud, on src_sunset_dispositions' reasoning: due is "
+             "enough to be worked, and a permanently-loud row trains sessions to skim")
+        assert "60" not in str([r for r in got.rows if r["id"] == "MI-999"]), \
+            "the crossing row is about ITS OWN row, not the aggregate"
+        stand = next(r for r in got.rows if r["id"] == "checklist-unrouted-standing")
+        assert "68" in stand["title"], \
+            "standing + seeded are ONE stock — a seeded row is still unrouted"
+
+    print("due-list: self-test OK — 51 planted controls all fire")
     return 0
 
 

@@ -1,0 +1,2 @@
+MI-246 — Tier-1 self-land on green. Declaration: .github/pr-landing/mi246-unrouted-row-age.json
+The PATH is the signal; these contents are for a human reading the diff.
