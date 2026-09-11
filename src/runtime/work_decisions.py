@@ -137,6 +137,55 @@ ANSWER_STATES: tuple[str, ...] = (
 #: Exported so a consumer never re-derives the set and drifts from it.
 SETTLED_STATES: tuple[str, ...] = (COMMITTED, ANSWERED_IN_CONVERSATION)
 
+#: The states that mean the question is waiting on THE OPERATOR.
+#:
+#: ⚠️ `IN_TRANSIT` IS DELIBERATELY ABSENT. An in-transit answer is unanswered,
+#: but it is waiting on a COMMITTER, not on the operator, and pooling the two
+#: puts work on the operator's plate that is not theirs.
+AWAITING_OPERATOR_STATES: tuple[str, ...] = (
+    NOT_SUBMITTED, UNREADABLE, ENGAGED_NOT_SETTLED, VERDICT_UNRECOGNISED,
+)
+
+
+def awaiting_operator_count(rows: Iterable[dict[str, Any]]) -> tuple[int, int, int]:
+    """``(awaiting_operator, moot_unanswered, moot_awaiting_operator)``.
+
+    ONE owner for a subtraction that is easy to get wrong and whose error is
+    invisible: `moot_unanswered` spans EVERY unsettled state, while the
+    operator's own backlog spans only :data:`AWAITING_OPERATOR_STATES`.
+    Subtracting the wider count from the narrower sum under-reports what the
+    operator owes by one per moot IN-TRANSIT row, and can drive it NEGATIVE —
+    hiding a live question, which is the direction that costs something.
+
+    Caught by arithmetic rather than by re-reading, which is the point: the two
+    populations read as interchangeable in prose and are not. Both are returned
+    so the subtraction is auditable from the payload instead of inferred.
+
+    ⚠️ The result is clamped at zero as a floor that should never bind. It is a
+    belt on top of the correct population, not the fix — if it ever binds, the
+    populations have drifted again and that is a defect, not a rounding.
+    """
+    # collapsed-state: subject_gone — THIS FUNCTION IS ARITHMETIC, AND ONLY ONE
+    # OF THE FOUR STATES CHANGES IT. `live`, `unknown` and `undeclared` all mean
+    # the question STAYS on the operator's backlog, so they are identical here
+    # BY DESIGN and the fail-safe direction: `unknown` is *we could not look*,
+    # and subtracting on that would hide a live decision. They are graded apart
+    # by `decision_subject` and counted apart in the route's `bySubjectState`.
+    # Adding a branch here purely to satisfy the guard would be the decorative
+    # branch CLAUDE.md's `BYBIT_HEDGE_MODE_SYMBOLS` row names in terms.
+    awaiting = moot_unanswered = moot_awaiting = 0
+    for row in rows:
+        state = row.get("answerState")
+        gone = row.get("subjectState") == "subject_gone"
+        if state in AWAITING_OPERATOR_STATES:
+            awaiting += 1
+            if gone:
+                moot_awaiting += 1
+        if gone and state not in SETTLED_STATES:
+            moot_unanswered += 1
+    return max(awaiting - moot_awaiting, 0), moot_unanswered, moot_awaiting
+
+
 # ── how we got (or did not get) the transit log ──────────────────────────────
 # Deliberately separate from the answer states above: this says whether the
 # CHANNEL could be read, which is a different question from what any one

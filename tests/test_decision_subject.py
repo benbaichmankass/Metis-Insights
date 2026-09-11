@@ -275,3 +275,58 @@ def test_no_live_request_declares_a_subject_this_module_cannot_name():
             if isinstance(sub, dict) and sub.get("kind") not in SUBJECT_KINDS:
                 bad.append((req.get("id"), sub.get("kind")))
     assert not bad, f"unknown subject kind(s) declared: {bad}"
+
+
+# ── the awaitingOperator subtraction (MI-258 follow-up, caught by arithmetic) ──
+
+
+def test_a_moot_in_transit_row_does_not_hide_a_live_question():
+    """THE BUG THIS FUNCTION EXISTS FOR, pinned.
+
+    `moot_unanswered` spans every unsettled state; the operator's backlog spans
+    only AWAITING_OPERATOR_STATES. `in_transit` is unsettled and is NOT in that
+    backlog, so subtracting the wider count from the narrower sum removes a
+    question the operator really does owe.
+    """
+    from src.runtime.work_decisions import awaiting_operator_count
+
+    rows = [
+        {"answerState": "in_transit", "subjectState": SUBJECT_GONE},
+        {"answerState": "not_submitted", "subjectState": "subject_live"},
+    ]
+    awaiting, moot_unanswered, moot_awaiting = awaiting_operator_count(rows)
+    # The live question SURVIVES. Naively subtracting `moot_unanswered` gives 0.
+    assert awaiting == 1
+    assert moot_unanswered == 1, "the moot in-transit row is still REPORTED"
+    assert moot_awaiting == 0, "…but it was never in the operator's backlog"
+
+
+def test_a_moot_awaiting_row_is_taken_off_the_operators_backlog():
+    from src.runtime.work_decisions import awaiting_operator_count
+
+    rows = [{"answerState": "engaged_not_settled", "subjectState": SUBJECT_GONE}]
+    assert awaiting_operator_count(rows) == (0, 1, 1)
+
+
+def test_awaiting_operator_is_never_negative_over_any_state_combination():
+    """An exhaustive sweep, because this is the failure mode that hides work."""
+    from itertools import product
+
+    from src.runtime.work_decisions import ANSWER_STATES, awaiting_operator_count
+
+    for states in product(ANSWER_STATES, repeat=2):
+        for subs in product(SUBJECT_STATES, repeat=2):
+            rows = [{"answerState": a, "subjectState": s} for a, s in zip(states, subs)]
+            awaiting, wide, narrow = awaiting_operator_count(rows)
+            assert awaiting >= 0
+            assert narrow <= wide, "the subtracted count can never exceed the reported one"
+            assert narrow <= len(rows)
+
+
+def test_the_awaiting_vocabulary_excludes_in_transit():
+    """An in-transit answer waits on a COMMITTER, never on the operator."""
+    from src.runtime.work_decisions import AWAITING_OPERATOR_STATES
+
+    assert "in_transit" not in AWAITING_OPERATOR_STATES
+    assert "committed" not in AWAITING_OPERATOR_STATES
+    assert "not_submitted" in AWAITING_OPERATOR_STATES

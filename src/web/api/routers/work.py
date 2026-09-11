@@ -96,6 +96,7 @@ from src.runtime.work_decisions import (
     TRANSIT_UNREADABLE,
     UNREADABLE,
     append_submission,
+    awaiting_operator_count,
     grade_answer_state,
     latest_submissions,
     malformed_request_count,
@@ -1321,9 +1322,15 @@ def _decision_inbox() -> dict[str, Any]:
     # An unanswered question whose subject is gone. Counted SEPARATELY rather
     # than silently subtracted from `awaitingOperator`: a number that shrinks
     # with no published reason is indistinguishable from work disappearing.
-    moot_unanswered = sum(
-        1 for r in requests
-        if r["subjectState"] == SUBJECT_GONE and not r["settled"]
+    # ⚠️ ONE OWNER FOR THIS SUBTRACTION, in `work_decisions` beside the answer
+    # vocabulary — it is not re-derived here. `moot_unanswered` spans EVERY
+    # unsettled state, while the operator's own backlog spans only
+    # AWAITING_OPERATOR_STATES, and `in_transit` is unsettled while sitting in
+    # `awaitingCommit`. Subtracting the wider from the narrower under-reports
+    # what the operator owes by one per moot in-transit row and can go
+    # NEGATIVE — hiding a live question. Caught by arithmetic, not re-reading.
+    awaiting_operator, moot_unanswered, moot_awaiting_operator = (
+        awaiting_operator_count(requests)
     )
 
     # Attention order: what the operator can act on NOW comes first. An answered
@@ -1419,13 +1426,15 @@ def _decision_inbox() -> dict[str, Any]:
             # says how many — read the two together. Before this, a question
             # about a row deleted on 2026-09-09 sat here as work waiting on the
             # operator for more than a day.
-            "awaitingOperator": (by_state[NOT_SUBMITTED] + by_state[UNREADABLE]
-                                 + by_state[ENGAGED_NOT_SETTLED]
-                                 + by_state[VERDICT_UNRECOGNISED]
-                                 - moot_unanswered),
+            "awaitingOperator": awaiting_operator,
             # The withdrawal, stated. Never folded into `decided`: nobody
             # decided these, they stopped being questions.
             "mootUnanswered": moot_unanswered,
+            # What was actually taken OFF `awaitingOperator`. Published beside
+            # the wider count so the subtraction is auditable rather than
+            # inferred — they differ exactly when a moot question is in
+            # transit, i.e. waiting on a COMMITTER rather than on the operator.
+            "mootAwaitingOperator": moot_awaiting_operator,
             # ⚠️ Read `subject_undeclared` as the DENOMINATOR, not as a
             # failure. Measured 25 of 26 on 2026-09-11: the resolver was never
             # asked to resolve those, so pooling them with `subject_unknown`
