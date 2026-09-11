@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research and register records only: a docs/research/ memo, a manual-only analysis script under scripts/research/, one docs/claude/work/objects/ work object, six backlog rows filed through backlog_append.py, a third reading spliced into docs/claude/OPEN-ITEMS.json, and one hand-added docs/DOCUMENT-INDEX.md row. NO src/, config/ (the e35 geometry is PROPOSED and deliberately untouched — the recommendation is to decline a revert), deploy/, .github/workflows/ or scripts/ci/. No runtime, no order path, no strategy config, no risk caps, no live-VM file, nothing armed. Read-only against production throughout; every call was a GET and no order was placed, modified or cancelled. Tier-1 by the canonical doc's own examples (docs + analysis tooling + observability/read paths)."
+}

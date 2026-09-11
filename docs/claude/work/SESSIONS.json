@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T20:30:49Z",
+  "updated_at": "2026-09-11T22:48:48Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4809,12 +4809,22 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T19:57:14Z"
+      "confirmed_at": "2026-09-11T19:57:14Z",
+      "blocked_on": [
+        {
+          "kind": "pull_request",
+          "ref": "#11826",
+          "clears_when": "merged",
+          "since": "2026-09-11T21:28:49Z",
+          "note": "MI-275 stop-width counterfactual: the DELIVERABLE IS COMPLETE and needs nothing — local guards PASS 75 / FAIL 0, and CI was GREEN on all four required checks on head 752cca03a. Blocked only on LANDING, and the cause is measured rather than guessed: 12 of 12 consecutive main commits rewrite docs/claude/session-board.json::merge_slot (including the automated chore(ops) ones), main takes a commit every 3-15 min, and CI is ~12 min — so a branch that pr-landing R13 FORCES to write that same field cannot stay mergeable long enough to finish its checks. FIVE base merges so far, 5 of 5 conflicting on that one path and nothing else; on one head the PR went dirty before GitHub could even build a merge ref, so no check ran at all. R13 admits no non-conflicting form (slot_claim_state requires merge_slot.branch == this branch AND the file added-or-modified vs base). WHAT UNBLOCKS IT: a manager merge click on the next green head, or switching this PR to landing: hold — which drops the R13 claim and so stops it touching merge_slot at all. I have NOT switched it unilaterally because the dispatch specified self-land; say the word and it is a two-minute change. FILED, not re-filed: the measurement plus a remedy pointer are appended to BL-20260909-R13-FORCES-EVERY-ARMING-BRANCH-ONTO-ONE-SINGLE-HOLDER-KEY-SO-CONCURRENT-PRS-DIRTY-EACH-OTHER-BY-CONSTRUCTION (session-board.json is the one shared register the jsonregister merge driver does not cover; taking OURS for merge_slot is lossless because R13 does not serialize). backlog_search found five existing rows on this class, so no duplicate from me."
+        }
+      ],
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session: SESSION_STATUS_RUNNING, connected, context 696k/1M (515k an hour earlier). State `working` CONFIRMED rather than assumed. PR #11826 open, 3/4 green. Past the ~600k handoff trigger -- should land #11826 and close out, not open new work."
     },
     {
       "session_id": "session_01MyUujGAQYs72UUgrfXXmFA",
       "registry_key": "pending-20260911T195437Z-2",
-      "state": "working",
+      "state": "review_ready",
       "title": "OPS LANE MI-276 — the two detectors that are owed: losing-streak and starved-accounts",
       "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
       "checklist_item": "MI-276",
@@ -4823,12 +4833,14 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T20:30:49Z"
+      "confirmed_at": "2026-09-11T20:30:49Z",
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z.",
+      "lane_note_2026_09_11T2248Z": "Lane resumed 2026-09-11T22:4xZ on its own check-in: PR #11827 had gone mergeable_state=dirty against a main that moved 5 commits. Resolved by merging origin/main (never rebase). The manager's 21:53Z observation above was correct when made and is preserved verbatim. Still Tier-2 landing:hold -- nothing merged, nothing armed, no env key set or proposed."
     },
     {
       "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",
       "registry_key": "pending-20260911T195437Z-3",
-      "state": "working",
+      "state": "review_ready",
       "title": "ENGINEERING LANE MI-236 — decay stale in_flight rows",
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
       "checklist_item": "MI-236b",
@@ -4837,7 +4849,8 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T19:57:14Z"
+      "confirmed_at": "2026-09-11T19:57:14Z",
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 708k/1M. Registry read `working`. PR #11829 green; the lane's own summary names the merge_slot conflicts as CI-cadence churn, which matches BL-20260911-R13-MAKES-THE-MERGE-SLOT-A-GUARANTEED-CONFLICT-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES. Check-in armed 22:03Z. Past the ~600k handoff trigger: closes out rather than starting a fourth branch."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

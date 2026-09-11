@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-11T20:56:00Z",
+  "updated_at": "2026-09-11T22:04:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4055,7 +4055,8 @@
       "why": "MI-271 own recommendation: do NOT revert e35 until this exists, because n=23 with 70% unmeasured is the low-n reaction, and MI-164 telemetry (live 2026-09-07) can answer it directly for the first time. This is the measurement standing between the operator and the Tier-3 revert decision.",
       "manager_note": "Also sent to RESOLVE the e35 contradiction between the MI-271 memo and its summary. [!] AND TOLD THAT A REFUSAL IS AN ACCEPTABLE DELIVERABLE: telemetry only reached these legs 8 days AFTER the break, so the honest answer may be \"too few rows yet, here is the date and the n it will have\". MI-271 already refused the MFE join once on a 36% join rate; manufacturing a verdict at n=4 would be worse than the refusal.",
       "state": "in_flight",
-      "manager_note_2026_09_11T2055Z": "PR #11826 OPEN, Tier-1 landing:self, armed. CI re-running on the 20:55:14Z push (3 checks in_progress). Lane session_01WKwvhBuaYYCKbdkk7fHrpf is RUNNING and connected at 515k/1M context, task_summary 'memo complete; verifying memo claims, writing index rows'. The memo's recommendation is DECLINE the e35 revert. NOT YET MERGED and not yet read by me -- it lands itself on green, and the recommendation is Tier-3 either way so the revert decision remains the operator's."
+      "manager_note_2026_09_11T2055Z": "PR #11826 OPEN, Tier-1 landing:self, armed. CI re-running on the 20:55:14Z push (3 checks in_progress). Lane session_01WKwvhBuaYYCKbdkk7fHrpf is RUNNING and connected at 515k/1M context, task_summary 'memo complete; verifying memo claims, writing index rows'. The memo's recommendation is DECLINE the e35 revert. NOT YET MERGED and not yet read by me -- it lands itself on green, and the recommendation is Tier-3 either way so the revert decision remains the operator's.",
+      "manager_note_2026_09_11T2153Z": "21:53Z: lane RUNNING/connected at 696k/1M (515k an hour ago). PR #11826 open, guards + repo-inventory + pytest-collect GREEN, pytest-run in progress; no open-and-automerge run yet, so auto-merge may not be armed. PAST THE ~600k HANDOFF TRIGGER -- it should land #11826 and close out rather than open new work."
     },
     {
       "id": "MI-276",
@@ -4068,7 +4069,8 @@
       "why": "Both 2026-09-11 investigations ended on the same sentence: the operator noticed before any monitor did. 16 losing days / -$36,997 unalarmed; the prop starved 12 days across four surfaces while the one correct instrument (arbitration_fanout_soak.starved_accounts) is read by nothing.",
       "manager_note": "The false-positive count IS the design evidence - MI-271 already measured N>=4 as firing exactly once per account with zero false positives, and N=3 misfiring on bybit_2 whose daily PnL is single dollars. A detector in src/runtime/** is Tier-2 and HOLDS; a reader is Tier-1 and self-lands. ARM NOTHING - building and arming are different decisions and only the first is the lane's.",
       "state": "review_ready",
-      "manager_note_2026_09_11T2055Z": "PR #11827 OPEN, Tier-2, landing:HOLD (hold_reason tier_2_3_needs_approval) -- THIS IS A NEW DECISION OWED TO THE OPERATOR, the fourth. Two new alert-only detectors (src/runtime/losing_streak_alert.py, src/runtime/starved_account_alert.py) called once per trader tick. NOTHING IS ARMED and nothing asks to be: both are cadence/threshold-knob only with no *_ENABLED gate, no env key set or proposed, no order path, no strategy config, no risk cap, no account mode. Tier-2 purely because the code executes inside the live trading process. 4/5 checks green at last read, pytest-run in progress. Lane is IDLE/disconnected at 541k/1M -- its deliverable is done and it is correctly parked waiting on the OK, not stalled."
+      "manager_note_2026_09_11T2055Z": "PR #11827 OPEN, Tier-2, landing:HOLD (hold_reason tier_2_3_needs_approval) -- THIS IS A NEW DECISION OWED TO THE OPERATOR, the fourth. Two new alert-only detectors (src/runtime/losing_streak_alert.py, src/runtime/starved_account_alert.py) called once per trader tick. NOTHING IS ARMED and nothing asks to be: both are cadence/threshold-knob only with no *_ENABLED gate, no env key set or proposed, no order path, no strategy config, no risk cap, no account mode. Tier-2 purely because the code executes inside the live trading process. 4/5 checks green at last read, pytest-run in progress. Lane is IDLE/disconnected at 541k/1M -- its deliverable is done and it is correctly parked waiting on the OK, not stalled.",
+      "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 778k/1M, own check-in armed 22:42Z. PR #11827 4/4 GREEN, Tier-2 HOLD. PARKED ON THE OPERATOR'S OK, NOT STALLED -- there is nothing for the manager to unblock and nothing for the lane to do. This is the fourth decision owed to the operator."
     },
     {
       "id": "MI-236b",
@@ -4080,12 +4082,13 @@
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
       "why": "MEASURED LIVE today: 5 of 7 in_flight objects owned by COMPLETED sessions, holding the ceiling at 7 of 8 and within one row of blocking the operator own chosen spawns. The long-queued MI-236 stopped being hypothetical.",
       "manager_note": "DETECT AND REPORT, do not auto-mutate lifecycle - rewriting a lifecycle from a heuristic is how a real in-flight object gets silently demoted. Three states never collapsed, and could_not_look is the load-bearing one because list_sessions is an mcp__* tool CI does not hold (the same wall queue_latency.py hit).",
-      "state": "in_flight",
-      "manager_note_2026_09_11T2055Z": "PR #11825 OPEN, Tier-1 landing:self, armed. guards + pytest-collect + repo-inventory GREEN, pytest-run in progress. Ratchet-safe by construction and measured (base=13 head=13 delta=+0). Lane session_014tHgKvnnLdpgAgGXbaHRUt is RUNNING at 562k/1M and has moved onto a THIRD branch, claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim, chasing an audit-bot false positive in manager scope-overlap. 562k is a session-handoff trigger: if mi236c does not close out inside this hour the lane should hand over rather than start a fourth thing."
+      "state": "review_ready",
+      "manager_note_2026_09_11T2055Z": "PR #11825 OPEN, Tier-1 landing:self, armed. guards + pytest-collect + repo-inventory GREEN, pytest-run in progress. Ratchet-safe by construction and measured (base=13 head=13 delta=+0). Lane session_014tHgKvnnLdpgAgGXbaHRUt is RUNNING at 562k/1M and has moved onto a THIRD branch, claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim, chasing an audit-bot false positive in manager scope-overlap. 562k is a session-handoff trigger: if mi236c does not close out inside this hour the lane should hand over rather than start a fourth thing.",
+      "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 708k/1M, own check-in armed 22:03Z. #11825 MERGED; #11829 (a third branch, mi236c) green with guards + pytest-collect + repo-inventory passing. The manager handed it a measured finding on #11829 -- parse_identity cannot read a session id that is present but not on line 0 -- with an explicit instruction to FILE it and not widen #11829. Past the handoff trigger."
     }
   ],
-  "as_of": "2026-09-11T20:56:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 20:52Z tick)",
+  "as_of": "2026-09-11T22:04:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 21:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -4201,5 +4204,20 @@
       "recommendation": "DO NOT revert yet",
       "ask": "MI-271 recommends against reverting e35: n=23 post trades, 70% unmeasured, against a 4-6 fold walk-forward that passed. MI-164 telemetry (live since 09-07) can now answer the question directly. Cost of waiting is ~-$900/day ON PAPER BOOKS."
     }
-  ]
+  ],
+  "manager_tick_2026_09_11T2153Z": {
+    "lease": "heartbeat 21:53:01Z, expires 23:23:01Z",
+    "landed_since_last_tick": [
+      "#11825 MI-236 stale-active",
+      "#11830 the 20:52Z tick",
+      "#11833 the R13 merge-slot finding"
+    ],
+    "lanes": "3 alive, ALL past the ~600k handoff trigger (696k / 708k / 778k of 1M). Two idle with their own check-ins armed; one running.",
+    "merge_queue": "No conflict outstanding on the open set at 21:53Z. #11826 and #11829 self-land on green.",
+    "routine_repaired": "The hourly tick prompt enumerated four lanes (MI-271/272/273/274) that all finished between 18:20Z and 19:39Z, so every tick since had been reading a dead list. Rewritten to DERIVE the live lane set from SESSIONS.json + the checklist and confirm each with get_session. Same stale-by-enumeration class as the board-START row filed at 20:0xZ; the remedy is the same -- describe the role, never the roster.",
+    "verified_not_inherited": "ListAgents returns no reachable agents, corroborating CLAUDE.md's claim that a manager cannot message a running cloud sub-session. Checked this session rather than carried forward.",
+    "registry_decay_corrected": "SESSIONS.json read `state: working` for two lanes that get_session showed IDLE/review_ready. Corrected to the OBSERVED value with the observation stamped. This is MI-193's measured ~61-minute truth-lifetime, live.",
+    "ranking_key_ab_is_red_on_main": "OBSERVED 2026-09-11T22:0xZ, recorded rather than acted on. .github/workflows/ranking-key-ab.yml concluded `failure` on 5 of the 5 most recent `main` pushes read (runs 1193/1186/1176/1169/1164, head shas fd8f7248 / 4ba06856 / 267db900 / d9c4d2c1 / 0228ec29) -- all of them pure automation-receipt commits that change no ranking code. It is therefore RED ON THE BASE BRANCH and not attributable to any PR that trips it. It is NOT a required check (absent from every PR check-run list this session), so it blocks nothing. NOT FILED YET: a backlog row needs a check of whether this is already known and whether the failure is real or the workflow is simply inapplicable to a receipt commit -- filing before that would risk a duplicate. FLAGGED because a workflow that fails on every single push is the desensitised-alarm shape this repo has a P1 rule about: either it means something and nobody is reading it, or it means nothing and should stop running.",
+    "force_push_fired_no_pull_request_event": "OBSERVED 2026-09-11T22:02Z on #11836. A force-push-with-lease of a squashed commit (3f34c912) produced only `push`-event runs -- ranking-key-ab and claude-pr-automerge -- and NO `pull_request: synchronize`, so Guards / pytest-run / pytest-collect / repo-inventory never re-ran and the PR sat with ONE check run. The earlier ordinary pushes on the same branch (8e9f8f54, 618d94b7) DID fire pull_request events, so it is the force-push specifically. This is a NEW variant of the documented zero-check trap: CLAUDE.md records it for a PR OPENED under GITHUB_TOKEN, not for a force-push to an already-open PR. Remedy is the same -- push one ordinary commit carrying a real change; an empty commit is forbidden."
+  }
 }
