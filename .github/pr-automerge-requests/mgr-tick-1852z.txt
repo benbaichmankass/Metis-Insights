@@ -1,1 +1,2 @@
 manager tick 18:52Z
+armed after the PR existed (the GITHUB_TOKEN zero-check trap)
