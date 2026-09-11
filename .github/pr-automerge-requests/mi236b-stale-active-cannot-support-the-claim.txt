@@ -1,0 +1,12 @@
+MI-236 second lane — PR #11825. Tier-1, landing: self.
+
+A stale `active` owner cannot support an `in_flight` claim. `_support_for` now
+branches on observation freshness, asymmetrically: a recorded NEGATIVE does not
+decay (still `unsupported`), a recorded POSITIVE does (fresh => `supported`,
+stale or never-observed => `could_not_establish`).
+
+Ratchet-safe by construction: the only transition producible is
+`supported` -> `could_not_establish`, never anything -> `unsupported`, and the
+ratchet counts `unsupported` (base=13 head=13 delta=+0, exit 0).
+
+Both load-bearing invariants mutation-checked. 25 tests pass; self-test OK.
