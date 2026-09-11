@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T04:32:00Z",
+  "updated_at": "2026-09-11T05:29:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3169,8 +3169,8 @@
     },
     {
       "id": "MI-235-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION-IS-NEVER-TOLD-WHEN-IT-HAPPENS",
-      "state": "ready",
-      "owner": "unassigned — needs a session",
+      "state": "in_flight",
+      "owner": "session_015iy2R6BP11eiVHbNeUnT6a (ENGINEERING LANE)",
       "added": "2026-09-10",
       "tier": 1,
       "blocked_on": "",
@@ -3178,7 +3178,12 @@
       "note": "MEASURED 2026-09-10 on two lanes. MI-222 (session_01WmFdLwfq4U5aLLjFRDDy6b) recorded need_input 'close PR #11579' at 2026-09-09T17:53:18Z; #11579 was closed at 19:41:11Z, about two hours later, and the lane sat BLOCKED for THIRTEEN HOURS. MI-139 (session_017UnyG4ArXmXKpB8rmEGv1j) recorded need_input 'write disposition for PR #11105' at 2026-09-06T19:10:07Z; #11105 had been closed at 10:22:01Z — NINE HOURS BEFORE it asked — and the lane sat blocked THREE AND A HALF DAYS. Both were freed only because a manager happened to run get_session over the roster.",
       "why_it_matters": "SESSIONS.json is a REGISTRY, not a channel. `needs_action` is written by the blocked session and read by nobody on a schedule. The poke channel exists (create_trigger + fire_trigger) and works, but firing it depends on a manager noticing — which is exactly what failed here, twice, for a combined ~4 days of lane time.",
       "done_when": "A blocked session is OBSERVED being woken by something other than a manager reading the roster by hand — either the condition it named being detected, or a cadence that grades needs_action rows against live PR/repo state. A reminder to the manager is NOT a mechanism and does not close this.",
-      "lane": "engineering"
+      "lane": "engineering",
+      "spawned_at": "2026-09-11T05:28:14Z",
+      "work_object": "WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION",
+      "⚠️_A_THIRD_INSTANCE_LANDED_TODAY_AND_IT_IS_THE_MOST_DAMNING_OF_THE_THREE": "2026-09-11T03:56:52Z–04:29Z: the MI-238 engineering lane went IDLE blocked on a manager merge (ict-trader-dashboard#215) and ANNOUNCED IT IN ITS OWN post_turn_summary -- '#215 awaiting merge' -- a machine-readable field that nothing read. It sat 33 minutes, and the only reason it was 33 minutes rather than the 13 HOURS (MI-222) or 3.5 DAYS (MI-139) this row already records is that the cadence tick happened to fire. Milder in duration, worse in kind: the previous two at least required inferring the blocker, and this one was declared. Roughly four lane-days are now lost to this single class.",
+      "⚠️_SPAWNED_UNDER_THE_OPERATOR_S_OWN_QUEUE_ORDER_NOT_THE_MANAGER_S_JUDGEMENT": "`_lane_queues.engineering` records the operator answering 'Finish MI-238 first, then the infra' on 2026-09-10, OVERRIDING the manager's recommendation to take MI-235/236/246 immediately. MI-238's two code halves are now landed (bot 4e9255acb, observed 681b88a84; SPA 941c96f81) and its one remaining criterion is the operator confirming the rendered page in a browser, which is not lane work. So 'then the infra' is due and MI-235 is its first row. ⚠️ The manager's earlier recommendation stays RECORDED AS OVERRIDDEN, not retroactively adopted -- the order being reached in due course is not the same as it having been re-decided.",
+      "updated_at": "2026-09-11T05:29:00Z"
     },
     {
       "id": "MI-236-SIX-IN-FLIGHT-ROWS-WERE-STALE-AND-NOTHING-DECAYS-THEM",
@@ -3295,7 +3300,8 @@
       "⚠️_GREEN_AND_WAITING_ON_ONE_OPERATOR_MERGE_CLICK_2026_09_10T2326Z": "#11738 reads mergeable_state: CLEAN with ALL FIVE checks success (pytest-run completed 23:03:03Z) on head 1c6ef5a54. check_pr_landing grades state=declared_needs_approval and NO auto-merge arming file exists — correctly, because R4 bars a Tier-2 diff from landing itself WHATEVER its approval state. ⚠️ WHAT IS OUTSTANDING IS THE CLICK, NOT THE DECISION: the operator chose r2_only on DEC-20260910-EXIT-EVAL-60S-REMEDY at 07:52Z and that approval must NOT be re-sought. Flagged to the operator at 23:2xZ. Guards PASS 74 · FAIL 0; 101 tests. ⚠️ THE LANE RETRACTED ITS OWN REGISTRY ACCUSATION, CORRECTLY AND ON ITS OWN INITIATIVE — it had concluded the pre-spawn row was 'made and never pushed', re-measured, and found it had read a tip committed 21:29:36Z against a row that landed 21:42:36Z, confirming the ordering with git merge-base --is-ancestor. Its own words: 'a negative needs a denominator, and the tip I happened to fetch is not one for a register another session is actively pushing to.' It also dropped its post-hoc duplicate row. The underlying defect survives as MI-263 and is the manager's.",
       "⚠️_GREEN_SINCE_0036Z_AND_WAITING_ON_ONE_CLICK": "#11738 has been ALL FIVE CHECKS GREEN since 2026-09-11T00:36:49Z on head 841f7452b — pytest-run, guards, pytest-collect, repo-inventory, open-and-automerge. It carries NO auto-merge arming file, correctly: R4 bars a Tier-2 diff from self-landing whatever its approval state, so it needs one human merge click. ⚠️ IT HAS THEREFORE BEEN SITTING GREEN FOR ~2 HOURS. That is a STALL, and R7 cannot see it — the guard grades whether the manager CHECKED IN, never whether it acted on what was waiting. Flagged to the operator at 02:2xZ. ⚠️ THE APPROVAL IS RECORDED AND MUST NOT BE RE-SOUGHT: r2_only on DEC-20260910-EXIT-EVAL-60S-REMEDY, 2026-09-10T07:52Z.",
       "⚠️_CI_IS_RE_RUNNING_ON_A_NEW_HEAD_AS_OF_0420Z_SO_THE_GREEN_SINCE_0036Z_LINE_IS_SUPERSEDED": "Read by the manager at 04:26Z: head moved to a3e8a885e when the MI-240 lane rebased at 04:20:41Z, and CI re-fired -- guards / pytest-collect / repo-inventory GREEN, pytest-run STILL IN PROGRESS. So the earlier 'green and waiting on one click' reading is stale and must not be re-quoted; it describes head 841f7452b. This is the second time this PR's green has been superseded by a rebase, and the cause is structural: the merge slot conflicts bare, so an armed or long-lived PR pays a CI cycle every time main advances past it. ⚠️ NOTHING ABOUT THE APPROVAL CHANGED. R4 bars a Tier-2 diff from self-landing whatever its approval state; the r2_only verdict of 2026-09-10T07:52Z stands and must NOT be re-sought. What is outstanding is the click, and it is not available until pytest-run finishes.",
-      "updated_at": "2026-09-11T04:32:00Z"
+      "updated_at": "2026-09-11T05:29:00Z",
+      "⚠️_ALL_FIVE_CHECKS_GREEN_SINCE_0440Z_ON_HEAD_a3e8a885e": "Read by the manager at 05:26Z: pytest-run completed success 04:40:51Z, joining guards / pytest-collect / repo-inventory / open-and-automerge. So the PR has been GREEN AND MERGEABLE FOR 45 MINUTES and is waiting on exactly one thing -- a human merge click. R4 bars a Tier-2 diff from self-landing whatever its approval state, which is why no arming file exists and why this cannot land itself. ⚠️ THE APPROVAL IS NOT WHAT IT IS WAITING ON AND MUST NOT BE RE-SOUGHT: the operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z. What is outstanding is the click. ⚠️ AND NOTE WHAT IT IS FIXING WHILE IT WAITS: 10 of 14 post-fix 60s exit-eval breaches fall inside the 04:00-05:00Z IBKR reset window, so every night this sits unmerged is another pass of that window unbounded."
     },
     {
       "id": "MI-241-APPLY-THE-F39-REATTACH-ALL-THREE-PACKAGES-INCLUDING-REAL-MONEY-XRPUSDT",
@@ -3720,7 +3726,7 @@
     }
   ],
   "as_of": "2026-09-10T13:36:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 04:28Z)",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 05:26Z)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
