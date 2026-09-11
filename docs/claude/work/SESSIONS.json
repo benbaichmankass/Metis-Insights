@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T07:28:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 07:27Z)",
+  "updated_at": "2026-09-11T08:19:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:17Z)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4572,10 +4572,10 @@
       "why": "Operator-ordered queue: 'Finish MI-238 first, then the infra'. MI-238's code halves are landed; MI-235 is the first row of the infra.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T05:28:43Z",
-      "live_status": "IDLE/disconnected — review_ready",
-      "live_status_read_at": "2026-09-11T07:25:25Z",
-      "manager_observation": "ENGINEERING LANE, MI-235. #11767 still OPEN: green on 15d0a882b, base 825964034 (behind main), mergeable_state `unknown` at the 07:25Z read -- GitHub still computing, NOT a conflict finding. Held by R12 for a human. ⚠️ Its post_turn_summary reads 'PR #11767 clean merge verified', which means the branch MERGES cleanly -- NOT that it merged. The manager checked the PR rather than reading that as a landing, and it had not landed.",
-      "updated_at": "2026-09-11T07:28:00Z"
+      "live_status": "IDLE/disconnected — review_ready, waiting on a manager decision",
+      "live_status_read_at": "2026-09-11T08:16:49Z",
+      "manager_observation": "ENGINEERING LANE, MI-235. #11767 green since 06:26Z, still held by R12. IT CORRECTED THE MANAGER: my #11772 claim that the watcher 'was not deployed in time to catch two more' is FALSE -- it would have caught 0 of 2, because its kind vocabulary cannot express 'my own registry row carries confirmed_at'. It checked that against SESSIONS.json on main rather than accepting it, and the error flattered ITS OWN PR, which is the direction a lane has least incentive to correct. It then put the fold-it-in-or-follow-up call to the manager rather than widening its own PR. DECIDED: land unwidened; the sixth kind is filed as MI-264. Context 717k/1000k -- near handoff territory.",
+      "updated_at": "2026-09-11T08:19:00Z"
     },
     {
       "session_id": "session_01NFUHBS41Dn15pUbz5Qr6Vx",
@@ -4589,10 +4589,10 @@
       "why": "Operator answered DEC-20260911-WORK-STORE-BACKLOG-MIRRORS as retire_mirrors at 2026-09-11T05:55Z. The sweep half is delivered; this executes the answer.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T06:06:01Z",
-      "live_status": "IDLE/disconnected — BLOCKED, and the blocker had already cleared",
-      "live_status_read_at": "2026-09-11T07:25:25Z",
-      "manager_observation": "OPS LANE, retire_mirrors. Delivered and MERGED (#11769, 4d8b30109) -- 553 mirrors retired, dormant 556 -> 3, all four backlogs intact -- then sat `need_input` on pending-20260911T060510Z, WHICH WAS CONFIRMED AT 06:06:01Z, about twenty seconds after the session started. It lost ~80 minutes to a blocker that never existed. Poked 07:27Z.",
-      "updated_at": "2026-09-11T07:28:00Z"
+      "live_status": "IDLE/disconnected — completed",
+      "live_status_read_at": "2026-09-11T08:16:49Z",
+      "manager_observation": "OPS LANE, retire_mirrors. Merged (#11769). Unblocked by the 07:27Z poke; post-poke it verified its registry entry post-merge and flagged a stale-flag/idempotency mismatch for MI-235 rather than dropping it. Nothing owed.",
+      "updated_at": "2026-09-11T08:19:00Z"
     },
     {
       "session_id": "session_01GPBc31S8TgNvxEekzdDSpV",
@@ -4606,12 +4606,12 @@
       "why": "Operator-ordered engineering queue, the row after MI-235. The WIP ceiling is FULL, so a stale in_flight row is now refusing real work at check_wip_ceiling.py.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T06:27:18Z",
-      "live_status": "IDLE/disconnected — BLOCKED, and the blocker had already cleared",
-      "live_status_read_at": "2026-09-11T07:25:25Z",
-      "manager_observation": "ENGINEERING LANE, MI-236. Delivered and MERGED (#11771, 6d5556101) -- owner_liveness.py + check_stale_in_flight.py + 18 tests -- then sat `need_input` asking the manager to confirm pending-20260911T062558Z. IT WAS CONFIRMED AT 06:27:18Z, roughly 60 minutes earlier, and is on main; the manager verified that against SESSIONS.json before poking rather than assuming it. Poked 07:27Z and asked to NAME the 8 flagged WIP rows on a PR, because a count without row ids is not actionable and a session summary dies with the session.",
-      "updated_at": "2026-09-11T07:28:00Z"
+      "live_status": "IDLE/disconnected — completed",
+      "live_status_read_at": "2026-09-11T08:16:49Z",
+      "manager_observation": "ENGINEERING LANE, MI-236. Merged (#11771, 6d5556101) and then did the thing that was asked: named all 17 rows on a DURABLE surface (#11771 comment 5631004616) with an independent falsifier the registry does not control -- git `Claude-Session:` trailers on main. 17 rows -> 14 owners -> 4 RE-ROUTE / 10 POKE, three caveats on its own evidence, and an explicit REFUSAL to recommend a landing state for any row. Nothing owed.",
+      "updated_at": "2026-09-11T08:19:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T07:25:25Z, tick 07:27Z. A REAL LIVE READ -- list_sessions(mine=true, limit=3) -- and it found the thing the cadence warns about: TWO of the three returned rows were BLOCKED on a manager action that had ALREADY BEEN DONE, 60 and 80 minutes earlier respectively. Both were verified against SESSIONS.json on main before poking; neither was taken from the lane's own summary. PARTIAL: three rows returned and graded; the register holds 211 rows and the rest were NOT read -- 'we did not look', never 'they are fine'. LIVE COUNT: ZERO lanes RUNNING at this read. All three are IDLE, two of them only because nothing told them they were free. Against the operator's cap of 3 that reads as three free slots, and the honest reading is that it was two engaged lanes stalled on nothing."
+  "⚠️_last_live_reconcile": "2026-09-11T08:16:49Z, tick 08:17Z, prompted by an operator status request. A REAL LIVE READ -- list_sessions(mine=true, limit=4) -- plus the PR comment threads on #11767 and #11771, which is where both lanes actually put their findings. ⚠️ READING THE ROSTER WAS NOT ENOUGH THIS TICK: both substantive findings (the lane's correction of the manager, and the 17 named rows) were on PR COMMENTS, not in any post_turn_summary or register field. A manager who only read the roster would have seen 'review_ready' and 'completed' and missed both. PARTIAL: four rows returned, three graded; the register holds 212 rows and the rest were NOT read. LIVE COUNT: ZERO lanes RUNNING. Three IDLE-terminal, one IDLE awaiting a manager decision that is now made. All three operator slots free."
 }
