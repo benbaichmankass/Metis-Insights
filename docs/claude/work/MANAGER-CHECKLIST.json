@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-11T22:55:00Z",
+  "updated_at": "2026-09-11T23:02:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4094,7 +4094,7 @@
       "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11829 open and green."
     }
   ],
-  "as_of": "2026-09-11T22:55:00Z",
+  "as_of": "2026-09-11T23:02:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 22:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -4237,6 +4237,7 @@
     "the_finding": "A PARTIAL LOST UPDATE on SESSIONS.json. #11836 set updated_at 21:53:01Z; #11826 merged after it with an older top-level block and git took that side, rolling updated_at BACK to 21:28:49Z and undoing a supersede -- while the row-level edits from #11836 survived. The file read updated with a stale freshness claim. manager-scope R6 reads that field, so the NEXT heartbeat would have failed CI for a staleness nobody introduced. Filed high as BL-20260911-A-SHARED-REGISTER-LOSES-ITS-TOP-LEVEL-KEYS-TO-A-LINE-LEVEL-MERGE-WHILE-ITS-ROWS-SURVIVE.",
     "lanes": "7 non-terminal rows derived and ALL SEVEN confirmed with get_session. Four graded terminal (MI-271/272/273/274). MI-275 RUNNING 770k closing out. MI-276 + MI-236b review_ready.",
     "merge_queue": "5 open: #11838 (MI-275 close-out), #11829, #11827 (Tier-2 HOLD), #11817 + #11738 (operator-gated, approvals RECORDED, not re-sought). No conflict outstanding at 22:53Z.",
-    "operator_owed": "UNCHANGED at four: #11827 (new, Tier-2 detectors), #11817 (R15 click), #11738 (R2 breaker, approved r2_only). MI-273's SESSION is terminal but its PR #11817 is not -- those are different facts and the row records both."
+    "operator_owed": "UNCHANGED at four: #11827 (new, Tier-2 detectors), #11817 (R15 click), #11738 (R2 breaker, approved r2_only). MI-273's SESSION is terminal but its PR #11817 is not -- those are different facts and the row records both.",
+    "zero_check_trap_third_variant": "OBSERVED 2026-09-11T23:01Z on #11839, and it is MY OWN ordering slip rather than a new defect. I pushed the content commit and the arming file in ONE push, so claude-pr-automerge opened the PR under GITHUB_TOKEN before I could open it by hand -- and a GITHUB_TOKEN-opened PR fires no pull_request event, so it was born with exactly ONE check run (open-and-automerge, green) and no CI. It also took the LAST COMMIT'S SUBJECT as its title ('use the status enum, and arm the route'), which describes the smallest commit in the branch rather than the tick. || THIS IS THE THIRD VARIANT SEEN TODAY and they have different causes: (a) the documented one, a PR OPENED by the relay under GITHUB_TOKEN; (b) a FORCE-PUSH to an already-open PR, which fired no pull_request event either (recorded at 22:04Z); (c) this one -- opening by hand is the fix, and it only works if the arming file goes in a SEPARATE, LATER push. CLAUDE.md documents the order but not the failure mode of getting it wrong, which is that the relay wins the race. || REMEDY IS THE SAME IN ALL THREE: push one ordinary commit carrying a real change. An empty commit is forbidden, and this note is the real change."
   }
 }
