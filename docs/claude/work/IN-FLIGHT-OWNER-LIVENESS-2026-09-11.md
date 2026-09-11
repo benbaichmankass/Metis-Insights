@@ -211,16 +211,34 @@ Re-graded over the same 27 rows: **0 supported / 13 unsupported / 14
 could_not_establish**, from 6 / 13 / 8. All six moved rows are
 `supported → could_not_establish`.
 
+⚠️ **RE-MEASURED ~30 MINUTES LATER AT THE MERGED HEAD, AND IT IS NO LONGER
+ZERO — do not quote the zero as a standing property.** After `main` moved
+under this branch (three lanes spawned tonight), the same guard reads
+**3 supported / 13 unsupported / 14 could_not_establish over 30 rows**. The
+three are `MI-275`, `MI-276` and this lane itself, each confirmed **31.7
+minutes** earlier and each genuinely `RUNNING` — so **`supported` has a live
+positive control and, on this read, zero false positives**, and the earlier
+zero was an artefact of *when the population was cut* rather than a property
+of the code. The fix therefore discriminates in both directions on real
+register data: 3 live-and-supported against 10 confirmed-terminal.
+
 - ⚠️ **`unsupported` is unreachable from this change in either direction.** The
   only transition it can produce is *pass → we could not look*. That is what
   keeps `check_stale_in_flight.py`'s ratchet (which counts `unsupported`) at
   `base=13 head=13 delta=+0`, so it cannot red a PR over pre-existing debt and
   cannot manufacture a staleness claim about a row nobody observed.
-- ⚠️ **`supported` is now measured at ZERO, and that is a fact about the
-  REGISTRY's observation cadence, not an unreachable state.** A row observed
-  inside the window still grades `supported`; pinned by
+- ⚠️ **`supported` is reachable and was OBSERVED at 3 of 30** (see the
+  re-measurement above); the zero was population-dependent. Pinned by
   `test_supported_is_still_reachable_from_the_real_registers` so a genuinely
   live lane cannot be reported as ungradeable.
+- **What survives of the cadence finding is narrower, and is still real.** The
+  basis on all three `supported` rows is `spawn_confirmation`, i.e. they
+  qualify because they were spawned 31.7 minutes ago — **not** because anyone
+  looked at them since. So a lane grades `supported` only inside 90 minutes of
+  its spawn or of a manager observation, and these same three will fall to
+  `could_not_establish` **while still working** unless somebody observes them
+  again. That is filed as its own row rather than papered over:
+  `BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-…`.
 - **It does not make the module able to see liveness.** It makes it stop
   *claiming* to. The residue is unchanged and is the honest one: a lane that is
   genuinely working but unobserved for 90 minutes reads

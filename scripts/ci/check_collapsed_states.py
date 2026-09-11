@@ -302,10 +302,18 @@ CONTRACTS: List[Dict[str, object]] = [
             "on an observation 24x-48x past the module's own 90-minute window, "
             "and a live `list_sessions` read put FOUR of those six owners at "
             "IDLE/COMPLETED with none RUNNING. `supported` is therefore "
-            "measured at ZERO today, and that is a fact about the REGISTRY's "
-            "observation cadence rather than an unreachable state -- a row "
-            "observed inside the window still grades `supported`, pinned by "
-            "`test_supported_is_still_reachable_from_the_real_registers`."
+            "measured at ZERO over THAT population -- but read the next sentence "
+            "before quoting it. \u26a0\ufe0f RE-MEASURED ~30 MINUTES LATER at the "
+            "merged head, `supported` is 3 of 30, NOT zero, and the zero was an "
+            "artefact of WHEN the population was cut: the three rows are the "
+            "lanes spawned 31.7 minutes earlier (MI-275, MI-276 and this lane "
+            "itself), all three genuinely RUNNING, so the state has a live "
+            "positive control with zero false positives. What survives is "
+            "narrower and is still real: the basis on all three is "
+            "`spawn_confirmation`, so a lane grades `supported` only inside 90 "
+            "minutes of its spawn or of a manager observation, and will fall to "
+            "`could_not_establish` while still working unless somebody looks "
+            "again. Filed as its own row rather than papered over."
         ),
     },
     {

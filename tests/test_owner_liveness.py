@@ -323,11 +323,16 @@ def test_support_default_fails_toward_could_not_look():
 
 
 def test_supported_is_still_reachable_from_the_real_registers():
-    """⚠️ `supported` is measured at ZERO over the live registers today (all 27
-    in_flight rows grade unsupported or could_not_establish), and a state
-    nothing can produce would be a lie in the vocabulary. This pins that the
-    emptiness is a property of the REGISTRY's observation cadence and not of
-    the code: a register row in the supported shape still grades supported.
+    """A state nothing can produce would be a lie in the vocabulary, so this
+    pins that `supported` remains reachable from a real register row.
+
+    ⚠️ MEASURED TWICE, AND THE SECOND READ CORRECTS THE FIRST. Over the 27
+    in_flight rows at `886c93e` it was ZERO. Re-measured ~30 minutes later at
+    the merged head it is **3 of 30** -- the lanes spawned 31.7 minutes
+    earlier, all three genuinely RUNNING -- so the zero was an artefact of
+    when that population was cut, not a property of the code, and `supported`
+    has a live positive control with zero false positives. This test is what
+    keeps the state honest if the live count returns to zero.
     """
     assert stale_grade("session_freshact").support == ol.SUPPORTED
     assert ol.SUPPORTED in set(ol.CLAIM_SUPPORTS)
