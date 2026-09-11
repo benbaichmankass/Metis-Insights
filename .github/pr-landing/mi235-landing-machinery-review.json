@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A REVIEW REPORT, docs-only: one new file under docs/research/ plus a single-row registration in docs/DOCUMENT-INDEX.md. Entirely inside TIER1_SURFACE (docs/**). It touches NOTHING on LANDING_MACHINERY — verified by running the guard rather than by reading the list — so R12 does not apply to this diff, which is a different question from the PR it reviews. No src/, config/, deploy/, .github/workflows/, order path, strategy or risk cap; no VM; no order placed, modified or cancelled on any account. ⚠️ This lane was spawned to honour R12 on PR #11767 and deliberately did NOT merge it, did not push to claude/mi235-blocked-lane-watch, and did not modify the landing machinery: the deliverable is this report for the operator to act on. Self-landing a docs-only report is not in tension with that — R12 governs changes to the route, and this is not one. The DOCUMENT-INDEX row was inserted BY HAND, one line, rather than via document_index.py --write, which sweeps ~470 docs and restamps `last verified` on every one of them — an attestation nobody made. That is the exact mistake #11767 recorded making and reverting."
+}
