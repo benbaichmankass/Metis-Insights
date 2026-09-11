@@ -162,7 +162,11 @@ def test_an_ungradeable_blocker_pages_rather_than_reading_as_blocked():
 
 
 # ── the latch ────────────────────────────────────────────────────────────────
-def test_the_latch_pages_once_and_a_new_clear_still_pages():
+def test_the_latch_pages_once_and_a_DIFFERENT_lane_still_pages():
+    """⚠️ NAME CORRECTED 2026-09-11. This asserted that a DIFFERENT session with a
+    DIFFERENT blocker still pages, while reading as though it covered the same
+    blocker changing state — the property it does NOT test, and the one that was
+    actually broken. The transition is pinned by the test below it."""
     rows = [{"session_id": "free", "state": "blocked", "blocked_on": [
         {"kind": "pull_request", "ref": "#6", "clears_when": "merged"}]}]
     first = B.assess(rows, WORLD)
@@ -172,6 +176,58 @@ def test_the_latch_pages_once_and_a_new_clear_still_pages():
         {"kind": "branch", "ref": "claude/gone", "clears_when": "deleted"}]})
     again = B.assess(rows, WORLD, already_paged=first["latch"])
     assert [w["session_id"] for w in again["wake_list"]] == ["free2"]
+
+
+def test_a_could_not_look_that_LATER_CLEARS_still_pages():
+    """THE TRANSITION THE WHOLE MECHANISM EXISTS FOR, and it was broken.
+
+    `_latch_key` omitted the blocker STATE while `assess` latches `cleared` and
+    `could_not_look` through that one key, so a blocker that paged once as *we
+    could not look* could never page again — including when it later CLEARED.
+    That is MI-238's own cross-repo case: the lane stays blocked forever and the
+    watcher stays quiet. Found by the MI-235 review lane; no test saw it.
+
+    The third assertion is the positive control: the same world with an EMPTY
+    latch DOES wake, so a failure here is the latch and not the grading.
+    """
+    row = [{"session_id": "x", "state": "RUNNING", "blocked_on": [
+        {"kind": "pull_request", "ref": "other/dash#215",
+         "clears_when": "closed_or_merged"}]}]
+    blind = dict(WORLD, pr_states_readable=False)
+    seeing = dict(WORLD, pr_states_repos={"o/r", "other/dash"})
+
+    assert B.grade_row(row[0], blind)["lane_state"] == B.BLOCKER_COULD_NOT_LOOK
+    assert B.grade_row(row[0], seeing)["lane_state"] == B.BLOCKER_CLEARED
+
+    first = B.assess(row, blind)
+    assert len(first["wake_list"]) == 1, "the blind read must page once"
+    after = B.assess(row, seeing, already_paged=first["latch"])
+    assert len(after["wake_list"]) == 1, (
+        "the clear MUST page even though the same blocker already paged as "
+        "could_not_look — this is the bug the review lane found")
+    assert len(B.assess(row, seeing, already_paged=[])["wake_list"]) == 1
+
+    # ...and the anti-fatigue property is intact: an UNCHANGED state is silent.
+    assert B.assess(row, seeing, already_paged=after["latch"])["wake_list"] == []
+    assert B.assess(row, blind, already_paged=first["latch"])["wake_list"] == []
+
+
+def test_MUTATION_a_latch_key_without_the_state_is_caught(tmp_path):
+    """Break it back the way it shipped and assert the test above would fail."""
+    m = _mutant(tmp_path,
+                'return (f"{session_id}|{verdict.get(\'state\')}|{verdict.get(\'kind\')}"\n'
+                '            f"|{verdict.get(\'ref\')}|{verdict.get(\'clears_when\')}")',
+                'return (f"{session_id}|{verdict.get(\'kind\')}"\n'
+                '            f"|{verdict.get(\'ref\')}|{verdict.get(\'clears_when\')}")',
+                "latch_key_without_state")
+    row = [{"session_id": "x", "state": "RUNNING", "blocked_on": [
+        {"kind": "pull_request", "ref": "other/dash#215",
+         "clears_when": "closed_or_merged"}]}]
+    blind = dict(WORLD, pr_states_readable=False)
+    seeing = dict(WORLD, pr_states_repos={"o/r", "other/dash"})
+    first = m.assess(row, blind)
+    assert len(m.assess(row, seeing, already_paged=first["latch"])["wake_list"]) == 0, (
+        "the mutant must reproduce the bug, or this test pins nothing")
 
 
 def test_an_unreadable_latch_pages_rather_than_suppressing(tmp_path):
@@ -236,9 +292,25 @@ def test_the_watch_is_wired_into_a_workflow_that_demonstrably_fires():
     lane = [s for s in steps if s.get("id") == "lanes"]
     assert len(lane) == 1, "the blocked-lane step must exist exactly once"
     assert "blocked_lane_watch.py" in lane[0]["run"]
-    assert "--self-test" in lane[0]["run"], (
-        "a watcher whose grading is broken must fail loudly, not write a "
-        "confident receipt")
+    # ⚠️ THE SELF-TEST IS ASSERTED IN THE SHARED SELF-TEST STEP, NOT HERE, AND
+    # THE MOVE IS THE POINT (MI-235 review lane, 2026-09-11). Inside the lanes
+    # step it was `--self-test || exit 2`, which failed the STEP — so `Land the
+    # receipt on main`, `Watch the MANAGER STATE` and `Report the verdict` were
+    # all skipped, taking down the PR-queue escalation this workflow exists for,
+    # while the step's own comment promised it never fails the job.
+    selftest_steps = [st for st in steps
+                      if "--self-test" in str(st.get("run", ""))
+                      and "blocked_lane_watch.py" in str(st.get("run", ""))]
+    assert len(selftest_steps) == 1, (
+        "the grading policy must be self-tested exactly once per run")
+    assert selftest_steps[0].get("id") != "lanes", (
+        "a failing self-test here must fail the JOB early, never skip the "
+        "later steps that carry the PR-queue escalation")
+    assert steps.index(selftest_steps[0]) < steps.index(lane[0]), (
+        "self-test BEFORE trusting a live run, not after")
+    assert "exit 2" not in lane[0]["run"], (
+        "the lanes step must not exit non-zero: every step after it that "
+        "lacks `if: always()` would be skipped")
     land = [s for s in steps if "commit-to-main" in str(s.get("uses", ""))]
     assert land and "BLOCKED-LANE-WATCH.json" in land[0]["with"]["paths"], (
         "the receipt IS the paging latch; if it never lands, it never latches")

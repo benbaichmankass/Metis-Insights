@@ -544,7 +544,27 @@ def grade_row(row: Dict[str, Any], world: Dict[str, Any], **kw) -> Dict[str, Any
 
 
 def _latch_key(session_id: str, verdict: Dict[str, Any]) -> str:
-    return f"{session_id}|{verdict.get('kind')}|{verdict.get('ref')}|{verdict.get('clears_when')}"
+    """The page-once key, and the STATE is part of it deliberately.
+
+    ⚠️ THE STATE WAS MISSING UNTIL 2026-09-11 AND THAT DEFEATED THE WHOLE
+    MECHANISM IN ITS OWN MOTIVATING CASE. `assess` latches `cleared` and
+    `could_not_look` through this one key, so without the state a blocker that
+    paged once as *we could not look* could never page again -- including on the
+    single transition the watcher exists for, `could_not_look -> cleared`. Found
+    by the MI-235 review lane and CONFIRMED BY EXECUTION against a positive
+    control, on both routes that reach it: a cross-repo PR whose listing was
+    unreadable and is later covered (MI-238's own case), and a same-repo PR
+    whose listing was unreadable and is later found merged into main. In each,
+    run 2 graded `cleared` and woke NOBODY while the same world with an empty
+    latch woke 1 -- so it was the latch, not the grading.
+
+    Including the state keeps the anti-fatigue property intact: a blocker that
+    stays `could_not_look` still pages exactly once, because its key is
+    unchanged. Only a genuine CHANGE OF STATE mints a new key, which is the
+    only thing that should ever re-page.
+    """
+    return (f"{session_id}|{verdict.get('state')}|{verdict.get('kind')}"
+            f"|{verdict.get('ref')}|{verdict.get('clears_when')}")
 
 
 def assess(rows: Sequence[Dict[str, Any]], world: Dict[str, Any],

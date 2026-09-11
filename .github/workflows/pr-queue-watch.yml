@@ -97,6 +97,14 @@ jobs:
           # confident receipt.
           python3 scripts/ops/manager_state_watch.py --self-test
           python3 scripts/ci/check_manager_queue_watch.py --self-test
+          # The blocked-lane grading policy, for the same reason and in the same
+          # place. ⚠️ IT LIVES HERE RATHER THAN IN ITS OWN STEP BECAUSE A FAILING
+          # SELF-TEST MUST NOT TAKE DOWN THE PR-QUEUE ESCALATION. Run inside the
+          # lanes step with `|| exit 2` it skipped `Land the receipt on main`,
+          # `Watch the MANAGER STATE` and `Report the verdict` -- the channel this
+          # workflow exists for -- while that step's own comment promised it
+          # never fails the job (MI-235 review lane, 2026-09-11).
+          python3 scripts/ops/blocked_lane_watch.py --self-test
 
       - name: Read the open-PR list
         # ⚠️ ON FAILURE THIS WRITES NOTHING AND THE WATCHER GRADES
@@ -196,7 +204,6 @@ jobs:
           pathlib.Path("/tmp/lane-pr-state.json").write_text(json.dumps(rows))
           print(f"blocked-lane watch: open-PR listing covers {len(rows)} PR(s)")
           COMBINE
-          python3 scripts/ops/blocked_lane_watch.py --self-test || exit 2
           python3 scripts/ops/blocked_lane_watch.py \
             --pr-state /tmp/lane-pr-state.json \
             --write-receipt > /tmp/lanes.txt 2>&1
@@ -318,7 +325,11 @@ jobs:
             0) echo "::notice::Blocked-lane watch: nothing new. ⚠️ NOT 'no lane is stuck' — a lane that declared no blocker is invisible to this sweep." ;;
             3) echo "::error::BLOCKED-LANE WAKE DUE — a lane is waiting for something that has already happened, or for something nothing can grade. See the step log and docs/claude/work/BLOCKED-LANE-WATCH.json, then fire_trigger a poke-only Routine bound to each session listed."; exit 1 ;;
             4) echo "::error::BLOCKED-LANE WATCH COULD NOT READ THE REGISTER — this is NOT an empty roster, the sensor is blind and that is a defect."; exit 1 ;;
-            2) echo "::error::BLOCKED-LANE WATCH SELF-TEST FAILED — the grading policy is broken; no verdict from this run may be trusted."; exit 1 ;;
+            # ⚠️ There is deliberately no `2)` arm. `main()` returns 0, 3 or 4 and
+            # NOTHING else; the self-test moved to the shared self-test step, which
+            # fails the whole job loudly and long before this. An arm naming a cause
+            # no code path can produce is the unprovenanced-diagnostic class this
+            # repo has a guard for -- `*)` below catches the unexpected, loudly.
             "") echo "::warning::blocked-lane watch did not run (its step was skipped or died before reporting). That is 'we did not look', not a clean roster." ;;
             *) echo "::error::unexpected exit code '${{ steps.lanes.outputs.rc }}' from blocked_lane_watch.py"; exit 1 ;;
           esac

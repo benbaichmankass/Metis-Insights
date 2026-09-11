@@ -471,6 +471,22 @@ one, run this BEFORE your last turn, then push it.
 `operator_decision`, and the command REFUSES anything it cannot grade rather
 than letting you declare a blocker nothing will ever watch.
 
+⚠️ **THIS IS THE ONE SANCTIONED EXCEPTION TO 'the manager owns that file' TWO
+PARAGRAPHS UP, AND IT IS NARROW.** You append ONE typed edge to YOUR OWN row and
+nothing else — never another row, never the `sessions` list's shape, never a
+manager field. Nobody else can write it: the blocker is yours, and a manager who
+has to notice it by hand is the failure this whole mechanism exists to end.
+⚠️ **ARM THE REGISTER MERGE DRIVER FIRST — a fresh container ships DISARMED:**
+
+    bash scripts/ops/install_merge_driver.sh
+
+Without it your one-line append conflicts against every sibling PR touching the
+same register and you resolve a 500 KB JSON file by hand. That is measured, not
+theoretical -- eleven hand resolutions in one session, and a second measured
+instance on 2026-09-11. The row, on ONE line so it actually resolves:
+`BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS`
+Declare on YOUR OWN branch and let it land the ordinary way.
+
 ⚠️ **WRITING IT IN PROSE, OR IN YOUR `post_turn_summary`, REACHES NOBODY.** That
 is measured, not cautionary: MI-222 sat blocked 13h on a PR closed two hours
 after it asked, MI-139 sat 3.5 DAYS on a PR closed NINE HOURS BEFORE it asked,
@@ -1087,11 +1103,29 @@ def cmd_blocked_on(a) -> int:
               f"YET, never as never-written (MI-263). Check the manager's "
               f"branch before concluding anything.")
         return 5
+    if len(rows) > 1:
+        # ⚠️ NEVER `rows[0]`. This file's own `_mint_registry_key` records three
+        # rows having shared a key, and `_refuse_duplicate_session_id` exists
+        # because uniqueness is a property of the SET. Picking the first would
+        # write the edge onto an ARBITRARY row, so the lane declares and the
+        # watcher grades a DIFFERENT row -- a blocker that looks declared and is
+        # watched for somebody else. Refusing is the only honest answer; the
+        # duplicate is the defect to fix (MI-235 review lane, 2026-09-11).
+        print(f"session-registry: REFUSED — {len(rows)} rows carry session_id "
+              f"{a.session_id!r}, so there is no single row to declare on. "
+              f"NOTHING WAS WRITTEN. Fix the duplicate first (see "
+              f"`register-id-guard`); writing to the first would put your "
+              f"blocker on a row that is not yours.")
+        return 5
     row = rows[0]
 
     if a.clear:
         had = len(row.get("blocked_on") or [])
         row.pop("blocked_on", None)
+        # NOTE 5 — a discharge CHANGES the register, so it stamps it. Declaring
+        # bumped `updated_at` and clearing did not, which left the freshness
+        # stamp `check_manager_scope` R6 grades reading older than the file.
+        doc["updated_at"] = _now_iso()
         _dump_registry(doc, REGISTRY_PATH)
         print(f"session-registry: discharged {had} blocker(s) on {a.session_id}")
         return 0
