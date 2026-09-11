@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-11T18:56:00Z",
+  "updated_at": "2026-09-11T19:58:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3990,7 +3990,7 @@
     {
       "id": "MI-271",
       "lane": "research",
-      "status": "landed_unproven",
+      "status": "done",
       "owner": "session_016dJtEibrgnsX32qD2gvDQY",
       "title": "Why is the book bleeding: attribute the 2026-08-30 directional-leg break AND the multi-week drawdown, and propose the remedy",
       "owns_object": "WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE",
@@ -4002,12 +4002,12 @@
       ],
       "manager_note": "The NON-e35 control is the entire experiment and is not optional: ict_scalp_* was never touched by e35 and degraded too (54.7%->31.8%), so reverting e35 without the control leaves it unexplained. Also flagged to the lane: 2026-08-30 carries at least THREE simultaneous changes (e35 geometry, BYBIT_HEDGE_MODE_SYMBOLS arming, and the last prop fill), so 'it changed on the day e35 shipped' is a coincidence, not an attribution. pnlCoverage is 22.3% measured, so every headline must be restricted to the provenance-clean population.",
       "added": "2026-09-11",
-      "outcome": "#11815 OPEN (Tier-1 self-land). VERDICT DELIVERED. The bleed began 2026-08-27, THREE DAYS BEFORE e35 shipped (08-30T08:53Z); worst day 08-28. 66% of post-deploy loss (-$30,057) is in ict_scalp_* legs that declare NO bracket geometry and that e35 could not have touched. Mechanism is WINNER-SIZE COLLAPSE, not win-rate collapse: avg win $404->$112 (-72%), expectancy +$40 -> -$144. Primary cause = a market-regime change the system cannot detect. e35 is NOT the cause and NOT exonerated: its legs stop-out rate rose 0/5 -> 6/7 on broker-measured rows, p=0.015, while made-its-legs-worse-overall is REFUSED at p=0.334. ⚠️ REAL MONEY LOST IS -$20.36 on bybit_2 over 40 closed rows; alpaca_live has zero closed rows. THE CAPITAL ACTUALLY LOST IS PAPER. Recommends NOT reverting e35 yet (n=23, 70% unmeasured, against a walk-forward that passed) and points at MI-164 telemetry now able to answer it directly. Detector: >=4 consecutive losing days fires exactly once per account, zero false positives."
+      "outcome": "#11815 MERGED (85bcd57). Verdict delivered and landed. [!] ONE DISCREPANCY CARRIED FORWARD RATHER THAN SMOOTHED: the merged memo concludes e35 is NOT the cause (bleed began 08-27, three days before e35; 66% of post-deploy loss in geometry-immune ict_scalp_* legs), while the lane post_turn_summary reads \"e35 causation confirmed via two independent data sources\". THOSE DISAGREE. The merged memo is the artifact of record. MI-275 is dispatched to settle it from the data, not by preference."
     },
     {
       "id": "MI-274",
       "lane": "ops",
-      "status": "landed_unproven",
+      "status": "done",
       "owner": "session_01Naj6n7JvhPrvxjwWbUGbnQ",
       "title": "Why has the prop account not traded, and is the cushion gate the thing stopping it",
       "owns_object": "WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED",
@@ -4015,7 +4015,7 @@
       "done_when": "The absence is ATTRIBUTED to a named mechanism, with a POSITIVE CONTROL: the sibling legs' eval/signal counts on other accounts over the identical window. 'No signals' is a verdict only WITH those counts behind it.",
       "manager_note": "Newest prop fill is id 41, 2026-08-30T19:39:00Z -- roughly twelve days silent, and the SAME DATE as the directional break. The lane is told to treat that as a coincidence to TEST, not a connection to assume. Operator's position is explicit: a low cushion is NOT an acceptable reason to stop trading, so if the cushion gate is the cause that is a DEFECT, not a correct refusal. Dispatched as a SECOND ops lane rather than folded into MI-272 -- see manager_deviations below.",
       "added": "2026-09-11",
-      "outcome": "#11816 MERGED (3573b9a). ATTRIBUTED, and the cushion is REFUTED as the cause. The legs are NOT quiet: 8/18/19 actionable signals vs 8/17/19 for their bybit_1 siblings AT IDENTICAL TIMESTAMPS TO THE SECOND. The flow dies at DISPATCH: the per-account arbitration fan-out ELECTS a prop leg and discards the election because breakout_1 is not in ARBITRATION_FANOUT_ACCOUNTS -- 8 elected, 8 starved, 0 routed. ⚠️ AND pipeline.py:1077 shows apply_rounds REPLACES global dispatch rather than supplementing it, so arming bybit_1 alone ALSO closed the prop leg pre-existing global-election route. A PARTIAL ARMING SHUT BOTH DOORS. Two blockers stack behind it: the reticket guard latched the ETH books 12 and 14 days on expiry_prompted, a state with NO TIMEOUT (cleared by hand 16:36Z), and the snapshot is 286h old against a 24h limit so prop_balance_stale will hard-refuse sizing the moment routing is fixed. Cushion is real (7.34 vs 1.81 sized risk) and is NEVER REACHED. Nothing alarmed for 12 days across four surfaces; the one instrument that recorded it correctly every time (arbitration_fanout_soak starved_accounts) IS READ BY NOTHING."
+      "outcome": "#11816 MERGED (3573b9a). Prop stall ATTRIBUTED; the cushion is REFUTED as the cause and is never reached."
     },
     {
       "id": "MI-272",
@@ -4042,10 +4042,43 @@
       "spawn_priority_exception": "docs/claude/work/spawn-priority-exception.yaml, 2026-09-11 block -- this object is under IN-20260901-OPERATING-LAYER, not the cycle's intent, so the gate refused it and the exception is filed rather than routed around.",
       "manager_note": "The job is NOT to relax R4. R4 exists because the change and its own approval must not be the same act. The lane is told to find the property that makes an approval UNFORGEABLE BY THE BRANCH THAT BENEFITS FROM IT -- the leading candidate being an approval that must already be on origin/main at a commit that is an ancestor of the PR's base and not authored by its own branch. Five negative controls are part of the deliverable. R12 applies to the lane's OWN PR, which therefore holds for a human read.",
       "added": "2026-09-11",
-      "outcome": "#11817 OPEN, declared {tier:1, landing:hold, hold_reason:changes_landing_machinery} -- R12, correctly: the first exercise of the new rule is a human reading the rule itself. Built R15: a Tier-2 PR may self-land against an approval record at docs/claude/work/approvals/{slug}.json that the branch demonstrably could not have written (present at merge-base, byte-identical at HEAD, no approvals path in the diff, bound to this branch, scope_paths compared to the diff like R5 compares tier). Tier-3 refused by path AND by record tier. 7 positive controls, 27 planted defects, 34 tests, mutation-checked in isolation. ⚠️ ITS TWO GOVERNANCE FINDINGS AGAINST THE MANAGER ARE WITHDRAWN -- both measured against 2901ccf44 (17:12:25Z), which predates e5eeb42 (18:01:45Z) where all three artifacts landed; verified present on main. Same stale-tip class #11738 already retracted."
+      "outcome": "#11817 OPEN, all five checks GREEN on 3ad5ec49f, mergeable_state clean, HELD under R12 for one human read. R15 built. [!] ITS OWN TWO GOVERNANCE FINDINGS AGAINST THE MANAGER ARE WITHDRAWN BY THE LANE ITSELF in the PR body - measured against a tip 11 minutes older than the commit that landed the artifacts. [!] AND IT SURFACED A CAVEAT THE OPERATOR SHOULD READ BEFORE MERGING #11738: CLAUDE-RULES-CANONICAL Tier-3 covers \"any unit file the live VM consumes on the trading path\", BROADER than check_pr_landing TIER3_PATHS, and #11738 touches two files R15 grades Tier-2 (src/main.py, src/runtime/order_monitor.py). R15 refuses to invent that list and prints the caveat on every admission instead."
+    },
+    {
+      "id": "MI-275",
+      "added": "2026-09-11",
+      "lane": "research",
+      "status": "in_flight",
+      "owner": "session_01WKwvhBuaYYCKbdkk7fHrpf",
+      "title": "The stop-width counterfactual: would the pre-e35 2.5-ATR stop have survived the trades that stopped out",
+      "owns_object": "WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE",
+      "why": "MI-271 own recommendation: do NOT revert e35 until this exists, because n=23 with 70% unmeasured is the low-n reaction, and MI-164 telemetry (live 2026-09-07) can answer it directly for the first time. This is the measurement standing between the operator and the Tier-3 revert decision.",
+      "manager_note": "Also sent to RESOLVE the e35 contradiction between the MI-271 memo and its summary. [!] AND TOLD THAT A REFUSAL IS AN ACCEPTABLE DELIVERABLE: telemetry only reached these legs 8 days AFTER the break, so the honest answer may be \"too few rows yet, here is the date and the n it will have\". MI-271 already refused the MFE join once on a 36% join rate; manufacturing a verdict at n=4 would be worse than the refusal."
+    },
+    {
+      "id": "MI-276",
+      "added": "2026-09-11",
+      "lane": "ops",
+      "status": "in_flight",
+      "owner": "session_01MyUujGAQYs72UUgrfXXmFA",
+      "title": "The two detectors that are owed: sustained-losing-streak, and a reader for starved_accounts",
+      "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
+      "why": "Both 2026-09-11 investigations ended on the same sentence: the operator noticed before any monitor did. 16 losing days / -$36,997 unalarmed; the prop starved 12 days across four surfaces while the one correct instrument (arbitration_fanout_soak.starved_accounts) is read by nothing.",
+      "manager_note": "The false-positive count IS the design evidence - MI-271 already measured N>=4 as firing exactly once per account with zero false positives, and N=3 misfiring on bybit_2 whose daily PnL is single dollars. A detector in src/runtime/** is Tier-2 and HOLDS; a reader is Tier-1 and self-lands. ARM NOTHING - building and arming are different decisions and only the first is the lane's."
+    },
+    {
+      "id": "MI-236b",
+      "added": "2026-09-11",
+      "lane": "engineering",
+      "status": "in_flight",
+      "owner": "session_014tHgKvnnLdpgAgGXbaHRUt",
+      "title": "Decay stale in_flight work-object rows so the WIP ceiling reflects reality",
+      "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
+      "why": "MEASURED LIVE today: 5 of 7 in_flight objects owned by COMPLETED sessions, holding the ceiling at 7 of 8 and within one row of blocking the operator own chosen spawns. The long-queued MI-236 stopped being hypothetical.",
+      "manager_note": "DETECT AND REPORT, do not auto-mutate lifecycle - rewriting a lifecycle from a heuristic is how a real in-flight object gets silently demoted. Three states never collapsed, and could_not_look is the load-bearing one because list_sessions is an mcp__* tool CI does not hold (the same wall queue_latency.py hit)."
     }
   ],
-  "as_of": "2026-09-11T18:56:00Z",
+  "as_of": "2026-09-11T19:58:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -4106,36 +4139,29 @@
     "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
   },
   "_merge_queue": {
-    "as_of": "2026-09-11T18:56:00Z",
+    "as_of": "2026-09-11T19:58:00Z",
     "run_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager)",
-    "main_head": "53f72e3 (#11820)",
+    "main_head": "886c93e (#11822)",
     "main_state": "GREEN.",
-    "note": "At most one entry `rebasing` (R8).",
+    "note": "At most one entry rebasing (R8). BOTH open PRs are blocked on the OPERATOR, not on any lane and not on the manager.",
     "entries": [
-      {
-        "pr": "#11738",
-        "item": "MI-240",
-        "tier": 2,
-        "landing": "hold",
-        "hold_reason": "tier_2_3_needs_approval (R4)",
-        "state": "GREEN on head d57f03c0a -- all 5 checks success. Blocked ONLY on the R4 human click.",
-        "manager_disposition": "The operator has said they do not click. MI-273 (#11817) is the route; #11738 is its live test case and MI-273 is forbidden from merging it. ⚠️ #11817 MEASURED that #11738 fails R15 as recorded -- no scope_paths, and the r2_only scope is NOT PATH-EXPRESSIBLE because R1 and R2 both live in src/main.py. So an approval record must be authored by a human who reads the diff. That is the finding, not a gate defect."
-      },
-      {
-        "pr": "#11815",
-        "item": "MI-271",
-        "tier": 1,
-        "landing": "self",
-        "state": "OPEN, self-landing on green. Research + registers only."
-      },
       {
         "pr": "#11817",
         "item": "MI-273",
         "tier": 1,
         "landing": "hold",
         "hold_reason": "changes_landing_machinery (R12)",
-        "state": "OPEN. ⚠️ BOOTSTRAP: the PR that removes the need for a click needs a click. R12 is deliberate and the manager may not merge it.",
-        "manager_disposition": "ESCALATED TO THE OPERATOR as a decision, not a nag."
+        "state": "ALL FIVE CHECKS GREEN on 3ad5ec49f, mergeable_state clean. Open since 18:18Z.",
+        "manager_disposition": "[!] THE BOOTSTRAP, AND IT IS THE HIGHEST-LEVERAGE CLICK AVAILABLE: the change that removes the need for clicking needs one click. R12 is deliberate and correct - the first exercise of the new rule is a human reading the rule. The manager may NOT merge it and neither may its author. After it lands, a recorded approval replaces the click for every future Tier-2, INCLUDING the prop fix."
+      },
+      {
+        "pr": "#11738",
+        "item": "MI-240",
+        "tier": 2,
+        "landing": "hold",
+        "hold_reason": "tier_2_3_needs_approval (R4)",
+        "state": "GREEN, all 5 checks pass on d57f03c0a. Open ~22h.",
+        "manager_disposition": "Approval RECORDED (r2_only, 2026-09-10T07:52Z) - never re-seek it. [!] #11817 MEASURED that this PR would NOT satisfy R15 as recorded: no scope_paths, and the r2_only scope is NOT PATH-EXPRESSIBLE because R1 and R2 both live in src/main.py. It read the diff adversarially and established the PR DOES honour r2_only - but a human established that, not the gate. [!] AND #11817 flags that CLAUDE-RULES-CANONICAL Tier-3 covers \"any unit file the live VM consumes on the trading path\", broader than TIER3_PATHS, and this PR touches two such files."
       }
     ]
   },
