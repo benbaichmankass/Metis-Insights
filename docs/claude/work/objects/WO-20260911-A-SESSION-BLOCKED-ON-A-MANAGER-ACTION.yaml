@@ -1,0 +1,30 @@
+id: WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  A session blocked on a manager action is never told when it happens
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A blocked session is OBSERVED being woken by something OTHER than a manager reading the roster by hand -- either the condition it named being detected, or a cadence that grades needs_action rows against live PR/repo state. A REMINDER TO THE MANAGER IS NOT A MECHANISM and does not close this.
+
+why: >-
+  MEASURED on three lanes. MI-222 sat blocked 13h on a PR closed two hours after it asked; MI-139 sat blocked 3.5 DAYS on a PR that had been closed NINE HOURS BEFORE it asked; and on 2026-09-11 the MI-238 engineering lane sat idle 33 minutes blocked on a manager merge it had correctly announced in its own post_turn_summary. All three were freed only because a manager happened to look. SESSIONS.json is a REGISTRY, not a channel: needs_action is written by the blocked session and read by nobody on a schedule.
+
+source: >-
+  manager measurement 2026-09-10, third instance 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only — it RECORDS a measurement of the live host and changes no code and no runtime state. Changed paths: docs/claude/health-review-backlog.json (one existing row's title/detail/resolution_criteria, rewritten in place through the serialisation detect_format reports as round-tripping, so the other 1450 rows stay byte-identical), docs/claude/work/objects/WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB.yaml (one appended note; lifecycle stays `waiting` and is NOT changed), docs/claude/work/IN-FLIGHT-ROW-DISPOSITIONS-2026-09-11.md. Checked against check_pr_landing.py's ACTUAL path lists: no path matches TIER3_PATHS, none matches TIER2_PATHS (src/**, config/**, deploy/**, ml/**), none matches LANDING_MACHINERY. The REMEDY this row names (setting JWT_SIGNING_KEY / ALLOWED_EMAIL / WEBAPP_PASSWORD_SHA256 on the web-api host) is Tier-2, needs the operator to originate the values, and is deliberately NOT applied here. Every live call was a GET plus one POST to /api/auth/login using an obviously non-existent address so no real account could be rate-limited or locked out. No order placed, modified or cancelled on any account.",
+  "session": "session_01NFnmLiu9zNDppY3qFXcJJA"
+}

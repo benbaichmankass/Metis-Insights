@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Gate /api/bot/db/* — the money DB's schema and rows answer with no credential at all
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01RvQbaZmEoH7V9VYpJiX7ZW
 opened_at: 2026-09-09
 closed_at: null
@@ -28,3 +28,83 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+disposition_2026_09_11_mi265: >-
+  ⚠️ DISPOSITIONED `waiting` (NOT `done`, NOT `in_flight`) 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA
+  (MI-265, ops lane). The owner (session_01RvQbaZmEoH7V9VYpJiX7ZW) is dormant, 35.0h since its last
+  observation. `waiting` is chosen deliberately: `check_wip_ceiling.py` excludes it precisely so the
+  ceiling does not punish honesty about a thing blocked on an observation nobody can make from a repo
+  container -- so this frees a slot WITHOUT asserting the work is finished. It is not.
+  POPULATION AND WHEN: read 2026-09-11T08:4xZ against `origin/main` @ 1cd5e211e and against the LIVE
+  host `https://ict-bot.duckdns.org`.
+  THE REFUSAL HALF IS OBSERVED, first-hand, exactly as the done_condition demanded ("verified by an
+  actual credential-free HTTP call against the live host returning 401/403, not by reading the route
+  decorator"). I sent NO credentials:
+    GET /api/bot/db/tables            -> HTTP 401  {"detail":{"error":"invalid_session"}}
+    GET /api/bot/db/table/trades?limit=1 -> HTTP 401  {"detail":{"error":"invalid_session"}}
+  CONTROLS, so a 401 cannot be confused with an unreachable host: GET /api/health -> 200 (host up and
+  answering) and GET /api/diag/version -> 401 (a known-gated route, same shape).
+  THE POPULATION IS ENUMERATED, as the done_condition required. There are EXACTLY TWO routes under
+  /api/bot/db/* -- `@router.get("/db/tables")` (db_explorer.py:256) and `@router.get("/db/table/{table}")`
+  (db_explorer.py:295). I tested both. The gating commit (284cbc6cf, #11517) enumerated the same two by
+  AST rather than grep and ships a test asserting that count, so a third route added later without a gate
+  fails in CI rather than on a public host. Both carry their required row in docs/api-tier-policy.md
+  (lines 214-215), recording the Tier-1 -> Tier-2a move.
+  ⚠️ WHAT IS STILL OWED, AND IT IS THE CLAUSE THIS ROW NOW WAITS ON. The done_condition also says: "The
+  SPA's Data Explorer must still work, using the session it already holds for other gated routes --
+  verify that, do not assume it." THAT IS UNVERIFIED, and the merging commit's own body records BOTH its
+  preconditions as measured-FALSE at merge time, under the heading "HELD, not armed": (1) "The SPA cannot
+  send a bearer -- one fetch call site sending only Accept, and zero matches for
+  Authorization|Bearer|api/auth/login|jwt across all 40 source files. No login screen, no token store";
+  (2) "The host cannot mint one -- POST /api/auth/login returns 500 auth_unavailable". The same body says
+  "Neither fix is in this diff and neither was widened into it" -- and the PR merged anyway. So EITHER
+  those preconditions were fixed elsewhere, OR the SPA's Data Explorer has been permanently 401 since
+  2026-09-09. NOBODY HAS ESTABLISHED WHICH, and I could not: the SPA is a different repo
+  (benbaichmankass/ict-trader-dashboard) outside this session's scope, and a deployed page cannot be
+  rendered from here.
+  ⚠️ A NEGATIVE RESULT I DELIBERATELY DID NOT OVER-READ, recorded because the tempting misreading is the
+  dangerous one. I probed POST /api/auth/login with an empty body and got HTTP 422 "Field required
+  (email, password)" rather than the 500 auth_unavailable the commit measured. THAT IS NOT EVIDENCE THAT
+  AUTH IS NOW CONFIGURED: Pydantic request validation runs BEFORE the handler, so an empty body never
+  reaches the `auth_unavailable` branch at all. The 422 establishes only that the route exists and
+  requires those two fields. Reading it as "precondition 2 is fixed" would be UNPROVENANCED DIAGNOSTIC
+  OUTPUT sub-class A -- a label describing something the code path never tested -- and would have closed
+  this row on a false positive. The same applies to my 401s: `require_session` raises 401 on a missing
+  Authorization header BEFORE any env read, so a 401 likewise cannot distinguish "auth is configured"
+  from "the auth envs are unset".
+  THE OBSERVATION OWED, stated so it is checkable: a Data Explorer load in the DEPLOYED SPA returning 200
+  with real rows, using the session it already holds -- or, if it cannot, that finding recorded as the
+  more valuable one. ⚠️ A green test suite clears NEITHER; the gating commit already ships 34 passing
+  tests and a harness is exactly what cannot reach a deployed front end.
+  FILED SEPARATELY: BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE.
+
+settled_2026_09_11_the_spa_half_is_now_measured: >-
+  ⚠️ THE OWED OBSERVATION IS PARTLY DISCHARGED, AND THE ANSWER IS THE BAD ONE. The disposition above
+  says the SPA half is "UNVERIFIED and alarming" and that "nobody has established which". MEASURED
+  2026-09-11T09:3xZ by session_01NFnmLiu9zNDppY3qFXcJJA: THE DATA EXPLORER IS UNREACHABLE ON THE LIVE
+  HOST, and has been since the gate deployed on 2026-09-09.
+  HOW, and why my OWN earlier probe could not establish it -- the correction matters more than the
+  result: POST /api/auth/login with an EMPTY body returns 422, because Pydantic request validation runs
+  BEFORE the handler and never reaches the auth_unavailable branch. I recorded at the time that this was
+  NOT evidence auth is configured; re-probing with a WELL-FORMED body (an obviously non-existent address,
+  so no real account could be rate-limited or locked out) DOES reach the handler and returns HTTP 500
+  {"detail":{"error":"auth_unavailable"}}. The JWT envs are UNSET and the host CANNOT MINT A SESSION.
+  VERIFIED IN CODE RATHER THAN INFERRED, because "unreachable" is a strong claim: require_session accepts
+  only a Bearer satisfying decode_token, which calls _signing_key() and returns None when it raises -- so
+  there is NO static-token bypass, DASHBOARD_API_TOKEN does not satisfy it, and /api/auth/login is the
+  only mint path. Gate closed + no mint path = unreachable for everyone.
+  ⚠️ IT IS A DOCUMENTED, DELIBERATE CONSEQUENCE AND THE SECURITY CALL WAS RIGHT. db_explorer.py says in
+  terms that the gate "fails CLOSED when auth is unconfigured, and that is deliberate", that "the Data
+  Explorer is unreachable until the auth envs are set", and that this is "a real OPERATIONAL
+  PRECONDITION". Before the gate, an unauthenticated read returned real trade rows over 41 columns and 21
+  table schemas on a PUBLIC host. Failing closed on the money DB is correct and MUST NOT BE REVERTED.
+  What failed is the FOLLOW-THROUGH -- the precondition the author wrote down was never closed.
+  ⚠️ THE LIFECYCLE STAYS `waiting`, NOT `in_flight` AND NOT `done`. Establishing that the tab is down is
+  not restoring it, and the remedy is Tier-2 and needs the operator to ORIGINATE the secret values
+  (JWT_SIGNING_KEY / ALLOWED_EMAIL / WEBAPP_PASSWORD_SHA256 on the web-api host). Not applied here: this
+  is a disposition pass, and a live auth mutation is out of its scope and above its tier.
+  ⚠️ AND ONE HALF REMAINS GENUINELY UNKNOWN: even with the envs set, the SPA must be able to SEND a
+  bearer, and the gating commit measured zero matches for Authorization|Bearer|jwt across all 40 of its
+  source files. That repo is outside this session's scope, so SETTING THE ENVS ALONE MAY NOT RESTORE THE
+  TAB. Do not read this note as "one env change away".
+  Full record: BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE.
