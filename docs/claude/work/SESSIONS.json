@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T18:17:50Z",
+  "updated_at": "2026-09-11T19:57:14Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4796,6 +4796,48 @@
       "why": "Operator-directive 2026-09-11: the operator does not click things.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T17:51:59Z"
+    },
+    {
+      "session_id": "session_01WKwvhBuaYYCKbdkk7fHrpf",
+      "registry_key": "pending-20260911T195437Z",
+      "state": "working",
+      "title": "RESEARCH LANE MI-275 — the stop-width counterfactual, and the e35 revert decision",
+      "owns_object": "WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE",
+      "checklist_item": "MI-275",
+      "spawned_at": "2026-09-11T19:54:37Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Manager-dispatched 2026-09-11 19:5xZ.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T19:57:14Z"
+    },
+    {
+      "session_id": "session_01MyUujGAQYs72UUgrfXXmFA",
+      "registry_key": "pending-20260911T195437Z-2",
+      "state": "working",
+      "title": "OPS LANE MI-276 — the two detectors that are owed: losing-streak and starved-accounts",
+      "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
+      "checklist_item": "MI-276",
+      "spawned_at": "2026-09-11T19:54:37Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Manager-dispatched 2026-09-11 19:5xZ.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T19:57:14Z"
+    },
+    {
+      "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",
+      "registry_key": "pending-20260911T195437Z-3",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-236 — decay stale in_flight rows",
+      "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
+      "checklist_item": "MI-236b",
+      "spawned_at": "2026-09-11T19:54:37Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Manager-dispatched 2026-09-11 19:5xZ.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T19:57:14Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
