@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T18:44:14+00:00 · verdict **partial**_
+_Generated 2026-09-11T21:53:46+00:00 · verdict **partial**_
 
 > ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
@@ -144,7 +144,7 @@ _Generated 2026-09-11T18:44:14+00:00 · verdict **partial**_
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
 - 🔔 **OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT** (open_items) — monitoring row has NEVER been observed
   - MI-235 shipped the NOTICER for a lane blocked on a manager action: a typed `blocked_on` edge on the SESSIONS.json row (`session_registry.py blocked-on`, which REFUSES a kind it cannot grade) plus `scr
-- 🔔 **OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED** (open_items) — monitoring row has NEVER been observed
+- 🔔 **OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED** (open_items · 0d) — loud row — must be reported on every session
   - A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight before; bybit_portfoli
 - 🔔 **OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX** (open_items · 0d) — loud row — must be reported on every session
   - OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit_1 siblings -- 8/18/1
@@ -154,34 +154,34 @@ _Generated 2026-09-11T18:44:14+00:00 · verdict **partial**_
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 9d) — monitoring row 9d since last observation (cadence 7d)
   - The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not one role pack knew it e
+- **ERRFEED-6da04340** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-04T19:13:36 → 2026-09-08T14:16:09 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
 - **ERRFEED-86505576** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 60 rows 2026-09-04T12:34:09 → 2026-09-08T17:52:08 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x60 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
+- **ERRFEED-a46d2970** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 43 rows 2026-09-04T19:13:36 → 2026-09-11T21:05:33 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x43 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-c8553cf1** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-04T12:36:04 → 2026-09-11T13:55:56 — decide: fix now, or file to a backlog
+  - [error] x8 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the 
+- **ERRFEED-fa77ad80** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 37 rows 2026-09-04T21:55:38 → 2026-09-11T21:05:33 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x37 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
+- **ERRFEED-b3c9b0e2** (error_feed · 5d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-09-06T16:15:12 → 2026-09-10T10:27:04 · accounts=bybit_1 — decide: fix now, or file to a backlog
+  - [error] x16 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 5d) — monitoring row 5d since last observation (cadence 2d)
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - **ERRFEED-02a919f1** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 56 rows 2026-09-07T08:06:36 → 2026-09-08T14:05:20 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x56 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
+- **ERRFEED-9da85381** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-07T08:38:27 → 2026-09-11T21:05:33 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x27 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
+- **ERRFEED-72e2ad1e** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 45 rows 2026-09-08T19:46:55 → 2026-09-11T21:13:43 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
+  - [error] x45 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
+- **ERRFEED-f754bb5d** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-08T19:22:45 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog
+  - [error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav
 - **OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: examined>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - **OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: dropped_symbol_dedupe_count>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
-- **ERRFEED-0327c243** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:19:41 → 2026-09-11T16:32:03 · symbols=TLT strategies=tlt_pullback_1h — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_u
-- **ERRFEED-22e6d105** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:08 → 2026-09-11T16:31:56 · symbols=GLD strategies=gld_pullback_1h — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_u
-- **ERRFEED-3b46290a** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:05 → 2026-09-11T16:31:53 · symbols=IEF strategies=ief_pullback_1d — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_u
-- **ERRFEED-55248fb9** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:12 → 2026-09-11T16:32:06 · symbols=SLV strategies=slv_pullback_1d — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_u
-- **ERRFEED-725aa325** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:19 → 2026-09-11T16:32:13 · symbols=IAUM strategies=iaum_pullback_1d — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles
-- **ERRFEED-94d0d1ea** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:21:41 → 2026-09-11T16:31:59 · symbols=SPY strategies=spy_pullback_1h — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_u
-- **ERRFEED-bfaf3950** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:02 → 2026-09-11T16:31:49 · symbols=GLD strategies=gld_pullback_1d — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_u
-- **ERRFEED-e145891c** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:15 → 2026-09-11T16:32:10 · symbols=GDX strategies=gdx_pullback_1d — decide: fix now, or file to a backlog
-  - [error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_u
-- **ERROR-FEED-SUMMARY** (error_feed) — 57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T14:34:38.952358+00:00`.
-  - 120 cause groups over 1483 rows (67 error-level, 53 warn-level, 27 new since the last digest)
+- **ERROR-FEED-SUMMARY** (error_feed) — 57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T18:10:19.574900+00:00`.
+  - 121 cause groups over 1493 rows (67 error-level, 54 warn-level, 1 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
