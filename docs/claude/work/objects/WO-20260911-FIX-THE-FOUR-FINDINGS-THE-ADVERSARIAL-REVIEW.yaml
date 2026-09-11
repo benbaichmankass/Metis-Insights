@@ -1,0 +1,30 @@
+id: WO-20260911-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Fix the four findings the adversarial review raised against 11767
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  All four findings are addressed on claude/mi235-blocked-lane-watch and #11767 is green again, with the BLOCKING one carrying a test for the could_not_look -> cleared TRANSITION (not merely for the latch key's shape) and the misleading existing test renamed. ⚠️ THE LANE MUST NOT MERGE #11767 -- R12 holds it for a human whatever its state, and that is unchanged by the findings being fixed. ⚠️ AND A GREEN GUARD SELF-TEST IS NOT THE VERIFICATION: the review established that the guard and its harness are NOT modified by this diff, so an identical green on main is the expected outcome and says nothing about the PR.
+
+why: >-
+  The MI-268 adversarial review (merged #11799, docs/research/mi235-landing-machinery-review-2026-09-11.md) says #11767 must NOT merge as it stands. ONE BLOCKING bug: _latch_key omits the blocker STATE, so a blocker first graded could_not_look never pages when it clears -- which is THE PR'S OWN MOTIVATING CASE (MI-238), i.e. shipping without it yields a mechanism that looks armed and stays silent exactly where it is most needed. Two SHOULD-FIX: a mid-workflow '|| exit 2' that fails the step and so skips BOTH the receipt landing and the EXISTING PR-queue escalation (its '2)' report branch is unreachable and its comment says the opposite); and a spawn prompt that tells every lane to write SESSIONS.json one line after saying the manager owns that file. One NOTE: rows[0] with no multiplicity check, in a file that records being bitten by exactly that. The reviewer's own read: the hold is correct, R12 is working, the diff is unusually well evidenced, and what is wrong is small and verified fixable -- ONE SHORT ROUND, NOT A REDESIGN.
+
+source: >-
+  operator decision 2026-09-11 via the manager; chosen: fresh lane, all four items
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

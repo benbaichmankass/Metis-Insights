@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T13:26:03Z",
+  "updated_at": "2026-09-11T13:40:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3892,9 +3892,26 @@
       "✅_DONE_MEANS_DONE_HERE_AND_THAT_IS_UNUSUAL_FOR_THIS_BOARD": "This row's deliverable was A REPORT, and the report exists, is merged, and is READABLE on main -- so there is no later observation owed and `done` is honest rather than the collapse of done into landed_unproven this repo keeps paying for. What the report RECOMMENDS is a separate item (see the MI-235 row); do not read this `done` as saying #11767 is settled.",
       "✅_THE_VERDICT_IS_DO_NOT_MERGE_11767_AS_IT_STANDS": "ONE BLOCKING bug: _latch_key omits the blocker STATE, so a blocker first graded could_not_look never pages when it clears -- and that is THE PR'S OWN MOTIVATING CASE (MI-238). Plus two SHOULD-FIX (a mid-workflow `|| exit 2` that skips the receipt landing AND the existing PR-queue escalation, with an unreachable report branch and a comment saying the opposite; and a spawn prompt telling every lane to write SESSIONS.json one line after 'the manager owns that file') and one NOTE (rows[0] with no multiplicity check, in a file that records being bitten by exactly that). The reviewer's own words: the hold is correct, R12 is working, the diff is unusually well evidenced, and what is wrong is small and verified fixable -- one short round, NOT a redesign.",
       "✅_IT_REFUSED_TO_QUOTE_ITS_OWN_GREEN_RESULT_AS_THE_VERIFICATION": "It ran the guard self-tests as instructed -- 15 planted defects all still fail, 6 positive controls hold, including R12 self-landing a change to the landing machinery -- and then marked that result 'necessary and not sufficient', because the guard and its harness are NOT MODIFIED by this diff (measured: empty git diff), so an identical result on main is the EXPECTED outcome and says nothing about the PR. A weaker review quotes that green as the answer. ⚠️ It also stated its population as a table INCLUDING WHAT IT DID NOT READ (4 of 11 diffs partial or unread; all 30 tests unread) and recorded that pytest is absent from its container, so the PR's own tests are `could not look`, never `green`."
+    },
+    {
+      "id": "MI-269-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW-RAISED-AGAINST-11767",
+      "title": "Fix the four findings the adversarial review raised against #11767",
+      "state": "in_flight",
+      "owner": "session_014zhDAQTVrAuppjm5WDAWwF",
+      "prs": [
+        11767
+      ],
+      "added": "2026-09-11",
+      "priority": "now",
+      "work_object": "WO-20260911-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW",
+      "operator_decision": "Operator-approved DIRECTLY, 2026-09-11, as a decision pop-up. Three options offered: a FRESH lane taking all four items (the manager's recommendation, marked as such) / a fresh lane taking the BLOCKING item only and filing the rest / parking #11767 entirely. CHOSEN: fresh lane, all four items. Recorded with its reasoning in spawn-priority-exception.yaml under reason_20260911_11767_fix_round.",
+      "note": "The spec is ALREADY WRITTEN: docs/research/mi235-landing-machinery-review-2026-09-11.md (merged #11799). BLOCKING: _latch_key omits the blocker STATE, so a blocker first graded could_not_look never pages when it clears. SHOULD-FIX: a mid-workflow '|| exit 2' that skips BOTH the receipt landing and the existing PR-queue escalation, with an unreachable report branch and a comment saying the opposite; and a spawn prompt telling every lane to write SESSIONS.json one line after saying the manager owns it. NOTE: rows[0] with no multiplicity check, in a file that records being bitten by exactly that.",
+      "⚠️_WHY_ITEM_1_IS_BLOCKING_AND_NOT_MERELY_A_BUG": "It is #11767's OWN MOTIVATING CASE (MI-238). Shipping without it gives a mechanism that LOOKS ARMED AND STAYS SILENT exactly where it is most needed -- the failure class this operating layer exists to end, installed by the thing built to prevent it. ⚠️ AND THE TEST MUST COVER THE TRANSITION (could_not_look -> cleared), not the latch key's SHAPE: a test asserting the key now contains the state would pass against a broken implementation that never re-evaluates. The existing misleading test is renamed in the same round.",
+      "⚠️_WHY_A_FRESH_LANE_RATHER_THAN_REVIVING_MI_235": "The manager's judgement, not the operator's, and recorded as such: MI-235's session is long-idle with cold context, and the review is a COMPLETE WRITTEN SPEC, so nothing is lost by starting clean. All three concurrent slots were free at dispatch, so it costs no other work.",
+      "⚠️_THE_LANE_MUST_NOT_MERGE_11767_AND_NEITHER_DOES_THE_MANAGER": "R12 holds a landing-machinery change for a HUMAN READ whatever its state, and fixing the findings does not lift that. The declaration (.github/pr-landing/mi235-blocked-lane-watch.json, landing: hold / changes_landing_machinery) stays in place -- it is correct. The OPERATOR merges it. ⚠️ AND A GREEN GUARD SELF-TEST IS NOT THE VERIFICATION: the review MEASURED that the guard and its harness are untouched by this diff, so an identical green on main is the expected outcome and says nothing about the PR. The reviewer ran it and then refused to lean on it; the lane was told not to undo that care."
     }
   ],
-  "as_of": "2026-09-11T13:26:03Z",
+  "as_of": "2026-09-11T13:40:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3917,7 +3934,7 @@
     "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
     "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
     "engineering": {
-      "now": "EMPTY as of 2026-09-11T13:26Z — BOTH lanes delivered and are idle, so ALL THREE of the operator's concurrent slots are free. MI-267 merged as ict-trader-dashboard#216 (f6480f6c4); MI-268 merged as #11799. ⚠️ THE NEXT DISPATCH IS A DECISION, NOT A PICK: the MI-268 report says #11767 must NOT merge as it stands and needs one short fix round. Whether that round goes out, and to whom, is being put to the operator rather than taken. ⚠️ AND THE OPERATOR'S ORDER IS UNCHANGED: 'Finish MI-238 first, then the infra' — MI-238's remaining clause (3) is still the OPERATOR confirming the rendered Workflow page, which no lane can take.",
+      "now": "ONE LANE DISPATCHED 2026-09-11T13:40Z: MI-269 (session_014zhDAQTVrAuppjm5WDAWwF), the #11767 fix round, operator-approved directly. That is 1 of the operator's 3 concurrent slots; two are free. ⚠️ THE OPERATOR'S ORDER IS UNCHANGED: 'Finish MI-238 first, then the infra' -- MI-238's clause (3) is still the OPERATOR confirming the rendered Workflow page, which no lane can take.",
       "then": [
         "MI-235 (tell a blocked session when its blocker clears)",
         "MI-236 (decay stale in_flight rows)",
@@ -3932,7 +3949,7 @@
       "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness.",
       "⚠️_THE_ORDER_IS_STILL_THE_OPERATORS_AND_HAS_NOT_BEEN_RE_ORDERED": "`operator_decision` below still governs: asked directly 2026-09-10 and answered 'Finish MI-238 first, then the infra', OVERRIDING the manager's own recommendation. Nothing here re-orders it — MI-238's code is finished, so 'then the infra' is what is now running, and MI-246 is the next unstarted row on the `then` list. MI-266 is an OPERATOR INSERTION from 2026-09-11, not the manager promoting its own preference.",
       "next_dispatch_is_named_but_not_dispatched": "The infra half of the operator's order. Candidates, in the order they became ready and NOT a commitment: (1) the SPA bearer half of MI-266, now SIZED -- a token store, one header line, a login form, a 401 handler -- which lives in benbaichmankass/ict-trader-dashboard and so MUST be spawned with that repo as source_url (the MI-266 lane was spawned with NEITHER repo attached and had to discover the backend via list_repos + add_repo; that was the manager's error and is fixed forward by always passing source_url). (2) The merge-slot contention class filed to the backlog this tick. Neither is dispatched.",
-      "updated_at": "2026-09-11T13:26:03Z"
+      "updated_at": "2026-09-11T13:40:00Z"
     },
     "ops": {
       "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",
