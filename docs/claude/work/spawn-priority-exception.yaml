@@ -40,6 +40,8 @@ covers:
   - WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND
   # -- added 2026-09-11, the dormant-objects sweep (operator-directed, trigger now met) --
   - WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND
+  # -- added 2026-09-11, the blocked-lane wake (engineering queue `then`, operator-ordered) --
+  - WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -530,3 +532,32 @@ reason_20260911_dormant_sweep: >-
   bulk pass on 2026-09-01 doing real harm, and CLAUDE.md states that a FALSE
   blocker is worse than a missing one -- the same applies to a false `done`. The
   object's done-when says a lower dormant count alone clears nothing.
+
+reason_20260911_blocked_lane_wake: >-
+  THE OPERATOR SET THIS QUEUE ORDER DIRECTLY. Asked as a pop-up on 2026-09-10 and answered
+  "Finish MI-238 first, then the infra" -- recorded in `_lane_queues.engineering` as
+  OVERRIDING the manager's own recommendation, which had been to take MI-235/236/246
+  FIRST. MI-238's two code halves are now landed (bot 4e9255acb + observed 681b88a84;
+  SPA ict-trader-dashboard#215 941c96f81) and its one remaining criterion is the operator
+  confirming the rendered page in a browser -- which is not lane work. So "then the infra"
+  is now due, and MI-235 is the first row of it.
+
+  WHY IT DISPLACES THE CYCLE PRIORITY RATHER THAN WAITING: the cycle is
+  CY-20260906-TRADING-TRUTH -- repair the MEASUREMENT before acting on what it says -- and
+  this is a measurement failure about the work system itself. MEASURED on three lanes:
+  MI-222 blocked 13h on a PR closed two hours after it asked; MI-139 blocked 3.5 DAYS on a
+  PR closed NINE HOURS BEFORE it asked; and 2026-09-11T03:56-04:29Z the MI-238 engineering
+  lane sat idle 33 minutes blocked on a manager merge it had correctly announced in its own
+  summary. Roughly four lane-days lost to one class, and in every case the blocker had
+  ALREADY CLEARED and nothing told the lane. A lane that cannot be told its blocker cleared
+  is a trading-truth problem the moment the blocked lane is a trading lane -- and two of the
+  three already were.
+
+  WHAT THE OPERATOR DID AND DID NOT SAY, stated so this is not read as wider than it is:
+  they set the ORDER and named the LANE. They did not say "displace
+  CY-20260906-TRADING-TRUTH". That argument is the manager's and is made above rather than
+  assumed.
+
+  AND THE DONE-CONDITION FORBIDS THE CHEAP ANSWER, deliberately: "A REMINDER TO THE MANAGER
+  IS NOT A MECHANISM and does not close this." The manager noticing is precisely what failed
+  three times.
