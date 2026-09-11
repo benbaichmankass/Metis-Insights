@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0940z-20260911",
-    "claimed_at": "2026-09-11T09:45:36Z",
-    "purpose": "manager tick 09:40Z"
+    "held_by": "github-actions[bot] · error-feed-digest run 34586914743",
+    "branch": "automation/error-feed-digest-34586914743-1",
+    "claimed_at": "2026-09-11T09:59:20Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
