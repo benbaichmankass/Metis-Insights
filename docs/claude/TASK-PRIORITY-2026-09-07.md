@@ -1,6 +1,6 @@
 # Task-level priority — 2026-09-07
 
-> **Doc status:** `live` · category `plan` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **This ranks TASKS, not milestones.** Operator directive, 2026-09-07, verbatim:
 >

@@ -3,7 +3,7 @@ name: credentials-and-vm-mutations
 description: Invoke BEFORE writing any operator-facing instruction that involves credentials, the live VM's runtime state, or systemd. Owns the canonical autonomy contract — operator originates secret values only; everything else (propagation, VM mutation, restart, verification) is yours via workflows. Self-check your draft against the bright-line phrases here; if any appear, your instruction is non-compliant and routes around an existing workflow. Use when adding a broker, rotating keys, updating an env var on the VM, flipping account mode, restarting a service, or whenever a precedent runbook is about to shape your operator steps.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /credentials-and-vm-mutations — the autonomy contract for VM state
 

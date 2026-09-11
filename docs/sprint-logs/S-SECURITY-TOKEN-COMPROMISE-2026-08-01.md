@@ -1,6 +1,6 @@
 # Sprint Log: S-SECURITY-TOKEN-COMPROMISE-2026-08-01
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - Start: 2026-08-01 ~05:08 UTC (operator screenshot of the @bict_trading_bot casino rename)

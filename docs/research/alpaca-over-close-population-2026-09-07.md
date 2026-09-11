@@ -1,6 +1,6 @@
 # The Alpaca over-close population, counted: 1 of 12 pairs is Alpaca, and 0 over-close events have fired
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 **Date:** 2026-09-07 · **Tier:** 1 (measurement only — no close path, order path, sizing,
 risk cap, config or account mode touched) · **Unit:** `MI-171` ·

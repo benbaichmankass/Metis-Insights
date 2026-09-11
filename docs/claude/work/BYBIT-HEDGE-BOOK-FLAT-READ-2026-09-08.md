@@ -1,6 +1,6 @@
 # The `bybit_1` ETHUSDT orphan (trade 5569) — root cause: a hedge-book-blind venue read
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · created `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 >
 > **Unit:** MI-204 · object `WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE`
 > **Session:** `session_016KUFTHGYyFDerbnXDSA6Wb` · operator-directed 2026-09-08

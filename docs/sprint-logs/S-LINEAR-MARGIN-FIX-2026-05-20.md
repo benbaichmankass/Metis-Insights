@@ -1,6 +1,6 @@
 # Sprint Log: S-LINEAR-MARGIN-FIX
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint:** 10 (S-LINEAR-MARGIN-FIX)  
 **Date:** 2026-05-20  

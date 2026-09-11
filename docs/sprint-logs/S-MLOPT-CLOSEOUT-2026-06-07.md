@@ -1,6 +1,6 @@
 # Sprint Log: S-MLOPT-CLOSEOUT-2026-06-07
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > Closes out the M14 (ML Optimization Program) ladder: ships S16 + S18
 > (Phase 4 MLOps), S12 Part B (Phase 2.4 account_context wiring), and

@@ -1,6 +1,6 @@
 # Sprint S-044 Summary — M4 step 1: complete the GitHub Actions CI suite
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint:** S-044 | **Milestone:** M4 — Repo hygiene + CI
 **Type:** auto-claude (roadmap) | **Date:** 2026-05-07

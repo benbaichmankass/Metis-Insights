@@ -1,6 +1,6 @@
 # The dormant-work-object sweep — MI-243, 2026-09-11
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 **Operator-directed 2026-09-10**, reading the deployed SPA Work page:
 

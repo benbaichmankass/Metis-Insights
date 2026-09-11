@@ -1,6 +1,6 @@
 # Sprint S-046 — M4 step 3: Janitor audits (close M4)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint type:** Roadmap (M4) | **Risk tier:** Tier 1 (all self-merge except T4 ping-PR)
 **Created:** 2026-05-07 | **Branch:** `claude/sprint-planning-status-ZMePk`

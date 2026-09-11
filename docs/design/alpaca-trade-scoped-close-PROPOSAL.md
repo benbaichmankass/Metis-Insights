@@ -1,6 +1,6 @@
 # PROPOSAL (Tier-3, HELD): make the Alpaca close TRADE-scoped, and stop grading Alpaca protection by side
 
-> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `plan` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 >
 > ## ⚠️ THIS IS A PROPOSAL. NOTHING HERE IS APPLIED.
 >

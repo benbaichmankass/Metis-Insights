@@ -1,6 +1,6 @@
 # Sprint Log: S-OPS-COMMENT-RACE-FIX
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint:** 8 (S-OPS-COMMENT-RACE-FIX)  
 **Date:** 2026-05-20  

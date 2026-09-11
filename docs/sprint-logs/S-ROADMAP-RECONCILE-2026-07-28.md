@@ -1,6 +1,6 @@
 # S-ROADMAP-RECONCILE-2026-07-28 — Overnight roadmap reconciliation + forward-plan rebuild + M24 correlation feature
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 - **Session:** `01RZE6wD` (Claude Code web, overnight autonomous `research-driver`)
 - **Branch:** `claude/roadmap-research-planning-n1rr1d`

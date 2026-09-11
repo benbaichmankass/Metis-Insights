@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T04:32:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 04:28Z)",
+  "updated_at": "2026-09-11T05:29:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 05:26Z)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4559,8 +4559,21 @@
       "live_status_read_at": "2026-09-11T04:32:00Z",
       "manager_observation": "OPS LANE, MI-243. Spawned 03:31:46Z, delivered and merged (#11758, 218403cb5) by ~04:05Z -- about 30 minutes. post_turn_summary: '47 rows processed (4 done + 42 queued + 1 dormant); 555 rows await DEC-20260911-WORK-STORE-BACKLOG-MIRRORS'. Manager re-censused the store independently at 04:26Z and the numbers hold (711 objects; dormant 555). It correctly REFUSED to grade the 554-row cohort, because one option reverses a Phase-C decision -- the refusal the item asked for. It raised one decision for the operator and filed an OPEN-ITEMS rendering gap. Nothing owed by the lane; the slot is free.",
       "updated_at": "2026-09-11T04:32:00Z"
+    },
+    {
+      "session_id": "session_015iy2R6BP11eiVHbNeUnT6a",
+      "registry_key": "pending-20260911T052735Z",
+      "state": "working",
+      "title": "ENGINEERING LANE — MI-235: tell a blocked session when its blocker clears",
+      "owns_object": "WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION",
+      "spawned_at": "2026-09-11T05:27:35Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-ordered queue: 'Finish MI-238 first, then the infra'. MI-238's code halves are landed; MI-235 is the first row of the infra.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T05:28:43Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T04:32Z, tick 04:28Z. PARTIAL: the manager read list_sessions(mine=true, limit=4) and graded the TWO rows that had moved since the 03:32Z pass. Rows not named here were NOT read this pass -- that is 'we did not look', never 'they are fine'. LIVE COUNT AT THIS READ: ZERO lanes RUNNING. Both the MI-243 ops lane and the MI-238 engineering lane are IDLE/disconnected, so all three of the operator's slots are free. ⚠️ THE FINDING OF THIS PASS: the engineering lane went idle at 03:56Z BLOCKED ON A MANAGER MERGE it had correctly announced in its own post_turn_summary ('#215 awaiting merge'), and sat that way for 33 minutes. That is the exact class the cadence tick warns about -- a lane blocked on a manager action is the first thing to fix -- and the only reason it was 33 minutes rather than hours is that the tick fired."
+  "⚠️_last_live_reconcile": "2026-09-11T05:29Z, tick 05:26Z. PARTIAL. The previous pass (04:32Z) read list_sessions and found ZERO lanes RUNNING -- all three operator slots free. This pass did NOT re-read the roster; it SPAWNED into one of those free slots (session_015iy2R6BP11eiVHbNeUnT6a, ENGINEERING, MI-235) and recorded that. ⚠️ So the liveness claim carried here is the 04:32Z one, one tick old, plus one known new lane. Rows not named in either pass were not read -- 'we did not look', never 'they are fine'. Saying which read a fact came from matters more than the fact looking current."
 }
