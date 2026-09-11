@@ -24,9 +24,9 @@ blocked_on:
   - kind: observation
     ref: "the crossing detector observed catching a REAL newly-unrouted row before the operator asks"
     since: 2026-09-11
-blocked_on_basis: ASSESSED  # MOVED in_flight -> waiting 2026-09-11: merged as #11787 (f8eaa683d), lane idle, and the surface is OBSERVABLY rendering in the CLAUDE.md session brief -- the 🧭 block reads over a seeded backlog of 69 rows. That is clause (1). Clause (2) is an OBSERVATION nobody can schedule: the mechanism catching a real crossing before the operator asks. `waiting` is the honest lifecycle -- not `done`, which would claim the observation, and not in_flight, which would claim someone is working on it when the only thing left is elapsed time and a real event.
-  ASSESSED 2026-09-11T09:52Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager) —
-  nothing blocks it, and that is a claim rather than the capture default.
+blocked_on_basis: ASSESSED
+blocked_on_basis_note: >-
+  MOVED in_flight -> waiting 2026-09-11. Merged as #11787 (f8eaa683d), the lane is idle, and the surface is OBSERVABLY rendering in the CLAUDE.md session brief over a seeded backlog of 69 rows. That is clause (1). Clause (2) is an OBSERVATION nobody can schedule: the mechanism catching a REAL newly-unrouted row before the operator asks. `waiting` is the honest lifecycle -- not `done`, which would claim an observation nobody has made, and not in_flight, which would claim someone is working on it when what is left is elapsed time and a real event.
 
   It is deliberately NOT blocked on MI-237 (the checklist schema migration).
   The migration would give a `state_since` field a tidy home, but the missing

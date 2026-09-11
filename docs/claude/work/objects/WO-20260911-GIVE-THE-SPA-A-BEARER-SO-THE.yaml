@@ -21,10 +21,8 @@ source: >-
   operator decision 2026-09-11 via the manager; chosen: SPA bearer half of MI-266
 
 blocked_on: []
-blocked_on_basis: ASSESSED  # blocked_on is EMPTY and that is an ASSESSED CLAIM, not an unread field. The lane can BUILD the whole client half with nothing outstanding: the chokepoint, the config pattern and the 401 path are all present in the dashboard repo today. Do NOT add an operator_decision edge for the two secret VALUES -- that would be a FALSE blocker, and the work store's README records that a false blocker is worse than a missing one. The values gate the OBSERVATION that follows this object ('the tab renders'), which is deliberately not this object's done-when; they do not gate the build.
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+blocked_on_basis: ASSESSED
+blocked_on_basis_note: >-
+  blocked_on is EMPTY and that is an ASSESSED CLAIM, not an unread field. The lane can BUILD the whole client half with nothing outstanding: the chokepoint (get<T>() at webapp/src/lib/api.ts:126-130), the localStorage pattern in config.ts and the 401 path all exist in the dashboard repo today. Do NOT add an operator_decision edge for the two secret VALUES -- that would be a FALSE blocker, and the work store's README records that a false blocker is worse than a missing one. The values gate the OBSERVATION that follows this object ('the tab renders'), which is deliberately NOT this object's done-when; they do not gate the build.
 
 captured_by: scripts/ops/capture_idea.py

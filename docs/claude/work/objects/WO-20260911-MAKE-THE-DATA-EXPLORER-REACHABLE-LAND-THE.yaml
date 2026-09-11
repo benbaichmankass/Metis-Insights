@@ -24,10 +24,9 @@ blocked_on:
   - kind: operator_decision
     ref: "originate JWT_SIGNING_KEY + WEBAPP_PASSWORD_SHA256, then a Tier-2 set-env"
     since: 2026-09-11
-blocked_on_basis: ASSESSED  # MOVED in_flight -> waiting 2026-09-11: the BUILD is complete and merged (#11783, f14d2c704) and the lane is idle. What remains is not work -- it is the operator originating two secret VALUES nobody else may mint, and the Tier-2 set-env that carries them to the VM. THIS EDGE IS TRUE NOW AND WAS FALSE BEFORE, which is why it was refused while the object was in_flight: at that point the values gated the observation, not the object. `waiting` rather than `done` because done means MERGED AND OBSERVED and the Data Explorer is still dark; and `waiting` rather than in_flight because a thing blocked on someone else is not consuming attention, which is the ceiling's own stated reasoning.
-  ASSESSED 2026-09-11T09:42Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), by
-  reading this object's own done_condition against what is actually outstanding
-  — not by inheriting the capture default.
+blocked_on_basis: ASSESSED
+blocked_on_basis_note: >-
+  MOVED in_flight -> waiting 2026-09-11. The BUILD is complete and merged (#11783, f14d2c704) and the lane is idle. What remains is not work: the operator originating two secret VALUES nobody else may mint, and the Tier-2 set-env that carries them to the VM. THIS EDGE IS TRUE NOW AND WAS FALSE BEFORE, which is why it was deliberately refused while the object was in_flight -- at that point the values gated the OBSERVATION, not the object. `waiting` rather than `done` because done means MERGED AND OBSERVED and the Data Explorer is still dark; `waiting` rather than in_flight because a thing blocked on someone else is not consuming attention, which is the WIP ceiling's own stated reasoning.
 
   The edge list is EMPTY and that is now a CLAIM, not an absence of one. This
   object was deliberately scoped to exclude everything that waits on the

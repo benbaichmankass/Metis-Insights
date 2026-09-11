@@ -21,10 +21,8 @@ source: >-
   operator decision 2026-09-11 via the manager; chosen: spawn a review lane to read it adversarially
 
 blocked_on: []
-blocked_on_basis: ASSESSED  # blocked_on is EMPTY and that is an ASSESSED CLAIM. #11767 is green, open and readable, and its branch is fetchable -- the review needs nothing that does not exist. Do NOT add an operator_decision edge: the operator decision this work SERVES (whether to merge #11767) comes AFTER the report and is its output, not its precondition. Writing that edge would invert the dependency and make the constraint computation read a blocker that is really a deliverable.
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+blocked_on_basis: ASSESSED
+blocked_on_basis_note: >-
+  blocked_on is EMPTY and that is an ASSESSED CLAIM, not an unread field. #11767 is green, open and readable and its branch is fetchable -- the review needs nothing that does not exist. Do NOT add an operator_decision edge: the operator decision this work SERVES (whether to merge #11767) comes AFTER the report and is its OUTPUT, not its precondition. Writing that edge would invert the dependency and make the constraint computation read a blocker that is really a deliverable.
 
 captured_by: scripts/ops/capture_idea.py
