@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T08:19:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:17Z)",
+  "updated_at": "2026-09-11T08:32:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:25Z, rebased onto #11773)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4610,8 +4610,21 @@
       "live_status_read_at": "2026-09-11T08:16:49Z",
       "manager_observation": "ENGINEERING LANE, MI-236. Merged (#11771, 6d5556101) and then did the thing that was asked: named all 17 rows on a DURABLE surface (#11771 comment 5631004616) with an independent falsifier the registry does not control -- git `Claude-Session:` trailers on main. 17 rows -> 14 owners -> 4 RE-ROUTE / 10 POKE, three caveats on its own evidence, and an explicit REFUSAL to recommend a landing state for any row. Nothing owed.",
       "updated_at": "2026-09-11T08:19:00Z"
+    },
+    {
+      "session_id": "session_01NFnmLiu9zNDppY3qFXcJJA",
+      "registry_key": "pending-20260911T082606Z",
+      "state": "working",
+      "title": "OPS LANE — disposition the 17 unsupported in_flight rows; unblock the WIP ceiling",
+      "owns_object": "WO-20260911-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS",
+      "spawned_at": "2026-09-11T08:26:06Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "The WIP ceiling of 8 is full and 4 of those slots are unsupported, so it now refuses all new work. Ops role: unsticking outranks the ops backlog.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T08:27:01Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T08:16:49Z, tick 08:17Z, prompted by an operator status request. A REAL LIVE READ -- list_sessions(mine=true, limit=4) -- plus the PR comment threads on #11767 and #11771, which is where both lanes actually put their findings. ⚠️ READING THE ROSTER WAS NOT ENOUGH THIS TICK: both substantive findings (the lane's correction of the manager, and the 17 named rows) were on PR COMMENTS, not in any post_turn_summary or register field. A manager who only read the roster would have seen 'review_ready' and 'completed' and missed both. PARTIAL: four rows returned, three graded; the register holds 212 rows and the rest were NOT read. LIVE COUNT: ZERO lanes RUNNING. Three IDLE-terminal, one IDLE awaiting a manager decision that is now made. All three operator slots free."
+  "⚠️_last_live_reconcile": "2026-09-11T08:25Z, tick 08:25Z. NOT A FRESH LIVENESS PASS, and saying so is the point: this tick fired EIGHT MINUTES after the 08:17Z one, whose roster read (08:16:49Z) is still the observation of record -- ZERO lanes RUNNING, three IDLE-terminal, one IDLE awaiting a decision now made. Re-reading it would have produced the same rows and a newer timestamp, which is how a stale fact acquires a fresh-looking date. WHAT CHANGED: one spawn, session_01NFnmLiu9zNDppY3qFXcJJA (OPS), to disposition the 17 unsupported in_flight rows. So the live count is INFERRED at one lane, not measured, and the next tick must re-read it."
 }

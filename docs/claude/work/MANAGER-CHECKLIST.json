@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T08:19:00Z",
+  "updated_at": "2026-09-11T08:32:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3765,10 +3765,29 @@
       "blocked_on": "#11767 must land first — this extends the module that PR introduces.",
       "provenance": "Filed in the same commit that records the manager's decision to land #11767 unwidened, specifically so the follow-up cannot be the thing that gets dropped. That risk is the stated cost of the decision.",
       "updated_at": "2026-09-11T08:19:00Z"
+    },
+    {
+      "id": "MI-265-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS-THE-WIP-CEILING-NOW-BLOCKS-ALL-NEW-WORK",
+      "title": "Disposition the 17 unsupported in_flight rows against their own done_conditions — the WIP ceiling is full and four of its eight slots are unsupported",
+      "state": "in_flight",
+      "owner": "session_01NFnmLiu9zNDppY3qFXcJJA (OPS LANE)",
+      "spawned_at": "2026-09-11T08:26:46Z",
+      "work_object": "WO-20260911-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS",
+      "added": "2026-09-11",
+      "tier": 1,
+      "priority": "high",
+      "lane": "ops",
+      "note": "MEASURED by the manager running check_stale_in_flight.py at 2026-09-11T08:18Z: 34 in_flight across both registers = 9 supported / 17 UNSUPPORTED / 8 could-not-establish. FOUR of the eight OBJECT slots are unsupported, held by owners dormant 34.8-37.9h: WO-20260909-{EVERY-PR-IN-THE-REPO-IS-RED, GATE-API-BOT-DB-THE-MONEY-DB, THE-HEALTH-BACKLOG-GREW-BY-49-WHILE, THE-PARTIAL-CLOSE-PRODUCER-IS-BUILT-AND}. All four are POKE-class.",
+      "why_it_matters": "THE WIP CEILING IS NO LONGER A GUIDELINE, IT IS THE BINDING CONSTRAINT ON ALL FURTHER WORK. check_wip_ceiling.py refuses a ninth in_flight object, so nothing new can START -- trading work under the cycle priority included -- until the ceiling clears. It is being held by rows whose owners are gone.",
+      "what_this_adds_over_MI_236": "MI-236's lane graded OWNERS and named all 17 rows on #11771 with an independent falsifier (git Claude-Session trailers). It DELIBERATELY REFUSED to recommend a landing state, because that needs each row read against its own done_condition. THIS IS THAT READING -- per ROW, not per owner. The refusal is inherited, not overridden; what changes is that this lane does the reading that makes a landing state establishable.",
+      "done_when": "Each of the 17 carries a disposition established against its OWN done_condition: owner poked (DELIVERY-CONFIRMED by matching the returned cse_ suffix), or re-routed with a stated reason, or a landing state PROPOSED with its evidence. AND the four object rows are resolved far enough that check_wip_ceiling.py admits a new object. ⚠️ A LOWER UNSUPPORTED COUNT ALONE CLEARS NOTHING -- trivially achievable by marking rows `done`, which is the harm. `done` means MERGED AND OBSERVED; `landed_unproven` means the code is in and its effect has NOT been seen. Per-row dispositions with evidence, never a delta.",
+      "scope_refusal": "The lane dispositions ROWS, it does not do the work they describe. Several are substantial (a money-DB gate, a red-PR sweep, a backlog drain) and starting any of them would be the drop pattern one level up. It is also told NOT to file a wip-ceiling-exception: clearing the ceiling honestly IS the job.",
+      "blocked_on": "",
+      "updated_at": "2026-09-11T08:27:00Z"
     }
   ],
   "as_of": "2026-09-10T13:36:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:17Z)",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:25Z, rebased onto #11773)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
