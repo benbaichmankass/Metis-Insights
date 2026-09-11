@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 03:28Z. Registers only: MANAGER-LEASE.json heartbeat, SESSIONS.json supervision record (4 rows graded against a live list_sessions read + top-level updated_at for R6), MANAGER-CHECKLIST.json (MI-258 queued->done after the manager merged #11752; MI-262 carries the decision now put to the operator as a popup; MI-243 ready->in_flight with its spawn), one new work object from capture_idea.py, and the spawn-priority exception entry that permits the MI-243 spawn. NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Recording an operator decision and keeping the work registers is management, not an item -- check_manager_scope.py grades commits by path and none of these is a worker path."
+}

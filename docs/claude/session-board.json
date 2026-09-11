@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01LoZJDARzLr1REPnqQ5Kgbz",
     "branch": "claude/mi243-dormant-sweep-20260911",
-    "claimed_at": "2026-09-11T03:52:59Z",
-    "purpose": "MI-243 dormant work-object sweep (PR #11758, Tier-1, docs+work-store only)"
+    "claimed_at": "2026-09-11T03:55:36Z",
+    "purpose": "MI-243 dormant work-object sweep (PR #11758). Tier-1: docs + work-store records only, no src/tests/config/deploy/workflow. SLOT TAKEN ON A FETCH AT CLAIM TIME, which is the order the previous holder's own note says is the whole lesson: the prior claim named claude/mi258-observed-on-the-fleet, and its PR #11757 is the squash commit 681b88a84 sitting at origin/main HEAD as of this fetch, so the claim was discharged rather than live."
   },
   "active_sessions": [
     {

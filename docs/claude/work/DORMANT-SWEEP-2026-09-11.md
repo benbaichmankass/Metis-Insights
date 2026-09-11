@@ -15,7 +15,14 @@ stated with the test it applied and the number of rows it moved.
 ## 0. Population — stated once, used throughout
 
 **All 710 `docs/claude/work/objects/*.yaml` at `main` `4e9255acb`, read 2026-09-11.**
-All 710 parsed; **0 parse failures**. The operator's page read (708 objects: 6 in flight,
+All 710 parsed; **0 parse failures**.
+
+⚠️ **The store became 711 objects mid-sweep** and the numbers below are deliberately NOT
+restated on the new total. The manager tick that spawned this session landed as #11756
+while the sweep was running, adding this item's own work object
+(`WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND`). It was not part of the population
+that was graded, and folding it in afterwards would change a stated denominator after the
+fact. The operator's page read (708 objects: 6 in flight,
 18 ready, 24 waiting, 623 dormant, 37 done) is the same store one day earlier.
 
 | `lifecycle` | before | after | moved by |
@@ -95,7 +102,7 @@ as the pile they asked about.
 **The question that would resolve it is not this session's to answer**, because it reverses
 a Phase-C decision and changes what the work store means. It is filed as a
 `decision_requests` block on
-[`WO-20260911-MI-243-DORMANT-SWEEP.yaml`](objects/WO-20260911-MI-243-DORMANT-SWEEP.yaml).
+[`WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND.yaml`](objects/WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND.yaml).
 
 ⚠️ **Whatever is chosen, it must not be described as "closing 554 items."** Nothing about
 the findings changes; only whether the work store carries a second copy of them.

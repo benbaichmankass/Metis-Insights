@@ -10,7 +10,7 @@
 
 decision: approved
 approved_by: operator (ben.baichmankass) — in conversation, directly
-approved_at: 2026-09-10
+approved_at: 2026-09-11
 # ⚠️ These fields carry the MOST RECENT approval (2026-09-08, the three-lane
 #    structure; superseded 2026-09-10 by the ops-lane block below). The 2026-09-03 approval that opened this file is NOT erased —
 #    it is the first `reason` block below and still covers its own six objects.
@@ -38,6 +38,8 @@ covers:
   - WO-20260909-GATE-API-BOT-DB-THE-MONEY-DB
   # -- added 2026-09-10, the ops lane (operator-directed twice; see the block at the end) --
   - WO-20260910-DISPOSITION-THE-34-UNDISPOSITIONED-AUTOMATION-PRS-AND
+  # -- added 2026-09-11, the dormant-objects sweep (operator-directed, trigger now met) --
+  - WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -494,3 +496,37 @@ reason_20260910_ops_lane: >-
   SCOPE OF THE DISPLACEMENT -- ONE object, not a standing lane licence. Tier-1
   dispositions and artifact rescue by value only. No src/, no config/, no
   workflow, no order path.
+
+reason_20260911_dormant_sweep: >-
+  OPERATOR-DIRECTED, 2026-09-10, and the trigger they attached is NOW MET. Their
+  words, verbatim, spoken while reading the deployed SPA Work page (not from a
+  report): "there are over 600 dormant work items - we need a specific session in
+  the ops lane (when opens ups) to work through the list and update it - these
+  things either need to closed or qued (for future sessions, it just doesn't make
+  sense that our workflow has this many dormant items) - if some of them are stuck
+  on soaks/observations, then we need a status the describes that".
+
+  THE TRIGGER WAS "WHEN [A SLOT] OPENS UP", AND IT HAS. Measured by the manager at
+  2026-09-11T03:32Z off `list_sessions(mine=true)`: exactly ONE lane is RUNNING
+  (session_01G4VneSjgv5QT4rMGj4izi5, engineering, MI-238); the MI-139 and MI-259
+  ops lanes and the MI-240 lane are all IDLE/disconnected with `completed` /
+  `review_ready` post-turn summaries. Against the operator's cap of 3 concurrent
+  lanes that is two free slots. So this spawn is EXECUTING a standing operator
+  instruction whose stated precondition is now satisfied -- it is not the manager
+  deciding the dormant list outranks the cycle priority.
+
+  ⚠️ WHAT IS AND IS NOT COVERED, stated so a later session does not read this as
+  wider than it is. The operator approved the WORK, named the LANE, and set the
+  TRIGGER. They were NOT asked, and did not say, "displace CY-20260906-TRADING-TRUTH
+  to do it". That step is the manager's, and it is argued rather than assumed: the
+  cycle priority is about making the instruments that measure the trading system
+  trustworthy BEFORE acting on what they say, and `dormant` collapsing "parked",
+  "queued" and "ACCRUING -- a soak is running and nobody is watching it" into one
+  value is precisely an untrustworthy instrument, one level up. Soak-bound trading
+  work is the population that is mis-rendered. That is why it displaces rather than
+  waits; it is not a claim that operating-model work generally outranks the cycle.
+
+  ⚠️ AND IT IS NOT A LICENCE TO BULK-CLOSE. The work store's own README records a
+  bulk pass on 2026-09-01 doing real harm, and CLAUDE.md states that a FALSE
+  blocker is worse than a missing one -- the same applies to a false `done`. The
+  object's done-when says a lower dormant count alone clears nothing.
