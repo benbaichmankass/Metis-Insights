@@ -1,0 +1,1 @@
+Arming request for claude/lane4-sweep-gap-20260910 — WO-20260909: measured sweeper gap 3.50h (correcting "about one sweep"), and the automation queue is empty after MI-259 dispositioned all 43. Docs only. PR #11747. 2026-09-10

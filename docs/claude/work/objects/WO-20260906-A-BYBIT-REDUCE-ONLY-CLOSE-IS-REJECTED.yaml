@@ -139,3 +139,70 @@ cost_note: >-
   scripts/ops/merge_json_register.py, installed by
   scripts/ops/install_merge_driver.sh. Filed as
   BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS.
+
+# ---------------------------------------------------------------------------
+# 2026-09-10 — OBSERVED ON THE FLEET. The OPEN-ITEMS row this object handed the
+# observation to is CLEARED, and its evidence lives here so clearing the row
+# does not delete the finding. Recorded by session_01J2dBJqYb85GwahYy51CdLV
+# (OPS lane) while unsticking PR #11648, which the original owner session
+# opened and could not land.
+# ---------------------------------------------------------------------------
+closing_observation: >-
+  MEASURED 2026-09-10T23:33Z–23:40Z, all three clauses of
+  OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET
+  addressed. SAYING WHICH, as that row demanded.
+
+  (1) DEPLOYED — OBSERVED. `/api/diag/version` read 2026-09-10T23:33:08Z:
+  git_sha 04aa86d38, git_sha_on_disk 948a19a9d, restart_pending true.
+  `git merge-base --is-ancestor 9604b8a5 04aa86d38` SUCCEEDS, so the fix is in
+  the RUNNING process — ancestry, never string equality, as the row required.
+  Confirmed by reading the code at that sha rather than trusting ancestry
+  alone: `snap_qty_str` appears 3x in src/units/accounts/execute.py at
+  04aa86d38.
+
+  (2) THE SEAM IS REACHED — OBSERVED, and this is the clause that was
+  outstanding. THREE live Bybit closes logged a qty_state, read from
+  /api/diag/journalctl?unit=ict-trader-live with the window pinned by
+  `since`/`until` and FILTERED CLIENT-SIDE (never `?grep=`, which is silently
+  dropped — see
+  BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT):
+    2026-09-10T18:02:50Z  bybit_1 AVAXUSDT Sell-side close qty=12357.0
+                          (sent=12357.0, qty_state=unchanged) -> orderId 9784e410-...
+    2026-09-10T18:04:01Z  bybit_1 BNBUSDT  qty=0.27
+                          (sent=0.27,     qty_state=unchanged) -> orderId b363ac40-...
+    2026-09-10T18:04:02Z  bybit_1 BTCUSDT  qty=0.001
+                          (sent=0.001,    qty_state=unchanged) -> orderId 00ddb8d8-...
+  Each returned an orderId, i.e. ACCEPTED by the venue — not refused 10001.
+  ⚠️ `unchanged` IS the expected and sufficient value for this clause and the
+  row says so in terms; it is the common path and it proves the wiring.
+  POSITIVE CONTROL for the probe: 'order_monitor' matched 168 lines in the same
+  921-line window, so the qty_state hits are real and so are the zeros beside
+  them.
+
+  (3) NO `snapped` HAS OCCURRED, AND THE WHY IS NOW MEASURED RATHER THAN
+  ASSERTED. Population: the 1000 newest `trades` rows from /api/diag/journal
+  (ids 4661..5660), restricted to bybit_* non-backtest rows — n=765, 765
+  gradeable, 0 ungradeable. Rows whose `position_size` carries an IEEE-754 tail
+  (float != round(float, 8)): 8 of 765 (1.05%). Split at the merge
+  (9604b8a5, 2026-09-06T18:43:22Z) on `created_at`:
+    created BEFORE the merge: 8 of 661 (1.21%)
+    created AFTER  the merge: 0 of 104 (0.00%)
+  That is Part 1 of the same merge — round(parent_qty - consumed, 8) in
+  apply_intent_reduce_partial_close — doing exactly what this object predicted:
+  stopping the artifacts being manufactured, so the population that would
+  trigger a snap is shrinking by design.
+  ⚠️ STATED HONESTLY: 0 of 104 is a WEAK negative on its own. At the 1.21%
+  pre-merge base rate the chance of drawing zero artifacts in 104 rows is
+  ~0.28, so this reading is consistent with the fix working AND not
+  inconsistent with luck. It is recorded as the WHY clause (3) asks for, not as
+  proof that the artifact class is extinct.
+  ⚠️ AND THE ROW WAS CLEARED ON ITS OWN INSTRUCTION, not on a session's
+  judgement: its clears_when says that if (1) and (2) hold and no artifact has
+  appeared, "record that as the outcome and CLOSE the row — holding it open
+  forever waiting for a bug the fix prevents is how a register turns into
+  noise."
+  ⚠️ WHAT THIS DOES NOT ESTABLISH: the `snapped` BRANCH itself has still never
+  executed on the fleet, and no venue has ever accepted a snapped quantity. It
+  is asserted by tests/test_bybit_close_qty_artifact.py and by nothing else. If
+  a 10001 'Qty invalid' ever reappears on a Bybit close, that is the branch
+  failing, not this observation being stale — reopen on that, not on age.
