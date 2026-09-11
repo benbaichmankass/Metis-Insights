@@ -50,6 +50,8 @@ covers:
   - WO-20260911-GIVE-THE-SPA-A-BEARER-SO-THE
   # -- added 2026-09-11, the #11767 adversarial review (operator-approved DIRECTLY, as a decision pop-up) --
   - WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER
+  # -- added 2026-09-11, the #11767 fix round (operator-approved DIRECTLY, as a decision pop-up) --
+  - WO-20260911-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -661,3 +663,28 @@ reason_20260911_spa_bearer_and_11767_review: >-
 
   ⚠️ AND A CLEAN REPORT IS A VALID OUTCOME, required to state its POPULATION -- what was examined -- so that
   "no problems found" can be told apart from "did not look hard".
+
+reason_20260911_11767_fix_round: >-
+  PUT TO THE OPERATOR DIRECTLY AS A DECISION POP-UP, 2026-09-11, AND ANSWERED. Question: the adversarial review
+  says #11767 must NOT merge as it stands -- one blocking bug, two should-fix, one note, all small and verified
+  fixable -- how should the fix round be handled? Options offered: a FRESH lane taking all four items (the
+  manager's recommendation, marked as such) / a fresh lane taking the BLOCKING item only, filing the rest /
+  parking #11767 entirely. CHOSEN: fresh lane, all four items.
+
+  WHY A FRESH LANE RATHER THAN REVIVING MI-235, stated because it is the manager's judgement and not the
+  operator's: that session is long-idle with cold context, and the review is a COMPLETE WRITTEN SPEC, so nothing
+  is lost by starting clean. All three concurrent slots were free at dispatch, so it costs no other work.
+
+  WHY IT DISPLACES CY-20260906-TRADING-TRUTH RATHER THAN WAITING: the blocking bug is that a blocker first graded
+  `could_not_look` never pages when it clears -- which is #11767's OWN MOTIVATING CASE. Shipping without it would
+  give a mechanism that LOOKS ARMED AND STAYS SILENT exactly where it is most needed, which is the failure class
+  this whole operating layer exists to end, installed by the thing built to prevent it. And every PR in the repo
+  lands through the machinery #11767 touches, so a defect there reaches the trading work too.
+
+  ⚠️ THE LANE MUST NOT MERGE #11767. R12 holds a landing-machinery change for a human read whatever its state,
+  and fixing the findings does not lift that. The manager does not merge it either. The operator does.
+
+  ⚠️ AND A GREEN GUARD SELF-TEST IS NOT THE VERIFICATION, which the review established rather than assumed: the
+  guard and its self-test harness are NOT MODIFIED by this diff (measured, empty git diff), so an identical green
+  on main is the EXPECTED outcome and says nothing about the PR. The lane is told this so it does not report the
+  same green the review already refused to lean on.
