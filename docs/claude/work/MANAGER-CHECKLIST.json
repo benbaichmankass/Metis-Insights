@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-11T17:53:00Z",
+  "updated_at": "2026-09-11T18:56:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3990,7 +3990,7 @@
     {
       "id": "MI-271",
       "lane": "research",
-      "status": "in_flight",
+      "status": "landed_unproven",
       "owner": "session_016dJtEibrgnsX32qD2gvDQY",
       "title": "Why is the book bleeding: attribute the 2026-08-30 directional-leg break AND the multi-week drawdown, and propose the remedy",
       "owns_object": "WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE",
@@ -4001,36 +4001,39 @@
         "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED"
       ],
       "manager_note": "The NON-e35 control is the entire experiment and is not optional: ict_scalp_* was never touched by e35 and degraded too (54.7%->31.8%), so reverting e35 without the control leaves it unexplained. Also flagged to the lane: 2026-08-30 carries at least THREE simultaneous changes (e35 geometry, BYBIT_HEDGE_MODE_SYMBOLS arming, and the last prop fill), so 'it changed on the day e35 shipped' is a coincidence, not an attribution. pnlCoverage is 22.3% measured, so every headline must be restricted to the provenance-clean population.",
-      "added": "2026-09-11"
+      "added": "2026-09-11",
+      "outcome": "#11815 OPEN (Tier-1 self-land). VERDICT DELIVERED. The bleed began 2026-08-27, THREE DAYS BEFORE e35 shipped (08-30T08:53Z); worst day 08-28. 66% of post-deploy loss (-$30,057) is in ict_scalp_* legs that declare NO bracket geometry and that e35 could not have touched. Mechanism is WINNER-SIZE COLLAPSE, not win-rate collapse: avg win $404->$112 (-72%), expectancy +$40 -> -$144. Primary cause = a market-regime change the system cannot detect. e35 is NOT the cause and NOT exonerated: its legs stop-out rate rose 0/5 -> 6/7 on broker-measured rows, p=0.015, while made-its-legs-worse-overall is REFUSED at p=0.334. ⚠️ REAL MONEY LOST IS -$20.36 on bybit_2 over 40 closed rows; alpaca_live has zero closed rows. THE CAPITAL ACTUALLY LOST IS PAPER. Recommends NOT reverting e35 yet (n=23, 70% unmeasured, against a walk-forward that passed) and points at MI-164 telemetry now able to answer it directly. Detector: >=4 consecutive losing days fires exactly once per account, zero false positives."
     },
     {
       "id": "MI-274",
       "lane": "ops",
-      "status": "in_flight",
+      "status": "landed_unproven",
       "owner": "session_01Naj6n7JvhPrvxjwWbUGbnQ",
       "title": "Why has the prop account not traded, and is the cushion gate the thing stopping it",
       "owns_object": "WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED",
       "why": "OPERATOR-RAISED 2026-09-11, verbatim: 'there hasn't been a trade on the prop ... the cushion is low. That's not a reason to not be trading. So if that's it then we did something wrong ... it could just be that there were no signals, but that seems unlikely for such a long period when the rest of the accounts are trading.'",
       "done_when": "The absence is ATTRIBUTED to a named mechanism, with a POSITIVE CONTROL: the sibling legs' eval/signal counts on other accounts over the identical window. 'No signals' is a verdict only WITH those counts behind it.",
       "manager_note": "Newest prop fill is id 41, 2026-08-30T19:39:00Z -- roughly twelve days silent, and the SAME DATE as the directional break. The lane is told to treat that as a coincidence to TEST, not a connection to assume. Operator's position is explicit: a low cushion is NOT an acceptable reason to stop trading, so if the cushion gate is the cause that is a DEFECT, not a correct refusal. Dispatched as a SECOND ops lane rather than folded into MI-272 -- see manager_deviations below.",
-      "added": "2026-09-11"
+      "added": "2026-09-11",
+      "outcome": "#11816 MERGED (3573b9a). ATTRIBUTED, and the cushion is REFUTED as the cause. The legs are NOT quiet: 8/18/19 actionable signals vs 8/17/19 for their bybit_1 siblings AT IDENTICAL TIMESTAMPS TO THE SECOND. The flow dies at DISPATCH: the per-account arbitration fan-out ELECTS a prop leg and discards the election because breakout_1 is not in ARBITRATION_FANOUT_ACCOUNTS -- 8 elected, 8 starved, 0 routed. ⚠️ AND pipeline.py:1077 shows apply_rounds REPLACES global dispatch rather than supplementing it, so arming bybit_1 alone ALSO closed the prop leg pre-existing global-election route. A PARTIAL ARMING SHUT BOTH DOORS. Two blockers stack behind it: the reticket guard latched the ETH books 12 and 14 days on expiry_prompted, a state with NO TIMEOUT (cleared by hand 16:36Z), and the snapshot is 286h old against a 24h limit so prop_balance_stale will hard-refuse sizing the moment routing is fixed. Cushion is real (7.34 vs 1.81 sized risk) and is NEVER REACHED. Nothing alarmed for 12 days across four surfaces; the one instrument that recorded it correctly every time (arbitration_fanout_soak starved_accounts) IS READ BY NOTHING."
     },
     {
       "id": "MI-272",
       "lane": "ops",
-      "status": "in_flight",
+      "status": "done",
       "owner": "session_01W56JbiKrada5AM4pGtHxmg",
       "title": "Full /system-review -- the measurement instruments the bleed diagnosis will be read through",
       "owns_object": "WO-20260911-FULL-SYSTEM-REVIEW-THE-MEASUREMENT-INSTRUMENTS-THE",
       "why": "Operator-selected 2026-09-11.",
       "done_when": "review_coverage guard satisfied (strategy_promotion + ml_training_health + soak_status + flags_raised + backlog_drive), report committed under comms/reports/, and the due OPEN-ITEMS rows re-observed with a WRITTEN observation or explicitly recorded as not-looked-at.",
       "manager_note": "Scoped OFF MI-271's and MI-274's subjects deliberately -- overlapping measurement produces two numbers that disagree and nobody knows which to trust. Its highest-value work is the OPEN-ITEMS observation debt (80 rows, 67 loud, many past their check_every_days) and the standing UNSTICK duty, which the operator ruled outranks ops backlog work.",
-      "added": "2026-09-11"
+      "added": "2026-09-11",
+      "outcome": "#11818 MERGED (2482c18). 10 OPEN-ITEMS observations written, 9 findings filed, 8 rows retired."
     },
     {
       "id": "MI-273",
       "lane": "engineering",
-      "status": "in_flight",
+      "status": "landed_unproven",
       "owner": "session_01SrUaz8LmKMcSwNZEr8JupC",
       "title": "Let an approved Tier-2 PR land without a human click, without making approval and landing the same act",
       "owns_object": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND",
@@ -4038,10 +4041,11 @@
       "done_when": "An approved Tier-2 PR is OBSERVED landing with no human click, where the approval was recorded BEFORE and INDEPENDENTLY of the landing, AND a Tier-2 PR with no such approval is OBSERVED still refused. A green suite clears neither half.",
       "spawn_priority_exception": "docs/claude/work/spawn-priority-exception.yaml, 2026-09-11 block -- this object is under IN-20260901-OPERATING-LAYER, not the cycle's intent, so the gate refused it and the exception is filed rather than routed around.",
       "manager_note": "The job is NOT to relax R4. R4 exists because the change and its own approval must not be the same act. The lane is told to find the property that makes an approval UNFORGEABLE BY THE BRANCH THAT BENEFITS FROM IT -- the leading candidate being an approval that must already be on origin/main at a commit that is an ancestor of the PR's base and not authored by its own branch. Five negative controls are part of the deliverable. R12 applies to the lane's OWN PR, which therefore holds for a human read.",
-      "added": "2026-09-11"
+      "added": "2026-09-11",
+      "outcome": "#11817 OPEN, declared {tier:1, landing:hold, hold_reason:changes_landing_machinery} -- R12, correctly: the first exercise of the new rule is a human reading the rule itself. Built R15: a Tier-2 PR may self-land against an approval record at docs/claude/work/approvals/{slug}.json that the branch demonstrably could not have written (present at merge-base, byte-identical at HEAD, no approvals path in the diff, bound to this branch, scope_paths compared to the diff like R5 compares tier). Tier-3 refused by path AND by record tier. 7 positive controls, 27 planted defects, 34 tests, mutation-checked in isolation. ⚠️ ITS TWO GOVERNANCE FINDINGS AGAINST THE MANAGER ARE WITHDRAWN -- both measured against 2901ccf44 (17:12:25Z), which predates e5eeb42 (18:01:45Z) where all three artifacts landed; verified present on main. Same stale-tip class #11738 already retracted."
     }
   ],
-  "as_of": "2026-09-11T17:53:00Z",
+  "as_of": "2026-09-11T18:56:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -4102,11 +4106,11 @@
     "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
   },
   "_merge_queue": {
-    "as_of": "2026-09-11T17:53:00Z",
+    "as_of": "2026-09-11T18:56:00Z",
     "run_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager)",
-    "note": "The manager SCHEDULES merges rather than resolving the conflicts that not scheduling them causes. At most one entry `rebasing` (check_manager_scope.py R8).",
-    "main_head": "2901ccf44 (#11812)",
+    "main_head": "53f72e3 (#11820)",
     "main_state": "GREEN.",
+    "note": "At most one entry `rebasing` (R8).",
     "entries": [
       {
         "pr": "#11738",
@@ -4114,13 +4118,26 @@
         "tier": 2,
         "landing": "hold",
         "hold_reason": "tier_2_3_needs_approval (R4)",
-        "state": "OPEN, mergeable_state `blocked`, checks RUNNING on head d57f03c0a (pytest-run in_progress; guards, pytest-collect, repo-inventory green) as of 17:47Z. Open ~20h.",
-        "head": "d57f03c0a",
-        "why_held": "R4 bars a Tier-2 diff from landing itself WHATEVER its approval state. THE APPROVAL IS ALREADY RECORDED AND MUST NOT BE RE-SOUGHT: the operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z.",
-        "manager_disposition": "⚠️ The operator has now said 'the operator does not click things', so the click this PR waits on is NOT COMING and waiting longer is not a plan. MI-273 owns the route. This PR is that lane's live test case and MI-273 is explicitly forbidden from merging it -- merging it is the act under review. Its author session is IDLE/review_ready, so if its checks go red nobody is watching; the manager pokes it at the next tick."
+        "state": "GREEN on head d57f03c0a -- all 5 checks success. Blocked ONLY on the R4 human click.",
+        "manager_disposition": "The operator has said they do not click. MI-273 (#11817) is the route; #11738 is its live test case and MI-273 is forbidden from merging it. ⚠️ #11817 MEASURED that #11738 fails R15 as recorded -- no scope_paths, and the r2_only scope is NOT PATH-EXPRESSIBLE because R1 and R2 both live in src/main.py. So an approval record must be authored by a human who reads the diff. That is the finding, not a gate defect."
+      },
+      {
+        "pr": "#11815",
+        "item": "MI-271",
+        "tier": 1,
+        "landing": "self",
+        "state": "OPEN, self-landing on green. Research + registers only."
+      },
+      {
+        "pr": "#11817",
+        "item": "MI-273",
+        "tier": 1,
+        "landing": "hold",
+        "hold_reason": "changes_landing_machinery (R12)",
+        "state": "OPEN. ⚠️ BOOTSTRAP: the PR that removes the need for a click needs a click. R12 is deliberate and the manager may not merge it.",
+        "manager_disposition": "ESCALATED TO THE OPERATOR as a decision, not a nag."
       }
-    ],
-    "note_11767": "#11767 (MI-235) MERGED as c0139b7 and is off the queue -- the previous checklist still listed it as awaiting a click."
+    ]
   },
   "⚠️_THE_LEASE_LAPSED_2026_09_11T0157Z": "⚠️ RECORDED AGAINST THE MANAGER, AND THE OPERATOR ASKED TO SEE LAPSES RATHER THAN HAVE THEM SMOOTHED OVER. The manager lease EXPIRED at 2026-09-11T01:57:26Z and was re-CLAIMED at 02:26:28Z over state=expired — 29 minutes unheld. No other session seized it in the gap and no work was lost, but that is luck, not design: an expired lease is claimable by anyone, which is the whole point of a 90-minute TTL. ⚠️ THE CAUSE IS THE EXACT STRUCTURAL FAILURE THE CADENCE TICK NAMES, so this is a recurrence rather than a novelty: 'a heartbeat is STAMPED when opened and MERGED at the next tick ~60 min later, so it reaches main two-thirds through its own 90-minute TTL and any slip expires it.' The 00:27:26Z heartbeat was stamped into #11750, #11750 went mergeable_state: dirty when three automation PRs (#11748/#11749/#11751) took the merge slot under it, and it did not land until 01:30Z — 63 minutes after being stamped, with 27 minutes of TTL left. The 01:24Z tick was then spent REBASING #11750 rather than opening a fresh heartbeat, so nothing re-stamped it. ⚠️ THE SLIP WAS THE MERGE-SLOT CONTENTION CLASS, NOT INATTENTION — which makes #11519 a lease-liveness problem and not only a cycle-waster, and that connection was not previously recorded. ⚠️ THE OBVIOUS FIX IS WRONG AND IS NAMED HERE SO IT IS NOT REACHED FOR: opening the NEXT heartbeat before the previous one merges puts two lease PRs in flight, which both contend on the same single-holder merge_slot and makes the collision MORE likely. The real remedy is either a shorter stamp-to-merge path or a lease whose heartbeat does not travel through the merge queue at all; neither is a manager item and neither is proposed here.",
   "⚠️_MERGE_QUEUE_0428Z": "#11755 (automation work-digest, 03:30Z run) CLOSED as superseded: it read `dirty` on pending-pings.jsonl (append-only) while #11759 had already merged a newer digest from a later run (4d928d352). MI-259's disposition rule for this class -- the artifact is regenerable and a later run covers a superset window. ⚠️ STATED RATHER THAN IMPLIED: the two digests' CONTENTS were not diffed. The claim is that a later daily roll-up supersedes an earlier one for the same day, not that they are identical. ⚠️ THE EXPLANATORY COMMENT COULD NOT BE POSTED -- `add_issue_comment` returned 403 'Resource not accessible by integration' (the write-scope boundary, not the transient MCP drop; retrying will not clear it, and the board-post relay only reaches the coordination board, not an arbitrary PR). So the reasoning lives HERE and nowhere on the PR, which is itself a gap: a PR closed with no stated reason is the unexplained state change this repo keeps paying for. ⚠️ SECOND AUTOMATION PR TO GO DIRTY AND NEED A HAND DISPOSITION SINCE THE PILE WAS CLEARED AT 22:42Z. The class is #11519 (the stale-automation sweeper), which is HELD, not landed -- closing these one at a time is the workaround, not the fix.",
@@ -4129,5 +4146,28 @@
     "FOUR concurrent lanes, not three. The lane model caps KINDS of work, not sessions, and the operator added the prop question mid-setup. Rather than pause MI-272's /system-review to unstick the prop (which the ops-lane rule would permit), the prop went out as its own lane so neither is done shallowly. Recorded as a deviation rather than presented as the standing model.",
     "FIVE work objects were corrected in_flight -> ready with owner cleared. MEASURED: all 40 sessions from list_sessions(mine=true, limit=40) read 2026-09-11T17:42Z; the five owning sessions are all IDLE / BUCKET_COMPLETED and disconnected, and EXACTLY ONE session in that listing is RUNNING -- the manager itself. The stale in_flight was holding the WIP ceiling at 7 of 8 and would have blocked the operator's own chosen spawns. Each object carries a manager_lifecycle_note with the measurement. READY IS NOT DONE: it says nobody is working this, not that it finished. This is MI-236 (decay stale in_flight rows) observed live and is why that item should be prioritised.",
     "THE INCOMING HANDOFF WAS WRONG ON ONE POINT AND IT IS CORRECTED HERE RATHER THAN INHERITED: it said session_01CTPC91xaHrK6ES33UKjkTY (MI-240) was RUNNING and must be left alone. It reads SESSION_STATUS_IDLE / BUCKET_REVIEW_READY, disconnected, post_turn_summary '10 conflicts resolved; row-loss bug caught & fixed; CI re-running'. It was RUNNING when the outgoing manager measured it at 16:55Z and had gone idle by 17:42Z. No lane was running when this manager took over."
+  ],
+  "decisions_owed_to_operator_2026_09_11": [
+    {
+      "id": "DEC-PROP-ARBITRATION-FANOUT",
+      "tier": 2,
+      "owner": "operator",
+      "ask": "Add breakout_1 to ARBITRATION_FANOUT_ACCOUNTS, or otherwise restore the prop dispatch route. MI-274 established the prop legs signal at the same timestamps as their bybit_1 siblings and are discarded at dispatch, 8 elected / 8 starved / 0 routed.",
+      "why_it_needs_you": "Tier-2 env change on the live trader. ⚠️ AND IT IS NOT SUFFICIENT ALONE: the snapshot is 286h old against a 24h limit, so prop_balance_stale hard-refuses sizing the moment routing is fixed. Fixing routing without the balance produces a prop account that still does not trade, for a different reason."
+    },
+    {
+      "id": "DEC-MERGE-11817",
+      "tier": 1,
+      "owner": "operator",
+      "ask": "Read and merge #11817 (R15), or reject it. It is held by R12 because it changes the landing machinery -- the manager may not merge it and neither may its author.",
+      "why_it_needs_you": "This is the bootstrap: the change that ends the clicking needs one click. After it lands, an approval RECORD replaces the click for every future Tier-2."
+    },
+    {
+      "id": "DEC-E35-REVERT",
+      "tier": 3,
+      "owner": "operator",
+      "recommendation": "DO NOT revert yet",
+      "ask": "MI-271 recommends against reverting e35: n=23 post trades, 70% unmeasured, against a 4-6 fold walk-forward that passed. MI-164 telemetry (live since 09-07) can now answer the question directly. Cost of waiting is ~-$900/day ON PAPER BOOKS."
+    }
   ]
 }
