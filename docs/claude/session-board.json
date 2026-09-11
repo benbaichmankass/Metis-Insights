@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_015iy2R6BP11eiVHbNeUnT6a",
-    "branch": "claude/mi235-merge-driver-evidence",
-    "claimed_at": "2026-09-11T16:33:00Z",
-    "purpose": "MI-235 wrap-up: measured evidence onto two OPEN backlog rows (BL-20260906 merge-driver-unarmed, BL-20260902 registers-reconflict). Tier-1, docs only, one file of content."
+    "held_by": "github-actions[bot] · pr-queue-watch run 34623771514",
+    "branch": "automation/data-commit-34623771514-1",
+    "claimed_at": "2026-09-11T16:45:21Z",
+    "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
   },
   "active_sessions": [
     {
