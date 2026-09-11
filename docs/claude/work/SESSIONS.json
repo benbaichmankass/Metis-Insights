@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T23:48:12Z",
+  "updated_at": "2026-09-11T00:28:44Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4479,10 +4479,10 @@
       "why": "Operator chose r2_only on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z. The remedy is written and the approval is recorded; it has sat unassigned since. Approved work sitting undone is the drop class the manager exists to stop.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T21:32:01Z",
-      "live_status": "IDLE/disconnected · review_ready",
-      "live_status_read_at": "2026-09-10T23:28Z",
-      "manager_observation": "ENGINEERING LANE, MI-240. #11738 reads CLEAN, all 5 checks green on 1c6ef5a54. Waiting on ONE operator merge click (R4, Tier-2). Resolved its own conflict after the 22:19Z poke AND retracted its own registry accusation with a correct denominator argument — the lane self-correcting, recorded as such.",
-      "updated_at": "2026-09-10T23:28Z"
+      "live_status": "IDLE/connected · review_ready",
+      "live_status_read_at": "2026-09-11T00:29Z",
+      "manager_observation": "ENGINEERING LANE, MI-240. #11738 head moved to 841f7452b (00:17Z) — REBASED onto de46c805e and re-running CI, now blocked with 4/5 green and pytest-run outstanding. ⚠️ THE MANAGER TOLD THE OPERATOR AT 23:28Z THIS WAS GREEN AND WAITING ON A CLICK; that was true at 23:26Z on head 1c6ef5a54 and is STALE. Corrected to the operator at 00:2xZ.",
+      "updated_at": "2026-09-11T00:29Z"
     },
     {
       "session_id": "session_01M3FPDA7Yp9dmMXFqsYzGi3",
@@ -4515,12 +4515,30 @@
       "why": "MI-139 reads in_flight with an owner while its PR has been dirty and untouched since 07:08Z and the row carries prs: None. The ops lane's stated role is unsticking what is stuck, prioritised above its own backlog.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T23:48:12Z",
-      "live_status": "PENDING (spawned 23:27:48Z)",
-      "live_status_read_at": "2026-09-10T23:28Z",
-      "manager_observation": "OPS LANE, re-laning #11648/MI-139 — 16h stale, dirty, author gone. Registered BEFORE spawn as pending-20260910T232719Z, confirmed after. First spawn to carry MI-263s fix: the prompt names the PR carrying its own registry row.",
-      "updated_at": "2026-09-10T23:28Z"
+      "live_status": "IDLE/disconnected · completed",
+      "live_status_read_at": "2026-09-11T00:29Z",
+      "manager_observation": "OPS LANE, MI-139 DONE. Unstuck #11648 (16h dirty, author gone) in ~35 min; merged de46c805e carrying a REAL fleet observation — clause (2) met on three live Bybit closes. Verified by the manager on origin/main, not from its summary.",
+      "updated_at": "2026-09-11T00:29Z"
+    },
+    {
+      "session_id": "session_01G4VneSjgv5QT4rMGj4izi5",
+      "registry_key": "pending-20260911T002753Z",
+      "state": "working",
+      "title": "ENGINEERING LANE — MI-238: finish the live Workflow page (operator's declared 'now'; row went stale in_flight with prs: None)",
+      "owns_object": "WO-20260910-THE-LIVE-WORKFLOW-PAGE-MANAGER-CHECKLIST-WITH",
+      "checklist_item": "MI-238-THE-LIVE-WORKFLOW-PAGE-THE-MANAGER-CHECKLIST-AND-THE-DECISION-INBOX-ON-THE-SPA",
+      "spawned_at": "2026-09-11T00:27:53Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator answered 'Finish MI-238 first, then the infra' and it is the engineering lane's declared 'now'. Its row read in_flight with an owner idle since 18:13Z and prs: None — the second instance in one hour of the exact drop pattern recorded on MI-139.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T00:28:44Z",
+      "live_status": "PENDING (spawned 00:28:20Z)",
+      "live_status_read_at": "2026-09-11T00:29Z",
+      "manager_observation": "ENGINEERING LANE, MI-238 — the operator declared now. Re-laned after its row sat in_flight with prs: None and an owner idle since 18:13Z. Registered BEFORE spawn as pending-20260911T002753Z, confirmed after.",
+      "updated_at": "2026-09-11T00:29Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-10T23:28Z — PARTIAL. LIVE half is list_sessions(mine=true, limit=4) at 23:26Z; has_more true, so this is the newest 4 of 206 rows and 3 were re-read (the third is this tick's own spawn, known by construction rather than observed). Every claim about a lane's OUTPUT was checked against GitHub rather than its post_turn_summary. ⚠️ WHAT THIS PASS ACTUALLY CAUGHT, and it was not from a status field: with the queue down to two PRs it became readable by hand, and #11648 turned out to have been dirty and untouched for SIXTEEN HOURS while MI-139 read in_flight with prs: None and an owner pointing at a session that no longer exists. No instrument surfaced it. That is the drop class the core mandate names, and it was invisible precisely while the queue was large."
+  "⚠️_last_live_reconcile": "2026-09-11T00:29Z — PARTIAL. LIVE half is list_sessions(mine=true, limit=3) at 00:26Z; has_more true, so this is the newest 3 of 207 rows. Every claim about a lane's OUTPUT was checked against GitHub rather than its post_turn_summary. ⚠️ WHAT THIS PASS CAUGHT — THE SECOND INSTANCE IN ONE HOUR of an owner field naming a no-longer-working session beside prs: None. MI-139 at 23:2xZ, MI-238 at 00:27Z. Both found by reading the queue by hand, neither by any instrument, and the second is the item the OPERATOR most recently prioritised. The pattern is systematic, not a one-off, and it is now measured rather than argued."
 }

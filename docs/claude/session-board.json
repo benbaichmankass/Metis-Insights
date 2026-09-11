@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · econ-calendar-produce run 34546512557",
-    "branch": "automation/econ-calendar-34546512557-1",
-    "claimed_at": "2026-09-11T00:37:21Z",
-    "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/manager-tick-0026z-20260911",
+    "claimed_at": "2026-09-11T01:26:41Z",
+    "purpose": "manager tick 00:26Z — heartbeat, MI-139 done, re-lane MI-238"
   },
   "active_sessions": [
     {
