@@ -1,0 +1,1 @@
+PR #11812 — manager session handoff 2026-09-11. Tier-1, registers and findings only.
