@@ -18,6 +18,14 @@ The row records *six of nineteen* `in_flight` checklist rows stale, found by
 | `docs/claude/work/objects/*.yaml` (159 files) | 8 | 2 | **4** | 2 |
 | **total** | **35** | **10** | **17** | **8** |
 
+⚠️ **RE-MEASURED at `303b1a5ae` the same day, after `main` moved under this
+branch** (three merges, incl. the 06:26Z manager tick): checklist **26** in_flight
+= 7 / **13** / 6, objects **8** = 2 / **4** / 2, total **34** = 9 / **17** / 8. The
+unsupported counts are UNCHANGED — 13, 4 and 17 — and only the `supported` column
+moved, by one, as a lane completed. The table above is left as measured at
+`4d8b30109` rather than overwritten, because it is what the guard's own ratchet
+baseline was taken against.
+
 ⚠️ **All six rows the finding named are STILL `in_flight` today** — the one-off
 state correction never happened, which is exactly why the row's done-condition
 forbids a manual sweep.
