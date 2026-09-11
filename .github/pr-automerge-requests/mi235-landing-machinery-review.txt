@@ -1,0 +1,4 @@
+PR #11799 — MI-235 review lane. Tier-1, docs-only: one docs/research/ report +
+one DOCUMENT-INDEX row. Touches nothing on LANDING_MACHINERY (verified by
+running check_pr_landing.py, not by reading the list). Arming per R6; the
+merge-slot claim below is R13's.

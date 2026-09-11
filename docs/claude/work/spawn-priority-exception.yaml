@@ -46,6 +46,10 @@ covers:
   - WO-20260911-IN-FLIGHT-GOES-FALSE-BY-TIME-PASSING
   # -- added 2026-09-11, the WIP-ceiling unstick (ops lane; unsticking outranks its own backlog) --
   - WO-20260911-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS
+  # -- added 2026-09-11, the SPA bearer half (operator-approved DIRECTLY, as a decision pop-up) --
+  - WO-20260911-GIVE-THE-SPA-A-BEARER-SO-THE
+  # -- added 2026-09-11, the #11767 adversarial review (operator-approved DIRECTLY, as a decision pop-up) --
+  - WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -617,3 +621,43 @@ reason_20260911_wip_ceiling_unstick: >-
   is trivially achievable by marking rows done, and `done` means MERGED AND OBSERVED. The MI-236 lane refused
   to recommend a landing state for exactly this reason and that refusal is inherited, not overridden -- what
   changes is that this lane is asked to do the per-row reading that makes a landing state establishable.
+
+reason_20260911_spa_bearer_and_11767_review: >-
+  BOTH WERE PUT TO THE OPERATOR DIRECTLY, AS TWO DECISION POP-UPS, ON 2026-09-11, AND BOTH WERE ANSWERED.
+  This is the strongest form this file admits -- not a manager's argument that work displaces the cycle, but
+  the operator choosing it from stated options with the trade-offs in front of them. The manager's
+  recommendation was offered and marked as such in each.
+
+  (1) SPA BEARER HALF. Question: "Both engineering lanes just finished, so two of your three slots are free.
+  What goes out next?" Options offered: the SPA bearer half (recommended) / the merge-slot fix (exempt
+  automation/** from R13) / hold both slots until the operator confirms the Workflow page. CHOSEN: the SPA
+  bearer half. WHY IT DISPLACES CY-20260906-TRADING-TRUTH RATHER THAN WAITING: #11783 landed the propagation
+  path for the two web-api auth secrets and NOTHING CAN USE IT -- MI-265 established the host side is
+  unreachable for everyone, MI-266 established the client side cannot send a bearer at all. A half-landed
+  change is worse than either state, and this is a half-landed change with a named remaining half. It also
+  does not compete for the operator's attention with the values they owe: the work can be BUILT without them
+  and only TESTED with them, which is exactly the "originate values + probe SPA in parallel" the operator
+  chose earlier the same day.
+
+  ⚠️ WHAT THE OPERATOR DID NOT SAY: they did not say "displace the trading cycle". They chose between three
+  options the manager framed. That framing is the manager's and is recorded here rather than hidden, so a
+  successor can disagree with it without having to reconstruct it.
+
+  ⚠️ AND THE DONE-CONDITION FORBIDS THE FLATTERING ANSWER: the object states in terms that the PR MAY LAND
+  WITHOUT THE TAB RENDERING and that the lane MUST NOT claim it does -- the host side needs two secret values
+  only the operator can originate. "The tab renders" is a LATER observation belonging to nobody yet.
+
+  (2) THE #11767 ADVERSARIAL REVIEW. Question: #11767 is green and declares landing: hold /
+  changes_landing_machinery, which is R12 -- the manager must NOT merge it, because the guard that would catch
+  a mistake in it is the thing being changed. Options offered: spawn a review lane to read it adversarially
+  (recommended) / the operator reads and merges it themselves / leave it parked. CHOSEN: spawn a review lane.
+  WHY IT DISPLACES THE CYCLE: it is finished work sitting unmerged behind a rule that exists precisely so a
+  manager cannot clear it, which is the drop pattern this manager session exists to stop; and every PR in the
+  repo lands through the machinery #11767 touches, so a defect there reaches the trading work too.
+
+  ⚠️ THE REVIEWER IS NOT A SECOND MANAGER AND MUST NOT MERGE IT EITHER. Its deliverable is a REPORT the
+  operator merges on. A review that ends in a merge has defeated the rule it was spawned to honour, and the
+  object says so in its done-when.
+
+  ⚠️ AND A CLEAN REPORT IS A VALID OUTCOME, required to state its POPULATION -- what was examined -- so that
+  "no problems found" can be told apart from "did not look hard".

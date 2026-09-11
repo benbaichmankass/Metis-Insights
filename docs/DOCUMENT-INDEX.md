@@ -694,6 +694,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m15-soak-report-2026-06-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m15-ws-c-alt-sweep-2026-06-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/mi235-landing-machinery-review-2026-09-11.md` | evidence | live | — | 2026-09-11 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-1d-fleet-pooling-2026-08-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-1d-pullback-preregistration-2026-08-14.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-arm-reachability-is-a-vol-threshold-2026-08-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -802,6 +803,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/runbooks/merge-queue.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/mobile-push.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/model-drift-remediation.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
+| `docs/runbooks/restore-webapp-auth.md` | lookup | live | — | 2026-09-11 | `MI-266: ordered restore steps + the measurement contract for the SPA auth gate` | — |
 | `docs/runbooks/monitor-reconciler.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/mounted-storage.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/netting-pnl-reconciliation.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |

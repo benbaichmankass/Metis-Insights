@@ -1,0 +1,1 @@
+manager tick 11:28Z — sequence the queue; record the owed due-list dispatch
