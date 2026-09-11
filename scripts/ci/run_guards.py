@@ -362,6 +362,25 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # `when: None` — it runs on EVERY diff, for the same reason the
+        # wip-ceiling guard below does. A stale `in_flight` row is written by
+        # whoever is last to touch either register, and a check that only fires
+        # when someone happens to edit the work store is not a check. This is
+        # also the row's whole done-condition: `MI-236` forbids a manual sweep,
+        # so the carrier has to be something nobody chooses to run.
+        "name": "stale-in-flight-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
+            # Prints the census over the WHOLE population every run and fails
+            # only on what THIS diff adds — see the module docstring for why a
+            # flat fail on the absolute count would red every open PR on day
+            # one (17 of 35 rows are already unsupported) and get the guard
+            # disabled rather than fixed.
+            ["python3", "scripts/ci/check_stale_in_flight.py"],
+        ],
+    },
+    {
         # A5 — the WIP ceiling of 8 work objects IN FLIGHT (operating-layer
         # Phase C). ⚠️ THIS IS A DIFFERENT POPULATION FROM open-items-guard
         # ABOVE, and the distinction is load-bearing: the REGISTER is uncapped

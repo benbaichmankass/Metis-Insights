@@ -1,0 +1,2 @@
+MI-236 — grade whether the register supports an `in_flight` claim.
+PR #11771. Tier-1, landing: self — see .github/pr-landing/mi236-decay-in-flight.json.
