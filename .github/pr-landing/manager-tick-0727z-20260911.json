@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 07:27Z. Registers only: MANAGER-LEASE.json heartbeat (07:27:24Z, expires 08:57:24Z), SESSIONS.json (three rows graded against a live read + the top-level updated_at R6 reads), MANAGER-CHECKLIST.json (MI-236 -> review_ready, merged, with its first reading recorded; MI-235 gains its fourth and fifth measured instances). NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Poking a blocked sub-session and keeping the work registers is management, not an item."
+}
