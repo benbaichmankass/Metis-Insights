@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T09:42:00Z",
+  "updated_at": "2026-09-11T09:55:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4642,6 +4642,17 @@
       "live_status_read_at": "2026-09-11T09:40:06Z",
       "manager_observation": "Spawned 09:39Z on the operator's pop-up answer ('originate values + probe SPA in parallel'). ⚠️ MANAGER ERROR, CAUGHT AND CORRECTED IN TWO MINUTES: create_session was called WITHOUT source_url, and the lane inherited only benbaichmankass/metis-insights while its Task B needs benbaichmankass/ict-trader-dashboard. Poked 09:41Z with the add_repo remedy and an explicit warning not to pre-check the repo first (an unauthenticated probe 404s for a repo the session IS authorised for, and that false negative would make it skip Task B). Delivery confirmed: cse_01BC4R18Lt8CaVzfxZF7DMce matched. Recorded as the manager's error rather than the lane's, because a lane blocked on something the manager could already see is precisely what MI-264 is filed about.",
       "updated_at": "2026-09-11T09:42:00Z"
+    },
+    {
+      "session_id": "session_01Uk4qLFBTyMEDMJXydYzSyw",
+      "title": "ENGINEERING LANE - MI-246: give a state transition an age, so an unrouted row cannot sit forever",
+      "owns_object": "WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED",
+      "checklist_item": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
+      "spawned_at": "2026-09-11T09:50:23Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Next row in the operator's declared engineering queue after MI-238's code landed. The third drop class: a row filed correctly and never routed has no age, no owner and no alarm. MI-246 has itself been ready/unassigned since 2026-09-10, so it is an instance of its own class.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

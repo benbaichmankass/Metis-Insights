@@ -1,0 +1,39 @@
+id: WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  A filed row that is never routed has no age: give state transitions an elapsed-time term and a surface
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01Uk4qLFBTyMEDMJXydYzSyw
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  (1) A row holding ready/unassigned past a MEASURED threshold is SURFACED where a manager reads before it plans - not in a 5.1 MB backlog and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row reported BEFORE the operator asks about it. (2) is the whole point and (1) does not substitute - every mechanism in this family has shipped and then not been read. A green guard clears (1) ONLY. Thresholds must be established FROM THE DATA with the population stated, never chosen round numbers. The surface must distinguish 'we did not look' from 'nothing is stale'. If the honest answer is that MI-235/236/237 subsume this once built, saying so and CLOSING this row explicitly is a legitimate outcome - a fourth near-duplicate accruing IS the class.
+
+why: >-
+  THE THIRD DROP CLASS. MI-235 covers a session blocked on a manager action never told when it clears; MI-236 covers an in_flight row going stale because nothing decays it. NEITHER covers a row FILED correctly and then never routed: it sits ready/unassigned indefinitely with no age, nothing computes how long it has been unrouted, and no surface reports it. FILING IS NOT ROUTING and the register makes those indistinguishable. Four measured instances, every one found only because the operator happened to ask.
+
+source: >-
+  operator (conversational), 2026-09-10 — the manager-mandate directive
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-11T09:52Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager) —
+  nothing blocks it, and that is a claim rather than the capture default.
+
+  It is deliberately NOT blocked on MI-237 (the checklist schema migration).
+  The migration would give a `state_since` field a tidy home, but the missing
+  thing is an ELAPSED-TIME TERM and a SURFACE, and neither depends on the
+  schema landing first. Nor is it blocked on MI-235 or MI-236: those cover
+  different members of the same family and this one can be measured, built and
+  surfaced independently of both.
+
+  ⚠️ The checklist row for MI-246 carried this same assessment before the object
+  existed; it is restated here so the object is not read as unassessed merely
+  because it was captured later.
+
+captured_by: scripts/ops/capture_idea.py

@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T09:42:00Z",
+  "updated_at": "2026-09-11T09:55:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3430,8 +3430,8 @@
     {
       "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
       "title": "THE THIRD DROP CLASS: a row filed and never routed has no age, no owner and no alarm — filing is not routing",
-      "owner": "unassigned — needs a session",
-      "state": "ready",
+      "owner": "session_01Uk4qLFBTyMEDMJXydYzSyw (ENGINEERING LANE)",
+      "state": "in_flight",
       "tier": 1,
       "priority": "high",
       "lane": "engineering",
@@ -3442,7 +3442,11 @@
       "resolution_criteria": "(1) A row that has held `ready`/`unassigned` past a measured threshold is SURFACED somewhere a manager reads before it plans — not in a 5.1 MB backlog, and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row is reported before the operator asks about it. !! (2) IS THE WHOLE POINT AND (1) DOES NOT SUBSTITUTE — every mechanism in this family has shipped and then not been read; that is what OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION and OI-20260902-ROLE-PACKS-... both still record. !! A GREEN GUARD CLEARS (1) ONLY. !! AND IF THE ANSWER IS THAT MI-235/MI-236/MI-237 SUBSUME THIS ONCE BUILT, that is a legitimate finding — say so and CLOSE this row explicitly rather than leaving a fourth near-duplicate accruing, which is itself the class.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-237: the schema migration would give the field a home, but the missing thing is an elapsed-time term and a surface, which do not depend on it.",
-      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
+      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive",
+      "spawned_at": "2026-09-11T09:50:08Z",
+      "work_object": "WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED",
+      "updated_at": "2026-09-11T09:52:00Z",
+      "⚠️_IT_WAS_AN_INSTANCE_OF_ITS_OWN_CLASS_FOR_A_DAY_AND_A_HALF": "This row was filed 2026-09-10 and sat `ready` / `owner: unassigned` until 09:50Z on 2026-09-11 — roughly 25 hours with no age, no alarm and no surface reporting it, which is EXACTLY the condition it exists to end. It moved because a manager read the queue by hand, which is the mechanism it is meant to replace. Recorded as evidence for the row, not as a remark: the four instances in `note` were all found the same way, and this is the fifth."
     },
     {
       "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
@@ -3818,7 +3822,7 @@
       "updated_at": "2026-09-11T09:42:00Z"
     }
   ],
-  "as_of": "2026-09-11T09:42:00Z",
+  "as_of": "2026-09-11T09:55:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3841,7 +3845,7 @@
     "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
     "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
     "engineering": {
-      "now": "MI-238 — the live Workflow page.",
+      "now": "MI-266 (make the Data Explorer reachable — operator-directed 2026-09-11) and MI-246 (the third drop class). ⚠️ MI-238's CODE HALVES ARE LANDED and its only outstanding clause is the operator confirming the rendered page in a browser, which is not lane work — so the queue moved on to the infra the operator ordered after it. MI-235 and MI-236 are both delivered (MI-235's #11767 is green and held for a human read under R12, which is not a lane blocker).",
       "then": [
         "MI-235 (tell a blocked session when its blocker clears)",
         "MI-236 (decay stale in_flight rows)",
@@ -3853,7 +3857,8 @@
         "MI-242 (add scripts/backtest_*.py to TIER1_SURFACE)"
       ],
       "operator_decision": "ASKED DIRECTLY 2026-09-10 and answered `Finish MI-238 first, then the infra`. The manager RECOMMENDED the opposite — switching to MI-235/236/246 immediately, on the grounds that those three would have caught 6 of the 8 things dropped in that single session — and the operator chose the page first. THE RECOMMENDATION IS RECORDED AS OVERRIDDEN, NOT AS ADOPTED: a later session must not read this order as the manager's own judgement, and must not silently re-order it back.",
-      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness."
+      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness.",
+      "⚠️_THE_ORDER_IS_STILL_THE_OPERATORS_AND_HAS_NOT_BEEN_RE_ORDERED": "`operator_decision` below still governs: asked directly 2026-09-10 and answered 'Finish MI-238 first, then the infra', OVERRIDING the manager's own recommendation. Nothing here re-orders it — MI-238's code is finished, so 'then the infra' is what is now running, and MI-246 is the next unstarted row on the `then` list. MI-266 is an OPERATOR INSERTION from 2026-09-11, not the manager promoting its own preference."
     },
     "ops": {
       "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",
