@@ -94,6 +94,16 @@ decision_requests:
 - id: DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW
   urgency: routine
   asked_on: '2026-09-08'
+  subject:
+    kind: open_item
+    ref: OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST
+    note: 'The question IS "should this row be removed?", so the row is the subject
+      and its existence settles whether anything remains to decide. It was removed
+      from docs/claude/OPEN-ITEMS.json on 2026-09-09 by ba5fccc1a (#11509) —
+      established by `git log -S` over the file and by confirming its absence at
+      001b842bb and every head since, NOT by reading the PR title. Declared by hand
+      because MI-258 measured a prose scan at a 75% false-positive rate on this
+      exact corpus; see src/runtime/decision_subject.py.'
   asked_by:
     session_id: session_01ML8uLRrKLMmzR9fFywTWv5
   question: OI-20260831-TRADE-PRIORITISATION-IS-LIVE-BUT-UNPROVEN-AND-ITS-AB-HARNESS-DOES-NOT-EXIST is

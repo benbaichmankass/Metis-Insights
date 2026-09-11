@@ -52,7 +52,7 @@ source: >-
   on an explicit operator decision, 2026-09-07.
 
 blocked_on:
-  - kind: external_event
+  - kind: data_accrual
     ref: >-
       a real IB close on a symbol holding a sibling trade's lots, OBSERVED
       confirming on the fleet
@@ -218,3 +218,26 @@ not_done:
     than merged unasked.
 
 captured_by: MI-168
+sweep_2026_09_11: |-
+  COHORT RULE 4 ("accrual is not an external event") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: an edge whose `ref` names DATA OR AN OBSERVATION
+    ACCUMULATING ON THE FLEET, which no person can schedule and which needs nobody to act, is
+    `kind: data_accrual` — a value ALREADY DECLARED in the work store's own vocabulary
+    (`docs/claude/work/README.md`; `scripts/ops/constraint_readout.py:234`) and, MEASURED over all
+    710 objects on 2026-09-11, used by ZERO of them. An edge that names a PR merging, an operator
+    deciding, or a session doing something stays `external_event`. Only the `kind:` value changed;
+    the `ref`, the `since` and the note are untouched, so no new claim is introduced.
+    ⚠️ WHY THIS MATTERS: `external_event` was carrying BOTH facts, so "nothing is happening" and
+    "something is accruing that nobody is watching" rendered identically — the collapsed-state
+    defect this repo has a guard family for, one level below `lifecycle`.
+    ⚠️ AND STATE WHAT IT DOES NOT YET BUY: nothing BRANCHES on `data_accrual` today. It is already
+    correctly excluded from `constraint_readout.operator_block` (which collects ONLY
+    `operator_decision`), so a soak-bound row is not counted as blocked on a person — but that is
+    true of `external_event` too. The re-point makes the RECORD true; making it VISIBLE is a
+    renderer change on the SPA Work page, which already receives `blockedOn[].kind` from
+    `/api/bot/work`. No `lifecycle` widening is required and none was made.
+  ---
+  RE-POINTED the FIRST edge only (`a real IB close on a symbol holding a sibling trade's lots,
+  OBSERVED confirming on the fleet`) from `external_event` to `data_accrual`. Its own note already
+  says the change reaches the trader without anyone doing anything and that what remains is an
+  OBSERVATION. The other two edges on this object (`object`, `backlog_row`) are UNTOUCHED.

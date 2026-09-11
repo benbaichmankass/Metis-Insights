@@ -35738,6 +35738,54 @@
       ]
     },
     {
+      "id": "BL-20260911-LIFECYCLE-HAS-NO-TERMINAL-VALUE-FOR-SUPERSEDED-OR-DUPLICATE-SO-A-KNOWN-DUPLICATE-MUST-BE-MARKED-DONE",
+      "title": "The work store's `lifecycle` vocabulary has no terminal value meaning superseded / duplicate / abandoned, so a known duplicate has to be marked `done` — a false claim of completion",
+      "severity": "medium",
+      "tier": 1,
+      "area": "work-store/schema",
+      "status": "open",
+      "opened_at": "2026-09-11",
+      "source": "session_01LoZJDARzLr1REPnqQ5Kgbz (MI-243 dormant sweep)",
+      "detail": "MEASURED over all 710 docs/claude/work/objects/*.yaml at main 4e9255acb, 2026-09-11, during the MI-243 dormant sweep. `lifecycle` is dormant/ready/in_flight/waiting/done/accepted. NONE of the six means 'this row is superseded, duplicated, or abandoned'. TWO rows in one 47-row cohort forced the gap into the open. (1) WO-20260906-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG is a CONFIRMED duplicate of the -0907- row — named as such in PR #11279's own body ('two objects for the same work ... the duplicate was left rather than merged unasked'). It had to be marked `done` with a verdict shouting THE WORK IS NOT COMPLETE, because every other value is also false. (2) WO-20260902-NIGHT-SHIFT-2026-09-02-03-FINISH is a time-boxed plan whose window elapsed; it was LEFT `dormant` because `done` would assert a night's work nobody established. So the vocabulary forces a choice between a false completion and a false 'still carried', and the sweep took a different branch in each case. !! THIS IS A COLLAPSED STATE IN THE REPO'S OWN SENSE: `done` now means BOTH 'finished' and 'not finished but no longer live here', and a reader cannot tell them apart except by reading prose. !! NOTE IT IS NOT URGENT AND MUST NOT BE FIXED BY WIDENING `lifecycle` CASUALLY: that touches constraint_readout.py, check_wip_ceiling.py, the work router and the SPA, and MI-243 deliberately declined to widen it.",
+      "resolution_criteria": "Either a terminal value distinguishing superseded/duplicate/abandoned from completed exists and the two named rows are re-pointed at it, OR an operator decision records that `done`+prose is deliberate — in which case the two facts are knowingly collapsed and that must be written down rather than left looking like an oversight."
+    },
+    {
+      "id": "BL-20260911-FIVE-BLOCKED-ON-KINDS-IN-LIVE-USE-ARE-OUTSIDE-THE-DECLARED-VOCABULARY",
+      "title": "Five `blocked_on` edge kinds are in live use but are not in the declared vocabulary, so the typed edge is not actually typed",
+      "severity": "low",
+      "tier": 1,
+      "area": "work-store/schema",
+      "status": "open",
+      "opened_at": "2026-09-11",
+      "source": "session_01LoZJDARzLr1REPnqQ5Kgbz (MI-243 dormant sweep)",
+      "detail": "MEASURED over all 710 work objects at main 4e9255acb, 2026-09-11. docs/claude/work/README.md declares kind ∈ object · operator_decision · external_event · data_accrual · capability. In use: operator_decision 12, external_event 7, object 5, data_accrual 3, capability 2 — and ALSO pr 2, backlog_row 2, work_object 1, review 1, artifact 1. Those last five are undeclared; `work_object` is almost certainly a misspelling of `object`, which means one edge does not resolve as an in-store reference at all. Nothing validates the field, so an undeclared kind is silently accepted. CONSEQUENCE: constraint_readout.operator_block keys on kind == 'operator_decision' exactly, and grade_edge grades ref_state ONLY for kind == 'object' — so a `work_object` edge is neither graded as a reference nor counted anywhere. Found incidentally while re-pointing three edges at `data_accrual` for MI-243, not by a probe looking for it.",
+      "resolution_criteria": "Either the five kinds are folded into the declared set (or the set is widened to include them deliberately) AND a check refuses an undeclared kind, OR it is recorded that the vocabulary is advisory — which would contradict the README's claim that the edge is typed."
+    },
+    {
+      "id": "BL-20260911-TEN-OF-25-WAITING-WORK-OBJECTS-CARRY-NO-EDGE-AND-SEVERAL-ASSERT-NOTHING-BLOCKS-THEM",
+      "title": "10 of 25 `waiting` work objects carry no `blocked_on` edge at all, and several of those state in their own basis that nothing blocks them — which is the definition of `ready`",
+      "severity": "medium",
+      "tier": 1,
+      "area": "work-store/data",
+      "status": "open",
+      "opened_at": "2026-09-11",
+      "source": "session_01LoZJDARzLr1REPnqQ5Kgbz (MI-243 dormant sweep)",
+      "detail": "MEASURED over all 710 work objects at main 4e9255acb, 2026-09-11. Of 25 rows at lifecycle `waiting`, 10 carry `blocked_on: []`. Several of those carry an ASSESSED basis whose text says the opposite of waiting — e.g. WO-20260903-CLOSE-WEDGE-LEDGER-ABSENT ('Nothing blocks it: the diag read that measures it is available'), WO-20260904-MANAGER-IDLE-IS-UNBOUNDED ('Nothing blocks the work'). A row that is assessed as unblocked and is not being worked is `ready`, not `waiting`. !! WHY IT MATTERS: `waiting` is what the operator will be asked to read as 'held up', so unblocked work sitting there makes the held-up set look larger than it is, in the direction that hides real queue depth. !! AND A SEPARATE ONE IN THE SAME POPULATION: WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE's basis says 'The edge is REAL and narrow' while `blocked_on` is EMPTY — the edge was written in prose and never as a typed edge, so the constraint computation cannot see it. NOT FIXED BY MI-243: `waiting` is outside that item's dormant population, and re-grading 10 rows deserves its own read rather than being folded into a sweep that was scoped elsewhere.",
+      "resolution_criteria": "Each of the 10 either carries a TRUE typed edge, or is moved to the lifecycle its own basis implies. A row whose basis cannot be established stays `waiting` with that recorded — 'we did not look' is a legitimate outcome and must not be resolved by inventing an edge."
+    },
+    {
+      "id": "BL-20260911-THE-ACCRUING-REGISTER-IS-OPEN-ITEMS-JSON-AND-THE-SPA-WORK-PAGE-DOES-NOT-RENDER-IT",
+      "title": "The register of work that is genuinely accruing (OPEN-ITEMS.json, 57 monitoring + 11 awaiting_verification) is not on the Work page, which is why the page shows a dormant pile and no accruing status",
+      "severity": "medium",
+      "tier": 1,
+      "area": "spa/work-page",
+      "status": "open",
+      "opened_at": "2026-09-11",
+      "source": "session_01LoZJDARzLr1REPnqQ5Kgbz (MI-243 dormant sweep)",
+      "detail": "MEASURED 2026-09-11 during MI-243. The operator asked for a status describing work 'stuck on soaks/observations' after reading the SPA Work page. The sweep established that such work is largely NOT in the work store: docs/claude/OPEN-ITEMS.json holds 76 rows — 57 `monitoring`, 11 `awaiting_verification`, 6 `background_awareness`, 2 `pending_decision` — and these are the soaks running and observations pending. Only 26 of 710 work objects name an OPEN-ITEMS id at all, and only 2 of those are `dormant`. POSITIVE CONTROL: the probe found those 26 across four different lifecycles, so it was capable of finding more. So the Work page shows a store that is mostly carried findings, while the accruing work lives in a file the page does not render — the operator was looking at the wrong pile through no fault of their own. !! WHAT MI-243 DID AND DID NOT DO: it established `waiting` + `blocked_on: {kind: data_accrual}` as the in-store expression of accruing (0 of 710 rows used the declared `data_accrual` kind before; now 3), and `/api/bot/work` ALREADY ships `blockedOn[].kind` per object. So surfacing it is a renderer change with the data already present, NOT a schema change.",
+      "resolution_criteria": "The Work page distinguishes PARKED from ACCRUING — at minimum by reading `blockedOn[].kind == 'data_accrual'`, which the API already returns — and the operator confirms they can tell the two apart from the page. Whether OPEN-ITEMS rows should also surface there is a separate call. !! A MERGE IS NOT A DEPLOY AND A DEPLOY IS NOT THE OPERATOR SEEING IT."
+    },
+    {
       "id": "BL-20260910-A-START-HEADED-FILES-I-WILL-TOUCH-DECLARES-NOTHING-SO-THE-SCOPE-OVERLAP-AUDIT-REPORTS-NO-LIVE-SESSION",
       "opened": "2026-09-10",
       "severity": "medium",

@@ -73,6 +73,13 @@ from fastapi import APIRouter, Header, HTTPException, Request
 # cherry-picking helpers, so a reader of this route can see that every status
 # reading here is `manager_status`'s and none of it is re-derived locally.
 from src.runtime import manager_status
+from src.runtime.decision_subject import (
+    SUBJECT_GONE,
+    SUBJECT_STATES,
+    SubjectResolver,
+    grade_subject,
+    is_actionable,
+)
 from src.runtime.work_decisions import (
     ANSWERED_IN_CONVERSATION,
     ANSWER_STATES,
@@ -89,6 +96,7 @@ from src.runtime.work_decisions import (
     TRANSIT_UNREADABLE,
     UNREADABLE,
     append_submission,
+    awaiting_operator_count,
     grade_answer_state,
     latest_submissions,
     malformed_request_count,
@@ -1213,6 +1221,11 @@ def _decision_inbox() -> dict[str, Any]:
     rows, transit_state, transit_error = read_transit()
     latest = latest_submissions(rows)
     now = datetime.now(timezone.utc)
+    # Built ONCE per inbox build and shared across every request: it caches
+    # each canonical register after the first read, and the backlog union alone
+    # is 1691 rows. Re-reading per request would put real cost on an API path
+    # for no new information.
+    subject_resolver = SubjectResolver(repo_root())
 
     requests: list[dict[str, Any]] = []
     unanswerable: list[dict[str, Any]] = []
@@ -1229,9 +1242,15 @@ def _decision_inbox() -> dict[str, Any]:
         for req in normalise_requests(source, str(object_id)):
             submission = latest.get((str(object_id), req["id"]))
             state = grade_answer_state(req, submission, transit_state)
+            # MI-258: does the thing this asks about still EXIST? A perfectly
+            # graded question about a deleted row is still a question that
+            # should not be on the operator's screen. One resolver for the
+            # whole build — every register is read at most once.
+            subject = grade_subject(req, subject_resolver)
             requests.append(
                 {
                     **req,
+                    **subject,
                     "objectTitle": obj.get("title"),
                     "objectLifecycle": obj.get("lifecycle"),
                     "parentIntent": obj.get("parentIntent"),
@@ -1244,6 +1263,16 @@ def _decision_inbox() -> dict[str, Any]:
                     # one, and it is the same mistake as merging state/status.
                     # Read from SETTLED_STATES, which `work_decisions` owns.
                     "settled": state in SETTLED_STATES,
+                    # ⚠️ PUBLISHED FOR THE SAME REASON `settled` IS: whether a
+                    # question is WORK is one decision with one owner, and the
+                    # SPA re-deriving it in TypeScript is how a second
+                    # definition is born. `settled` alone is no longer the
+                    # test — a live, unanswered question about a row that was
+                    # deleted is not work either.
+                    "actionable": is_actionable(
+                        settled=state in SETTLED_STATES,
+                        subject_state=subject["subjectState"],
+                    ),
                     "transit": transit_window(
                         submission if state == IN_TRANSIT else None, now=now
                     ),
@@ -1271,8 +1300,38 @@ def _decision_inbox() -> dict[str, Any]:
             )
 
     by_state = {state: 0 for state in ANSWER_STATES}
+    by_subject = {state: 0 for state in SUBJECT_STATES}
     for req in requests:
         by_state[req["answerState"]] += 1
+        by_subject[req["subjectState"]] += 1
+
+    # collapsed-state: subject_gone — THIS ROUTE BRANCHES ON ONE OF THE FOUR
+    # STATES, DELIBERATELY, AND THE OTHER THREE ARE PUBLISHED RATHER THAN
+    # MANUFACTURED INTO A BRANCH. The only question asked here is "is this
+    # work?", and only `subject_gone` answers no: `live`, `unknown` and
+    # `undeclared` all KEEP the question on the operator's list, which is the
+    # fail-safe direction and the whole point — `unknown` is *we could not
+    # look*, and withdrawing a decision on that would be the inversion MI-258
+    # exists to refuse. The three are not collapsed by being unbranched here:
+    # they are graded apart by `decision_subject` (distinct `subjectBasis` and
+    # `subjectNote` per state), counted apart in `bySubjectState` below, and
+    # rendered apart by the SPA from that data. Adding a second branch at this
+    # site purely to satisfy the guard is the decorative branch CLAUDE.md's
+    # `BYBIT_HEDGE_MODE_SYMBOLS` row names in terms.
+    #
+    # An unanswered question whose subject is gone. Counted SEPARATELY rather
+    # than silently subtracted from `awaitingOperator`: a number that shrinks
+    # with no published reason is indistinguishable from work disappearing.
+    # ⚠️ ONE OWNER FOR THIS SUBTRACTION, in `work_decisions` beside the answer
+    # vocabulary — it is not re-derived here. `moot_unanswered` spans EVERY
+    # unsettled state, while the operator's own backlog spans only
+    # AWAITING_OPERATOR_STATES, and `in_transit` is unsettled while sitting in
+    # `awaitingCommit`. Subtracting the wider from the narrower under-reports
+    # what the operator owes by one per moot in-transit row and can go
+    # NEGATIVE — hiding a live question. Caught by arithmetic, not re-reading.
+    awaiting_operator, moot_unanswered, moot_awaiting_operator = (
+        awaiting_operator_count(requests)
+    )
 
     # Attention order: what the operator can act on NOW comes first. An answered
     # question is not a task.
@@ -1290,6 +1349,11 @@ def _decision_inbox() -> dict[str, Any]:
     urgency_order = {"blocking": 0, "routine": 1}
     requests.sort(
         key=lambda r: (
+            # ⚠️ MOOT SORTS LAST, AND IS NOT DROPPED. MI-258 is explicit that
+            # a question which was asked and became moot is a RECORD, and that
+            # the reason it became moot is the useful part — so it leaves the
+            # top of the operator's list without leaving the page.
+            0 if r["subjectState"] != SUBJECT_GONE else 1,
             order.get(r["answerState"], 9),
             urgency_order.get(r.get("urgency"), 9),
             str(r.get("askedOn") or ""),
@@ -1358,9 +1422,26 @@ def _decision_inbox() -> dict[str, Any]:
             # so we could not grade it. Neither is a decision, and folding
             # either into `decided` would report a question as closed that
             # nobody closed.
-            "awaitingOperator": (by_state[NOT_SUBMITTED] + by_state[UNREADABLE]
-                                 + by_state[ENGAGED_NOT_SETTLED]
-                                 + by_state[VERDICT_UNRECOGNISED]),
+            # ⚠️ MI-258: MOOT ROWS ARE EXCLUDED, and `mootUnanswered` below
+            # says how many — read the two together. Before this, a question
+            # about a row deleted on 2026-09-09 sat here as work waiting on the
+            # operator for more than a day.
+            "awaitingOperator": awaiting_operator,
+            # The withdrawal, stated. Never folded into `decided`: nobody
+            # decided these, they stopped being questions.
+            "mootUnanswered": moot_unanswered,
+            # What was actually taken OFF `awaitingOperator`. Published beside
+            # the wider count so the subtraction is auditable rather than
+            # inferred — they differ exactly when a moot question is in
+            # transit, i.e. waiting on a COMMITTER rather than on the operator.
+            "mootAwaitingOperator": moot_awaiting_operator,
+            # ⚠️ Read `subject_undeclared` as the DENOMINATOR, not as a
+            # failure. Measured 25 of 26 on 2026-09-11: the resolver was never
+            # asked to resolve those, so pooling them with `subject_unknown`
+            # would report a 96% resolution failure for work never attempted.
+            "bySubjectState": by_subject,
+            # The ONE owner of "is this work?" — see `is_actionable`.
+            "actionableCount": sum(1 for r in requests if r["actionable"]),
             "awaitingCommit": by_state[IN_TRANSIT],
             # Settled through EITHER channel. Read from SETTLED_STATES rather
             # than re-derived, so this can never drift from the one owner.

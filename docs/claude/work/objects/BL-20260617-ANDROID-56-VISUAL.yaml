@@ -8,10 +8,10 @@ parent_intent: null
 title: |-
   ASK OPERATOR: on-device visual check of ict-trader-android #56 before merge (sandbox can't render the app)
 stage: INTEGRITY
-lifecycle: dormant
+lifecycle: done
 owner: null
 opened_at: '2026-06-17T11:05:00+00:00'
-closed_at: null
+closed_at: '2026-09-11'
 review_trigger: |-
   Re-read when this is pulled under an intent, or when a session working a related area finds it. A dormant object is NOT a queued one — nothing is scheduled to pick this up, and that is the honest state rather than a backlog promise nobody is keeping.
 done_condition: |-
@@ -31,4 +31,20 @@ source:
     The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK of dealing with it. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
 evidence:
 - docs/claude/health-review-backlog.json#BL-20260617-ANDROID-56-VISUAL
-verdict: null
+verdict: |-
+  CLOSED BY THE MI-243 DORMANT SWEEP, 2026-09-11, under COHORT RULE 1 ("migrant-terminal").
+  THE RULE, stated before it was applied: this object is a Phase-C migrant (its
+  `blocked_on_basis` records the 2026-09-01 bulk migration) AND the backlog row it
+  mirrors — `BL-20260617-ANDROID-56-VISUAL` in `health-review-backlog.json` — has since reached a TERMINAL
+  status, read as `wont_fix` on 2026-09-11. The rule moved 21 of the 575 migrants.
+  POPULATION: all 710 `docs/claude/work/objects/*.yaml` at `main` 4e9255acb; 622
+  dormant, of which 575 are migrants; all 575 joined to a live backlog row (no
+  unmatched), which is the positive control that the join works.
+  ⚠️ WHAT THIS CLOSURE CLAIMS, AND WHAT IT DOES NOT. It claims only that the
+  FINDING's own state of record has reached a terminal status — the backlog row is
+  the state of record for the finding, as this object's own `source.note` says. The
+  sweep did NOT re-verify the fix on the fleet, and this row must NOT be read as an
+  observation that it works. If the backlog row was closed in error, the error is
+  there and this row follows it rather than adding a second, independent claim.
+  ⚠️ NOT a bulk close: rows whose backlog original still reads `open` or `kept_open`
+  (554 of 575) were left `dormant` untouched.

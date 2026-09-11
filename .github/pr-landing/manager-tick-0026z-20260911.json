@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: MANAGER-LEASE.json heartbeat, MANAGER-CHECKLIST.json annotations on two rows, and the SESSIONS.json supervision record plus this tick's registry row. No src/, no config/, no workflow, no order path, no strategy or risk change."
+}

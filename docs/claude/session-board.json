@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "claude session_01J2dBJqYb85GwahYy51CdLV · PR #11648 (MI-139, OPS lane takeover)",
-    "branch": "claude/mi139-observe-deployed-20260910",
-    "claimed_at": "2026-09-10T23:54:43Z",
-    "purpose": "Tier-1 registers only: clear OI-20260906-BYBIT-CLOSE-QTY-SNAP-MERGED-BUT-NEVER-OBSERVED-ON-THE-FLEET on its own clears_when (clauses 1 and 2 OBSERVED on the live fleet; clause 3 recorded with a measured why) and file BL-20260910-DIAG-JOURNALCTL-SILENTLY-ACCEPTS-AN-UNKNOWN-QUERY-PARAM-SO-A-FILTER-READS-AS-A-MATCH-COUNT. Unsticking a PR opened 2026-09-10T07:08:09Z whose author session is gone; origin/main merged IN, never rebased. Fourth conflict round, every one a shared JSON register and none in content. No src/, no config/, no order path."
+    "held_by": "session_01LoZJDARzLr1REPnqQ5Kgbz",
+    "branch": "claude/mi243-dormant-sweep-20260911",
+    "claimed_at": "2026-09-11T03:55:36Z",
+    "purpose": "MI-243 dormant work-object sweep (PR #11758). Tier-1: docs + work-store records only, no src/tests/config/deploy/workflow. SLOT TAKEN ON A FETCH AT CLAIM TIME, which is the order the previous holder's own note says is the whole lesson: the prior claim named claude/mi258-observed-on-the-fleet, and its PR #11757 is the squash commit 681b88a84 sitting at origin/main HEAD as of this fetch, so the claim was discharged rather than live."
   },
   "active_sessions": [
     {
