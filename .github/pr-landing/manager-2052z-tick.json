@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register push only: docs/claude/work/MANAGER-CHECKLIST.json (three lane rows restated against their real session state, plus the fourth operator decision recorded) and docs/claude/work/MANAGER-LEASE.json (the 20:55:24Z heartbeat). No src/, no config/, no scripts/, no deploy/, no .github/workflows/, no tests. R12 checked as a list, not inferred: LANDING_MACHINERY names .github/workflows/{claude-pr-automerge,pr-opener,board-post}.yml, .github/pr-landing/*.json, scripts/ci/check_pr_landing.py, scripts/ci/check_automerge_trigger.py, scripts/ops/session_registry.py, .github/actions/commit-to-main/action.yml, scripts/ops/claim_merge_slot.py and scripts/ops/sweep_stale_automation_prs.py -- this diff touches none of them except this branch's OWN declaration, which R12 excludes by construction. R7 positive duty satisfied: SESSIONS.json is not staler than the lease TTL; this heartbeat is 62 min after the previous one, inside the 90 min TTL. Tier-1 by the canonical doc's own examples (docs + register records)."
+}
