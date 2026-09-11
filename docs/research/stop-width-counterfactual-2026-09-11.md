@@ -65,7 +65,7 @@ This unit was dispatched on the premise that `peak_r` / adverse excursion could 
 
 - It records **`peak_r` — maximum FAVOURABLE excursion** (MFE), from bar extremes, stamped ESTIMATED. It ships `peak_r`, `open_r`, `giveback_r`, `r_to_stop`, `cap_r` and **nothing that retains how far adverse price travelled**.
 - `record_position_telemetry` is an **UPSERT** — one row per open trade, overwritten every exit-loop pass — so only the **last state** survives. There is no path.
-- The counterfactual needs the adverse path **beyond** the tightened stop, i.e. price action **after the position was already closed**. Observation stops at the close, so **telemetry could not answer this at 100% coverage either**.
+- The counterfactual needs the adverse path **beyond** the tightened stop, i.e. price action **after the position was already closed**. Observation stops at the close, so **telemetry could not answer this however complete its coverage became**.
 
 MI-271 refused the MFE-at-stop join on an n argument (36% join, cells of 2–15, one empty). That refusal was right, and the deeper reason is that **the quantity needed was never the one recorded.** Filed.
 

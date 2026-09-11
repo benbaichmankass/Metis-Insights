@@ -730,7 +730,8 @@ def excursion_regime(units_pre: list[dict], units_post: list[dict], cache: str) 
                 continue
             a = abs(u["entry"] - (extreme(c, u["adverse_side"]) or u["entry"])) / u["atr"]
             f = abs((extreme(c, u["favourable_side"]) or u["entry"]) - u["entry"]) / u["atr"]
-            mae.append(a); mfe.append(f)
+            mae.append(a)
+            mfe.append(f)
             rows.append({"package": u["package"], "leg": u["leg"],
                          "mae_atr": round(a, 3), "mfe_atr": round(f, 3),
                          "declared_stop_at_atr": u["new_mult"] if era == "post" else u["old_mult"],
