@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T13:40:00Z",
+  "updated_at": "2026-09-11T14:26:14Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3908,10 +3908,11 @@
       "note": "The spec is ALREADY WRITTEN: docs/research/mi235-landing-machinery-review-2026-09-11.md (merged #11799). BLOCKING: _latch_key omits the blocker STATE, so a blocker first graded could_not_look never pages when it clears. SHOULD-FIX: a mid-workflow '|| exit 2' that skips BOTH the receipt landing and the existing PR-queue escalation, with an unreachable report branch and a comment saying the opposite; and a spawn prompt telling every lane to write SESSIONS.json one line after saying the manager owns it. NOTE: rows[0] with no multiplicity check, in a file that records being bitten by exactly that.",
       "⚠️_WHY_ITEM_1_IS_BLOCKING_AND_NOT_MERELY_A_BUG": "It is #11767's OWN MOTIVATING CASE (MI-238). Shipping without it gives a mechanism that LOOKS ARMED AND STAYS SILENT exactly where it is most needed -- the failure class this operating layer exists to end, installed by the thing built to prevent it. ⚠️ AND THE TEST MUST COVER THE TRANSITION (could_not_look -> cleared), not the latch key's SHAPE: a test asserting the key now contains the state would pass against a broken implementation that never re-evaluates. The existing misleading test is renamed in the same round.",
       "⚠️_WHY_A_FRESH_LANE_RATHER_THAN_REVIVING_MI_235": "The manager's judgement, not the operator's, and recorded as such: MI-235's session is long-idle with cold context, and the review is a COMPLETE WRITTEN SPEC, so nothing is lost by starting clean. All three concurrent slots were free at dispatch, so it costs no other work.",
-      "⚠️_THE_LANE_MUST_NOT_MERGE_11767_AND_NEITHER_DOES_THE_MANAGER": "R12 holds a landing-machinery change for a HUMAN READ whatever its state, and fixing the findings does not lift that. The declaration (.github/pr-landing/mi235-blocked-lane-watch.json, landing: hold / changes_landing_machinery) stays in place -- it is correct. The OPERATOR merges it. ⚠️ AND A GREEN GUARD SELF-TEST IS NOT THE VERIFICATION: the review MEASURED that the guard and its harness are untouched by this diff, so an identical green on main is the expected outcome and says nothing about the PR. The reviewer ran it and then refused to lean on it; the lane was told not to undo that care."
+      "⚠️_THE_LANE_MUST_NOT_MERGE_11767_AND_NEITHER_DOES_THE_MANAGER": "R12 holds a landing-machinery change for a HUMAN READ whatever its state, and fixing the findings does not lift that. The declaration (.github/pr-landing/mi235-blocked-lane-watch.json, landing: hold / changes_landing_machinery) stays in place -- it is correct. The OPERATOR merges it. ⚠️ AND A GREEN GUARD SELF-TEST IS NOT THE VERIFICATION: the review MEASURED that the guard and its harness are untouched by this diff, so an identical green on main is the expected outcome and says nothing about the PR. The reviewer ran it and then refused to lean on it; the lane was told not to undo that care.",
+      "note_progress_14_26z": "RUNNING at 14:25:39Z, 46 min in, all CI green, #11767 head moved 5c97a5edb -> ae18ee766. ⚠️ ITS SUMMARY SAYS 'verifying merge state before posting result' AND THE LANE WAS TOLD NOT TO MERGE #11767 -- verified against the PRIMARY SOURCE: the PR is still OPEN, so that meant mergeability. Constraint intact. ⚠️ AND ITS EARLIER SUMMARY SAID 'verified 5 items' WHERE FOUR WERE DISPATCHED -- unexplained, most likely a fifth finding it made and filed, to be read against the four review findings when it reports rather than assumed to be a bonus."
     }
   ],
-  "as_of": "2026-09-11T13:40:00Z",
+  "as_of": "2026-09-11T14:26:14Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3972,21 +3973,21 @@
     "lane_assignment_provenance": "The three previously-unlaned decision items were put to the operator as separate pop-ups on 2026-09-10 with an explanation and a manager recommendation each, and all three recommendations were accepted: closed-flat -> ops, rollback-registry -> ops, MI-29 -> research. They are recorded as THREE decisions rather than one because they did not share an answer — the first two are fleet-side and the third is analysis, and collapsing them would have hidden that."
   },
   "_merge_queue": {
-    "as_of": "2026-09-11T13:26:03Z",
+    "as_of": "2026-09-11T14:26:14Z",
     "run_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager)",
     "note": "The manager SCHEDULES merges rather than resolving the conflicts that not scheduling them causes. At most one entry may be `rebasing` (check_manager_scope.py R8).",
-    "main_head": "d784d7f5f (before this tick) — this branch lands on top",
+    "main_head": "3cb0f774d (#11801)",
     "main_state": "GREEN.",
     "entries": [
       {
         "pr": "#11767",
-        "item": "MI-235",
+        "item": "MI-235 / MI-269",
         "tier": 1,
         "landing": "hold",
         "hold_reason": "changes_landing_machinery (R12)",
-        "state": "REVIEWED — do NOT merge as it stands",
-        "head": "5c97a5edb",
-        "why_held": "The MI-268 adversarial review (merged #11799) found ONE BLOCKING bug: _latch_key omits the blocker STATE, so a blocker first graded could_not_look never pages when it clears -- the PR's own motivating case. Plus 2 should-fix and 1 note. Verdict: one short fix round, not a redesign. The manager still does not merge this (R12); the operator decides whether the round goes out."
+        "state": "fix round IN FLIGHT — head moved to ae18ee766",
+        "head": "ae18ee766",
+        "why_held": "R12: a human must read a landing-machinery change whatever its state, and fixing the review's findings does not lift that. MI-269 is addressing all four. The manager does not merge it; the OPERATOR does, after the lane reports."
       },
       {
         "pr": "#11738",
@@ -3995,8 +3996,8 @@
         "landing": "hold",
         "hold_reason": "tier_2_3_needs_approval (R4)",
         "state": "green_awaiting_one_operator_merge_click",
-        "head": "b92615f3a",
-        "why_held": "R4 bars a Tier-2 diff from self-landing whatever its approval state. THE APPROVAL IS RECORDED (r2_only) AND MUST NOT BE RE-SOUGHT. ⚠️ r2_only means R2 ONLY -- R1, the exit-loop startup reorder, is NOT approved."
+        "head": "1a0d95b78",
+        "why_held": "R4 bars a Tier-2 diff from self-landing whatever its approval state. THE APPROVAL IS RECORDED (r2_only) AND MUST NOT BE RE-SOUGHT. ⚠️ Head moved 13:29:57Z — a merge of main into the branch, i.e. someone resolved a conflict on it; not the manager, and it changes nothing about the hold."
       },
       {
         "pr": "#11789",
@@ -4005,7 +4006,7 @@
         "landing": "self",
         "state": "open_automation_on_a_stale_base",
         "head": "fedc80f42",
-        "why_held": "Base predates several merges; will likely go dirty on the merge_slot block, which is the known contention class. Not blocked on the manager."
+        "why_held": "Base predates many merges; likely dirty on the merge_slot block, the known contention class. Not blocked on the manager."
       }
     ],
     "merged_this_session": [
@@ -4046,7 +4047,7 @@
       "#11799 — MI-268's adversarial review report, which the lane landed itself",
       "ict-trader-dashboard#216 (f6480f6c4) — MI-267, merged BY HAND after un-drafting; the lane reported it green and mergeable without saying it was a DRAFT"
     ],
-    "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), 13:26Z tick",
+    "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), 14:26Z tick",
     "⚠️_A_STACKED_FOLLOW_UP_BRANCH_INHERITS_THE_ARMED_BRANCHS_SLOT_CLAIM_AND_R2_REJECTS_IT": "MEASURED THREE TIMES on 2026-09-11 (#11798, and twice on the MI-269 dispatch). Once a branch ARMS, it must be treated as closed to new content, so the manager opens a follow-up -- and `git checkout -B <new>` with HEAD on the armed branch INHERITS its merge_slot claim commit, which names the ARMED branch. manager-scope R2 then correctly fails the follow-up. THE GUARD IS RIGHT; THE BRANCHING HABIT IS THE DEFECT. REMEDY GOING FORWARD: create a follow-up from `origin/main`, never from the armed branch -- the two will overlap on the append-only registers, which is a VERIFIED-UNION resolution the manager already performs and which R2 does not object to. RECOVERY IF IT HAPPENS ANYWAY: once the armed PR merges, `git rebase --onto origin/main <armed-tip> <follow-up>` drops the inherited commit -- used all three times and it works, but it is a repair AFTER a wasted ~15-minute guard run, not a prevention. Filed as BL-20260911-A-MANAGER-FOLLOW-UP-BRANCH-STACKED-ON-AN-ARMED-BRANCH-INHERITS-ITS-MERGE-SLOT-CLAIM-AND-R2-CORRECTLY-REJECTS-IT (on this branch, so it does not resolve from main's view until this merges). ⚠️ IT IS NOT THE 2026-09-08 carve-out row, which is about a MERGE COMMIT's two parents; here there is no merge commit at all."
   },
   "⚠️_THE_LEASE_LAPSED_2026_09_11T0157Z": "⚠️ RECORDED AGAINST THE MANAGER, AND THE OPERATOR ASKED TO SEE LAPSES RATHER THAN HAVE THEM SMOOTHED OVER. The manager lease EXPIRED at 2026-09-11T01:57:26Z and was re-CLAIMED at 02:26:28Z over state=expired — 29 minutes unheld. No other session seized it in the gap and no work was lost, but that is luck, not design: an expired lease is claimable by anyone, which is the whole point of a 90-minute TTL. ⚠️ THE CAUSE IS THE EXACT STRUCTURAL FAILURE THE CADENCE TICK NAMES, so this is a recurrence rather than a novelty: 'a heartbeat is STAMPED when opened and MERGED at the next tick ~60 min later, so it reaches main two-thirds through its own 90-minute TTL and any slip expires it.' The 00:27:26Z heartbeat was stamped into #11750, #11750 went mergeable_state: dirty when three automation PRs (#11748/#11749/#11751) took the merge slot under it, and it did not land until 01:30Z — 63 minutes after being stamped, with 27 minutes of TTL left. The 01:24Z tick was then spent REBASING #11750 rather than opening a fresh heartbeat, so nothing re-stamped it. ⚠️ THE SLIP WAS THE MERGE-SLOT CONTENTION CLASS, NOT INATTENTION — which makes #11519 a lease-liveness problem and not only a cycle-waster, and that connection was not previously recorded. ⚠️ THE OBVIOUS FIX IS WRONG AND IS NAMED HERE SO IT IS NOT REACHED FOR: opening the NEXT heartbeat before the previous one merges puts two lease PRs in flight, which both contend on the same single-holder merge_slot and makes the collision MORE likely. The real remedy is either a shorter stamp-to-merge path or a lease whose heartbeat does not travel through the merge queue at all; neither is a manager item and neither is proposed here.",
