@@ -1,6 +1,6 @@
 # Sprint S-044 — M4 step 1: complete the GitHub Actions CI suite
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Sprint type:** Roadmap (M4) | **Risk tier:** Tier 1 (all self-merge)
 **Created:** 2026-05-07 | **Branch:** `claude/sprint-044-ci-suite-wQmR4`

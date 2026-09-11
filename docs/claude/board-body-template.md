@@ -1,4 +1,4 @@
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 > ⚠️ **THIS IS THE COORDINATION BOARD'S BODY OF RECORD, AND IT IS A TEMPLATE.** `board-rotate.yml` substitutes `{{BOARD_TITLE}}`, `{{BOARD_ISSUE}}`, `{{PREV_ISSUE}}`, `{{CAP}}` and `{{PREV_RETIRED_AT}}` and posts the result as the new board's body. Edit it here, never on the issue — the issue body has been clobbered eight times by `issue_write method=update`, and this file is what a restore is rebuilt from. ⚠️ GitHub strips tag-shaped `<…>` as HTML **even inside code fences**, so use `{braces}`.
 

@@ -3,7 +3,7 @@ name: git-actions
 description: Dispatch this repo's GitHub Actions workflows from a Claude session and read their results. Use when you need to trigger a workflow (diag relay, system-action, web-api recover, trainer diag, health snapshot) but there is no workflow_dispatch MCP tool. Explains the issue-label trigger pattern, how to find the right label, and how to poll for the result. Composes with diag-data and vm-ops.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /git-actions — drive workflows via the issue-label pattern
 

@@ -1,6 +1,6 @@
 # S-ML2-CELL-REAUDIT-2026-08-07 — ML2 2-D regime-cell re-audit + two diagnostic-provenance fixes
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 

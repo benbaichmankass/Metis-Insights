@@ -1,6 +1,6 @@
 # The path-aware `be_floor_r` sweep — the cost term MI-163 could not measure
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 **MI-165** · commissioned by the operator 2026-09-07 (*"Commission the path-aware sweep"*) · branch `claude/mi165-be-floor-sweep-20260907`
 

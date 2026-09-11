@@ -1,6 +1,6 @@
 # S-M19-SOL-FC-GRADUATION — SOL fc shadow graduation + session wrap-up (soak inventory)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 - **Start:** 2026-07-06 (~10:50 UTC, follows S-M19-OVERNIGHT-2026-07-06 in the same session)

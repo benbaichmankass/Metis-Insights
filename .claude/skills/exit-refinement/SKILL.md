@@ -3,7 +3,7 @@ name: exit-refinement
 description: The binding, repeatable pipeline for building, validating, and shipping EXIT improvements (trailing-stop geometry, stale-stops, giveback-stops, partial-TP ladders, ML exit heads) for any strategy×symbol leg — data → harness lever sweep → E0/E1/E1.5 exit-head → live parity check → Tier-3 flip → first-decision health check — plus the committed coverage matrix that is M20's done-condition. Use when the operator says "improve the exits", "process <strategy> for exit refinement", "run the exit pipeline on X", when wiring a NEW strategy (every new leg gets exit-processed), or when asking "which legs haven't been exit-processed". NOT for entry-side tuning (M7/M8 review/tune) and NOT a replacement for the backtesting skill (it composes with it).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /exit-refinement — the exit-improvement pipeline (M20 system)
 

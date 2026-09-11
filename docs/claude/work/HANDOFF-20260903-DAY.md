@@ -1,6 +1,6 @@
 # HANDOFF — day manager 2026-09-03 → successor
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 Written at ~83% context by `session_01Nopk1HcpvWBSEbZxEmALkd`, which held the
 manager lease from 05:38Z. **The registers are the state of record and they are
