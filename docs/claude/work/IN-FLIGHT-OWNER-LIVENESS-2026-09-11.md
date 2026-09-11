@@ -238,7 +238,16 @@ register data: 3 live-and-supported against 10 confirmed-terminal.
   its spawn or of a manager observation, and these same three will fall to
   `could_not_establish` **while still working** unless somebody observes them
   again. That is filed as its own row rather than papered over:
-  `BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-…`.
+  `BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-SO-A-SUPPORTED-IN-FLIGHT-CLAIM-IS-UNREACHABLE-IN-PRACTICE`.
+  ⚠️ **That id's own tail (`...-UNREACHABLE-IN-PRACTICE`) OVERSTATES the
+  finding** — `supported` was measured at 3 of 30 half an hour later. The id is
+  deliberately NOT renamed, because this doc references it by name and a
+  rename would break the reference the way the truncation below did; read
+  the row's own text, not its id.
+  ⚠️ **And it was written here TRUNCATED (`...-STALENESS-WINDOW-…`) first**,
+  which `check_backlog_refs.py` correctly failed in CI: a truncated id
+  resolves to NOTHING, so the doc read as *tracked by a row that was never
+  filed*. Write tracking ids in full, however long.
 - **It does not make the module able to see liveness.** It makes it stop
   *claiming* to. The residue is unchanged and is the honest one: a lane that is
   genuinely working but unobserved for 90 minutes reads
