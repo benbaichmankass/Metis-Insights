@@ -1,6 +1,8 @@
 # What is due right now
 
-_Generated 2026-09-11T11:35:48+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-11T14:36:03+00:00 · verdict **partial**_
+
+> ⚠️ **This list is a LOWER BOUND.** Could not read: `red_crons`, `unlanded_automation`. An empty section below may mean nothing is due, or may mean nobody looked.
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -126,12 +128,6 @@ _Generated 2026-09-11T11:35:48+00:00 · verdict **all_sources_read**_
   - Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (
 - 🔔 **OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER** (open_items · 1d) — loud row — must be reported on every session
   - MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without 
-- 🔔 **#11789** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): refresh the A1 constraint readout (auto)
-- 🔔 **#11793** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(ops): trainer capture-watch receipt (auto)
-- 🔔 **ERROR-FEED-DIGEST-STALE** (error_feed · 0d) — EVERY group below was observed at 2026-09-11T05:11:11+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.
-  - error-feed digest is 6.4h old — expected hourly
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -146,46 +142,40 @@ _Generated 2026-09-11T11:35:48+00:00 · verdict **all_sources_read**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - 🔔 **OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED** (open_items) — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
-- 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
-  - due-list
-- 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'
-  - error-feed-digest
-- 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
-  - macro-valuation-snapshot
-- 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
-  - replay-pregate-nightly
+- 🔔 **OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE** (open_items) — loud row — must be reported on every session
+  - MI-266 (Tier-1, PR #11783) added SECRET_JWT_SIGNING_KEY + SECRET_WEBAPP_PASSWORD_SHA256 to the SECRET_* map in .github/workflows/system-actions.yml, plus docs/runbooks/restore-webapp-auth.md. It fixes
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 9d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 9d) — monitoring row 9d since last observation (cadence 7d)
   - The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not one role pack knew it e
-- **ERRFEED-6da04340** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-04T19:13:36 → 2026-09-08T14:16:09 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u
 - **ERRFEED-86505576** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 60 rows 2026-09-04T12:34:09 → 2026-09-08T17:52:08 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x60 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o
-- **ERRFEED-a46d2970** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 39 rows 2026-09-04T19:13:36 → 2026-09-11T04:08:33 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x39 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-a46d2970** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 42 rows 2026-09-04T19:13:36 → 2026-09-11T11:44:04 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x42 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
 - **ERRFEED-b3c9b0e2** (error_feed · 7d) — error-level condition on `bot_logs`, STANDING (predates the last digest) — 25 rows 2026-09-04T12:28:34 → 2026-09-10T10:27:04 · accounts=bybit_1 — decide: fix now, or file to a backlog
   - [error] x25 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg
-- **ERRFEED-c8553cf1** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 7 rows 2026-09-04T12:36:04 → 2026-09-10T18:07:57 — decide: fix now, or file to a backlog
-  - [error] x7 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the 
-- **ERRFEED-fa77ad80** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 34 rows 2026-09-04T21:55:38 → 2026-09-11T04:08:16 · symbols=MES — decide: fix now, or file to a backlog
-  - [error] x34 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
+- **ERRFEED-fa77ad80** (error_feed · 7d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 36 rows 2026-09-04T21:55:38 → 2026-09-11T11:08:33 · symbols=MES — decide: fix now, or file to a backlog
+  - [error] x36 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 5d) — monitoring row 5d since last observation (cadence 2d)
   - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - **ERRFEED-02a919f1** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 56 rows 2026-09-07T08:06:36 → 2026-09-08T14:05:20 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
   - [error] x56 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
-- **ERRFEED-9da85381** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-07T08:38:27 → 2026-09-10T09:07:19 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
-- **ERRFEED-72e2ad1e** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 33 rows 2026-09-08T19:46:55 → 2026-09-10T23:17:16 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x33 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
-- **ERRFEED-f754bb5d** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-08T19:22:45 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog
-  - [error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav
+- **ERRFEED-9da85381** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 25 rows 2026-09-07T08:38:27 → 2026-09-11T13:08:54 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x25 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
+- **ERRFEED-72e2ad1e** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 38 rows 2026-09-08T19:46:55 → 2026-09-11T14:07:07 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
+  - [error] x38 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
 - **OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: examined>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - **OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES** (soaks · 2d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: dropped_symbol_dedupe_count>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
-- **ERROR-FEED-SUMMARY** (error_feed) — 57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T00:02:52.841320+00:00`.
-  - 101 cause groups over 1417 rows (67 error-level, 34 warn-level, 2 new since the last digest)
+- **ERRFEED-ab6ad22e** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-11T11:44:06 → 2026-09-11T11:44:06 — decide: fix now, or file to a backlog
+  - [error] NEW x1 api_call bybit_place_order_failed: RuntimeError: ErrCode N pre-check: Buy SL N >= last_price N for AVAXUSDT — aborting; price moved against 
+- **ERRFEED-c39a9322** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-11T14:14:45 → 2026-09-11T14:14:45 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog
+  - [error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_portfolio/SPY: position N carries a resting stop for only N — N unprotected. The netted positi
+- **ERRFEED-df5607e7** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-11T14:02:20 → 2026-09-11T14:02:20 · accounts=bybit_1 symbols=ADAUSDT — decide: fix now, or file to a backlog
+  - [error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ADAUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
+- **ERROR-FEED-SUMMARY** (error_feed) — 60 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T05:04:55.308516+00:00`.
+  - 105 cause groups over 1451 rows (70 error-level, 35 warn-level, 4 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
