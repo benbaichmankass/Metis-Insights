@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0226z-20260911",
-    "claimed_at": "2026-09-11T02:32:07Z",
-    "purpose": "manager tick 02:26Z — lease re-claim after lapse"
+    "held_by": "session_01LoZJDARzLr1REPnqQ5Kgbz",
+    "branch": "claude/mi243-dormant-sweep-20260911",
+    "claimed_at": "2026-09-11T03:52:59Z",
+    "purpose": "MI-243 dormant work-object sweep (PR #11758, Tier-1, docs+work-store only)"
   },
   "active_sessions": [
     {
