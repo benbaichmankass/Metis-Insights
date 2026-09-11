@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0026z-20260911",
-    "claimed_at": "2026-09-11T01:26:41Z",
-    "purpose": "manager tick 00:26Z — heartbeat, MI-139 done, re-lane MI-238"
+    "branch": "claude/manager-tick-0226z-20260911",
+    "claimed_at": "2026-09-11T02:32:07Z",
+    "purpose": "manager tick 02:26Z — lease re-claim after lapse"
   },
   "active_sessions": [
     {
