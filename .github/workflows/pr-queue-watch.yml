@@ -97,6 +97,14 @@ jobs:
           # confident receipt.
           python3 scripts/ops/manager_state_watch.py --self-test
           python3 scripts/ci/check_manager_queue_watch.py --self-test
+          # The blocked-lane grading policy, for the same reason and in the same
+          # place. ⚠️ IT LIVES HERE RATHER THAN IN ITS OWN STEP BECAUSE A FAILING
+          # SELF-TEST MUST NOT TAKE DOWN THE PR-QUEUE ESCALATION. Run inside the
+          # lanes step with `|| exit 2` it skipped `Land the receipt on main`,
+          # `Watch the MANAGER STATE` and `Report the verdict` -- the channel this
+          # workflow exists for -- while that step's own comment promised it
+          # never fails the job (MI-235 review lane, 2026-09-11).
+          python3 scripts/ops/blocked_lane_watch.py --self-test
 
       - name: Read the open-PR list
         # ⚠️ ON FAILURE THIS WRITES NOTHING AND THE WATCHER GRADES
@@ -140,6 +148,69 @@ jobs:
           echo "code=$?" >> "$GITHUB_OUTPUT"
           cat /tmp/digest.txt
 
+      - name: Watch the BLOCKED LANES — has what each is waiting for happened?
+        id: lanes
+        # MI-235. A lane blocked on a manager action has no mechanism that tells
+        # it the action happened: measured at 13h (MI-222), 3.5 days (MI-139) and
+        # 33 minutes (MI-238, which announced its blocker in a machine-readable
+        # field that nothing read). All three were freed only because a manager
+        # happened to read the roster by hand.
+        #
+        # ⚠️ IT LIVES HERE RATHER THAN IN A NEW WORKFLOW BECAUSE THIS CLOCK IS
+        # THE ONE THAT DEMONSTRABLY FIRES. Measured 2026-09-11 over the last 12
+        # landings of this workflow's own receipt: a continuous dated series from
+        # 2026-09-06T20:49:05Z to 2026-09-11T05:14:26Z, 2-3 per day. Against that,
+        # `probes.yml` was 67.7h stale and `session-reaper.yml`'s ledger carries
+        # no `generated_at` at all. A new cron nobody has seen fire is the
+        # looks-armed-is-not failure MI-235 exists to end, so this reuses the
+        # proven one — and the open-PR listing it already fetched IS the input.
+        #
+        # ⚠️ THIS STEP NEVER FAILS THE JOB. Its verdict is reported by a separate
+        # `if: always()` step at the end, so it can neither skip nor mask the
+        # PR-queue escalation this workflow already owns.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          # The blocked-lane watch needs every repo a lane may be waiting on.
+          # ⚠️ A REPO WE CANNOT LIST IS NOT A REPO WITH NOTHING OPEN. The combiner
+          # below tags each row with its repo and the watcher only applies the
+          # absent-therefore-closed inference to repos the listing actually
+          # enumerates; anything else grades `could_not_look` and PAGES. That is
+          # not hypothetical — MI-238 was blocked on ict-trader-dashboard#215.
+          gh api --paginate \
+            "repos/benbaichmankass/ict-trader-dashboard/pulls?state=open&per_page=100" \
+            > /tmp/dash-prs.json 2>/tmp/dash-err.txt \
+            || { echo "::warning::could not list ict-trader-dashboard open PRs — \
+          lanes blocked on that repo will grade could_not_look and PAGE, which is \
+          the honest degradation, not a silent pass. $(head -c 300 /tmp/dash-err.txt)"; \
+                 rm -f /tmp/dash-prs.json; }
+          python3 - <<'COMBINE'
+          import json, pathlib
+          rows = []
+          for path, repo in (("/tmp/open-prs.json", "benbaichmankass/Metis-Insights"),
+                             ("/tmp/dash-prs.json", "benbaichmankass/ict-trader-dashboard")):
+              f = pathlib.Path(path)
+              if not f.exists():
+                  continue
+              try:
+                  data = json.loads(f.read_text())
+              except Exception:
+                  # NOT `[]`. An unparseable listing must not read as "nothing open".
+                  continue
+              for r in data if isinstance(data, list) else []:
+                  rows.append({"number": r.get("number"), "repo": repo,
+                               "state": r.get("state"), "merged_at": r.get("merged_at")})
+          pathlib.Path("/tmp/lane-pr-state.json").write_text(json.dumps(rows))
+          print(f"blocked-lane watch: open-PR listing covers {len(rows)} PR(s)")
+          COMBINE
+          python3 scripts/ops/blocked_lane_watch.py \
+            --pr-state /tmp/lane-pr-state.json \
+            --write-receipt > /tmp/lanes.txt 2>&1
+          lane_rc=$?
+          echo "rc=$lane_rc" >> "$GITHUB_OUTPUT"
+          cat /tmp/lanes.txt
+
       - name: Land the receipt on main (auto-merge PR)
         # `main` is protected and rejects a direct workflow push (GH006). The
         # action no-ops cleanly when the receipt is unchanged, which is the
@@ -151,7 +222,14 @@ jobs:
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: docs/claude/work/PR-QUEUE-WATCH.json
+          # ⚠️ TWO receipts, ONE landing. The blocked-lane receipt is also the
+          # PAGING LATCH: a blocker pages on the run that first grades it
+          # `cleared` and not again. If this landing fails the latch does not
+          # advance and the next run pages again — failing toward waking,
+          # deliberately, which is the safe direction for this alarm.
+          paths: |
+            docs/claude/work/PR-QUEUE-WATCH.json
+            docs/claude/work/BLOCKED-LANE-WATCH.json
           message: 'chore(ops): PR-queue watcher receipt (auto)'
           pr-title: 'chore(ops): PR-queue watcher receipt (auto)'
           pr-body: |
@@ -225,4 +303,42 @@ jobs:
             3) echo "::error::PR-QUEUE ESCALATION -- open PRs are waiting on a merge decision past the threshold. See the digest above and docs/claude/work/PR-QUEUE-WATCH.json."; exit 1 ;;
             4) echo "::error::PR-QUEUE WATCHER COULD NOT LOOK -- the open-PR list was unreadable. This is NOT an empty queue; the sensor is blind and that is a defect."; exit 1 ;;
             *) echo "::error::unexpected exit code from pr_queue_latency.py"; exit 1 ;;
+          esac
+
+      - name: Report the BLOCKED-LANE verdict
+        # ⚠️ `always()` so this can neither be skipped by the PR-queue
+        # escalation above nor mask it. Two independent alarms, two independent
+        # reports.
+        #
+        # ⚠️ AND UNLIKE THE MANAGER-STATE STEP, THIS ONE IS ALLOWED TO FAIL THE
+        # JOB, because the objection that step records does not apply to it.
+        # That step reports rather than escalating precisely because it is
+        # UN-LATCHED, and a second un-latched path would page on a standing
+        # condition every 6h — which is how 202 of 376 CRITICALs in one measured
+        # window became a single ignored alarm. This alarm IS latched, durably,
+        # in the receipt that just landed: a blocker pages ONCE, on the run that
+        # first grades it cleared. A standing condition is therefore silent by
+        # construction, so the fatigue argument does not transfer.
+        if: always()
+        run: |
+          case "${{ steps.lanes.outputs.rc }}" in
+            0) echo "::notice::Blocked-lane watch: nothing new. ⚠️ NOT 'no lane is stuck' — a lane that declared no blocker is invisible to this sweep." ;;
+            3) echo "::error::BLOCKED-LANE WAKE DUE — a lane is waiting for something that has already happened, or for something nothing can grade. See the step log and docs/claude/work/BLOCKED-LANE-WATCH.json, then fire_trigger a poke-only Routine bound to each session listed."; exit 1 ;;
+            4) echo "::error::BLOCKED-LANE WATCH COULD NOT READ THE REGISTER — this is NOT an empty roster, the sensor is blind and that is a defect."; exit 1 ;;
+            # ⚠️ There is deliberately no `2)` arm. THIS step invokes the watcher
+            # WITHOUT `--self-test`, and on that path `main()` returns 0, 3 or 4 and
+            # nothing else; the self-test moved to the shared self-test step, which
+            # fails the whole job loudly and long before this. An arm naming a cause
+            # no code path can produce is the unprovenanced-diagnostic class this
+            # repo has a guard for -- `*)` below catches the unexpected, loudly.
+            # ⚠️ CORRECTED 2026-09-11: this comment read "`main()` returns 0, 3 or 4
+            # and NOTHING else", which is FALSE of `main()` and true only of the call
+            # THIS step makes. `main()` returns `_self_test()` when `--self-test` is
+            # passed, and that returns 1 on failure. MEASURED, not read: a policy
+            # break was planted into CLEARS_WHEN_BY_KIND and `main(["--self-test"])`
+            # returned 1. That is precisely why `*)` must stay -- restore
+            # `--self-test` to this step and rc=1 becomes reachable here, where no
+            # named arm would catch it.
+            "") echo "::warning::blocked-lane watch did not run (its step was skipped or died before reporting). That is 'we did not look', not a clean roster." ;;
+            *) echo "::error::unexpected exit code '${{ steps.lanes.outputs.rc }}' from blocked_lane_watch.py"; exit 1 ;;
           esac

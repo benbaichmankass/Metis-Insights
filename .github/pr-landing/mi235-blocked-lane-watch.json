@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "R12 counts scripts/ops/session_registry.py as landing machinery, and it is right to. This PR adds a `blocked-on` subcommand to it and adds a paragraph to the spawn-prompt template every future sub-session reads. Tier-1 is not the objection — the objection is that a change to the machinery must not be merged by that machinery unread. Needs one human merge click; no approval decision is outstanding.",
+  "why": "MI-235. Ops tooling + CI wiring + tests + docs, entirely inside TIER1_SURFACE (scripts/ops/**, scripts/ci/**, .github/workflows/**, tests/**, docs/**). Read-only observability: the watcher reads SESSIONS.json, origin's refs, origin/main's history and an open-PR listing, and writes ONE generated receipt. It never merges, closes, comments on, pokes, archives or otherwise touches a PR, a session or a branch. No src/, config/, deploy/, order path, strategy or risk cap; no VM; no order placed, modified or cancelled on any account. ⚠️ My first declaration read `landing: self` and asserted this diff does NOT touch the landing machinery. That was WRONG and the guard caught it: I had reasoned from the machinery I knew by name (claude-pr-automerge.yml, pr-opener.yml, commit-to-main, check_pr_landing.py) rather than from the guard's actual path list, which includes session_registry.py. Corrected rather than argued with."
+}

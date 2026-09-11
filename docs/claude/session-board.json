@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-1426z-20260911",
-    "claimed_at": "2026-09-11T14:30:14Z",
-    "purpose": "manager tick 14:26Z"
+    "branch": "claude/mgr-tick-20260911T1540",
+    "claimed_at": "2026-09-11T15:46:53Z",
+    "purpose": "manager 15:24Z cadence tick — lease heartbeat, supervision, #11789 disposition, OPEN-PRS rows for the two operator-blocked PRs"
   },
   "active_sessions": [
     {
