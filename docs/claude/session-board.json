@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-275 · session_01WKwvhBuaYYCKbdkk7fHrpf",
-    "branch": "claude/mi275-stop-width-counterfactual",
-    "claimed_at": "2026-09-11T20:40:50Z",
-    "purpose": "PR #11826 — Tier-1 research memo + registers, landing: self. Re-asserted on each base merge: pr-landing R13 requires it and admits no other form; R13's own docstring records the claim does NOT serialize, so this displaces nobody. MEASURED: 12 of 12 consecutive main commits rewrite this field, and the PR has now reached ALL FOUR CHECKS GREEN TWICE (21:57Z on 7b4e557a5, 22:17Z on d96f3d30b) and been dirtied before auto-merge could fire BOTH times — so the self-land route cannot complete at this churn rate. Blocker declared on SESSIONS.json; measurement and remedy pointer on BL-20260909-R13-FORCES-EVERY-ARMING-BRANCH-ONTO-ONE-SINGLE-HOLDER-KEY-SO-CONCURRENT-PRS-DIRTY-EACH-OTHER-BY-CONSTRUCTION."
+    "held_by": "MI-275 close-out · session_01WKwvhBuaYYCKbdkk7fHrpf",
+    "branch": "claude/mi275-close-out",
+    "claimed_at": "2026-09-11T22:40:37Z",
+    "purpose": "PR for the MI-275 close-out record: the blocked-lane-watch clause (a) observation. Tier-1, landing: self. MI-275's main deliverable already landed as #11826 (bf92d258c)."
   },
   "active_sessions": [
     {
