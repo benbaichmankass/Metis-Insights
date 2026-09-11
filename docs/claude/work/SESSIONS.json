@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T17:54:00Z",
+  "updated_at": "2026-09-11T18:17:50Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4739,18 +4739,60 @@
       "✅_HANDOFF_SWEEP_2026_09_11T1650Z": "Read live via list_sessions at 15:2xZ: SESSION_STATUS_IDLE, connection_status disconnected, status_bucket COMPLETED or REVIEW_READY. NONE is RUNNING and none holds work the incoming manager must wait on. ⚠️ `idle` here is an OBSERVATION at that timestamp, not a decay -- `working` goes false by time passing and nothing decays it, which is why this is stamped rather than inferred."
     },
     {
-      "session_id": "session_01W56JbiKrada5AM4pGtHxmg",
-      "title": "OPS LANE MI-272 — full /system-review",
-      "owns_object": "WO-20260908-SYSTEM-REVIEW-38-DAYS-SINCE-THE-LAST",
-      "spawned_at": "2026-09-11T17:54:00Z",
+      "session_id": "session_016dJtEibrgnsX32qD2gvDQY",
+      "registry_key": "pending-20260911T174600Z",
+      "state": "working",
+      "title": "RESEARCH LANE MI-271 — why is the book bleeding: attribute the 2026-08-30 break and the multi-week drawdown",
+      "owns_object": "WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE",
+      "checklist_item": "MI-271",
+      "spawned_at": "2026-09-11T17:46:00Z",
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "branches": [
-        "claude/system-review-20260911"
-      ],
-      "why": "Operator-selected 2026-09-11 full system review: unstick sweep, technical health, ML lifecycle, OPEN-ITEMS observation debt, backlog drive",
-      "note": "self-registered: manager's registry_key pending-20260911T174615Z-4 was never pushed to main, and its --owns-object WO-20260911-FULL-SYSTEM-REVIEW-THE-MEASUREMENT-INSTRUMENTS-THE names no file under objects/",
-      "state": "working"
+      "why": "Operator-raised 2026-09-11, top priority.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T17:51:58Z"
+    },
+    {
+      "session_id": "session_01Naj6n7JvhPrvxjwWbUGbnQ",
+      "registry_key": "pending-20260911T174615Z-3",
+      "state": "working",
+      "title": "OPS LANE MI-274 — why has the prop account not traded",
+      "owns_object": "WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED",
+      "checklist_item": "MI-274",
+      "spawned_at": "2026-09-11T17:46:15Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-selected 2026-09-11.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T18:17:50Z"
+    },
+    {
+      "session_id": "session_01W56JbiKrada5AM4pGtHxmg", "branches": ["claude/system-review-20260911"],
+      "registry_key": "pending-20260911T174615Z-4",
+      "state": "working",
+      "title": "OPS LANE MI-272 — full /system-review",
+      "owns_object": "WO-20260911-FULL-SYSTEM-REVIEW-THE-MEASUREMENT-INSTRUMENTS-THE",
+      "checklist_item": "MI-272",
+      "spawned_at": "2026-09-11T17:46:15Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-selected 2026-09-11.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T17:51:59Z"
+    },
+    {
+      "session_id": "session_01SrUaz8LmKMcSwNZEr8JupC",
+      "registry_key": "pending-20260911T174755Z",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-273 — let an approved Tier-2 PR land without a human click",
+      "owns_object": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND",
+      "checklist_item": "MI-273",
+      "spawned_at": "2026-09-11T17:47:55Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-directive 2026-09-11: the operator does not click things.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T17:51:59Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
