@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 08:25Z. Registers only: SESSIONS.json (the ops spawn registration + top-level updated_at for R6), MANAGER-CHECKLIST.json (the new MI-265 row), one new work object from capture_idea.py, and the spawn-priority exception entry permitting it. NO lease heartbeat in this PR -- 08:18:18Z is already stamped in #11773, which is in flight; stamping a second one would put two lease writes in two open PRs. NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Spawning a session and keeping the registers is management, not an item."
+}
