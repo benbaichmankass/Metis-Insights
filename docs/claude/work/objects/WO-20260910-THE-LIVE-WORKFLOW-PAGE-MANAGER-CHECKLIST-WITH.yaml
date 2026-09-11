@@ -4,13 +4,19 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   The live Workflow page: manager checklist with collapsible rows + the decisions waiting on the operator
 stage: CAPABILITY
-lifecycle: dormant
-owner: null
+lifecycle: in_flight
+owner: session_01G4VneSjgv5QT4rMGj4izi5
 opened_at: 2026-09-10
 closed_at: null
+lifecycle_note: >-
+  Moved dormant -> in_flight 2026-09-11 by session_01G4VneSjgv5QT4rMGj4izi5.
+  The object read `dormant` with `owner: null` while its checklist item
+  (MI-238) read `in_flight` with an owner and both halves had already SHIPPED
+  and DEPLOYED — the object was the stale half, not the item. WIP measured
+  before the move: 6 in flight against a ceiling of 8, so this takes it to 7.
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  Re-read when DEC-20260911-WORKFLOW-PAGE-TREE-BEHIND-GITHUB is answered — that
+  is the last thing between this object and `done`.
 done_condition: >-
   A read route serves the checklist through manager_status existing grading, so the state/status merge has ONE owner and is never re-derived in the SPA; the SPA page renders on the deployed GitHub Pages site with rows collapsed by default and a decisions section off the existing route; the page carries an as-of stamp so a stale render cannot read as a live one; and the duty to work from it is written into CLAUDE.md and the role packs. A green test suite clears none of these and a merge is not a deploy.
 
@@ -28,3 +34,61 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+decision_requests:
+- id: DEC-20260911-WORKFLOW-PAGE-TREE-BEHIND-GITHUB
+  urgency: routine
+  asked_on: '2026-09-11'
+  asked_by:
+    session_id: session_01G4VneSjgv5QT4rMGj4izi5
+  subject:
+    kind: checklist_item
+    ref: MI-262-THE-WORKFLOW-PAGE-STALENESS-WARNING-IS-CALIBRATED-AT-3H-AND-THE-OPERATOR-COMPLAINED-AT-1H
+    note: The row that carries the unmet criterion. If it is ever closed or renamed,
+      this question is about something that no longer exists and should stop being
+      shown as work.
+  question: 'MI-262 criterion (2) — "a tree that is behind reads as behind" — CANNOT
+    be met the way it is written, and it has been open since 2026-09-10. Establishing
+    that the VM is behind GITHUB requires a fetch, and GET /api/bot/work/checklist
+    deliberately performs none: fetching on an API request path is the wedge class
+    this repo has paid for twice. Do you want the fetch moved OFF the request path,
+    or the criterion retired as a recorded decision?'
+  context: 'WHAT IS ALREADY TRUE, so this is not re-asking something answered. #11716
+    (5f5292a0f) shipped the PROVENANCE half and it is OBSERVED on the deployed route:
+    treeNote now reads "level with the local origin/main ref AS OF THE LAST FETCH
+    <n>m ago (FETCH_HEAD mtime); this never fetches, so main may have moved since",
+    and mainRefAgeHours is None — never 0.0 — when we cannot establish when we last
+    fetched. So `synced` already justifies itself and a VM that STOPPED fetching
+    announces itself through a growing mainRefAgeHours. What is NOT true is the
+    literal criterion: behind_commits counts against the LOCAL origin/main ref, and
+    scripts/deploy_pull_restart.sh does `git fetch` then `git reset --hard
+    origin/main`, so on the live VM that equality holds BY CONSTRUCTION — the zero
+    is guaranteed, not measured. ⚠️ I am NOT proposing to fetch on the request path
+    under any option; that is off the table for the reason above and is not one of
+    the choices.'
+  options:
+  - key: retire_the_criterion
+    label: Retire criterion (2) — the provenance half is the answer
+    implication: 'RECOMMENDED. Records that "behind GitHub" is answered by the age
+      of the last fetch rather than by a commit count, which is what #11716 already
+      delivers and what is already rendering. Costs nothing, ships nothing, and MI-262
+      can then close on criterion (1) alone — which IS observed. ⚠️ The accepted
+      residual: the page can tell you it has not looked recently, and can never tell
+      you how far behind it is. A VM fetching on schedule but failing to pull would
+      read fresh.'
+  - key: fetch_off_the_request_path
+    label: Move the fetch off the request path (a timer writes a receipt)
+    implication: 'Tier-2. A systemd timer on the live VM does `git fetch` on its own
+      clock and writes a receipt the route READS — no network on the request path,
+      and the page can then state a real behind-count. ⚠️ Buys a new failure mode
+      this page currently does not have: a timer that stops firing. CLAUDE.md records
+      that scheduled carriers here fire late or skip days (probes +4h53m, work-digest
+      5 firings against 24 declared), so the receipt needs its own staleness grade
+      or it becomes the frozen-board failure one level down.'
+  - key: fold_into_git_sync
+    label: Have ict-git-sync write the receipt it already knows
+    implication: 'Tier-2, and cheaper than a new timer because ict-git-sync ALREADY
+      fetches every ~5 minutes — it is the one carrier measured to work here. It would
+      stamp what it saw; the route reads the stamp. ⚠️ I have NOT read that unit''s
+      script this session, so whether it can cheaply emit a behind-count is UNVERIFIED
+      — do not read this option as costed.'
+  allows_free_text: true
