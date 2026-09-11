@@ -1,0 +1,62 @@
+id: WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: An operator-approved Tier-2 PR lands without a human click, and an unapproved one still cannot
+stage: BUILD
+lifecycle: in_flight
+owner: claude
+opened_at: '2026-09-11'
+closed_at: null
+why: >-
+  OPERATOR DIRECTIVE, 2026-09-11, verbatim: "the operator does not click things".
+  scripts/ci/check_pr_landing.py R4 bars a Tier-2 diff from `landing: "self"` WHATEVER its approval
+  state. The live consequence: #11738 (MI-240, the per-pass IB circuit breaker) has been green,
+  mergeable and operator-approved since 2026-09-10T07:52Z -- the operator chose `r2_only` on
+  DEC-20260910-EXIT-EVAL-60S-REMEDY from a four-option popup -- and has sat unlanded since, waiting on
+  a merge click that will not come. The decision is recorded; only the click is missing.
+  !! THE REASON R4 EXISTS IS SOUND AND MUST NOT BE DESTROYED: the change and its own approval must not
+  be the same act, or a session declares itself approved and the gate is theatre. So the work is NOT to
+  relax R4. It is to find the property that makes an approval UNFORGEABLE BY THE BRANCH THAT BENEFITS
+  FROM IT, and gate self-landing on that property.
+done_condition: >-
+  TWO-SIDED, and NEITHER HALF IS A TEST SUITE. (a) An operator-approved Tier-2 PR is OBSERVED landing
+  on green with no human click, and (b) a Tier-2 PR carrying no recorded approval is OBSERVED still
+  being REFUSED. A green self-test proves the guard's failure paths fire in a sandbox; it cannot prove
+  that a real PR landed or that a real one was stopped.
+  !! MERGED IS NOT DEPLOYED AND DEPLOYED IS NOT OBSERVED. This object does not close on the build.
+review_trigger: >-
+  When the first Tier-2 approval record is written for a real PR. Until one exists the mechanism is
+  DEPLOYED AND UNEXERCISED, which reads identically to a mechanism that does not work.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-11 by the building lane, from the guard source and the live records rather than from
+  the dispatch brief. Nothing blocks the BUILD -- the guard is a self-contained CI script and its own PR
+  holds under R12 by design, which is the invariant being defended rather than an obstacle.
+  What the OBSERVED half is blocked on is the writing of the first real approval record, which is an
+  operator/manager act and not this lane's to perform.
+captured_by: session_01SrUaz8LmKMcSwNZEr8JupC
+source: manager (dispatch brief, 2026-09-11), carrying an operator directive of the same day
+corrections_this_object_makes:
+- >-
+    THE DISPATCH BRIEF STATED THIS OBJECT WAS ALREADY ON FILE AND IT WAS NOT. Measured 2026-09-11
+    against origin/main at 2901ccf44 -- `git ls-tree origin/main docs/claude/work/objects/` returns no
+    file matching LET-AN-APPROVED or TIER-2-PR-LAND, and `docs/claude/work/spawn-priority-exception.yaml`
+    on main contains zero occurrences of the id. The lane authored the object itself (this file) so the
+    spawn gate could pass; it deliberately did NOT add itself to the spawn-priority exception, because
+    a lane writing its own exception is the same self-approval failure this object exists to end.
+- >-
+    THE DISPATCHED REGISTRY KEY DID NOT EXIST. `session_registry.py confirm --registry-key
+    pending-20260911T174755Z` returned "no pending row"; the key appears zero times in SESSIONS.json on
+    origin/main (218 rows). The lane registered itself instead, so it is not invisible to a cold
+    manager -- which is MI-15's exact failure class, recurring.
+not_established:
+- >-
+    Whether the existing recorded approvals are sufficient to land on. PR #11738's approval carries a
+    scope in PROSE ("R2 ONLY -- the per-pass IB circuit breaker") and no machine-comparable path list,
+    so no mechanical check can compare it to a diff. Graded by this lane as the gap being in the
+    RECORDING, not in the gate.
+- >-
+    Whether an approval record can be made operator-ORIGINATED rather than merely branch-SEPARATED.
+    Measured 2026-09-11: every squash-merge on main is authored `Ben` at the operator's
+    users.noreply.github.com address and committed by `GitHub`, so commit identity CANNOT discriminate
+    a session-written record from an operator-written one. That is why the separation is branch-based.

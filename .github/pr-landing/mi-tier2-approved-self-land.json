@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "This PR edits scripts/ci/check_pr_landing.py and creates docs/claude/work/approvals/, both landing machinery. R12 holds it for a human read, and that is NOT an inconsistency in the work -- it is the invariant the work defends. The first exercise of the new rule is a human reading the rule itself. Do not read this hold as the bug the lane was sent to fix.",
+  "why": "CI guard + docs only. No order path, no config/, no strategy, no risk cap, no runtime. Tier-1 by the canonical doc's own list (CI scripts, GitHub Actions), and the tier is not the objection -- R12 is."
+}

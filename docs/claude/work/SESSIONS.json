@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T17:00:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated_at": "2026-09-11T17:58:05Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4737,6 +4737,19 @@
       "⚠️_ITS_SUMMARY_READ_VERIFIED_5_ITEMS_AGAINST_THE_FOUR_I_DISPATCHED_AND_THE_GAP_IS_NOW_EXPLAINED": "Carried unexplained at the 14:26Z tick rather than assumed benign. Resolved from the commit body: the review's finding 4 has TWO parts (rows[0] multiplicity, and `--clear` not stamping updated_at), which the lane numbered 4 and 5. Four findings, five items. Not a scope widening.",
       "✅_THE_R12_CONSTRAINT_HELD_AND_I_CHECKED_IT_RATHER_THAN_TRUSTING_THE_CLAIM": "Its commit says 'R12 STILL HOLDS THIS PR. I did not merge it, did not touch scripts/ci/check_pr_landing.py or the guard self-test harness.' VERIFIED against the primary source at 15:2xZ: #11767 state=open, head ae18ee766, merged=false.",
       "✅_HANDOFF_SWEEP_2026_09_11T1650Z": "Read live via list_sessions at 15:2xZ: SESSION_STATUS_IDLE, connection_status disconnected, status_bucket COMPLETED or REVIEW_READY. NONE is RUNNING and none holds work the incoming manager must wait on. ⚠️ `idle` here is an OBSERVATION at that timestamp, not a decay -- `working` goes false by time passing and nothing decays it, which is why this is stamped rather than inferred."
+    },
+    {
+      "session_id": "session_01SrUaz8LmKMcSwNZEr8JupC",
+      "title": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND — gate Tier-2 self-landing on an unforgeable approval record",
+      "owns_object": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND",
+      "spawned_at": "2026-09-11T17:58:05Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi-tier2-approved-self-land"
+      ],
+      "why": "pr-landing R4 bars a Tier-2 diff from self-landing whatever its approval state; PR 11738 has been green and operator-approved since 2026-09-10 waiting on a click the operator has said will not come.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
