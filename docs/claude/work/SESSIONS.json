@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T06:06:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, recording two operator decisions)",
+  "updated_at": "2026-09-11T06:27:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 06:26Z)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4533,10 +4533,10 @@
       "why": "Operator answered 'Finish MI-238 first, then the infra' and it is the engineering lane's declared 'now'. Its row read in_flight with an owner idle since 18:13Z and prs: None — the second instance in one hour of the exact drop pattern recorded on MI-139.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T00:28:44Z",
-      "live_status": "IDLE/disconnected — review_ready",
-      "live_status_read_at": "2026-09-11T04:32:00Z",
-      "manager_observation": "ENGINEERING LANE, MI-238. Went IDLE at 03:56:52Z with 'cleaned up stale check-ins, #11752 observed live, #215 awaiting merge'. IT WAS BLOCKED ON A MANAGER ACTION AND SAID SO IN ITS OWN SUMMARY: ict-trader-dashboard#215 sat green and mergeable with its body reading 'Draft -- the manager owns the merge'. Merged by the manager at 04:29Z (941c96f81). ⚠️ Context 655k/1000k -- two-thirds spent. The next thing it is dispatched to should be the LAST thing it is dispatched to; beyond that it hands off.",
-      "updated_at": "2026-09-11T04:32:00Z",
+      "live_status": "IDLE/disconnected — completed",
+      "live_status_read_at": "2026-09-11T06:24:39Z",
+      "manager_observation": "ENGINEERING LANE, MI-238. post_turn_summary 06:24Z: 'Prioritisation row removed, merged→deployed→live; three instrument defects caught and fixed'. Both code halves landed and the bot half observed live. Context 668k/1000k. THE LANE IS DONE; what remains on MI-238 is the operator confirming the rendered page, which is not lane work. Slot released.",
+      "updated_at": "2026-09-11T06:27:00Z",
       "branches": [
         "claude/mi258-decision-subject-liveness"
       ],
@@ -4571,7 +4571,11 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-ordered queue: 'Finish MI-238 first, then the infra'. MI-238's code halves are landed; MI-235 is the first row of the infra.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T05:28:43Z"
+      "confirmed_at": "2026-09-11T05:28:43Z",
+      "live_status": "IDLE/disconnected — review_ready",
+      "live_status_read_at": "2026-09-11T06:24:39Z",
+      "manager_observation": "ENGINEERING LANE, MI-235. Delivered #11767, all four checks green 06:22:43Z, held by R12 for a human (changes_landing_machinery). It caught and corrected its OWN landing misdeclaration, and its self-test caught a cross-repo bug that would have graded every foreign PR `cleared` -- MI-238's exact case. Nothing owed by the lane.",
+      "updated_at": "2026-09-11T06:27:00Z"
     },
     {
       "session_id": "session_01NFUHBS41Dn15pUbz5Qr6Vx",
@@ -4584,9 +4588,26 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator answered DEC-20260911-WORK-STORE-BACKLOG-MIRRORS as retire_mirrors at 2026-09-11T05:55Z. The sweep half is delivered; this executes the answer.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T06:06:01Z"
+      "confirmed_at": "2026-09-11T06:06:01Z",
+      "live_status": "RUNNING/connected",
+      "live_status_read_at": "2026-09-11T06:24:39Z",
+      "manager_observation": "OPS LANE, retire_mirrors. task_summary 06:24:20Z: 'confirmed cohort 554, PR #11769 open; guards pass, pushing'. It RE-ESTABLISHED the 0-unmatched positive control on its own population (712 objects at 825964034) rather than inheriting the sweep's, which is exactly what its prompt required, and it EXCLUDED one row (WO-20260901-PHASE-H) on a live blocked_on ref rather than deleting it -- the referential-integrity refusal. Healthy.",
+      "updated_at": "2026-09-11T06:27:00Z"
+    },
+    {
+      "session_id": "session_01GPBc31S8TgNvxEekzdDSpV",
+      "registry_key": "pending-20260911T062558Z",
+      "state": "working",
+      "title": "ENGINEERING LANE — MI-236: decay stale in_flight rows",
+      "owns_object": "WO-20260911-IN-FLIGHT-GOES-FALSE-BY-TIME-PASSING",
+      "spawned_at": "2026-09-11T06:25:58Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-ordered engineering queue, the row after MI-235. The WIP ceiling is FULL, so a stale in_flight row is now refusing real work at check_wip_ceiling.py.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T06:27:18Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T06:06Z. NOT A LIVENESS PASS -- say which read a fact came from. This commit records TWO OPERATOR DECISIONS and the spawn that executes one of them (session_01NFUHBS41Dn15pUbz5Qr6Vx, OPS, MI-243 part 2). No roster read was taken; the last one was 04:32Z (zero lanes RUNNING), plus two known spawns since (session_015iy2R6BP11eiVHbNeUnT6a ENGINEERING/MI-235 at 05:28Z, and this one). So the live count is INFERRED at two lanes, not measured, and the next tick must re-read it rather than carry this forward as an observation."
+  "⚠️_last_live_reconcile": "2026-09-11T06:24:39Z, tick 06:26Z. A REAL LIVE READ -- list_sessions(mine=true, limit=4) -- which the previous entry explicitly said was owed, because the 06:06Z commit carried an INFERRED count and said so. PARTIAL: four rows returned, three graded here; the register holds 210 rows and the rest were NOT read, which is 'we did not look', never 'they are fine'. LIVE COUNT: ONE lane RUNNING (retire_mirrors), two IDLE-terminal, plus one spawned this tick (session_01GPBc31S8TgNvxEekzdDSpV, ENGINEERING, MI-236). Against the operator's cap of 3 that is two engaged and one slot free."
 }

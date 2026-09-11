@@ -1,0 +1,30 @@
+id: WO-20260911-IN-FLIGHT-GOES-FALSE-BY-TIME-PASSING
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  in_flight goes false by time passing and nothing decays it
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The stale rows carry their TRUE state, AND something OTHER THAN A MANUAL SWEEP grades a row whose owner has gone terminal. THE STATE CORRECTION ALONE IS A ONE-OFF AND DOES NOT CLOSE THIS -- a sweep someone has to remember to run is the same failure one level up.
+
+why: >-
+  MEASURED 2026-09-10 by get_session over thirteen owners: SIX of nineteen in_flight checklist rows had owners that were finished, dead or archived -- MI-136's row read in_flight for FOUR DAYS after its owner was archived. Same class as MI-178, where all 17 SESSIONS.json  rows were false. A checklist claiming nineteen items are being worked when six are not misprices every capacity decision made from it, including the manager's own read of the 3-lane cap -- and the WIP ceiling of 8 is currently FULL, so a stale in_flight row is now actively refusing real work.
+
+source: >-
+  manager measurement 2026-09-10; operator-ordered engineering queue
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

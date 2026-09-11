@@ -42,6 +42,8 @@ covers:
   - WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND
   # -- added 2026-09-11, the blocked-lane wake (engineering queue `then`, operator-ordered) --
   - WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION
+  # -- added 2026-09-11, in_flight decay (engineering queue `then`, operator-ordered) --
+  - WO-20260911-IN-FLIGHT-GOES-FALSE-BY-TIME-PASSING
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -561,3 +563,31 @@ reason_20260911_blocked_lane_wake: >-
   AND THE DONE-CONDITION FORBIDS THE CHEAP ANSWER, deliberately: "A REMINDER TO THE MANAGER
   IS NOT A MECHANISM and does not close this." The manager noticing is precisely what failed
   three times.
+
+reason_20260911_in_flight_decay: >-
+  SAME OPERATOR QUEUE ORDER as the MI-235 block above -- "Finish MI-238 first, then the
+  infra", answered 2026-09-10, recorded in `_lane_queues.engineering`, where MI-236 is the
+  row immediately after MI-235. MI-238 is delivered (its lane read `completed` at
+  2026-09-11T06:24Z, with the SPA half merged and observed live) and MI-235's PR is green,
+  so this is the next row of the infra by the operator's own ordering, not by the manager
+  re-picking.
+
+  WHY IT DISPLACES THE CYCLE PRIORITY RATHER THAN WAITING, and the argument is stronger
+  today than when the row was filed: the cycle is CY-20260906-TRADING-TRUTH -- repair the
+  MEASUREMENT before acting on what it says -- and this is a measurement that is MEASURABLY
+  WRONG. Six of nineteen in_flight rows were false on 2026-09-10, one of them for FOUR DAYS
+  after its owner was archived, and the same class had already been measured at 17 of 17 on
+  SESSIONS.json (MI-178). The manager reads that register to decide capacity.
+
+  AND IT IS NOW BINDING RATHER THAN COSMETIC: the WIP ceiling of 8 is FULL as of the
+  2026-09-11T04:26Z census, so a stale `in_flight` row is no longer just a misleading
+  number -- it is actively REFUSING real work at `check_wip_ceiling.py`. An instrument that
+  both misreports and blocks is exactly what the cycle says to fix first.
+
+  WHAT THE OPERATOR DID AND DID NOT SAY: they set the ORDER and named the LANE. They did
+  not say "displace CY-20260906-TRADING-TRUTH". That argument is the manager's, made above
+  rather than assumed.
+
+  AND THE DONE-CONDITION FORBIDS THE CHEAP ANSWER: "the state correction alone is a one-off
+  and does not close this." A sweep someone has to remember to run is the same failure one
+  level up.
