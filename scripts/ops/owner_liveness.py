@@ -81,7 +81,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -101,8 +101,6 @@ from src.runtime.manager_status import (  # noqa: E402
     _declared_vocabulary,
     effective_state,
     OBS_NONE,
-    OBS_RECENT,
-    OBS_STALE,
     OBS_UNKNOWN,
     observe_session,
 )
@@ -216,6 +214,13 @@ class OwnerGrade:
     #: Observation freshness of the REGISTRY ROW the verdict rests on, so a
     #: `dormant` recorded two minutes ago cannot read identically to one
     #: recorded three days ago.
+    # collapsed-state: unknown — this module PASSES observation freshness
+    # through verbatim from `observe_session` and branches on none of it; the
+    # only value it NAMES is the `unknown` default for the three early-return
+    # paths that never reach a registry row at all (no owner / registry unread
+    # / owner absent), where *nobody looked* is the literally correct reading.
+    # `recent` and `stale` arrive as DATA on `obs.state` and are rendered by
+    # the consumer beside the verdict, which is where the distinction is used.
     observation_state: str = OBS_UNKNOWN
     observation_basis: str = OBS_NONE
     observation_at: Optional[str] = None

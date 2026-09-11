@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 
 def _load(name: str, relpath: str):
@@ -27,6 +28,10 @@ def _load(name: str, relpath: str):
 
 
 ol = _load("owner_liveness", "scripts/ops/owner_liveness.py")
+# OBS_* come from their OWNER module, never via a re-export from `ol`.
+from src.runtime.manager_status import (  # noqa: E402
+    OBS_RECENT, OBS_STALE, OBS_UNKNOWN,
+)
 wip = _load("check_wip_ceiling", "scripts/ci/check_wip_ceiling.py")
 
 NOW = datetime(2026, 9, 11, 6, 0, tzinfo=timezone.utc)
@@ -155,11 +160,11 @@ def test_observation_freshness_rides_along():
     """A `dormant` observed two minutes ago must not read identically to one
     observed three days ago."""
     g = grade("session_idle0000")
-    assert g.observation_state == ol.OBS_STALE
+    assert g.observation_state == OBS_STALE
     assert g.observation_age_minutes == pytest.approx(2 * 24 * 60 + 30, abs=1)
-    assert grade("session_active00").observation_state == ol.OBS_RECENT
+    assert grade("session_active00").observation_state == OBS_RECENT
     # A row with no observation field at all is `unknown`, never `recent`.
-    assert grade("session_archive0").observation_state == ol.OBS_UNKNOWN
+    assert grade("session_archive0").observation_state == OBS_UNKNOWN
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -190,10 +190,16 @@ CONTRACTS: List[Dict[str, object]] = [
         # word `owner_activity` -- the same reason its `manager_status`
         # siblings below declare none.
         "producer": "scripts/ops/owner_liveness.py",
+        # ⚠️ The generic words (`ACTIVE`, `DORMANT`, `TERMINAL`) are matched
+        # ONLY behind the `ol.` module prefix. Bare `\bTERMINAL\b` pulled in
+        # five unrelated test files that happen to use the word, each then
+        # reported as a consumer collapsing this contract -- a false finding
+        # manufactured by the token, not by the code.
         "consumer_token": (r"\bowner_activity\b|\bOWNER_ACTIVITIES\b|"
                            r"\bgrade_owner_activity\b|\bUNGRADEABLE_OWNER\b|"
                            r"\bUNKNOWN_TO_REGISTRY\b|\bUNRECOGNISED_STATE\b|"
-                           r"\bREGISTRY_UNREAD\b|\bTERMINAL\b|\bDORMANT\b"),
+                           r"\bREGISTRY_UNREAD\b|\bol\.TERMINAL\b|"
+                           r"\bol\.DORMANT\b|\bol\.ACTIVE\b"),
         "states": ["active", "dormant", "terminal", "unrecognised_state",
                    "unknown_to_registry", "ungradeable_owner",
                    "registry_unread"],
@@ -225,9 +231,11 @@ CONTRACTS: List[Dict[str, object]] = [
     {
         "name": "owner_liveness.claim_support",
         "producer": "scripts/ops/owner_liveness.py",
+        # Same narrowing as its sibling above: bare `SUPPORTED` / `UNSUPPORTED`
+        # are ordinary English and matched five unrelated test files.
         "consumer_token": (r"\bclaim_support\b|\bCLAIM_SUPPORTS\b|"
-                           r"\bSUPPORTED\b|\bUNSUPPORTED\b|"
-                           r"\bCOULD_NOT_ESTABLISH\b|\bunsupported\b"),
+                           r"\bCOULD_NOT_ESTABLISH\b|\bol\.SUPPORTED\b|"
+                           r"\bol\.UNSUPPORTED\b"),
         "states": ["supported", "unsupported", "could_not_establish"],
         "why": (
             "This is a verdict about EVIDENCE, never about WORK: `unsupported` "
