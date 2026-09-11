@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T02:28:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated_at": "2026-09-11T03:32:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 03:28Z)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4479,10 +4479,10 @@
       "why": "Operator chose r2_only on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z. The remedy is written and the approval is recorded; it has sat unassigned since. Approved work sitting undone is the drop class the manager exists to stop.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T21:32:01Z",
-      "live_status": "IDLE/connected · review_ready",
-      "live_status_read_at": "2026-09-11T00:29Z",
-      "manager_observation": "ENGINEERING LANE, MI-240. #11738 head moved to 841f7452b (00:17Z) — REBASED onto de46c805e and re-running CI, now blocked with 4/5 green and pytest-run outstanding. ⚠️ THE MANAGER TOLD THE OPERATOR AT 23:28Z THIS WAS GREEN AND WAITING ON A CLICK; that was true at 23:26Z on head 1c6ef5a54 and is STALE. Corrected to the operator at 00:2xZ.",
-      "updated_at": "2026-09-11T00:29Z"
+      "live_status": "IDLE/disconnected",
+      "live_status_read_at": "2026-09-11T03:32:00Z",
+      "manager_observation": "MI-240. post_turn_summary 'review_ready -- PR green after 2 main advances; next check 05:10Z'. #11738 re-verified by the manager at 03:29Z: mergeable_state=clean, head 841f7452b. IT IS WAITING ON ONE OPERATOR MERGE CLICK AND ON NOTHING ELSE. R4 bars a Tier-2 diff from self-landing whatever its approval state; the r2_only approval is already recorded and must NOT be re-sought.",
+      "updated_at": "2026-09-11T03:32:00Z"
     },
     {
       "session_id": "session_01M3FPDA7Yp9dmMXFqsYzGi3",
@@ -4497,10 +4497,10 @@
       "why": "Operator directed this twice: 'rescue the 3, close the 9' (13:20Z pop-up) and 'we need a specific session in the ops lane (when opens ups)'. That condition is now met. 34 PRs remain undispositioned under a check #11735 proved was the wrong test.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T21:59:54Z",
-      "live_status": "IDLE/disconnected · completed",
-      "live_status_read_at": "2026-09-10T23:28Z",
-      "manager_observation": "OPS LANE, MI-259 DONE. Verified by the manager independently: perPage=100 at 23:26Z returns 2 open PRs, zero automation/**, against 44 this morning. Merged #11739, #11742, #11743.",
-      "updated_at": "2026-09-10T23:28Z"
+      "live_status": "IDLE/disconnected",
+      "live_status_read_at": "2026-09-11T03:32:00Z",
+      "manager_observation": "MI-259 ops lane. post_turn_summary 'completed -- 43 automation PRs dispositioned, zero open'. Independently re-measured by the manager at perPage=100: zero open automation PRs. Lane slot free.",
+      "updated_at": "2026-09-11T03:32:00Z"
     },
     {
       "session_id": "session_01J2dBJqYb85GwahYy51CdLV",
@@ -4515,10 +4515,10 @@
       "why": "MI-139 reads in_flight with an owner while its PR has been dirty and untouched since 07:08Z and the row carries prs: None. The ops lane's stated role is unsticking what is stuck, prioritised above its own backlog.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-10T23:48:12Z",
-      "live_status": "IDLE/disconnected · completed",
-      "live_status_read_at": "2026-09-11T00:29Z",
-      "manager_observation": "OPS LANE, MI-139 DONE. Unstuck #11648 (16h dirty, author gone) in ~35 min; merged de46c805e carrying a REAL fleet observation — clause (2) met on three live Bybit closes. Verified by the manager on origin/main, not from its summary.",
-      "updated_at": "2026-09-11T00:29Z"
+      "live_status": "IDLE/disconnected",
+      "live_status_read_at": "2026-09-11T03:32:00Z",
+      "manager_observation": "MI-139 ops lane. post_turn_summary 'completed' -- #11648 unstuck and merged (de46c805e). Nothing owed. Lane slot free.",
+      "updated_at": "2026-09-11T03:32:00Z"
     },
     {
       "session_id": "session_01G4VneSjgv5QT4rMGj4izi5",
@@ -4533,17 +4533,30 @@
       "why": "Operator answered 'Finish MI-238 first, then the infra' and it is the engineering lane's declared 'now'. Its row read in_flight with an owner idle since 18:13Z and prs: None — the second instance in one hour of the exact drop pattern recorded on MI-139.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T00:28:44Z",
-      "live_status": "RUNNING · both PRs COMPLETE and green, each waiting on a merge click. #11752 head 0c1f700d4 5/5 green (pytest-run incl.); ict-trader-dashboard#215 head 238b5b4 4/4 green, mergeable_state clean.",
-      "live_status_read_at": "2026-09-11T02:58Z",
-      "manager_observation": "ENGINEERING LANE. ⚠️ DISPATCHED FOR MI-238 (the live Workflow page, the operator declared now) AND WORKED MI-258 INSTEAD — opened #11752 on branch claude/mi258-decision-subject-liveness. Caught by reading task_summary against what was dispatched; NO status field showed it. The work is genuinely good (probe-before-build found 75% false positives on the obvious regex design over a stated population of 26, so none of it shipped; four never-collapsed states; six mutation-tested refusals; it caught its own VACUOUS test that SKIPPED rather than failed) and it delivered DEC-20260911-WORKFLOW-PAGE-TREE-BEHIND-GITHUB, the MI-262 criterion-(2) disposition the manager asked for. But its own PR states the page is untouched: the SPA render is a second repo and is NOT in it. Poked 01:28Z (trig_01QY2sy6YQikPiYU72xo4Tke -> cse_01G4VneSjgv5QT4rMGj4izi5, id matches) to land #11752 then go to the page. Drift partly the manager’s: the spawn prompt said the decisions half needed no new bot route, and the lane found a real defect there and followed it.",
-      "updated_at": "2026-09-11T02:58Z",
+      "live_status": "RUNNING/connected",
+      "live_status_read_at": "2026-09-11T03:32:00Z",
+      "manager_observation": "ENGINEERING LANE, the operator's declared `now`. task_summary at 03:29:42Z: 'Confirming merge and testing live API reachability'; current branch claude/mi258-decision-subject-liveness. It was watching #11752, which the manager merged at 03:30Z (4e9255acb). Context 567k/1000k -- over half spent, so a handoff is foreseeable and the lane should bank MI-238 rather than start anything new.",
+      "updated_at": "2026-09-11T03:32:00Z",
       "branches": [
         "claude/mi258-decision-subject-liveness"
       ],
       "note": "MERGE-RESOLVED BY ID 2026-09-11T01:40Z, NOT BY SIDE. Both sides of this conflict added a row for THIS SAME SESSION and taking the union would have left a DUPLICATE -- a `pending-` row nobody would ever confirm sitting beside a confirmed one. The manager's row (this one) is kept because it is canonical and was ALREADY CONFIRMED at 00:28:44Z; the session's self-registered row contributed `branches` and this note and was dropped as the duplicate. WHY THE SELF-REGISTRATION HAPPENED: this row was NOT on main at 00:3xZ and was still absent at ebb574dda, so `session_registry.py confirm` refused with 'no pending row'. Per MI-263 that reads as NOT LANDED YET rather than never written, and it is recorded as such rather than filed as a defect. session-registry-guard caught the gap correctly by naming this session as the unregistered owner of two in_flight checklist items. It is working MI-258 as the residue INSIDE the dispatched MI-238; `checklist_item` deliberately still reads MI-238, which is the dispatch.",
       "session_correction_20260911T0258Z": "⚠️ THE `manager_observation` ABOVE IS KEPT VERBATIM AND IS NOT EDITED BY THIS SESSION -- it is the manager's record of what they saw and is not mine to rewrite. But its claim that this session 'WORKED MI-258 INSTEAD' of MI-238 was ANSWERED WITH EVIDENCE on the coordination board at 02:0xZ (issue #11336) and the answer is not contested here, so the two must be read together. MEASURED, off origin/main rather than off a row: all three named halves of MI-238 were ALREADY shipped and deployed before this session began (bot route #11651 -> 4875f407a; SPA panels ict-trader-dashboard#212 -> 8d164c953, folded into the EXISTING Work page; the CLAUDE.md duty). MI-254 landed #11688, MI-262 landed #11716. The residue was MI-258 -- `queued`, unassigned, P1, never built -- and it is INSIDE MI-238, not instead of it. The SPA render is NOT untouched: ict-trader-dashboard#215 was opened 01:03Z, 25 minutes BEFORE the poke that said otherwise, and is 4/4 green; it does exactly the `actionable` filtering the poke itself named as the remaining work. And ict-trader-dashboard#214 is MERGED (ba501922c IS that repo's main HEAD), not held. The acceptance test -- collapsible rows (Work.svelte:592-601), the decisions list (Work.svelte:307), the live-sessions panel (Work.svelte:487) -- is already on main and deployed; `actionable` appears 0 times there, which is the single gap #215 closes. Clause (4) is done too: check_role_pack_operating_layer.py passes, 32 packs / 6 required / 0 missing / 0 dangling. RECORDED HERE because a registry row outlives a board comment, and a successor reading only this row would otherwise inherit the uncorrected claim."
+    },
+    {
+      "session_id": "session_01LoZJDARzLr1REPnqQ5Kgbz",
+      "registry_key": "pending-20260911T033103Z",
+      "state": "working",
+      "title": "OPS LANE — MI-243: sweep the 623 dormant work objects; give soak-bound work its own status",
+      "owns_object": "WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND",
+      "spawned_at": "2026-09-11T03:31:03Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-directed 2026-09-10 off the deployed SPA Work page; their trigger was 'when [a slot] opens up' and at 03:32Z exactly one lane is RUNNING against a cap of 3.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T03:31:50Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T02:27Z — PARTIAL. LIVE half is list_sessions(mine=true, limit=3) at 01:26Z, one row re-read; the two ops lanes were COMPLETED at that read and are not re-graded here. ⚠️ WHAT THIS PASS CAUGHT IS THE THIRD DISTINCT DROP CLASS IN FOUR HOURS, and it is the one no register can show: a lane RUNNING, healthy, and working on the WRONG ITEM. MI-139 and MI-238 were both `in_flight` rows pointing at dead owners; this is the inverse — a live owner pointing at the wrong work. Found only by reading task_summary against the dispatch, which is exactly what the cadence tick instructs and what no status field encodes."
+  "⚠️_last_live_reconcile": "2026-09-11T03:32Z, tick 03:28Z. PARTIAL, and the word is load-bearing: the manager read list_sessions(mine=true, limit=14) and graded the FOUR rows that turn up in that page against live state. The register holds far more rows than 14 and the rest were NOT read this pass -- their absence from the observations above is 'we did not look', never 'they are fine'. LIVE COUNT AT THIS READ: exactly ONE lane RUNNING (session_01G4VneSjgv5QT4rMGj4izi5, engineering, MI-238) against the operator's cap of 3, which is what made the MI-243 ops spawn admissible under its own stated trigger."
 }
