@@ -40,14 +40,32 @@ below is that head. **A later push invalidates this population, not its method.*
 the real diff · a shell reproduction of the new workflow step · three direct
 `blocked_lane_watch.assess()` experiments with a positive control.
 
-**Dispatch-brief correction (RULE ONE).** My brief named work object
+**Dispatch-brief correction, then its own correction (RULE ONE, applied to my
+own output).** My brief named work object
 `WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER.yaml` on
-`claude/manager-tick-1240z-20260911` (PR #11797). **That file does not exist on
-that branch** (tip `2143bb209`) or on `main`. Positive control: 163 objects are
-readable on that branch and 6 carry the `20260911` date, so the read and the
-pattern both work — the object is genuinely absent, not unreadable. Per the
-brief I did **not** recreate it. It appears unpushed; I proceeded from the task
-spec in the prompt.
+`claude/manager-tick-1240z-20260911` (PR #11797).
+
+- **At 12:4xZ that file did not exist** — not on that branch (tip `2143bb209`)
+  and not on `main`. Positive control: 163 objects were readable on that branch
+  and 6 carried the `20260911` date, so the read and the pattern both worked;
+  the object was genuinely absent, not unreadable. Per the brief I did **not**
+  recreate it, and proceeded from the task spec in the prompt.
+- ⚠️ **At 13:1xZ it IS on `main`** — it landed at 13:01 in the manager's
+  dispatch PR **#11798** (`0106a54bd`), on a *different* branch
+  (`claude/manager-lanes-1248z-20260911`) from the one my brief named. So the
+  brief's path was wrong and its existence claim became right while I was
+  working.
+
+**Both readings are recorded rather than the first being quietly deleted**, for
+the reason this repo already writes down about watched deploys: the
+negative-then-positive pair is the evidence that the absence was *measured* and
+not assumed, and a session that later finds the object would otherwise read my
+first paragraph as simply wrong. Having read it, its `done_condition` is the four
+sections below plus the population block above, its `owner` is this session, and
+its `blocked_on: []` carries `blocked_on_basis: ASSESSED` with an explicit note
+**not** to add an `operator_decision` edge — because the decision this work
+serves (whether to merge #11767) is the report's OUTPUT, not its precondition.
+This report is written to that condition.
 
 ---
 
