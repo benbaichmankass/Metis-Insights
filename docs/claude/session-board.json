@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/mgr-tick-1952z",
-    "claimed_at": "2026-09-11T19:57:14Z",
-    "purpose": "manager 19:52Z tick"
+    "branch": "claude/mgr-board-start-gap",
+    "claimed_at": "2026-09-11T20:01:50Z",
+    "purpose": "file the board-START structural gap"
   },
   "active_sessions": [
     {
