@@ -1,6 +1,6 @@
 # Sprint Log: S-DIAGTOKEN-GATE-AND-ALPACA-AFFORDABILITY-2026-08-25
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-25 (06:37Z–09:00Z), single session `session_01Gi3mgq`.

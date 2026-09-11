@@ -3,7 +3,7 @@ name: health-review
 description: Autonomous layer-2 review of the LIVE ICT TRADING BOT's TECHNICAL runtime health — pipeline plumbing, DB integrity, data validity, service state, alert delivery, sprint-doc drift. Reviews the cron health-snapshot report and reconstructs the same view from the diag relays since the last review. Drains docs/claude/health-review-backlog.json (system bugs / wiring gaps / minor doc drift). Does NOT score trades and does NOT review model performance — those moved to /performance-review and /ml-review respectively (2026-05-26 split). Use when the operator says "run the health review", "/health-review", or "do the layer-2 system review". NOT a code review or security audit.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /health-review — technical/pipeline/data-health review of the live ICT bot
 

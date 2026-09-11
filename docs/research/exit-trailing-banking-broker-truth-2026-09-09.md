@@ -1,6 +1,6 @@
 # Exit trailing and banking — the broker-truth restriction the object asked for
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **MI-209** · object [`WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF`](../claude/work/objects/WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF.yaml) · cycle `CY-20260906-TRADING-TRUTH`
 >

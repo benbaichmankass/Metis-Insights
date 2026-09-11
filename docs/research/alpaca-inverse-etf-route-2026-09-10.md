@@ -1,6 +1,6 @@
 # Scoping the inverse-ETF route for `alpaca_live`'s dead short side
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-10` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 **MI-251 · written 2026-09-10 by `session_01Ek2KDXDeLAMrN4JH4aEXWf` · MEASURE AND
 PROPOSE ONLY — this doc changes no config, arms nothing, and declares no

@@ -1,6 +1,6 @@
 # S-MI195 — QLD/TQQQ examined: the block was a routing gap, and the answer is a measured `none`
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 ## Date Range
 

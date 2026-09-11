@@ -1,6 +1,6 @@
 # Sprint Log: S-RESEARCH-BACKLOG-C30UJ9-2026-08-02
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-02 (single session, `metis-insights-research-backlog-c30uj9`).

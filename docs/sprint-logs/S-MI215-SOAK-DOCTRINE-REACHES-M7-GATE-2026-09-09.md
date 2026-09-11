@@ -1,6 +1,6 @@
 # Sprint Log: S-MI215-SOAK-DOCTRINE-REACHES-M7-GATE-2026-09-09
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-09-09 (single session, `session_01MrTjuoRpBb7spyQLydXmmT`). Work object `WO-20260901-PHASE-F`, checklist item MI-215. Manager `session_01HrmZ1RRNM4UnEUaFdrPEjj`.

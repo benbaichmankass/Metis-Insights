@@ -1,6 +1,6 @@
 # S-TIER3-DISPOSITIONS-2026-08-23
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-08-23 (continuation of the `s4-pairs-control` session; `main` at `72b254f9` at start).

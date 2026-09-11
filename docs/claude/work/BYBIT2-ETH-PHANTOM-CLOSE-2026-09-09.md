@@ -1,6 +1,6 @@
 # bybit_2 ETHUSDT — journal closed `sl` while the operator's terminal shows the position live
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `live` · category `evidence` · MI-221 · work object
 > `WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE-LEFT-A-REAL-MONEY-POSITION-UNPROTECTED-AND-INVISIBLE`
 > · investigated 2026-09-09 · session `session_01CwHNLSX6gMjPoKUWHoYj7q`
 

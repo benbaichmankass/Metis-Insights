@@ -1,6 +1,6 @@
 # Sprint S-065 — Controls phase 1 + minimal session/login flow
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **Sprint type:** auto-claude (M6 dashboard UI + first Tier-3 bot
 > mutating endpoint + Tier-2 session).

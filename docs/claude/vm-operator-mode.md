@@ -1,6 +1,6 @@
 # Live trader VM operator mode — the contract
 
-> **Doc status:** `live` · category `unknown` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > **This entire `/vm` / `/vm_write` command surface was removed (PR #1933,
 > 2026-05-25).** The trust contract below describes the historical

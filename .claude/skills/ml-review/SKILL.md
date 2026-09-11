@@ -3,7 +3,7 @@ name: ml-review
 description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage. Owns docs/claude/ml-review-backlog.json (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /ml-review — model/training lifecycle review
 
