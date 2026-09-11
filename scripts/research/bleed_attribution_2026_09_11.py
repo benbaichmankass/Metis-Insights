@@ -356,12 +356,87 @@ def positive_control(rows: list[dict], tol: float) -> dict:
     }
 
 
+def self_test() -> int:
+    """Planted controls for the adjudicator — the one piece of judgement here.
+
+    Every number in the memo rests on `adjudicate_exit`, so it must be
+    falsifiable by someone who does not trust it. These are PLANTED inputs with
+    known answers, including the two that matter most: that an unreadable row
+    returns an `ungradeable_*` state rather than the innocuous-looking
+    `neither`, and that the tolerance band is applied on the correct SIDE for a
+    short (a short stops out ABOVE its stop, and a sign error there would
+    silently swap stops for targets on half the book).
+    """
+    fails: list[str] = []
+
+    def check(label: str, got: Any, want: Any) -> None:
+        if got != want:
+            fails.append(f"{label}: got {got!r}, want {want!r}")
+
+    L = {"direction": "long", "entry_price": 100.0, "stop_loss": 90.0, "take_profit_1": 120.0}
+    S = {"direction": "short", "entry_price": 100.0, "stop_loss": 110.0, "take_profit_1": 80.0}
+    tol = 0.0015
+
+    check("long exits at its stop", adjudicate_exit({**L, "exit_price": 90.0}, tol), "reached_stop")
+    check("long gaps THROUGH its stop", adjudicate_exit({**L, "exit_price": 88.0}, tol), "reached_stop")
+    check("long exits at its target", adjudicate_exit({**L, "exit_price": 120.0}, tol), "reached_target")
+    check("long exits between brackets", adjudicate_exit({**L, "exit_price": 105.0}, tol), "neither")
+    # The short side is the sign-error trap: a short stops out ABOVE its stop.
+    check("short exits at its stop", adjudicate_exit({**S, "exit_price": 110.0}, tol), "reached_stop")
+    check("short gaps THROUGH its stop", adjudicate_exit({**S, "exit_price": 113.0}, tol), "reached_stop")
+    check("short exits at its target", adjudicate_exit({**S, "exit_price": 80.0}, tol), "reached_target")
+    check("short exits between brackets", adjudicate_exit({**S, "exit_price": 95.0}, tol), "neither")
+    # A long exiting ABOVE its stop must NOT read as a stop-out, and vice versa.
+    check("long just above its stop", adjudicate_exit({**L, "exit_price": 95.0}, tol), "neither")
+    check("short just below its stop", adjudicate_exit({**S, "exit_price": 105.0}, tol), "neither")
+
+    # *We did not look* must never collapse into *we looked and found nothing*.
+    check("no exit price", adjudicate_exit({**L, "exit_price": None}, tol), "ungradeable_no_price")
+    check("zero exit price", adjudicate_exit({**L, "exit_price": 0.0}, tol), "ungradeable_no_price")
+    check("no declared levels",
+          adjudicate_exit({"direction": "long", "exit_price": 100.0, "stop_loss": None,
+                           "take_profit_1": None}, tol), "ungradeable_no_levels")
+    check("unknown direction",
+          adjudicate_exit({**L, "direction": "", "exit_price": 90.0}, tol), "ungradeable_no_direction")
+    # A bracket whose legs overlap inside the band is not a stop and not a target.
+    check("degenerate bracket",
+          adjudicate_exit({"direction": "long", "entry_price": 100.0, "stop_loss": 100.0,
+                           "take_profit_1": 100.0, "exit_price": 100.0}, tol),
+          "ungradeable_bracket_degenerate")
+
+    # Wilson must widen as n shrinks, and must never be reported for n=0.
+    if wilson(0, 0) is not None:
+        fails.append("wilson(0,0) should be None, not an interval over nothing")
+    lo_small, hi_small = wilson(1, 3)
+    lo_big, hi_big = wilson(100, 300)
+    if not (hi_small - lo_small) > (hi_big - lo_big):
+        fails.append("wilson interval did not widen at small n")
+
+    # Fisher: a perfectly separated 2x2 must be significant; a balanced one must not.
+    if not fisher_2x2(20, 0, 0, 20) < 0.001:
+        fails.append("fisher failed to detect complete separation")
+    if not fisher_2x2(10, 10, 10, 10) > 0.5:
+        fails.append("fisher claimed significance on a balanced table")
+
+    for f in fails:
+        print(f"  FAIL {f}")
+    print(f"self-test: {'FAILED' if fails else 'OK'} ({len(fails)} failure(s))")
+    return 1 if fails else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--trades", required=True, help="JSON array from /api/diag/journal?table=trades")
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the planted controls for the adjudicator and exit")
+    ap.add_argument("--trades", help="JSON array from /api/diag/journal?table=trades")
     ap.add_argument("--tol", type=float, default=0.0015, help="bracket-touch tolerance, fractional")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
+    if not args.trades:
+        ap.error("--trades is required unless --self-test is given")
 
     raw = load_rows(args.trades)
     pop = population(raw)
