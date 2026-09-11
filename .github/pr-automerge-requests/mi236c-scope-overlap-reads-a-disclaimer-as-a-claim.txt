@@ -1,0 +1,14 @@
+PR #11829. Tier-1, landing: self.
+
+The scope-overlap audit read a DISCLAIMER as a CLAIM: the manager's
+"**I do NOT touch** `src/` ... `scripts/` ..." line classified `declare`
+because the marker `scope` matched inside the path token
+`check_manager_scope.py`. Markers are now matched on PROSE only (code spans
+stripped); path extraction is untouched, so the change can only remove a
+false declaration.
+
+73 planted controls all fire unmodified; suite 24 -> 33; mutation-checked
+(reverting fails 7 tests). The over-broad version of this fix regressed the
+module's own #10729 control and was DISCARDED, not shipped with the control
+loosened; the residue is filed as
+BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES.
