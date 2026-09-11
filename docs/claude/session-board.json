@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-1240z-20260911",
-    "claimed_at": "2026-09-11T12:51:57Z",
-    "purpose": "manager tick 12:32Z — re-asserted over main after a merge-slot conflict"
+    "branch": "claude/manager-lanes-1248z-20260911",
+    "claimed_at": "2026-09-11T13:01:19Z",
+    "purpose": "manager lane dispatch — MI-267 + MI-268"
   },
   "active_sessions": [
     {

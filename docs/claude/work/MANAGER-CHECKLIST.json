@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T12:32:07Z",
+  "updated_at": "2026-09-11T12:49:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3849,9 +3849,38 @@
       "⚠️_WHAT_WOULD_FLIP_THE_SPA_SIZING_AND_IT_IS_NOT_HYPOTHETICAL": "The lane's answer -- 'a form and a localStorage token, NOT an auth build' -- rests on the SPA having exactly ONE network chokepoint, get<T>() at webapp/src/lib/api.ts:126-130, through which all ~19 REST paths pass (no other fetch, no XHR, no axios), plus config.ts already doing localStorage-with-a-Settings-field. That is true of REST and FALSE of the socket: /ws/market (webapp/src/lib/ws.ts:78) is NOT gated today, and a browser WebSocket CANNOT send an Authorization header. If Phase H widens the read gate to the socket, 'one header line' becomes a real auth build -- a query-param or cookie ticket, i.e. a NEW credential surface. The lane filed it to the health-review backlog rather than leaving it in a PR body. Read this BEFORE sizing the SPA half.",
       "✅_A_MEASUREMENT_NOBODY_HAD_TAKEN_AND_IT_CONFIRMS_THE_OPERATORS_PICTURE": "require_session is attached to FOUR handlers, not two: GET /api/bot/db/tables (db_explorer.py:258), GET /api/bot/db/table/{name} (db_explorer.py:306), GET /api/pnl (pnl.py:211) and GET /api/status (status.py:38). The lane then enumerated every path the SPA actually requests and established it calls NEITHER of the latter two -- so no additional tab is dark and the operator's picture (Data Explorer is the only one) is CORRECT. The other two are gated-and-uncalled, which is exactly why their darkness went unnoticed. Recorded so it is not rediscovered.",
       "⚠️_WHY_THE_MANAGER_MERGED_THIS_BY_HAND_AND_WHY_THAT_IS_NOT_THE_R12_CASE": "It declared landing: hold / hold_reason: unvouchable_paths -- R5 -- because the board-post and pr-opener relays (forced on the lane by a 403 write-scope boundary on add_issue_comment and create_pull_request, NOT the transient MCP drop) committed result files under automation/**, which is outside TIER1_SURFACE, so the guard cannot certify self-landing. THE DIFF ITSELF IS TIER-1. That is a DIFFERENT hold from R12 changes_landing_machinery, where the manager must NOT merge and a human must read -- #11767 is that case and is still waiting. The lane did NOT delete the relay artifacts to buy self-landing, which was the right call: board-post.yml's own header records that the request file is deliberately left in place, so removing it to satisfy a guard would damage a relay contract to win a merge convenience. VERIFIED BEFORE MERGING: mergeable_state clean, all four required checks SUCCESS on head f3069e27, arming file absent, and the board untouched on the THREE-dot diff (the two-dot diff shows a merge_slot difference only because main had moved -- reading that as a conflict is the error this manager already made once today)."
+    },
+    {
+      "id": "MI-267-GIVE-THE-SPA-A-BEARER-SO-THE-DATA-EXPLORER-STOPS-BEING-DARK",
+      "title": "Give the SPA a bearer so the Data Explorer stops being dark (the CLIENT half of MI-266)",
+      "state": "in_flight",
+      "owner": "session_01PymYx96XPtBW3SdfQtpKwc",
+      "prs": [],
+      "priority": "now",
+      "work_object": "WO-20260911-GIVE-THE-SPA-A-BEARER-SO-THE",
+      "operator_decision": "Operator-approved DIRECTLY, 2026-09-11, as a decision pop-up. Question: 'Both engineering lanes just finished, so two of your three slots are free. What goes out next?' Options offered: the SPA bearer half (the manager's recommendation, marked as such) / the merge-slot fix (exempt automation/** from R13) / hold both slots until the operator confirms the Workflow page. CHOSEN: the SPA bearer half. Recorded with its reasoning in docs/claude/work/spawn-priority-exception.yaml under reason_20260911_spa_bearer_and_11767_review.",
+      "note": "THE HOST HALF LANDED AND NOTHING CAN USE IT. MI-265 (#11780) established the host is unreachable for EVERYONE (POST /api/auth/login with a well-formed body -> 500 auth_unavailable, no static-token bypass, single mint path); MI-266 (#11783) established the CLIENT cannot send a bearer at all, measured over all 40 files under webapp/src with a non-zero positive control. SIZED, not guessed: one network chokepoint (get<T>() at webapp/src/lib/api.ts:126-130) carries all ~19 REST paths, and config.ts already does localStorage-with-a-Settings-field -- so the work is a token store, one header line, a login form, a 401 handler.",
+      "⚠️_THE_LANE_MAY_LAND_WITHOUT_THE_TAB_RENDERING_AND_THAT_IS_CORRECT": "The host side still needs two secret VALUES only the operator can originate (JWT_SIGNING_KEY, WEBAPP_PASSWORD_SHA256) and a Tier-2 set-env that has not been dispatched. 'The tab renders' is a LATER observation belonging to nobody yet, and the lane was told in terms not to claim it, not to wait for it, and never to mint or guess a secret value. This row must not be graded `done` on a merged PR.",
+      "⚠️_ITS_REGISTRY_ROW_WAS_HAND_WRITTEN_AND_THE_GAP_IS_FILED": "session_registry.py register REFUSES any --source-url outside this checkout's origin (MI-207), so the sanctioned spawn path CANNOT register a lane whose work is in benbaichmankass/ict-trader-dashboard -- measured by RUNNING it, not by reading it. The manager refused both escapes (a false row naming the backend repo, or no row at all), wrote the SESSIONS.json row by hand with its own weaknesses stated on it, and filed the gap to the health-review backlog as BL-20260911-THE-SESSION-REGISTRY-REFUSES-A-CROSS-REPO-SPAWN-SO-A-DASHBOARD-LANE-CANNOT-BE-REGISTERED-BY-THE-SANCTIONED-PATH (filed on THIS branch, so it does not resolve from main's view until this merges -- which is exactly why the id is written in FULL here: a truncated id reads as 'tracked by nobody' to check_backlog_refs, and an ellipsis is what tripped it). The refusal itself is CORRECT and must not be weakened.",
+      "⚠️_OUT_OF_SCOPE_AND_THE_LANE_WAS_TOLD_SO": "/ws/market (webapp/src/lib/ws.ts:78) is not gated today and a browser WebSocket cannot send an Authorization header. If Phase H widens the read gate to the socket, 'one header line' becomes a real auth build with a new credential surface -- a SEPARATE and larger piece of work, already filed to the health-review backlog by the MI-266 lane.",
+      "added": "2026-09-11"
+    },
+    {
+      "id": "MI-268-ADVERSARIALLY-REVIEW-11767-BECAUSE-R12-FORBIDS-THE-MANAGER-MERGING-IT",
+      "title": "Adversarially review #11767 (MI-235), which R12 forbids the manager merging",
+      "state": "in_flight",
+      "owner": "session_01PkGrU3GSYiWYAUyF99pEQi",
+      "prs": [],
+      "priority": "now",
+      "work_object": "WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER",
+      "operator_decision": "Operator-approved DIRECTLY, 2026-09-11, as a decision pop-up. Question framed the R12 hold on #11767 and offered three options: spawn a review lane to read it adversarially (the manager's recommendation) / the operator reads and merges it themselves / leave it parked. CHOSEN: spawn a review lane.",
+      "note": "#11767 is GREEN and declares landing: hold / changes_landing_machinery. THE MANAGER MUST NOT MERGE IT -- the guard that would catch a mistake in it is the thing being changed. The reviewer's deliverable is a REPORT the OPERATOR merges on; it was told in terms that it is NOT a second manager and must not merge it either, must not push to claude/mi235-blocked-lane-watch, and must not modify the landing machinery itself.",
+      "⚠️_THE_LOAD_BEARING_QUESTION_IS_NOT_DOES_IT_WORK": "The review must cover the case where the change is CORRECT but makes a FUTURE mistake harder to catch -- that is what R12 is actually about, and it is the question a 'does this work?' review misses. And clause (c) must be established by RUNNING the guard self-tests against a planted defect, never by reading them: a guard whose self-tests pass while it no longer catches a planted defect is strictly worse than no guard, and a landing-machinery change is exactly what can produce that state.",
+      "⚠️_A_CLEAN_REPORT_IS_A_VALID_OUTCOME_AND_MUST_STATE_ITS_POPULATION": "'No problems found' is useful and is explicitly permitted -- but only with what was examined and what was NOT, which is the only thing separating a clean report from a shallow one.",
+      "added": "2026-09-11"
     }
   ],
-  "as_of": "2026-09-11T12:32:07Z",
+  "as_of": "2026-09-11T12:49:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -3874,7 +3903,7 @@
     "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
     "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
     "engineering": {
-      "now": "EMPTY as of 2026-09-11T12:32Z -- BOTH engineering lanes reported complete and idle within the same tick, so two of the operator's three concurrent slots are free. MI-266 merged by hand (f14d2c704); MI-246 merged as #11787 (f8eaa683d). ⚠️ THE ORDER IS STILL THE OPERATOR'S AND HAS NOT BEEN RE-ORDERED: 'Finish MI-238 first, then the infra.' MI-238's remaining clause (3) is the OPERATOR confirming the rendered Workflow page in a browser -- that is not work a lane can take, so it occupies no slot, and it does not license skipping ahead either. The manager does not fill these slots by picking the next interesting row; the next dispatch is named below and goes to the operator as its own decision.",
+      "now": "TWO LANES DISPATCHED 2026-09-11T12:48Z, both operator-approved directly as decision pop-ups: MI-267 (the SPA bearer half, session_01PymYx96XPtBW3SdfQtpKwc, in benbaichmankass/ict-trader-dashboard) and MI-268 (the #11767 adversarial review, session_01PkGrU3GSYiWYAUyF99pEQi). That is 2 of the operator's 3 concurrent slots. ⚠️ THE OPERATOR'S ORDER IS NOT RE-ORDERED: 'Finish MI-238 first, then the infra' stands, and MI-238's remaining clause (3) is the OPERATOR confirming the rendered Workflow page in a browser -- not work a lane can take, so it occupies no slot. MI-267 IS 'the infra', chosen by the operator over the merge-slot fix and over holding.",
       "then": [
         "MI-235 (tell a blocked session when its blocker clears)",
         "MI-236 (decay stale in_flight rows)",
@@ -3889,7 +3918,7 @@
       "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness.",
       "⚠️_THE_ORDER_IS_STILL_THE_OPERATORS_AND_HAS_NOT_BEEN_RE_ORDERED": "`operator_decision` below still governs: asked directly 2026-09-10 and answered 'Finish MI-238 first, then the infra', OVERRIDING the manager's own recommendation. Nothing here re-orders it — MI-238's code is finished, so 'then the infra' is what is now running, and MI-246 is the next unstarted row on the `then` list. MI-266 is an OPERATOR INSERTION from 2026-09-11, not the manager promoting its own preference.",
       "next_dispatch_is_named_but_not_dispatched": "The infra half of the operator's order. Candidates, in the order they became ready and NOT a commitment: (1) the SPA bearer half of MI-266, now SIZED -- a token store, one header line, a login form, a 401 handler -- which lives in benbaichmankass/ict-trader-dashboard and so MUST be spawned with that repo as source_url (the MI-266 lane was spawned with NEITHER repo attached and had to discover the backend via list_repos + add_repo; that was the manager's error and is fixed forward by always passing source_url). (2) The merge-slot contention class filed to the backlog this tick. Neither is dispatched.",
-      "updated_at": "2026-09-11T12:32:07Z"
+      "updated_at": "2026-09-11T12:49:00Z"
     },
     "ops": {
       "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",

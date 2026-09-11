@@ -1,0 +1,28 @@
+id: WO-20260911-GIVE-THE-SPA-A-BEARER-SO-THE
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Give the SPA a bearer so the Data Explorer stops being dark
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01PymYx96XPtBW3SdfQtpKwc
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A login form and a token store exist in benbaichmankass/ict-trader-dashboard, get<T>() attaches the bearer, and a 401 clears the token and returns the viewer to the form. ⚠️ THE PR MAY LAND WITHOUT THE TAB RENDERING, and that is the correct outcome -- the host side needs two secret values only the operator can originate, so 'the tab renders' is a LATER observation and this object must not claim it. ⚠️ AND /ws/market IS OUT OF SCOPE: it is not gated today and a browser WebSocket cannot send an Authorization header, so if Phase H ever widens the gate to the socket that is a NEW and larger piece of work, not a detail of this one.
+
+why: >-
+  The propagation path for the two web-api auth secrets landed as #11783 (f14d2c704) and NOTHING CAN USE IT. MI-265 established the HOST side is unreachable for everyone (POST /api/auth/login with a well-formed body returns 500 auth_unavailable, no static-token bypass, single mint path); MI-266 established the CLIENT side cannot send a bearer at all -- measured across all 40 .svelte/.ts/.js files under webapp/src with a non-zero positive control (5 contain fetch), there is no login UI and no token store. The work is SIZED, not guessed: the SPA has exactly ONE network chokepoint, get<T>() at webapp/src/lib/api.ts:126-130, through which all ~19 REST paths pass -- no other fetch, no XHR, no axios -- and webapp/src/lib/config.ts already does localStorage-with-a-Settings-field, so both the token-store pattern and a place to put the form already exist.
+
+source: >-
+  operator decision 2026-09-11 via the manager; chosen: SPA bearer half of MI-266
+
+blocked_on: []
+blocked_on_basis: ASSESSED
+blocked_on_basis_note: >-
+  blocked_on is EMPTY and that is an ASSESSED CLAIM, not an unread field. The lane can BUILD the whole client half with nothing outstanding: the chokepoint (get<T>() at webapp/src/lib/api.ts:126-130), the localStorage pattern in config.ts and the 401 path all exist in the dashboard repo today. Do NOT add an operator_decision edge for the two secret VALUES -- that would be a FALSE blocker, and the work store's README records that a false blocker is worse than a missing one. The values gate the OBSERVATION that follows this object ('the tab renders'), which is deliberately NOT this object's done-when; they do not gate the build.
+
+captured_by: scripts/ops/capture_idea.py
