@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: The exit-eval 60s breaches have TWO different causes - a closed within-process episode plus a live
   IBKR-reset-window residual, and a structural restart gap with no headroom
 stage: DIAGNOSIS
-lifecycle: in_flight
+lifecycle: waiting
 owner: claude
 opened_at: '2026-09-10'
 closed_at: null
@@ -40,7 +40,28 @@ blocked_on_basis: 'ASSESSED 2026-09-10T21:5xZ by session_01CTPC91xaHrK6ES33UKjkT
   WRITTEN: ASSESSED 2026-09-10 by the lane that did the work, from the code and the live reads
   rather than from the dispatch brief. Nothing technical blocks the remedies - both are written out exactly,
   both are small, both have a rollback. What blocks them is that each is Tier-2 (R1 reorders live startup;
-  R2 changes what an exit pass does when a broker fetch times out) and neither is a session''s call.'
+  R2 changes what an exit pass does when a broker fetch times out) and neither is a session''s call.
+  === LIFECYCLE RETURNED TO `waiting` 2026-09-11T04:1xZ by session_01CTPC91xaHrK6ES33UKjkTY, AND THE
+  REASON IS RECORDED SO IT CANNOT BE READ AS A GUARD DODGE. I moved it `waiting` -> `in_flight` on
+  2026-09-10 while actively building R2. The build is finished (PR #11738, green, 5/5 checks) and what
+  remains is a HUMAN MERGE CLICK plus fleet observation, neither of which consumes a session''s
+  attention -- which is wip-ceiling''s OWN definition of `waiting`: "a thing blocked on someone else is
+  not consuming attention". MEASURED at the moment of the change: origin/main held EXACTLY 8 in_flight,
+  i.e. the ceiling was already full, so my object was the NINTH and wip-ceiling-guard failed with
+  verdict=over_no_exception. I did NOT file a wip-ceiling exception (a FILED justification still fails
+  until approved, so it would have unblocked nothing and would have spent an operator decision on a
+  bookkeeping question), and I did NOT move another session''s object.
+  === AND blocked_on STAYS EMPTY DELIBERATELY, WHICH IS IN TENSION WITH A ROW FILED THE SAME DAY --
+  BL-20260911-TEN-OF-25-WAITING-WORK-OBJECTS-CARRY-NO-EDGE-AND-SEVERAL-ASSERT-NOTHING-BLOCKS-THEM. The
+  tension is NOTICED, not missed, and this empty is ASSESSED rather than unexamined. The argument is the
+  paragraph above it: the merge click is a LANDING state (R4 bars a Tier-2 diff from self-landing
+  whatever its approval state), and the declared edge vocabulary is object / operator_decision /
+  external_event / data_accrual / capability -- of which operator_decision is WRONG here because the
+  decision is ANSWERED (r2_only, 2026-09-10T07:52:00Z), and an operator_decision edge with no matching
+  OPEN request is exactly what the work-store README flags. Manufacturing an edge to satisfy a guard
+  would put a FALSE BLOCKER into the constraint readout, which this repo states in terms is worse than a
+  missing one. If a successor judges that landing SHOULD be a typed edge, that is a schema change worth
+  making deliberately -- not a field to quietly fill in here.'
 captured_by: session_01Ww2pZVK5VUqV8xFFtTs9B1 (the investigating lane)
 source: manager (captured via scripts/ops/capture_idea.py), completed by the lane
 why: 'MI-230 shipped the instrument and its FIRST complete read contradicts what the OPEN-ITEMS row predicted.
