@@ -54,12 +54,35 @@ why: >-
 source: >-
   operator (conversational)
 
-blocked_on: []
+blocked_on:
+  - kind: data_accrual
+    ref: >-
+      a `trades` row for `ict_scalp_5m` on `bybit_1` created after the post-#11121
+      restart, to serve as the POSITIVE CONTROL denominator against which the
+      absence of a `bybit_2` sibling row can be read
+    since: '2026-09-11'
+    note: >-
+      WRITTEN BY THE MI-243 SWEEP, 2026-09-11, replacing a NOT_ASSESSED empty list.
+      It is a TRUE edge on a row this session read in full, not a bulk annotation.
+      BASIS: PR #11121 is MERGED (2026-09-06T21:27:22Z, `merged_by: benbaichmankass`
+      — read from the GitHub API, not from the checklist), so the demote is shipped
+      and part (1) of this object's done_condition now waits on evidence, not on work.
+      ⚠️ THE DENOMINATOR IS THE WHOLE POINT AND IS NOT THIS SWEEP'S INVENTION: #11121's
+      own body measures that the leg was quiet on ALL THREE accounts (newest 400
+      `trades` rows, 2026-08-27→2026-09-06, every latest row at 2026-09-04T08:37:4x),
+      so a "no new bybit_2 rows" check returns zero TODAY AND WOULD WITH THIS CHANGE
+      NEVER APPLIED. Silence is not evidence until bybit_1 produces.
+      ⚠️ THIS EDGE COVERS PART (1) ONLY. Part (2) — whether the leg should trade real
+      money at all — is ACTIONABLE work (the `bracket_geometry` sweep, the one exit
+      lever both unrun and applicable) and is blocked by nothing. It is deliberately
+      NOT given an edge here; inventing one would make actionable work read as held.
+      Full criteria: OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP.
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ASSESSED 2026-09-11 by the MI-243 dormant sweep, replacing NOT_ASSESSED. ONE edge is
+  declared and it is real: part (1) of the done_condition is shipped (#11121 merged) and
+  now waits on a live bybit_1 row to exist as its positive control. Part (2) is actionable
+  and is deliberately given NO edge — an invented edge is read by the constraint computation
+  as a true blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
 
@@ -69,3 +92,25 @@ manager_reconciliation:
   moved: in_flight -> waiting
   why: >-
     session_01X3kyzCfUdFVimATxZFE8nd ended IDLE/disconnected 2026-09-06T21:56:34Z reporting 'Merged #11115/#11186'. Nothing is in flight. The manager has NOT verified that claim against main, so this is waiting on verification, not done.
+sweep_2026_09_11: |-
+  COHORT RULE 4 ("accrual is not an external event") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: an edge whose `ref` names DATA OR AN OBSERVATION
+    ACCUMULATING ON THE FLEET, which no person can schedule and which needs nobody to act, is
+    `kind: data_accrual` — a value ALREADY DECLARED in the work store's own vocabulary
+    (`docs/claude/work/README.md`; `scripts/ops/constraint_readout.py:234`) and, MEASURED over all
+    710 objects on 2026-09-11, used by ZERO of them. An edge that names a PR merging, an operator
+    deciding, or a session doing something stays `external_event`. Only the `kind:` value changed;
+    the `ref`, the `since` and the note are untouched, so no new claim is introduced.
+    ⚠️ WHY THIS MATTERS: `external_event` was carrying BOTH facts, so "nothing is happening" and
+    "something is accruing that nobody is watching" rendered identically — the collapsed-state
+    defect this repo has a guard family for, one level below `lifecycle`.
+    ⚠️ AND STATE WHAT IT DOES NOT YET BUY: nothing BRANCHES on `data_accrual` today. It is already
+    correctly excluded from `constraint_readout.operator_block` (which collects ONLY
+    `operator_decision`), so a soak-bound row is not counted as blocked on a person — but that is
+    true of `external_event` too. The re-point makes the RECORD true; making it VISIBLE is a
+    renderer change on the SPA Work page, which already receives `blockedOn[].kind` from
+    `/api/bot/work`. No `lifecycle` widening is required and none was made.
+  ---
+  NEW `data_accrual` EDGE WRITTEN (this row previously carried `blocked_on: []` with a
+  NOT_ASSESSED basis). See the edge's own note for the basis and for why part (2) is
+  deliberately left unblocked.

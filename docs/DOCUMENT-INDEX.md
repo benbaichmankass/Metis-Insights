@@ -392,6 +392,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/vm-operator-mode.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/claude/vm-resource-management.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/web-automations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/DORMANT-SWEEP-2026-09-11.md` | evidence | live | — | 2026-09-11 | `mi-243:self-measured-2026-09-11 / population-stated` | MI-243 dormant sweep: 710 objects graded, 4 cohort rules stated with counts (21 closed / 554 held on an operator decision / 47 read individually); `data_accrual` 0->3, no lifecycle widening. |
 | `docs/claude/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-177:self-measured-2026-09-08 / population-stated` | MI-177 fleet audit: 8/11 accounts read both sides, 25 symbol pairs, 24 exact + 1 known MGC divergence; 3 accounts not read. |

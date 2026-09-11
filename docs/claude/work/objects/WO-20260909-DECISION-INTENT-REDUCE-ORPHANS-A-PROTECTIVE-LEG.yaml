@@ -31,7 +31,7 @@ done_condition: >-
   do not treat the existing one as covering this.
 
 blocked_on:
-  - kind: external_event
+  - kind: data_accrual
     ref: >-
       a real intent-reduce firing on a Bybit account under BYBIT_TPSL_MODE=partial, after the
       7b8b6b51d deploy reaches the running trader - and the shrunk row's tracked leg then read
@@ -149,3 +149,26 @@ decision_requests:
       recorded_at: '2026-09-09T21:15:00Z'
       note: >-
         Manager session. One of the six the full-system audit filed and did not take.
+sweep_2026_09_11: |-
+  COHORT RULE 4 ("accrual is not an external event") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: an edge whose `ref` names DATA OR AN OBSERVATION
+    ACCUMULATING ON THE FLEET, which no person can schedule and which needs nobody to act, is
+    `kind: data_accrual` — a value ALREADY DECLARED in the work store's own vocabulary
+    (`docs/claude/work/README.md`; `scripts/ops/constraint_readout.py:234`) and, MEASURED over all
+    710 objects on 2026-09-11, used by ZERO of them. An edge that names a PR merging, an operator
+    deciding, or a session doing something stays `external_event`. Only the `kind:` value changed;
+    the `ref`, the `since` and the note are untouched, so no new claim is introduced.
+    ⚠️ WHY THIS MATTERS: `external_event` was carrying BOTH facts, so "nothing is happening" and
+    "something is accruing that nobody is watching" rendered identically — the collapsed-state
+    defect this repo has a guard family for, one level below `lifecycle`.
+    ⚠️ AND STATE WHAT IT DOES NOT YET BUY: nothing BRANCHES on `data_accrual` today. It is already
+    correctly excluded from `constraint_readout.operator_block` (which collects ONLY
+    `operator_decision`), so a soak-bound row is not counted as blocked on a person — but that is
+    true of `external_event` too. The re-point makes the RECORD true; making it VISIBLE is a
+    renderer change on the SPA Work page, which already receives `blockedOn[].kind` from
+    `/api/bot/work`. No `lifecycle` widening is required and none was made.
+  ---
+  RE-POINTED its single edge from `external_event` to `data_accrual`. Justified from the edge's OWN
+  note rather than from this sweep's reading of the title: it says "an event NOBODY CAN SCHEDULE",
+  "DO NOT MANUFACTURE THE EVENT", and that at 21 of 1000 journal rows "the wait may be days".
+  That is data accruing, by the author's own description.
