@@ -280,7 +280,7 @@ Both are genuine instrument defects; neither is the outage it looks like.
 - **`dataset_audit.jsonl`** is not on the diag allowlist (verified with
   `exit_lever_soak` as a positive control), so *which* column is dead for
   `setup-quality-lgbm-v2` is unestablished.
-- **`BL-20260905-LOCAL-PNL-SWEEP-WINDOW`'s last clause could not be tested:** its
+- **`BL-20260905-LOCAL-PNL-SWEEP-WINDOW-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-CLOSE-IS-NEVER-PRICED`'s last clause could not be tested:** its
   criterion needs closed rows held > 14 days, and the 1000-row window contains
   **zero** of them. The denominator is empty, so a zero there is not evidence.
   Control: 36 closed rows carry `pnl NULL` at *some* hold length, so the probe
