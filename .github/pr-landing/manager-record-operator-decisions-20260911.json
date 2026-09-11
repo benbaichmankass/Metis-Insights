@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records TWO operator decisions answered in conversation at 2026-09-11T05:55Z, and the spawn that executes one. Registers and work objects only: the two answer blocks written through the canonical scripts/ops/commit_work_decisions.py::_write_answer + src/runtime/work_decisions.py::render_answer_yaml_block (the same writer the automated committer uses, so the shape cannot drift), the discharge of the now-answered operator_decision edge, MANAGER-CHECKLIST.json, and SESSIONS.json. Asserted with yaml.safe_load that NOTHING changed semantically in either object beyond the added answer block. NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Recording an operator decision into docs/claude/work/** and spawning a session are both management, not items."
+}
