@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register record only: one OPEN-ITEMS observation on OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT, recording that its clause (a) is satisfied for the first time with a dated before/after, plus the merge-slot claim R13 requires. No src/, config/, deploy/, .github/workflows/ or scripts/ci/. Nothing armed, no runtime or order path, no strategy config. Tier-1 by the canonical doc's own examples (docs + observability records)."
+}
