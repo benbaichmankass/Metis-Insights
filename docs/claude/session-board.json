@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "session_01NFnmLiu9zNDppY3qFXcJJA",
     "branch": "claude/mi264-disposition-17-unsupported-rows",
-    "claimed_at": "2026-09-11T08:46:36Z",
+    "claimed_at": "2026-09-11T08:47:10Z",
     "purpose": "MI-264: disposition the 17 unsupported in_flight rows; WIP ceiling 8 -> 5 (PR #11775)"
   },
   "active_sessions": [
