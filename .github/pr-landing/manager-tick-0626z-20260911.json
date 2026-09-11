@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 06:26Z. Registers only: MANAGER-LEASE.json heartbeat (06:25:17Z, expires 07:55:17Z), SESSIONS.json (three rows graded against a REAL live read plus the MI-236 spawn registration, and the top-level updated_at R6 reads), MANAGER-CHECKLIST.json (MI-238 -> review_ready with both code halves landed; MI-235 -> review_ready, green and held by R12 for a human; MI-236 ready -> in_flight with its spawn), one new work object from capture_idea.py, and the spawn-priority exception entry permitting it. NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Spawning a session and keeping the work registers is management, not an item."
+}

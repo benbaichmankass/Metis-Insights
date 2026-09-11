@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T05:58:00Z",
+  "updated_at": "2026-09-11T06:27:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3169,7 +3169,7 @@
     },
     {
       "id": "MI-235-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION-IS-NEVER-TOLD-WHEN-IT-HAPPENS",
-      "state": "in_flight",
+      "state": "review_ready",
       "owner": "session_015iy2R6BP11eiVHbNeUnT6a (ENGINEERING LANE)",
       "added": "2026-09-10",
       "tier": 1,
@@ -3183,12 +3183,16 @@
       "work_object": "WO-20260911-A-SESSION-BLOCKED-ON-A-MANAGER-ACTION",
       "⚠️_A_THIRD_INSTANCE_LANDED_TODAY_AND_IT_IS_THE_MOST_DAMNING_OF_THE_THREE": "2026-09-11T03:56:52Z–04:29Z: the MI-238 engineering lane went IDLE blocked on a manager merge (ict-trader-dashboard#215) and ANNOUNCED IT IN ITS OWN post_turn_summary -- '#215 awaiting merge' -- a machine-readable field that nothing read. It sat 33 minutes, and the only reason it was 33 minutes rather than the 13 HOURS (MI-222) or 3.5 DAYS (MI-139) this row already records is that the cadence tick happened to fire. Milder in duration, worse in kind: the previous two at least required inferring the blocker, and this one was declared. Roughly four lane-days are now lost to this single class.",
       "⚠️_SPAWNED_UNDER_THE_OPERATOR_S_OWN_QUEUE_ORDER_NOT_THE_MANAGER_S_JUDGEMENT": "`_lane_queues.engineering` records the operator answering 'Finish MI-238 first, then the infra' on 2026-09-10, OVERRIDING the manager's recommendation to take MI-235/236/246 immediately. MI-238's two code halves are now landed (bot 4e9255acb, observed 681b88a84; SPA 941c96f81) and its one remaining criterion is the operator confirming the rendered page in a browser, which is not lane work. So 'then the infra' is due and MI-235 is its first row. ⚠️ The manager's earlier recommendation stays RECORDED AS OVERRIDDEN, not retroactively adopted -- the order being reached in due course is not the same as it having been re-decided.",
-      "updated_at": "2026-09-11T05:29:00Z"
+      "updated_at": "2026-09-11T06:27:00Z",
+      "prs": [
+        11767
+      ],
+      "⚠️_GREEN_SINCE_0622Z_AND_HELD_FOR_A_HUMAN_BY_R12_NOT_BY_AN_APPROVAL": "All four checks green on head 15d0a882b at 06:22:43Z. Declared `landing: hold` / `changes_landing_machinery` because the diff touches scripts/ops/session_registry.py, which is on the guard's LANDING_MACHINERY path list. NO APPROVAL DECISION IS OUTSTANDING -- R12 refuses to let a change to the landing machinery be merged BY that machinery unread, and the standing context says in terms that R12 holds such a PR for a human BY DESIGN. ⚠️ THE MANAGER DELIBERATELY DID NOT MERGE THIS, and the distinction from #11752 is the point: that one was `hold` for `unvouchable_paths` -- a tier the guard could not certify BY PATH -- and the manager could and did answer its stated reviewer question off the diff. This one is held because the CATEGORY is the landing machinery itself, which is the last thing an automated actor should wave through. ⚠️ THE LANE'S OWN FIRST DECLARATION SAID `landing: self` AND WAS WRONG -- it reasoned from the machinery it knew by name rather than from the guard's path list, and corrected it rather than arguing. Recorded because it is the same shape as the manager's own near-miss on this file."
     },
     {
       "id": "MI-236-SIX-IN-FLIGHT-ROWS-WERE-STALE-AND-NOTHING-DECAYS-THEM",
-      "state": "ready",
-      "owner": "unassigned — needs a session",
+      "state": "in_flight",
+      "owner": "session_01GPBc31S8TgNvxEekzdDSpV (ENGINEERING LANE)",
       "added": "2026-09-10",
       "tier": 1,
       "blocked_on": "",
@@ -3196,7 +3200,11 @@
       "note": "MEASURED 2026-09-10 by get_session over thirteen owners: MI-230 (owner completed 03:29Z, work deployed a7cc62a24), MI-212 (dead 2026-09-09 20:21Z), MI-221 (completed 02:07Z, its premise REFUTED), MI-210 (completed 2026-09-09 08:34Z), MI-211 (completed 2026-09-09 11:58Z, null recommendation), and MI-136 (ARCHIVED 2026-09-06 — the row had read in_flight for FOUR DAYS). MI-215/MI-217's owner completed 04:52Z. This is the same class as MI-178, where all 17 SESSIONS.json `working` rows were false.",
       "why_it_matters": "A checklist that claims nineteen items are being worked, when six are not, misprices every capacity decision made from it — including the manager's own read of the 3-session cap.",
       "done_when": "The six rows carry their true state, AND something other than a manual sweep grades a row whose owner has gone terminal. The state correction alone is a one-off and does not close this.",
-      "lane": "engineering"
+      "lane": "engineering",
+      "spawned_at": "2026-09-11T06:26:36Z",
+      "work_object": "WO-20260911-IN-FLIGHT-GOES-FALSE-BY-TIME-PASSING",
+      "⚠️_IT_IS_NO_LONGER_COSMETIC_IT_IS_BINDING": "When this row was filed on 2026-09-10 a stale `in_flight` was a misleading number. It is now a REFUSAL: the WIP ceiling of 8 is FULL as of the 04:26Z census, so a row whose owner is dead or archived is actively blocking real work at check_wip_ceiling.py. An instrument that both misreports AND blocks is precisely what CY-20260906-TRADING-TRUTH says to repair before acting on what it says. Spawned under the operator's own queue order ('Finish MI-238 first, then the infra'), as the row after MI-235 -- not the manager re-picking. The prompt carries the done-condition's refusal verbatim ('the state correction alone is a one-off'), points the lane at #11767 as its closest sibling, and tells it to ARGUE its fail-direction rather than inherit MI-235's, because a spurious DECAY marks live work abandoned while a spurious WAKE only costs a turn. It is also told NOT to auto-close a decayed row: that is a claim about an OWNER, not about the WORK, and guessing the landing state would destroy the 'where do we pick this up' record the operator's core mandate is about.",
+      "updated_at": "2026-09-11T06:27:00Z"
     },
     {
       "id": "MI-237-THE-MANAGER-CHECKLIST-HAS-NO-SCHEMA-SO-IT-CANNOT-BE-READ-SORTED-OR-GRADED",
@@ -3220,7 +3228,7 @@
       "id": "MI-238-THE-LIVE-WORKFLOW-PAGE-THE-MANAGER-CHECKLIST-AND-THE-DECISION-INBOX-ON-THE-SPA",
       "title": "Build the live Workflow page: the manager checklist with collapsible rows + the decisions waiting on the operator",
       "owner": "session_01G4VneSjgv5QT4rMGj4izi5 (ENGINEERING LANE) — re-laned 2026-09-11T00:28:20Z by the manager, inheriting from session_01MQ2EzPomkBsM6uxJMCrJbF (idle since 2026-09-10T18:13Z)",
-      "state": "in_flight",
+      "state": "review_ready",
       "tier": 1,
       "priority": "high",
       "lane": "engineering",
@@ -3251,7 +3259,9 @@
       "⚠️_the_SPA_render_of_the_moot_state_is_a_SECOND_REPO_and_is_NOT_in_this_PR": "The bot now publishes subjectState + a published `actionable` per request. Until ict-trader-dashboard reads them, the operator's `Waiting on you` list is UNCHANGED and the moot row still renders as work -- the defect MI-258 describes is fixed on the producing side ONLY. Stated here rather than assumed to ride along, because the two repos do not share a deploy and this lane did not open a PR against that one. The SPA change is small and deliberate: filter/section on the PUBLISHED `actionable`, never on a re-derived rule, and render `subjectNote` so a withdrawn question stays readable with its reason.",
       "⚠️_ict_trader_dashboard_214_MERGED_do_not_carry_it_as_open": "The spawn brief flagged ict-trader-dashboard#214 as possibly unmerged and held until #11716 deployed. MEASURED 2026-09-11: it is MERGED -- closed_at / merged_at 2026-09-10T18:03:20Z, merge sha ba501922c, which is the dashboard's current main HEAD. The only OPEN PR in that repo is #211 (Phase H decisions panel, 2026-09-01, draft), which is a different and older piece of work. Recorded so no session spends a cycle re-checking it.",
       "⚠️_merge_resolved_by_id_20260911T0140Z": "This row was the ONLY genuinely contested field in the #11752 <-> #11750 merge, and only on `owner` -- where BOTH SIDES AGREED ON WHO and differed only in the annotation. Resolved by keeping both facts (the manager's re-laning act AND the inheritance it replaced) rather than picking a side. Every other change on both sides was field-disjoint and was UNIONED: MI-139 (theirs: closed), MI-238 (theirs: the drop-pattern note; ours: what is actually left, the #214 correction, the second-repo caveat), MI-258 and MI-262 (ours only). Resolved BY ID over the 267-row id set -- identical on both sides, 0 added, 0 dropped, asserted after writing -- never by taking one side, which is BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION.",
-      "⚠️_WHERE_MI_238_STANDS_20260911T0345Z": "ALL FOUR CLAUSES ARE BUILT AND ONLY ONE IS UNOBSERVABLE BY A SESSION. (1) The route serves the checklist and was read off the live host -- done 2026-09-10. (2) The page renders with collapsible rows (Work.svelte:592-601), the decisions list (Work.svelte:307) and the live-sessions panel (Work.svelte:487), all merged and deployed, and the operator has already confirmed the rows collapse. What was missing from that list was `actionable` -- 0 occurrences on the dashboard main -- which ict-trader-dashboard#215 adds and which is NOW SERVED LIVE by the bot. (3) The as-of stamp shipped in #11716 and was observed on the deployed route. (4) The duty is canon: CLAUDE.md carries 'THE CHECKLIST IS PUSHED BEFORE YOU ANSWER, NEVER AFTER' and names GET /api/bot/work/checklist, three role packs name the route, and check_role_pack_operating_layer.py passes (32 packs / 6 required / 0 missing / 0 dangling) -- VERIFIED 2026-09-11, not inherited. !! WHAT REMAINS IS ONE MERGE AND ONE HUMAN LOOK: #215, and then clause (3)'s requirement that the OPERATOR confirm the rendered page. No session can take that observation."
+      "⚠️_WHERE_MI_238_STANDS_20260911T0345Z": "ALL FOUR CLAUSES ARE BUILT AND ONLY ONE IS UNOBSERVABLE BY A SESSION. (1) The route serves the checklist and was read off the live host -- done 2026-09-10. (2) The page renders with collapsible rows (Work.svelte:592-601), the decisions list (Work.svelte:307) and the live-sessions panel (Work.svelte:487), all merged and deployed, and the operator has already confirmed the rows collapse. What was missing from that list was `actionable` -- 0 occurrences on the dashboard main -- which ict-trader-dashboard#215 adds and which is NOW SERVED LIVE by the bot. (3) The as-of stamp shipped in #11716 and was observed on the deployed route. (4) The duty is canon: CLAUDE.md carries 'THE CHECKLIST IS PUSHED BEFORE YOU ANSWER, NEVER AFTER' and names GET /api/bot/work/checklist, three role packs name the route, and check_role_pack_operating_layer.py passes (32 packs / 6 required / 0 missing / 0 dangling) -- VERIFIED 2026-09-11, not inherited. !! WHAT REMAINS IS ONE MERGE AND ONE HUMAN LOOK: #215, and then clause (3)'s requirement that the OPERATOR confirm the rendered page. No session can take that observation.",
+      "✅_BOTH_CODE_HALVES_LANDED_AND_THE_LANE_IS_COMPLETE": "Lane session_01G4VneSjgv5QT4rMGj4izi5 read `completed` at 2026-09-11T06:24Z: 'Prioritisation row removed, merged→deployed→live; three instrument defects caught and fixed'. Bot half 4e9255acb + observed 681b88a84; SPA half ict-trader-dashboard#215 -> 941c96f81, merged by the manager 04:29Z. ⚠️ WHAT KEEPS THIS OFF `done`: clause (3) needs the OPERATOR to confirm the rendered page in a browser. The lane said so itself rather than letting the merges imply it -- #215 is built and type-checked (svelte-check 127 files 0/0, api-contract 116 field reads, build 346.11 kB) and has never been SEEN rendering. That is the one outstanding criterion and it is not lane work.",
+      "updated_at": "2026-09-11T06:27:00Z"
     },
     {
       "id": "MI-239-A-MONITORING-WORKFLOW-THAT-LETS-MONITORED-ITEMS-BE-FOLLOWED-WITHOUT-GENERATING-NOISE",
@@ -3729,7 +3739,7 @@
     }
   ],
   "as_of": "2026-09-10T13:36:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, recording two operator decisions)",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 06:26Z)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
