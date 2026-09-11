@@ -1,0 +1,30 @@
+id: WO-20260911-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Sweep the 623 dormant work objects and give soak-bound work its own status
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Every one of the 623 dormant objects is graded into closed / queued / accruing / explicitly-still-dormant with the COHORT RULE recorded and the count per rule stated; AND work genuinely waiting on a soak or observation carries a status that SAYS SO (an existing value re-pointed or a proposed new one) which the constraint computation treats as not-blocked-on-a-person; AND the operator can tell from the SPA Work page which of the remainder are parked versus accruing. A LOWER DORMANT COUNT ALONE CLEARS NOTHING -- it is trivially achievable by closing rows nobody read, which is the harm the 2026-09-01 bulk pass already did.
+
+why: >-
+  OPERATOR-DIRECTED 2026-09-10, from reading the live SPA Work page: 'there are over 600 dormant work items - we need a specific session in the ops lane (when opens ups) to work through the list and update it - these things either need to closed or qued ... if some of them are stuck on soaks/observations, then we need a status the describes that'. dormant is doing the work of three different facts (parked / queued / ACCRUING), which is a collapsed state in exactly the sense this repo has a guard family for.
+
+source: >-
+  operator (conversational), 2026-09-10, reading the deployed SPA Work page
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
