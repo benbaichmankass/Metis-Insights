@@ -1,0 +1,119 @@
+id: WO-20260911-MI-243-DORMANT-SWEEP
+type: commitment
+parent_intent: null
+title: >-
+  Sweep the dormant work objects — close or queue each, and give soak-bound work a
+  status that says so (MI-243)
+stage: INTEGRITY
+lifecycle: in_flight
+owner: session_01LoZJDARzLr1REPnqQ5Kgbz
+opened_at: '2026-09-11'
+closed_at: null
+review_trigger: >-
+  Re-read when the operator answers DEC-20260911-WORK-STORE-BACKLOG-MIRRORS. Until then
+  the 554 remaining migrant rows are the EXPECTED state and must not be re-filed as a
+  defect or swept again on a different rule.
+done_condition: >-
+  THREE PARTS, different facts — say which you cleared. (1) Every one of the 622 dormant
+  rows is graded into a cohort with the rule STATED and the count per rule recorded —
+  DONE, in docs/claude/work/DORMANT-SWEEP-2026-09-11.md. (2) Work genuinely waiting on a
+  soak or observation carries a status that SAYS SO and is not counted as blocked on a
+  person — DONE via `waiting` + `blocked_on: {kind: data_accrual}`, which needed no schema
+  change; `constraint_readout.operator_block` collects only `operator_decision`, so such a
+  row was already excluded. (3) The operator can tell PARKED from ACCRUING on the SPA Work
+  page — NOT DONE, and it is a RENDERER change, not a schema one: `/api/bot/work` already
+  ships `blockedOn[].kind` per object, so the data is present and nothing renders it.
+  ⚠️ PART (3) IS NOT CLEARED BY THIS OBJECT MERGING. A merge is not a deploy and a deploy
+  is not the operator seeing it.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260911-WORK-STORE-BACKLOG-MIRRORS
+    since: '2026-09-11'
+    note: >-
+      This edge holds ONLY the disposition of the 554 remaining Phase-C migrant rows. The
+      rest of MI-243 is delivered and is not held by it.
+blocked_on_basis: >-
+  ASSESSED 2026-09-11 by the sweep session. Exactly one edge, and it is real: the 554
+  rows cannot be graded further without a decision that reverses a Phase-C choice and
+  changes what the work store means. No other edge is claimed.
+decision_requests:
+  - id: DEC-20260911-WORK-STORE-BACKLOG-MIRRORS
+    question: >-
+      554 dormant work objects are 1:1 mirrors of review-backlog rows that are still open.
+      Should the work store keep carrying them?
+    urgency: routine
+    asked_on: '2026-09-11'
+    context: >-
+      MEASURED over all 710 work objects at `main` 4e9255acb on 2026-09-11: 622 were
+      `dormant`, and 575 of those are Phase-C bulk migrants from 2026-09-01. All 575 join
+      to a live backlog row (0 unmatched — the positive control). 21 have since had their
+      backlog original reach a terminal status and were closed under a checkable rule. The
+      remaining 554 mirror rows that still read `open` (325) or `kept_open` (229).
+      THE TENSION IS IN THE MIGRATION'S OWN NOTE: "The backlog row remains the state of
+      record for the FINDING and its updates; this object is the state of record for the
+      WORK of dealing with it." For these 554 there is no work — no owner, no intent,
+      nothing scheduled. So each is the state of record for work that does not exist, and
+      554 of them are the pile you saw on the Work page.
+      ⚠️ NONE OF THE OPTIONS CLOSES A SINGLE FINDING. The backlogs (1446 + 117 + 109 + 19
+      rows) remain the state of record either way. The question is only whether the work
+      store carries a second copy. Do not let any option be reported as "closing 554 items".
+      ⚠️ AND THE SWEEP DELIBERATELY DID NOT PICK ONE: option (b) reverses a Phase-C
+      decision, and enacting that on 554 rows on a session's own judgement is the bulk-pass
+      harm this item was told to avoid.
+    options:
+      - key: keep_all
+        label: Keep them — the pile is the honest state
+        implication: >-
+          The Work page keeps showing ~555 dormant rows and that number is CORRECT: there
+          really are that many carried, unstarted findings. Nothing changes; the operator
+          accepts the page as a census rather than a queue. Cheapest, and it leaves the
+          original complaint ("it just doesn't make sense that our workflow has this many
+          dormant items") unaddressed.
+      - key: retire_mirrors
+        label: Retire the mirrors — the backlog keeps the finding
+        implication: >-
+          The 554 migrant objects are removed from the work store; the backlog rows they
+          mirror are untouched and remain the state of record. Dormant drops to ~1 and the
+          Work page becomes a view of work someone has committed to. COST, stated: the
+          Phase-C migration is reversed, and anything that later wants "which findings have
+          work objects" must read the backlog instead. Nothing is lost — every one of the
+          554 was verified to join a live backlog row.
+      - key: promote_high_severity
+        label: Keep only the high-severity ones, retire the rest
+        implication: >-
+          Of the 575 migrants, `severity` at migration was high 160 · critical 7 · medium
+          252 · low 111 · unset 40. Keeping high+critical and retiring the rest leaves
+          roughly 160 dormant rows. ⚠️ WEAKEST OPTION ON ITS OWN TERMS: severity is a
+          property of the FINDING, which the backlog already records, so this splits one
+          register across two files by a field neither owns — and a low-severity finding
+          would then be invisible in the store while a copy of it lives in the backlog.
+      - key: retire_and_render_backlog
+        label: Retire the mirrors AND surface open backlog counts on the Work page
+        implication: >-
+          As `retire_mirrors`, plus the Work page gains a read-only count of open backlog
+          rows per review backlog, so retiring the mirrors does not make the findings less
+          visible than they are today. Most work; addresses both the pile and the
+          visibility worry it would otherwise create. Requires a renderer change.
+    allows_free_text: true
+    asked_by:
+      session_id: session_01LoZJDARzLr1REPnqQ5Kgbz
+      recorded_at: '2026-09-11T00:00:00Z'
+      note: >-
+        MI-243 — the answer decides whether the remaining 554 dormant rows stay. Everything
+        else in MI-243 is delivered and is not waiting on this.
+source: >-
+  operator (conversational), 2026-09-10, reading the deployed SPA Work page
+evidence:
+  - docs/claude/work/DORMANT-SWEEP-2026-09-11.md
+verdict: >-
+  DELIVERED except part (3) of the done_condition, which is a renderer change. Cohort
+  counts: Rule 1 (migrant-terminal) closed 21; Rule 2 (migrant-live) left 554 untouched
+  pending DEC-20260911-WORK-STORE-BACKLOG-MIRRORS; Rule 3 (non-migrant) read 47
+  individually into 4 done / 42 ready / 1 left dormant; Rule 4 pointed 3 edges at
+  `data_accrual`, which was declared in the vocabulary and used by 0 of 710 rows.
+  `lifecycle` was NOT widened and no seventh value is needed.
+  ⚠️ NOTE FOR THE MANAGER: a work object for MI-243 was registered at 03:31Z on branch
+  `claude/manager-tick-0328z-20260911`, which is not on origin. This file was created
+  because that one could not be found on any fetched ref. If the manager's version lands
+  later, MERGE THEM rather than leaving two objects for one item — that duplication is
+  itself one of this sweep's findings.

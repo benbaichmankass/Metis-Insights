@@ -3335,8 +3335,8 @@
     {
       "id": "MI-243-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND-GIVE-SOAK-BOUND-WORK-ITS-OWN-STATUS",
       "title": "Sweep the 623 dormant work objects — close or queue each, and add a lifecycle value for work that is genuinely waiting on a soak or observation",
-      "owner": "unassigned — needs a session",
-      "state": "ready",
+      "owner": "session_01LoZJDARzLr1REPnqQ5Kgbz",
+      "state": "landed_unproven",
       "tier": 1,
       "priority": "high",
       "lane": "ops",

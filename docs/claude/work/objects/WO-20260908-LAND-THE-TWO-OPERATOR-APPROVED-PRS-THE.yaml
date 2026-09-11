@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Land the two operator-approved PRs the manager is barred from merging (#11279, #11312)
 stage: DEPLOYMENT
-lifecycle: dormant
+lifecycle: done
 owner: null
 opened_at: 2026-09-08
-closed_at: null
+closed_at: '2026-09-11'
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -28,3 +28,22 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+sweep_2026_09_11: |-
+  COHORT RULE 3 ("non-migrant, individually read") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: a dormant object that is NOT a Phase-C migrant (47 of the
+    622 dormant rows at `main` 4e9255acb) gets an INDIVIDUAL read, because it has no shared provenance
+    to grade as a group. Each was graded into exactly one of: `done` where there is CHECKABLE completion
+    evidence (4 rows); `ready` where it is live, operator-directed work with a clear done_condition and
+    no completion evidence (42 rows); or LEFT `dormant` where it could not be graded (1 row).
+    ⚠️ THE ASYMMETRY IS DELIBERATE: `ready` is the default and `done` needs evidence, because a row
+    wrongly queued is corrected by whoever picks it up, while a row wrongly closed is not looked at again.
+    ⚠️ `ready` HERE MEANS QUEUED, NOT STARTED, AND NOT ASSESSED FOR BLOCKERS. No `blocked_on` edge was
+    invented for any of these rows — an invented edge is read by the constraint computation as a true
+    blocker, and a false blocker is worse than a missing one.
+  ---
+  GRADED `done` — the completion evidence:
+    Both named PRs are MERGED, read from the GitHub API on 2026-09-11: #11279 merged
+    2026-09-08T06:58:07Z and #11312 merged 2026-09-08T07:03:59Z, each `merged_by: benbaichmankass`
+    — i.e. by the operator, which is what this object asked for (the manager was barred from merging).
+    ⚠️ NOT verified by this sweep: the done_condition's second clause, that the register conflicts were
+    resolved as the exact union of both sides. The merges are established; that clause is not.

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Work-store records and documentation only. The diff changes `lifecycle` / `blocked_on` / verdict fields on docs/claude/work/objects/*.yaml, adds one work object and one evidence doc, registers that doc in DOCUMENT-INDEX.md, files four rows to the health-review backlog via backlog_append.py::append_row, and updates this session's own row in MANAGER-CHECKLIST.json (owner + state, verified by parsed comparison as the only two fields changed in that file). NO runtime, NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO workflow, NO order path, NO strategy config, NO risk caps, NO live-VM file. Tier-1 by the canonical doc's own examples. NOTE: the `lifecycle` vocabulary was deliberately NOT widened — MI-243's checklist row states that a schema widening is a separate PR that routes to the operator, and the sweep established that no seventh value is needed because `data_accrual` already exists in the declared blocked_on vocabulary."
+}

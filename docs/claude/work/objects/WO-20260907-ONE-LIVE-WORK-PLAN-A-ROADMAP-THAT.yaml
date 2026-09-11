@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   One live work plan, a roadmap that matches reality, and priority assigned by TASK rather than by milestone
 stage: INTEGRITY
-lifecycle: dormant
+lifecycle: ready
 owner: null
 opened_at: 2026-09-07
 closed_at: null
@@ -28,3 +28,20 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+sweep_2026_09_11: |-
+  COHORT RULE 3 ("non-migrant, individually read") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: a dormant object that is NOT a Phase-C migrant (47 of the
+    622 dormant rows at `main` 4e9255acb) gets an INDIVIDUAL read, because it has no shared provenance
+    to grade as a group. Each was graded into exactly one of: `done` where there is CHECKABLE completion
+    evidence (4 rows); `ready` where it is live, operator-directed work with a clear done_condition and
+    no completion evidence (42 rows); or LEFT `dormant` where it could not be graded (1 row).
+    ⚠️ THE ASYMMETRY IS DELIBERATE: `ready` is the default and `done` needs evidence, because a row
+    wrongly queued is corrected by whoever picks it up, while a row wrongly closed is not looked at again.
+    ⚠️ `ready` HERE MEANS QUEUED, NOT STARTED, AND NOT ASSESSED FOR BLOCKERS. No `blocked_on` edge was
+    invented for any of these rows — an invented edge is read by the constraint computation as a true
+    blocker, and a false blocker is worse than a missing one.
+  ---
+  GRADED `ready` (QUEUED). Live, operator-directed work with a clear done_condition and no
+    evidence of completion found by this sweep. It was moved out of `dormant` because `dormant`
+    means "carried, not started, NOT queued" (this store's own migration note), and that is a
+    false description of work the operator asked for and still wants.

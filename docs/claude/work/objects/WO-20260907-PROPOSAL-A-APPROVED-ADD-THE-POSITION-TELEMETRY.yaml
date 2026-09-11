@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Proposal A approved - add the position-telemetry hook to the four unhooked monitor units
 stage: QUESTION
-lifecycle: dormant
+lifecycle: done
 owner: null
 opened_at: 2026-09-07
-closed_at: null
+closed_at: '2026-09-11'
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -28,3 +28,21 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+sweep_2026_09_11: |-
+  COHORT RULE 3 ("non-migrant, individually read") of the MI-243 dormant sweep, 2026-09-11.
+    THE RULE, stated before it was applied: a dormant object that is NOT a Phase-C migrant (47 of the
+    622 dormant rows at `main` 4e9255acb) gets an INDIVIDUAL read, because it has no shared provenance
+    to grade as a group. Each was graded into exactly one of: `done` where there is CHECKABLE completion
+    evidence (4 rows); `ready` where it is live, operator-directed work with a clear done_condition and
+    no completion evidence (42 rows); or LEFT `dormant` where it could not be graded (1 row).
+    ⚠️ THE ASYMMETRY IS DELIBERATE: `ready` is the default and `done` needs evidence, because a row
+    wrongly queued is corrected by whoever picks it up, while a row wrongly closed is not looked at again.
+    ⚠️ `ready` HERE MEANS QUEUED, NOT STARTED, AND NOT ASSESSED FOR BLOCKERS. No `blocked_on` edge was
+    invented for any of these rows — an invented edge is read by the constraint computation as a true
+    blocker, and a false blocker is worse than a missing one.
+  ---
+  GRADED `done` — the completion evidence:
+    Its OPEN-ITEMS row OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING
+    records `clears_when: ALREADY CLEARED` — the PR merged (115b0c25, 2026-09-07) AND a real measured
+    telemetry row was observed on two of the nine legs with the running VM sha confirmed to contain it.
+    That is a FLEET OBSERVATION recorded by the session that made it, not a passing test.
