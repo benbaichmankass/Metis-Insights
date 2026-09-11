@@ -1,0 +1,30 @@
+id: WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Let an approved Tier-2 PR land without a human click, without making approval and landing the same act
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  An approved Tier-2 PR is OBSERVED landing on main with no human merge click, where the approval was RECORDED BEFORE and INDEPENDENTLY OF the landing, and a Tier-2 PR carrying no such recorded approval is OBSERVED still being refused (the negative control). A green test suite clears neither half.
+
+why: >-
+  OPERATOR-DIRECTIVE 2026-09-11, verbatim: 'the operator does not click things'. check_pr_landing R4 bars a Tier-2 diff from landing itself WHATEVER its approval state, so #11738 has sat green and approved since 2026-09-10T07:52Z waiting on a click that the operator has now said will not come. This is the autonomy mandate applied to the landing gate.
+
+source: >-
+  operator (conversational), 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
