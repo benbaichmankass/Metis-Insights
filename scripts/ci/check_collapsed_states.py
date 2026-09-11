@@ -106,6 +106,47 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "blocked_lane_watch.blocker_state",
+        # The producer OWNS the vocabulary: the four states are module constants
+        # in blocked_lane_watch and nowhere else, so no `producer_field` is
+        # declared -- the literal never shares a line with the word
+        # `blocker_state`, and narrowing here would fail for a spelling reason
+        # rather than a correctness one.
+        "producer": "scripts/ops/blocked_lane_watch.py",
+        "consumer_token": (r"\bBLOCKER_CLEARED\b|\bBLOCKER_STILL_BLOCKING\b|"
+                           r"\bBLOCKER_COULD_NOT_LOOK\b|\bBLOCKER_UNDECLARED\b"),
+        "states": ["cleared", "still_blocking", "could_not_look", "undeclared"],
+        "why": (
+            "MI-235. A lane blocked on a manager action has no mechanism that "
+            "tells it the action happened -- measured at 13h (MI-222), 3.5 days "
+            "(MI-139) and 33 minutes (MI-238, which announced its blocker in a "
+            "machine-readable field that nothing read). Roughly four lane-days "
+            "to one class. THE TWO PAIRS THAT MUST NOT COLLAPSE, and the "
+            "measurement behind each. (1) `undeclared` vs `could_not_look`: "
+            "over all 209 rows of SESSIONS.json at main on 2026-09-11, 159 "
+            "non-terminal rows were graded and 159 of them declared NO blocker, "
+            "so pooling `undeclared` into `could_not_look` would page on every "
+            "row from the first run and the alarm would be disabled inside a "
+            "day -- the desensitised-alarm P1 this repo has already paid for "
+            "(202 of 376 CRITICALs in one measured window were a single "
+            "un-latched alarm). They are also opposite findings with opposite "
+            "remedies: an AUTHOR gap versus a RESOLVER gap. (2) "
+            "`could_not_look` vs `still_blocking`: a blocker whose resolver "
+            "failed is a lane NOTHING CAN FREE, which is MI-235 itself one "
+            "level up; reading it as `still_blocking` makes the sensor's own "
+            "blindness indistinguishable from a lane that is legitimately "
+            "waiting. It therefore PAGES, unlike the quiet `still_blocking` "
+            "case -- this module fails TOWARD waking throughout, because a "
+            "spurious wake costs one turn and a missed one cost 3.5 days. "
+            "⚠️ `could_not_look` can only ever mean *we tried and failed*, "
+            "never *there was never a resolver for this*, and that is "
+            "guaranteed at WRITE time: `session_registry.py blocked-on` "
+            "REFUSES a kind with no dispatch arm. The same separation "
+            "src/runtime/decision_subject.py keeps between `unknown` and "
+            "`undeclared`, for the same reason."
+        ),
+    },
+    {
         "name": "qty_legalize.venue_max_state",
         # The producer OWNS the vocabulary: the three states are module
         # constants in qty_legalize and nowhere else.

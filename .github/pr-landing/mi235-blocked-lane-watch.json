@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-235. Ops tooling + CI wiring + tests + docs only, entirely inside TIER1_SURFACE (scripts/ops/**, scripts/ci/**, .github/workflows/**, tests/**, docs/**). It is read-only observability: the watcher reads SESSIONS.json, origin's refs, origin/main's history and an open-PR listing, and writes ONE generated receipt. It never merges, closes, comments on, pokes, archives or otherwise touches a PR, a session, or a branch. No src/, no config/, no deploy/, no order path, no strategy or risk cap, no VM, no order placed/modified/cancelled on any account. It does NOT touch the landing machinery (claude-pr-automerge.yml, pr-opener.yml, commit-to-main, check_pr_landing.py) — the workflow it extends is a watcher, so R12 does not bite."
+}

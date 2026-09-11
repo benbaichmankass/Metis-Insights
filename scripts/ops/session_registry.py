@@ -459,6 +459,27 @@ You are registered as `{registry_ref}` in `docs/claude/work/SESSIONS.json`.
 If you learn something that changes your row's scope, say so in your PR body —
 the manager owns that file.
 
+## ⛔ IF YOU END UP WAITING ON THE MANAGER, DECLARE IT — do not just go idle
+A merge, a close, a restart, an operator decision: the moment you are blocked on
+one, run this BEFORE your last turn, then push it.
+
+    python3 scripts/ops/session_registry.py blocked-on \\
+      --session-id <your id> --kind pull_request --ref '#1234' \\
+      --clears-when closed_or_merged
+
+`--kind` is one of `pull_request` · `branch` · `path_on_main` · `work_object` ·
+`operator_decision`, and the command REFUSES anything it cannot grade rather
+than letting you declare a blocker nothing will ever watch.
+
+⚠️ **WRITING IT IN PROSE, OR IN YOUR `post_turn_summary`, REACHES NOBODY.** That
+is measured, not cautionary: MI-222 sat blocked 13h on a PR closed two hours
+after it asked, MI-139 sat 3.5 DAYS on a PR closed NINE HOURS BEFORE it asked,
+and MI-238 announced "#215 awaiting merge" in a machine-readable field and still
+waited for a manager to happen to look. Roughly four lane-days to one class.
+A DECLARED edge is graded every few hours by `blocked_lane_watch.py`, which
+pages the moment your blocker clears. Contract:
+`docs/claude/blocked-lane-watch.md`.
+
 ## Standing rules
 - START by reading `docs/CLAUDE-RULES-CANONICAL.md`, the root `CLAUDE.md`, and
   the SKILL.md of whichever skill covers this work.
@@ -1016,6 +1037,110 @@ def cmd_register(a) -> int:
     return 0
 
 
+def cmd_blocked_on(a) -> int:
+    """DECLARE what this lane is waiting for, as a TYPED, RESOLVABLE edge.
+
+    MI-235. The measurement that produced this command: over all 209 rows of
+    `SESSIONS.json` at `main` on 2026-09-11, **4** carried a `needs_action`
+    (none written after 2026-09-05, two already `archived`) and **0** declared a
+    blocker any resolver could grade. And none of the three measured incidents
+    used that field at all — MI-222, MI-139 and MI-238 each declared to the
+    PLATFORM (`status_bucket: BLOCKED` + `post_turn_summary.needs_action`) and a
+    manager transcribed it into prose by hand. So a cadence pointed at the
+    existing field would have graded **0 of 3**.
+
+    ⚠️ THIS COMMAND REFUSES A KIND `blocked_lane_watch` CANNOT RESOLVE, AT WRITE
+    TIME, AND THAT REFUSAL IS LOAD-BEARING. It is the whole reason
+    `could_not_look` over there can only ever mean *we tried and failed* and
+    never *there was never a resolver for this*. Those are opposite findings
+    with opposite remedies — a resolver gap versus an author gap — and letting
+    them share one value is exactly the collapse `src/runtime/decision_subject.py`
+    was built to refuse (it keeps `unknown` and `undeclared` apart for the same
+    reason, measured at 25 of 26 requests).
+
+    ⚠️ IT APPENDS AND NEVER REPLACES, and it is IDEMPOTENT on an identical
+    edge. A lane may be waiting on two things; silently dropping the first
+    would recreate the failure one level down. Use `--clear` to discharge them
+    when the lane resumes — a stale edge is read by the watcher as a live
+    blocker, and this repo already records that a false blocker is worse than a
+    missing one.
+    """
+    from pathlib import Path as _P
+    sys.path.insert(0, str(_P(__file__).resolve().parent))
+    try:
+        from blocked_lane_watch import CLEARS_WHEN_BY_KIND
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"session-registry: REFUSED — cannot import the resolver's own "
+              f"kind table ({exc}). Declaring a blocker nothing can grade is "
+              f"worse than declaring none.")
+        return 5
+
+    doc, readable = read_json(REGISTRY_PATH)
+    if not readable or not isinstance(doc, dict):
+        print("session-registry: REFUSED — the registry is unreadable. "
+              "NOTHING WAS WRITTEN.")
+        return 5
+    rows = [r for r in registry_rows(doc) if r.get("session_id") == a.session_id]
+    if not rows:
+        print(f"session-registry: REFUSED — no row for {a.session_id}. "
+              f"⚠️ On a branch that has not landed this reads as NOT LANDED "
+              f"YET, never as never-written (MI-263). Check the manager's "
+              f"branch before concluding anything.")
+        return 5
+    row = rows[0]
+
+    if a.clear:
+        had = len(row.get("blocked_on") or [])
+        row.pop("blocked_on", None)
+        _dump_registry(doc, REGISTRY_PATH)
+        print(f"session-registry: discharged {had} blocker(s) on {a.session_id}")
+        return 0
+
+    if a.kind not in CLEARS_WHEN_BY_KIND:
+        print(f"session-registry: REFUSED — kind {a.kind!r} has no resolver, so "
+              f"nothing could ever grade it and the lane would sit forever "
+              f"looking watched.\n"
+              f"  Resolvable kinds: {', '.join(sorted(CLEARS_WHEN_BY_KIND))}\n"
+              f"  If your blocker genuinely is not one of these, say so in "
+              f"prose in `why` and tell the manager — an UNDECLARED blocker is "
+              f"an honest author gap; a declared-but-ungradeable one is a lie "
+              f"the watcher repeats every three hours.")
+        return 5
+    allowed = CLEARS_WHEN_BY_KIND[a.kind]
+    if a.clears_when not in allowed:
+        print(f"session-registry: REFUSED — clears_when {a.clears_when!r} is "
+              f"not valid for kind {a.kind!r}. Allowed: {', '.join(allowed)}")
+        return 5
+    ref = (a.ref or "").strip()
+    if not ref:
+        print("session-registry: REFUSED — --ref is empty.")
+        return 5
+
+    edge = {"kind": a.kind, "ref": ref, "clears_when": a.clears_when,
+            "since": _now_iso()}
+    if a.note:
+        edge["note"] = a.note
+    existing = row.get("blocked_on")
+    if not isinstance(existing, list):
+        existing = [existing] if existing else []
+    for e in existing:
+        if isinstance(e, dict) and (e.get("kind"), e.get("ref"), e.get("clears_when")) == \
+                (edge["kind"], edge["ref"], edge["clears_when"]):
+            print(f"session-registry: already declared — {a.kind} {ref} "
+                  f"({a.clears_when}), since {e.get('since')}. No change.")
+            return 0
+    existing.append(edge)
+    row["blocked_on"] = existing
+    doc["updated_at"] = _now_iso()
+    _dump_registry(doc, REGISTRY_PATH)
+    print(f"session-registry: {a.session_id} is blocked on {a.kind} {ref} "
+          f"(clears when {a.clears_when}).\n"
+          f"  ⚠️ PUSH THIS. A declaration that is not on `main` is read by "
+          f"nothing — `blocked_lane_watch` grades the committed register, and "
+          f"an unpushed edge is exactly the 3.5-day silence MI-235 measured.")
+    return 0
+
+
 def cmd_confirm(a) -> int:
     """Bind a pending row to its session id — and check the repo it really got.
 
@@ -1322,6 +1447,20 @@ def main(argv=None) -> int:
                         "the only point at which the delivered repo is "
                         "observable (MI-207).")
     c.set_defaults(fn=cmd_confirm)
+
+    b = sub.add_parser("blocked-on",
+                       help="declare a TYPED blocker this lane is waiting for")
+    b.add_argument("--session-id", required=True)
+    b.add_argument("--kind", help="pull_request | branch | path_on_main | "
+                                  "work_object | operator_decision")
+    b.add_argument("--ref", help="'#N' or 'owner/repo#N' | branch name | repo "
+                                 "path | WO id | 'WO-ID::REQUEST-ID'")
+    b.add_argument("--clears-when", dest="clears_when",
+                   help="what makes this blocker satisfied; validated per kind")
+    b.add_argument("--note", default=None)
+    b.add_argument("--clear", action="store_true",
+                   help="discharge every declared blocker on this row")
+    b.set_defaults(fn=cmd_blocked_on)
 
     a = ap.parse_args(argv)
     if a.self_test:
