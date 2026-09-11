@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T18:44:14+00:00",
+  "generated_at": "2026-09-11T21:53:46+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=8.9h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=12.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-11T18:44:08+00:00, age 0.0h"
+      "note": "digest 2026-09-11T21:53:40+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -698,8 +698,8 @@
       "source": "open_items",
       "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
       "title": "A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight before; bybit_portfoli",
-      "why_due": "monitoring row has NEVER been observed",
-      "age_days": null,
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
       "link": ""
     },
@@ -741,10 +741,55 @@
     },
     {
       "source": "error_feed",
+      "id": "ERRFEED-6da04340",
+      "title": "[error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-04T19:13:36 → 2026-09-08T14:16:09 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
       "id": "ERRFEED-86505576",
       "title": "[error] x60 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 60 rows 2026-09-04T12:34:09 → 2026-09-08T17:52:08 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-a46d2970",
+      "title": "[error] x43 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 43 rows 2026-09-04T19:13:36 → 2026-09-11T21:05:33 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-c8553cf1",
+      "title": "[error] x8 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the ",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-04T12:36:04 → 2026-09-11T13:55:56 — decide: fix now, or file to a backlog",
+      "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-fa77ad80",
+      "title": "[error] x37 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 37 rows 2026-09-04T21:55:38 → 2026-09-11T21:05:33 · symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-b3c9b0e2",
+      "title": "[error] x16 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-09-06T16:15:12 → 2026-09-10T10:27:04 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "age_days": 5,
       "loud": false,
       "link": ""
     },
@@ -763,6 +808,33 @@
       "title": "[error] x56 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 56 rows 2026-09-07T08:06:36 → 2026-09-08T14:05:20 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 4,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-9da85381",
+      "title": "[error] x27 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 27 rows 2026-09-07T08:38:27 → 2026-09-11T21:05:33 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "age_days": 4,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-72e2ad1e",
+      "title": "[error] x45 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 45 rows 2026-09-08T19:46:55 → 2026-09-11T21:13:43 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-f754bb5d",
+      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-08T19:22:45 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog",
+      "age_days": 3,
       "loud": false,
       "link": ""
     },
@@ -786,81 +858,9 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-0327c243",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:19:41 → 2026-09-11T16:32:03 · symbols=TLT strategies=tlt_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-22e6d105",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:08 → 2026-09-11T16:31:56 · symbols=GLD strategies=gld_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-3b46290a",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:05 → 2026-09-11T16:31:53 · symbols=IEF strategies=ief_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-55248fb9",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:12 → 2026-09-11T16:32:06 · symbols=SLV strategies=slv_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-725aa325",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:19 → 2026-09-11T16:32:13 · symbols=IAUM strategies=iaum_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-94d0d1ea",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:21:41 → 2026-09-11T16:31:59 · symbols=SPY strategies=spy_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-bfaf3950",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:02 → 2026-09-11T16:31:49 · symbols=GLD strategies=gld_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-e145891c",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:15 → 2026-09-11T16:32:10 · symbols=GDX strategies=gdx_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "120 cause groups over 1483 rows (67 error-level, 53 warn-level, 27 new since the last digest)",
-      "why_due": "57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T14:34:38.952358+00:00`.",
+      "title": "121 cause groups over 1493 rows (67 error-level, 54 warn-level, 1 new since the last digest)",
+      "why_due": "57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T18:10:19.574900+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
