@@ -8,7 +8,7 @@
     "held_by": "MI-275 · session_01WKwvhBuaYYCKbdkk7fHrpf",
     "branch": "claude/mi275-stop-width-counterfactual",
     "claimed_at": "2026-09-11T20:40:50Z",
-    "purpose": "PR #11826 — Tier-1 research memo + registers, landing: self. Re-asserted on each base merge because pr-landing R13 requires a self-landing branch to carry a claim naming its OWN branch and admits no other form; R13's own docstring records the claim does NOT serialize, so this displaces nobody. MEASURED 2026-09-11: 12 of 12 consecutive main commits rewrite this field, so it conflicts by construction — see the update on BL-20260909-R13-FORCES-EVERY-ARMING-BRANCH."
+    "purpose": "PR #11826 — Tier-1 research memo + registers, landing: self. Re-asserted on each base merge: pr-landing R13 requires a self-landing branch to carry a claim naming its OWN branch and admits no other form, and R13's own docstring records the claim does NOT serialize, so this displaces nobody. MEASURED 2026-09-11: 12 of 12 consecutive main commits rewrite this field, so it conflicts by construction — blocker declared on SESSIONS.json (pull_request #11826, clears when merged); measurement + remedy pointer on BL-20260909-R13-FORCES-EVERY-ARMING-BRANCH."
   },
   "active_sessions": [
     {
