@@ -1,0 +1,11 @@
+MI-275 observation repair (PR #11840) — arming the auto-merge relay.
+
+Tier-1, landing: self, declared in .github/pr-landing/mi275-observation-repair.json.
+Restores the 3377-char OPEN-ITEMS observation that #11838 landed DESTROYED, and
+files the backlog row for the blindness that let three proofs pass over it.
+
+Pushed as a SEPARATE commit AFTER the PR was opened by hand: the relay only calls
+pulls.create when pulls.list finds nothing open for the head, so a hand-opened PR
+is ADOPTED and carries a real pull_request event. Arming in the same commit makes
+claude-pr-automerge open it under GITHUB_TOKEN, which fires no workflows and
+leaves it at zero checks.
