@@ -184,6 +184,68 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "owner_liveness.owner_activity",
+        # No `producer_field`: the states are named module constants
+        # (`DORMANT = "dormant"`), so the literal never shares a line with the
+        # word `owner_activity` -- the same reason its `manager_status`
+        # siblings below declare none.
+        "producer": "scripts/ops/owner_liveness.py",
+        "consumer_token": (r"\bowner_activity\b|\bOWNER_ACTIVITIES\b|"
+                           r"\bgrade_owner_activity\b|\bUNGRADEABLE_OWNER\b|"
+                           r"\bUNKNOWN_TO_REGISTRY\b|\bUNRECOGNISED_STATE\b|"
+                           r"\bREGISTRY_UNREAD\b|\bTERMINAL\b|\bDORMANT\b"),
+        "states": ["active", "dormant", "terminal", "unrecognised_state",
+                   "unknown_to_registry", "ungradeable_owner",
+                   "registry_unread"],
+        "why": (
+            "MI-236: `in_flight` goes false by time passing and nothing "
+            "decays it. The seven states are kept apart because each carries "
+            "a DIFFERENT REMEDY, and collapsing any pair destroys the remedy "
+            "rather than merely the label. `dormant` (idle) vs `terminal` "
+            "(archived/completed) reach the SAME verdict about the claim and "
+            "opposite actions -- a dormant owner is POKED awake (MI-235's "
+            "mechanism), a terminal one can only be RE-ROUTED -- and the "
+            "split is not decorative: measured on `main` 2026-09-11 over the "
+            "six rows the finding named, FIVE are `dormant` and ONE is "
+            "`terminal`, so a grader keyed on terminality alone catches 1 of "
+            "6. The three could-not-establish states must not fold into each "
+            "other either: `ungradeable_owner` is *the row names no session* "
+            "(8 rows read `manager` or `null`, fixed by naming an owner), "
+            "`unknown_to_registry` is *a real id the registry does not carry* "
+            "(the MI-15 registration gap, fixed in the registry), and "
+            "`registry_unread` is *we could not read the registry at all*. "
+            "`unrecognised_state` exists so a NEW vocabulary word cannot fall "
+            "silently into a bucket -- the registry already carries twelve "
+            "distinct `state` values and 8 rows with none. Above all, none of "
+            "the three may fold into `active`: that would report a row nobody "
+            "could grade as a checked one, which is the reassuring direction "
+            "and therefore the dangerous one."
+        ),
+    },
+    {
+        "name": "owner_liveness.claim_support",
+        "producer": "scripts/ops/owner_liveness.py",
+        "consumer_token": (r"\bclaim_support\b|\bCLAIM_SUPPORTS\b|"
+                           r"\bSUPPORTED\b|\bUNSUPPORTED\b|"
+                           r"\bCOULD_NOT_ESTABLISH\b|\bunsupported\b"),
+        "states": ["supported", "unsupported", "could_not_establish"],
+        "why": (
+            "This is a verdict about EVIDENCE, never about WORK: `unsupported` "
+            "says the register's own record does not support the claim that "
+            "somebody is working this row, and deliberately does NOT say the "
+            "work is abandoned. That framing is what makes the mechanism safe "
+            "to act on, and it is why `could_not_establish` must stay its own "
+            "state: folding it into `supported` would count a row nobody could "
+            "grade as one that was checked, and folding it into `unsupported` "
+            "would assert an absence nobody observed. Measured on `main` "
+            "2026-09-11 the split is discriminating, not decorative -- across "
+            "both registers, 10 supported / 17 unsupported / 8 "
+            "could_not_establish, and on the 8 work objects that FILL the WIP "
+            "ceiling it is 2 / 4 / 2, i.e. at most two of the eight slots "
+            "holding the ceiling shut have an owner the registry shows active."
+        ),
+    },
+    {
         "name": "manager_status.observation_state",
         # No `producer_field`, same reason as its two siblings below: the states
         # are named module constants (`OBS_RECENT = "recent"`).
