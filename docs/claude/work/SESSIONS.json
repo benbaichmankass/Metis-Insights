@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T17:58:05Z",
+  "updated_at": "2026-09-11T18:17:50Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4737,6 +4737,48 @@
       "⚠️_ITS_SUMMARY_READ_VERIFIED_5_ITEMS_AGAINST_THE_FOUR_I_DISPATCHED_AND_THE_GAP_IS_NOW_EXPLAINED": "Carried unexplained at the 14:26Z tick rather than assumed benign. Resolved from the commit body: the review's finding 4 has TWO parts (rows[0] multiplicity, and `--clear` not stamping updated_at), which the lane numbered 4 and 5. Four findings, five items. Not a scope widening.",
       "✅_THE_R12_CONSTRAINT_HELD_AND_I_CHECKED_IT_RATHER_THAN_TRUSTING_THE_CLAIM": "Its commit says 'R12 STILL HOLDS THIS PR. I did not merge it, did not touch scripts/ci/check_pr_landing.py or the guard self-test harness.' VERIFIED against the primary source at 15:2xZ: #11767 state=open, head ae18ee766, merged=false.",
       "✅_HANDOFF_SWEEP_2026_09_11T1650Z": "Read live via list_sessions at 15:2xZ: SESSION_STATUS_IDLE, connection_status disconnected, status_bucket COMPLETED or REVIEW_READY. NONE is RUNNING and none holds work the incoming manager must wait on. ⚠️ `idle` here is an OBSERVATION at that timestamp, not a decay -- `working` goes false by time passing and nothing decays it, which is why this is stamped rather than inferred."
+    },
+    {
+      "session_id": "session_016dJtEibrgnsX32qD2gvDQY",
+      "registry_key": "pending-20260911T174600Z",
+      "state": "working",
+      "title": "RESEARCH LANE MI-271 — why is the book bleeding: attribute the 2026-08-30 break and the multi-week drawdown",
+      "owns_object": "WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE",
+      "checklist_item": "MI-271",
+      "spawned_at": "2026-09-11T17:46:00Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-raised 2026-09-11, top priority.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T17:51:58Z"
+    },
+    {
+      "session_id": "session_01Naj6n7JvhPrvxjwWbUGbnQ",
+      "registry_key": "pending-20260911T174615Z-3",
+      "state": "working",
+      "title": "OPS LANE MI-274 — why has the prop account not traded",
+      "owns_object": "WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED",
+      "checklist_item": "MI-274",
+      "spawned_at": "2026-09-11T17:46:15Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-selected 2026-09-11.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T18:17:50Z"
+    },
+    {
+      "session_id": "session_01W56JbiKrada5AM4pGtHxmg",
+      "registry_key": "pending-20260911T174615Z-4",
+      "state": "working",
+      "title": "OPS LANE MI-272 — full /system-review",
+      "owns_object": "WO-20260911-FULL-SYSTEM-REVIEW-THE-MEASUREMENT-INSTRUMENTS-THE",
+      "checklist_item": "MI-272",
+      "spawned_at": "2026-09-11T17:46:15Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-selected 2026-09-11.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T17:51:59Z"
     },
     {
       "session_id": "session_01SrUaz8LmKMcSwNZEr8JupC",
