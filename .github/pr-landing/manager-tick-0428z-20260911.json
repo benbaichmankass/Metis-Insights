@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager tick 04:28Z. Registers only: MANAGER-LEASE.json heartbeat (04:27:39Z, expires 05:57:39Z), SESSIONS.json supervision (2 rows graded against a live read + top-level updated_at for R6), MANAGER-CHECKLIST.json (MI-243 delivered-except-renderer with cohort counts; MI-258 done, both halves landed and the bot half observed; MI-262 CORRECTION of a false record the 03:28Z tick wrote; MI-240 CI re-running on a new head). NO src/, NO tests/, NO scripts/, NO config/, NO deploy/, NO .github/workflows/. Keeping the work registers and merging PRs is management, not an item -- check_manager_scope.py grades commits by path and none of these is a worker path."
+}

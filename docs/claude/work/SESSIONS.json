@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T03:32:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 03:28Z)",
+  "updated_at": "2026-09-11T04:32:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 04:28Z)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4533,10 +4533,10 @@
       "why": "Operator answered 'Finish MI-238 first, then the infra' and it is the engineering lane's declared 'now'. Its row read in_flight with an owner idle since 18:13Z and prs: None — the second instance in one hour of the exact drop pattern recorded on MI-139.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T00:28:44Z",
-      "live_status": "RUNNING/connected",
-      "live_status_read_at": "2026-09-11T03:32:00Z",
-      "manager_observation": "ENGINEERING LANE, the operator's declared `now`. task_summary at 03:29:42Z: 'Confirming merge and testing live API reachability'; current branch claude/mi258-decision-subject-liveness. It was watching #11752, which the manager merged at 03:30Z (4e9255acb). Context 567k/1000k -- over half spent, so a handoff is foreseeable and the lane should bank MI-238 rather than start anything new.",
-      "updated_at": "2026-09-11T03:32:00Z",
+      "live_status": "IDLE/disconnected — review_ready",
+      "live_status_read_at": "2026-09-11T04:32:00Z",
+      "manager_observation": "ENGINEERING LANE, MI-238. Went IDLE at 03:56:52Z with 'cleaned up stale check-ins, #11752 observed live, #215 awaiting merge'. IT WAS BLOCKED ON A MANAGER ACTION AND SAID SO IN ITS OWN SUMMARY: ict-trader-dashboard#215 sat green and mergeable with its body reading 'Draft -- the manager owns the merge'. Merged by the manager at 04:29Z (941c96f81). ⚠️ Context 655k/1000k -- two-thirds spent. The next thing it is dispatched to should be the LAST thing it is dispatched to; beyond that it hands off.",
+      "updated_at": "2026-09-11T04:32:00Z",
       "branches": [
         "claude/mi258-decision-subject-liveness"
       ],
@@ -4554,9 +4554,13 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-directed 2026-09-10 off the deployed SPA Work page; their trigger was 'when [a slot] opens up' and at 03:32Z exactly one lane is RUNNING against a cap of 3.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T03:31:50Z"
+      "confirmed_at": "2026-09-11T03:31:50Z",
+      "live_status": "IDLE/disconnected — completed",
+      "live_status_read_at": "2026-09-11T04:32:00Z",
+      "manager_observation": "OPS LANE, MI-243. Spawned 03:31:46Z, delivered and merged (#11758, 218403cb5) by ~04:05Z -- about 30 minutes. post_turn_summary: '47 rows processed (4 done + 42 queued + 1 dormant); 555 rows await DEC-20260911-WORK-STORE-BACKLOG-MIRRORS'. Manager re-censused the store independently at 04:26Z and the numbers hold (711 objects; dormant 555). It correctly REFUSED to grade the 554-row cohort, because one option reverses a Phase-C decision -- the refusal the item asked for. It raised one decision for the operator and filed an OPEN-ITEMS rendering gap. Nothing owed by the lane; the slot is free.",
+      "updated_at": "2026-09-11T04:32:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T03:32Z, tick 03:28Z. PARTIAL, and the word is load-bearing: the manager read list_sessions(mine=true, limit=14) and graded the FOUR rows that turn up in that page against live state. The register holds far more rows than 14 and the rest were NOT read this pass -- their absence from the observations above is 'we did not look', never 'they are fine'. LIVE COUNT AT THIS READ: exactly ONE lane RUNNING (session_01G4VneSjgv5QT4rMGj4izi5, engineering, MI-238) against the operator's cap of 3, which is what made the MI-243 ops spawn admissible under its own stated trigger."
+  "⚠️_last_live_reconcile": "2026-09-11T04:32Z, tick 04:28Z. PARTIAL: the manager read list_sessions(mine=true, limit=4) and graded the TWO rows that had moved since the 03:32Z pass. Rows not named here were NOT read this pass -- that is 'we did not look', never 'they are fine'. LIVE COUNT AT THIS READ: ZERO lanes RUNNING. Both the MI-243 ops lane and the MI-238 engineering lane are IDLE/disconnected, so all three of the operator's slots are free. ⚠️ THE FINDING OF THIS PASS: the engineering lane went idle at 03:56Z BLOCKED ON A MANAGER MERGE it had correctly announced in its own post_turn_summary ('#215 awaiting merge'), and sat that way for 33 minutes. That is the exact class the cadence tick warns about -- a lane blocked on a manager action is the first thing to fix -- and the only reason it was 33 minutes rather than hours is that the tick fired."
 }
