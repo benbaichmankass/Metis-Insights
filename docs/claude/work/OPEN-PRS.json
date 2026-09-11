@@ -40,10 +40,56 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-08T14:22:00Z",
+  "as_of": "2026-09-11T15:30:49Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [],
+  "open_prs": [
+    {
+      "pr": 11738,
+      "title": "Arm R2 — the per-pass IB circuit breaker (MI-240, Tier-2, operator-approved)",
+      "owner_session": "session_01CTPC91xaHrK6ES33UKjkTY",
+      "checklist_item": "MI-240",
+      "draft": false,
+      "tier": "2 (live exit-evaluation path; on this repo merging IS the deploy)",
+      "state": "green_awaiting_one_human_merge_click",
+      "head": "04d4d322f6f7d894c33c1de18f9e3837e9275caf",
+      "observed_at": "2026-09-11T15:3xZ",
+      "observed": "mergeable_state=clean, draft=false, open since 2026-09-10T21:53:16Z (17h40m).",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "scope": "r2_only — the per-pass IB circuit breaker ONLY",
+        "condition": "R1 (moving _start_exit_loop above _apply_per_account_leverage) was OFFERED AND NOT CHOSEN and must not ride along; `both` is NOT a safer reading of `r2_only`. Whether the restart boundary is in scope for the 60s promise at all was option 4 and was ALSO not chosen — unsettled, not settled by implication.",
+        "decided_on": "2026-09-10",
+        "text": "Operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z from a four-option popup stating each remedy, its measured effect and its rollback."
+      },
+      "blocker": "ONE HUMAN MERGE CLICK. pr-landing R4 bars a Tier-2 diff from landing itself WHATEVER its approval state, so this cannot self-land and the manager must not merge it. ⚠️ THE APPROVAL IS ALREADY RECORDED AND MUST NOT BE RE-SOUGHT — what is outstanding is the click, not the decision.",
+      "⚠️_its_head_keeps_moving_and_that_is_correct": "Observed at 1a0d95b78 (13:29Z) and 04d4d322f (14:40Z). Its author session merges main in to keep the PR clean. That is maintenance, not churn, and it changes nothing about the R4 hold.",
+      "opened_at": "2026-09-10"
+    },
+    {
+      "pr": 11767,
+      "title": "MI-235: tell a blocked lane when its blocker clears",
+      "owner_session": "session_015iy2R6BP11eiVHbNeUnT6a (author) + session_014zhDAQTVrAuppjm5WDAWwF (MI-269, verification round)",
+      "checklist_item": "MI-235 / MI-269",
+      "draft": false,
+      "tier": "1 (but the diff touches scripts/ops/session_registry.py, which is LANDING MACHINERY)",
+      "state": "green_review_round_complete_awaiting_one_human_merge_click",
+      "head": "ae18ee76661dae4fc9cd1b5c83286bab55b64a3e",
+      "observed_at": "2026-09-11T15:2xZ",
+      "observed": "state=open, merged=false, 4 checks green per its author lane's 15:17Z read.",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "scope": "the review-and-fix round only — NOT authority to merge",
+        "condition": "The operator approved SPAWNING an adversarial review (MI-268) and then a fix round (MI-269). Neither approval is authority to merge: R12 holds a landing-machinery change for a HUMAN READ whatever its state, and fixing the review's findings does not lift that.",
+        "decided_on": "2026-09-11",
+        "text": "Two decision pop-ups. (1) 'Spawn a review lane to read it adversarially' — chosen over the operator reading it themselves and over leaving it parked. (2) 'Fresh lane, all four items' — chosen over the blocking item only, and over parking #11767 entirely. Both recorded with their full option sets in docs/claude/work/spawn-priority-exception.yaml."
+      },
+      "blocker": "ONE HUMAN MERGE CLICK under R12. The adversarial review (#11799, merged) said DO NOT MERGE AS IT STANDS on one BLOCKING finding plus three others; all four were fixed by the author lane (babdc7039, 1ef12d8b3) and then independently RE-VERIFIED BY EXECUTION with positive controls by MI-269 (5a1ceff75, e4813cba5), which also closed three gaps the fixes left and ran the test suite nobody had run. Nothing further is owed by any session.",
+      "⚠️_the_blocking_finding_and_why_it_mattered": "_latch_key omitted the blocker STATE while assess() latches both `cleared` and `could_not_look` through that one key — so a blocker that paged once as *we could not look* could NEVER page again, including on the single transition the whole mechanism exists for. That is #11767's OWN motivating case (MI-238): a mechanism that LOOKS ARMED AND STAYS SILENT exactly where it is most needed.",
+      "⚠️_two_live_sessions_share_this_branch": "The author session was still alive at 15:17:34Z polling '#11767 green, awaiting merge; next check 16:18Z' and does not know MI-269 pushed to its branch. Benign (MI-269 is idle and finished), recorded because it is the MI-235 class one level up.",
+      "opened_at": "2026-09-11"
+    }
+  ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -2079,10 +2125,25 @@
       "merge_sha": "a1ec4a5c064e96668620bb307e65fee3ffecc37a",
       "observed_at": "2026-09-10T15:09:28Z",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11789,
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "owner_session": "automation — .github/workflows/constraint-readout.yml run 34592532948 (event=schedule)",
+      "checklist_item": "MI-270",
+      "draft": false,
+      "tier": "1 (generated artifacts)",
+      "state": "closed_by_manager",
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-11T15:3xZ",
+      "settled_at": "2026-09-11T15:3xZ",
+      "disposition": "obsoleted",
+      "disposition_basis": "RECORDED IN THE SAME ACT THAT CLOSED IT, deliberately — not after a reconciler jammed. BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD measured a single unrecorded reason holding FIVE stacked reconcile PRs hostage for ~3.5h, and the reconciler cannot know WHY a human closed a PR. So this row is written by the closer.\n\nTWO INDEPENDENT REASONS, both measured 2026-09-11T15:3xZ.\n\n(1) RED ON ITS OWN CONTENT, so no re-run or rebase fixes it. Its `guards` check run (103241019088) is conclusion=failure with PASS 57 / FAIL 1 / SKIP 37 and exactly one failing guard: `session-brief-guard: render_session_brief.py --check --base origin/main exited 1`. The opening run (34592532948) then exited 1 at commit-to-main after waiting 30 minutes. Its own error text says CHECK THE PR'S CHECK RUNS BEFORE ASSUMING A CAUSE, and I did — this is its case (a), not the transient-red-base case (b).\n\n(2) OBSOLETE PAYLOAD. It regenerates docs/claude/READOUT.md, docs/claude/CONSTRAINT.json and the CLAUDE.md session brief from registers as they stood at 11:08Z. main has advanced several merges since, so landing it would put a session brief on main that is BEHIND the registers it describes — strictly worse than not landing it. The daily cron regenerates from current state.\n\n⚠️ NOT `superseded`: no later PR carries this content, so nothing was rescued and nothing needs to be. ⚠️ NOT `author_gave_up`: there is no author. ⚠️ NOT `operator_refused`: no operator saw it. Those are opposite next actions and only `obsoleted` is true here.\n\n⚠️ THE UNDERLYING DEFECT IS NOT CLOSED WITH THE PR and is routed rather than dropped: checklist MI-270-THE-CONSTRAINT-READOUT-CRON-REGENERATES-THE-SESSION-BRIEF-AND-SESSION-BRIEF-GUARD-REJECTS-ITS-OWN-OUTPUT, and BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED.",
+      "⚠️_a_present_conflict_is_not_evidence_about_a_past_failure": "This branch IS dirty against main on docs/claude/session-board.json (verified with `git -c merge.jsonregister.driver=false merge-tree --write-tree origin/main FETCH_HEAD`), and that was my FIRST hypothesis for the run failure — the known merge-slot contention class. It is NOT the cause: the guards job failed at 11:11:05Z, twenty-seven minutes before the run gave up, when the slot was very likely uncontended. Recorded so the next reader does not re-derive the wrong diagnosis from the conflict that is still there."
     }
   ],
   "last_reconciled_at": "2026-09-10T15:09:28Z",
   "last_reconciled_sha": "a1ec4a5c064e96668620bb307e65fee3ffecc37a",
-  "updated_at": "2026-09-09T10:46:00Z",
+  "updated_at": "2026-09-11T15:30:49Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

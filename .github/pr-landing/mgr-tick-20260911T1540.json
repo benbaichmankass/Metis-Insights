@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager cadence tick, 2026-09-11T15:24Z. Registers only — MANAGER-LEASE.json, SESSIONS.json, MANAGER-CHECKLIST.json, OPEN-PRS.json and health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no scripts/, no order path, no risk cap, no strategy parameter. No order placed, modified or cancelled on any account. The one merge performed this tick (ict-trader-dashboard#217) is in a different repository and is docs-only; the one PR closed (#11789) is automation, and its disposition is recorded in OPEN-PRS.json by the closer rather than left for a reconciler that cannot know why."
+}
