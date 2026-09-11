@@ -1,0 +1,30 @@
+id: WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Why has the prop account not traded, and is the cushion gate the thing stopping it
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The absence of prop trades is ATTRIBUTED to a named mechanism, established by measurement with a POSITIVE CONTROL that the three prop legs did signal in the window. Candidate mechanisms each confirmed or excluded by evidence: breakout_executor reticket suppression, prop_balance staleness refusal, the risk gate sizing to zero against an $87.34 cushion at ~$75/ticket, a strategy-side silence. 'No signals' is only a verdict WITH the per-leg eval counts behind it.
+
+why: >-
+  OPERATOR-RAISED 2026-09-11: 'there hasn't been a trade on the prop ... the question is low. That's not a reason to not be trading. So if that's it then we did something wrong ... it could just be that there were no signals, but that seems unlikely for such a long period when the rest of the accounts are trading.'
+
+source: >-
+  operator (conversational), 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

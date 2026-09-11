@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Evidence + registers ONLY. A new research doc under docs/research/, three rows appended to docs/claude/health-review-backlog.json via scripts/ops/backlog_append.py::append_row, and one new row plus one re-affirmed observation in docs/claude/OPEN-ITEMS.json. No src/, no config/, no scripts/, no deploy/, no .github/workflows/. Nothing armed, flipped, merged or deployed: every remediation this unit identified is Tier-2 (ARBITRATION_FANOUT_ACCOUNTS, the reticket guard) and is PROPOSED in the doc for the operator via the manager, never enacted. All production access was read-only (GET only); no order placed, modified or cancelled, and no prop ticket emitted."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: the lease claim, four SESSIONS.json rows for the lanes the operator chose, MANAGER-CHECKLIST.json, the spawn-priority exception for MI-273, and five work-object lifecycle corrections (in_flight -> ready, owner cleared) measured against list_sessions. docs/** is on the Tier-1 surface. No src/, no config/, no scripts/, no workflows, no order path, no risk caps. Nothing here changes runtime behaviour."
+}

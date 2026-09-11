@@ -1,0 +1,30 @@
+id: WO-20260911-FULL-SYSTEM-REVIEW-THE-MEASUREMENT-INSTRUMENTS-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Full system review — the measurement instruments the bleed diagnosis will be read through
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A /system-review completes with its review_coverage guard satisfied (strategy_promotion + ml_training_health + soak_status + flags_raised + backlog_drive), the consolidated report committed under comms/reports/, and the OPEN-ITEMS rows whose check_every_days has elapsed either re-observed with a written observation or explicitly recorded as not-looked-at.
+
+why: >-
+  Operator-selected 2026-09-11. Under CY-20260906-TRADING-TRUTH the ORDER matters: repair the measurement before acting on what it says. pnlCoverage is 22.3% measured, so a verdict computed off it today is computed off a contaminated instrument.
+
+source: >-
+  operator (conversational), 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
