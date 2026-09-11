@@ -74,6 +74,24 @@ outcome: >-
   trend_donchian_sol_4h, one of its two named legs, recorded ZERO stop-outs in 3
   post-era packages.
 
+done_condition_as_captured: >-
+  PRESERVED VERBATIM from the stub the manager captured on `main`, because one
+  clause of it was DISPROVEN by the work and replacing the text would make the
+  original read as if it had asserted what was found: "For each post-2026-08-30 stop-out on an e35 leg, a verdict on whether the pre-e35 2.5-ATR stop would have been hit, computed from MI-164 position telemetry (peak_r, r_to_stop, adverse excursion) rather than from a re-simulation. Population stated. That answers the e35 revert decision directly, and resolves the contradiction between MI-271's merged memo (e35 is NOT the cause) and its own session summary (e35 causation confirmed)."
+  [!] THE METHOD CLAUSE IS FALSE AND IT IS THE FIRST THING THIS UNIT ESTABLISHED.
+  position_telemetry records `peak_r` -- maximum FAVOURABLE excursion -- and NO
+  maximum adverse excursion, and `record_position_telemetry` is an UPSERT, so only
+  the last state survives and there is no path. The counterfactual needs the
+  adverse path BEYOND the tightened stop, i.e. price action after the position had
+  already closed, which no in-trade instrument can hold however complete its
+  coverage becomes. "adverse excursion" is simply not a telemetry field. So the
+  answer came from a RE-SIMULATION against 1m candles -- the one thing the captured
+  done_condition ruled out -- and the question is ANSWERED rather than refused. The
+  other two clauses (population stated, MI-271 contradiction resolved) are MET.
+
+title_as_captured: >-
+  "The stop-width counterfactual: would the pre-e35 2.5-ATR stop have survived the trades that stopped out" -- kept because a search may carry the captured wording.
+
 why: >-
   MI-271 (docs/research/bleed-attribution-2026-09-11.md, merged 85bcd5703) named
   this as the ONE measurement standing between the operator and the e35 revert
@@ -89,3 +107,5 @@ blocked_on_basis: >-
   real claim here rather than the migration default: this object is `done`, so
   nothing blocks it. Its successor question (why ict_scalp_* degraded) is a
   DIFFERENT object and is not filed as a blocker on this one.
+
+captured_by: scripts/ops/capture_idea.py
