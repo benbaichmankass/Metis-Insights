@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-275 close-out · session_01WKwvhBuaYYCKbdkk7fHrpf",
-    "branch": "claude/mi275-close-out",
-    "claimed_at": "2026-09-11T22:40:37Z",
-    "purpose": "PR for the MI-275 close-out record: the blocked-lane-watch clause (a) observation. Tier-1, landing: self. MI-275's main deliverable already landed as #11826 (bf92d258c)."
+    "held_by": "MI-275 observation repair · session_01WKwvhBuaYYCKbdkk7fHrpf",
+    "branch": "claude/mi275-observation-repair",
+    "claimed_at": "2026-09-11T23:03:21Z",
+    "purpose": "Repair PR: restore the 3377-char OPEN-ITEMS observation that #11838 landed DESTROYED (auto-merge took the earlier head while the repair commit was in flight). Tier-1, landing: self. #11838 merged as 37b700631 and its slot claim is spent."
   },
   "active_sessions": [
     {

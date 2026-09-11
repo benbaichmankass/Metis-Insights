@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register repair only: restores the 3377 chars of docs/claude/OPEN-ITEMS.json observation that my own commit 38ebcb85c destroyed (another session's correction plus the original six-control reading), and files the backlog row for the blindness class that let it through. Two files: OPEN-ITEMS.json and health-review-backlog.json, plus this declaration and the merge-slot claim. No src/, config/, deploy/, .github/workflows/ or scripts/ci/. Nothing armed, no runtime or order path, no strategy config. Tier-1 by the canonical doc's own examples (docs + observability records)."
+}
