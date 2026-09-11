@@ -89,3 +89,24 @@ There is no record that admits a Tier-3 diff, and listing a Tier-3 path in
 account-mode flips and live promotion stay human-gated at the merge itself
 (`docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers). **R15 must never be
 widened to change that.**
+
+## ⚠️ One thing this gate does NOT settle: "the trading path"
+
+`docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers hard-blocks a self-merge for
+the enumerated order-path files **and** adds *"any unit file the live VM consumes
+on the trading path"*, with the merge classified Tier-3 *"set by the merge gate,
+not the prep"*.
+
+R15 grades Tier-3 by `TIER3_PATHS`, which enumerates the **named** files. That
+trailing phrase is **broader**, and covers files R15 grades Tier-2 — `src/main.py`
+and `src/runtime/order_monitor.py` among them. **PR #11738, the change that
+motivated this whole rule, touches two of them.**
+
+Deciding which files are "on the trading path" from a path glob is exactly the
+unvouchable judgement `TIER1_SURFACE`'s allowlist polarity exists to refuse, so
+**this guard does not invent that list and does not claim to have settled the
+question.** It prints the caveat on every admission instead, so whoever writes a
+record meets it rather than having to find it.
+
+**If a record's `scope_paths` reaches the live trading path, its author owns that
+judgement and should say so in `text`.** The guard has not made it for them.

@@ -344,6 +344,31 @@ APPROVAL_CHANNELS = {
         "the operator edited this file themselves",
 }
 
+# ⚠️ AN AMBIGUITY IN THE CANONICAL DOC THAT R15 DOES NOT RESOLVE, AND MUST NOT
+# RESOLVE SILENTLY IN THE PERMISSIVE DIRECTION.
+#
+# docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers says the enumerated
+# order-path files are "hard-blocked from a self-merge" AND adds "**any unit file
+# the live VM consumes on the trading path**", with the merge classified Tier-3
+# "set by the merge gate, not the prep". `TIER3_PATHS` enumerates the named
+# files; that trailing phrase is BROADER than any list here, and covers files
+# like `src/main.py` and `src/runtime/order_monitor.py` that this guard grades
+# Tier-2.
+#
+# Deciding which files are "on the trading path" from a path glob is exactly the
+# unvouchable judgement `TIER1_SURFACE`'s allowlist polarity exists to refuse, so
+# this guard does NOT invent that list and does NOT claim to have settled the
+# question. It is printed on every admission instead, so the person writing the
+# record meets it rather than having to find it — and a record whose scope
+# reaches the trading path is one whose author has to make that call explicitly.
+_TRADING_PATH_CAVEAT = (
+    "⚠️ R15 grades Tier-3 by TIER3_PATHS. docs/CLAUDE-RULES-CANONICAL.md "
+    "§ Permission Tiers ALSO Tier-3s the merge of 'any unit file the live VM "
+    "consumes on the trading path', which is broader than that list and is NOT "
+    "resolved here. If this diff touches the live trading path, the approval "
+    "record's author owns that judgement — the guard has not made it for them."
+)
+
 # Stated here so it is read at the point of use and cannot be lost to a PR body.
 _APPROVAL_RESIDUAL = (
     "R15 establishes that an approval was SEPARATE from the branch it lands, "
@@ -927,6 +952,7 @@ def approval_state(root: Path, base: str, branch: str, decl: dict,
             f"(decision {rec.get('decision_id')}, verdict {verdict}, channel "
             f"{channel}, {len(substantive)} substantive path(s) inside scope). "
             + _APPROVAL_RESIDUAL)
+        notes.append(_TRADING_PATH_CAVEAT)
     return fails, notes
 
 
