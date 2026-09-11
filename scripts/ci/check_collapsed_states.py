@@ -1346,6 +1346,44 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "checklist_routing_age.stall_state",
+        # The producer OWNS the vocabulary: the four states are module constants
+        # (`STALL_NEWLY = "newly_stalled"`), so no `producer_field` is declared —
+        # the literal never shares a line with the word `stall_state`, and
+        # narrowing here would fail for a spelling reason rather than a
+        # correctness one (the qty_legalize entry's reasoning).
+        "producer": "scripts/ops/checklist_routing_age.py",
+        # Scoped to THIS contract's own tokens. Emphatically NOT the bare state
+        # words: "standing", "within" and "unknown" are ordinary English that
+        # appear in dozens of unrelated modules, and matching on them would bind
+        # this contract to files that have never heard of a checklist row.
+        "consumer_token": (r"\bstall_state\b|\bstall_counts\b|\bSTALL_NEWLY\b|"
+                           r"\bSTALL_STANDING\b|\bSTALL_WITHIN\b|\bSTALL_UNKNOWN\b|"
+                           r"\bgrade_stall\b"),
+        "states": ["newly_stalled", "standing", "within", "unknown"],
+        "why": (
+            "MI-246, the THIRD member of a drop family that MI-235 and MI-236 do "
+            "not cover: a checklist row FILED correctly, with a real owner-shaped "
+            "gap, and then never ROUTED. It sat `ready`/`owner: unassigned` "
+            "indefinitely because the register had no elapsed-time term at all — "
+            "filing and routing were indistinguishable. All four states have to "
+            "stay apart. `newly_stalled` is a crossing and is LOUD ONCE. "
+            "`standing` is a row already said, carried as a COUNT — MEASURED "
+            "2026-09-11, 70 of 270 rows were past the threshold, so paging the "
+            "stock every run would put a 70-row block in the session brief and "
+            "train every session to skim it, which is this repo's own worst "
+            "failure mode. `within` is genuinely young and is the only state "
+            "that means nothing is owed. `unknown` is WE COULD NOT LOOK — a "
+            "truncated git history, or a status value in neither vocabulary — "
+            "and folding it into `within` is exactly the collapse that made the "
+            "four original instances invisible; folding it into `newly_stalled` "
+            "instead would manufacture stalls out of unreadable rows, the "
+            "opposite error. Consumers: the CLAUDE.md session brief and the "
+            "due-list, which are the two surfaces a session reads without "
+            "choosing to."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",

@@ -37,3 +37,92 @@ blocked_on_basis: >-
   because it was captured later.
 
 captured_by: scripts/ops/capture_idea.py
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DELIVERY RECORD — appended 2026-09-11 by the ENGINEERING LANE that took it.
+# The manager's frame above is kept VERBATIM; nothing in it is rewritten.
+# ─────────────────────────────────────────────────────────────────────────────
+
+the_measurement: >-
+  MEASURED 2026-09-11 by `python3 scripts/ops/checklist_routing_age.py --measure`.
+  POPULATION: all 195 revisions of docs/claude/work/MANAGER-CHECKLIST.json reachable
+  from HEAD on main, 2026-09-01T21:36:53Z -> 2026-09-11T09:50:01Z, replayed commit by
+  commit, 0 unparseable. (1) Time to first real owner for rows that were ever
+  open-and-unrouted and later got one, n=37: median 3.85h, p75 14.08h, p90 22.37h,
+  p95 24.24h, max 43.60h — 94.6% routed within 24h, 100% within 48h. (2) Currently
+  open-and-unrouted: 74 of 270 rows, of which 68 are past 24h and the oldest is
+  228.2h. THRESHOLD_HOURS=24 is (1)'s p95 — a measured quantile that happens to land
+  on a round number, not a round number chosen by feel. An independent scratch
+  implementation reproduced n=37 / median 3.85 / p95 24.24 exactly, which is an
+  arithmetic cross-check rather than a re-read.
+
+the_finding_that_shaped_the_build: >-
+  ⚠️ THE SECOND FIGURE KILLS THE OBVIOUS DESIGN. A surface reporting every row past
+  the measured threshold would report 68 rows on its first run. That is a second
+  backlog, not a signal, and a 68-row block in the session brief is the desensitised
+  alarm this repo calls its own worst failure mode. So the surface reports the
+  CROSSING, not the STOCK: LOUD ONCE when a row crosses, a COUNT thereafter — the
+  pattern src/runtime/close_wedge_standing.py already uses. Crossings measured at
+  ~7/day (68 over 10 days) on the same population, which is a list a manager can work.
+
+what_was_built: >-
+  scripts/ops/checklist_routing_age.py — the age is DERIVED FROM GIT HISTORY, because
+  items[] carries no `state_since` and adding one by hand is a habit, not a mechanism.
+  That is the manager's `blocked_on_basis` reasoning vindicated: the missing thing was
+  an elapsed-time term, and git already had it. Register:
+  docs/claude/work/CHECKLIST-ROUTING-AGE.json. TWO SURFACES, neither behind a command
+  someone must choose to run — the CLAUDE.md SESSION BRIEF (the only channel that
+  reaches a session before its first tool call) and docs/claude/DUE.md via a new
+  `checklist_unrouted` source (the due-list read nine registers and the manager
+  checklist was not one of them, so a scoped owner-less item was due to nobody).
+  Registered with collapsed-state-guard as `checklist_routing_age.stall_state`;
+  self-test wired as `checklist-routing-age-guard`; the producer runs in
+  constraint-readout.yml, whose checkout needed `fetch-depth: 0` — it was a shallow
+  clone, where the derivation correctly REFUSES rather than reporting every row as
+  young. 33 tests.
+
+does_it_subsume_the_siblings: >-
+  NO, and the done_condition put the question explicitly. `blocked` (MI-235) and
+  `in_flight` (MI-236) are graded NOT-OPEN here, deliberately, with a parametrized
+  test pinning it, so this cannot double-report work those mechanisms own. What the
+  three SHARE is the shape the checklist row identified — a state that stopped
+  matching reality — so the honest long-run answer is that MI-237's schema work should
+  give `state_since` a declared home and all three should then read ONE clock instead
+  of three. That is a follow-up worth having and is NOT what was built today; building
+  it now would have meant migrating 270 rows before anything could be observed
+  catching a drop.
+
+resolution_status: >-
+  (1) MET — a row past the threshold is surfaced on two generated surfaces.
+  (2) NOT MET, and a green guard clears (1) only. The first reading SEEDED the 68-row
+  pre-existing backlog rather than paging it (visible, counted, every id named in
+  `seeded_ids`), so (2) needs the NEXT crossing; at a measured ~7/day it should arrive
+  within a day of the first scheduled constraint-readout run.
+  ⚠️ SEEDING IS NOT A DISPOSITION — those 68 rows are still unrouted and still
+  somebody's.
+
+the_honest_residual: >-
+  (a) The producer rides constraint-readout.yml, whose cron has a poor firing record
+  in this repo. If it does not fire, the register goes stale and the brief renders a
+  stale reading with a fresh look: the register carries `generated_at` and NOTHING
+  GRADES ITS OWN FRESHNESS. Filed as
+  BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS
+  rather than left in a PR body. (b) The 68 seeded rows are named, unrouted and
+  somebody's; this mechanism deliberately does not report them one by one. (c) If
+  MANAGER-CHECKLIST.json is ever RENAMED, git reports the rename as an add at the new
+  path and the derivation would read `derived` over a history beginning at the rename,
+  under-estimating every age — the reassuring direction. Stated in the module rather
+  than hidden.
+
+blocked_on:
+  - kind: observation
+    ref: the next threshold crossing after the seed, on a scheduled constraint-readout run
+    since: 2026-09-11
+blocked_on_basis_after_build: >-
+  ASSESSED 2026-09-11 by session_01Uk4qLFBTyMEDMJXydYzSyw (engineering lane).
+  ⚠️ This does NOT contradict the manager's `blocked_on_basis` above and must not be
+  read as overturning it. Nothing blocked the BUILD, which is what that assessment was
+  about and which is now complete. What the edge records is that done_condition clause
+  (2) — OBSERVED catching a real unrouted row — cannot be done by anyone; it can only
+  be waited for and seen. An edge naming that is a true blocker on the CLAUSE, not on
+  the work.
