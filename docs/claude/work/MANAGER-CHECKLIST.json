@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T09:27:00Z",
+  "updated_at": "2026-09-11T09:55:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3430,8 +3430,8 @@
     {
       "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
       "title": "THE THIRD DROP CLASS: a row filed and never routed has no age, no owner and no alarm — filing is not routing",
-      "owner": "unassigned — needs a session",
-      "state": "ready",
+      "owner": "session_01Uk4qLFBTyMEDMJXydYzSyw (ENGINEERING LANE)",
+      "state": "in_flight",
       "tier": 1,
       "priority": "high",
       "lane": "engineering",
@@ -3442,7 +3442,11 @@
       "resolution_criteria": "(1) A row that has held `ready`/`unassigned` past a measured threshold is SURFACED somewhere a manager reads before it plans — not in a 5.1 MB backlog, and not behind a command someone must choose to run. (2) It is OBSERVED catching one: a real unrouted row is reported before the operator asks about it. !! (2) IS THE WHOLE POINT AND (1) DOES NOT SUBSTITUTE — every mechanism in this family has shipped and then not been read; that is what OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION and OI-20260902-ROLE-PACKS-... both still record. !! A GREEN GUARD CLEARS (1) ONLY. !! AND IF THE ANSWER IS THAT MI-235/MI-236/MI-237 SUBSUME THIS ONCE BUILT, that is a legitimate finding — say so and CLOSE this row explicitly rather than leaving a fourth near-duplicate accruing, which is itself the class.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED — nothing blocks it. It is deliberately NOT blocked on MI-237: the schema migration would give the field a home, but the missing thing is an elapsed-time term and a surface, which do not depend on it.",
-      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive"
+      "source": "operator (conversational), 2026-09-10 — the manager-mandate directive",
+      "spawned_at": "2026-09-11T09:50:08Z",
+      "work_object": "WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED",
+      "updated_at": "2026-09-11T09:52:00Z",
+      "⚠️_IT_WAS_AN_INSTANCE_OF_ITS_OWN_CLASS_FOR_A_DAY_AND_A_HALF": "This row was filed 2026-09-10 and sat `ready` / `owner: unassigned` until 09:50Z on 2026-09-11 — roughly 25 hours with no age, no alarm and no surface reporting it, which is EXACTLY the condition it exists to end. It moved because a manager read the queue by hand, which is the mechanism it is meant to replace. Recorded as evidence for the row, not as a remark: the four instances in `note` were all found the same way, and this is the fifth."
     },
     {
       "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
@@ -3784,19 +3788,42 @@
       "done_when": "Each of the 17 carries a disposition established against its OWN done_condition: owner poked (DELIVERY-CONFIRMED by matching the returned cse_ suffix), or re-routed with a stated reason, or a landing state PROPOSED with its evidence. AND the four object rows are resolved far enough that check_wip_ceiling.py admits a new object. ⚠️ A LOWER UNSUPPORTED COUNT ALONE CLEARS NOTHING -- trivially achievable by marking rows `done`, which is the harm. `done` means MERGED AND OBSERVED; `landed_unproven` means the code is in and its effect has NOT been seen. Per-row dispositions with evidence, never a delta.",
       "scope_refusal": "The lane dispositions ROWS, it does not do the work they describe. Several are substantial (a money-DB gate, a red-PR sweep, a backlog drain) and starting any of them would be the drop pattern one level up. It is also told NOT to file a wip-ceiling-exception: clearing the ceiling honestly IS the job.",
       "blocked_on": "",
-      "updated_at": "2026-09-11T09:27:00Z",
+      "updated_at": "2026-09-11T09:42:00Z",
       "prs": [
         11775,
-        11776
+        11776,
+        11780
       ],
       "merged": "966adffc0 (#11775) + 90a7f350f (#11776, the attribution correction)",
       "✅_THE_CEILING_CLEARED_AND_THE_MANAGER_RE_RAN_BOTH_INSTRUMENTS_RATHER_THAN_TAKING_THE_SUMMARY": "MEASURED by the manager on main @ 90a7f350f at 2026-09-11T09:25Z, by running the tools rather than reading the lane's summary: check_wip_ceiling.py -> 'OK — 5 work object(s) in flight, ceiling 8'; check_stale_in_flight.py -> 'ratchet base=14 head=14 delta=+0'. So the ceiling went 8 -> 5 (THREE SLOTS FREED) and unsupported went 17 -> 14. An hour earlier the ceiling was FULL and refusing every new in_flight object, which made it the binding constraint on all work in this repo including trading work. It is not any more. The lane's own account: 5 lanes dispositioned (3 done, 1 waiting, 1 in_flight).",
       "✅_IT_CORRECTED_ITS_OWN_ATTRIBUTION_UNPROMPTED": "#11775 landed on main carrying MI-264 in its title -- the mislabel the manager had flagged in a poke -- and the lane then shipped #11776 SOLELY to correct the attribution to MI-265 on main. It did not argue the point or leave it as a footnote. That is worth recording because a later session reading the wrong item id is the drop pattern this lane exists to end, in miniature.",
-      "⚠️_TWO_FINDINGS_IT_FLAGGED_AND_WHERE_THEY_LIVE_IS_NOT_YET_ESTABLISHED": "The lane reports two findings in its summary: 'MI-221 position close unobservable' and '#11517 SPA Explorer 401 post-merge'. ⚠️ A SUMMARY DIES WITH THE SESSION. The manager has asked it to say WHERE each is written -- PR body, backlog row or work object -- and to file them through backlog_append.py if they are not anywhere durable. UNTIL THAT ANSWER ARRIVES THESE ARE NOT RECORDED, and this row says so rather than implying they are handled. The SPA 401 may be live and user-facing; that is unestablished, not dismissed."
+      "✅_THE_FINDINGS_QUESTION_IS_ANSWERED_AND_THE_ANSWER_WAS_BETTER_THAN_THE_ASK": "The lane did not merely say where the SPA 401 lived -- it went and SETTLED it, on #11780. MEASURED against the live host: POST /api/auth/login with a WELL-FORMED body returns 500 auth_unavailable, so the host cannot mint a session; require_session accepts only a Bearer satisfying decode_token; decode_token returns None when _signing_key() raises, so there is NO static-token bypass and DASHBOARD_API_TOKEN does not satisfy it; /api/auth/login is the ONLY mint path. Gate closed + no mint path = UNREACHABLE FOR EVERYONE. ⚠️ IT ALSO RECORDED THE PROBE THAT WOULD HAVE LIED: an EMPTY body returns 422 from Pydantic validation BEFORE the handler runs, never reaching the auth_unavailable branch -- so its own earlier probe could not have established this, and it said so at the time. The difference between the two probes IS the finding. The previous state of this field is preserved verbatim in ⚠️_PRIOR_STATE_OF_THE_FINDINGS_FIELD below.",
+      "⚠️_PRIOR_STATE_OF_THE_FINDINGS_FIELD": "The lane reports two findings in its summary: 'MI-221 position close unobservable' and '#11517 SPA Explorer 401 post-merge'. ⚠️ A SUMMARY DIES WITH THE SESSION. The manager has asked it to say WHERE each is written -- PR body, backlog row or work object -- and to file them through backlog_append.py if they are not anywhere durable. UNTIL THAT ANSWER ARRIVES THESE ARE NOT RECORDED, and this row says so rather than implying they are handled. The SPA 401 may be live and user-facing; that is unestablished, not dismissed.",
+      "⚠️_MI_221_IS_STILL_NOT_ESTABLISHED_AND_THIS_ROW_DOES_NOT_CLAIM_OTHERWISE": "The SPA-401 half is settled. The OTHER finding the lane flagged -- 'MI-221 position close unobservable' -- has NOT been traced to a durable home, and the manager has not verified one. It is carried here as OPEN so it is not lost in the good news about its sibling. Do not read this row's ✅ as covering both."
+    },
+    {
+      "id": "MI-266-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE-PROPAGATION-PATH-AND-SIZE-THE-SPA-BEARER-HALF",
+      "title": "Make the Data Explorer reachable: land the secret propagation path, and size whether the SPA can send a bearer at all",
+      "state": "in_flight",
+      "owner": "session_01BC4R18Lt8CaVzfxZF7DMce (ENGINEERING LANE)",
+      "spawned_at": "2026-09-11T09:39:03Z",
+      "work_object": "WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE",
+      "added": "2026-09-11",
+      "tier": 1,
+      "priority": "high",
+      "lane": "engineering",
+      "operator_decision": "OPERATOR-ANSWERED 2026-09-11 via pop-up, chosen: 'Originate values + probe SPA in parallel'. The operator is minting the secret values; this lane does everything that does NOT require them, so that the moment they exist restoring the tab is one action rather than a project. The two other options offered were 'establish the SPA half first' and 'leave it gated closed and record that as a decision'; both were declined.",
+      "note": "MEASURED by the manager reading main at 2026-09-11T09:38Z, not inferred: (1) the three auth envs are read PER CALL from the process environment (src/web/api/auth.py:67,76,83) and are NOT in sync-vm-secrets.yml; (2) the consuming unit is ict-web-api.service, so the set-env target is env_file: web-api (/etc/ict-trader/web-api.env), which set_env.sh allowlists along with restarting that unit; (3) ⚠️ JWT_SIGNING_KEY and WEBAPP_PASSWORD_SHA256 are ABSENT from the SECRET_* map in .github/workflows/system-actions.yml (~line 1143), so a set-env with a blank env_value would be REFUSED by the empty-value guard -- THERE IS NO SANCTIONED PATH TO MOVE THESE VALUES TO THE VM TODAY; (4) ALLOWED_EMAIL is NOT a secret -- deploy-candidate.yml:137 already writes ben.baichmankass@gmail.com in the clear -- so it can ride env_value normally and the ask is TWO values, not three.",
+      "why_it_matters": "THIS IS THE SAME FAILURE THE REPO HAS ALREADY PAID FOR ONCE, AND THE MAP'S OWN COMMENT RECORDS IT: when TELEGRAM_CLAUDE_BOT_SECRET was unmapped, 'the operator had put it in Actions and there was no sanctioned path to move it'. The guard refused correctly and the token simply could not be propagated. These two keys are in exactly that state now. So the operator could mint both values today and nothing could carry them -- which would read, from outside, as the operator having done their part and the system having stalled anyway.",
+      "done_when": "BOTH, and they are different facts -- say which was cleared. (a) The secret-backed mapping is MERGED so a set-env with a blank env_value can move both keys with neither value reaching a public issue body or run log. (b) The SPA bearer half is answered with a SIZE -- 'a form and a token store' versus 'a real auth build' -- read off ict-trader-dashboard rather than inferred. ⚠️ NOT done by setting the envs: that is Tier-2 and the values do not exist yet. ⚠️ NOT done by the tab rendering: that is the OBSERVATION, it comes later, and it may still fail on (b).",
+      "scope_refusal": "Tier-1 only. The lane is explicitly NOT authorised to run set-env, mutate the VM, or put any secret value in a commit, PR body, issue or log. It is also told NOT to change db_explorer.py's fail-closed behaviour: that gate is CORRECT -- before it shipped, an unauthenticated GET /api/bot/db/table/trades returned real rows over 41 columns against total 5589 on a PUBLIC host. Reverting it to make the tab work would be the worst available outcome.",
+      "blocked_on": "",
+      "⚠️_THE_MANAGER_SPAWNED_THIS_LANE_WITHOUT_THE_DASHBOARD_REPO_AND_CORRECTED_IT_IMMEDIATELY": "create_session was called without source_url, and get_session at 09:40Z showed the lane's sources as benbaichmankass/metis-insights ALONE -- while its Task B needs benbaichmankass/ict-trader-dashboard. The manager poked it at 09:41Z with the add_repo remedy (delivery confirmed: cse_01BC4R18Lt8CaVzfxZF7DMce matched) rather than letting it discover the gap mid-task. Recorded as the manager's error, because a lane blocked on something the manager could already see is the exact stall MI-264 is filed about, and three instances cost ~3.3 lane-hours today.",
+      "updated_at": "2026-09-11T09:42:00Z"
     }
   ],
-  "as_of": "2026-09-10T13:36:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 09:26Z)",
+  "as_of": "2026-09-11T09:55:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -3818,7 +3845,7 @@
     "declared_by": "manager, from operator answers 2026-09-10T08:3xZ (asked as pop-ups)",
     "why_this_block_exists": "The operator's stated mandate for the manager is that things do not get DROPPED: \"ensure that things don't get dropped in the middle and that we actually finish things and execute them. And if not, then things are documented correctly so we know where to pick them up in a new session\". An ORDER held only in a manager's context is itself a droppable thing — it dies with the session, which is the same argument the lease, SESSIONS.json and this checklist already rest on. So the queue order is written down, not remembered.",
     "engineering": {
-      "now": "MI-238 — the live Workflow page.",
+      "now": "MI-266 (make the Data Explorer reachable — operator-directed 2026-09-11) and MI-246 (the third drop class). ⚠️ MI-238's CODE HALVES ARE LANDED and its only outstanding clause is the operator confirming the rendered page in a browser, which is not lane work — so the queue moved on to the infra the operator ordered after it. MI-235 and MI-236 are both delivered (MI-235's #11767 is green and held for a human read under R12, which is not a lane blocker).",
       "then": [
         "MI-235 (tell a blocked session when its blocker clears)",
         "MI-236 (decay stale in_flight rows)",
@@ -3830,7 +3857,8 @@
         "MI-242 (add scripts/backtest_*.py to TIER1_SURFACE)"
       ],
       "operator_decision": "ASKED DIRECTLY 2026-09-10 and answered `Finish MI-238 first, then the infra`. The manager RECOMMENDED the opposite — switching to MI-235/236/246 immediately, on the grounds that those three would have caught 6 of the 8 things dropped in that single session — and the operator chose the page first. THE RECOMMENDATION IS RECORDED AS OVERRIDDEN, NOT AS ADOPTED: a later session must not read this order as the manager's own judgement, and must not silently re-order it back.",
-      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness."
+      "accepted_cost": "Stated rather than hidden: for one more lane-cycle nothing mechanically catches a dropped row, so the manager remains the only thing standing between a filed row and the cracks — which is precisely what failed today. ⚠️ AND THE PAGE WILL RENDER STALE SESSION STATE until MI-236 lands, because `state` in SESSIONS.json decays and nothing decays it; MI-238 is instructed to render `updated_at` beside it rather than hide the staleness.",
+      "⚠️_THE_ORDER_IS_STILL_THE_OPERATORS_AND_HAS_NOT_BEEN_RE_ORDERED": "`operator_decision` below still governs: asked directly 2026-09-10 and answered 'Finish MI-238 first, then the infra', OVERRIDING the manager's own recommendation. Nothing here re-orders it — MI-238's code is finished, so 'then the infra' is what is now running, and MI-246 is the next unstarted row on the `then` list. MI-266 is an OPERATOR INSERTION from 2026-09-11, not the manager promoting its own preference."
     },
     "ops": {
       "now": "MI-241 — the F-39 re-attach, REAL MONEY, in flight.",

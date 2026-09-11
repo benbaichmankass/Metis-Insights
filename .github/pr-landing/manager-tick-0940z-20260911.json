@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager state and governance records only: the manager lease heartbeat, the sub-session registry, the manager checklist, and one new work object captured through capture_idea.py. No runtime, no order path, no strategy config, no risk caps, no live-VM file, and no secret value anywhere in the diff. Tier-1 by the canonical doc's own examples."
+}

@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T09:27:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 09:26Z)",
+  "updated_at": "2026-09-11T09:55:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4623,12 +4623,38 @@
       "why": "The WIP ceiling of 8 is full and 4 of those slots are unsupported, so it now refuses all new work. Ops role: unsticking outranks the ops backlog.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T08:27:01Z",
-      "live_status": "IDLE/disconnected — BLOCKED, and the blocker had cleared 57 min earlier",
-      "live_status_read_at": "2026-09-11T09:24:57Z",
-      "manager_observation": "OPS LANE, MI-265. DELIVERED: #11775 + #11776 merged; WIP ceiling 8 -> 5, unsupported 17 -> 14, both re-measured by the manager running the instruments rather than reading the summary. It also shipped #11776 purely to correct its own MI-264 -> MI-265 attribution on main, unprompted. THEN SAT BLOCKED on 'confirm pending-20260911T082606Z', WHICH WAS CONFIRMED AT 08:27:01Z -- ~15 seconds after it started. Fourth lane today on this exact condition. Poked 09:26Z. OWED: it must say WHERE its two flagged findings (MI-221 close unobservable; #11517 SPA Explorer 401) are written down, or file them through backlog_append.py. Not yet established.",
-      "updated_at": "2026-09-11T09:27:00Z"
+      "live_status": "IDLE / COMPLETED (list_sessions 09:35Z; connected)",
+      "live_status_read_at": "2026-09-11T09:35:00Z",
+      "manager_observation": "Answered the manager's question better than it was asked: rather than saying WHERE the SPA-401 finding lived, it went and SETTLED it on #11780 — POST /api/auth/login with a well-formed body returns 500 auth_unavailable, verified through the code chain (no static-token bypass, single mint path). It ALSO recorded the probe that would have lied: an empty body returns 422 from Pydantic before the handler runs, so its own earlier probe could not have established this, and it said so at the time. ⚠️ #11780 is DIRTY — main moved to b5bf8de50 when #11779 landed — and the manager verified the conflict himself with the corrected merge-tree check: the ONLY conflicted path is session-board.json, the known bare merge-slot class. Poked 09:36Z to rebase; delivery confirmed (cse_ suffix matched). ⚠️ The lane's OTHER flagged finding, 'MI-221 position close unobservable', is still NOT traced to a durable home.",
+      "updated_at": "2026-09-11T09:42:00Z"
+    },
+    {
+      "session_id": "session_01BC4R18Lt8CaVzfxZF7DMce",
+      "title": "ENGINEERING LANE - MI-266: make the Data Explorer reachable (mapping + SPA bearer half)",
+      "owns_object": "WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE",
+      "checklist_item": "MI-266-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE-PROPAGATION-PATH-AND-SIZE-THE-SPA-BEARER-HALF",
+      "spawned_at": "2026-09-11T09:39:55Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator chose 'originate values + probe SPA in parallel' on the SPA-Explorer-unreachable pop-up. Lands the secret-backed set-env mapping - absent today, so there is NO sanctioned path to move JWT_SIGNING_KEY / WEBAPP_PASSWORD_SHA256 to the VM and set-env would correctly refuse - and sizes whether the SPA can send a bearer at all.",
+      "state": "working",
+      "live_status": "RUNNING (get_session 09:40Z; 'Cloning the backend repository')",
+      "live_status_read_at": "2026-09-11T09:40:06Z",
+      "manager_observation": "Spawned 09:39Z on the operator's pop-up answer ('originate values + probe SPA in parallel'). ⚠️ MANAGER ERROR, CAUGHT AND CORRECTED IN TWO MINUTES: create_session was called WITHOUT source_url, and the lane inherited only benbaichmankass/metis-insights while its Task B needs benbaichmankass/ict-trader-dashboard. Poked 09:41Z with the add_repo remedy and an explicit warning not to pre-check the repo first (an unauthenticated probe 404s for a repo the session IS authorised for, and that false negative would make it skip Task B). Delivery confirmed: cse_01BC4R18Lt8CaVzfxZF7DMce matched. Recorded as the manager's error rather than the lane's, because a lane blocked on something the manager could already see is precisely what MI-264 is filed about.",
+      "updated_at": "2026-09-11T09:42:00Z"
+    },
+    {
+      "session_id": "session_01Uk4qLFBTyMEDMJXydYzSyw",
+      "title": "ENGINEERING LANE - MI-246: give a state transition an age, so an unrouted row cannot sit forever",
+      "owns_object": "WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED",
+      "checklist_item": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
+      "spawned_at": "2026-09-11T09:50:23Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Next row in the operator's declared engineering queue after MI-238's code landed. The third drop class: a row filed correctly and never routed has no age, no owner and no alarm. MI-246 has itself been ready/unassigned since 2026-09-10, so it is an instance of its own class.",
+      "state": "working"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T09:24:57Z, tick 09:26Z. A REAL LIVE READ -- list_sessions(mine=true, limit=3) -- and for the THIRD consecutive tick it found a lane BLOCKED on a manager action already completed. Verified against SESSIONS.json on main before poking, never taken from the lane's summary. PARTIAL: three rows returned, one graded (the other two were graded last tick and are unchanged-terminal); the register holds 213 rows and the rest were NOT read. LIVE COUNT: ZERO lanes RUNNING. All three operator slots free, and the WIP ceiling that was blocking new work an hour ago now reads 5 of 8."
+  "⚠️_last_live_reconcile": "2026-09-11T09:35Z — PARTIAL. list_sessions returned 14 rows and TWO were graded (the MI-265 lane, and the MI-266 lane spawned during this pass and read directly via get_session). The register holds 214 rows; the remainder were NOT read and their live_status is whatever an earlier pass left. A row without a fresh live_status_read_at is 'we did not look', never 'unchanged'."
 }
