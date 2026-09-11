@@ -92,6 +92,11 @@ blocked_on_basis: 'ASSESSED 2026-09-08 by session_01ML8uLRrKLMmzR9fFywTWv5 at CL
   and nothing did. The build ran to completion and the question is answered.'
 decision_requests:
 - id: DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW
+  chosen: reword_clause_1_then_remove
+  answered_at: 2026-09-11T16:45:00Z
+  answered_by: operator (conversational popup, relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
+  scope: this row only; no other loud row is implicated
+  text: "Operator answered 2026-09-11 via a decision pop-up put by manager session_01HrmZ1RRNM4UnEUaFdrPEjj. Chosen: reword clause (1) to name the CAPABILITY, then remove the row. The reasoning offered and accepted: the clause was written as a LOCATION (scripts/backtest_system.py) rather than an OUTCOME, and the outcome is met with parity asserted -- so closing WITHOUT rewording would leave a closed row whose own text contradicts its closure, and a later auditor would have to re-derive this conversation. !! EXECUTION NOTE: the row was ALREADY removed from docs/claude/OPEN-ITEMS.json on 2026-09-09 by ba5fccc1a (#11509), as this request's own subject.note records. Re-measured 2026-09-11: zero rows in OPEN-ITEMS match TRADE-PRIORITISATION. So the REMOVE half was done before the question was answered and the REWORD half has no live text left to edit. What the answer buys is the RECORD of why the removal was right."
   urgency: routine
   asked_on: '2026-09-08'
   subject:
@@ -131,7 +136,7 @@ decision_requests:
       while the question behind it is answered - the alarm-fatigue shape this repo treats as its own P1.
   answered_at: '2026-09-10T07:52:00Z'
   answered_by: operator (conversational popup, relayed by manager session_01HrmZ1RRNM4UnEUaFdrPEjj)
-  verdict: reframed_not_answered
+  verdict: approved
   text: 'Operator, verbatim: "We should have a workflow for monitoring that allows us to follow mo itores
     items in a clean wya that doesn''t generate noise, if we don''t then we need to understand how that
     fits into the workflow lane. The problem here is not correctly framed for a structurally sound workflow."'
