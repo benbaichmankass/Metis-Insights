@@ -1,0 +1,30 @@
+id: WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Adversarially review 11767 the blocked-lane notifier because R12 forbids the manager merging it
+stage: INTEGRITY
+lifecycle: in_flight
+owner: session_01PkGrU3GSYiWYAUyF99pEQi
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A written adversarial report on #11767 exists, saying (a) what the diff changes about the landing route, stated as paths and behaviours rather than intent; (b) what R12 exists to protect and whether this diff can damage it -- including the case where the change is CORRECT but makes a future mistake harder to catch; (c) whether the guard's own self-tests still fail on a planted defect AFTER the change, established by RUNNING them, never by reading them; and (d) a recommendation the operator can act on in one read. ⚠️ A FINDING OF 'NO PROBLEMS' IS A VALID AND USEFUL OUTCOME and must be reported with its POPULATION -- what was examined -- so that a clean report can be told apart from a shallow one.
+
+why: >-
+  PR #11767 (MI-235, 'tell a blocked lane when its blocker clears') is GREEN and declares landing: hold / hold_reason: changes_landing_machinery -- R12. The manager must NOT merge it, because the guard that would catch a mistake in it is the thing being changed, and a manager merging its own landing machinery is the conflict of interest R12 exists to prevent. The operator chose a second reader over reading it themselves. ⚠️ THE REVIEWER IS NOT A SECOND MANAGER AND MUST NOT MERGE IT EITHER -- its output is a REPORT the operator merges on, so a review that ends in a merge has defeated the rule it was spawned to honour.
+
+source: >-
+  operator decision 2026-09-11 via the manager; chosen: spawn a review lane to read it adversarially
+
+blocked_on: []
+blocked_on_basis: ASSESSED  # blocked_on is EMPTY and that is an ASSESSED CLAIM. #11767 is green, open and readable, and its branch is fetchable -- the review needs nothing that does not exist. Do NOT add an operator_decision edge: the operator decision this work SERVES (whether to merge #11767) comes AFTER the report and is its output, not its precondition. Writing that edge would invert the dependency and make the constraint computation read a blocker that is really a deliverable.
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

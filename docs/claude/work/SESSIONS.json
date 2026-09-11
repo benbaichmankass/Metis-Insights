@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T12:32:07Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), 12:32Z tick",
+  "updated_at": "2026-09-11T12:49:00Z",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), 12:48Z lane dispatch",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4657,6 +4657,38 @@
       "live_status_read_at": "2026-09-11T12:31Z (get_session; session_status IDLE, connected, context 530,266 / 1,000,000)",
       "manager_observation": "Stated its population without being asked (all 195 revisions of MANAGER-CHECKLIST.json replayed commit by commit, 0 unparseable, n=37, median 3.85h, p95 24.24h) and made THRESHOLD_HOURS = 24 be that p95 rather than a round number. Its second measurement -- 74 open-and-unrouted, 68 already past 24h -- KILLED ITS OWN STOCK-REPORTING DESIGN in favour of reporting the CROSSING over a SEEDED backlog, because a 68-row block is the desensitised alarm this repo has a top-level rule about. It answered the subsumption question NO with a parametrized test rather than an argument, and volunteered AGAINST ITS OWN INTEREST that MI-237 should give all three mechanisms one clock. And it headed its own section 'criterion (2) is NOT met'. ⚠️ MANAGER ERROR AGAINST THIS LANE: it was told its work object was 'in this branch's working tree' -- true in the manager's container, meaningless in the lane's own clone. Corrected by poke, naming #11784 as where the object lives, with an explicit do-not-recreate (a duplicate work object is worse than a missing one).",
       "updated_at": "2026-09-11T12:32:07Z"
+    },
+    {
+      "session_id": "session_01PkGrU3GSYiWYAUyF99pEQi",
+      "registry_key": "pending-20260911T124749Z",
+      "state": "working",
+      "title": "REVIEW LANE — adversarially read #11767 (MI-235), which R12 forbids the manager merging",
+      "owns_object": "WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER",
+      "checklist_item": "MI-268",
+      "spawned_at": "2026-09-11T12:47:49Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator chose a second reader over reading it themselves. The reviewer produces a REPORT the operator merges on; it must NOT merge the PR itself.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-11T12:48:22Z"
+    },
+    {
+      "session_id": "session_01PymYx96XPtBW3SdfQtpKwc",
+      "registry_key": null,
+      "state": null,
+      "title": "ENGINEERING LANE — give the SPA a bearer so the Data Explorer stops being dark",
+      "owns_object": "WO-20260911-GIVE-THE-SPA-A-BEARER-SO-THE",
+      "checklist_item": "MI-267",
+      "spawned_at": "2026-09-11T12:49:00Z",
+      "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+      "source_url": "https://github.com/benbaichmankass/ict-trader-dashboard",
+      "why": "The propagation path for the two web-api auth secrets landed (#11783, f14d2c704) and NOTHING CAN USE IT. MI-265 established the host side is unreachable for everyone; MI-266 established the SPA cannot send a bearer at all. Operator-approved DIRECTLY as a decision pop-up, 2026-09-11.",
+      "observed_source_url": "https://github.com/benbaichmankass/ict-trader-dashboard (from create_session's own response, session_context.sources)",
+      "confirmed_at": null,
+      "live_status": "PENDING at spawn (12:48:51Z) — not yet observed running",
+      "live_status_read_at": "2026-09-11T12:49:00Z",
+      "updated_at": "2026-09-11T12:49:00Z",
+      "⚠️_THIS_ROW_WAS_WRITTEN_BY_HAND_BECAUSE_THE_REGISTRY_REFUSES_A_CROSS_REPO_SPAWN": "scripts/ops/session_registry.py register REFUSES any --source-url naming a repo other than THIS checkout's own origin (MI-207), so it cannot register a lane whose work lives in benbaichmankass/ict-trader-dashboard. MEASURED, not assumed: the command was RUN with the dashboard URL and printed 'REFUSED — stated benbaichmankass/ict-trader-dashboard, but this checkout's origin is benbaichmankass/metis-insights. NOTHING WAS WRITTEN.' ⚠️ THE REFUSAL IS CORRECT FOR ITS OWN PURPOSE and must not be weakened: it exists because the-lizardking/ict-trading-bot is the PRE-RENAME remote, still a real repo, so a wrong-repo clone SUCCEEDS and the contamination is silent. ⚠️ WHAT THE MANAGER DID NOT DO, deliberately: pass the BACKEND url to satisfy the tool. That would have written a row asserting a repo this lane is not attached to -- a false record, which is worse than a hand-written true one, and precisely the contamination MI-207 exists to prevent. ⚠️ AND IT DID NOT SKIP THE ROW EITHER: the registry's PURPOSE is that a manager arriving COLD can find this session, and that purpose is served by the ROW existing, not by which tool wrote it -- the module's own header concedes the coupling is soft and bypassable by writing the prompt by hand. The gap is FILED to the health-review backlog rather than left as a one-off workaround. WHAT IS WEAKER HERE than on a tool-written row: no spawn-gate check ran against the work object (it was verified by hand -- the object exists and the spawn-priority exception names it), and no `confirm` step compared the OBSERVED source_url against the stated one, so the observed_source_url above is read from create_session's own response rather than from a later get_session."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

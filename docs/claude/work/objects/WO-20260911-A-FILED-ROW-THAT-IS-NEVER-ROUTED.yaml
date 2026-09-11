@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   A filed row that is never routed has no age: give state transitions an elapsed-time term and a surface
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01Uk4qLFBTyMEDMJXydYzSyw
 opened_at: 2026-09-11
 closed_at: null
@@ -20,8 +20,11 @@ why: >-
 source: >-
   operator (conversational), 2026-09-10 — the manager-mandate directive
 
-blocked_on: []
-blocked_on_basis: >-
+blocked_on:
+  - kind: observation
+    ref: "the crossing detector observed catching a REAL newly-unrouted row before the operator asks"
+    since: 2026-09-11
+blocked_on_basis: ASSESSED  # MOVED in_flight -> waiting 2026-09-11: merged as #11787 (f8eaa683d), lane idle, and the surface is OBSERVABLY rendering in the CLAUDE.md session brief -- the 🧭 block reads over a seeded backlog of 69 rows. That is clause (1). Clause (2) is an OBSERVATION nobody can schedule: the mechanism catching a real crossing before the operator asks. `waiting` is the honest lifecycle -- not `done`, which would claim the observation, and not in_flight, which would claim someone is working on it when the only thing left is elapsed time and a real event.
   ASSESSED 2026-09-11T09:52Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager) —
   nothing blocks it, and that is a claim rather than the capture default.
 
