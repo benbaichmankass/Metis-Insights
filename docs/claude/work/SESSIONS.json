@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T00:28:44Z",
+  "updated_at": "2026-09-11T02:28:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4533,12 +4533,12 @@
       "why": "Operator answered 'Finish MI-238 first, then the infra' and it is the engineering lane's declared 'now'. Its row read in_flight with an owner idle since 18:13Z and prs: None — the second instance in one hour of the exact drop pattern recorded on MI-139.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T00:28:44Z",
-      "live_status": "PENDING (spawned 00:28:20Z)",
-      "live_status_read_at": "2026-09-11T00:29Z",
-      "manager_observation": "ENGINEERING LANE, MI-238 — the operator declared now. Re-laned after its row sat in_flight with prs: None and an owner idle since 18:13Z. Registered BEFORE spawn as pending-20260911T002753Z, confirmed after.",
-      "updated_at": "2026-09-11T00:29Z"
+      "live_status": "IDLE/connected · working",
+      "live_status_read_at": "2026-09-11T02:27Z",
+      "manager_observation": "ENGINEERING LANE. ⚠️ DISPATCHED FOR MI-238 (the live Workflow page, the operator declared now) AND WORKED MI-258 INSTEAD — opened #11752 on branch claude/mi258-decision-subject-liveness. Caught by reading task_summary against what was dispatched; NO status field showed it. The work is genuinely good (probe-before-build found 75% false positives on the obvious regex design over a stated population of 26, so none of it shipped; four never-collapsed states; six mutation-tested refusals; it caught its own VACUOUS test that SKIPPED rather than failed) and it delivered DEC-20260911-WORKFLOW-PAGE-TREE-BEHIND-GITHUB, the MI-262 criterion-(2) disposition the manager asked for. But its own PR states the page is untouched: the SPA render is a second repo and is NOT in it. Poked 01:28Z (trig_01QY2sy6YQikPiYU72xo4Tke -> cse_01G4VneSjgv5QT4rMGj4izi5, id matches) to land #11752 then go to the page. Drift partly the manager’s: the spawn prompt said the decisions half needed no new bot route, and the lane found a real defect there and followed it.",
+      "updated_at": "2026-09-11T02:27Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T00:29Z — PARTIAL. LIVE half is list_sessions(mine=true, limit=3) at 00:26Z; has_more true, so this is the newest 3 of 207 rows. Every claim about a lane's OUTPUT was checked against GitHub rather than its post_turn_summary. ⚠️ WHAT THIS PASS CAUGHT — THE SECOND INSTANCE IN ONE HOUR of an owner field naming a no-longer-working session beside prs: None. MI-139 at 23:2xZ, MI-238 at 00:27Z. Both found by reading the queue by hand, neither by any instrument, and the second is the item the OPERATOR most recently prioritised. The pattern is systematic, not a one-off, and it is now measured rather than argued."
+  "⚠️_last_live_reconcile": "2026-09-11T02:27Z — PARTIAL. LIVE half is list_sessions(mine=true, limit=3) at 01:26Z, one row re-read; the two ops lanes were COMPLETED at that read and are not re-graded here. ⚠️ WHAT THIS PASS CAUGHT IS THE THIRD DISTINCT DROP CLASS IN FOUR HOURS, and it is the one no register can show: a lane RUNNING, healthy, and working on the WRONG ITEM. MI-139 and MI-238 were both `in_flight` rows pointing at dead owners; this is the inverse — a live owner pointing at the wrong work. Found only by reading task_summary against the dispatch, which is exactly what the cadence tick instructs and what no status field encodes."
 }
