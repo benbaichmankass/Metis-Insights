@@ -235,3 +235,74 @@ def test_register_preserves_the_files_serialisation(tmp_path):
     text = p.read_text(encoding="utf-8")
     assert "⚠️ keep me" in text, "non-ASCII was re-encoded to \\u escapes"
     assert text.endswith("\n")
+
+
+# --------------------------------------------------------------------------- #
+# `blocked-on` — the lane's own declaration (MI-235 review lane, 2026-09-11)
+#
+# ⚠️ THESE EXIST BECAUSE THE FIXES FOR REVIEW ITEMS 4 AND 5 SHIPPED WITH NO TEST
+# AT ALL. `cmd_blocked_on` was added by #11767 and nothing in this file or in
+# `tests/test_blocked_lane_watch.py` referenced it, so both remedies could have
+# regressed silently — which is the same shape as the defect item 4 fixes.
+# --------------------------------------------------------------------------- #
+import argparse  # noqa: E402
+
+
+def _blocked_on(monkeypatch, path, session_id, **over):
+    monkeypatch.setattr(sr, "REGISTRY_PATH", path)
+    a = argparse.Namespace(session_id=session_id, kind="pull_request", ref="#1",
+                           clears_when="merged", clear=False, note=None)
+    for k, v in over.items():
+        setattr(a, k, v)
+    return sr.cmd_blocked_on(a)
+
+
+def _reg(tmp_path, sessions, updated_at="2020-01-01T00:00:00Z"):
+    p = tmp_path / "SESSIONS.json"
+    p.write_text(json.dumps({"updated_at": updated_at, "sessions": sessions},
+                            indent=2) + "\n", encoding="utf-8")
+    return p
+
+
+def test_a_duplicated_session_id_REFUSES_rather_than_writing_to_rows_0(tmp_path, monkeypatch):
+    """ITEM 4. `rows[0]` would put a lane's blocker on a row that is not its own.
+
+    This file's own `_mint_registry_key` docstring records THREE rows sharing a
+    key, and `_refuse_duplicate_session_id` exists because uniqueness is a
+    property of the SET. A blocker written to an arbitrary row is worse than no
+    blocker: the lane believes it declared, and the watcher grades somebody
+    else's row — a declaration that looks made and is watched for the wrong
+    session.
+    """
+    p = _reg(tmp_path, [{"session_id": "dupe", "state": "RUNNING", "title": "a"},
+                        {"session_id": "dupe", "state": "RUNNING", "title": "b"}])
+    assert _blocked_on(monkeypatch, p, "dupe") != 0, "an ambiguous id must refuse"
+    after = json.loads(p.read_text())
+    assert all("blocked_on" not in r for r in after["sessions"]), (
+        "NOTHING may be written — not even to the row that happens to be first")
+    assert after["updated_at"] == "2020-01-01T00:00:00Z", (
+        "a refusal must not stamp the register either")
+
+
+def test_CONTROL_a_unique_session_id_still_declares(tmp_path, monkeypatch):
+    """The other direction, and it is not optional: without it the refusal above
+    is also satisfied by a command that refuses EVERYTHING."""
+    p = _reg(tmp_path, [{"session_id": "solo", "state": "RUNNING", "title": "c"}])
+    assert _blocked_on(monkeypatch, p, "solo") == 0
+    row = json.loads(p.read_text())["sessions"][0]
+    assert [b["ref"] for b in row["blocked_on"]] == ["#1"]
+
+
+def test_clear_stamps_updated_at_the_way_declaring_does(tmp_path, monkeypatch):
+    """ITEM 5. Declaring bumped `updated_at` and discharging did not, which left
+    the freshness stamp `check_manager_scope` R6 grades reading older than the
+    register's real state. A discharge CHANGES the file, so it stamps it."""
+    p = _reg(tmp_path, [{"session_id": "solo", "state": "RUNNING", "title": "c",
+                         "blocked_on": [{"kind": "pull_request", "ref": "#1",
+                                         "clears_when": "merged",
+                                         "since": "2020-01-01T00:00:00Z"}]}])
+    assert _blocked_on(monkeypatch, p, "solo", clear=True) == 0
+    after = json.loads(p.read_text())
+    assert "blocked_on" not in after["sessions"][0]
+    assert after["updated_at"] != "2020-01-01T00:00:00Z", (
+        "discharging a blocker must stamp the register, as declaring one does")

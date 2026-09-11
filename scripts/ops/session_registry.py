@@ -471,8 +471,8 @@ one, run this BEFORE your last turn, then push it.
 `operator_decision`, and the command REFUSES anything it cannot grade rather
 than letting you declare a blocker nothing will ever watch.
 
-⚠️ **THIS IS THE ONE SANCTIONED EXCEPTION TO 'the manager owns that file' TWO
-PARAGRAPHS UP, AND IT IS NARROW.** You append ONE typed edge to YOUR OWN row and
+⚠️ **THIS IS THE ONE SANCTIONED EXCEPTION TO 'the manager owns that file' UNDER
+`## Registry` ABOVE, AND IT IS NARROW.** You append ONE typed edge to YOUR OWN row and
 nothing else — never another row, never the `sessions` list's shape, never a
 manager field. Nobody else can write it: the blocker is yours, and a manager who
 has to notice it by hand is the failure this whole mechanism exists to end.

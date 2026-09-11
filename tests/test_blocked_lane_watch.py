@@ -230,6 +230,43 @@ def test_MUTATION_a_latch_key_without_the_state_is_caught(tmp_path):
         "the mutant must reproduce the bug, or this test pins nothing")
 
 
+def _commands(step) -> str:
+    """A workflow step's EXECUTED lines, with comment lines stripped.
+
+    ⚠️ ONE COPY, DELIBERATELY. Two tests ask "is this command invoked here?" and
+    a second copy of the answer is how the two drift — the principle this repo
+    states as `uniqueness is a property of the SET, so it is checked against the
+    set`. Matching a raw `run:` body counts a COMMENT that merely MENTIONS a
+    flag as an invocation of it, which is the unprovenanced-diagnostic class:
+    prose graded as an executed command. Stripping comment lines can only ever
+    remove non-invocations, so it sharpens the match and cannot blind it —
+    `test_MUTATION_a_second_selftest_invocation_is_still_caught` pins that.
+    """
+    return "\n".join(ln for ln in str(step.get("run", "")).splitlines()
+                      if not ln.strip().startswith("#"))
+
+
+def test_MUTATION_a_second_selftest_invocation_is_still_caught():
+    """The other direction of the comment-stripping above: sharpening the matcher
+    must not have blinded it. Plant a REAL second `--self-test` call into the
+    lanes step and assert the wiring test's own rule still rejects it."""
+    wf = yaml.safe_load(WORKFLOW.read_text())
+    steps = wf["jobs"]["watch"]["steps"]
+
+    lanes = [st for st in steps if st.get("id") == "lanes"][0]
+    assert "--self-test" not in _commands(lanes), "baseline: lanes invokes no self-test"
+
+    planted = dict(lanes, run=lanes["run"]
+                   + "\npython3 scripts/ops/blocked_lane_watch.py --self-test\n")
+    mutated = [planted if st.get("id") == "lanes" else st for st in steps]
+    hits = [st for st in mutated
+            if "--self-test" in _commands(st)
+            and "blocked_lane_watch.py" in _commands(st)]
+    assert len(hits) == 2, (
+        "the matcher must still SEE a genuine second invocation — if this reads 1, "
+        "comment-stripping blinded the check it was meant to sharpen")
+
+
 def test_an_unreadable_latch_pages_rather_than_suppressing(tmp_path):
     """Failing loud makes a broken latch announce itself as noise, not silence —
     the polarity `target_naked_alert_state.json` had to be corrected to."""
@@ -298,9 +335,17 @@ def test_the_watch_is_wired_into_a_workflow_that_demonstrably_fires():
     # receipt on main`, `Watch the MANAGER STATE` and `Report the verdict` were
     # all skipped, taking down the PR-queue escalation this workflow exists for,
     # while the step's own comment promised it never fails the job.
+    # ⚠️ MATCH INVOCATIONS, NOT MENTIONS (corrected 2026-09-11). This counted any
+    # step whose body contained the STRING `--self-test`, so a COMMENT explaining
+    # why the self-test moved registered as a second invocation and failed the
+    # assertion below. A check that grades prose as an executed command is the
+    # unprovenanced-diagnostic class this repo has a guard for; stripping comment
+    # lines can only ever REMOVE non-invocations, so it strictly sharpens the
+    # matcher rather than weakening it — a real second call is still caught, and
+    # `test_MUTATION_a_second_selftest_invocation_is_still_caught` pins that.
     selftest_steps = [st for st in steps
-                      if "--self-test" in str(st.get("run", ""))
-                      and "blocked_lane_watch.py" in str(st.get("run", ""))]
+                      if "--self-test" in _commands(st)
+                      and "blocked_lane_watch.py" in _commands(st)]
     assert len(selftest_steps) == 1, (
         "the grading policy must be self-tested exactly once per run")
     assert selftest_steps[0].get("id") != "lanes", (
