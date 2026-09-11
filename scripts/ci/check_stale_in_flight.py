@@ -46,6 +46,7 @@ import argparse
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -166,8 +167,24 @@ def self_test() -> int:
         "session_cccccccc": {"state": "archived"},
         "session_dddddddd": {"state": "wat"},
         "session_eeeeeeee": {},
+        # A recorded `working` whose observation has AGED OUT. Real shape:
+        # MI-215 on 2026-09-11, `state: working` observed 43.5h earlier while
+        # `list_sessions` reported that session IDLE/COMPLETED.
+        "session_ffffffff": {"state": "working",
+                             "state_observed_at": "2026-09-09T06:00:00Z"},
     }
-    g = ol.grade_owner_activity
+
+    # ⚠️ `now` IS PINNED, and it has to be. Every fixture above carries a FIXED
+    # `state_observed_at`, so against the wall clock their observation ages
+    # grow every day this self-test is run -- `session_aaaaaaaa` was already
+    # ~14h "old" on the day it was written. That did not matter while
+    # `_support_for` ignored freshness; it decides the verdict now, so an
+    # unpinned clock would make this self-test's result a function of the
+    # calendar rather than of the code.
+    NOW = datetime(2026, 9, 11, 6, 30, tzinfo=timezone.utc)
+
+    def g(owner: object, registry: object) -> object:
+        return ol.grade_owner_activity(owner, registry, now=NOW)
     check("active", g("session_aaaaaaaa", reg).support, ol.SUPPORTED)
     check("dormant", g("session_bbbbbbbb", reg).activity, ol.DORMANT)
     check("dormant unsupported", g("session_bbbbbbbb", reg).support,
@@ -200,6 +217,24 @@ def self_test() -> int:
     check("prose graded live",
           g("session_aaaaaaaa (LANE) — inheriting from session_bbbbbbbb",
             reg).support, ol.SUPPORTED)
+
+    # ── The UNRELIABLE POSITIVE (2026-09-11) ────────────────────────────────
+    # A recorded `active` is evidence only while the observation behind it is
+    # FRESH. MEASURED over all 27 in_flight rows that day: six graded
+    # `supported` and NOT ONE had a live-RUNNING owner -- four were
+    # IDLE/COMPLETED on the platform -- on observations 24x-48x past this
+    # module's own 90-minute staleness window.
+    check("stale active is still recorded active",
+          g("session_ffffffff", reg).activity, ol.ACTIVE)
+    check("stale active does NOT support the claim",
+          g("session_ffffffff", reg).support, ol.COULD_NOT_ESTABLISH)
+    # ⚠️ The asymmetry, and the half a later session is most likely to
+    # "tidy" into symmetry: a recorded NEGATIVE does not decay, so the same
+    # staleness must leave `unsupported` alone. Applying the freshness test to
+    # it would convert this guard's 10 confirmed true positives into
+    # `could_not_establish` and destroy the mechanism.
+    check("staleness does not weaken a negative",
+          g("session_bbbbbbbb", reg).support, ol.UNSUPPORTED)
 
     if failures:
         for f in failures:
