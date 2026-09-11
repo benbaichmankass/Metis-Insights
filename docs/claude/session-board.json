@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/mgr-board-start-gap",
-    "claimed_at": "2026-09-11T20:01:50Z",
-    "purpose": "file the board-START structural gap"
+    "held_by": "session_014tHgKvnnLdpgAgGXbaHRUt",
+    "branch": "claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim",
+    "claimed_at": "2026-09-11T20:59:42Z",
+    "purpose": "MI-236 second lane, follow-up: a path may not supply a declaration marker (PR #11829, Tier-1 self-land)"
   },
   "active_sessions": [
     {
