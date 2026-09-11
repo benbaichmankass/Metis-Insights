@@ -1,0 +1,10 @@
+MI-275 close-out (PR #11838) — arming the auto-merge relay.
+
+Tier-1, landing: self, declared in .github/pr-landing/mi275-close-out.json.
+Content: one OPEN-ITEMS observation recording that
+OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT clause (a)
+is satisfied for the first time, plus the merge-slot claim R13 requires.
+
+Pushed as a SEPARATE commit AFTER the PR was opened by hand, deliberately: arming
+in the same commit lets claude-pr-automerge open the PR under GITHUB_TOKEN, which
+fires no workflows and leaves it at zero checks.
