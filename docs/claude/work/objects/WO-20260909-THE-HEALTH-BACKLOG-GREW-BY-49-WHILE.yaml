@@ -28,3 +28,33 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+disposition_2026_09_11_mi264: >-
+  ⚠️ DISPOSITIONED 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-264, ops lane): STAYS `in_flight`,
+  and the recommendation is RE-ROUTE to a fresh session. This is the one of the four ceiling-holding rows
+  that is genuinely unfinished, and it is not merely unfinished -- IT HAS MOVED BACKWARDS.
+  POPULATION AND WHEN: all 1450 rows of `docs/claude/health-review-backlog.json` at `origin/main` @
+  1cd5e211e, read 2026-09-11T08:4xZ, counted by status:
+    open 672 · resolved 580 · kept_open 181 · wont_fix 8 · superseded 6 · invalid 3
+  UNRESOLVED (open + kept_open) = 853.
+  THE DONE_CONDITION REQUIRES "measurably LOWER than 765". It is 853 -- HIGHER BY 88, i.e. the pile grew
+  by 11.5% over the two days this row sat `in_flight` with a dormant owner (session_01Hw9mp8cEeZqF1KSGZHyHui,
+  35.0h since its last observation). The done_condition is not close to met and no reading of the
+  arithmetic makes it met.
+  ⚠️ I AM NOT RE-DERIVING THE LANE'S OWN WORK AS A FAILURE. #11510 IS MERGED (c49948127, "backlog-drain:
+  close 3 rows on evidence, and answer the mechanism question"), so the lane did land evidence-carrying
+  closes AND did address the done_condition's second clause -- "the mechanism question must be answered
+  rather than only the arithmetic". What has not happened is the arithmetic half, and by construction it
+  cannot be judged met while the number is rising.
+  ⚠️ AND THE DIRECTION IS THE FINDING, NOT THE LEVEL. The done_condition's own warning -- "a one-off
+  drain that leaves that unchanged buys one week" -- is now measured rather than predicted: a merged
+  drain of 3 rows against a net +88 over the same window means the FILL RATE, not the drain rate, is the
+  binding term. A successor that opens by draining rows is repeating the move this measurement already
+  shows does not work. ⚠️ A LOWER COUNT ALONE WOULD CLEAR NOTHING HERE: it is trivially achievable by
+  marking rows resolved, which is the harm the done_condition names ("a row closed without evidence is
+  worse than an open one").
+  WHY RE-ROUTE RATHER THAN POKE: the owner also holds checklist row MI-210-LANE-1-BACKLOG-DRAIN, so one
+  decision covers both. It is graded POKE-class on owner liveness alone (registry `idle`, wakeable) in
+  #11771's analysis, and that grading stands as a statement about the OWNER -- I am not contradicting it.
+  This is a statement about the ROW: the work as scoped did not converge, so waking the same context to
+  continue it is the weaker option than re-scoping it around the fill rate. That is the manager's call.

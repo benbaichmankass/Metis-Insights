@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only, and checked against check_pr_landing.py's ACTUAL path lists rather than reasoned from filenames. Changed paths: docs/claude/work/objects/*.yaml (4 per-file work objects), docs/claude/work/IN-FLIGHT-ROW-DISPOSITIONS-2026-09-11.md (new evidence doc), docs/claude/health-review-backlog.json (1 row appended via backlog_append.py), docs/DOCUMENT-INDEX.md (1 row), docs/claude/session-board.json (merge_slot only). No path matches TIER3_PATHS; none matches TIER2_PATHS (src/**, config/**, deploy/**, ml/**); none matches LANDING_MACHINERY. This PR dispositions work rows against their own done-conditions and does not do the work any row describes. No src/, no order path, no strategy or risk cap, no VM mutation. No order placed, modified or cancelled on any account: every live call was a GET, plus one POST to /api/auth/login with an EMPTY body (no credentials sent) used solely to probe route availability.",
+  "session": "session_01NFnmLiu9zNDppY3qFXcJJA"
+}

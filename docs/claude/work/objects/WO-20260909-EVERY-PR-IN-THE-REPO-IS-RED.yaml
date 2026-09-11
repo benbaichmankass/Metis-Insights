@@ -4,10 +4,10 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Every PR in the repo is red on a time-based guard whose fix sits in an automation PR the manager cannot land
 stage: CAPABILITY
-lifecycle: in_flight
+lifecycle: done
 owner: session_01NcYsS6kFNrzxEKcrNy9eXP
 opened_at: 2026-09-09
-closed_at: null
+closed_at: 2026-09-11
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
@@ -947,3 +947,43 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+
+disposition_2026_09_11_mi264: >-
+  ⚠️ DISPOSITIONED `done` 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-264, ops lane), NOT by the
+  owner -- the owner (session_01NcYsS6kFNrzxEKcrNy9eXP) is dormant, 38.0h since its last observation, and
+  the row was holding a WIP ceiling slot on an `in_flight` claim the register no longer supported
+  (MI-236, #11771). THE OWNER'S DORMANCY IS NOT THE GROUND FOR CLOSING IT; the ground is that every
+  clause of the done_condition is met, each re-established FIRST-HAND below rather than inherited from
+  this file's own annotations.
+  POPULATION AND WHEN: read 2026-09-11T08:4x-08:5xZ against `origin/main` @ 1cd5e211e.
+  CLAUSE 1 -- "the repo is GREEN". VERIFIED BY RUNNING IT, exit code read directly, not inferred:
+  `python3 scripts/ci/check_trainer_capture_watch.py` -> `liveness: fresh / newest recorded run is 3.6h
+  old (window 15h)` / EXIT=0. The two sibling time-based receipt guards were run in the same pass and
+  also exit 0 -- `check_pr_queue_watch` FRESH (3.2h / 30.0h window), `check_digest_liveness` state=fresh
+  (3.24h). So this is not one guard happening to be inside its window.
+  CLAUSE 2 -- "land #11488 and the other stale automation PRs ... a superseded receipt should be CLOSED
+  with a recorded reason". THE QUEUE IS EMPTY. POPULATION: every open PR in the repo, via
+  `list_pull_requests(state=open)` -- n=2, and BOTH are `claude/*` session PRs (#11767 MI-235, #11738
+  MI-240). ZERO carry an `automation/*` head ref, against the 44 this object's own first sweeper run
+  graded on 2026-09-10. The dispositioning was done by #11739 (MI-259), not by this lane.
+  CLAUSE 3 -- "then fix the CLASS ... say plainly which of (a)/(b)/(c) it is". ANSWERED PLAINLY, and the
+  answer is on this object: (a), the automation workflow should rebase-or-reopen, with the qualification
+  that the actor must OUTLIVE the producing run -- which is why it shipped as a CADENCE job
+  (`.github/workflows/stale-automation-sweep.yml` + `scripts/ops/sweep_stale_automation_prs.py`, both
+  confirmed present on origin/main) and not as another input to `commit-to-main`.
+  CLAUSE 4 -- OBSERVED, not merely deployed, and this is the half I checked hardest because it is the
+  one a merge cannot establish. INDEPENDENTLY VERIFIED VIA THE ACTIONS API, not from this file's prose:
+  `stale-automation-sweep.yml` has THREE runs with `event: schedule`, all `conclusion: success` --
+  run_number 1 (34518595813, 2026-09-10T19:08:22Z), 2 (34538411238, 22:38:07Z) and 3 (34563441234,
+  2026-09-11T04:46:13Z). Run 1's effect was confirmed on the PR itself and not from the run log: #11710
+  (head ref `automation/session-reaper-34501786024-1`) reads `merged: true`, `merged_at
+  2026-09-10T19:11:26Z` -- 3m04s after the scheduled run started, with no session in the loop. That is
+  the class fix working end to end without a human, which is precisely what the hand-port contrast in
+  `done_condition_met` says would NOT have counted.
+  ⚠️ WHAT THIS DOES NOT CLAIM. `what_was_not_done` item (5) -- "THE CLOCK IS RE-ARMED" -- remains
+  structurally true and always will be: this guard is a freshness window, so `done` here means the
+  MECHANISM that refreshes it is shipped and observed, NEVER that the clock can no longer go red. A
+  future red on this guard is not a regression of this object; it is the next receipt being late, which
+  is what the sweeper exists to catch. ⚠️ AND n=3 SCHEDULED RUNS IS A SMALL DENOMINATOR: one of the
+  three landed a strand, the other two found nothing to sweep. That is the mechanism behaving correctly
+  on an empty queue, not three independent confirmations of the refresh path.
