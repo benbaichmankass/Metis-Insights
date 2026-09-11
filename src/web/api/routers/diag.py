@@ -874,8 +874,17 @@ _LOG_FILES: dict[str, Path] = {
     # on the one surface a relay-bound session can reach.
     "partial_stop_coverage_alert_state":
         runtime_logs_dir() / "partial_stop_coverage_alert_state.json",
-    # MI-276, registered in the SAME COMMIT that ships their writers rather
-    # than as the sixth recurrence of the shape described above.
+    # MI-276. ⚠️ THE FIRST PUSH REGISTERED ONLY THE TWO COOLDOWN FILES WHILE
+    # THIS COMMENT ALREADY CLAIMED ALL FOUR, AND THE TWO IT OMITTED WERE THE
+    # ONES THAT MATTER: `OI-20260911-THE-TWO-DETECTORS-...`'s clears_when
+    # clause (1) names `losing_streak_observed_state` and
+    # `starved_account_observed_state` explicitly, so the row it filed would
+    # have been UNCLEARABLE BY ITS OWN CRITERION — the detector's own
+    # "a signal nobody can read" defect, reproduced in its read surface.
+    # Caught by `test_every_allowlisted_log_file_is_documented` in CI, not
+    # locally: `run_guards.py` does not run the pytest suite, and the author
+    # ran only the two test files they had written. Field beats comment —
+    # the comment was the thing that was wrong.
     #
     # `losing_streak_alert` and `starved_account_alert` each keep TWO files and
     # the pair is not redundant:
@@ -896,8 +905,12 @@ _LOG_FILES: dict[str, Path] = {
     # a read surface of its own would reproduce that defect one level up.
     "losing_streak_alert_state":
         runtime_logs_dir() / "losing_streak_alert_state.json",
+    "losing_streak_observed_state":
+        runtime_logs_dir() / "losing_streak_observed_state.json",
     "starved_account_alert_state":
         runtime_logs_dir() / "starved_account_alert_state.json",
+    "starved_account_observed_state":
+        runtime_logs_dir() / "starved_account_observed_state.json",
     # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
     # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
     # "the latch is holding" and "the latch is broken and everything is WARN"
