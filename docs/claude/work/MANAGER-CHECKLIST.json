@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T09:55:00Z",
+  "updated_at": "2026-09-11T10:29:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3431,7 +3431,7 @@
       "id": "MI-246-A-FILED-ROW-THAT-IS-NEVER-ROUTED-HAS-NO-AGE-AND-NOTHING-EVER-SURFACES-IT",
       "title": "THE THIRD DROP CLASS: a row filed and never routed has no age, no owner and no alarm — filing is not routing",
       "owner": "session_01Uk4qLFBTyMEDMJXydYzSyw (ENGINEERING LANE)",
-      "state": "in_flight",
+      "state": "review_ready",
       "tier": 1,
       "priority": "high",
       "lane": "engineering",
@@ -3445,8 +3445,16 @@
       "source": "operator (conversational), 2026-09-10 — the manager-mandate directive",
       "spawned_at": "2026-09-11T09:50:08Z",
       "work_object": "WO-20260911-A-FILED-ROW-THAT-IS-NEVER-ROUTED",
-      "updated_at": "2026-09-11T09:52:00Z",
-      "⚠️_IT_WAS_AN_INSTANCE_OF_ITS_OWN_CLASS_FOR_A_DAY_AND_A_HALF": "This row was filed 2026-09-10 and sat `ready` / `owner: unassigned` until 09:50Z on 2026-09-11 — roughly 25 hours with no age, no alarm and no surface reporting it, which is EXACTLY the condition it exists to end. It moved because a manager read the queue by hand, which is the mechanism it is meant to replace. Recorded as evidence for the row, not as a remark: the four instances in `note` were all found the same way, and this is the fifth."
+      "updated_at": "2026-09-11T10:27:00Z",
+      "⚠️_IT_WAS_AN_INSTANCE_OF_ITS_OWN_CLASS_FOR_A_DAY_AND_A_HALF": "This row was filed 2026-09-10 and sat `ready` / `owner: unassigned` until 09:50Z on 2026-09-11 — roughly 25 hours with no age, no alarm and no surface reporting it, which is EXACTLY the condition it exists to end. It moved because a manager read the queue by hand, which is the mechanism it is meant to replace. Recorded as evidence for the row, not as a remark: the four instances in `note` were all found the same way, and this is the fifth.",
+      "prs": [
+        11787
+      ],
+      "✅_DELIVERED_AND_THE_SECOND_MEASUREMENT_IS_WHY_IT_IS_NOT_A_SECOND_BACKLOG": "#11787. POPULATION STATED, as the row demanded: all 195 revisions of MANAGER-CHECKLIST.json reachable from HEAD on main (2026-09-01T21:36Z -> 2026-09-11T09:50Z), replayed commit by commit, 0 unparseable. Time to first real owner for rows ever open-and-unrouted that later got one: n=37, median 3.85h, p95 24.24h, max 43.60h. THRESHOLD_HOURS=24 IS THAT p95 — a measured quantile that happens to land on a round number, not a round number chosen by feel, which is exactly the distinction the row's own instruction turns on. An independent scratch implementation reproduced n=37 / median 3.85 / p95 24.24 (an arithmetic cross-check, not a re-read). ⚠️ THE SECOND FIGURE IS THE ONE THAT SHAPED THE DESIGN: 74 of 270 rows are open-and-unrouted RIGHT NOW, 68 of them past 24h, oldest 228.2h. A surface reporting the STOCK would have paged 68 rows on its first run — a second backlog and the desensitised alarm this repo calls its own worst failure mode. So it reports the CROSSING (loud once, then a count) at ~7/day, and the first reading SEEDS the 68 with every id named. ⚠️ Seeding is NOT a disposition: those 68 rows are still unrouted and still somebody's.",
+      "✅_IT_ANSWERED_THE_SUBSUMPTION_QUESTION_HONESTLY_RATHER_THAN_CONVENIENTLY": "Asked explicitly whether MI-235/236/237 subsume it, the lane answered NO and pinned the reason with a parametrized test: `blocked` (MI-235) and `in_flight` (MI-236) are graded NOT-OPEN here deliberately, so it cannot double-report work those mechanisms own. AND it volunteered the long-run answer against its own interest — MI-237's schema work should give `state_since` a declared home so all three read ONE clock instead of three. That is a better outcome than either 'yes, close it' or 'no, ship more'.",
+      "⚠️_CRITERION_2_IS_NOT_MET_AND_THE_PR_SAYS_SO_IN_ITS_OWN_HEADING": "(1) MET — surfaced on the CLAUDE.md session brief and docs/claude/DUE.md via a new `checklist_unrouted` source. (2) NOT MET — observed catching a real unrouted row BEFORE the operator asks. A green guard clears (1) only, and the lane headed the section that way rather than reporting delivery. Because the first reading seeded the backlog, (2) needs the NEXT crossing. ⚠️ AND THE HONEST RESIDUAL IS THAT ITS CARRIER MAY NOT FIRE: the producer rides constraint-readout.yml, whose cron has a poor firing record here, and the register carries `generated_at` while NOTHING GRADES ITS OWN FRESHNESS — filed by the lane as a health-review-backlog row ON #11787 ITSELF rather than left in a PR body — the id is deliberately not quoted here, because it does not exist on `main` until that PR lands and a reference that resolves to nothing reads as tracked while being tracked by nobody. A stale register renders a stale reading with a fresh look.",
+      "✅_A_SURFACE_GAP_IT_FOUND_ON_THE_WAY": "The due-list read NINE registers and the manager checklist was not one of them — so a scoped, agreed, owner-less item was due to NOBODY. That is the same shape as OI-20260902's finding that render_due_list.py::SOURCES reads no backlog. Also: constraint-readout.yml was a SHALLOW clone, where the git-history derivation correctly REFUSES; without the fetch-depth: 0 fix the whole mechanism would have been honest and inert.",
+      "✅_A_GUARD_CAUGHT_THE_MANAGER_DOING_THE_THING_THE_GUARD_EXISTS_FOR": "This row originally cited that backlog id directly and `artifact-validity-guard` (check_backlog_refs.py) FAILED the commit: the row is filed on #11787 and is not on `main`, so from main's view the checklist claimed a tracking reference that resolved to NOTHING. Corrected to name WHERE the row lives instead. Recorded because the MI-235 lane hit the same guard for a different cause (a line-wrapped id) hours earlier — same guard, two distinct failure modes, both caught before landing."
     },
     {
       "id": "MI-247-APPLY-OPTION-A-FOUR-LEGS-ONTO-ALPACA-LIVE",
@@ -3804,7 +3812,7 @@
     {
       "id": "MI-266-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE-PROPAGATION-PATH-AND-SIZE-THE-SPA-BEARER-HALF",
       "title": "Make the Data Explorer reachable: land the secret propagation path, and size whether the SPA can send a bearer at all",
-      "state": "in_flight",
+      "state": "review_ready",
       "owner": "session_01BC4R18Lt8CaVzfxZF7DMce (ENGINEERING LANE)",
       "spawned_at": "2026-09-11T09:39:03Z",
       "work_object": "WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE",
@@ -3819,10 +3827,19 @@
       "scope_refusal": "Tier-1 only. The lane is explicitly NOT authorised to run set-env, mutate the VM, or put any secret value in a commit, PR body, issue or log. It is also told NOT to change db_explorer.py's fail-closed behaviour: that gate is CORRECT -- before it shipped, an unauthenticated GET /api/bot/db/table/trades returned real rows over 41 columns against total 5589 on a PUBLIC host. Reverting it to make the tab work would be the worst available outcome.",
       "blocked_on": "",
       "⚠️_THE_MANAGER_SPAWNED_THIS_LANE_WITHOUT_THE_DASHBOARD_REPO_AND_CORRECTED_IT_IMMEDIATELY": "create_session was called without source_url, and get_session at 09:40Z showed the lane's sources as benbaichmankass/metis-insights ALONE -- while its Task B needs benbaichmankass/ict-trader-dashboard. The manager poked it at 09:41Z with the add_repo remedy (delivery confirmed: cse_01BC4R18Lt8CaVzfxZF7DMce matched) rather than letting it discover the gap mid-task. Recorded as the manager's error, because a lane blocked on something the manager could already see is the exact stall MI-264 is filed about, and three instances cost ~3.3 lane-hours today.",
-      "updated_at": "2026-09-11T09:42:00Z"
+      "updated_at": "2026-09-11T10:27:00Z",
+      "prs": [
+        11783
+      ],
+      "✅_BOTH_TASKS_DELIVERED_AND_THE_SPA_HALF_HAS_A_SIZE": "#11783. TASK A: SECRET_JWT_SIGNING_KEY + SECRET_WEBAPP_PASSWORD_SHA256 added to the SECRET_* map, so the operator's two values now have a sanctioned path to the VM. The lane VERIFIED the mapping arms nothing by TRANSCRIBING AND EXECUTING the set-env guard branch over four cases rather than reasoning by analogy: mapped-but-unset still REFUSES (exit 1, REMOTE_CMD never built, VM never touched), and it traced the value flow to confirm REMOTE_CMD is never echoed, printed or written anywhere. ALLOWED_EMAIL is deliberately NOT mapped — it is already in the clear in deploy-candidate.yml, so mapping it would imply a secrecy it does not have. TASK B: A FORM AND A localStorage TOKEN, NOT AN AUTH BUILD. Population: all 40 .svelte/.ts/.js under webapp/src, positive control 5 contain `fetch`. It is small because the SPA has exactly ONE network chokepoint — get<T>() at webapp/src/lib/api.ts:126-130 — through which all ~19 REST paths pass, and config.ts already does localStorage-with-a-Settings-field. Work: a token store, one header line, a login form, a 401 handler.",
+      "⚠️_THE_ONE_THING_THAT_WOULD_FLIP_THAT_SIZE_AND_IT_MATTERS_FOR_PHASE_H": "/ws/market (webapp/src/lib/ws.ts:78) is NOT gated today, and a browser WebSocket CANNOT send an Authorization header. So 'a form and a token' is correct for REST and WRONG the moment the read gate widens to the socket — at which point it becomes a real auth build. Phase H is exactly the change that widens the read gate. The manager has asked the lane to file this through backlog_append.py, because it currently lives only in a PR body.",
+      "✅_A_MEASUREMENT_NOBODY_HAD_TAKEN_THE_GATED_SURFACE_IS_FOUR_HANDLERS_NOT_TWO": "require_session is on FOUR handlers: /api/bot/db/tables, /api/bot/db/table/{name}, /api/pnl and /api/status. The lane then listed every path the SPA actually requests and established it calls NEITHER /api/pnl NOR /api/status — so the operator's picture IS correct, the Data Explorer is the only dark SPA tab, and the other two are gated-and-uncalled, which is why their darkness went unnoticed. Recorded so it is not rediscovered.",
+      "⚠️_THE_LANE_CAUGHT_ITS_OWN_INVALID_PROBE_AND_SAID_SO": "Its first grep targeted src/, which does not exist in that repo, and returned zero — WITH A ZERO POSITIVE CONTROL, which reads identically to 'no auth code found'. Pointed at webapp/src the control is non-zero and the finding stands. It reported the invalid probe rather than the convenient number, which is the same discipline #11780 showed on the 422-vs-500 distinction.",
+      "⚠️_MANAGER_ERROR_IT_WAS_SPAWNED_WITH_NO_REPO_ATTACHED_AT_ALL": "The lane reports /home/user was EMPTY and NEITHER repo was in scope, so it had to discover the backend via list_repos + add_repo before it could read CLAUDE.md. ⚠️ THIS IS WORSE THAN THE MANAGER'S 09:41Z READING, which was that it had inherited the bot repo and lacked only the dashboard — get_session showed a source and a 'Cloning the backend repository' task summary, and the container did not match. The omitted source_url on create_session is the manager's error either way; what is corrected here is its SIZE. Recorded against the manager, not the lane.",
+      "⚠️_11783_HAS_ZERO_REAL_CHECKS_AND_CANNOT_MERGE_UNTIL_ONE_ORDINARY_COMMIT_LANDS": "MEASURED by the manager at 10:25Z: total_count 2, and BOTH are the pr-opener relay's own `open` and `post` jobs — none of guards / pytest-run / pytest-collect / repo-inventory has fired. The lane hit it because BOTH add_issue_comment AND create_pull_request returned 403 (the write-scope boundary, not the transient MCP drop), so it routed through the board-post and pr-opener relays. Poked 10:26Z to push ONE ORDINARY COMMIT — never an empty one — with the /ws/market backlog row as the genuine content. Delivery confirmed: cse_ suffix matched."
     }
   ],
-  "as_of": "2026-09-11T09:55:00Z",
+  "as_of": "2026-09-11T10:29:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",

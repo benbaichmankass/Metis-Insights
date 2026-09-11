@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T09:55:00Z",
+  "updated_at": "2026-09-11T10:27:00Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4638,10 +4638,10 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator chose 'originate values + probe SPA in parallel' on the SPA-Explorer-unreachable pop-up. Lands the secret-backed set-env mapping - absent today, so there is NO sanctioned path to move JWT_SIGNING_KEY / WEBAPP_PASSWORD_SHA256 to the VM and set-env would correctly refuse - and sizes whether the SPA can send a bearer at all.",
       "state": "working",
-      "live_status": "RUNNING (get_session 09:40Z; 'Cloning the backend repository')",
-      "live_status_read_at": "2026-09-11T09:40:06Z",
-      "manager_observation": "Spawned 09:39Z on the operator's pop-up answer ('originate values + probe SPA in parallel'). ⚠️ MANAGER ERROR, CAUGHT AND CORRECTED IN TWO MINUTES: create_session was called WITHOUT source_url, and the lane inherited only benbaichmankass/metis-insights while its Task B needs benbaichmankass/ict-trader-dashboard. Poked 09:41Z with the add_repo remedy and an explicit warning not to pre-check the repo first (an unauthenticated probe 404s for a repo the session IS authorised for, and that false negative would make it skip Task B). Delivery confirmed: cse_01BC4R18Lt8CaVzfxZF7DMce matched. Recorded as the manager's error rather than the lane's, because a lane blocked on something the manager could already see is precisely what MI-264 is filed about.",
-      "updated_at": "2026-09-11T09:42:00Z"
+      "live_status": "IDLE — delivered #11783 (both tasks); poked 10:26Z to arm CI",
+      "live_status_read_at": "2026-09-11T10:24:30Z",
+      "manager_observation": "Delivered BOTH tasks in ~35 minutes. Task A: the secret-map path, verified to arm nothing by EXECUTING the set-env guard branch over four cases. Task B: the SPA half sized as 'a form and a localStorage token, not an auth build', off a stated population of 40 files with a positive control. It caught its own invalid probe (grepped src/ in a repo whose tree is webapp/src, getting a zero WITH A ZERO CONTROL) and reported it. ⚠️ It also corrected the manager: it was spawned with NO repo attached at all, not merely missing the dashboard — worse than the manager's own 09:41Z reading of the same error. ⚠️ #11783 carries ZERO real checks (pr-opener trap, both its GitHub writes 403'd); poked for one ordinary commit, delivery confirmed.",
+      "updated_at": "2026-09-11T10:27:00Z"
     },
     {
       "session_id": "session_01Uk4qLFBTyMEDMJXydYzSyw",
@@ -4652,9 +4652,13 @@
       "spawned_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Next row in the operator's declared engineering queue after MI-238's code landed. The third drop class: a row filed correctly and never routed has no age, no owner and no alarm. MI-246 has itself been ready/unassigned since 2026-09-10, so it is an instance of its own class.",
-      "state": "working"
+      "state": "working",
+      "live_status": "IDLE — delivered #11787; guards green, auto-merge armed",
+      "live_status_read_at": "2026-09-11T10:24:30Z",
+      "manager_observation": "Delivered #11787 in ~28 minutes with the population stated as instructed: 195 revisions replayed commit by commit, 0 unparseable, n=37, p95 24.24h — and THRESHOLD_HOURS=24 is that p95 rather than a round number chosen by feel, with an independent scratch implementation reproducing the figures as an arithmetic cross-check. Its second measurement (74 open-and-unrouted, 68 past 24h) killed the obvious design and produced a CROSSING surface rather than a 68-row stock page. It answered the subsumption question NO with a parametrized test, and volunteered against its own interest that MI-237 should eventually give all three mechanisms ONE clock. It headed its own resolution section 'criterion (2) is NOT met' rather than reporting delivery.",
+      "updated_at": "2026-09-11T10:27:00Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T09:35Z — PARTIAL. list_sessions returned 14 rows and TWO were graded (the MI-265 lane, and the MI-266 lane spawned during this pass and read directly via get_session). The register holds 214 rows; the remainder were NOT read and their live_status is whatever an earlier pass left. A row without a fresh live_status_read_at is 'we did not look', never 'unchanged'."
+  "⚠️_last_live_reconcile": "2026-09-11T10:24:30Z — PARTIAL. Graded the TWO lanes that were live this tick, from their delivered PRs and a list_pull_requests read, not from post_turn_summary. The register holds its full row count and the remainder were NOT read; a row without a fresh live_status_read_at is 'we did not look', never 'unchanged'."
 }

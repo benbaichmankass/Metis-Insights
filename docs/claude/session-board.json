@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · probes run 34586133920",
-    "branch": "automation/probes-34586133920-1",
-    "claimed_at": "2026-09-11T10:02:55Z",
-    "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/manager-tick-1026z-20260911",
+    "claimed_at": "2026-09-11T10:31:40Z",
+    "purpose": "manager tick 10:26Z"
   },
   "active_sessions": [
     {
