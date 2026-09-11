@@ -2,7 +2,18 @@
 
 > **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
-**Author:** `session_01NFnmLiu9zNDppY3qFXcJJA` (MI-264, ops lane) · **registry key** `pending-20260911T082606Z`
+**Author:** `session_01NFnmLiu9zNDppY3qFXcJJA` (MI-265, ops lane) · **registry key** `pending-20260911T082606Z`
+⚠️ **The branch that landed this was named `claude/mi264-…` and that is a MISNOMER — this work is
+`MI-265`** (`MI-265-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS-…`). **`MI-264` is a different,
+unrelated item** — `MI-264-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-THE-COMMONEST-BLOCKER-ITS-OWN-
+REGISTRY-ROW`, `state: ready`, owner `unassigned`, about adding a sixth `blocked_on` kind. Verified
+in `MANAGER-CHECKLIST.json` on `main`, not taken on trust. Caught by the manager at 08:34Z, after
+#11775 had already merged under the wrong id. Every reference in this document, in the four
+dispositions, in the backlog row and in the `DOCUMENT-INDEX` row now says **MI-265**; only the
+merged branch name and #11775's title still carry `mi264`, and those are immutable history. A
+later reader attributing this work by that branch name would mis-file it — the drop pattern this
+lane exists to fix, in miniature.
+
 **Measured:** 2026-09-11T08:3x–09:0xZ against `origin/main` @ `1cd5e211e`, the live host
 `https://ict-bot.duckdns.org`, and the GitHub API.
 
