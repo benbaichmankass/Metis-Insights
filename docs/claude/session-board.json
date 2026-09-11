@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-0926z-20260911",
-    "claimed_at": "2026-09-11T09:30:08Z",
-    "purpose": "manager tick 09:26Z"
+    "held_by": "session_01NFnmLiu9zNDppY3qFXcJJA",
+    "branch": "claude/mi265-settle-spa-explorer",
+    "claimed_at": "2026-09-11T09:37:07Z",
+    "purpose": "MI-265 settle SPA Explorer"
   },
   "active_sessions": [
     {

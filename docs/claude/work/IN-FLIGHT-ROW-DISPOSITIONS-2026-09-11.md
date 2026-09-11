@@ -157,6 +157,27 @@ you have UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A.
 **Why it stayed invisible:** a 401 from the gate is *exactly what correct behaviour looks like* to an
 anonymous caller, so the broken and healthy states render identically from inside this repo.
 
+⚠️ **SETTLED 2026-09-11T09:3xZ — and the answer is the bad one. THE DATA EXPLORER IS UNREACHABLE**, and
+has been since the gate deployed on 09-09. `POST /api/auth/login` with a **well-formed** body (an
+obviously non-existent address, so no real account could be locked out) returns **HTTP 500
+`auth_unavailable`** — the JWT envs are unset and the host cannot mint a session. Verified in code rather
+than inferred: `require_session` accepts only a Bearer satisfying `decode_token`, which needs
+`_signing_key()`, so there is **no static-token bypass** and `/api/auth/login` is the only mint path.
+
+⚠️ **My own empty-body 422 could not have established this, and I flagged that at the time** — Pydantic
+validation runs before the handler, so it never reaches the `auth_unavailable` branch. The well-formed
+body is what reaches it. That is the whole difference between the two probes.
+
+⚠️ **The security call was RIGHT and must not be reverted.** `db_explorer.py` states the consequence in
+terms — the gate *"fails CLOSED when auth is unconfigured, and that is deliberate"*, and the tab is
+*"unreachable until the auth envs are set"*, which it calls *"a real OPERATIONAL PRECONDITION"*. Before
+the gate, an unauthenticated read returned real trade rows over 41 columns and 21 table schemas on a
+public host. **What failed is the follow-through, not the judgement.**
+
+⚠️ **And one half is still genuinely unknown:** even with the envs set, the SPA must be able to *send* a
+bearer, and the gating commit measured zero matches for `Authorization|Bearer|jwt` across all 40 of its
+source files. **Setting the envs alone may not restore the tab** — do not read this as one env change away.
+
 **Cheapest settlements, in order:** (a) read the JWT envs off `/proc/<MainPID>/environ` via `get-env`;
 (b) `POST /api/auth/login` with a **well-formed** body so the handler runs — 401 `invalid_credentials`
 (configured) vs 500 `auth_unavailable` (unset); (c) load the deployed SPA. **No test suite settles it** —
