@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "updated_at": "2026-09-11T08:32:00Z",
+  "updated_at": "2026-09-11T09:27:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -3757,19 +3757,20 @@
       "added": "2026-09-11",
       "tier": 1,
       "lane": "engineering",
-      "priority": "high",
+      "priority": "high — FOUR measured instances in one day",
       "note": "FOUND BY THE MI-235 LANE CHECKING THE MANAGER'S CLAIM RATHER THAN ACCEPTING IT (#11767 comment 5631094802). Both lanes stalled on 2026-09-11 were blocked on 'my own registry row carries confirmed_at' -- session_01NFUHBS41Dn15pUbz5Qr6Vx (~80 min) and session_01GPBc31S8TgNvxEekzdDSpV (~60 min). The watcher's kinds are pull_request / branch / path_on_main / work_object / operator_decision, and path_on_main grades whether a PATH exists, not a FIELD INSIDE A FILE; SESSIONS.json exists unconditionally. So blocked-on REFUSES every kind, both grade `undeclared`, and `undeclared` does not page. The watcher would have caught 0 of those 2.",
       "why_it_matters": "40% of the recorded instances of MI-235's class are of a shape the mechanism built for that class cannot express -- and the condition is a field in THE EXACT FILE THE WATCHER ALREADY LOADS. No new I/O, no network, no new state, and the lane always knows the ref because the spawn prompt hands it the registry_key.",
       "the_shape": "kind: registry_confirmed / ref: the lane's own registry_key (e.g. pending-20260911T060510Z) / clears_when: confirmed -- the row carries confirmed_at AND a real session_id. One resolver arm, one vocabulary entry, tests. The write-time refusal keeps it honest either way.",
       "done_when": "The kind exists, REFUSES a malformed ref at write time like the other five, and is exercised: a lane declares it and a run grades it `cleared`. ⚠️ A GREEN TEST CLEARS NOTHING -- a harness cannot reach a blocked cloud session, which is the condition. And the spawn-prompt template must tell lanes to declare it, or the kind exists and nobody uses it, which is the 159-of-159-undeclared problem one level down.",
       "blocked_on": "#11767 must land first — this extends the module that PR introduces.",
       "provenance": "Filed in the same commit that records the manager's decision to land #11767 unwidened, specifically so the follow-up cannot be the thing that gets dropped. That risk is the stated cost of the decision.",
-      "updated_at": "2026-09-11T08:19:00Z"
+      "updated_at": "2026-09-11T09:27:00Z",
+      "⚠️_A_FOURTH_INSTANCE_LANDED_AND_THE_CLASS_IS_NOW_THE_MOST_FREQUENT_STALL_IN_THE_SYSTEM": "OBSERVED 2026-09-11T09:25Z. session_01NFnmLiu9zNDppY3qFXcJJA sat `status_bucket: BLOCKED` / need_input on 'confirm registry key pending-20260911T082606Z'. IT WAS CONFIRMED AT 08:27:01Z, roughly FIFTEEN SECONDS after that session started, and was on main -- verified by the manager against SESSIONS.json before poking. ~57 minutes lost. RUNNING TALLY OF THIS ONE CLASS TODAY: session_01NFUHBS41Dn15pUbz5Qr6Vx ~80 min, session_01GPBc31S8TgNvxEekzdDSpV ~60 min, session_01NFnmLiu9zNDppY3qFXcJJA ~57 min -- and the two earlier MI-235 instances (13h, 3.5 days) were a DIFFERENT condition. So this specific condition, 'my own registry row carries confirmed_at', has now cost ~3.3 lane-hours in a single morning across THREE lanes. ⚠️ EVERY ONE WAS CAUGHT BY A MANAGER READING THE ROSTER BY HAND. Nothing else looked. ⚠️ AND THE WATCHER THAT SHIPPED FOR THIS FAMILY (#11767) CANNOT EXPRESS IT -- that is the whole content of this row. Three data points were an argument; four is a rate."
     },
     {
       "id": "MI-265-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS-THE-WIP-CEILING-NOW-BLOCKS-ALL-NEW-WORK",
       "title": "Disposition the 17 unsupported in_flight rows against their own done_conditions — the WIP ceiling is full and four of its eight slots are unsupported",
-      "state": "in_flight",
+      "state": "review_ready",
       "owner": "session_01NFnmLiu9zNDppY3qFXcJJA (OPS LANE)",
       "spawned_at": "2026-09-11T08:26:46Z",
       "work_object": "WO-20260911-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS",
@@ -3783,11 +3784,19 @@
       "done_when": "Each of the 17 carries a disposition established against its OWN done_condition: owner poked (DELIVERY-CONFIRMED by matching the returned cse_ suffix), or re-routed with a stated reason, or a landing state PROPOSED with its evidence. AND the four object rows are resolved far enough that check_wip_ceiling.py admits a new object. ⚠️ A LOWER UNSUPPORTED COUNT ALONE CLEARS NOTHING -- trivially achievable by marking rows `done`, which is the harm. `done` means MERGED AND OBSERVED; `landed_unproven` means the code is in and its effect has NOT been seen. Per-row dispositions with evidence, never a delta.",
       "scope_refusal": "The lane dispositions ROWS, it does not do the work they describe. Several are substantial (a money-DB gate, a red-PR sweep, a backlog drain) and starting any of them would be the drop pattern one level up. It is also told NOT to file a wip-ceiling-exception: clearing the ceiling honestly IS the job.",
       "blocked_on": "",
-      "updated_at": "2026-09-11T08:27:00Z"
+      "updated_at": "2026-09-11T09:27:00Z",
+      "prs": [
+        11775,
+        11776
+      ],
+      "merged": "966adffc0 (#11775) + 90a7f350f (#11776, the attribution correction)",
+      "✅_THE_CEILING_CLEARED_AND_THE_MANAGER_RE_RAN_BOTH_INSTRUMENTS_RATHER_THAN_TAKING_THE_SUMMARY": "MEASURED by the manager on main @ 90a7f350f at 2026-09-11T09:25Z, by running the tools rather than reading the lane's summary: check_wip_ceiling.py -> 'OK — 5 work object(s) in flight, ceiling 8'; check_stale_in_flight.py -> 'ratchet base=14 head=14 delta=+0'. So the ceiling went 8 -> 5 (THREE SLOTS FREED) and unsupported went 17 -> 14. An hour earlier the ceiling was FULL and refusing every new in_flight object, which made it the binding constraint on all work in this repo including trading work. It is not any more. The lane's own account: 5 lanes dispositioned (3 done, 1 waiting, 1 in_flight).",
+      "✅_IT_CORRECTED_ITS_OWN_ATTRIBUTION_UNPROMPTED": "#11775 landed on main carrying MI-264 in its title -- the mislabel the manager had flagged in a poke -- and the lane then shipped #11776 SOLELY to correct the attribution to MI-265 on main. It did not argue the point or leave it as a footnote. That is worth recording because a later session reading the wrong item id is the drop pattern this lane exists to end, in miniature.",
+      "⚠️_TWO_FINDINGS_IT_FLAGGED_AND_WHERE_THEY_LIVE_IS_NOT_YET_ESTABLISHED": "The lane reports two findings in its summary: 'MI-221 position close unobservable' and '#11517 SPA Explorer 401 post-merge'. ⚠️ A SUMMARY DIES WITH THE SESSION. The manager has asked it to say WHERE each is written -- PR body, backlog row or work object -- and to file them through backlog_append.py if they are not anywhere durable. UNTIL THAT ANSWER ARRIVES THESE ARE NOT RECORDED, and this row says so rather than implying they are handled. The SPA 401 may be live and user-facing; that is unestablished, not dismissed."
     }
   ],
   "as_of": "2026-09-10T13:36:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 08:25Z, rebased onto #11773)",
+  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj (manager, tick 09:26Z)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
