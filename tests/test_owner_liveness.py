@@ -156,9 +156,15 @@ def test_anchored_matching_would_have_missed_the_prose_rows():
     assert grade("session_active00 (ENGINEERING LANE)").support == ol.SUPPORTED
 
 
-def test_observation_freshness_rides_along():
+def test_observation_freshness_is_recorded_on_every_grade():
     """A `dormant` observed two minutes ago must not read identically to one
-    observed three days ago."""
+    observed three days ago.
+
+    ⚠️ RENAMED 2026-09-11 from `..._rides_along`, which described the defect
+    rather than the design: freshness did ride along, unread, and
+    `_support_for` banked a stale `active` as `supported`. It is now BRANCHED
+    on — see `test_a_stale_active_owner_cannot_support_the_claim`.
+    """
     g = grade("session_idle0000")
     assert g.observation_state == OBS_STALE
     assert g.observation_age_minutes == pytest.approx(2 * 24 * 60 + 30, abs=1)
@@ -188,3 +194,140 @@ def test_guard_self_test_passes():
         [sys.executable, "scripts/ci/check_stale_in_flight.py", "--self-test"],
         cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120)
     assert rc.returncode == 0, rc.stdout + rc.stderr
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The UNRELIABLE POSITIVE — a stale `active` is not evidence (2026-09-11)
+#
+# This module's whole reason for being CI-runnable is its docstring argument
+# that the registry is a reliable negative and an unreliable positive. For its
+# first day the code did not implement it: `_support_for` banked a recorded
+# `active` as `supported` however old the observation behind it was.
+#
+# MEASURED 2026-09-11T20:1xZ. Population: all 27 rows this module grades
+# `in_flight` (25 MANAGER-CHECKLIST.json + 2 objects/*.yaml) at `886c93e`,
+# re-graded against `list_sessions(mine=true, limit=100)` — evidence this
+# module cannot reach, which is why the gap survived its own review. SIX rows
+# graded `supported`; NOT ONE had a live-RUNNING owner. Four (MI-215, MI-217,
+# MI-241, MI-254) were IDLE/COMPLETED on the platform and two (MI-183b,
+# MI-196) idle-but-wakeable, on observations 2166-4328 minutes old — 24x to
+# 48x this module's own 90-minute `stale_minutes`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+STALE_ACTIVE_REGISTRY = {
+    # MI-215's real shape: `working`, last observed 43.5h before NOW.
+    "session_staleact": {"state": "working",
+                         "state_observed_at": "2026-09-09T10:30:00Z"},
+    # MI-241's real shape: `review_ready`, and its ONLY timestamp is the spawn
+    # confirmation -- i.e. nobody has looked at it since it was created.
+    "session_spawnonly": {"state": "review_ready",
+                          "confirmed_at": "2026-09-10T07:57:32Z"},
+    # A genuinely live lane: observed 30 minutes ago.
+    "session_freshact": {"state": "working",
+                         "state_observed_at": "2026-09-11T05:30:00Z"},
+    # The negative half, observed just as long ago as the stale positive.
+    "session_staleidle": {"state": "idle",
+                          "state_observed_at": "2026-09-09T10:30:00Z"},
+    "session_staledead": {"state": "archived",
+                          "state_observed_at": "2026-09-09T10:30:00Z"},
+}
+
+
+def stale_grade(owner):
+    return ol.grade_owner_activity(owner, STALE_ACTIVE_REGISTRY, now=NOW)
+
+
+def test_a_stale_active_owner_cannot_support_the_claim():
+    """The fix. A recorded `working` whose observation has aged out is not
+    evidence that anybody is working the row -- it is `could_not_establish`.
+
+    Worked example is MI-215's real registry shape: `state: working`, observed
+    43.5h before the read, while `list_sessions` reported that session
+    IDLE/COMPLETED.
+    """
+    g = stale_grade("session_staleact")
+    assert g.observation_state == OBS_STALE
+    # The ACTIVITY still reports what the registry RECORDS -- we do not
+    # falsify the register's own value...
+    assert g.activity == ol.ACTIVE
+    # ...but it no longer SUPPORTS the claim.
+    assert g.support == ol.COULD_NOT_ESTABLISH
+    assert g.support != ol.SUPPORTED
+
+
+def test_an_active_owner_nobody_ever_observed_cannot_support_it_either():
+    """MI-241/MI-254's real shape: the only timestamp is the spawn
+    confirmation, so `unknown` -- *nobody has looked since it was created*.
+    Folding that into `supported` reports an unchecked row as a checked one,
+    which is the reassuring and therefore dangerous direction.
+    """
+    g = stale_grade("session_spawnonly")
+    assert g.observation_state in (OBS_STALE, OBS_UNKNOWN)
+    assert g.support == ol.COULD_NOT_ESTABLISH
+
+
+def test_a_FRESH_active_owner_still_supports_the_claim():
+    """The fix must not simply delete `supported`. A lane observed inside the
+    staleness window is exactly the case the state exists for, and a mechanism
+    that graded every row unsupported would be switched off within a day."""
+    g = stale_grade("session_freshact")
+    assert g.observation_state == OBS_RECENT
+    assert g.support == ol.SUPPORTED
+
+
+def test_staleness_does_NOT_weaken_a_NEGATIVE_which_is_the_asymmetry():
+    """⚠️ THE LOAD-BEARING HALF, and the one a later session is most likely to
+    "tidy" into symmetry.
+
+    A recorded negative does not decay: somebody positively observed the owner
+    not working, and a session does not spontaneously un-archive. So an old
+    `idle`/`archived` is still `unsupported` -- applying the freshness test to
+    it would convert this module's 10 CONFIRMED TRUE POSITIVES (verified
+    against the live roster on 2026-09-11) into `could_not_establish` and
+    destroy the mechanism outright.
+    """
+    for owner in ("session_staleidle", "session_staledead"):
+        g = stale_grade(owner)
+        assert g.observation_state == OBS_STALE, owner
+        assert g.support == ol.UNSUPPORTED, owner
+
+
+def test_freshness_can_only_ever_downgrade_a_POSITIVE_never_reach_unsupported():
+    """Mutation-style invariant over the FULL cross-product, because this is
+    what keeps `check_stale_in_flight.py`'s ratchet safe: the ratchet counts
+    `unsupported`, so if freshness could ever produce that verdict this change
+    could red a PR over pre-existing debt.
+
+    Asserted as a property rather than by example so that adding an activity
+    or an observation state cannot silently escape it.
+    """
+    for activity in ol.OWNER_ACTIVITIES:
+        baseline = ol._support_for(activity, OBS_RECENT)
+        for obs in (OBS_RECENT, OBS_STALE, OBS_UNKNOWN):
+            got = ol._support_for(activity, obs)
+            if got != baseline:
+                # The ONLY transition freshness may cause.
+                assert baseline == ol.SUPPORTED, (activity, obs, baseline)
+                assert got == ol.COULD_NOT_ESTABLISH, (activity, obs, got)
+            # Whatever happens, freshness never manufactures a staleness claim.
+            if baseline != ol.UNSUPPORTED:
+                assert got != ol.UNSUPPORTED, (activity, obs)
+
+
+def test_support_default_fails_toward_could_not_look():
+    """A caller that omits the observation state must not get a pass by
+    default. `OBS_UNKNOWN` is the default precisely so an unwired call site
+    grades *we could not look* rather than *someone is working it*."""
+    assert ol._support_for(ol.ACTIVE) == ol.COULD_NOT_ESTABLISH
+    assert ol._support_for(ol.ACTIVE, OBS_RECENT) == ol.SUPPORTED
+
+
+def test_supported_is_still_reachable_from_the_real_registers():
+    """⚠️ `supported` is measured at ZERO over the live registers today (all 27
+    in_flight rows grade unsupported or could_not_establish), and a state
+    nothing can produce would be a lie in the vocabulary. This pins that the
+    emptiness is a property of the REGISTRY's observation cadence and not of
+    the code: a register row in the supported shape still grades supported.
+    """
+    assert stale_grade("session_freshact").support == ol.SUPPORTED
+    assert ol.SUPPORTED in set(ol.CLAIM_SUPPORTS)

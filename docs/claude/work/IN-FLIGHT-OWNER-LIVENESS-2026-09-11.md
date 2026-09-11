@@ -132,3 +132,101 @@ the "where do we pick this up" record that is the operator's core mandate.
   check — but the per-row census currently lands only in CI logs. `MI-238`'s
   Workflow page is the natural consumer; `scripts/ops/owner_liveness.py` is
   importable precisely so that page can render it without a second definition.
+
+## 7. ⚠️ CORRECTION, later the same day — the UNRELIABLE POSITIVE was being banked as evidence
+
+**Added 2026-09-11 by `session_014tHgKvnnLdpgAgGXbaHRUt` (MI-236, second
+lane).** §1's `supported` column is **not a reading of anything**, and this
+section is why. The `unsupported` counts above are unaffected and were all
+independently confirmed TRUE; only the positive half was unsound.
+
+### What was checked, and with what
+
+This module's licence to run in CI is the argument in its own docstring: *"the
+registry is a RELIABLE NEGATIVE and an UNRELIABLE POSITIVE, and only the
+negative is needed … a recorded `working` is evidence of nothing."* **For its
+first day the code did not implement that.** `_support_for` mapped a recorded
+`active` straight to `supported` regardless of how old the observation behind
+it was — the module *computed* `observation_state`, passed it through as
+decoration, and branched on none of it. Its own inline `collapsed-state`
+override said so in terms.
+
+That gap was invisible from inside the module by construction: catching it
+needs `list_sessions`, which the docstring correctly says CI cannot hold. This
+lane held one.
+
+### MEASURED 2026-09-11T20:1xZ
+
+**Population:** all **27** rows the module grades `in_flight` at `886c93e` (25
+`MANAGER-CHECKLIST.json` + 2 `objects/*.yaml`), each graded twice — once by
+`grade_owner_activity`, once against `list_sessions(mine=true, limit=100)`.
+⚠️ **`has_more: true`**, so that roster is **TRUNCATED**: absence from it is
+*we could not look*, **never** terminality, and 3 rows are reported that way
+rather than counted as confirmed.
+
+| module verdict | live platform truth | n | reading |
+|---|---|--:|---|
+| `unsupported` | terminal | **10** | ✅ **true positives** — the negative half held exactly as argued |
+| `unsupported` | absent from truncated roster | 3 | unfalsified; not claimed either way |
+| `could_not_establish` | names no session | 8 | both agree it is ungradeable |
+| **`supported`** | **terminal (IDLE/COMPLETED)** | **4** | ⚠️ **false negatives** |
+| `supported` | idle, non-terminal (BLOCKED / REVIEW_READY) | 2 | also not working it |
+
+⚠️ **ZERO of the 27 rows had a live-RUNNING owner, so `supported` had no true
+positives at all in this population** — all six were wrong or unconfirmable,
+while reading as a pass.
+
+Every one of the six was graded `stale` **by the module itself**, on
+observations **2166–4328 minutes** old — **24× to 48× its own declared
+`stale_minutes = 90.0`**:
+
+| row | recorded state | observation | age | platform said |
+|---|---|---|--:|---|
+| `MI-215` · `MI-217` | `working` | `state_observation` | 43.5h | IDLE / **COMPLETED** |
+| `MI-241` · `MI-254` | `review_ready` | `spawn_confirmation` — *never observed since spawn* | ~36h | IDLE / **COMPLETED** |
+| `MI-183b` · `MI-196` | `blocked` / `review_ready` | `state_observation` | 72.1h | IDLE / BLOCKED, IDLE / REVIEW_READY |
+
+### The fix, and the asymmetry that is the whole of it
+
+`_support_for` now branches on observation freshness, **asymmetrically** —
+which is this repo's own rule applied (*"a state nothing branches on is already
+collapsed"*), and what `collapsed-state-guard`'s `manager_status.observation_state`
+contract already says in terms: *"`recent` and `stale` must therefore stay
+apart — that distinction IS the mechanism."*
+
+- A recorded **negative** (`dormant` / `terminal`) **does not decay** — somebody
+  positively observed the owner not working, and a session does not
+  spontaneously un-archive. Staleness is irrelevant to it: still `unsupported`.
+- A recorded **positive** (`active`) decays by the minute — that IS the MI-178
+  finding this module rests on. Fresh ⇒ `supported`; **stale or never-observed
+  ⇒ `could_not_establish`** (*we could not look*), never `supported`.
+
+⚠️ **Applying the freshness test symmetrically would destroy the mechanism**, so
+it is mutation-pinned in both the suite and the guard's self-test: it would
+convert the 10 confirmed true positives above into `could_not_establish`.
+
+### Effect, and what it deliberately cannot do
+
+Re-graded over the same 27 rows: **0 supported / 13 unsupported / 14
+could_not_establish**, from 6 / 13 / 8. All six moved rows are
+`supported → could_not_establish`.
+
+- ⚠️ **`unsupported` is unreachable from this change in either direction.** The
+  only transition it can produce is *pass → we could not look*. That is what
+  keeps `check_stale_in_flight.py`'s ratchet (which counts `unsupported`) at
+  `base=13 head=13 delta=+0`, so it cannot red a PR over pre-existing debt and
+  cannot manufacture a staleness claim about a row nobody observed.
+- ⚠️ **`supported` is now measured at ZERO, and that is a fact about the
+  REGISTRY's observation cadence, not an unreachable state.** A row observed
+  inside the window still grades `supported`; pinned by
+  `test_supported_is_still_reachable_from_the_real_registers` so a genuinely
+  live lane cannot be reported as ungradeable.
+- **It does not make the module able to see liveness.** It makes it stop
+  *claiming* to. The residue is unchanged and is the honest one: a lane that is
+  genuinely working but unobserved for 90 minutes reads
+  `could_not_establish` — *we could not look*, which is true.
+- **The self-test's clock is now pinned.** Its fixtures carry fixed
+  `state_observed_at` values against a wall clock, so their observation ages
+  grew daily; `session_aaaaaaaa` was already ~14h "old" the day it was written.
+  Harmless while freshness was ignored, decisive once it is read — an unpinned
+  clock would make the self-test's result a function of the calendar.

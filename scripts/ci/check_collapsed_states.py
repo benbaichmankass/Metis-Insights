@@ -291,7 +291,21 @@ CONTRACTS: List[Dict[str, object]] = [
             "both registers, 10 supported / 17 unsupported / 8 "
             "could_not_establish, and on the 8 work objects that FILL the WIP "
             "ceiling it is 2 / 4 / 2, i.e. at most two of the eight slots "
-            "holding the ceiling shut have an owner the registry shows active."
+            "holding the ceiling shut have an owner the registry shows active. "
+            "\u26a0\ufe0f RE-MEASURED LATER THE SAME DAY, AFTER `_support_for` "
+            "GAINED THE FRESHNESS TEST, AND THE SPLIT MOVED -- do not read the "
+            "figures above as current. Population: all 27 in_flight rows at "
+            "`886c93e` (25 checklist + 2 objects), which is a DIFFERENT and "
+            "later population than the 35 above, so the two are not "
+            "subtractable. It now reads 0 supported / 13 unsupported / 14 "
+            "could_not_establish: every row that had graded `supported` rested "
+            "on an observation 24x-48x past the module's own 90-minute window, "
+            "and a live `list_sessions` read put FOUR of those six owners at "
+            "IDLE/COMPLETED with none RUNNING. `supported` is therefore "
+            "measured at ZERO today, and that is a fact about the REGISTRY's "
+            "observation cadence rather than an unreachable state -- a row "
+            "observed inside the window still grades `supported`, pinned by "
+            "`test_supported_is_still_reachable_from_the_real_registers`."
         ),
     },
     {
