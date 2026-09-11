@@ -802,6 +802,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/runbooks/merge-queue.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/mobile-push.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/model-drift-remediation.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
+| `docs/runbooks/restore-webapp-auth.md` | lookup | live | — | 2026-09-11 | `MI-266: ordered restore steps + the measurement contract for the SPA auth gate` | — |
 | `docs/runbooks/monitor-reconciler.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/mounted-storage.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/netting-pnl-reconciliation.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
