@@ -1,0 +1,30 @@
+id: WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Why is the book bleeding: attribute the 2026-08-30 directional-leg break and the multi-week drawdown, and propose the remedy
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A VERDICT with its POPULATION stated, on the discriminating measurement: per-leg stop-out rate and MFE-at-stop, e35 legs vs NON-e35 legs, before vs after 2026-08-30. Plus a per-account/per-strategy attribution of the last 3 weeks of realised PnL over the PROVENANCE-CLEAN population only. Plus a REMEDY PROPOSAL (Tier-3, proposed never enacted). Profitability returning clears nothing.
+
+why: >-
+  OPERATOR-RAISED 2026-09-11: 'we've had a pretty miserable week performance wise ... it's been a few weeks where we've really dropped a lot of capital, and we need to figure out why we're bleeding so hard and what we're gonna do about it.' Carries OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30 (loud, verified_at never) and discharges OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS.
+
+source: >-
+  operator (conversational), 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

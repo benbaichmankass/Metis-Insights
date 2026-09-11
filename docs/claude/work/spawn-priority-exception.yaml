@@ -52,6 +52,8 @@ covers:
   - WO-20260911-ADVERSARIALLY-REVIEW-11767-THE-BLOCKED-LANE-NOTIFIER
   # -- added 2026-09-11, the #11767 fix round (operator-approved DIRECTLY, as a decision pop-up) --
   - WO-20260911-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW
+  # -- added 2026-09-11, the engineering lane (operator-directed; block at end of file) --
+  - WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -688,3 +690,24 @@ reason_20260911_11767_fix_round: >-
   guard and its self-test harness are NOT MODIFIED by this diff (measured, empty git diff), so an identical green
   on main is the EXPECTED outcome and says nothing about the PR. The lane is told this so it does not report the
   same green the review already refused to lean on.
+
+# ---------------------------------------------------------------------------
+# ADDED 2026-09-11 -- the engineering lane, MI-273
+# ---------------------------------------------------------------------------
+# approved_by: operator (ben.baichmankass), in conversation, 2026-09-11, directly.
+# The operator named this item themselves in the handoff prompt, alongside MI-271
+# and MI-272, recorded there as already chosen.
+#
+# WHY IT DISPLACES THE CYCLE PRIORITY, STATED RATHER THAN WAVED THROUGH:
+# WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND sits under IN-20260901-OPERATING-LAYER,
+# not the cycle's IN-20260903-TRADING-SYSTEM-HEALTH, so the gate is right to stop it.
+# The argument is not that it outranks trading truth; it is that it is UPSTREAM of it.
+# #11738 has been green, operator-approved and unlanded since 2026-09-10T07:52Z,
+# waiting on a merge click the operator has now said will not come. Every Tier-2
+# remedy the bleed diagnosis (MI-271) proposes would queue behind that same click.
+# A lane that cannot land its own approved work does not produce trading truth more
+# slowly -- it produces it and then drops it.
+#
+# SCOPE: this exception covers ONE object. The other operating-layer items queued
+# behind it (MI-236, MI-237, MI-244, MI-239) are NOT covered and must not be read
+# as covered.
