@@ -139,7 +139,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.runtime import alert_cooldown as _alert_cooldown
 from src.utils.paths import runtime_logs_dir

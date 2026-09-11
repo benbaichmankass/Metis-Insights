@@ -153,7 +153,7 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.runtime import alert_cooldown as _alert_cooldown
