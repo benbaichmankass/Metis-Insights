@@ -1,0 +1,91 @@
+id: WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The stop-width counterfactual: would the pre-e35 2.5-ATR stop have been hit on the post-2026-08-30 stop-outs?
+stage: EVIDENCE
+lifecycle: done
+owner: session_01WKwvhBuaYYCKbdkk7fHrpf
+opened_at: 2026-09-11
+closed_at: 2026-09-11
+review_trigger: >-
+  None owed. The question is ANSWERED and its answer is recorded. What remains
+  open is an OPERATOR DECISION to record ("do not revert e35"), carried on
+  OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED,
+  and a DIFFERENT question (why ict_scalp_* degraded) which is not this object's.
+done_condition: >-
+  A VERDICT with its POPULATION stated on the counterfactual MI-271 named as the
+  precondition for any revert decision: for each post-2026-08-30 stop-out on an
+  e35 leg, would the pre-e35 2.5-ATR stop have been hit? Plus a Tier-3 remedy
+  PROPOSAL (proposed, never enacted).
+
+outcome: >-
+  ANSWERED, and it clears e35 on the losses. Full working:
+  docs/research/stop-width-counterfactual-2026-09-11.md; reproducible via
+  scripts/research/stop_width_counterfactual_2026_09_11.py (23 self-tests, no
+  network). POPULATION: /api/diag/journal trades+order_packages limit=1000 pulled
+  2026-09-11T19:5xZ; MI-271's population() IMPORTED not restated (closed,
+  non-backtest, pnl NOT NULL, pairs excluded = 298 rows); restricted to e35 legs
+  carrying an atr_stop_mult change; split on created_at (OPEN time) against
+  2026-08-30T08:53:19Z; 18 pre-era PACKAGES (28 rows) and 15 post-era PACKAGES
+  (23 rows). || FORWARD ARM: of the 5 post-deploy packages ended by their own
+  entry-declared e35 stop, 5 of 5 would ALSO have hit the pre-e35 2.5-ATR stop,
+  and 0 of 5 reached their take-profit at ANY horizon out to the end of data (best
+  MFE 1.974 R of pre-e35 risk against tp_r 50). Two would have stopped within 9
+  minutes of when they actually did; three were deferred 4h-4.4 days and then
+  stopped. || REVERSE ARM (needs NO horizon -- each trade's own lifetime bounds
+  it): the tighter e35 stop would have been touched on 3 of 18 pre-era packages
+  and would have killed 1 of 14 WINNERS, worth $5.61 of $24,967.77 = 0.0225% of
+  pre-era winnings. The top TEN winning packages ($187.56 and up) all have MAE <=
+  0.90 ATR against e35 stops at 1.5-2.0; the only two near an e35 stop are the two
+  smallest winners. || THE ECONOMIC FRAME: risk.py::_size_unbounded sizes as
+  (balance * risk_pct) / |entry - sl| and the target is tp_r * risk_distance, so
+  BOTH the dollar risk and the dollar reward are INVARIANT to stop width -- the
+  multiplier changes only which outcome the path reaches first. "It would have
+  stopped anyway" therefore means "the same dollars, later". || WHAT DID CHANGE,
+  with the truncation confound REMOVED (fixed windows from entry, so the window
+  does not depend on the geometry under test or on when the trade closed): adverse
+  excursion 1.4-1.8x larger and favourable 0.19-0.58x smaller at every horizon
+  (4h/12h/24h/48h), favourable:adverse from 1.0-4.6 down to 0.33-0.54. Measured in
+  ATR UNITS, so invariant to the multiplier change. ATR/price did NOT collapse
+  (0.75-1.14x on the timeframes with real n) -- chop at unchanged volatility, not a
+  vol regime change. || DOSE-RESPONSE INVERTS: the 20% tightening (2.5->2.0) gave a
+  stop rate of 0.80 (p<0.0001) while the 40% tightening (2.5->1.5) gave 0.25
+  (p=0.47). Confounded by symbol/timeframe, and its decisive arm is EMPTY -- see
+  the backlog row. || INSTRUMENT WORK: 3 positive controls ran BEFORE the arms.
+  PC1 basis FIT (OKX *-USDT-SWAP 1m; median deviation 0.0 bp, max 19.2, 0 of 33
+  unfit). PC2 reproduction PASS (5 of 5, simulated touch within 0.1-3.3 min of the
+  recorded closed_at) -- and PC2 is what CAUGHT a geometry error: the declared stop
+  is anchored to the PACKAGE entry, not the fill, so the simulator now scales the
+  entry-frozen exit_plan.stop distance by the multiplier ratio rather than
+  recomputing it. All 33 packages' declared distances land EXACTLY on their own
+  era's multiplier, which independently confirms the deploy reached the trader.
+  || MI-271 IS ROBUST, NOT CORRECTED: its headline recomputed per PACKAGE (the
+  correct unit -- account fan-out shares one price path and inflates n 1.27-1.64x,
+  UNEQUALLY between the arms) keeps every conclusion and only weakens the
+  p-values (e35 stop rate p=0.023; control p=0.217 still not significant; PRE
+  falsifier still passes at p=0.304). || THE MI-271 CONTRADICTION IS RESOLVED and
+  the merged memo is RIGHT: both halves sit in ONE post_turn_summary and disagree
+  with each other -- status_detail agrees with the memo, recent_action says
+  "causation" where the board's own 19:49:27Z comment says the two sources
+  cross-checked the dated ONSET. No correction to main is owed. || RECOMMENDATION
+  (Tier-3 PROPOSAL, nothing enacted): DO NOT REVERT e35, and RECORD that as a
+  decision. MI-271's PROPOSAL B should be DECLINED -- and note
+  trend_donchian_sol_4h, one of its two named legs, recorded ZERO stop-outs in 3
+  post-era packages.
+
+why: >-
+  MI-271 (docs/research/bleed-attribution-2026-09-11.md, merged 85bcd5703) named
+  this as the ONE measurement standing between the operator and the e35 revert
+  decision, and explicitly recommended NOT reverting until it existed. n=23 post
+  trades with 70% unmeasured is the low-n reaction this repo keeps paying for.
+
+source: >-
+  manager session_01HoFquGdTrD3TTGbMMRc43t, on MI-271's own recommendation
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-11 by session_01WKwvhBuaYYCKbdkk7fHrpf, and the empty list is a
+  real claim here rather than the migration default: this object is `done`, so
+  nothing blocks it. Its successor question (why ict_scalp_* degraded) is a
+  DIFFERENT object and is not filed as a blocker on this one.
