@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T09:52:38+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-11T10:39:48+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -144,6 +144,8 @@ _Generated 2026-09-11T09:52:38+00:00 · verdict **all_sources_read**_
   - constraint-readout
 - 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
   - due-list
+- 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'
+  - error-feed-digest
 - 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
   - macro-valuation-snapshot
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
@@ -198,6 +200,8 @@ _Generated 2026-09-11T09:52:38+00:00 · verdict **all_sources_read**_
   - Monthly re-validation of every SHIPPED bracket-geometry cell on a live leg
 - **RQ-20260831-002** (research_queue) — research job still queued
   - Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
+- **checklist-unrouted-standing** (checklist_unrouted) — The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 69 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.
+  - 69 checklist row(s) unrouted past 24h, carried as a stock
 
 _This list decides nothing. Every row is for a session to judge._
 

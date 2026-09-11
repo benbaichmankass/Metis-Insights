@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T09:52:38+00:00",
+  "generated_at": "2026-09-11T10:39:48+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,11 +28,11 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.8h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 4,
+      "rows": 5,
       "note": ""
     },
     "unlanded_automation": {
@@ -43,17 +43,22 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-11T05:11:11+00:00, age 4.7h"
+      "note": "digest 2026-09-11T05:11:11+00:00, age 5.5h"
     },
     "sunset": {
       "state": "read",
       "rows": 0,
       "note": ""
+    },
+    "checklist_unrouted": {
+      "state": "read",
+      "rows": 1,
+      "note": ""
     }
   },
   "counts": {
-    "due": 98,
-    "loud": 73
+    "due": 100,
+    "loud": 74
   },
   "rows": [
     {
@@ -693,7 +698,16 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34464002787"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34587092798"
+    },
+    {
+      "source": "red_crons",
+      "id": "error-feed-digest",
+      "title": "error-feed-digest",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34586914743"
     },
     {
       "source": "red_crons",
@@ -937,6 +951,15 @@
       "age_days": null,
       "loud": false,
       "link": ""
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "checklist-unrouted-standing",
+      "title": "69 checklist row(s) unrouted past 24h, carried as a stock",
+      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 69 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
+      "age_days": null,
+      "loud": false,
+      "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"
     }
   ]
 }

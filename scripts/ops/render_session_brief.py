@@ -62,6 +62,7 @@ _RECURRENCE = Path("docs/claude/RECURRENCE-LEDGER.json")
 _CYCLE_PRIORITY = Path("docs/claude/CYCLE-PRIORITY.json")
 _CONSTRAINT = Path("docs/claude/CONSTRAINT.json")
 _SUNSET_ROOT = Path("comms/sunset")
+_ROUTING = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
@@ -218,12 +219,38 @@ def sunset_lines(sunset: dict | None) -> list:
                 f"read it as *nothing is a retirement candidate*.", ""]
 
 
+def routing_lines(routing: dict | None) -> list:
+    """MI-246 — the filed rows nobody has been given.
+
+    Rendered HERE, above the monitoring list, because it is the one thing in the
+    brief about work that has already been SCOPED and is going nowhere. The
+    operator's mandate, 2026-09-10: *"ensure that things don't get dropped in
+    the middle and that we actually finish things and execute them."*
+
+    ⚠️ **AN ABSENT REGISTER IS RENDERED, NOT SKIPPED** — the same reasoning
+    ``priority_lines`` / ``constraint_lines`` / ``sunset_lines`` already apply:
+    *nobody computed it* and *nothing is stalled* must not look identical.
+
+    Delegates every word to ``checklist_routing_age.render_brief_lines`` so the
+    brief and the register cannot drift into two answers about the same rows.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from checklist_routing_age import render_brief_lines  # type: ignore
+        return render_brief_lines(routing)
+    except Exception as exc:  # noqa: BLE001
+        return [f"**The unrouted-row reading could not be rendered** "
+                f"(`{type(exc).__name__}`). This is a RENDERER failure, not a finding "
+                f"about the checklist — do not read it as *nothing was left unrouted*.", ""]
+
+
 def render(today: date | None = None, *,
            open_items: dict | None = None,
            recurrence: dict | None = None,
            priority: dict | None = None,
            constraint: dict | None = None,
-           sunset: dict | None = None) -> str:
+           sunset: dict | None = None,
+           routing: dict | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -236,6 +263,7 @@ def render(today: date | None = None, *,
     cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
     cn = constraint if constraint is not None else _load(_CONSTRAINT)
     sn = sunset if sunset is not None else _latest_sunset()
+    rt = routing if routing is not None else _load(_ROUTING)
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -246,6 +274,7 @@ def render(today: date | None = None, *,
     L.append("This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + "
              "`docs/claude/CONSTRAINT.json` + "
              "`comms/sunset/` + "
+             "`docs/claude/work/CHECKLIST-ROUTING-AGE.json` + "
              "`docs/claude/OPEN-ITEMS.json` + "
              "`docs/claude/RECURRENCE-LEDGER.json`. It is **inlined here rather than linked** "
              "because `CLAUDE.md` is the only surface that reaches a session before it acts — "
@@ -267,6 +296,11 @@ def render(today: date | None = None, *,
     # Phase G — the other half of the same question. The readout says where the
     # chain is held up; this says what should come out.
     L.extend(sunset_lines(sn))
+
+    # MI-246 — a row that was FILED and never ROUTED. It goes above the
+    # monitoring list because it is work already scoped and going nowhere,
+    # which is cheaper to fix than anything below it.
+    L.extend(routing_lines(rt))
 
     if due:
         L.append(f"**{len(due)} monitoring item(s) DUE — check and record what you OBSERVED:**")
@@ -418,11 +452,16 @@ def main(argv=None) -> int:
             # unreadable): the register did not exist there, which is a fact we
             # CAN establish, unlike a git failure.
             cp_b_raw = _git_show(a.base, str(_CYCLE_PRIORITY))
+            # Same argument for the routing register (MI-246): it IS rendered
+            # into the brief, so it has to be diffed as well or a changed
+            # reading would cancel on both sides and pass unrendered.
+            rt_b_raw = _git_show(a.base, str(_ROUTING))
             if oi_b is not None and rl_b is not None and md_b is not None:
                 try:
                     want_base = render(today, open_items=json.loads(oi_b),
                                        recurrence=json.loads(rl_b),
-                                       priority=json.loads(cp_b_raw) if cp_b_raw else {})
+                                       priority=json.loads(cp_b_raw) if cp_b_raw else {},
+                                       routing=json.loads(rt_b_raw) if rt_b_raw else {})
                     have_base = current_block(md_b)
                     base_readable = have_base is not None
                 except (ValueError, TypeError):
@@ -554,6 +593,37 @@ def _self_test() -> int:
     ok &= good
     print("  self-test (priority: a priority-only change CHANGES the rendered brief, "
           f"so --check cannot cancel it away): {'PASS' if good else 'FAIL'}")
+    # MI-246 — the SAME cancellation trap for the routing register. It is
+    # rendered into the brief, so it must be diffed at the base too; these two
+    # cases are what prove the base read above is load-bearing rather than
+    # decorative.
+    derived = {"schema_version": 1, "history_state": "derived", "threshold_hours": 24,
+               "newly_stalled": [], "standing_count": 0, "within_count": 0,
+               "ungradeable_count": 0}
+    stalled = dict(derived, newly_stalled=[{
+        "id": "MI-999", "title": "a filed row nobody was given", "owner": "unassigned",
+        "status": "ready", "lane": "engineering", "tier": 1, "unrouted_hours": 31.0,
+        "unrouted_since": "2026-09-10T00:00:00+00:00"}])
+    r_a = render(t, open_items={}, recurrence={}, priority={}, routing=derived)
+    r_b = render(t, open_items={}, recurrence={}, priority={}, routing=stalled)
+    good = r_a != r_b and "MI-999" in r_b and "MI-999" not in r_a
+    ok &= good
+    print("  self-test (routing: a routing-only change CHANGES the rendered brief, "
+          f"so --check cannot cancel it away): {'PASS' if good else 'FAIL'}")
+    good = check_verdict(want_head=r_b, have_head=r_a, base_readable=True,
+                         want_base=r_a, have_base=r_a) == "introduced_registers_changed"
+    ok &= good
+    print("  self-test (routing: a new unrouted crossing left unrendered is graded "
+          f"INTRODUCED, not inherited): {'PASS' if good else 'FAIL'}")
+    # ⚠️ An ABSENT register must render the absence, never nothing at all: a
+    # vanishing section reads as an all-clear, which is the one reading MI-246
+    # forbids.
+    r_none = render(t, open_items={}, recurrence={}, priority={}, routing={})
+    good = "NOT that nothing has been left unrouted" in r_none
+    ok &= good
+    print("  self-test (routing: an ABSENT register renders the absence, not an "
+          f"all-clear): {'PASS' if good else 'FAIL'}")
+
     good = check_verdict(want_head=b_side, have_head=a_side, base_readable=True,
                          want_base=a_side, have_base=a_side) == "introduced_registers_changed"
     ok &= good
