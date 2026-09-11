@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T10:17:11+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-11T10:26:47+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -144,12 +144,32 @@ _Generated 2026-09-11T10:17:11+00:00 · verdict **all_sources_read**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - 🔔 **OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED** (open_items) — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
-- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'cancelled'
+- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
   - constraint-readout
+- 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
+  - due-list
+- 🔔 **econ-calendar-produce** (red_crons) — latest scheduled run concluded 'failure'
+  - econ-calendar-produce
+- 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'
+  - error-feed-digest
 - 🔔 **macro-valuation-snapshot** (red_crons) — latest scheduled run concluded 'failure'
   - macro-valuation-snapshot
+- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - pr-queue-watch
+- 🔔 **probes** (red_crons) — latest scheduled run concluded 'failure'
+  - probes
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
   - replay-pregate-nightly
+- 🔔 **session-reaper** (red_crons) — latest scheduled run concluded 'failure'
+  - session-reaper
+- 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 **sunset-pass** (red_crons) — latest scheduled run concluded 'failure'
+  - sunset-pass
+- 🔔 **trainer-capture-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - trainer-capture-watch
+- 🔔 **work-digest** (red_crons) — latest scheduled run concluded 'failure'
+  - work-digest
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 9d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then 
 - **OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT** (open_items · 9d) — monitoring row 9d since last observation (cadence 7d)

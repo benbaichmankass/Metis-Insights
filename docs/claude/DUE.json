@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T10:17:11+00:00",
+  "generated_at": "2026-09-11T10:26:47+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,11 +28,11 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.4h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 3,
+      "rows": 13,
       "note": ""
     },
     "unlanded_automation": {
@@ -43,7 +43,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-11T05:11:11+00:00, age 5.1h"
+      "note": "digest 2026-09-11T05:11:11+00:00, age 5.3h"
     },
     "sunset": {
       "state": "read",
@@ -57,8 +57,8 @@
     }
   },
   "counts": {
-    "due": 100,
-    "loud": 74
+    "due": 110,
+    "loud": 84
   },
   "rows": [
     {
@@ -704,10 +704,37 @@
       "source": "red_crons",
       "id": "constraint-readout",
       "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'cancelled'",
+      "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34469714512"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34219035743"
+    },
+    {
+      "source": "red_crons",
+      "id": "due-list",
+      "title": "due-list",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34213610709"
+    },
+    {
+      "source": "red_crons",
+      "id": "econ-calendar-produce",
+      "title": "econ-calendar-produce",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34295203763"
+    },
+    {
+      "source": "red_crons",
+      "id": "error-feed-digest",
+      "title": "error-feed-digest",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34314012772"
     },
     {
       "source": "red_crons",
@@ -716,7 +743,25 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34475833176"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34224748936"
+    },
+    {
+      "source": "red_crons",
+      "id": "pr-queue-watch",
+      "title": "pr-queue-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34280346857"
+    },
+    {
+      "source": "red_crons",
+      "id": "probes",
+      "title": "probes",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34212052493"
     },
     {
       "source": "red_crons",
@@ -725,7 +770,52 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34580398446"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34205760509"
+    },
+    {
+      "source": "red_crons",
+      "id": "session-reaper",
+      "title": "session-reaper",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34311893227"
+    },
+    {
+      "source": "red_crons",
+      "id": "strategy-review-packets",
+      "title": "strategy-review-packets",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34207987310"
+    },
+    {
+      "source": "red_crons",
+      "id": "sunset-pass",
+      "title": "sunset-pass",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34110131942"
+    },
+    {
+      "source": "red_crons",
+      "id": "trainer-capture-watch",
+      "title": "trainer-capture-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34312725937"
+    },
+    {
+      "source": "red_crons",
+      "id": "work-digest",
+      "title": "work-digest",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34317101000"
     },
     {
       "source": "soaks",

@@ -114,15 +114,19 @@ the_honest_residual: >-
   under-estimating every age — the reassuring direction. Stated in the module rather
   than hidden.
 
-blocked_on:
-  - kind: observation
-    ref: the next threshold crossing after the seed, on a scheduled constraint-readout run
-    since: 2026-09-11
-blocked_on_basis_after_build: >-
-  ASSESSED 2026-09-11 by session_01Uk4qLFBTyMEDMJXydYzSyw (engineering lane).
-  ⚠️ This does NOT contradict the manager's `blocked_on_basis` above and must not be
-  read as overturning it. Nothing blocked the BUILD, which is what that assessment was
-  about and which is now complete. What the edge records is that done_condition clause
-  (2) — OBSERVED catching a real unrouted row — cannot be done by anyone; it can only
-  be waited for and seen. An edge naming that is a true blocker on the CLAUSE, not on
-  the work.
+blocked_on_after_build: >-
+  STILL EMPTY, and that is a decision rather than an omission. ⚠️ I briefly wrote an
+  `observation` edge here and REMOVED it, because it was the wrong shape twice over.
+  (a) It CONTRADICTED the manager's `blocked_on_basis` above inside one file — a
+  register that disagrees with itself is exactly what a later session cannot reason
+  from, and `blocked_on` feeds the CONSTRAINT COMPUTATION, which reads an edge as a
+  real blocker. The work store's own README records that an invented edge is worse
+  than a missing one. (b) What is actually pending is EVIDENCE ACCRUING, not a chain
+  held up: clause (2) needs the next crossing to happen, which takes a day at the
+  measured ~7/day, and nothing is waiting on a decision or on another object. This
+  repo has a named home for that and it is not `blocked_on` — see
+  `docs/CLAUDE-RULES-CANONICAL.md` § "A soak must carry its own alarm": it does not
+  exist until a register row says when to come back for it. That row is
+  OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING
+  (`check_every_days: 2`), whose `clears_when` is the data condition and whose
+  `observation` records what the first reading actually showed.
