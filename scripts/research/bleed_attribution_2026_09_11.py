@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a one-off attribution analysis for a DATED event (the
+# 2026-08-30 directional-leg break). It answers a question that was asked once,
+# against a journal window that has already passed; a scheduled runner would
+# re-answer it every day against a moving population and quietly turn a recorded
+# verdict into a drifting one. The standing, cadenced version of this question is
+# the sustained-losing-streak detector proposed in section 6 of the memo, which is
+# a DIFFERENT deliverable and is deliberately not this file.
 """Attribute the 2026-08-30 directional-leg regime break (MI-271 / OI-20260911).
 
 WHAT THIS ANSWERS, AND WHAT IT REFUSES TO

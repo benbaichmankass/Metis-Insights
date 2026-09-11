@@ -83,6 +83,8 @@ Every B4 leg would otherwise have been graded as part of the "untouched control"
 
 ### 3.1 Stop-out rate, adjudicated, before vs after, by geometry group
 
+Population: the 292-row decision set of §1 (closed, non-backtest, `pnl NOT NULL`, pairs excluded), split on `created_at`. Every rate below carries its own n and a 95% Wilson interval; the stop-rate denominator is the **gradeable** rows only, with `ungradeable` reported separately and never folded in.
+
 | group | era | n | win rate (95% CI) | **stop rate (95% CI)** |
 |---|---|---|---|---|
 | **e35** | pre | 30 | 0.667 [0.488, 0.808] | **0.067 [0.019, 0.213]** (2/30) |
@@ -248,7 +250,7 @@ trend_donchian_avax_4h:
 
 ### 5.4 What NOT to do
 
-- **Do not widen stops across the book to "stop getting stopped out".** The control's stop rate barely moved; its problem is winner size, not stop width. Widening stops there increases loss size against the one metric already 20% worse.
+- **Do not widen stops across the book to "stop getting stopped out".** The control's stop rate barely moved (0.540 [0.436, 0.641] on 87 gradeable pre-rows → 0.659 [0.551, 0.752] on 82 post-rows, overlapping intervals); its problem is winner size, not stop width. Widening stops there increases loss size against the one metric already 20% worse.
 - **Do not retune `ict_scalp_*` on this evidence.** Its losses are real and well-measured, but this analysis establishes *that* they degraded, not *why*. That is a separate research unit.
 - **Do not read the +$250k pre-period as a baseline.** See §1 caveat 2.
 
