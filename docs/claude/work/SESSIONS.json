@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T19:57:14Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "updated_at": "2026-09-11T21:53:01Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 21:52Z tick)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4809,12 +4809,13 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T19:57:14Z"
+      "confirmed_at": "2026-09-11T19:57:14Z",
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session: SESSION_STATUS_RUNNING, connected, context 696k/1M (515k an hour earlier). State `working` CONFIRMED rather than assumed. PR #11826 open, 3/4 green. Past the ~600k handoff trigger -- should land #11826 and close out, not open new work."
     },
     {
       "session_id": "session_01MyUujGAQYs72UUgrfXXmFA",
       "registry_key": "pending-20260911T195437Z-2",
-      "state": "working",
+      "state": "review_ready",
       "title": "OPS LANE MI-276 — the two detectors that are owed: losing-streak and starved-accounts",
       "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
       "checklist_item": "MI-276",
@@ -4823,12 +4824,13 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T19:57:14Z"
+      "confirmed_at": "2026-09-11T19:57:14Z",
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z."
     },
     {
       "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",
       "registry_key": "pending-20260911T195437Z-3",
-      "state": "working",
+      "state": "review_ready",
       "title": "ENGINEERING LANE MI-236 — decay stale in_flight rows",
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
       "checklist_item": "MI-236b",
@@ -4837,10 +4839,11 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T19:57:14Z"
+      "confirmed_at": "2026-09-11T19:57:14Z",
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 708k/1M. Registry read `working`. PR #11829 green; the lane's own summary names the merge_slot conflicts as CI-cadence churn, which matches BL-20260911-R13-MAKES-THE-MERGE-SLOT-A-GUARANTEED-CONFLICT-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES. Check-in armed 22:03Z. Past the ~600k handoff trigger: closes out rather than starting a fourth branch."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T14:25Z — get_session on the ONE live lane (MI-269). COMPLETE for lanes this manager currently has running; the two that finished earlier today are recorded above and the 213 historical rows were not re-read. One of three operator slots in use.",
-  "⚠️_HANDOFF_NOTE_2026_09_11": "Manager session_01HrmZ1RRNM4UnEUaFdrPEjj handed off 2026-09-11T17:0xZ. ⚠️ CORRECTED: ONE sub-session IS RUNNING -- session_01CTPC91xaHrK6ES33UKjkTY (MI-240), confirmed RUNNING/connected at 16:55:03Z, auditing the manager's own merge resolution on #11738 and repairing a row that resolution dropped. DO NOT stand it down. The other 7 spawned this shift read IDLE/COMPLETED on a live 15:2xZ read. The three items the operator chose are QUEUED, not spawned (MI-271 research, MI-272 ops, MI-273 engineering) -- they asked to start those from a fresh manager session. The lease is RELEASED, so the incoming manager claims immediately."
+  "⚠️_last_live_reconcile": "2026-09-11T21:53Z -- get_session on all three live lanes (MI-275 RUNNING 696k, MI-236 IDLE/review_ready 708k, MI-276 IDLE/review_ready 778k). Each row's state below is the OBSERVED value, not a claim. COMPLETE for this manager's currently-running lanes; the historical rows were not re-read.",
+  "⚠️_HANDOFF_NOTE_2026_09_11_SUPERSEDED": "SUPERSEDED 2026-09-11T21:53Z. It read that session_01CTPC91xaHrK6ES33UKjkTY (MI-240) IS RUNNING and must not be stood down. That was true at 16:55Z and is FALSE now -- the lane finished and its work is PR #11738, which is open and waiting on the operator, not on a running session. Kept rather than deleted because it is the record of what the previous manager observed; corrected because a cold manager reading it would protect a lane that no longer exists. ORIGINAL: Manager session_01HrmZ1RRNM4UnEUaFdrPEjj handed off 2026-09-11T17:0xZ. ⚠️ CORRECTED: ONE sub-session IS RUNNING -- session_01CTPC91xaHrK6ES33UKjkTY (MI-240), confirmed RUNNING/connected at 16:55:03Z, auditing the manager's own merge resolution on #11738 and repairing a row that resolution dropped. DO NOT stand it down. The other 7 spawned this shift read IDLE/COMPLETED on a live 15:2xZ read. The three items the operator chose are QUEUED, not spawned (MI-271 research, MI-272 ops, MI-273 engineering) -- they asked to start those from a fresh manager session. The lease is RELEASED, so the incoming manager claims immediately."
 }
