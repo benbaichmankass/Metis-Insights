@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T23:28:20Z",
+  "updated_at": "2026-09-10T23:48:12Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
   "sessions": [
     {
@@ -4514,7 +4514,7 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-139 reads in_flight with an owner while its PR has been dirty and untouched since 07:08Z and the row carries prs: None. The ops lane's stated role is unsticking what is stuck, prioritised above its own backlog.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-10T23:28:20Z",
+      "confirmed_at": "2026-09-10T23:48:12Z",
       "live_status": "PENDING (spawned 23:27:48Z)",
       "live_status_read_at": "2026-09-10T23:28Z",
       "manager_observation": "OPS LANE, re-laning #11648/MI-139 — 16h stale, dirty, author gone. Registered BEFORE spawn as pending-20260910T232719Z, confirmed after. First spawn to carry MI-263s fix: the prompt names the PR carrying its own registry row.",
