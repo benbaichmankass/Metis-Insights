@@ -35975,7 +35975,9 @@
     },
     {
       "id": "BL-20260911-DOCUMENT-INDEX-WRITE-SILENTLY-DOWNGRADES-LIVE-ROWS-TO-UNKNOWN-LOSING-WHAT-WAS-ON-MAIN",
-      "severity": "P2",
+      "tier": "1 (a CI/ops generator; no runtime, no order path)",
+      "resolution_criteria": "A PR that adds exactly ONE document, with `document_index.py` run as the guard's own remedy instructs, produces a docs/DOCUMENT-INDEX.md diff of ONE added row and ZERO modified rows -- measured with `git diff --numstat`, not asserted -- AND a source-file diff of ONE file. !! THE ROW-DOWNGRADE HALF IS THE ONE THAT MATTERS AND MUST BE CHECKED SEPARATELY: assert that no row's `status` changes from `live` to `unknown` in that diff. A run that merely stops restamping DATES clears the sibling BL-20260908 row and NOT this one. !! A GREEN document-index-guard CLEARS NOTHING -- it passed on every run described here, including the one that downgraded 31 rows; that is precisely why the defect is invisible.",
+      "severity": "medium",
       "status": "open",
       "opened": "2026-09-11",
       "opened_by": "session_01SrUaz8LmKMcSwNZEr8JupC (MI-273 / PR #11817)",
@@ -35989,7 +35991,9 @@
     },
     {
       "id": "BL-20260911-MERGING-MAIN-DROPPED-THREE-SIBLING-LANES-ROWS-FROM-SESSIONS-JSON-AND-THE-FILE-STAYED-VALID-JSON",
-      "severity": "P1",
+      "tier": "1 (a CI check over a repo register; no runtime, no order path)",
+      "resolution_criteria": "A PR whose SESSIONS.json carries fewer session_id values than origin/main, without the diff explaining the removal, is REFUSED by CI -- demonstrated on a PLANTED case (delete one row, confirm the check fails) and on a control (a PR that legitimately adds a row, confirm it passes). !! A ROW-COUNT OR VALID-JSON CHECK DOES NOT SATISFY THIS: the file was valid JSON with three lanes missing and `git status` reported it merged, which is the whole finding. The criterion is a comparison of the id SET. !! AND `it has not happened again' CLEARS NOTHING -- it needs a merge that touches the register to occur at all before silence means anything; check that such a merge HAPPENED in the window before reading any zero.",
+      "severity": "high",
       "status": "open",
       "opened": "2026-09-11",
       "opened_by": "session_01SrUaz8LmKMcSwNZEr8JupC (MI-273 / PR #11817)",
