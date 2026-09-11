@@ -1,6 +1,6 @@
 # Blocked-lane watch — telling a lane when its blocker clears
 
-> **Doc status:** `live` · category `reference` · last verified `2026-09-11`
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-235.** A sub-session blocked on a manager action had no mechanism that told
 it the action had happened. Three lanes, measured:

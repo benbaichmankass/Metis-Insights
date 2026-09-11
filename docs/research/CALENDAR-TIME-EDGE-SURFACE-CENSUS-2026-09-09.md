@@ -1,6 +1,6 @@
 # How many operating-layer surfaces require CALENDAR TIME to reach an EDGE verdict?
 
-> **Doc status:** `live` · category `research` · MI-218 ·
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > `WO-20260909-COUNT-THE-SURFACES-THAT-REQUIRE-CALENDAR-TIME-TO-PROVE-EDGE` ·
 > measured 2026-09-09 · **Tier-1 measurement only — no gate, threshold or config was changed.**
 

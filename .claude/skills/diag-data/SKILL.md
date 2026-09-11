@@ -3,7 +3,7 @@ name: diag-data
 description: Retrieve live runtime state from the production VMs (signals, orders, trades, journal tables, service/heartbeat status, journalctl) without asking the operator. Use whenever you need real runtime data — "what is the bot doing", "pull the recent trades", "is the trader alive", "check the audit log", debugging live behavior. Read-only. Composes with vm-ops, db-wiring, and the health-review skill.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /diag-data — pull live runtime state yourself
 

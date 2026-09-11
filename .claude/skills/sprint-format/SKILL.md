@@ -3,7 +3,7 @@ name: sprint-format
 description: Write a sprint log in the canonical format for the ICT bot. Use when closing out a sprint, when the operator says "log this sprint" / "write the sprint log" / "wrap up", or when you need the mandatory section list and where logs live. Wraps docs/SPRINT-LOG-TEMPLATE-CANONICAL.md — every new log goes under docs/sprint-logs/<SPRINT_ID>.md and must report verified reality, not PR intent. NOT for the roadmap status table (that's ROADMAP.md) — the sprint log is the per-session execution record that the roadmap summarizes.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /sprint-format — write a canonical sprint log
 

@@ -1,6 +1,6 @@
 # Workplan — De-soak infrastructure + M24–M29 milestone close-out (2026-07-26)
 
-> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `closed_unfinished` · category `plan` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 > ## **PLAN STATUS: `closed_unfinished`**
 > **What was left:** Not audited when this status was assigned — *we did not look*.

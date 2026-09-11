@@ -214,9 +214,14 @@ def _now_iso() -> str:
 #
 # Passed in rather than read per-blocker so the grading policy below is a PURE
 # FUNCTION and is therefore arguable in tests rather than against a live roster.
-# That is the lesson of BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-
-# JOURNAL-MATCHING-LEG, where a policy that could only be exercised live
-# cancelled the one leg that matched the journal.
+# The lesson of that is a policy which could only be exercised live cancelled
+# the one leg that matched the journal; see
+# BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG.
+# (⚠️ That id is kept on ONE line deliberately. The first draft wrapped it after
+# `...-CANCELLED-THE-` and artifact-validity-guard correctly graded the fragment
+# as a reference resolving to NOTHING — the exact line-wrap truncation MI-258
+# measured as a source of its 75% false-positive rate, reproduced here in a
+# Python comment within an hour of citing it.)
 # ─────────────────────────────────────────────────────────────────────────────
 def _git(*args: str) -> Tuple[bool, str]:
     """Run a read-only git command. Returns (ok, output) -- NEVER raises, and
@@ -697,7 +702,8 @@ def _self_test() -> int:
          "pr_states": {"o/r#4": "open", "o/r#5": "closed", "o/r#6": "merged"},
          "pr_states_repos": {"o/r"},
          "pr_states_readable": True, "paths_readable": True}
-    g = lambda b, w=W, **kw: grade_blocker(b, w, **kw)["state"]
+    def g(b, w=W, **kw):
+        return grade_blocker(b, w, **kw)["state"]
 
     # ── the three measured incidents, as fixtures ──
     check("MI-222 PR merged into main -> cleared",
@@ -775,7 +781,8 @@ def _self_test() -> int:
     objs = {"WO-A": {"lifecycle": "done"}, "WO-B": {"lifecycle": "in_flight"},
             "WO-C": {"decision_requests": [{"id": "D1", "answer": {"chosen": "x"}},
                                            {"id": "D2"}]}}
-    rd = lambda ref: objs.get(ref)
+    def rd(ref):
+        return objs.get(ref)
     check("work object done -> cleared",
           g({"kind": "work_object", "ref": "WO-A", "clears_when": "done_or_accepted"},
             W, object_reader=rd), BLOCKER_CLEARED)

@@ -1,6 +1,6 @@
 # sol_pullback_2h `stale8_lt0R` on the deep corpus — the pre-registered rule PASSES
 
-> **Doc status:** `closed_unfinished` · category `evidence` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `closed_unfinished` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Status: NOT shipped.** The rule passed; two things still block the Tier-3 declare.
 Recorded here so tomorrow's session resumes from the numbers, not from a re-run.

@@ -3,7 +3,7 @@ name: backlog-drain
 description: A DEDICATED session whose only job is CLOSING backlog rows — not reviewing, not filing. Use when the operator says "/backlog-drain", "drain the backlog", "work the backlog down", or when a review's burn-down shows the pile growing. Owns the selection strategy (class-first), the evidence bar for a close, and the burn-down accounting. NOT /system-review (which reviews and files); this is the counterweight that empties what reviews fill.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /backlog-drain — a session that CLOSES rows
 

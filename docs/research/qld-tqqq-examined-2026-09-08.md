@@ -1,6 +1,6 @@
 # QLD and TQQQ, examined — the two never-swept live legs now have a MEASURED verdict
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-195** · branch `claude/mi195-tp-decisions-and-examine` · supersedes the *absence* recorded by MI-156
 ([`reachable-take-profit-proposal-2026-09-07.md`](reachable-take-profit-proposal-2026-09-07.md) § 5, DEC-20260907-TP-UNEXAMINED)

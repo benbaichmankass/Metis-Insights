@@ -1,6 +1,6 @@
 # Sprint Log: S-M19-FC-SLTP-GEOMETRY-2026-07-05
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-05 (M19 T0.4 Phase-2 — "extend the fc win": fc-informed SL/TP geometry

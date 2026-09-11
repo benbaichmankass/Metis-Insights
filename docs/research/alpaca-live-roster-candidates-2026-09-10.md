@@ -1,6 +1,6 @@
 # `alpaca_live` roster candidates — what a $200 whole-share CASH account can actually run
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-10` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-201 · `WO-20260908-WIRE-MORE-STRATEGIES-TO-ALPACA-LIVE-WHICH` · Tier-1 PROPOSAL.**
 Nothing here is enacted. `config/accounts.yaml` is Tier-3; the exact diff is

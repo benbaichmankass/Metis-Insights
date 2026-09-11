@@ -13,7 +13,6 @@ A property no test actually pins is a comment, not a guarantee.
 from __future__ import annotations
 
 import importlib.util
-import json
 import subprocess
 import sys
 from pathlib import Path
