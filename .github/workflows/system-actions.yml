@@ -1170,6 +1170,46 @@ jobs:
           # becomes a group. An unset Actions secret resolves empty and the guard
           # fails the run loudly, which is the intended behaviour, not a gap.
           SECRET_TELEGRAM_CLAUDE_CHAT_ID: ${{ secrets.TELEGRAM_CLAUDE_CHAT_ID }}
+          # JWT_SIGNING_KEY + WEBAPP_PASSWORD_SHA256 are two of the three envs
+          # src/web/api/auth.py reads PER CALL (lines 67 and 83; ALLOWED_EMAIL at
+          # 76 is the third and is NOT a secret — see below). They are unmapped
+          # here, and that is the SAME state TELEGRAM_CLAUDE_BOT_SECRET was in
+          # four entries above: the operator can put a value in Actions and there
+          # is no sanctioned path to move it to the VM, because a set-env with a
+          # blank env_value resolves EMPTY and the guard below correctly refuses
+          # the run. These two mappings are that path, and nothing more.
+          #
+          # What broke without them: with either env absent on the live web-api,
+          # auth.py raises `auth misconfigured`, so POST /api/auth/login returns
+          # 500 `auth_unavailable`. decode_token has no static-token bypass and
+          # /api/auth/login is the only mint path, so the gate is closed with no
+          # way through it — every route carrying Depends(require_session) is
+          # unreachable for everyone. That is FOUR handlers, not the two usually
+          # cited: /api/bot/db/tables + /api/bot/db/table/{name} (the SPA's Data
+          # Explorer) and also /api/pnl (pnl.py:211) + /api/status (status.py:38).
+          #
+          # ⚠️ ADDING A MAPPING ARMS NOTHING. Until the operator fills the Actions
+          # secret, `secrets.JWT_SIGNING_KEY` renders as the empty string, the
+          # resolution below yields empty, and the empty-value guard FAILS the run
+          # before REMOTE_CMD is built — the VM is never touched. A refusal here is
+          # the mechanism working, exactly as the TELEGRAM_CLAUDE_CHAT_ID note says.
+          # Do NOT weaken that guard to make these keys "work" ahead of a value.
+          #
+          # ⚠️ THE TARGET IS `env_file: web-api`, NOT the default `shared`.
+          # ict-web-api.service is the consuming unit and loads
+          # /etc/ict-trader/web-api.env; a shared-file write would also hand both
+          # keys to ict-trader-live.service, which has no use for them. Both the
+          # `web-api` target and ict-web-api.service are already allowlisted in
+          # scripts/ops/set_env.sh — no allowlist change is needed or made here.
+          SECRET_JWT_SIGNING_KEY: ${{ secrets.JWT_SIGNING_KEY }}
+          SECRET_WEBAPP_PASSWORD_SHA256: ${{ secrets.WEBAPP_PASSWORD_SHA256 }}
+          # ALLOWED_EMAIL — the THIRD auth env (auth.py:76) — is deliberately NOT
+          # mapped here, and that is not an omission. It is not a secret: it is
+          # already written in the clear at deploy-candidate.yml:137
+          # (`ALLOWED_EMAIL=ben.baichmankass@gmail.com`). It rides `env_value`
+          # normally, like any other non-secret key. Mapping it would imply a
+          # secrecy it does not have and would make the operator's ask larger than
+          # it is — they originate TWO values here, not three.
           # NEWS_API_KEY backs the M9 news layer (set-env env_key=NEWS_API_KEY,
           # env_value blank). Lets Claude propagate the operator-provided NewsAPI
           # key to the VM .env via set-env without it ever reaching the issue

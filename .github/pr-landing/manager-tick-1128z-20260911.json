@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager state and governance records only: the manager lease heartbeat, the sub-session registry and the manager checklist's merge-queue block. No runtime, no order path, no strategy config, no risk caps, no live-VM file, no secret value. Tier-1 by the canonical doc's own examples."
+}
