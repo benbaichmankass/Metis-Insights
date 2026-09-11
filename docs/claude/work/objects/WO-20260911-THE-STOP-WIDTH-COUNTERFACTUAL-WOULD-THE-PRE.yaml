@@ -1,0 +1,30 @@
+id: WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The stop-width counterfactual: would the pre-e35 2.5-ATR stop have survived the trades that stopped out
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  For each post-2026-08-30 stop-out on an e35 leg, a verdict on whether the pre-e35 2.5-ATR stop would have been hit, computed from MI-164 position telemetry (peak_r, r_to_stop, adverse excursion) rather than from a re-simulation. Population stated. That answers the e35 revert decision directly, and resolves the contradiction between MI-271's merged memo (e35 is NOT the cause) and its own session summary (e35 causation confirmed).
+
+why: >-
+  MI-271's own recommendation: do NOT revert e35 yet, because n=23 post trades with 70% unmeasured is the low-n reaction, and MI-164 telemetry (live since 2026-09-07) can answer the question directly for the first time. Operator's live question is why the book is bleeding and what to do about it.
+
+source: >-
+  manager, from MI-271's recommendation, 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
