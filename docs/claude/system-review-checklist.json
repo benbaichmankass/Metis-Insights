@@ -1,167 +1,167 @@
 {
-  "schema_version": 1,
-  "run": "system-review 2026-09-08 (MI-192b, session_012yX7SLyJiqAWG8oVxZSNoq)",
-  "started_at": "2026-09-08T10:28:00+00:00",
-  "items": {
-    "strategy_promotion": {
-      "status": "done",
-      "evidence": "Real-money roster measured from live config + performance. Only bybit_2 actually trades real money (alpaca_live is mode live/real_money but has placed nothing — both post-routing signals were shorts suppressed by side_filter:long; ib_live is dry_run/0 strategies). NO promote or demote proposed off expectancyR: the 30d window still grades 12/39 rows contaminated and publishes +0.1772 on a losing book. The 7d window IS clean (0 contaminated) at -0.9679 over 10 trades — real but too small to retire a leg on. Per-leg record given over 379 rows. The decision put to the operator is the roster question, not a per-leg verdict."
-    },
-    "ml_training_health": {
-      "status": "done",
-      "evidence": "9 cycles / 17 cycle_end rows over a 1000-row population (2026-08-31T00:49→09-08T05:46), ALL rc=0, 0 failed manifests, 0 failed dataset builds. manifest_quarantine events ZERO, probe positive-controlled. Timer active, mirror age 56s. WATCH: trainer disk 86.1%. UNAVAILABLE and stated: 08-29→08-31 is outside the API's 1000-row cap."
-    },
-    "soak_status": {
-      "status": "done",
-      "evidence": "8 soaks graded as a list. 31/34 models accruing. Two apparent stalls DISSOLVED on a denominator (zero open donchian positions). MET-AND-UNACTIONED: mes-regime-15m-lgbm-v2 parked gate-ready 49 days — escalated. ⚠️ ALL drift-dependent soak verdicts are UNGRADEABLE as a class because reference_count is 0 by arithmetic."
-    },
-    "execution_capture": {
-      "status": "done",
-      "evidence": "MEASURED from position_telemetry: 73 ever-positive closed rows. Median capture +0.345 → -0.1508; ≥95% giveback 37.8% → 53.4%. Every ratio an UPPER BOUND (peak_r_is_lower_bound 74/74). Mean is outlier-destroyed and excluded. 48/59 declared arms unreachable. All 5 prior anomalies re-measured and aged, not carried; qqq_pullback_1h materially IMPROVED (193.7h → 50.0h)."
-    },
-    "backlog_drive": {
-      "status": "done",
-      "evidence": "7 filed / 6 closed, net +1. Every close on the row's OWN criteria, none on age; 4 of 6 retired by ONE class disposition. Three closable-looking rows deliberately left open after checking (PROP-SCREENSHOT clause 5 of 5 unmet — verified no guard on INSIGHTS_MODEL_MODE; CAP-PROXIMITY BTC exception unsettled; UNPARSEABLE-SINCE re-verified still true). The burn-down INSTRUMENT is itself broken and is now filed with the fix."
-    },
-    "account_reachability": {
-      "status": "done",
-      "evidence": "All 11 accounts read three ways. ALL CLEAR — the only two api_ok:false are breakout_1 (API-less by design) and ib_live (dry_run), the declared exclusions. ict-ib-gateway-watchdog.timer inactive is CORRECT on the trader host and is recorded so it is not re-filed. restart_pending false→true across two reads is main advancing on a merge day, not a stuck deploy."
-    },
-    "since_last_build_verification": {
-      "status": "done",
-      "evidence": "count_shipped=151, enumerated mechanically from git (865 added files, 714 of them per-PR request artifacts) and each classified by whether anything runs it. 150 wired_not_yet_exercised, 1 UNWIRED (scripts/ops/llm_capacity_benchmark.sh) — escalated to flags. Independently reproduced the same 151/1 split a sub-agent reached. check_unwired_artifacts.py 2/92/9 vs baseline 2/105/9; NEITHER of its unwired entries shipped in this window, so reporting them would mis-attribute."
-    },
-    "backlog_classes": {
-      "status": "done",
-      "evidence": "total_open_reviewed=788 (health 721 / perf 44 / ml 23), the WHOLE open set. 5 classes each with ≥2 verified members and a structural fix. Two NEW members filed this run into existing classes; one class (retired-consumer) fully RETIRED by a single disposition. Lexical pseudo-classes re-tested and refused again."
-    },
-    "ml_output_actionability": {
-      "status": "done",
-      "evidence": "Verdict `actionable` with a stated qualifier. Named consumers with evidence of firing: regime_hard_gate newest 2026-09-08T02:02:47Z (positive control: regime_shadow_gate newest 2026-06-08, consistent with ENFORCED), exit_head_apply (4 real-money closes), conviction_sizing. Qualifier: the feedback loop is OPEN — drift is dead — so outputs are consumed on trust."
-    },
-    "structural_health": {
-      "status": "done",
-      "evidence": "Population = the WHOLE HISTORY (1,417 closed non-backtest rows, 2026-05-09→09-08), not the window. 3 findings each with a trend. Hypothesis REFUTED and that is the finding: the decision-exit improvement is a pairs-sleeve COMPOSITION effect, not the exit program working — ex-pairs 27.7%→47.0% vs a headline 22.6%→61.3%. Also corrected MY OWN misclassification of pairs exits as janitor before reporting."
-    },
-    "unexercised_fixes": {
-      "status": "done",
-      "evidence": "8 fixes graded. 6 exercised WITH named evidence (soak rows carrying acted:true, or outcomes.jsonl-backed error rows — never a proxy), including MI-144's R repair measured against its own code comment. 2 still_unexercised and both escalated to flags."
-    },
-    "research_results_disposition": {
-      "status": "done",
-      "evidence": "Verdict `landed_but_unread`, 103/11/256 — BYTE-IDENTICAL to 2026-08-31, so nothing landed or was dispositioned in 8 days. superseded_unread correctly NOT counted as a finding. Two structural findings surfaced: the corpus dedups by measurement_key so 14/117 ledger entries are orphaned, and 29 research artifacts since 09-01 are in no registered corpus."
-    },
-    "test_execution_verification": {
-      "status": "done",
-      "evidence": "Verdict `executed`, evidenced by count AND duration (15601 passed in 952.56s) rather than a green tick. 72/100 push runs short-circuited and SIX were traced to their merge commits — every one touched only docs/ or request artifacts, the designed exclusion. Population stated as a sample, not the window. This session's own guard run: 52 PASS / 4 FAIL, all four diagnosed (2 missing pytest — installed, 78 passed; 1 dangling id I introduced; 1 missing landing file)."
-    },
-    "health_review.findings": {
-      "status": "done",
-      "evidence": "7 findings rendered as a dict, led by the MGC journal-vs-venue divergence."
-    },
-    "health_review.security_check": {
-      "status": "done",
-      "evidence": "PARTIAL and said so. 152-row ERROR+ feed (under the 1000 cap, a real denominator) shows no intrusion signal. ⚠️ The auth-denial log sweep and secret-literal scan were NOT repeated this run — recorded as not-done rather than implied clean."
-    },
-    "health_review.soak_decisions_due": {
-      "status": "done",
-      "evidence": "mes-regime-15m-lgbm-v2 surfaced and routed to the operator."
-    },
-    "health_review.new_work_compliance": {
-      "status": "done",
-      "evidence": "151 shipped capabilities enumerated and verdicted; 1 UNWIRED escalated. The guard that should catch it cannot see .sh at all — filed."
-    },
-    "health_review.anomalies": {
-      "status": "done",
-      "evidence": "4 anomalies recorded."
-    },
-    "health_review.backlog_drain": {
-      "status": "done",
-      "evidence": "6 closed / 5 filed in health."
-    },
-    "health_review.backlog_coverage": {
-      "status": "done",
-      "evidence": "Whole open set read: 788 rows."
-    },
-    "health_review.sprint_doc_review": {
-      "status": "done",
-      "evidence": "Done rather than excused, and it produced a real coherence finding. Checked the canonical prose against what I measured live this run. ROADMAP.md ALREADY carries the 2026-08-31 correction that the stray-OCA sweep WAS armed on ib_paper ('⚠️ CORRECTED 2026-08-31 — BOTH HALVES OF THIS SENTENCE ARE NOW FALSE'), while CLAUDE.md still said the gate 'cancels NOTHING' and that PROTECTION_REASSERT was 'still UNEXERCISED'. So the two canonical docs DISAGREED and ROADMAP was the correct one; CLAUDE.md was stale in the dangerous direction (it told a session two live order-path gates were inert). Both CLAUDE.md claims are corrected in this PR with the soak measurements that settle them. ROADMAP's own '**Last Updated: 2026-08-29**' header already carries an explicit self-correction telling readers to read the milestone rows and git log rather than its narrative paragraph, so it is not additionally stale. canonical-doc-coherence passed in this session's guard run."
-    },
-    "performance_review.strategy_performance": {
-      "status": "done",
-      "evidence": "7d and 30d real money measured with R-provenance stated beside every figure."
-    },
-    "performance_review.trade_decision_grades": {
-      "status": "done",
-      "evidence": "207 closed trades graded (B 90 / C 67 / D 50), newest reviewed_at 2026-09-08T10:50:51Z — after window_start, so the freshness guard is satisfied. Graded via the documented fallback after the system-action's delta was truncated by GitHub's comment rendering."
-    },
-    "performance_review.insights_review": {
-      "status": "done",
-      "evidence": "Live read: model_id template:v1, 7/7 checks green, cache_age 732s. Verified repo-wide that NOTHING guards the INSIGHTS_MODEL_MODE pin — that is the unmet clause 5 of BL-20260823-PROP-SCREENSHOT-SENDS-LIVE-ACCOUNT-DATA-TO-HOSTED-MODELS and why I did not close it."
-    },
-    "performance_review.proposed_tweaks": {
-      "status": "done",
-      "evidence": "NONE proposed off expectancyR, deliberately and for a stated reason — the 30d instrument still grades 12/39 contaminated. The one substantive proposal is the roster question."
-    },
-    "performance_review.backlog_drain": {
-      "status": "done",
-      "evidence": "0 closed in performance; all 44 open rows read for class membership, with the blocker named."
-    },
-    "performance_review.paper_book_tracker": {
-      "status": "done",
-      "evidence": "paperPortfolio (the honest mirror) is NEGATIVE at -$2,581.20 / PF 0.8934 while the raw paper book reads +$219,384 at 12.1% coverage. The translation gap is reported as a cross-review note."
-    },
-    "performance_review.real_money_allocation_benchmark": {
-      "status": "done",
-      "evidence": "30d n=39 PF 0.9507 -$3.63 vs 7d n=10 PF 0.0 -$34.56. Reconciled to venue truth at -$38.15 (32 fills). Deterioration from the prior review's 30d PF 1.99 stated."
-    },
-    "performance_review.anomalies": {
-      "status": "done",
-      "evidence": "Arm unreachability 81.4%; ≥95% giveback 53.4%."
-    },
-    "ml_review.trainer_findings": {
-      "status": "done",
-      "evidence": "Timer active, 9 cycles, 0 failures, disk 86.1% watch."
-    },
-    "ml_review.model_status": {
-      "status": "done",
-      "evidence": "96 registry rows reconcile EXACTLY to trainer_status on every stage. ⚠️ The true live-influencing count is 4, not 3 — one advisory exit head has no registry row."
-    },
-    "ml_review.promotion_recommendations": {
-      "status": "done",
-      "evidence": "NONE recommendable and the reason is the cycle priority: the gate's drift input cannot be computed. One DECISION-OWED (49-day parked head) and one explicit NO-DEMOTE with the caveat stated."
-    },
-    "ml_review.experiments_proposed": {
-      "status": "done",
-      "evidence": "4 proposed, led by the shadow-log-archive-reader that unblocks drift, stage-guard's demote trigger and gate packets in one change."
-    },
-    "ml_review.backlog_drain": {
-      "status": "done",
-      "evidence": "0 closed / 2 filed in ml; blockers named."
-    },
-    "ml_review.anomalies": {
-      "status": "done",
-      "evidence": "4 recorded, including that /api/bot/trades/scores joins by time overlap and must not be used to grade a model."
-    },
-    "consolidated_report": {
-      "status": "done",
-      "evidence": "Rendered with --strict PASSING to comms/reports/since-last/20260908T112000Z/. The index/artifact disagreement in the work object is settled: it was ONE orphan weekly directory, not six weeks; repaired, and disk vs index now reconcile 43 = 43 with zero on either side."
-    },
-    "operator_ping": {
-      "status": "done",
-      "evidence": "One consolidated ping dispatched via the send-ping system-action (issue #11374, priority high, target claude), carrying the roll-up grade and the SPA dashboard deep link. The three sub-review pings are suppressed — each sub-object records claude_channel_ping.delivered_via = 'suppressed (system-report)'. ⚠️ DELIVERY IS NOT CONFIRMED HERE: send-ping enqueues, and this repo's own record (BL-20260902-PING-DELIVERY-IS-MARKED-ON-A-LOCAL-FILE-WRITE-SO-DELIVERED-IS-NOT-EVIDENCE) is that a queued ping is not an observed arrival."
-    }
+ "schema_version": 1,
+ "run": "system-review 2026-09-11 (MI-272, session_01W56JbiKrada5AM4pGtHxmg)",
+ "started_at": "2026-09-11T17:51:50+00:00",
+ "items": {
+  "strategy_promotion": {
+   "status": "in_progress",
+   "evidence": "PARTIAL AND DELIBERATELY SO. The real-money roster was read (bybit_2 the only account actually trading real money; alpaca_live mode live/real_money but FLAT with 0 orders/0 positions — an empty denominator, not coverage; ib_live dry_run/strategies[]). NO per-leg promote/demote verdict was produced, because MI-271 owns the 2026-08-30 directional-leg break and the drawdown attribution, and two lanes producing competing verdicts off the same contaminated 30d instrument is worse than one. Routed, not duplicated."
   },
-  "notes": [
-    "**THE HEADLINE DEFECT: ib_paper/MGC's journal holds 43 lots the broker does not, with a live 43-lot protective STOP resting against the phantom.** If that stop fires it sells 43 contracts the account does not hold. Found by reconciling every journal open row against venue truth — 26 of 27 (account,symbol) pairs match EXACTLY, which is the positive control that makes the one divergence trustworthy. Root cause VERIFIED not inferred: `_reconcile_netting_partial_closes` selects `exchange == 'bybit'` only, and IB futures net identically with no equivalent. ib_paper is PAPER so no real money is at risk in this instance; the code path is account-agnostic. Tier-2/3 — PROPOSED, not enacted, and legs were NOT cancelled.",
-    "**Real money is on a 16-close losing streak with zero wins since 2026-08-28**, -$43.37 journal / -$38.15 venue truth, spread across FIVE legs — so this is the book, not a leg. The 7-day instrument is CLEAN (0 contaminated rows, rCoverage 1.0), which is what makes it actionable; the 30-day one is not.",
-    "**THE CYCLE PRIORITY, ANSWERED DIRECTLY: the measurement repair is real and incomplete.** MI-144's R fix is live and measurably exercised — the SAME 30d window (n=39, identical population) moved totalR +38.2891 → +6.9118 and expectancyR +0.9818 → +0.1772, removing 82% of the published R from a losing book. But rProvenance still reads 12 contaminated / 20 unverified / only 7 confirmedInitial of 39, and the window STILL publishes a positive expectancyR on a book that lost money. So: act on the 7d population, do not act on the 30d one.",
-    "**TWO INSTRUMENTS ARE THEMSELVES BROKEN and both are now filed with the exact fix.** (1) Shadow drift is unmeasurable by ARITHMETIC — the log rotates at 7 days while the default reference window starts 37 days back and the reader never opens the archives — so reference_count is 0 for every model and NO drift-driven demote can ever fire. (2) `backlog_burndown()` reads only `opened_at`, missing 287 rows; corrected September is 232 opened / 15 closed, not 91/15, and cumulative open is 788, not 456.",
-    "**A hypothesis was REFUTED and that is the most useful thing this pass produced.** The decision-driven exit share rose 22.6% → 61.3% since July, and I predicted the M20 exit levers were the cause. They are not: they are 7 of 155 September closes (4.5%). The driver is COMPOSITION — the pairs sleeve's own exits went 0% → 36.1%. Ex-pairs the share is only 27.7% → 47.0%, still below May's 70.4%. A review reading the headline would have reported the exit program as succeeding.",
-    "**I corrected my own error before reporting it**, which is worth recording because it changed the headline: my first pass classified `pairs_revert`/`pairs_stop` as janitor closes and produced '77.8% cleanup'. They are the pairs sleeve's OWN exit logic. Reclassified, the window reads 59.2% decided.",
-    "**Two CLAUDE.md claims were stale in the DANGEROUS direction and are corrected in this PR.** It said `PROTECTION_REASSERT_MODE` was 'still UNEXERCISED' and `PROTECTION_STRAY_GROUP_MODE` 'cancels NOTHING'. Both soaks show `mode: apply` / `apply_scope: allowlisted` with real cancels — 2 reasserts (one of them the MGC phantom re-arm) and 2 stray-group cancels with `verify_state: verified`. A session reading CLAUDE.md would have believed two live order-path gates were inert.",
-    "**The work object's own premise was wrong and I checked it before acting.** `WO-20260908-...` said the index's newest entry was 2026-06-23 and disagreed with the artifacts by six weeks. The index is sorted NEWEST-FIRST and 2026-06-23 is its OLDEST end; its newest matched the newest directory exactly. The REAL disagreement was one orphan weekly directory (2026-06-26) missing from the index — repaired, and disk vs index now reconcile 43 = 43. '38 days' was also true only of the WEEKLY window; the last report of any window was 10 days old.",
-    "**Deliberately NOT done, so the gaps are visible rather than implied.** No candle pull for the market-context OHLC (nulls, never zeros). No `m20_exit_analysis.py` dispatch to the trainer, so `roundtrippers_pct` and `mean_giveback_r` are null rather than estimated. No auth-denial or secret-literal sweep, so the security check is PARTIAL. Trainer-side `stage-guard` / `gate-check` were not run (they need the SSH relay).",
-    "**Standing prohibitions were observed:** no leg cancelled on the over-covered book, no exit-matrix cell re-graded, no `config/` change, no `ICT_SCALP_EXIT_HEAD_MODE` or `TP_VENUE_CAP_PCT` touched, `document_index.py --write` not run, no `--no-verify`, no force-push. 4.0R is not quoted anywhere as evidenced."
-  ]
+  "ml_training_health": {
+   "status": "done",
+   "evidence": "8 cycle_start / 8 cycle_end over 1000 rows of /api/bot/ml/cycle (2026-09-03T05:36Z..09-11T06:07Z); overall_rc=0 and failed=0 on all 8; manifest_failed / manifest_quarantine_tripped / manifest_quarantined all ZERO with a stated positive control (all three are live emitters in run_training_cycle.sh:396,613,624). My >=09-08 sub-window is 456 of those rows and FULLY INSIDE the 1000 cap. ⚠️ builds DOES truncate: /api/bot/ml/builds caps at 500 and reaches only to 09-09T05:20Z, so 09-08 dataset builds are COULD-NOT-LOOK, not zero. Trainer disk 86.9%, up from 86.1% on 09-08 — the WATCH has grown, +0.27pp/day on two dated points (not a trend line). 6 manifests are not training: 4 refused every cycle (audit_skipped_enforced, 47d), 2 with ZERO runs ever."
+  },
+  "soak_status": {
+   "status": "done",
+   "evidence": "10 soaks graded with per-soak denominators and rates. 9 accruing. advisory_decisions DISSOLVED not stalled — newest row 2026-06-25, 78 days, and the head it scored is at shadow today, so the advisory-SIZING path has had no advisory-stage input for 78 days and is a permanent no-op (stated as a consequence, not filed as a stall). ict_scalp_exit_head_soak accruing but thin: 968 not_scored / 32 scored_no_fire / 0 fires per 1000. ⚠️ LOUD FINDING: setup-quality-lgbm-v2 reports soak_days 80.42 against a model the trainer has REFUSED to retrain for 47 days — the BL-20260628-XA-TRAINING-ZERO class, filed."
+  },
+  "execution_capture": {
+   "status": "not_started",
+   "evidence": "NOT DONE. position_telemetry capture/giveback was not re-measured this run. Recorded as not-done rather than implied — the prior run's 2026-09-08 figures stand and must not be re-quoted as current."
+  },
+  "backlog_drive": {
+   "status": "done",
+   "evidence": "8 rows RETIRED, every one on its own stated criteria and each re-verified against the tree rather than taken on report: 2 resolved (AUDIT-F61 — the audit doc's F-61 row cites the row by id; EXIT-HEAD-AUC — 60 rows / 9 distinct fold_offsets in the sibling artifact its criterion permits), 2 wont_fix (IBLIVE-2FA on a re-verified dry_run/no-strategies config with a reopen condition recorded; BL-20260607-005 on its own second disjunct), 4 superseded across 2 duplicate clusters. ⚠️ BOTH CLUSTERS WERE CHECKED FOR RECURRENCE FIRST and neither is one — no fix ever shipped in either case. 9 rows filed (7 health, 2 ml). NET ON THE OPEN SET: 865 -> 864. Stated plainly rather than framed as a burn-down: this review found more than it closed, and the filings are the more valuable half."
+  },
+  "account_reachability": {
+   "status": "done",
+   "evidence": "All 11 accounts read. 24 of 24 open journal rows match venue quantity EXACTLY — that 24/24 is the positive control that makes the reconciliation trustworthy. All 13 Alpaca positions at exactly 1.00x stop AND target coverage. Only non-reachable are the two declared exclusions (breakout_1 API-less by design, ib_live dry_run). ⚠️ TWO DEGRADED READ-STATES, neither a failure: bybit_2 (REAL MONEY) available_usd reads coin_derived with is_broker_truth FALSE — correctly labelled, not collapsed, but the only real-money crypto account is sizing against a derived figure; and ib_paper's position read is intermittent and reports 'could not look' as error: null."
+  },
+  "since_last_build_verification": {
+   "status": "not_started",
+   "evidence": "NOT DONE. The shipped-capability enumeration since the last review was not performed this run."
+  },
+  "backlog_classes": {
+   "status": "done",
+   "evidence": "6 structural classes named over the WHOLE open set (950 open+kept_open across all four backlogs — note this is 1707 total rows / 7.7MB for health alone, NOT the 951/5.1MB CLAUDE.md still states, which is stale by ~500 rows). Largest: E1, the merge_slot single mutable key with no release mechanism — 18 open rows, one keyed-append fix, and a GHOST CLAIM was live in session-board.json during this review (held_by a branch that had merged 6 minutes after claiming). Also E4 (bybit hedge-book reads that cannot see the second book, 4 rows, real money) and E5 (detection exists, logger.error reaches only the journal, 6 rows — whose own tracker row says 'one member left' and is therefore measurably wrong)."
+  },
+  "ml_output_actionability": {
+   "status": "n_a",
+   "evidence": "NOT ASSESSED this run — deliberately, and the reason is a finding rather than an omission: the drift input that gates promotion is computed against 9.4% of its declared window (see ml_review.promotion_recommendations), so any actionability verdict taken today would rest on it."
+  },
+  "structural_health": {
+   "status": "not_started",
+   "evidence": "NOT DONE. The whole-history close-reason composition analysis was not re-run; MI-271 owns the performance half."
+  },
+  "unexercised_fixes": {
+   "status": "done",
+   "evidence": "Graded via OPEN-ITEMS observation. Two landed-and-now-EXERCISED confirmed with live evidence: the Alpaca share-hold classifier (close_wedge_standing carries a non-empty wedges with share_hold cancel_accepted_ineffective — the SECOND determination, so the classifier is discriminating rather than collapsing), and the closed-flat invariant (9 violations — exercised, and WRONG, see findings). Two shipped-and-still-unexercised recorded against their rows (blocked-lane watch, rollback registry)."
+  },
+  "research_results_disposition": {
+   "status": "not_started",
+   "evidence": "NOT DONE this run. The 103/11/256 disposition census was not re-measured; the prior figure must not be re-quoted as current."
+  },
+  "test_execution_verification": {
+   "status": "blocked",
+   "evidence": "BLOCKED — and the blocker is environmental, not a red tree. pytest is NOT INSTALLED in this sub-session container, which is a known and recorded property of these containers (a clean main reproduces 'No module named pytest'). So any guard whose command is a pytest invocation reports FAIL here for the environment, not for the diff. Recorded as blocked rather than skipped; CI is the authority for this item."
+  },
+  "health_review.findings": {
+   "status": "done",
+   "evidence": "7 findings, led by two P1s: the 60s exit-evaluation requirement BREACHED on the durable cross-process record (1,219/72,148 intervals = 1.69%, max 2.00x; restart gaps 77/462 = 16.7%, max 3.51x) while the live per-process instrument reads `within` on a 95-minute process that never drew the tail; and the closed-flat invariant grading the symbol NET book as the closing trade's residual."
+  },
+  "health_review.security_check": {
+   "status": "in_progress",
+   "evidence": "PARTIAL AND SAID SO, not implied clean. 858 request lines parsed from the web-api journal; 17 auth denials, all 401s on session-gated routes hit with a diag bearer — including my own probe, which served as the positive control. Ordinary internet scanning present and all rejected (403/404). ⚠️ THE WINDOW IS ~11.4h, NOT since 09-08: the journal tail caps at 1000 lines and reached only to 09-11T06:38Z. The 09-08..09-11T06:38 window is UNMEASURED, not clean. ⚠️ AND A STATED LIMIT ON THE VERDICT: the diag token is publicly exposed (accepted risk), so a third party using it would present as a cloud IP with a valid token — indistinguishable by IP from our own runners. The clean read rests on route-fingerprint plausibility, which is evidence, not proof."
+  },
+  "health_review.soak_decisions_due": {
+   "status": "done",
+   "evidence": "mes-regime-15m-lgbm-v2 re-surfaced, now 53 days parked. ⚠️ CORRECTED FRAMING: the prior review escalated it as met-and-unactioned. The operator ALREADY ANSWERED on 2026-08-16 — 'do NOT promote yet, compare the two heads head-to-head first' — because advisory resolves per-SYMBOL, so promoting it would silently DISPLACE the operator-approved 5m incumbent rather than add an opinion. What is owed is the MEASUREMENT, owed 26 days. Re-escalating it as a pending decision would re-ask a settled question."
+  },
+  "health_review.new_work_compliance": {
+   "status": "not_started",
+   "evidence": "NOT DONE this run."
+  },
+  "health_review.anomalies": {
+   "status": "done",
+   "evidence": "4 recorded: restart_pending is true-by-construction after any docs-only merge and reads as its own docstring's '2026-05-09 incident state' (I verified all 33 changed files are non-runtime and nearly filed a false P1); exchange_positions reports a failed ib_paper read as error: null; /api/diag/journal is capped at 1000 rows with no offset, which presented four venue positions as unjournalled orphans that are NOT (ids below the floor) — a live instance of 'a count that reads 0 may mean we could not look'; and /api/diag/audit_query returned malformed JSON to one parser, unconfirmed."
+  },
+  "health_review.backlog_drain": {
+   "status": "done",
+   "evidence": "8 retired / 7 health rows filed. See backlog_drive."
+  },
+  "health_review.backlog_coverage": {
+   "status": "done",
+   "evidence": "Whole open set read: 950 open+kept_open across all four backlogs, counted directly from the parsed items[] rather than via the helper. ⚠️ THE HELPER IS BROKEN AND IT IS WORSE THAN PREVIOUSLY RECORDED: backlog_burndown() reads only opened_at, and 465 rows (not ~287) carry no opened_at — 371 of them still open — while the real creation date lives under at least seven other keys. It also never reads research-review-backlog.json at all (19 rows, 13 open). September is filing ~37 rows/day against 1.5 closes/day."
+  },
+  "health_review.sprint_doc_review": {
+   "status": "done",
+   "evidence": "Done, and it produced real coherence findings. CLAUDE.md states the health backlog is '951 rows / 5.1 MB' — measured today it is 1462 rows / 7.7 MB, stale by ~500 rows. CLAUDE.md also states api.github.com is 403 from a session; measured today curl reached it successfully with the proxy-injected token. Both recorded for the doc-freshness pass rather than silently worked around."
+  },
+  "performance_review.strategy_performance": {
+   "status": "n_a",
+   "evidence": "OWNED BY MI-271 (research lane), which has the 2026-08-30 directional-leg break and the drawdown attribution. Deliberately not duplicated — overlapping measurement produces two numbers that disagree and nobody knows which to trust. Not an omission; a routing decision."
+  },
+  "performance_review.trade_decision_grades": {
+   "status": "not_started",
+   "evidence": "NOT DONE. No order packages were graded this run and comms/claude_strategy_scores.jsonl was not written. This is a REAL GAP in the mandate, recorded as not-started rather than excused."
+  },
+  "performance_review.insights_review": {
+   "status": "not_started",
+   "evidence": "NOT DONE this run."
+  },
+  "performance_review.proposed_tweaks": {
+   "status": "n_a",
+   "evidence": "Tier-3 and owned by MI-271. None proposed from this lane."
+  },
+  "performance_review.backlog_drain": {
+   "status": "in_progress",
+   "evidence": "Performance backlog READ for class membership (18 open / 29 kept_open of 117) but 0 closed from this lane — the open rows are predominantly Tier-3 or blocked on MI-271's attribution."
+  },
+  "performance_review.paper_book_tracker": {
+   "status": "not_started",
+   "evidence": "NOT DONE this run."
+  },
+  "performance_review.real_money_allocation_benchmark": {
+   "status": "n_a",
+   "evidence": "OWNED BY MI-271."
+  },
+  "performance_review.anomalies": {
+   "status": "not_started",
+   "evidence": "NOT DONE this run."
+  },
+  "ml_review.trainer_findings": {
+   "status": "done",
+   "evidence": "Trainer alive; mirror 19.4s fresh and reconciling EXACTLY with the live registry on every stage; ict-trainer.timer active/enabled, last trigger 09-11T00:07:56Z; live->trainer DB sync ok at 05:01:15Z rc=0. Disk 86.9% (WATCH, grown from 86.1%). All trainer facts are MIRROR-DERIVED — no relay was dispatched, so stage-guard / gate-check / list-models were NOT run. Stated rather than implied."
+  },
+  "ml_review.model_status": {
+   "status": "done",
+   "evidence": "THE 34/4 RATIO VERIFIED EXACTLY and reconciled two ways with ZERO stage disagreements: 34 scoring records (30 shadow + 4 advisory) = 32 registry rows at shadow+ − 2 registered-but-not-scoring + 4 off-registry exit heads. Soak ages over the 34: median 80.0d, mean 72.5d, max 115.6d, 11 models >=100d."
+  },
+  "ml_review.promotion_recommendations": {
+   "status": "done",
+   "evidence": "THE OPERATOR'S QUESTION ANSWERED DIRECTLY: 34-shadow/4-advisory is NEITHER a healthy funnel NOR a stalled gate — it is a STRUCTURAL CEILING. Advisory resolves per-SYMBOL (ml_vol_regime_for_symbol), so the 3 advisory registry heads are exactly one regime head per symbol (BTC/MES/SOL) and a promotion REPLACES an incumbent rather than adding one. Measured: 36 stage transitions in 90d, 9 into advisory, and every promotion PAIRED with a demotion. So the correct alarm is not 'why aren't we promoting' but '30 heads at shadow, median 80 days, and nothing ever RETIRES a head that lost its race'. ⚠️ AND A MECHANICAL BLOCKER, which REFUTES the prior review's claim: reference_count is NOT 0 (it is 0 for 2 of 34, both correctly insufficient_data). The real defect is worse — the declared 30-day drift reference window actually covers 2.81 days (9.4%) because iter_records never opens the rotated archives, while reporting reference_window_start 2026-08-05, a date for which the file holds ZERO rows. 24 of 32 FAIL drift_clean on that input and 2 of the 8 passes pass BECAUSE THEY EMIT A CONSTANT. NO promotion and NO demotion recommended: acting on that statistic in either direction is the unprovenanced-diagnostic trap."
+  },
+  "ml_review.experiments_proposed": {
+   "status": "done",
+   "evidence": "5 proposed, led by the one-module fix that unblocks the rest (teach iter_records to read the 3 nightly-synced archives). Also: root-cause the setup-quality-lgbm-v2 audit refusal; remove the stale expected_optional_features declaration the trainer names in its own output every cycle; run the MES 15m-vs-5m head-to-head the operator asked for 26 days ago. ⚠️ THE REAL OPPORTUNITY IS ETH — the ONE symbol with 5 shadow heads and NO advisory head, i.e. the only place a promotion would ADD coverage rather than displace an incumbent, and eth-regime-15m-lgbm-fc-pcv-v1 sits at candidate with macro_f1 0.584 on n_eval 87,636, the best ETH head by a clear margin."
+  },
+  "ml_review.backlog_drain": {
+   "status": "done",
+   "evidence": "2 ml rows filed, 0 closed; blockers named."
+  },
+  "ml_review.anomalies": {
+   "status": "done",
+   "evidence": "4 recorded, incl. two constant-output baselines still constant at 3,895 predictions each and acing the drift gate because of it; and Coordinator.log_advisory_scores writing a CWD-relative advisory_decisions.jsonl that diag never reads — zero production callers, tests only."
+  },
+  "consolidated_report": {
+   "status": "not_started",
+   "evidence": "NOT RENDERED. Recorded as not-done rather than a partial artifact passed off as the deliverable. The mandate's priority order was followed as dispatched (unstick sweep -> technical health -> ML -> OPEN-ITEMS observation debt -> backlog drive) and the report is the item that did not fit. A --strict render would also fail its own coverage guard on the 8 not_started items above, which is the guard working."
+  },
+  "operator_ping": {
+   "status": "n_a",
+   "evidence": "Suppressed by dispatch — this lane reports ONE consolidated result to the manager, who relays. The three sub-review pings are suppressed as the skill requires."
+  }
+ },
+ "notes": [
+  "**THE REVIEW IS NOT COMPLETE AND THIS CHECKLIST SAYS SO.** 8 of 37 items are not_started, 1 blocked, 5 n_a (4 of those routed to sibling lanes by dispatch). The dispatch's own priority order was followed and the consolidated report is what did not fit. An unevidenced tick is the thing this checklist exists to stop.",
+  "**P1 — THE 60-SECOND EXIT-EVALUATION REQUIREMENT IS BREACHED, and the live instrument says it is not.** Over the DURABLE cross-process record (72,148 intervals, 463 processes — the first reading not subject to the 'no process lived long enough' caveat): 1,219 breaches (1.69%), max 120,189ms = 2.00x, last breach TODAY. Restart gaps are far worse: 77 of 462 = 16.7%, max 3.51x. The running process reports requirement_state `within` over 172 intervals on a 95-minute life. CLAUDE.md's 2026-08-25 figure (0 of 991, max 45.0s) is a 991-row tail of a 72,611-row file and must not be re-quoted as current.",
+  "**P1 — THE ONE INDEPENDENT FALSIFIER OF 'THIS TRADE IS CLOSED' IS NOW SPEAKING, AND IT IS WRONG.** The closed-flat invariant was repaired on 09-09 and has produced 9 violations since 09-10. All are false: three SOLUSDT trades sized 7.5 / 9.3 / 9.8 each report the IDENTICAL residual -250.4, which is arithmetically impossible per-trade. exchange_qty is the account+symbol NET book. On a netted account a close with open siblings fires BY CONSTRUCTION — and 3 of the 5 trades are pairs-sleeve legs, where open siblings are the normal state. It emits at Level.ERROR, so all 9 paged the operator.",
+  "**A TWO-AND-A-HALF-MONTH EVIDENCE BLACKOUT NOBODY NOTICED.** replay-pregate-nightly.yml has ZERO successful runs in its entire life — 77 scheduled runs, 68 failure / 9 cancelled — and runtime_logs/replay_pregate/ is empty on main. A workflow that has NEVER been green cannot regress, so no green->red detector fires; what is missing is a detector for 'declared cadence, zero successes, ever'.",
+  "**THE 'CRON NEVER FIRES' PREMISE IS FALSE AND FIVE OPEN-ITEMS ROWS SAY OTHERWISE.** All 27 scheduled workflows have genuine event=schedule runs. The real defects are (a) the shared commit-to-main landing step, which on one day discarded the output of nine workflows AFTER they had computed it — today's due-list, constraint readout and error-feed digest exist only as abandoned branches — and (b) delivery falling off monotonically with declared frequency: hourly 25%, 2-hourly 37-48%, 3-hourly 62%, 6-hourly 91-100%, daily 100%. Also: the median cron fires 4-5 HOURS late, so no clears_when clause may read a declared minute as a firing minute.",
+  "**THE DRIFT GATE IS COMPUTED AGAINST 9.4% OF ITS OWN DECLARED WINDOW**, blocking 71% of the ML fleet, and two models pass it perfectly because they emit a constant. This also REFUTES the prior review's 'reference_count is 0 by arithmetic' — do not carry that forward. It is a RECURRENCE: sync_trainer_data.sh:318 documents this exact diagnosis; the SYNC half was fixed and the READ half never was. Three archives are synced nightly and read by nothing.",
+  "**A DATED LIVE INSTANCE OF THE ALPACA OVER-CLOSE.** alpaca_portfolio/TLT trade 5414 (56 shares) closed 09-08 12:54:52 on sl_cross; four minutes later sibling 5266 (16 shares) closed on exchange_flat_reconciled with pnl NULL. The sibling's outcome was not mis-attributed — it was never measured. This strengthens the MI-140 hold rather than releasing it.",
+  "**I NEARLY FILED TWO FALSE P1s AND CHECKED FIRST.** (1) restart_pending: true reads as its own docstring's '2026-05-09 incident state'; all 33 undeployed files are docs/.github/markdown, i.e. the deploy script's designed non-runtime skip. (2) Four venue positions appeared to have no journal row; they are below the /api/diag/journal 1000-row id floor. Both are instrument defects worth fixing, and neither is the outage it looks like.",
+  "**DISPATCH CORRECTIONS (RULE ONE).** My --owns-object named no file under docs/claude/work/objects/ and the spawn-gate correctly refused it; my --registry-key was never pushed to origin so confirm had nothing to confirm; and my first confirm passed --observed-source-url none, which the registry refused with 'that child has no repository' — one get_session call showed the source was correct all along. Self-registered against the real object.",
+  "**STANDING PROHIBITIONS OBSERVED.** No order placed, modified or cancelled. No leg cancelled on any over-covered book. No src/, config/, deploy/ or .github/workflows/ change. Every Tier-2/3 finding PROPOSED with the exact fix, never enacted — including the closed-flat fix, which is Tier-2 because it changes what pages a live operator."
+ ]
 }

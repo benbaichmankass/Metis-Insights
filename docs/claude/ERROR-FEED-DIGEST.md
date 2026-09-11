@@ -2,37 +2,47 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
-_Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.308516+00:00` · verdict **all_feeds_read**_
+_Generated 2026-09-11T18:44:08+00:00 · covers rows after `2026-09-11T14:34:38.952358+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
-- **operator_alerts** — state `read` · 451 of 1000 requested · span 2026-09-04T12:31:29.545416+00:00 → 2026-09-11T14:07:07.208721+00:00
-- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-08-31T16:17:58.356203+00:00 → 2026-09-11T14:34:38.952358+00:00
+- **operator_alerts** — state `read` · 483 of 1000 requested · span 2026-09-04T12:31:29.545416+00:00 → 2026-09-11T18:10:19.574900+00:00
+- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-09-06T09:46:41.595317+00:00 → 2026-09-11T17:06:11.452192+00:00
 
-## Groups (105, covering 1451 rows)
+## Groups (120, covering 1483 rows)
 
-- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/SPY: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
-  - 2026-09-11T14:14:45.729741+00:00 → 2026-09-11T14:14:45.729741+00:00 · accounts: alpaca_portfolio
-- **[error] x1** `bot_logs` — api_call bybit_place_order_failed: RuntimeError: ErrCode N pre-check: Buy SL N >= last_price N for AVAXUSDT — aborting; price moved against signal between gener
-  - 2026-09-11T11:44:06.460668+00:00 → 2026-09-11T11:44:06.460668+00:00
-- **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ADAUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
-  - 2026-09-11T14:02:20.331813+00:00 → 2026-09-11T14:02:20.331813+00:00 · accounts: bybit_1 · symbols: ADAUSDT
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_unavailable (for N co
+  - 2026-09-11T16:18:15.713409+00:00 → 2026-09-11T16:32:10.160877+00:00 · symbols: GDX · strategies: gdx_pullback_1d
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_unavailable (for N co
+  - 2026-09-11T16:18:02.082744+00:00 → 2026-09-11T16:31:49.825634+00:00 · symbols: GLD · strategies: gld_pullback_1d
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_unavailable (for N co
+  - 2026-09-11T16:18:08.975421+00:00 → 2026-09-11T16:31:56.610689+00:00 · symbols: GLD · strategies: gld_pullback_1h
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles_unavailable (for N 
+  - 2026-09-11T16:18:19.103379+00:00 → 2026-09-11T16:32:13.521433+00:00 · symbols: IAUM · strategies: iaum_pullback_1d
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_unavailable (for N co
+  - 2026-09-11T16:18:05.690313+00:00 → 2026-09-11T16:31:53.323690+00:00 · symbols: IEF · strategies: ief_pullback_1d
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_unavailable (for N co
+  - 2026-09-11T16:18:12.384487+00:00 → 2026-09-11T16:32:06.714414+00:00 · symbols: SLV · strategies: slv_pullback_1d
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_unavailable (for N co
+  - 2026-09-11T16:21:41.731909+00:00 → 2026-09-11T16:31:59.924116+00:00 · symbols: SPY · strategies: spy_pullback_1h
+- **[error] x2** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_unavailable (for N co
+  - 2026-09-11T16:19:41.351826+00:00 → 2026-09-11T16:32:03.240294+00:00 · symbols: TLT · strategies: tlt_pullback_1h
 - **[error] x60** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: orders_still_resting 
   - 2026-09-04T12:34:09.211974+00:00 → 2026-09-08T17:52:08.616408+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x56** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: br
   - 2026-09-07T08:06:36.543716+00:00 → 2026-09-08T14:05:20.948692+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x42** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co
   - 2026-09-04T19:13:36.573273+00:00 → 2026-09-11T11:44:04.543858+00:00 · symbols: MHG · strategies: mhg_pullback_1d
-- **[error] x38** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca
-  - 2026-09-08T19:46:55.876606+00:00 → 2026-09-11T14:07:07.208721+00:00 · accounts: alpaca_paper · symbols: GLD
+- **[error] x42** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca
+  - 2026-09-08T19:46:55.876606+00:00 → 2026-09-11T18:10:19.574900+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x36** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N 
   - 2026-09-04T21:55:38.042637+00:00 → 2026-09-11T11:08:33.851534+00:00 · symbols: MES
-- **[error] x25** `bot_logs` — bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
-  - 2026-09-04T12:28:34.799241+00:00 → 2026-09-10T10:27:04.850303+00:00 · accounts: bybit_1
 - **[error] x25** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_unavailable (for N c
   - 2026-09-07T08:38:27.866004+00:00 → 2026-09-11T13:08:54.380900+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[error] x17** `bot_logs` — bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
+  - 2026-09-06T10:15:10.011210+00:00 → 2026-09-10T10:27:04.850303+00:00 · accounts: bybit_1
 - **[error] x17** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_unavailable (for N co
   - 2026-09-04T19:13:36.304519+00:00 → 2026-09-08T14:16:09.104516+00:00 · symbols: MGC · strategies: mgc_pullback_1d
 - **[error] x16** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unavailable (for N conse
@@ -41,96 +51,82 @@ _Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.3
   - 2026-09-04T12:36:04.861459+00:00 → 2026-09-11T13:55:56.223146+00:00
 - **[error] x6** `bot_logs` — ib_stop_over_cover detected: ib_paper/MGC: position N but resting STOP qty totals N (N%) across N DISJOINT OCA groups oca-protect-tN(clientId=N, this_session), 
   - 2026-09-07T12:00:59.395338+00:00 → 2026-09-10T10:46:35.018173+00:00 · accounts: ib_paper
-- **[error] x5** `bot_logs` — api_call bybit_place_order_failed: <REDACTED_TOKEN>: The number of contracts exceeds maximum limit allowed: too large, order_qty:N > max_qty:N (ErrCode: N) (Err
-  - 2026-09-02T09:06:11.922435+00:00 → 2026-09-06T00:32:43.328719+00:00 · symbols: AVAXUSDT
-- **[error] x5** `bot_logs` — bybit_over_cover detected: bybit_N/SOLUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S
-  - 2026-09-03T00:04:10.571147+00:00 → 2026-09-04T11:28:19.181735+00:00 · accounts: bybit_1
-- **[error] x5** `bot_logs` — bybit_over_cover detected: bybit_portfolio/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of t
-  - 2026-09-02T18:06:01.582965+00:00 → 2026-09-03T13:53:17.696783+00:00 · accounts: bybit_portfolio
-- **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
-  - 2026-09-04T12:34:03.741129+00:00 → 2026-09-10T07:23:53.005707+00:00 · accounts: bybit_1 · symbols: AVAXUSDT
+- **[error] x6** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
+  - 2026-09-04T12:34:03.741129+00:00 → 2026-09-11T15:57:42.713361+00:00 · accounts: bybit_1 · symbols: AVAXUSDT
+- **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
+  - 2026-09-06T10:03:49.630107+00:00 → 2026-09-11T15:57:43.658103+00:00 · accounts: bybit_1 · symbols: ETHUSDT
+- **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
+  - 2026-09-06T03:38:44.111934+00:00 → 2026-09-11T15:57:43.188505+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x5** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: XRPUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
   - 2026-09-08T16:05:08.619976+00:00 → 2026-09-11T09:38:06.860434+00:00 · accounts: bybit_1 · symbols: XRPUSDT
 - **[error] x5** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: broker_cancel_wedged 
   - 2026-09-07T08:01:36.405495+00:00 → 2026-09-11T08:01:24.048228+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x4** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/TLT: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
   - 2026-09-08T05:07:41.352880+00:00 → 2026-09-11T14:02:37.267251+00:00 · accounts: alpaca_portfolio
-- **[error] x4** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
-  - 2026-09-02T18:06:01.001500+00:00 → 2026-09-11T13:56:22.447129+00:00 · accounts: bybit_1, bybit_2
-- **[error] x4** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
-  - 2026-09-06T10:03:49.630107+00:00 → 2026-09-11T01:31:34.077624+00:00 · accounts: bybit_1 · symbols: ETHUSDT
-- **[error] x4** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
-  - 2026-09-06T03:38:44.111934+00:00 → 2026-09-09T15:00:33.807040+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x4** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
   - 2026-09-07T07:36:02.212226+00:00 → 2026-09-11T12:39:21.718481+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x4** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: cancel_accepted_ineff
   - 2026-09-08T18:45:20.472938+00:00 → 2026-09-11T09:01:52.898109+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x3** `operator_alerts` — *DEMO TRADER* ⚠️ Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: buy | Qty: N Reason: RuntimeError: Order submissio
   - 2026-09-06T00:23:10.330361+00:00 → 2026-09-11T11:44:06.560104+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
-- **[error] x3** `bot_logs` — alpaca_target_naked detected: alpaca_paper/USO: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
-  - 2026-09-01T13:37:50.980581+00:00 → 2026-09-10T16:19:41.854736+00:00 · accounts: alpaca_paper
-- **[error] x3** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
-  - 2026-09-01T16:13:01.421292+00:00 → 2026-09-10T13:30:08.063835+00:00 · accounts: alpaca_portfolio
-- **[error] x3** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S
-  - 2026-09-04T08:05:59.787536+00:00 → 2026-09-08T14:03:17.829561+00:00 · accounts: bybit_1
+- **[error] x3** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
+  - 2026-09-09T09:48:24.051387+00:00 → 2026-09-11T15:57:45.925576+00:00 · accounts: bybit_1, bybit_2 · symbols: BTCUSDT
 - **[error] x3** `operator_alerts` — 🚨 ALL accounts failed to dispatch Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT | Side: buy Accounts attempted: N | Trades placed: N Failures: • bybit_N: Runti
   - 2026-09-06T00:23:10.340460+00:00 → 2026-09-11T11:44:06.568358+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
+- **[error] x3** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: ETHUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody 
+  - 2026-09-08T02:13:28.857971+00:00 → 2026-09-11T15:57:27.633784+00:00 · accounts: bybit_1 · symbols: ETHUSDT
 - **[error] x2** `operator_alerts` — *DEMO TRADER* ⚠️ Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: sell | Qty: N Reason: RuntimeError: Order submissi
   - 2026-09-04T17:15:36.492729+00:00 → 2026-09-10T17:40:42.149653+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[error] x2** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_paper/USO: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jou
   - 2026-09-08T13:44:00.224443+00:00 → 2026-09-10T16:46:56.582498+00:00 · accounts: alpaca_paper
 - **[error] x2** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/USO: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
   - 2026-09-08T13:44:01.882744+00:00 → 2026-09-10T16:46:58.265238+00:00 · accounts: alpaca_portfolio
-- **[error] x2** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/SPY: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
-  - 2026-09-03T13:36:39.932699+00:00 → 2026-09-08T20:00:05.201990+00:00 · accounts: alpaca_portfolio
 - **[error] x2** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/TLT: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
   - 2026-09-08T12:56:39.551866+00:00 → 2026-09-09T17:03:34.382430+00:00 · accounts: alpaca_portfolio
-- **[error] x2** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/USO: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
-  - 2026-09-04T13:41:21.616311+00:00 → 2026-09-10T16:19:42.999107+00:00 · accounts: alpaca_portfolio
-- **[error] x2** `bot_logs` — api_call bybit_get_positions_failed: ConnectionError: ('Connection aborted.', <REDACTED_TOKEN>('Remote end closed connection without response'))
-  - 2026-09-03T14:38:52.626767+00:00 → 2026-09-06T01:10:25.083914+00:00
-- **[error] x2** `bot_logs` — bybit_over_cover detected: bybit_N/XRPUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
-  - 2026-09-03T05:24:08.770479+00:00 → 2026-09-03T11:25:13.017186+00:00 · accounts: bybit_1
+- **[error] x2** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S
+  - 2026-09-06T10:02:16.478945+00:00 → 2026-09-08T14:03:17.829561+00:00 · accounts: bybit_1
 - **[error] x2** `bot_logs` — ib_target_naked detected: ib_paper/MGC: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
   - 2026-09-07T11:49:36.282971+00:00 → 2026-09-08T16:19:38.633126+00:00 · accounts: ib_paper
 - **[error] x2** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broke
   - 2026-09-10T10:36:36.725248+00:00 → 2026-09-10T19:03:30.797615+00:00 · accounts: bybit_1 · symbols: AVAXUSDT
-- **[error] x2** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
-  - 2026-09-09T09:48:24.051387+00:00 → 2026-09-11T14:06:22.253748+00:00 · accounts: bybit_1 · symbols: BTCUSDT
 - **[error] x2** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
   - 2026-09-06T23:38:42.239864+00:00 → 2026-09-08T14:06:56.557202+00:00 · accounts: bybit_1 · symbols: ETHUSDT
+- **[error] x2** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_portfolio Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification:
+  - 2026-09-09T09:48:28.122679+00:00 → 2026-09-11T15:57:47.231690+00:00 · accounts: bybit_portfolio · symbols: BTCUSDT
 - **[error] x2** `operator_alerts` — 🚨 ALL accounts failed to dispatch Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT | Side: sell Accounts attempted: N | Trades placed: N Failures: • bybit_N: Runt
   - 2026-09-04T17:15:36.502363+00:00 → 2026-09-10T17:40:42.158263+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[error] x2** `operator_alerts` — 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: SOLUSDT | Side: short Trade id: N Origin: reverse_reconciler_adopt Reason: exchange posi
   - 2026-09-06T06:39:14.033282+00:00 → 2026-09-08T13:02:38.292726+00:00 · accounts: bybit_1 · symbols: SOLUSDT
-- **[error] x2** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: ETHUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody 
-  - 2026-09-08T02:13:28.857971+00:00 → 2026-09-08T15:45:39.536822+00:00 · accounts: bybit_1 · symbols: ETHUSDT
+- **[error] x2** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody 
+  - 2026-09-06T03:37:22.662586+00:00 → 2026-09-11T15:56:56.900746+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x2** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: SOLUSDT | Side: short | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-06T06:39:14.034686+00:00 → 2026-09-08T13:02:38.294391+00:00 · accounts: bybit_1 · symbols: SOLUSDT
-- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_paper/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
-  - 2026-09-03T18:01:13.317351+00:00 → 2026-09-03T18:01:13.317351+00:00 · accounts: alpaca_paper
+- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/SPY: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
+  - 2026-09-11T14:14:45.729741+00:00 → 2026-09-11T14:14:45.729741+00:00 · accounts: alpaca_portfolio
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_paper/USO: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-10T16:19:41.854736+00:00 → 2026-09-10T16:19:41.854736+00:00 · accounts: alpaca_paper
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-10T13:30:08.063835+00:00 → 2026-09-10T13:30:08.063835+00:00 · accounts: alpaca_portfolio
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/SPY: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-08T20:00:05.201990+00:00 → 2026-09-08T20:00:05.201990+00:00 · accounts: alpaca_portfolio
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/USO: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-10T16:19:42.999107+00:00 → 2026-09-10T16:19:42.999107+00:00 · accounts: alpaca_portfolio
 - **[error] x1** `bot_logs` — api_call bybit_place_order_failed: <REDACTED_TOKEN>: PartialTakeProfit:N set for Sell position should be lower than base_price:N??LastPrice (ErrCode: N) (ErrTim
   - 2026-09-10T17:40:41.976315+00:00 → 2026-09-10T17:40:41.976315+00:00 · symbols: AVAXUSDT
-- **[error] x1** `bot_logs` — api_call bybit_place_order_failed: <REDACTED_TOKEN>: ab not enough for new order (ErrCode: N) (ErrTime: N:N:N). Request → POST https://api-demo.bybit.com/vN/ord
-  - 2026-09-04T12:01:58.850279+00:00 → 2026-09-04T12:01:58.850279+00:00 · symbols: BTCUSDT
-- **[error] x1** `bot_logs` — bybit_over_cover detected: bybit_N/BTCUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
-  - 2026-09-02T03:03:58.897791+00:00 → 2026-09-02T03:03:58.897791+00:00 · accounts: bybit_1
-- **[error] x1** `bot_logs` — bybit_over_cover detected: bybit_N/SOLUSDT: position N but resting SL legs total N (N%) across N leg(s). N of Bybit's N-leg COMBINED TP+SL cap are used (N left;
-  - 2026-08-31T18:05:43.366440+00:00 → 2026-08-31T18:05:43.366440+00:00 · accounts: bybit_1
-- **[error] x1** `bot_logs` — bybit_over_cover detected: bybit_N/SOLUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
-  - 2026-09-06T03:33:20.347956+00:00 → 2026-09-06T03:33:20.347956+00:00 · accounts: bybit_1
-- **[error] x1** `bot_logs` — pairs_naked_leg unresolved: pairs BNBUSDT/BTCUSDT: leg BTCUSDT failed AND the unwind left N naked leg(s) on bybit_N — un-hedged directional exposure protected o
-  - 2026-09-04T12:01:59.132724+00:00 → 2026-09-04T12:01:59.132724+00:00 · accounts: bybit_1 · strategies: pairs, pairs_naked_leg
+- **[error] x1** `bot_logs` — api_call bybit_place_order_failed: RuntimeError: ErrCode N pre-check: Buy SL N >= last_price N for AVAXUSDT — aborting; price moved against signal between gener
+  - 2026-09-11T11:44:06.460668+00:00 → 2026-09-11T11:44:06.460668+00:00
+- **[error] x1** `bot_logs` — bybit_over_cover detected: bybit_N/ETHUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit
+  - 2026-09-11T13:56:22.447129+00:00 → 2026-09-11T13:56:22.447129+00:00 · accounts: bybit_1
 - **[error] x1** `operator_alerts` — 🎯 Stop-loss exit detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: sl No
   - 2026-09-09T09:48:26.416223+00:00 → 2026-09-09T09:48:26.416223+00:00 · accounts: bybit_2 · symbols: BTCUSDT
 - **[error] x1** `operator_alerts` — 🎯 Stop-loss exit detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: sl No
   - 2026-09-08T13:39:28.693608+00:00 → 2026-09-08T13:39:28.693608+00:00 · accounts: bybit_2 · symbols: ETHUSDT
 - **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ADAUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_
   - 2026-09-10T16:21:21.501489+00:00 → 2026-09-10T16:21:21.501489+00:00 · accounts: bybit_1 · symbols: ADAUSDT
+- **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ADAUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
+  - 2026-09-11T14:02:20.331813+00:00 → 2026-09-11T14:02:20.331813+00:00 · accounts: bybit_1 · symbols: ADAUSDT
 - **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_N Symbol: XRPUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker
   - 2026-09-04T12:31:59.284096+00:00 → 2026-09-04T12:31:59.284096+00:00 · accounts: bybit_1 · symbols: XRPUSDT
-- **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_portfolio Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification:
-  - 2026-09-09T09:48:28.122679+00:00 → 2026-09-09T09:48:28.122679+00:00 · accounts: bybit_portfolio · symbols: BTCUSDT
 - **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_portfolio Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification:
   - 2026-09-08T13:39:30.362786+00:00 → 2026-09-08T13:39:30.362786+00:00 · accounts: bybit_portfolio · symbols: ETHUSDT
 - **[error] x1** `operator_alerts` — 🔔 Broker close detected by reconciler Account: bybit_portfolio Symbol: XRPUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification:
@@ -143,8 +139,6 @@ _Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.3
   - 2026-09-08T16:11:24.413765+00:00 → 2026-09-08T16:11:24.413765+00:00 · accounts: ib_paper · symbols: MGC
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: AVAXUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobod
   - 2026-09-10T19:01:50.437535+00:00 → 2026-09-10T19:01:50.437535+00:00 · accounts: bybit_1 · symbols: AVAXUSDT
-- **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody 
-  - 2026-09-06T03:37:22.662586+00:00 → 2026-09-06T03:37:22.662586+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: SOLUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody
   - 2026-09-06T09:30:31.204647+00:00 → 2026-09-06T09:30:31.204647+00:00 · accounts: bybit_1 · symbols: SOLUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: XRPUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody
@@ -153,46 +147,86 @@ _Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.3
   - 2026-09-08T14:25:48.314624+00:00 → 2026-09-08T14:25:48.314624+00:00 · accounts: bybit_1 · symbols: ETHUSDT
 - **[error] x1** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: ib_paper Symbol: MGC | Side: short | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-08T16:11:24.415733+00:00 → 2026-09-08T16:11:24.415733+00:00 · accounts: ib_paper · symbols: MGC
-- **[warn] x42** `bot_logs` — position_read_state hedge_book_dropped
-  - 2026-09-11T14:04:25.178800+00:00 → 2026-09-11T14:34:38.952358+00:00
-- **[warn] x482** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-08-31T16:17:59.680586+00:00 → 2026-09-11T13:10:00.377498+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
-- **[warn] x133** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
-  - 2026-08-31T16:18:00.357922+00:00 → 2026-09-11T13:10:01.155579+00:00 · symbols: MGC · strategies: mgc_trend_1h
-- **[warn] x98** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
-  - 2026-08-31T16:18:00.015896+00:00 → 2026-09-11T13:10:00.767229+00:00 · symbols: MGC · strategies: mgc_pullback_1d
-- **[warn] x74** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
-  - 2026-08-31T16:17:58.356203+00:00 → 2026-09-11T11:44:08.046776+00:00 · symbols: MES
-- **[warn] x71** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
-  - 2026-08-31T16:18:01.801385+00:00 → 2026-09-11T11:44:11.869081+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[warn] x17** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: iwm_trend_long_Nd: no candle data returned for symbol=IWM timeframe=Nd. Check that the Alpaca con
+  - 2026-09-11T16:15:47.621324+00:00 → 2026-09-11T17:05:19.811889+00:00 · symbols: IWM
+- **[warn] x17** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: qld_trend_long_Nd: no candle data returned for symbol=QLD timeframe=Nd. Check that the Alpaca con
+  - 2026-09-11T16:16:08.279879+00:00 → 2026-09-11T17:06:11.452192+00:00 · symbols: QLD
+- **[warn] x17** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: qqq_pullback_Nh: no candle data returned for symbol=QQQ timeframe=Nh. Check that the Alpaca conne
+  - 2026-09-11T16:15:46.497627+00:00 → 2026-09-11T17:01:48.312843+00:00 · symbols: QQQ · strategies: qqq_pullback_1h
+- **[warn] x17** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: slv_trend_Nh: no candle data returned for symbol=SLV timeframe=Nh. Check that the Alpaca connecti
+  - 2026-09-11T16:15:54.813174+00:00 → 2026-09-11T17:05:38.340340+00:00 · symbols: SLV · strategies: slv_trend_1h
+- **[warn] x17** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: uso_trend_Nh: no candle data returned for symbol=USO timeframe=Nh. Check that the Alpaca connecti
+  - 2026-09-11T16:15:59.272342+00:00 → 2026-09-11T17:05:49.514253+00:00 · symbols: USO · strategies: uso_trend_1h
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: qqq_trend_long_Nd: no candle data returned for symbol=QQQ timeframe=Nd. Check that the Alpaca con
+  - 2026-09-11T16:21:03.444765+00:00 → 2026-09-11T17:05:02.853206+00:00 · symbols: QQQ
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: scha_trend_long_Nd: no candle data returned for symbol=SCHA timeframe=Nd. Check that the Alpaca c
+  - 2026-09-11T16:16:17.261348+00:00 → 2026-09-11T17:02:47.764483+00:00 · symbols: SCHA
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: splg_trend_long_Nd: no candle data returned for symbol=SPLG timeframe=Nd. Check that the Alpaca c
+  - 2026-09-11T16:16:12.397795+00:00 → 2026-09-11T17:02:39.629311+00:00 · symbols: SPLG
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: spy_pullback_Nh: no candle data returned for symbol=SPY timeframe=Nh. Check that the Alpaca conne
+  - 2026-09-11T16:20:59.315282+00:00 → 2026-09-11T17:04:51.806817+00:00 · symbols: SPY · strategies: spy_pullback_1h
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: spy_trend_long_Nd: no candle data returned for symbol=SPY timeframe=Nd. Check that the Alpaca con
+  - 2026-09-11T16:20:55.873743+00:00 → 2026-09-11T17:04:41.454944+00:00 · symbols: SPY
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nd: no candle data returned for symbol=TLT timeframe=Nd. Check that the Alpaca conne
+  - 2026-09-11T16:15:48.608041+00:00 → 2026-09-11T17:01:56.738166+00:00 · symbols: TLT · strategies: tlt_pullback_1d
+- **[warn] x16** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: tqqq_trend_long_Nd: no candle data returned for symbol=TQQQ timeframe=Nd. Check that the Alpaca c
+  - 2026-09-11T16:16:04.289813+00:00 → 2026-09-11T17:02:31.412606+00:00 · symbols: TQQQ
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: gdx_pullback_Nd: no candle data returned for symbol=GDX timeframe=Nd. Check that the Alpaca conne
+  - 2026-09-11T16:18:44.335378+00:00 → 2026-09-11T17:02:27.292661+00:00 · symbols: GDX · strategies: gdx_pullback_1d
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nd: no candle data returned for symbol=GLD timeframe=Nd. Check that the Alpaca conne
+  - 2026-09-11T16:18:19.924896+00:00 → 2026-09-11T17:02:04.258127+00:00 · symbols: GLD · strategies: gld_pullback_1d
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nh: no candle data returned for symbol=GLD timeframe=Nh. Check that the Alpaca conne
+  - 2026-09-11T16:18:23.343840+00:00 → 2026-09-11T17:02:07.671772+00:00 · symbols: GLD · strategies: gld_pullback_1h
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: iaum_pullback_Nd: no candle data returned for symbol=IAUM timeframe=Nd. Check that the Alpaca con
+  - 2026-09-11T16:19:01.471018+00:00 → 2026-09-11T17:02:43.654255+00:00 · symbols: IAUM · strategies: iaum_pullback_1d
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ief_pullback_Nd: no candle data returned for symbol=IEF timeframe=Nd. Check that the Alpaca conne
+  - 2026-09-11T16:18:27.346617+00:00 → 2026-09-11T17:02:11.656435+00:00 · symbols: IEF · strategies: ief_pullback_1d
+- **[warn] x15** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: slv_pullback_Nd: no candle data returned for symbol=SLV timeframe=Nd. Check that the Alpaca conne
+  - 2026-09-11T16:18:36.178992+00:00 → 2026-09-11T17:02:19.222382+00:00 · symbols: SLV · strategies: slv_pullback_1d
+- **[warn] x14** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nh: no candle data returned for symbol=TLT timeframe=Nh. Check that the Alpaca conne
+  - 2026-09-11T16:21:18.753145+00:00 → 2026-09-11T17:02:00.153576+00:00 · symbols: TLT · strategies: tlt_pullback_1h
+- **[warn] x274** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-09-06T09:46:41.595317+00:00 → 2026-09-11T16:37:10.299750+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x168** `bot_logs` — position_read_state hedge_book_dropped
+  - 2026-09-11T14:04:25.178800+00:00 → 2026-09-11T15:53:34.204262+00:00
+- **[warn] x70** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
+  - 2026-09-06T13:18:11.159978+00:00 → 2026-09-11T13:10:01.155579+00:00 · symbols: MGC · strategies: mgc_trend_1h
+- **[warn] x59** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
+  - 2026-09-06T13:18:10.809754+00:00 → 2026-09-11T16:26:51.884270+00:00 · symbols: MGC · strategies: mgc_pullback_1d
+- **[warn] x43** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
+  - 2026-09-06T13:18:08.975371+00:00 → 2026-09-11T11:44:08.046776+00:00 · symbols: MES
+- **[warn] x34** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
+  - 2026-09-06T13:18:12.526973+00:00 → 2026-09-11T11:44:11.869081+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[warn] x10** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_a | Symbol: BNBUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
+  - 2026-09-05T06:04:14.576860+00:00 → 2026-09-11T17:02:58.758622+00:00 · symbols: BNBUSDT · strategies: pairs_bnb_btc_a
+- **[warn] x10** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_b | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
+  - 2026-09-05T06:04:14.568700+00:00 → 2026-09-11T17:02:58.763730+00:00 · symbols: BTCUSDT · strategies: pairs_bnb_btc_b
 - **[warn] x10** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_sol_eth_a | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-05T06:04:14.550804+00:00 → 2026-09-11T05:04:55.308516+00:00 · symbols: SOLUSDT · strategies: pairs_sol_eth_a
 - **[warn] x10** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_sol_eth_b | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-05T06:04:14.561095+00:00 → 2026-09-11T05:04:55.300261+00:00 · symbols: ETHUSDT · strategies: pairs_sol_eth_b
-- **[warn] x9** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_a | Symbol: BNBUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
-  - 2026-09-05T06:04:14.576860+00:00 → 2026-09-10T13:04:46.595330+00:00 · symbols: BNBUSDT · strategies: pairs_bnb_btc_a
-- **[warn] x9** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_b | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
-  - 2026-09-05T06:04:14.568700+00:00 → 2026-09-10T13:04:46.590478+00:00 · symbols: BTCUSDT · strategies: pairs_bnb_btc_b
-- **[warn] x7** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (ETHUSDT) after a partial close; flattened this tick
-  - 2026-09-01T00:02:52.353574+00:00 → 2026-09-09T04:46:38.484668+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x6** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_eth_Nm | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
   - 2026-09-06T23:00:50.137794+00:00 → 2026-09-11T13:37:46.734208+00:00 · symbols: ETHUSDT · strategies: ict_scalp_eth_15m
 - **[warn] x6** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
   - 2026-09-06T02:42:58.941564+00:00 → 2026-09-11T10:30:59.936370+00:00 · symbols: SOLUSDT · strategies: ict_scalp_sol_15m, ict_scalp_sol_5m
+- **[warn] x6** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
+  - 2026-09-05T01:40:56.167943+00:00 → 2026-09-11T14:47:01.690225+00:00 · symbols: XRPUSDT · strategies: ict_scalp_xrp_15m, ict_scalp_xrp_5m
 - **[warn] x5** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
   - 2026-09-07T16:21:51.298257+00:00 → 2026-09-11T13:08:26.874319+00:00 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
-- **[warn] x5** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
-  - 2026-09-05T01:40:56.167943+00:00 → 2026-09-11T01:10:31.853415+00:00 · symbols: XRPUSDT · strategies: ict_scalp_xrp_15m, ict_scalp_xrp_5m
-- **[warn] x4** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (SOLUSDT) after a partial close; flattened this tick
-  - 2026-09-03T07:10:21.519974+00:00 → 2026-09-11T01:31:56.284547+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x4** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_mgc_Nm | Symbol: MGC Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timef
   - 2026-09-07T09:12:01.452888+00:00 → 2026-09-11T07:02:00.828513+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x3** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (ETHUSDT) after a partial close; flattened this tick
+  - 2026-09-07T15:34:20.803635+00:00 → 2026-09-09T04:46:38.484668+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
+- **[warn] x3** `bot_logs` — pairs_half_open cleaned: pairs SOLUSDT/ETHUSDT: one leg was stranded open on bybit_N (SOLUSDT) after a partial close; flattened this tick
+  - 2026-09-06T23:39:03.167302+00:00 → 2026-09-11T01:31:56.284547+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ada_pullback_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-04T22:10:16.827464+00:00 → 2026-09-11T12:01:15.717382+00:00 · symbols: ADAUSDT · strategies: ada_pullback_2h
+- **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
+  - 2026-09-04T18:06:56.556973+00:00 → 2026-09-11T17:08:30.818635+00:00 · symbols: SPY · strategies: spy_pullback_1h
+- **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: tlt_pullback_Nh | Symbol: TLT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
+  - 2026-09-08T17:27:11.118342+00:00 → 2026-09-11T16:56:57.006126+00:00 · symbols: TLT · strategies: tlt_pullback_1h
 - **[warn] x2** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: uso_trend_Nh | Symbol: USO Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timeframe
   - 2026-09-08T16:38:25.375101+00:00 → 2026-09-10T19:40:59.239006+00:00 · symbols: USO · strategies: uso_trend_1h
-- **[warn] x1** `bot_logs` — pairs_half_open cleaned: pairs BNBUSDT/BTCUSDT: one leg was stranded open on bybit_N (BNBUSDT) after a partial close; flattened this tick
-  - 2026-09-04T12:03:50.800222+00:00 → 2026-09-04T12:03:50.800222+00:00 · accounts: bybit_1 · strategies: pairs, pairs_half_open
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: eth_pullback_Nh | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-04T20:05:14.912386+00:00 → 2026-09-04T20:05:14.912386+00:00 · symbols: ETHUSDT · strategies: eth_pullback_2h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: gdx_pullback_Nd | Symbol: GDX Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
@@ -207,10 +241,6 @@ _Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.3
   - 2026-09-09T00:00:58.046822+00:00 → 2026-09-09T00:00:58.046822+00:00 · symbols: MGC · strategies: mgc_trend_1h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: qqq_pullback_Nh | Symbol: QQQ Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
   - 2026-09-04T21:22:20.541248+00:00 → 2026-09-04T21:22:20.541248+00:00 · symbols: QQQ · strategies: qqq_pullback_1h
-- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
-  - 2026-09-04T18:06:56.556973+00:00 → 2026-09-04T18:06:56.556973+00:00 · symbols: SPY · strategies: spy_pullback_1h
-- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: tlt_pullback_Nh | Symbol: TLT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
-  - 2026-09-08T17:27:11.118342+00:00 → 2026-09-08T17:27:11.118342+00:00 · symbols: TLT · strategies: tlt_pullback_1h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_avax_Nh | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N
   - 2026-09-07T08:53:24.796465+00:00 → 2026-09-07T08:53:24.796465+00:00 · symbols: AVAXUSDT · strategies: trend_donchian_avax_4h
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: trend_donchian_eth | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
@@ -226,4 +256,4 @@ _Generated 2026-09-11T14:35:56+00:00 · covers rows after `2026-09-11T05:04:55.3
 
 ---
 
-_Watermark: `2026-09-11T14:34:38.952358+00:00` — advanced to the newest row read (2026-09-11T14:34:38.952358+00:00)_
+_Watermark: `2026-09-11T18:10:19.574900+00:00` — advanced to the newest row read (2026-09-11T18:10:19.574900+00:00)_

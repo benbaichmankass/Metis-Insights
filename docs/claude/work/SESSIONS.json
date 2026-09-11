@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T17:51:59Z",
+  "updated_at": "2026-09-11T18:17:50Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4764,10 +4764,13 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Operator-selected 2026-09-11.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T17:51:59Z"
+      "confirmed_at": "2026-09-11T18:17:50Z"
     },
     {
       "session_id": "session_01W56JbiKrada5AM4pGtHxmg",
+      "branches": [
+        "claude/system-review-20260911"
+      ],
       "registry_key": "pending-20260911T174615Z-4",
       "state": "working",
       "title": "OPS LANE MI-272 — full /system-review",
