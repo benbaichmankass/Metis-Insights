@@ -262,3 +262,74 @@ def test_a_stray_branch_key_on_an_input_row_is_ignored():
                                            "Touching: `a/x.py`\n",
           "url": "u", "created_at": "t"}
     assert G.attribution(st, my_branch="claude/mine") == "other"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A PATH MAY NOT SUPPLY A MARKER (2026-09-11)
+#
+# The manager's standing START (board #11336 comment 5639940646) reads:
+#
+#     **I do NOT touch** `src/`, `config/`, `scripts/`, `.github/workflows/`,
+#     `deploy/`, or any order path — `check_manager_scope.py` enforces that
+#     and I want it enforced.
+#
+# That classified `declare`, and the marker that matched was `scope` — from
+# INSIDE the path token `check_manager_scope.py`. So a DISCLAIMER was promoted
+# to a CLAIM by the name of the guard the sentence cites, and the five paths
+# `check_manager_scope.py` R2 forbids the manager from touching were published
+# as its declared scope. Every lane touching any of them collided with the
+# manager, and those positives are guaranteed false BY A CI GUARD rather than
+# merely unlikely.
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: VERBATIM from the comment cited above. Kept whole rather than reduced to a
+#: minimal repro, because the defect is a property of how real sessions write.
+_MANAGER_NEGATION_LINE = (
+    "**I do NOT touch** `src/`, `config/`, `scripts/`, `.github/workflows/`, "
+    "`deploy/`, or any order path — `check_manager_scope.py` enforces that and "
+    "I want it enforced."
+)
+
+
+def test_a_filename_cannot_classify_the_line_that_names_it():
+    """The regression case. It must not read as a DECLARATION."""
+    assert G._classify(_MANAGER_NEGATION_LINE) != "declare"
+
+
+def test_positive_control_scope_in_PROSE_still_declares():
+    """The fix must not simply stop seeing `scope`. A real START header using
+    the word in prose — `MI-192`'s, verbatim — still opens a declaration."""
+    assert G._classify("**Scope I am about to touch:**") == "declare"
+
+
+@pytest.mark.parametrize("marker", ["scope", "files:", "touching", "editing",
+                                    "claiming"])
+def test_no_declaration_marker_can_be_supplied_by_a_path_token(marker):
+    """Generalised, so the next marker added inherits the property instead of
+    re-learning it. A line whose ONLY occurrence of a marker is inside a code
+    span is not a declaration."""
+    line = f"Some prose mentioning `a/b/{marker}_helper.py` and nothing else."
+    assert G._classify(line) is None
+
+
+def test_path_EXTRACTION_is_unaffected_so_nothing_stops_being_declared():
+    """Code spans are stripped for CLASSIFICATION only. A genuine declaration
+    whose paths are backticked must still declare them — the failure direction
+    that would make this fix worse than the bug."""
+    declared, excluded, _ = G.parse_declared_paths(
+        "Touching: `src/alpha.py`, `docs/beta.md`\n")
+    assert declared == {"src/alpha.py", "docs/beta.md"}
+    assert not excluded
+
+
+def test_the_negation_line_still_yields_no_false_DECLARED_paths():
+    """End to end on the real line: none of the five disclaimed paths may come
+    back as declared. ⚠️ They are not asserted as EXCLUDED either — `do not
+    touch` is absent from `_NEGATION_MARKERS`, so the line classifies None and
+    inherits, which kills the false positive without claiming a negation the
+    parser did not actually detect. That residue is filed, not papered over:
+    BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES.
+    """
+    declared, _, _ = G.parse_declared_paths(_MANAGER_NEGATION_LINE + "\n")
+    for p in ("src/", "config/", "scripts/", ".github/workflows/", "deploy/"):
+        assert p not in declared, p
