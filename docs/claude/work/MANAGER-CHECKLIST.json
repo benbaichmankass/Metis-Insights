@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-11T21:56:00Z",
+  "updated_at": "2026-09-11T22:04:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4087,7 +4087,7 @@
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 708k/1M, own check-in armed 22:03Z. #11825 MERGED; #11829 (a third branch, mi236c) green with guards + pytest-collect + repo-inventory passing. The manager handed it a measured finding on #11829 -- parse_identity cannot read a session id that is present but not on line 0 -- with an explicit instruction to FILE it and not widen #11829. Past the handoff trigger."
     }
   ],
-  "as_of": "2026-09-11T21:56:00Z",
+  "as_of": "2026-09-11T22:04:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 21:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -4216,6 +4216,8 @@
     "merge_queue": "No conflict outstanding on the open set at 21:53Z. #11826 and #11829 self-land on green.",
     "routine_repaired": "The hourly tick prompt enumerated four lanes (MI-271/272/273/274) that all finished between 18:20Z and 19:39Z, so every tick since had been reading a dead list. Rewritten to DERIVE the live lane set from SESSIONS.json + the checklist and confirm each with get_session. Same stale-by-enumeration class as the board-START row filed at 20:0xZ; the remedy is the same -- describe the role, never the roster.",
     "verified_not_inherited": "ListAgents returns no reachable agents, corroborating CLAUDE.md's claim that a manager cannot message a running cloud sub-session. Checked this session rather than carried forward.",
-    "registry_decay_corrected": "SESSIONS.json read `state: working` for two lanes that get_session showed IDLE/review_ready. Corrected to the OBSERVED value with the observation stamped. This is MI-193's measured ~61-minute truth-lifetime, live."
+    "registry_decay_corrected": "SESSIONS.json read `state: working` for two lanes that get_session showed IDLE/review_ready. Corrected to the OBSERVED value with the observation stamped. This is MI-193's measured ~61-minute truth-lifetime, live.",
+    "ranking_key_ab_is_red_on_main": "OBSERVED 2026-09-11T22:0xZ, recorded rather than acted on. .github/workflows/ranking-key-ab.yml concluded `failure` on 5 of the 5 most recent `main` pushes read (runs 1193/1186/1176/1169/1164, head shas fd8f7248 / 4ba06856 / 267db900 / d9c4d2c1 / 0228ec29) -- all of them pure automation-receipt commits that change no ranking code. It is therefore RED ON THE BASE BRANCH and not attributable to any PR that trips it. It is NOT a required check (absent from every PR check-run list this session), so it blocks nothing. NOT FILED YET: a backlog row needs a check of whether this is already known and whether the failure is real or the workflow is simply inapplicable to a receipt commit -- filing before that would risk a duplicate. FLAGGED because a workflow that fails on every single push is the desensitised-alarm shape this repo has a P1 rule about: either it means something and nobody is reading it, or it means nothing and should stop running.",
+    "force_push_fired_no_pull_request_event": "OBSERVED 2026-09-11T22:02Z on #11836. A force-push-with-lease of a squashed commit (3f34c912) produced only `push`-event runs -- ranking-key-ab and claude-pr-automerge -- and NO `pull_request: synchronize`, so Guards / pytest-run / pytest-collect / repo-inventory never re-ran and the PR sat with ONE check run. The earlier ordinary pushes on the same branch (8e9f8f54, 618d94b7) DID fire pull_request events, so it is the force-push specifically. This is a NEW variant of the documented zero-check trap: CLAUDE.md records it for a PR OPENED under GITHUB_TOKEN, not for a force-push to an already-open PR. Remedy is the same -- push one ordinary commit carrying a real change; an empty commit is forbidden."
   }
 }
