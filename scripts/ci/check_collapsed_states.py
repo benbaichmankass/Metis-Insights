@@ -976,6 +976,39 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "decision_subject.subject_state",
+        "producer": "src/runtime/decision_subject.py",
+        "consumer_token": (r"\bsubjectState\b|\bSUBJECT_LIVE\b|\bSUBJECT_GONE\b|"
+                           r"\bSUBJECT_UNKNOWN\b|\bSUBJECT_UNDECLARED\b"),
+        "states": ["subject_live", "subject_gone", "subject_unknown",
+                   "subject_undeclared"],
+        "why": (
+            "MI-258. A decision request rendered on the operator's Workflow "
+            "page as work waiting on THEM for more than a day after its "
+            "subject had been deleted -- DR-20260908-CLEAR-THE-LOUD-TRADE-"
+            "PRIORITISATION-ROW asks whether to remove an OPEN-ITEMS row that "
+            "left the file on 2026-09-09 in ba5fccc1a (#11509). The fix "
+            "withdraws such a question from the work list, so EVERY state "
+            "that is not `gone` is load-bearing in the other direction: it is "
+            "what keeps a live decision on the operator's screen. "
+            "`subject_gone` is the venue of record saying the thing is not "
+            "there. `subject_unknown` is *we could not look* -- an unreadable "
+            "register, a kind with no offline resolver (a PR, a branch), or a "
+            "ref that is a strict prefix of a live id. That last is not "
+            "hypothetical and is why this contract exists at all: a prose "
+            "scan over the same 26-request corpus flagged 4 subjects as "
+            "vanished and 3 were FALSE (75%), one of them a YAML line wrap "
+            "cutting `OI-20260831-PER-ACCOUNT-ARBITRATION-...` mid-token so "
+            "that a LIVE row graded `gone`. Collapsing `unknown` into `gone` "
+            "hides a real decision; collapsing it into `live` reproduces the "
+            "bug. `subject_undeclared` is the fourth and is DELIBERATELY not "
+            "`unknown`: nothing was declared, so nothing failed to resolve -- "
+            "measured at 25 of 26 requests on 2026-09-11, so pooling the two "
+            "would report a 96% resolution FAILURE for work the resolver was "
+            "never asked to do, and would point the next session at the "
+            "resolver instead of at the authors."),
+    },
+    {
         "name": "work_decisions.answer_state",
         "producer": "src/runtime/work_decisions.py",
         "consumer_token": (r"\banswer_state\b|\banswerState\b|\bANSWER_STATES\b|"

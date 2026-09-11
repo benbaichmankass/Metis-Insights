@@ -77,6 +77,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from src.runtime.decision_subject import normalise_subject
 from src.utils.paths import runtime_logs_dir
 
 logger = logging.getLogger(__name__)
@@ -514,6 +515,14 @@ def normalise_requests(object_data: dict[str, Any], object_id: str) -> list[dict
                 # Always present as a key — a key that vanishes makes a
                 # consumer branch on absence, and absence is not a state.
                 "conversationalAnswer": normalise_conversational_answer(raw),
+                # MI-258: WHAT this question is about, as a declared typed
+                # reference — never scraped from the prose. `None` here is a
+                # real and today overwhelmingly common state (25 of 26 on
+                # 2026-09-11) and grades `subject_undeclared`, which is NOT
+                # the same fact as a declared subject we failed to resolve.
+                # See src/runtime/decision_subject.py for the measurement that
+                # rules out inferring it.
+                "subject": normalise_subject(raw.get("subject")),
             }
         )
     return out
