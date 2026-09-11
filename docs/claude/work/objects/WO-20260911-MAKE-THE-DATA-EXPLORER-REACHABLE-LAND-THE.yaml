@@ -1,0 +1,43 @@
+id: WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Make the Data Explorer reachable: land the propagation path and size the SPA bearer half
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01BC4R18Lt8CaVzfxZF7DMce
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  BOTH: (a) the secret-backed mapping is merged so a set-env with a blank env_value can move both keys without either value reaching a public issue body or run log; and (b) the SPA bearer half is answered with a SIZE - whether restoring the tab is a form plus a token store, or a real auth build - read off ict-trader-dashboard rather than inferred. NOT done by setting the envs: that is Tier-2 and needs values that do not exist yet. NOT done by the tab rendering: that is the observation, and it may still fail on (b).
+
+why: >-
+  MI-265 settled that the SPA Data Explorer is unreachable for everyone: POST /api/auth/login returns 500 auth_unavailable and there is no bypass. The remedy needs operator-originated secret values AND there is currently no sanctioned path to move them - JWT_SIGNING_KEY and WEBAPP_PASSWORD_SHA256 are absent from the secret-backed map in system-actions.yml, so set-env would correctly refuse. Separately, zero matches for Authorization|Bearer|jwt across the SPA's 40 source files means setting the envs alone may not restore the tab.
+
+source: >-
+  operator (pop-up decision 2026-09-11, chose: originate values + probe SPA in parallel)
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-11T09:42Z by session_01HrmZ1RRNM4UnEUaFdrPEjj (manager), by
+  reading this object's own done_condition against what is actually outstanding
+  — not by inheriting the capture default.
+
+  The edge list is EMPTY and that is now a CLAIM, not an absence of one. This
+  object was deliberately scoped to exclude everything that waits on the
+  operator: restoring the tab needs two secret values only the operator can
+  originate, and that is NOT in the done_condition. What IS in it — landing the
+  secret-backed mapping, and sizing the SPA bearer half by reading
+  ict-trader-dashboard — depends on nobody. Both halves can complete today with
+  no operator input and no VM mutation.
+
+  ⚠️ Do NOT add an `operator_decision` edge here on the strength of the values
+  being outstanding. That would be a FALSE blocker: it would make this object
+  read as waiting when it is not, and this repo's own README records that a
+  false blocker is worse than a missing one. The value-origination dependency
+  belongs to the OBSERVATION that follows this object, not to this object.
+
+captured_by: scripts/ops/capture_idea.py
