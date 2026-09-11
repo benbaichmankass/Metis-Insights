@@ -29,9 +29,9 @@ blocked_on_basis: >-
 
 captured_by: scripts/ops/capture_idea.py
 
-disposition_2026_09_11_mi264: >-
+disposition_2026_09_11_mi265: >-
   ⚠️ DISPOSITIONED `waiting` (NOT `done`, NOT `in_flight`) 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA
-  (MI-264, ops lane). The owner (session_01RvQbaZmEoH7V9VYpJiX7ZW) is dormant, 35.0h since its last
+  (MI-265, ops lane). The owner (session_01RvQbaZmEoH7V9VYpJiX7ZW) is dormant, 35.0h since its last
   observation. `waiting` is chosen deliberately: `check_wip_ceiling.py` excludes it precisely so the
   ceiling does not punish honesty about a thing blocked on an observation nobody can make from a repo
   container -- so this frees a slot WITHOUT asserting the work is finished. It is not.

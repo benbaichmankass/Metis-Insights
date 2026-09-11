@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only, and a pure text correction: every MI-264 reference left on main by #11775 becomes MI-265, the item this work actually belongs to. Changed paths: docs/claude/work/IN-FLIGHT-ROW-DISPOSITIONS-2026-09-11.md, docs/claude/work/objects/WO-20260909-*.yaml (4 per-file work objects, disposition text and one field name), docs/claude/health-review-backlog.json (one row's detail and source strings; MI-264 and MI-265 are the same length so the byte-for-byte round-trip is unaffected and was re-checked), docs/DOCUMENT-INDEX.md (one row). Checked against check_pr_landing.py's ACTUAL path lists: no path matches TIER3_PATHS, none matches TIER2_PATHS (src/**, config/**, deploy/**, ml/**), none matches LANDING_MACHINERY. No lifecycle value, no closed_at and no evidence is changed by this PR. No src/, no order path, no strategy or risk cap, no VM mutation, and no order placed, modified or cancelled on any account.",
+  "session": "session_01NFnmLiu9zNDppY3qFXcJJA"
+}

@@ -948,8 +948,8 @@ blocked_on_basis: >-
 
 captured_by: scripts/ops/capture_idea.py
 
-disposition_2026_09_11_mi264: >-
-  ⚠️ DISPOSITIONED `done` 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-264, ops lane), NOT by the
+disposition_2026_09_11_mi265: >-
+  ⚠️ DISPOSITIONED `done` 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-265, ops lane), NOT by the
   owner -- the owner (session_01NcYsS6kFNrzxEKcrNy9eXP) is dormant, 38.0h since its last observation, and
   the row was holding a WIP ceiling slot on an `in_flight` claim the register no longer supported
   (MI-236, #11771). THE OWNER'S DORMANCY IS NOT THE GROUND FOR CLOSING IT; the ground is that every
