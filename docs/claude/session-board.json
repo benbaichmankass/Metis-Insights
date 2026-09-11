@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/mgr-handoff-correction-20260911T1700",
-    "claimed_at": "2026-09-11T17:01:35Z",
-    "purpose": "handoff correction — a live lane the sweep missed, and the merge defect it found"
+    "branch": "claude/mgr-handoff-20260911T1640",
+    "claimed_at": "2026-09-11T17:06:54Z",
+    "purpose": "manager handoff — rebased onto ad7ba4b1d after the correction PR landed first"
   },
   "active_sessions": [
     {
