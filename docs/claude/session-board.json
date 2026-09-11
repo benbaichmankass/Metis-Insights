@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/mgr-board-start-gap",
-    "claimed_at": "2026-09-11T20:01:50Z",
-    "purpose": "file the board-START structural gap"
+    "held_by": "github-actions[bot] · trainer-capture-watch run 34647461560",
+    "branch": "automation/data-commit-34647461560-1",
+    "claimed_at": "2026-09-11T21:14:30Z",
+    "purpose": "Re-asserted over main after a merge-slot conflict; arming IS the merge (R13)."
   },
   "active_sessions": [
     {
