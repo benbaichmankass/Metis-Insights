@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01NFUHBS41Dn15pUbz5Qr6Vx",
-    "branch": "claude/mi-ops-retire-work-store-mirrors-20260911",
-    "claimed_at": "2026-09-11T06:21:24Z",
-    "purpose": "MI-243 part 2 — enact DEC-20260911 retire_mirrors: retire 553 verified work-store backlog mirrors (PR #11769)"
+    "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+    "branch": "claude/manager-tick-0626z-20260911",
+    "claimed_at": "2026-09-11T06:32:51Z",
+    "purpose": "manager tick 06:26Z"
   },
   "active_sessions": [
     {
