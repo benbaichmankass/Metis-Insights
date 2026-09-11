@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Observations + registers ONLY. Ten OPEN-ITEMS rows given live-evidence observations and verified_at; nine backlog rows filed via scripts/ops/backlog_append.py::append_row (7 health, 2 ml); eight backlog rows retired on their own stated criteria; the system-review checklist recorded honestly at 18/37 with the report named as not_started; CLAUDE.md's GENERATED SESSION-BRIEF block re-rendered by scripts/ops/render_session_brief.py --write because the register edits require it (session-brief-guard failed this diff correctly and now passes). No src/, no config/, no deploy/, no .github/workflows/, no scripts/ change. Every Tier-2/3 finding is PROPOSED with its exact fix and NONE is enacted — including the closed-flat invariant repair, which is Tier-2 precisely because it changes what pages a live operator. All production access was read-only GET; no order placed, modified or cancelled, no leg cancelled on any over-covered book, and the standing GLD wedge and every open position were left untouched."
+}
