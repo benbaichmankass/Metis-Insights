@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-    "branch": "claude/manager-tick-1324z-20260911",
-    "claimed_at": "2026-09-11T13:38:43Z",
-    "purpose": "manager tick 13:26Z"
+    "branch": "claude/manager-mi269-20260911",
+    "claimed_at": "2026-09-11T13:49:02Z",
+    "purpose": "manager MI-269 dispatch"
   },
   "active_sessions": [
     {
