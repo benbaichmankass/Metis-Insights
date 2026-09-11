@@ -3,7 +3,7 @@ name: vm-ops
 description: Inspect and act on the production VMs (live trader + trainer) autonomously through GitHub Actions. Use to check service health, restart a service, deploy, flip an account mode, run a trainer command, or any tiered VM mutation. Covers what's autonomous vs operator-gated by tier. Composes with diag-data (reads) and git-actions (dispatch mechanics).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /vm-ops — operate the VMs through GitHub Actions
 

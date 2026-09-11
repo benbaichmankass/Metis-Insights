@@ -1,6 +1,6 @@
 # S-AUDIT-P2-ENFORCEMENT-2026-07-31 — full-system-audit W2 (enforcement coherence) + W0 verification dispatch
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-31 → 2026-07-31 (same session as P0/P1; operator-directed "get going autonomously" on the W0–W4 revision)

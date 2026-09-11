@@ -1,6 +1,6 @@
 # Are any roadmap rows redundant? A census of all 33, and the answer is none
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **Basis for that status:** every figure below was computed by this session (MI-160) on
 > 2026-09-07 against the working tree at `origin/main`. It is `live` rather than `unknown`

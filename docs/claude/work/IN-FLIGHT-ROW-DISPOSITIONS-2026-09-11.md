@@ -1,6 +1,6 @@
 # Dispositioning the 17 unsupported `in_flight` rows — per row, against each row's own done-condition
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Author:** `session_01NFnmLiu9zNDppY3qFXcJJA` (MI-265, ops lane) · **registry key** `pending-20260911T082606Z`
 ⚠️ **The branch that landed this was named `claude/mi264-…` and that is a MISNOMER — this work is

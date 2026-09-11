@@ -1,6 +1,6 @@
 # Why has the prop account not traded? — `breakout_1`, measured 2026-09-11
 
-> **Doc status:** `live` · category `research` · created `2026-09-11` ·
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > unit MI-274 · object `WO-20260911-WHY-HAS-THE-PROP-ACCOUNT-NOT-TRADED`
 > · operator-raised.
 

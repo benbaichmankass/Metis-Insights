@@ -1,6 +1,6 @@
 # S-AUDIT-P1-TRAINER-HONESTY-2026-07-31 — full-system-audit P1 execution (trainer honesty)
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 ## Date Range
 2026-07-31 → 2026-07-31 (same session as S-AUDIT-P0-CLOSEOUT; P1 started on operator go)

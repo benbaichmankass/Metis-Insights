@@ -1,6 +1,6 @@
 # Sprint Log: S-M31-VERIFY-AND-COVERAGE-2026-08-16
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 Continuation of [`S-M31-POSITION-TELEMETRY-2026-08-16.md`](S-M31-POSITION-TELEMETRY-2026-08-16.md),
 whose *Next Recommended Sprint* was **"verify P2 in production, then P3"**. This

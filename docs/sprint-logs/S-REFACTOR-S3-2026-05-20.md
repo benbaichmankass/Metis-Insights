@@ -1,6 +1,6 @@
 # S-REFACTOR-S3: SignalPackage wiring into strategy signal builders
 
-> **Doc status:** `historical` · category `history` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `historical` · category `history` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 **Date:** 2026-05-20  
 **Tier:** 2 (runtime pipeline touch — merge review required)  
