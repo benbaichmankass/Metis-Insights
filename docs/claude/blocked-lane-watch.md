@@ -88,11 +88,26 @@ has seen fire is the looks-armed-is-not failure this row exists to end — and
 that workflow already fetches the open-PR listing the watcher needs.
 
 Receipt: `docs/claude/work/BLOCKED-LANE-WATCH.json`. **It is also the paging
-latch** — a blocker pages on the run that first grades it `cleared`, and not
-again; it is durable (committed) because the condition outlives any process, the
-correction `BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART` forced.
-If the receipt fails to land the latch does not advance and the next run pages
-again — failing toward waking, deliberately.
+latch**, and it latches BOTH paging states — `cleared` and `could_not_look` —
+so a blocker pages once per STATE it reaches and not again while it stays
+there. It is durable (committed) because the condition outlives any process,
+the correction `BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`
+forced. If the receipt fails to land the latch does not advance and the next
+run pages again — failing toward waking, deliberately.
+
+⚠️ **THE LATCH KEY INCLUDES THE STATE, AND THIS PARAGRAPH DESCRIBED THE LATCH AS
+CLEAR-ONLY UNTIL 2026-09-11 WHILE THE KEY OMITTED THE STATE ENTIRELY.** The two
+faults compounded: `could_not_look` latched under the same key as `cleared`, so
+a blocker that paged once as *we could not look* could never page again — and
+the prose said nothing about `could_not_look` latching at all, so reading it
+would not have revealed the hole. **The transition `could_not_look -> cleared`
+is the single one this mechanism exists for**, and it was silent. Found by the
+MI-235 review lane, confirmed by execution against a positive control on both
+routes that reach it (a cross-repo PR whose listing was unreadable and is later
+covered — MI-238's own case — and a same-repo PR later found merged into main),
+and pinned by a test plus a mutation check. A blocker whose state does NOT
+change still pages exactly once: only a genuine change of state mints a new
+key.
 
 ## ⚠️ What it does NOT do
 
