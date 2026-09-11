@@ -8,7 +8,7 @@
     "held_by": "MI-275 · session_01WKwvhBuaYYCKbdkk7fHrpf",
     "branch": "claude/mi275-stop-width-counterfactual",
     "claimed_at": "2026-09-11T20:40:50Z",
-    "purpose": "PR #11826 — Tier-1 research memo + registers, landing: self. Will release on merge. NOTE: this displaced a LIVE manager claim on claude/manager-2052z-tick (20:59:12Z) purely because pr-landing R13 requires a self-landing branch to carry a claim naming its OWN branch, and R13's own docstring records that the claim does NOT serialize — each branch carries its own copy and it reaches nobody until merge. So this blocks nobody; the manager's copy on its own branch is untouched."
+    "purpose": "PR #11826 — Tier-1 research memo + registers, landing: self. Will release on merge. Re-asserted on each base merge because pr-landing R13 requires a self-landing branch to carry a claim naming its OWN branch; R13's own docstring records that the claim does NOT serialize (each branch carries its own copy, reaching nobody until merge), so this displaces nobody."
   },
   "active_sessions": [
     {
