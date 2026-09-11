@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-11T10:39:48+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-11T11:35:48+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 11d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -126,6 +126,12 @@ _Generated 2026-09-11T10:39:48+00:00 · verdict **all_sources_read**_
   - Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (
 - 🔔 **OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER** (open_items · 1d) — loud row — must be reported on every session
   - MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without 
+- 🔔 **#11789** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): refresh the A1 constraint readout (auto)
+- 🔔 **#11793** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): trainer capture-watch receipt (auto)
+- 🔔 **ERROR-FEED-DIGEST-STALE** (error_feed · 0d) — EVERY group below was observed at 2026-09-11T05:11:11+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.
+  - error-feed digest is 6.4h old — expected hourly
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -140,8 +146,6 @@ _Generated 2026-09-11T10:39:48+00:00 · verdict **all_sources_read**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - 🔔 **OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED** (open_items) — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-
-- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'cancelled'
-  - constraint-readout
 - 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
   - due-list
 - 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T10:39:48+00:00",
+  "generated_at": "2026-09-11T11:35:48+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,22 +28,22 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.8h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=1.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 5,
+      "rows": 4,
       "note": ""
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 0,
+      "rows": 2,
       "note": ""
     },
     "error_feed": {
       "state": "read",
-      "rows": 11,
-      "note": "digest 2026-09-11T05:11:11+00:00, age 5.5h"
+      "rows": 12,
+      "note": "digest 2026-09-11T05:11:11+00:00, age 6.4h"
     },
     "sunset": {
       "state": "read",
@@ -57,8 +57,8 @@
     }
   },
   "counts": {
-    "due": 100,
-    "loud": 74
+    "due": 102,
+    "loud": 76
   },
   "rows": [
     {
@@ -620,6 +620,33 @@
       "link": ""
     },
     {
+      "source": "unlanded_automation",
+      "id": "#11789",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11789"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11793",
+      "title": "chore(ops): trainer capture-watch receipt (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11793"
+    },
+    {
+      "source": "error_feed",
+      "id": "ERROR-FEED-DIGEST-STALE",
+      "title": "error-feed digest is 6.4h old — expected hourly",
+      "why_due": "EVERY group below was observed at 2026-09-11T05:11:11+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -681,15 +708,6 @@
       "age_days": null,
       "loud": true,
       "link": ""
-    },
-    {
-      "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'cancelled'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34469714512"
     },
     {
       "source": "red_crons",
