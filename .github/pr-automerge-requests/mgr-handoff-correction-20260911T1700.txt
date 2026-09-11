@@ -1,0 +1,1 @@
+PR #11813 — manager handoff correction 2026-09-11. Tier-1, registers only.
