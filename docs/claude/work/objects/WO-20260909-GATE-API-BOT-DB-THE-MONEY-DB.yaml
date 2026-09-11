@@ -77,3 +77,34 @@ disposition_2026_09_11_mi265: >-
   more valuable one. ⚠️ A green test suite clears NEITHER; the gating commit already ships 34 passing
   tests and a harness is exactly what cannot reach a deployed front end.
   FILED SEPARATELY: BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE.
+
+settled_2026_09_11_the_spa_half_is_now_measured: >-
+  ⚠️ THE OWED OBSERVATION IS PARTLY DISCHARGED, AND THE ANSWER IS THE BAD ONE. The disposition above
+  says the SPA half is "UNVERIFIED and alarming" and that "nobody has established which". MEASURED
+  2026-09-11T09:3xZ by session_01NFnmLiu9zNDppY3qFXcJJA: THE DATA EXPLORER IS UNREACHABLE ON THE LIVE
+  HOST, and has been since the gate deployed on 2026-09-09.
+  HOW, and why my OWN earlier probe could not establish it -- the correction matters more than the
+  result: POST /api/auth/login with an EMPTY body returns 422, because Pydantic request validation runs
+  BEFORE the handler and never reaches the auth_unavailable branch. I recorded at the time that this was
+  NOT evidence auth is configured; re-probing with a WELL-FORMED body (an obviously non-existent address,
+  so no real account could be rate-limited or locked out) DOES reach the handler and returns HTTP 500
+  {"detail":{"error":"auth_unavailable"}}. The JWT envs are UNSET and the host CANNOT MINT A SESSION.
+  VERIFIED IN CODE RATHER THAN INFERRED, because "unreachable" is a strong claim: require_session accepts
+  only a Bearer satisfying decode_token, which calls _signing_key() and returns None when it raises -- so
+  there is NO static-token bypass, DASHBOARD_API_TOKEN does not satisfy it, and /api/auth/login is the
+  only mint path. Gate closed + no mint path = unreachable for everyone.
+  ⚠️ IT IS A DOCUMENTED, DELIBERATE CONSEQUENCE AND THE SECURITY CALL WAS RIGHT. db_explorer.py says in
+  terms that the gate "fails CLOSED when auth is unconfigured, and that is deliberate", that "the Data
+  Explorer is unreachable until the auth envs are set", and that this is "a real OPERATIONAL
+  PRECONDITION". Before the gate, an unauthenticated read returned real trade rows over 41 columns and 21
+  table schemas on a PUBLIC host. Failing closed on the money DB is correct and MUST NOT BE REVERTED.
+  What failed is the FOLLOW-THROUGH -- the precondition the author wrote down was never closed.
+  ⚠️ THE LIFECYCLE STAYS `waiting`, NOT `in_flight` AND NOT `done`. Establishing that the tab is down is
+  not restoring it, and the remedy is Tier-2 and needs the operator to ORIGINATE the secret values
+  (JWT_SIGNING_KEY / ALLOWED_EMAIL / WEBAPP_PASSWORD_SHA256 on the web-api host). Not applied here: this
+  is a disposition pass, and a live auth mutation is out of its scope and above its tier.
+  ⚠️ AND ONE HALF REMAINS GENUINELY UNKNOWN: even with the envs set, the SPA must be able to SEND a
+  bearer, and the gating commit measured zero matches for Authorization|Bearer|jwt across all 40 of its
+  source files. That repo is outside this session's scope, so SETTING THE ENVS ALONE MAY NOT RESTORE THE
+  TAB. Do not read this note as "one env change away".
+  Full record: BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE.
