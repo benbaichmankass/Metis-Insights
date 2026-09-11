@@ -30,7 +30,7 @@ blocked_on_basis: >-
 captured_by: scripts/ops/capture_idea.py
 
 disposition_2026_09_11_mi264: >-
-  ⚠️ DISPOSITIONED 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-264, ops lane): STAYS `in_flight`,
+  ⚠️ DISPOSITIONED 2026-09-11 by session_01NFnmLiu9zNDppY3qFXcJJA (MI-265, ops lane): STAYS `in_flight`,
   and the recommendation is RE-ROUTE to a fresh session. This is the one of the four ceiling-holding rows
   that is genuinely unfinished, and it is not merely unfinished -- IT HAS MOVED BACKWARDS.
   POPULATION AND WHEN: all 1450 rows of `docs/claude/health-review-backlog.json` at `origin/main` @

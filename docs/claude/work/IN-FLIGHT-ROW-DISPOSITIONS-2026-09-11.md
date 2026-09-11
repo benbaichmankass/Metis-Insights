@@ -2,7 +2,16 @@
 
 > **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
-**Author:** `session_01NFnmLiu9zNDppY3qFXcJJA` (MI-264, ops lane) · **registry key** `pending-20260911T082606Z`
+**Author:** `session_01NFnmLiu9zNDppY3qFXcJJA` (MI-265, ops lane) · **registry key** `pending-20260911T082606Z`
+⚠️ **The branch is named `claude/mi264-…` and that is a MISNOMER — this work is `MI-265`**
+(`MI-265-DISPOSITION-THE-17-UNSUPPORTED-IN-FLIGHT-ROWS-…`). **`MI-264` is a different, unrelated
+item** — `MI-264-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-THE-COMMONEST-BLOCKER-ITS-OWN-REGISTRY-ROW`,
+`state: ready`, owner `unassigned`, verified in `MANAGER-CHECKLIST.json` on `main`. Caught by the
+manager at 08:34Z. The branch name is cosmetic and was not worth a rename mid-flight; **every
+reference in this document, in the dispositions, in the backlog row and in the PR body says
+MI-265**, so a later reader attributing this work by the branch name would mis-file it — which is
+the drop pattern this whole lane exists to fix, in miniature.
+
 **Measured:** 2026-09-11T08:3x–09:0xZ against `origin/main` @ `1cd5e211e`, the live host
 `https://ict-bot.duckdns.org`, and the GitHub API.
 
