@@ -48,13 +48,42 @@ it is a second measurement on a different window, not a re-quote.
 The `size <= 0` skip runs **before** the dedupe, and a zero-size row **never enters
 `seen`**. So the dedupe bites only when **TWO books are BOTH non-zero**.
 
-Over the same window `bybit_2` **enumerated both hedge books on every single read** —
-`BTCUSDT` idx1+idx2 and `ADAUSDT` idx1+idx2, **368 reads each** — every one zero-size.
-That is the positive control: the hedge enumeration is **live on real money right now**;
-the account simply held no two-sided book in the window.
+**The exposure is structural, not absent.** The dedupe consults no account id.
 
-**The exposure is structural and one two-sided position away, not absent.** The dedupe
-consults no account id.
+### 🔴 CORRECTED 2026-09-12 — MY FIRST READING OF THE `bybit_2` ZERO WAS WRONG
+
+**This section originally said:** *"Over the same window `bybit_2` enumerated both hedge
+books on every single read — BTCUSDT idx1+idx2 and ADAUSDT idx1+idx2, 368 reads each —
+every one zero-size. That is the positive control … the account simply held no two-sided
+book in the window."*
+
+**The last clause is an INFERENCE I could not support, and it is wrong in the reassuring
+direction.** Raised by another session from a live real-money incident; re-measured
+against my own soak rows and confirmed. On **all 368** `bybit_2` reads:
+
+| field | value, every read |
+|---|--:|
+| `settle_coin_page` `row_count` | **2** |
+| `emitted` | **2** |
+| symbol-scoped cross-checks issued | **`BTCUSDT`, `ADAUSDT` only** |
+| `dropped_symbol_dedupe` | `[]` |
+| `could_not_look_count` | **0** |
+
+`bybit_2` configures **BTC, ETH, XRP, ADA** (`config/accounts.yaml`). Only BTC and ADA
+were cross-checked — **so ETH and XRP were the two EMITTED rows**, and the cross-check is
+gated on `sym in seen`, which they entered on that emit. **No symbol-scoped ETHUSDT or
+XRPUSDT query was ever issued, on any of the 368 reads.**
+
+So for the two symbols that actually held positions we saw **one book each and never
+asked for the other**. *"Both books were zero"* is true **only of BTC and ADA**, the two
+symbols that were flat. ⚠️ **A second live book on ETH or XRP would not be DROPPED — it
+would never be READ**, and `dropped_symbol_dedupe: []` is exactly what that looks like.
+`could_not_look_count: 0` compounds it: the reader does not record that it failed to
+look, so *we did not look* is indistinguishable from *there was nothing there* — the
+collapsed state this repo is built around, in the instrument I used as a positive
+control.
+
+⚠️ **THIS IS A SECOND, SEPARATE DEFECT AND THIS PR DOES NOT FIX IT.** See § 11.
 
 ## 3. MEASURED — the attributed harm, reproduced
 
@@ -252,6 +281,29 @@ grepping the fix site's own pattern across the file; the backlog row describes o
 `OI-20260909-INTENT-REDUCE-LEG-RESIZE-...`'s own `clears_when` tells a session to verify a
 resized protective leg against, so a dropped book means a **VERIFICATION made against the
 wrong book**. Fixed in the same PR because it is the same defect in the same file.
+
+## 11. The read-completeness defect — SEPARATE, NOT FIXED HERE
+
+Filed as `BL-20260912-SETTLECOIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-AND-THE-BACKFILL-SKIPS-PARTIALLY-SURFACED-SYMBOLS` — **filed, not built**. The settle-coin page returned **2 rows while the venue held more**, and
+the per-symbol backfill is gated on `sym in seen`, so a symbol that surfaced **one** book
+is never asked about again. A second live book on such a symbol is therefore **never
+fetched**, and no counter records the miss.
+
+⚠️ **AND MY OWN DESIGN CHOICE PRESERVES IT, WHICH I AM STATING RATHER THAN DEFENDING.**
+§ 5 keeps `seen` SYMBOL-keyed for the cross-check gate, and § 10 pins that with
+`test_the_cross_check_fires_no_extra_venue_call`. Re-keying that gate to
+`(symbol, position_idx)` **would** have fetched the missing book — and would also fire a
+`get_positions` for every configured symbol on every read, which is the unbounded
+per-tick broker round-trip that shaped both June 2026 wedges. **That is a real trade-off,
+not a free win**: I chose the bounded side, and the cost is that this second defect
+survives this PR untouched.
+
+**What is NOT established, and must not be asserted:** *why* the settle-coin page returns
+fewer rows than the venue holds. That is Bybit behaviour this session has no evidence on.
+`BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND` records the same page omitting a live
+real-money BTCUSDT row in the past, so the page being incomplete is not new — what is new
+is that the backfill meant to cover it is skipped for exactly the symbols that surfaced
+partially.
 
 ## 9. A retired alarm, and an honest label change
 
