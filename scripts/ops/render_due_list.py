@@ -55,7 +55,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -90,6 +90,8 @@ _PROBES_WORKFLOW = Path(".github/workflows/probes.yml")
 #: Its carrier is `scripts/ops/stuck_automation_branches.py --receipt`.
 _STUCK_RECEIPT = Path("docs/claude/STUCK-BRANCHES.json")
 _STUCK_CARRIER = "stuck_automation_branches.py"
+_QUEUE_WATCH_GUARD = Path("scripts/ci/check_manager_queue_watch.py")
+_QUEUE_WATCH_RECEIPT = Path("docs/claude/work/MANAGER-QUEUE-WATCH.json")
 # Slack on top of the declared cadence before a report is called stale. The
 # probes job carries `timeout-minutes: 60`, so a run that starts on time can
 # still be committing an hour later; 6h absorbs that plus a retry without
@@ -1097,10 +1099,100 @@ def src_stuck_branches(
                         note=f"{n_stuck} branch(es) standing")
 
 
+def src_manager_queue_watch(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one grades against `now`, which carries the time of day `today` throws away
+    *,
+    now: datetime | None = None,
+) -> SourceResult:
+    """The MANAGER-QUEUE-WATCH Routine's own liveness — carried where it is READ.
+
+    ⚠️ **THE VERDICT IS NOT COMPUTED HERE.** It is
+    ``scripts/ci/check_manager_queue_watch.py::grade``, imported, because a
+    second definition of "is the watchdog alive?" is free to drift from the one
+    CI grades — and the two disagreeing about a watchdog is strictly worse than
+    either being wrong alone. This source decides only WHICH verdicts earn a
+    row.
+
+    ⚠️ **WHY A DUE-LIST ROW AND NOT A RED CI CHECK.** The guard deliberately
+    PASSES on ``never_ran_overdue``: only the Routine can write that receipt, a
+    Routine-fired session holds no ``mcp__*`` tools, and a hand-written receipt
+    would arm the freshness grading against a file nobody maintains — a
+    healthy-looking watch forever. A red no contributor can clear is how a guard
+    gets disabled instead of fixed. So the escalation lands here, on the surface
+    a session reads when it asks *what is due*.
+
+    ⚠️ **AND `fresh` EARNS NO ROW.** A watchdog that is working is not work. The
+    standing fact belongs in ``note``, where a reader meets it without being
+    paged by it — the same rule ``src_stuck_branches`` follows for its 184.
+    """
+    now = now or datetime.now(timezone.utc)
+
+    guard_path = root / _QUEUE_WATCH_GUARD
+    if not guard_path.exists():
+        return SourceResult("manager_queue_watch", "not_applicable",
+                            note=f"{_QUEUE_WATCH_GUARD} absent — nothing declares "
+                                 f"the watchdog in this tree")
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_mqw_guard", guard_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception as exc:  # noqa: BLE001 — any import failure is `could not look`
+        return SourceResult("manager_queue_watch", "could_not_read",
+                            note=f"{_QUEUE_WATCH_GUARD}: {type(exc).__name__}: {exc}")
+
+    try:
+        receipt, read_state = mod.read_receipt(root / _QUEUE_WATCH_RECEIPT)
+        v = mod.grade(receipt, read_state, now)
+    except Exception as exc:  # noqa: BLE001
+        return SourceResult("manager_queue_watch", "could_not_read",
+                            note=f"grading {_QUEUE_WATCH_RECEIPT} raised "
+                                 f"{type(exc).__name__}: {exc}")
+
+    state = v.get("state")
+    rows: list[dict] = []
+    if state == mod.NEVER_RAN_OVERDUE:
+        rows.append(_row(
+            "manager_queue_watch", "manager-queue-watch-never-ran-overdue",
+            "the Manager Queue Watch Routine has never written its receipt",
+            (f"armed {v.get('owed_hours')}h ago, on the order of "
+             f"{v.get('expected_firings')} expected firings, and ZERO receipts "
+             f"have ever been committed. The Routine reports SUCCEEDED, so "
+             f"nothing else reads as wrong. This is NOT `it has not fired yet`. "
+             f"Only the Routine can clear it — a hand-written receipt would arm "
+             f"the freshness grading against a file nobody maintains and report "
+             f"a healthy watch forever. Decide: fire it and confirm it can "
+             f"write, fold the escalation into the manager tick (which HAS a "
+             f"persistent session with tools), or RECORD the decision to retire "
+             f"it together with what then grades the manager's inaction."),
+            age_days=int((v.get("owed_hours") or 0) // 24) or None,
+            loud=True, link=str(_QUEUE_WATCH_RECEIPT)))
+    elif state == mod.STALE:
+        rows.append(_row(
+            "manager_queue_watch", "manager-queue-watch-stale",
+            "the Manager Queue Watch Routine HAS run and has STOPPED",
+            f"newest recorded run {v.get('age_hours')}h old. {v.get('why')}",
+            age_days=int((v.get("age_hours") or 0) // 24) or None,
+            loud=True, link=str(_QUEUE_WATCH_RECEIPT)))
+    elif state == mod.UNREADABLE:
+        rows.append(_row(
+            "manager_queue_watch", "manager-queue-watch-unreadable",
+            "the Manager Queue Watch receipt cannot be read",
+            f"{v.get('why')} A watchdog receipt we cannot read is not evidence "
+            f"about the Routine at all.",
+            loud=True, link=str(_QUEUE_WATCH_RECEIPT)))
+
+    return SourceResult("manager_queue_watch", "read", rows,
+                        note=f"watchdog receipt grades {state}")
+
+
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
+    src_manager_queue_watch,
 )
 
 
@@ -1426,7 +1518,81 @@ def _self_test() -> int:
         assert "68" in stand["title"], \
             "standing + seeded are ONE stock — a seeded row is still unrouted"
 
-    print("due-list: self-test OK — 51 planted controls all fire")
+    # ── the manager-queue-watch source ─────────────────────────────────────
+    # ⚠️ Every control below builds its OWN tree and copies the real guard into
+    # it, so the source is exercised through the SAME import path it uses in
+    # production. A control that called `mod.grade` directly would stay green
+    # after somebody re-implemented the verdict inline here, which is the exact
+    # drift this source exists to avoid.
+    import shutil as _shutil
+    _guard_src = Path(__file__).resolve().parents[1] / "ci" / "check_manager_queue_watch.py"
+    _now = datetime(2026, 9, 12, 18, 0, tzinfo=timezone.utc)
+
+    def _mqw_tree(td: str, receipt: str | None):
+        root = Path(td)
+        (root / "scripts/ci").mkdir(parents=True)
+        _shutil.copy(_guard_src, root / _QUEUE_WATCH_GUARD)
+        (root / "docs/claude/work").mkdir(parents=True)
+        if receipt is not None:
+            (root / _QUEUE_WATCH_RECEIPT).write_text(receipt, encoding="utf-8")
+        return root
+
+    def _stamp(hours_ago: float) -> str:
+        return json.dumps({"generated_at": (
+            _now - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_manager_queue_watch(_mqw_tree(td, None), today, now=_now)
+        assert got.state == "read", got.state
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"manager-queue-watch-never-ran-overdue"}, ids
+        row = got.rows[0]
+        assert row["loud"], "a watchdog that has never written its receipt is loud"
+        assert "ZERO receipts" in row["why_due"], row["why_due"]
+        assert "not `it has not fired yet`" in row["why_due"].replace("NOT", "not"), \
+            "the row must SAY it is not the benign reading, or it reads as one"
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_manager_queue_watch(_mqw_tree(td, _stamp(1)), today, now=_now)
+        assert got.state == "read" and got.rows == [], \
+            "a WORKING watchdog is not work — a fresh receipt must earn no row"
+        assert "fresh" in got.note, got.note
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_manager_queue_watch(_mqw_tree(td, _stamp(9)), today, now=_now)
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"manager-queue-watch-stale"}, ids
+        assert got.rows[0]["loud"], "a watchdog that STOPPED is loud"
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_manager_queue_watch(_mqw_tree(td, "{not json"), today, now=_now)
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"manager-queue-watch-unreadable"}, ids
+
+    # THE VERDICT MUST COME FROM THE GUARD, NOT FROM A COPY OF ITS LOGIC.
+    # If the guard is missing the source must say `not_applicable`; if it is
+    # present but unimportable it must say `could_not_read`. An inline
+    # re-implementation would happily answer in both cases.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "docs/claude/work").mkdir(parents=True)
+        got = src_manager_queue_watch(root, today, now=_now)
+        assert got.state == "not_applicable", got.state
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "scripts/ci").mkdir(parents=True)
+        (root / _QUEUE_WATCH_GUARD).write_text("def (", encoding="utf-8")
+        (root / "docs/claude/work").mkdir(parents=True)
+        got = src_manager_queue_watch(root, today, now=_now)
+        assert got.state == "could_not_read", got.state
+        assert "SyntaxError" in got.note, got.note
+
+    # …and it must actually be WIRED, or every control above grades a function
+    # nothing calls — the `registered but never executed` shape.
+    assert src_manager_queue_watch in SOURCES, \
+        "src_manager_queue_watch is not registered in SOURCES"
+
+    print("due-list: self-test OK — 63 planted controls all fire")
     return 0
 
 
