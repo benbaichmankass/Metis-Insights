@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one `updates` entry on one health-review backlog row; no code, config, workflow, or runtime touched. The measurement it records is read-only: git log over the register's own history plus published check-run timestamps."
+}
