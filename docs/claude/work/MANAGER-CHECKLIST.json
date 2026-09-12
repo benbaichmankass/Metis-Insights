@@ -5474,5 +5474,24 @@
       "take #12094 then #12095 once clean and green",
       "MI-283 finishes clause (4) of the dedupe observation"
     ]
+  },
+  "manager_tick_2026_09_12T2255Z": {
+    "LANE_COUNT_BACK_TO_THREE": {
+      "MI-283_COMPLETED": "IDLE/COMPLETED/DISCONNECTED since 20:51:32Z — 7 PRs merged, board released. Delivered #11903 (the operator-approved Tier-2 order-path fix), merged + deployed.",
+      "NOT_RESPAWNED": "per the operator lane-rollback directive. Working lanes are now MI-278 / MI-279 / MI-280 — the operator's stated target of three, reached by lanes FINISHING rather than by anything being cut.",
+      "its_unfinished_work_is_CARRIED_not_lost": "the fleet-observation branch is CONFLICTED and abandoned at 2b17a9ef7 (20:04Z) and is deliberately NOT chased. The outstanding clause is carried by a monitoring row VERIFIED on origin/main this tick: loud=true, check_every_days=2, verified_at 2026-09-12, carrying MI-283's own clause-by-clause observation. That is the mechanism working — a row that must be RE-OBSERVED on cadence, not a branch nobody owns."
+    },
+    "12094_POKE_CLOSED_THE_LOOP": {
+      "at_2155Z": "refused the merge — mergeable_state DIRTY and no CI (only watch + open-and-automerge, the relay zero-check trap). Poked with both facts and said one conflict resolution clears both.",
+      "at_2253Z": "MI-280 resolved it. Branch CLEAN (head 1155c8ed1, 22:45:29Z) and the push ARMED CI — 6 checks now, 5 green, pytest-run in_progress since 22:46:19Z, open-and-automerge green.",
+      "manager_action": "NONE. Auto-merge is armed and will take it on green; #12095 unblocks behind it. Merging by hand would be redundant."
+    },
+    "fleet_unchanged": "soak newest still 2026-09-12T17:34:01Z (5h19m), size still 584431 — flat. Newest trade still id 5729 (20:00:15Z). No intents -> no contest -> nothing to write; established directly last tick with 89 of 89 pipeline_result rows no_intents_emitted.",
+    "decision_2": "still gated, still no evidence. The condition is a dispatchable round whose strategy does NOT already hold an open position on that symbol — sharpened last tick from MI-280's #12098.",
+    "next": [
+      "let #12094 auto-merge, then #12095",
+      "the dedupe row is LOUD and on a 2-day cadence — it is due 2026-09-14 and must be re-observed, not carried",
+      "watch for the sharpened fan-out condition"
+    ]
   }
 }
