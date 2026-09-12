@@ -4434,5 +4434,724 @@
     "MI-281": "order-path — OI-20260908, a LIVE real-money defect (Tier-2 fix, routed not self-landed)",
     "MI-282": "prop — unblock breakout_1, starved at dispatch (Tier-2/3 proposal, routed)",
     "still_unstaffed": "Lane A (Alpaca real-money go-live) and Lane P (promotion pipeline) from the 08-29 plan. Named every handoff so they do not fall off the edge."
+  },
+  "manager_tick_2026_09_12T0652Z": {
+    "recorded_at": "2026-09-12T06:30Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T06:06:36Z",
+      "expires": "2026-09-12T07:36:36Z",
+      "r6": "SESSIONS.json 46min old at heartbeat, inside the 90min ttl"
+    },
+    "checklist": {
+      "lanes_running": 6,
+      "lanes": [
+        {
+          "item": "MI-278",
+          "lane": "research",
+          "object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session/list_sessions at 06:25Z — U3 counterfactual queued; U1 #11864 and U2 #11874 open"
+        },
+        {
+          "item": "MI-279",
+          "lane": "ops",
+          "object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — #11861 MERGED, #11880 MERGED; #11867 #11872 #11876 open"
+        },
+        {
+          "item": "MI-280",
+          "lane": "engineering",
+          "object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — six guard units wired; #11862 #11866 #11873 #11878 open. #11862 is GREEN AND DIRTY, told on the PR."
+        },
+        {
+          "item": "MI-281",
+          "lane": "order-path",
+          "object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",
+          "session": "session_01ALe9gTsSEMVWYyR8X8TY79",
+          "state": "in_flight",
+          "observed": "IDLE review_ready at 06:22Z with a 07:00Z self-check-in. Its PR #11870 was merged by the manager at 06:29Z so it wakes into the next unit rather than the landing."
+        },
+        {
+          "item": "MI-282",
+          "lane": "prop",
+          "object": "WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — verifying detector definitions, posting U1/U2 to the board"
+        },
+        {
+          "item": "MI-273",
+          "lane": "engineering",
+          "object": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND",
+          "session": "session_01SrUaz8LmKMcSwNZEr8JupC",
+          "state": "in_flight",
+          "observed": "RUNNING. Its PR #11817 is operator-APPROVED (R12 read given 2026-09-12) and awaits only a pytest-run that has been in_progress ~35min against a 16-19min sibling baseline. Merges on green."
+        }
+      ],
+      "wip": "7 of 8 in_flight work objects, matching the six live lanes plus two carried rows",
+      "unstaffed": [
+        "lane A (alpaca go-live)",
+        "lane P (promotion pipeline)"
+      ]
+    },
+    "recently_done": [
+      "#11738 MERGED + DEPLOYED + ARMED. Tier-2 under the recorded DEC-20260910-EXIT-EVAL-60S-REMEDY (r2_only). Condition VERIFIED against the diff before merging: _apply_per_account_leverage precedes _start_exit_loop on both refs (697->738 base, 883->924 head) and neither symbol appears on a code line. Post-state: live git_sha == git_sha_on_disk == 380e16ba7, restart_pending false, ancestry-confirmed to contain c5fe9c35b. EXIT_LOOP_IB_BREAKER_DISABLED read off /proc = (unset) on BOTH sides, which for that key IS the armed state. It had been green and approved for 33 hours waiting on a click.",
+      "#11861 MERGED under the operator's R12 read (replay-pregate could never land its artifact).",
+      "#11870 MERGED — manager lifted its landing:hold. The hold's premise was an order-path diff that did not exist; six files, src/ config/ deploy/ untouched. Recorded as a MANAGER RULING under the standing Tier-1 delegation, NOT as an operator approval.",
+      "#11860 and #11871 MERGED — three lanes' registry rows on main, and the work store corrected from 2 in_flight to 7.",
+      "#11859 and #11865 CLOSED as superseded by #11871 rather than resolved — three manager PRs appending to the same three registers is three conflicts for a disjoint key union."
+    ],
+    "operator_decisions_2026_09_12T0620Z": [
+      {
+        "question": "the two R12-held PRs",
+        "answer": "merge BOTH #11817 and #11861",
+        "status": "#11861 merged; #11817 merges on green"
+      },
+      {
+        "question": "OI-20260908 disposition",
+        "answer": "keep it open",
+        "status": "honoured — #11870 landed WITHOUT clearing the row, and MI-281 told not to clear it on its 07:00Z wake"
+      }
+    ],
+    "next": [
+      "merge #11817 the moment its pytest-run finishes",
+      "lane PRs self-land; the manager only unblocks conflicts and holds",
+      "staff lanes A and P when a lane frees"
+    ],
+    "manager_errors_this_tick": [
+      "Ran FOUR guards locally against CI's ~95. register-id-guard caught what four could not: the nine new OPEN-PRS rows had no creation date, so a reused PR number could not be told from a different item. scripts/ci/run_guards.py --base main is the runner that matches CI.",
+      "Caused the EIGHTH instance of the claude-pr-automerge ordering trap by combining the two pushes — while supervising MI-280, the lane fixing it, forty minutes after using the correct order twice. That rules out the documentation remedy specifically; appended to the existing BL-20260910 row rather than filed fresh.",
+      "Used 'branch gone from the remote' as the test for a spent merge_slot claim. It does NOT hold: claude/mi279-exit-coverage-trio survives on the remote while its PR #11880 is merged. The PR's state is the test, not the branch's existence."
+    ]
+  },
+  "manager_tick_2026_09_12T0730Z": {
+    "recorded_at": "2026-09-12T07:30Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T07:00:48Z",
+      "expires": "2026-09-12T08:30:48Z",
+      "r6": "SESSIONS.json written at 07:00:38Z, 10s before the heartbeat — inside the 90min ttl"
+    },
+    "checklist": {
+      "headline": "THE QUEUE WAS JAMMED BY ONE JSON FIELD, AND IT IS MEASURED RATHER THAN SUSPECTED.",
+      "jam": {
+        "measured_at": "2026-09-12T07:0xZ",
+        "method": "git merge-tree --write-tree against origin/main, every open PR (n=18)",
+        "result": "14 conflicted, 4 clean",
+        "cause": "13 of the 14 conflicts are docs/claude/session-board.json ALONE — the single shared merge_slot object. R13 requires a branch to claim it to arm auto-merge, every armed branch overwrites the SAME field, so the queue jams BY CONSTRUCTION at n>1.",
+        "positive_control": "the 4 clean PRs — so the finding is not an artefact of a probe that conflicts on everything. Two of the clean ones declare landing: hold and therefore write no claim at all, which is the discriminating difference.",
+        "fix": "#11891 (per-branch claims at .github/merge-slots/<slug>.json). It ADDS a second way to satisfy R13 and removes none.",
+        "correcting_my_own_earlier_call": "AT 06:25Z I RAISED THIS HYPOTHESIS AND THEN REFUTED IT, AND THE REFUTATION WAS INVALID. I tested 'did guards pass on #11864' (it did) and concluded there was no jam. Guards passing says NOTHING about mergeability — I tested the wrong quantity and reported a clean bill of health from a probe that could not see the condition. The hypothesis was right. Recorded because the failure mode (a negative from a probe that cannot reach its target) is the one RULE ONE names, and I committed it while holding the lease."
+      },
+      "lanes_running": 6,
+      "lanes": [
+        {
+          "item": "MI-278",
+          "lane": "research",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:29Z — review_ready; U2b/U5 validated, U3 blocked on a harness gap. PRs #11864 #11874 #11886 open."
+        },
+        {
+          "item": "MI-279",
+          "lane": "ops",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:33Z — '5 PRs resolved & pushed; waiting on merge'. #11890 MERGED 06:54:37Z. #11867 #11872 #11876 #11885 #11888 open."
+        },
+        {
+          "item": "MI-280",
+          "lane": "engineering",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:22Z. Pushed #11891 again at 07:22:56Z. Owns the unjammer."
+        },
+        {
+          "item": "MI-281",
+          "lane": "order-path",
+          "session": "session_01ALe9gTsSEMVWYyR8X8TY79",
+          "state": "TERMINAL",
+          "observed": "IDLE / disconnected / status_category completed, updated 06:28:06Z. Its object is ANSWERED and well-closed. It explicitly handed U5 on. REPLACED by MI-283 — see below."
+        },
+        {
+          "item": "MI-282",
+          "lane": "prop",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "in_flight",
+          "observed": "IDLE but review_ready with its own 07:31Z self-wake, updated 06:38:12Z. NOT terminal. #11882 green/clean and waiting on me — it is conflicted on CLAUDE.md, not on merge_slot."
+        },
+        {
+          "item": "MI-283",
+          "lane": "order-path",
+          "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+          "state": "dispatched",
+          "observed": "RESPAWNED 07:33:09Z WITH source_url and registered. The FIRST spawn (session_01WnQ1wp2awqbo4xRoiEZfit, 07:00:20Z) is ARCHIVED and marked `aborted`: it was created WITHOUT source_url, so its container had no repo and it blocked immediately on 'cannot verify prior session; no repo, no work object, no auth'. It did nothing and nothing is lost. Takes MI-281's U5 handoff plus #11867's measurement (378/378 = 100.0% of bybit_1 reads drop a non-zero book; two false closes attributed, -$762.496)."
+        },
+        {
+          "item": "MI-284",
+          "lane": "engineering",
+          "session": "session_013njtHZThET6vgiGMdHZPiz",
+          "state": "dispatched",
+          "observed": "RUNNING 07:48:09Z on claude/mi280-per-branch-merge-slot. THE UNBLOCKER'S UNBLOCKER: #11891's only failing check is ruff-lint E731 (a lambda at scripts/ci/check_pr_landing.py:1404) and its owning lane MI-280 reports 'all checks clean' while blocked on the manager, so it will not fix its own red. The manager may not touch scripts/ci/** (R2 grades manager COMMITS), so it is routed to a session — the escape hatch CLAUDE.md names. Operator approved the spawn-priority exception directly; the NARROW option, not the standing carve-out that was offered."
+        }
+      ],
+      "unstaffed": [
+        "Lane A (Alpaca go-live)",
+        "Lane P (promotion pipeline)"
+      ]
+    },
+    "recently_done": [
+      "MERGED #11817 (2cd829991) — R15, operator-approved. R12 held it correctly and was DISCHARGED by the operator's read, not bypassed. Verified head, mergeable_state clean and all 5 checks green ON THAT HEAD before merging; open-and-automerge had correctly REFUSED to arm it.",
+      "MERGED #11881 (5672b40c1) — U5 merge-slot grading, operator-approved, green + clean. Pure observability: a test asserts the written bytes are byte-identical with and without the report.",
+      "HELD #11889 DESPITE THE APPROVAL, and this is the one decision worth reading. It is RED on pytest-run, and red on EXACTLY the risk I named to the operator when asking. The two failures are the PRE-EXISTING positive controls in tests/test_automerge_request_gate.py: a genuine request no longer opens the PR ('threw', no pulls.create) and no longer arms (checks ran, enableAutoMerge did not). Merging a red landing-machinery PR is not what 'merge all three' approved, and doing it mid-jam would make the jam permanent. Told MI-280 precisely, including: do NOT fix this by making the control assert the new behaviour.",
+      "DISPATCHED + REGISTERED MI-283 the moment MI-281 went terminal.",
+      "Heartbeat 07:00:48Z."
+    ],
+    "next": [
+      "Merge #11891 on green — it is the unjammer and everything else queues behind it.",
+      "Then drain: #11882 (prop, resolve CLAUDE.md), the MI-279 backlog five, the MI-278 research three, the MI-280 remainder.",
+      "Re-check #11889 after MI-280 fixes the two positive controls. The operator's approval stands and must not be re-sought.",
+      "Staff Lane A and Lane P."
+    ],
+    "manager_errors_this_tick": [
+      "I REFUTED A CORRECT HYPOTHESIS WITH THE WRONG TEST at 06:25Z — see checklist.jam.correcting_my_own_earlier_call. Guards passing is not mergeability.",
+      "I NEARLY MIS-ATTRIBUTED A GUARD FAILURE TO #11891. I grepped the guards output for /FAIL/ and matched 'api-tier-policy guard: FAIL', which is the SELF-TEST DEMONSTRATING its own planted unrowed route — not a failure. Caught it by running check_api_tier_policy.py --all on the PR head AND on origin/main: exit 0 and 'OK — every route carries a row' on BOTH. A grep for the word FAIL cannot distinguish a guard failing from a guard demonstrating failure. Told MI-280 so it does not chase it either.",
+      "I CREATED A CONFLICT FOR #11891 by merging #11881 first — both edit scripts/ops/claim_merge_slot.py. Taken deliberately (#11891 was red and must re-push regardless, so it costs a resolution and not a CI cycle) and owned on the PR, but it is a cost I imposed on the lane fixing the jam.",
+      "MY LOCAL GUARD RUN IS NOT A CLEAN BILL OF HEALTH AND IS NOT REPORTED AS ONE: PASS 68 / FAIL 5 / SKIP 22 on #11891's head, and all five failures are MISSING TOOLING (pytest absent, ruff absent, lint-imports exit 127 = not found). That is 'we could not look', not 'nothing is wrong'. CI is the authority.",
+      "I SPAWNED MI-283 WITHOUT A REPO AND THE TOOL TOLD ME NOT TO. create_session was called with no source_url, so the lane came up with no repository and blocked on its first turn. session_registry.py had ALREADY printed the exact warning in the same minute — '⚠️ PASS source_url=... TO create_session. Omitting it is the defect this refusal exists for; the prompt above only lets the CHILD catch it afterwards' — and I read it and moved on. The mechanism worked; the manager did not. Cost: 33 minutes of a real-money order-path lane doing nothing, found only because I ran get_session to check it had started rather than assuming the create call meant it was working. Respawned 07:33:09Z with source_url, first session archived and marked `aborted` in SESSIONS.json so the registry never shows two live MI-283 lanes.",
+      "I SPAWNED MI-284 BEFORE REGISTERING IT, so the spawn gate's refusal arrived AFTER the session was already live and it ran unregistered for ~4 minutes. Register first — the gate cannot protect a spawn that has already happened. This is the SECOND spawn-ordering error this tick (MI-283 was the first, for a different reason), which is what makes it a pattern rather than a slip.",
+      "MY FIRST REGISTER ATTEMPT FOR MI-284 NAMED NO WORK OBJECT AT ALL and was refused for that. Correct refusal: a spawn with no parent is an orphan no successor can situate. Fixed with capture_idea.py, which is exactly the cheap capture path that refusal assumes exists.",
+      "THE SPAWN GATE THEN REFUSED IT AS A CYCLE-PRIORITY DISPLACEMENT, ALSO CORRECTLY. A shortcut was available and NOT taken: the PRs this unblocks are MI-279's backlog drain and MI-278's M20 research, both squarely trading-truth, so filing the object under IN-20260903 would have passed the gate on its face. Intent describes what the work IS, not who benefits — re-labelling would have been the theatre capture_idea.py's own docstring warns about. Put to the operator instead; approved narrow."
+    ]
+  },
+  "incident_2026_09_12T0800Z": {
+    "recorded_at": "2026-09-12T08:55Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "severity": "CRITICAL — REAL MONEY, UNPROTECTED, LIVE NOW",
+    "raised_by": "operator (not a monitor — the fourth time this pattern is recorded)",
+    "what": "bybit_2 (real money) holds an ETHUSDT SHORT 0.05 with NO stop and NO take-profit, open on the venue and invisible to every bot surface. Live and naked ~24h (journal closed it 2026-09-11T08:30:35Z; venue never did).",
+    "containment": {
+      "owner": "OPERATOR — a stop via +Add on the Bybit terminal, or flatten",
+      "why_not_the_bot": "the position is not in any bot read, so no automated protection can reach it; and placing a live order on a real-money account is Tier-2/3 and not the manager's to take",
+      "state": "AWAITING OPERATOR DECISION as of 08:55Z"
+    },
+    "cause": {
+      "verdict": "read-INCOMPLETENESS, upstream of the dedupe",
+      "evidence": "raw bybit_2 soak row: rows_seen 6, emitted 2, queries = settle_coin_page -> row_count 2 while the venue holds THREE, then symbol_scoped BTCUSDT + ADAUSDT only. The backfill runs only for symbols NOT already seen, so ETHUSDT (seen once, idx=1) is never re-queried and the idx=2 short is NEVER FETCHED.",
+      "not_the_cause": "the symbol dedupe. position_read_state_soak, 400 rows 06:38:14->08:07:44: bybit_2 drops a deduped book on 0 of 145 reads; bybit_1 on 148 of 148. MI-283's PR #11903 is correct for bybit_1 and would NOT have protected this position.",
+      "not_established": "WHY the settle-coin page returns 2 of 3 — Bybit behaviour, no evidence held, deliberately unasserted"
+    },
+    "filed": "BL-20260912-BYBIT2-SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED",
+    "manager_error_corrected": "I told the operator this WAS the dedupe defect before reading the soak, and corrected it within the same exchange once the soak refuted it. Recorded because the wrong attribution would have shipped MI-283's fix and closed the incident with the real-money position still naked. TWO of my probes in this investigation also returned false zeros from wrong field names / wrong key lookups; both were caught by a positive control that failed, and both were re-run. A negative from a probe that cannot find a positive is the failure this incident is made of, at three different levels.",
+    "next": [
+      "operator contains the position",
+      "MI-283 lands #11903 for bybit_1 ONLY, with its body stating it does not cover this path",
+      "the read-completeness defect gets its own unit — NOT MI-283, which is at 610k context and should hand off",
+      "establish how many other hedge books are currently unfetched — note the instrument that would answer it is the one that is blind"
+    ]
+  },
+  "manager_tick_2026_09_12T0952Z": {
+    "recorded_at": "2026-09-12T09:58Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T09:54:03Z",
+      "expires": "2026-09-12T11:24:03Z"
+    },
+    "checklist": {
+      "headline": "ALL THREE OPERATOR-APPROVED PRs ARE LANDED. THE JAM GREW ANYWAY, AND THAT IS THE PREDICTED RESULT.",
+      "jam_remeasured": {
+        "method": "git merge-tree --write-tree origin/main <pr-head> over the COMPLETE open-PR set",
+        "before_0730Z": {
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14,
+          "on_session_board_merge_slot": 13
+        },
+        "after_0955Z": {
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26,
+          "on_session_board_merge_slot": 25
+        },
+        "reading": "NOT a failure of #11891 and must not be reported as one. --branch-claim is action=store_true and the DEFAULT still splices the shared field, so the capability shipped INERT — which the manager stated BEFORE the merge rather than after the number came back. The count grew because the lanes opened ~12 more PRs in the window and every armed branch still writes the one shared field.",
+        "step_two": "MI-285, dispatched 09:57Z under the SAME object and the SAME approved exception — no new operator decision needed"
+      },
+      "merged_this_tick": [
+        {
+          "pr": 11891,
+          "sha": "2e294198a",
+          "what": "R13 per-branch merge-slot claim — the unjammer"
+        },
+        {
+          "pr": 11889,
+          "sha": "4833cc421",
+          "what": "never arm auto-merge on a head no check is measuring"
+        }
+      ],
+      "structural_finding": "THE QUEUE IS GROWING FASTER THAN IT DRAINS. 19 -> 31 open PRs in ~2.5h while the manager merged 5. 26 of 31 are unmergeable. This is not a merge-discipline problem — it is a throughput mismatch between six producing lanes and one serialising manager, and it is the thing to put to the operator rather than out-merge."
+    },
+    "incident": {
+      "state": "UNCHANGED — still naked, still awaiting operator containment",
+      "reverified_at": "2026-09-12T09:54Z",
+      "evidence": "/api/diag/bybit_open_orders?account_id=bybit_2 returns 4 resting orders, ALL reduce-only, and ZERO are ETH Buy-side. A short is closed by a BUY, so no protection exists for any ETH short on that account. ⚠️ STATED PRECISELY: the ORDER book is complete and that read is sound, but the POSITION read is the blind one — so 'no protection exists' is established while 'the short still exists' is not confirmable from any bot surface. The operator's terminal remains the only source for that half."
+    },
+    "recently_done": [
+      "Merged #11891 and #11889, each verified on its exact head (checks attached to THAT commit, ruff clean, test-merge clean, and for #11889 the two positive controls grepped by name to confirm they were repaired rather than deleted).",
+      "Re-measured the jam against its own before-figure and reported the growth honestly.",
+      "Dispatched MI-285 for step two — REGISTERED BEFORE SPAWNING this time, which is the ordering error made twice earlier today."
+    ],
+    "next": [
+      "MI-285 lands the docs/skill/template change so lanes use --branch-claim",
+      "re-measure the conflict count once lanes re-push — that number, not the merge, says the jam cleared",
+      "MI-283's #11903 is Tier-2 and blocked on operator approval for a live-account write",
+      "the read-completeness defect from the incident still has no owner"
+    ]
+  },
+  "lane_rollback_2026_09_12T1005Z": {
+    "recorded_at": "2026-09-12T10:05Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "operator_decision": {
+      "verdict": "approved",
+      "decided_on": "2026-09-12",
+      "source": "operator, in conversation, directly",
+      "text": "pare back the number of lanes back towards the cap; we made specific exceptions for specific things and if we're done with those items, roll back to the three lanes exactly so this kind of issue is not happening; pace it, get it done; if a merge needs to wait that's your job as the manager",
+      "scope": "retire the exception lanes, hold at three, manager paces the queue"
+    },
+    "why": "MEASURED: open PRs 19 -> 31 in ~2.5h against 5 merges, 26 of 31 unmergeable. A throughput mismatch between six producing lanes and one serialising manager — not something more merging fixes.",
+    "observed_at_1002Z": [
+      {
+        "item": "MI-276",
+        "lane": "ops",
+        "observed": "IDLE / completed, 474,869 ctx",
+        "action": "registry corrected (claimed review_ready)"
+      },
+      {
+        "item": "MI-278",
+        "lane": "research",
+        "observed": "RUNNING, 762,410 ctx",
+        "action": "KEEP — but PAST the ~600k hand-off threshold: close out in-flight PRs, start no new units"
+      },
+      {
+        "item": "MI-279",
+        "lane": "ops",
+        "observed": "RUNNING, 351,343 ctx",
+        "action": "KEEP"
+      },
+      {
+        "item": "MI-280",
+        "lane": "engineering",
+        "observed": "RUNNING, 397,543 ctx",
+        "action": "KEEP"
+      },
+      {
+        "item": "MI-281",
+        "lane": "order-path",
+        "observed": "IDLE / completed",
+        "action": "registry corrected (claimed working)"
+      },
+      {
+        "item": "MI-282",
+        "lane": "prop",
+        "observed": "IDLE / review_ready, 393,127 ctx",
+        "action": "WIND DOWN — ends when #11882 is dispositioned"
+      },
+      {
+        "item": "MI-283",
+        "lane": "order-path",
+        "observed": "RUNNING, 610,309 ctx",
+        "action": "WIND DOWN — past hand-off; ends when #11903 is dispositioned. Archiving the session does NOT close the PR, which is Tier-2 and awaiting an operator approval that must not be re-sought"
+      },
+      {
+        "item": "MI-284",
+        "lane": "engineering",
+        "observed": "IDLE / completed, 362,911 ctx",
+        "action": "registry corrected (claimed working). Delivered both units"
+      },
+      {
+        "item": "MI-285",
+        "lane": "engineering",
+        "observed": "just spawned",
+        "action": "BOUNDED to its one unit then archived — it is a SECOND engineering lane, dispatched 3 min before the operator's instruction, allowed to finish only because its unit is what stops the queue re-jamming. No further work"
+      }
+    ],
+    "standing_rule_set": "THE MANAGER DOES NOT SPAWN A REPLACEMENT WHEN A LANE FINISHES. The count returns to three or below and STAYS there. A 1-for-1 hand-off for a lane past its context threshold is not a new lane; a fourth concurrent lane needs a fresh operator decision recorded in spawn-priority-exception.yaml.",
+    "queue_policy": "PACED, not raced. Merge only what is clean AND green on its own head. Let the rest rebase as lanes wind down — fewer lanes means fewer new PRs, which is what actually drains this. A merge that should wait, waits."
+  },
+  "manager_tick_2026_09_12T1100Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T10:56:10Z",
+    "lease_expires_at": "2026-09-12T12:26:10Z",
+    "checklist_first": "This block is the checklist half of the status update; recently-done and next follow it, in that order.",
+    "headline": "THE MERGE QUEUE'S BINDING CONSTRAINT HAS MOVED TWICE IN ONE MORNING, AND THE CURRENT ONE IS NOT CONFLICTS AT ALL. It is a crashed arming relay that makes every lane's PR read RED while nothing can self-land.",
+    "measured_queue_state_1056Z": {
+      "population": "every open PR on benbaichmankass/Metis-Insights at 2026-09-12T10:56Z, n=35, test-merged locally with `git merge-tree --write-tree origin/main <head>` at origin/main=c050b1f9c",
+      "clean": 22,
+      "conflicted": 13,
+      "prior_readings": [
+        {
+          "at": "2026-09-12T07:3xZ",
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14
+        },
+        {
+          "at": "2026-09-12T09:55Z",
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26
+        },
+        {
+          "at": "2026-09-12T10:56Z",
+          "open": 35,
+          "clean": 22,
+          "conflicted": 13
+        }
+      ],
+      "what_changed": "#11891's per-branch merge-slot claim plus MI-285's docs reached the lanes. Clean went 5 -> 22 while the open count still grew 31 -> 35, so this is a real drop in the CONFLICT rate and not an artifact of a smaller queue.",
+      "do_not_read_as": "This is NOT evidence the queue is draining. Open PRs still rose. What improved is mergeABILITY, which is a different fact from throughput and must not be reported as the same one."
+    },
+    "the_binding_constraint_now": {
+      "verdict": "A REPO-WIDE CRASH IN THE ARMING RELAY, not merge conflicts.",
+      "evidence": "`open-and-automerge` fails with `Cannot find module '@actions/github'` (MODULE_NOT_FOUND, actions/github-script@v7). Read off the job log for #11932 (job 103540150681) and confirmed identical on #11927. It is infrastructure, not content: the affected PRs are otherwise 5-of-5 green.",
+      "blast_radius": "#11936's own measurement: 9 of the last 15 relay runs failed across four lanes (mi278/mi279/mi280/mi285), from 2026-09-12T09:56:31Z. Survivors were branches that had not yet merged main, so it SPREAD as lanes synced.",
+      "consequence": "Nothing self-lands, and every lane sees a red check it did not cause. A lane chasing that red is spending its budget on the manager's problem.",
+      "fix": "#11936, in CI now. Three-tier client construction, degrading to a LOUD refusal instead of an unhandled crash.",
+      "manager_call": "HOLD the rest of the queue behind #11936. Merging other PRs first would re-dirty clean branches while nothing can self-land anyway. This is the 'a merge needs to wait' judgement the operator asked me to make, stated before the outcome rather than after."
+    },
+    "conflict_source_has_shifted_too": {
+      "population": "the 13 conflicted PRs at 10:56Z",
+      "CLAUDE.md": 5,
+      "docs/claude/session-board.json": 4,
+      "docs/claude/health-review-backlog.json": 3,
+      "other": "docs/research/exit-refinement-coverage.json, docs/claude/DUE.json, docs/DOCUMENT-INDEX.md",
+      "note": "session-board.json was the dominant source this morning and is now second. CLAUDE.md is first. That is the predicted consequence of fixing the merge_slot splice: the next shared file up the list becomes binding."
+    },
+    "drain_rate_is_throttled_and_it_is_measured": {
+      "question": "If 22 are clean, can 22 be merged?",
+      "answer": "No. 13 of the 22 append to docs/claude/health-review-backlog.json.",
+      "measurement": "Simulated merging ONE of them (#11895) into a scratch tree, then re-test-merged the other 12: 6 STILL CLEAN, 6 NEWLY DIRTY.",
+      "positive_control": "Merged #11936 into a scratch tree and re-tested #11930 (neither touches a hot file) -> still clean. So the probe is not simply reporting everything dirty after any merge.",
+      "implication": "A merge round drains roughly half the backlog-touching PRs before the rest need a rebase. That is a real throughput ceiling, not a discipline failure, and it is why pacing beats racing here."
+    },
+    "merged_this_tick": [
+      {
+        "pr": 11929,
+        "sha": "66a0035e57fab8e6714b2334dc37be13262e22ba",
+        "what": "MI-285 step two — tell lanes to take R13's per-branch merge-slot claim",
+        "verified": "5 of 5 checks green on head cce733f24; clean against origin/main at merge time"
+      }
+    ],
+    "held_deliberately": [
+      {
+        "pr": 11936,
+        "why": "landing: hold (R12, landing machinery) AND CI still running at 10:56Z. It is the unblocker, so it goes first — but a landing-machinery PR merged red is how a jam becomes permanent.",
+        "read_done": "Yes. Diff read in full: the fallback ladder is correct, and it deliberately preserves the literal `getOctokit(patToken)` that automerge-trigger-guard C6 asserts on. It also repairs C6's own self-test plant, which its change would otherwise have let ESCAPE — the plant now mutates every construction site rather than the first."
+      },
+      {
+        "pr": 11927,
+        "why": "MI-285's remaining PR. Clean, 5 of 5 green, ONLY red is the relay crash. Merge after #11936 so the relay fix is in first."
+      },
+      {
+        "pr": 11930,
+        "why": "landing: hold, needs a human read. Queued behind #11936."
+      }
+    ],
+    "lane_states_observed_1059Z": {
+      "method": "get_session on each non-terminal row in SESSIONS.json spawned by this manager; context read from external_metadata.context_usage",
+      "keepers": [
+        {
+          "item": "MI-278",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "note": "not re-read this tick; was 762,410 at 10:02Z and is closing out in-flight PRs only"
+        },
+        {
+          "item": "MI-279",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "note": "not re-read this tick"
+        },
+        {
+          "item": "MI-280",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "note": "not re-read this tick"
+        }
+      ],
+      "winding_down": [
+        {
+          "item": "MI-282",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "RUNNING",
+          "context": 446886,
+          "pr": 11882,
+          "pr_state": "CONFLICTED on CLAUDE.md"
+        },
+        {
+          "item": "MI-283",
+          "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+          "state": "IDLE / review_ready",
+          "context": 740064,
+          "pr": 11903,
+          "pr_state": "CONFLICTED on CLAUDE.md"
+        },
+        {
+          "item": "MI-285",
+          "session": "session_01LGXPoWzDGS47DkNZfZyGFM",
+          "state": "RUNNING",
+          "context": 447044,
+          "pr": "11927 (11929 landed)",
+          "pr_state": "CLEAN"
+        }
+      ],
+      "disagreement_to_record": "MI-283's own post_turn_summary reads 'PR #957c8bab: 3rd re-merge landed, conflict-free'. My test-merge of that exact head against origin/main at 10:56Z says CONFLICT in CLAUDE.md. Both can be true in sequence — main moved after their re-merge — but the lane's status is STALE, not wrong-at-the-time. Recorded rather than silently corrected, because a lane that believes it is clean will not rebase.",
+      "context_note": "MI-283 at 740,064 is past the ~600k hand-off threshold. It is winding down, so there is no replacement to spawn — it closes out #11903 and stops. That is the rollback working as intended, not a lane being cut short."
+    },
+    "still_the_operator_s_and_not_mine": {
+      "naked_eth_short": "bybit_2 ETHUSDT -0.05 has NO protective legs and is invisible to the dashboard. Last re-verified naked at 09:54Z. Containment is an operator action (stop via '+ Add' on the Bybit terminal, or flatten). I hold no authority to place or cancel a live order.",
+      "pr_11903_tier2": "MI-283's fix is Tier-2 and awaits an operator OK. It is PENDING, not refused, and must not be re-sought."
+    },
+    "manager_errors_this_tick": [
+      "Told MI-279 to expect a red `guards` on the deletion PR and offered a hand-merge. WRONG — I reasoned from the blocker's behaviour instead of testing the fix. Measured the fix, found it goes green, and corrected it on #11942 before they acted.",
+      "⚠️ NEAR MISS, recorded because it was luck and not judgement: I resolved my own health-review-backlog conflict by UNION-BY-ID, which is exactly the method `register-field-loss` exists to catch — it passes while silently reverting a field-level write-back to a row whose id matches. I checked rather than assumed and it came back `0 loss(es)`, but only because the rows I replayed were genuinely new. The correct method is BY FIELD, and `scripts/ops/install_merge_driver.sh` does it — it is NOT installed in a fresh clone."
+    ],
+    "SECOND_BLOCKER_FOUND_1105Z": {
+      "headline": "A SECOND repo-wide CI blocker, independent of the relay crash, landed at 10:54:46Z. `guards` now fails on EVERY PR, including PRs whose diff contains no register at all.",
+      "what": "`register-field-loss` grades `.github/register-removals/mi279-u5-clear-digest-carrier.json` a PHANTOM declaration.",
+      "why_it_is_now_false": "The file is a one-shot statement about ONE diff. #11915 merged it at c050b1f9c, so its removal moved INTO THE BASE and is no longer in any diff. The declaration is SPENT, and a spent declaration is byte-indistinguishable from a fabricated one. The mechanism's own README says it 'stops being true the moment the diff changes'.",
+      "measured_not_inferred": "Simulated CI's merge ref for #11936 — a PR touching ZERO registers — and ran the guard against origin/main: `0 register(s) compared, 6 untouched, 0 unreadable; 0 loss(es), 0 declared, 1 phantom declaration(s)`, exit non-zero. Zero registers compared and it still fails.",
+      "the_guard_is_not_wrong": "It is enforcing precisely its stated contract. The defect is the MISSING PRUNE. Relaxing the guard to let phantoms pass would destroy it — that is the `new-table-wiring-guard` presence-only failure the README itself cites.",
+      "fix_routed_not_taken": "Delete the one file. ROUTED to MI-279 (session_013iSqp4LsU1eq8K326eUtgj) — it authored the file and owns #11915, and it is a keeper lane. I did not take it: one deletion is exactly the size of item that tempts a manager into executing instead of managing.",
+      "verified_truthful_before_routing": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED is genuinely absent from the 83 rows of docs/claude/OPEN-ITEMS.json on main, checked with a positive control that a known-present id reads present. The removal really happened; only the declaration is stale, so deleting it asserts nothing false.",
+      "design_half_filed": "BL-20260912-A-SPENT-REGISTER-REMOVAL-DECLARATION-BECOMES-A-PERMANENT-REPO-WIDE-CI-FAILURE-BECAUSE-NOTHING-PRUNES-IT-AFTER-ITS-PR-LANDS — deleting the one stale file clears the OUTAGE and does NOT clear that row, because the next deliberate removal re-arms it identically.",
+      "first_use": "This is the FIRST register-removals file ever written. The mechanism shipped armed-and-unexercised and failed on first use — which is why nothing caught it in review."
+    },
+    "deadlock_considered_and_refuted": {
+      "worry": "#11936 (the relay fix) is blocked by the phantom, and I told MI-279 to expect the deletion PR to be red too — which would have meant a hand-merge through a red required check.",
+      "test": "Checked out origin/main, deleted the declaration file, ran the guard: `0 phantom declaration(s)` and OK.",
+      "verdict": "NO DEADLOCK. The guard reads declarations from the HEAD tree, so the deletion clears the phantom within its own PR. It goes green normally.",
+      "my_error": "I asserted the deletion PR would be red from how the BLOCKER behaves rather than testing the FIX — the one case that actually needed testing. Corrected to MI-279 on #11942 in the same exchange, before they acted on it."
+    },
+    "merge_posture_now": {
+      "holding": "Everything, behind two infrastructure fixes, in this order: (1) MI-279's deletion of the spent declaration -> restores `guards` repo-wide; (2) #11936 -> restores `open-and-automerge` repo-wide. Feature PRs land after, not before.",
+      "why": "Landing feature work through a broken gate is how a jam becomes permanent, and a red `guards` that means 'the manager's blocker' teaches every lane to stop reading `guards`. That is the desensitised-alarm failure, and it would cost more than the delay.",
+      "note_on_11936": "Its `guards` job started 11:06:23Z, AFTER #11915 merged, so that run will fail on the phantom through no fault of its own. It needs a re-run once the deletion lands — not a re-push.",
+      "verified_locally_already": "#11936's `automerge-trigger-guard --self-test` passes on its own head: all 10 planted defects caught, clean-tree positive control green, including the REPAIRED C6 plant its change would otherwise have let escape."
+    }
+  },
+  "manager_tick_2026_09_12T1153Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T11:53:35Z",
+    "lease_expires_at": "2026-09-12T13:23:35Z",
+    "heartbeat_landed": "d409350a9 — committed AND pushed, not just stamped",
+    "headline": "BOTH repo-wide blockers are CLEARED, and the queue's conflict rate collapsed with them. 36 of 41 open PRs are clean, against 5 of 31 at 09:55Z.",
+    "measured_queue_state_1156Z": {
+      "population": "every open PR at 2026-09-12T11:56Z, n=41, test-merged locally with `git merge-tree --write-tree origin/main <head>` at origin/main=dbe958c62",
+      "clean": 36,
+      "conflicted": 5,
+      "series": [
+        {
+          "at": "07:3xZ",
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14
+        },
+        {
+          "at": "09:55Z",
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26
+        },
+        {
+          "at": "10:56Z",
+          "open": 35,
+          "clean": 22,
+          "conflicted": 13
+        },
+        {
+          "at": "11:56Z",
+          "open": 41,
+          "clean": 36,
+          "conflicted": 5
+        }
+      ],
+      "do_not_read_as": "Still NOT the queue draining — open PRs rose 19 -> 41 across the same series. What improved is MERGEABILITY. Those are different facts and reporting one as the other is how a growing queue gets called healthy.",
+      "attribution_matters": "The drain belongs to MI-280's #11891 (the per-branch merge-slot claim) and the lanes that adopted it — MI-285's own lane said so unprompted about its own docs, which is the right instinct and is recorded here so the credit does not drift."
+    },
+    "blockers_cleared_this_tick": [
+      {
+        "what": "the spent register-removal declaration",
+        "how": "ROUTED to MI-279 at 11:0xZ; it landed as #11947 (ae81d8319). Verified GONE from origin/main by `git cat-file -e`, not by reading the PR.",
+        "manager_role": "routed and verified; did not take the item"
+      },
+      {
+        "what": "the design half of the same defect",
+        "how": "MI-280 shipped #11945 (dbe958c62) — `stop register-field-loss grading every PR against somebody else's merge`. A lane picked up the DESIGN question I filed, not just the one-line deletion.",
+        "note": "That is the outcome the backlog row was filed for, reached in under an hour."
+      }
+    ],
+    "merged_this_tick": [
+      {
+        "pr": 11927,
+        "sha": "7532e24bb0837b023a0e7c23585f1e58426c6409",
+        "what": "MI-285 — name R13's per-branch merge-slot route as the one a lane takes",
+        "verified": "clean against origin/main at merge time; 4 of 5 green on its own head; the only red was the relay crash, which is infrastructure and not a required check"
+      }
+    ],
+    "lane_states_observed_1156Z": {
+      "MI-278": {
+        "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+        "state": "IDLE, connection DISCONNECTED",
+        "context": 774841,
+        "note": "Past the hand-off threshold and mid-sweep (3 of 7 legs). Disconnected is worth watching; it is closing out in-flight PRs only, which is the correct posture."
+      },
+      "MI-279": {
+        "session": "session_013iSqp4LsU1eq8K326eUtgj",
+        "state": "RUNNING",
+        "note": "Took the routed deletion and landed it as #11947. Keeper."
+      },
+      "MI-280": {
+        "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+        "state": "RUNNING, needs_input",
+        "context": 397543,
+        "asked_for": "merge #11936, #11930, #11932, #11940",
+        "manager_answer": "#11932 is ALREADY MERGED (5c0a5c28b) — telling them rather than letting them wait on it. The other three are in CI right now (all pushed 11:47Z, runners backed up); I take them on green."
+      },
+      "MI-282": {
+        "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+        "state": "winding down",
+        "pr": 11882,
+        "pr_state": "now CLEAN (was CLAUDE.md-conflicted); CI restarted 11:54Z"
+      },
+      "MI-283": {
+        "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+        "state": "winding down",
+        "pr": 11903,
+        "pr_state": "now CLEAN",
+        "blocked_on": "operator Tier-2 approval — PENDING, not refused, and must not be re-sought"
+      },
+      "MI-285": {
+        "session": "session_01LGXPoWzDGS47DkNZfZyGFM",
+        "state": "WOUND DOWN AND ARCHIVED",
+        "why": "Deliverable complete — both PRs landed (#11929, #11927). Archived; NO replacement spawned, per the operator's three-lane rollback."
+      }
+    },
+    "lane_count": {
+      "keepers": 3,
+      "winding_down": 2,
+      "archived_this_tick": 1,
+      "target": 3,
+      "note": "MI-282 and MI-283 are the last two above the cap; each ends when its PR is dispositioned. No spawns."
+    },
+    "still_the_operator_s": {
+      "naked_eth_short": "bybit_2 ETHUSDT — re-read 11:12Z: the bot sees 2 positions and 4 orders, ALL reduce-only, ZERO Buy-side ETH legs. ⚠️ Whether the short is still OPEN cannot be established from here: the read that would answer it is the one known to under-report. Containment is an operator action.",
+      "pr_11903": "MI-283's Tier-2 approval is pending, not refused."
+    },
+    "manager_errors_this_tick": [
+      "Committed a stray worktree directory (v11936_wt) into my own branch while inspecting a PR head. Caught on the next `git ls-files`, removed, verified 0 tracked paths remain. Cost: one junk commit on my own branch, nothing on main.",
+      "Started a background poll loop against api.github.com — which this repo's own CLAUDE.md documents as 403 at the sandbox proxy, so it would have spun to timeout reporting nothing. Killed it and polled through the MCP, which is the documented path. I had the rule and reached past it."
+    ]
+  },
+  "manager_tick_2026_09_12T1253Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T12:53:36Z",
+    "lease_expires_at": "2026-09-12T14:23:36Z",
+    "heartbeat_landed": "cf0ea254c — committed AND pushed before duty 3 was started",
+    "headline": "The relay fix LANDED, and with it the three PRs MI-280 was blocked on. The lane count is at the operator's target of three.",
+    "merged_this_tick": [
+      {
+        "pr": 11936,
+        "sha": "f91db007085773e4cbadd5655e8844bd63bb448b",
+        "what": "the arming-relay crash fix (`Cannot find module '@actions/github'`)",
+        "landing": "hold / R12 — human read done: I read the diff in full at 11:1xZ and ran `check_automerge_trigger.py --self-test` on its own head (10 of 10 planted defects caught, clean-tree control green), including the C6 plant its own change would otherwise have let escape",
+        "verified": "6 of 6 green on head 5cfa4c220; clean against origin/main at merge time"
+      },
+      {
+        "pr": 11882,
+        "sha": "c66e78abee05bdf37febc27a4310c0a33b4594e4",
+        "what": "MI-282 — the arbitration fan-out has never dispatched, so the allowlist is not the lever",
+        "verified": "6 of 6 green; re-tested CLEAN against main AFTER #11936 landed, not before — serialised rather than assumed",
+        "promise_kept": "I told that lane `I will merge this on green and clean — no need to chase me for it`. Both became true and it is merged."
+      },
+      {
+        "pr": 11930,
+        "sha": "2fe1b8700610d8ce3d18c74e706ecfb305582151",
+        "what": "commit-to-main RE-DERIVES on the stale-branch refresh instead of only re-merging",
+        "landing": "hold / R12 — human read done",
+        "why_it_matters": "constraint-readout has concluded `success` ZERO times in its life: generation takes ~31 min on a repo that merges several times an hour, so the base moves and session-brief-guard fails; the old refresh minted a new sha and pushed the SAME stale brief. Re-running the checks was never the remedy.",
+        "caution_recorded": "`refresh-command` lets a caller run arbitrary commands inside the composite action — a new capability. It is opt-in and exactly one caller uses it today. Worth watching if that spreads."
+      }
+    ],
+    "measured_queue_state_1255Z": {
+      "population": "every open PR at 2026-09-12T12:55Z, n=36, test-merged locally against origin/main=22b9278aa",
+      "clean": 26,
+      "conflicted": 10,
+      "series": [
+        {
+          "at": "09:55Z",
+          "open": 31,
+          "clean": 5
+        },
+        {
+          "at": "10:56Z",
+          "open": 35,
+          "clean": 22
+        },
+        {
+          "at": "11:56Z",
+          "open": 41,
+          "clean": 36
+        },
+        {
+          "at": "12:55Z",
+          "open": 36,
+          "clean": 26
+        }
+      ],
+      "the_finding": "ALL TEN conflicted PRs are cron AUTOMATION (chore/auto). Every lane PR is clean. The conflict burden has moved off the lanes and onto the automation that re-asserts the shared board every few minutes — which is exactly what #11958 proposes to fix by having commit-to-main take the per-branch slot.",
+      "do_not_read_as": "Open count fell 41 -> 36 because four PRs LANDED, not because fewer are being opened. Mergeability and throughput remain different facts."
+    },
+    "lane_count": {
+      "keepers": [
+        "MI-278",
+        "MI-279",
+        "MI-280"
+      ],
+      "idle_blocked": [
+        "MI-283"
+      ],
+      "archived_this_tick": [
+        "MI-282"
+      ],
+      "archived_last_tick": [
+        "MI-285"
+      ],
+      "at_target": "YES — three working lanes, which is the operator's instruction. MI-283 is idle and blocked, not working.",
+      "no_spawns": "None. The standing rule holds: the manager does not spawn a replacement when a lane finishes."
+    },
+    "lane_states_observed_1257Z": {
+      "MI-282": {
+        "state": "ARCHIVED",
+        "context": 638462,
+        "why": "deliverable merged (#11882); past the hand-off threshold"
+      },
+      "MI-283": {
+        "state": "IDLE, deliberately NOT archived",
+        "context": 583145,
+        "context_note": "DOWN from 740,064 at 10:40Z — it COMPACTED, so the hand-off warning I recorded last tick is STALE. The tick prompt warns about exactly this and it was right.",
+        "judgement": "#11903 is green, clean and blocked on an operator Tier-2 decision. If that answer carries a condition or a question, the lane that took the measurement answers it far better than a fresh session, and an idle session consumes nothing. Flagged for the operator to overrule."
+      }
+    },
+    "still_the_operator_s": {
+      "naked_eth_short": "bybit_2 ETHUSDT — unchanged and NOT re-read this tick; the 11:12Z reading stands (2 positions, 4 orders, all reduce-only, zero Buy-side ETH legs). Whether the short is still open cannot be established from here.",
+      "pr_11903": "MI-283's Tier-2 approval is PENDING, not refused, and must not be re-sought."
+    },
+    "manager_errors_this_tick": [
+      "None found this tick. The 11:00Z tick's three stand as recorded."
+    ]
   }
 }

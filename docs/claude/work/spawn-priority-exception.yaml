@@ -60,6 +60,8 @@ covers:
   - WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS
   # -- added 2026-09-12, the THREE-LANE continuous workplan (operator-directed, verbatim) --
   - WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+  # -- added 2026-09-12, the merge-queue unblocker (operator-approved directly) --
+  - WO-20260912-UNBLOCK-THE-MERGE-QUEUE-THE-R13-MERGE
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -749,3 +751,103 @@ reason_20260911_11767_fix_round: >-
 #    WIP ceiling, does not cover future engineering work, and does not license a
 #    fourth lane. A blanket exception naming nothing is the thing this file exists
 #    to refuse.
+
+# 2026-09-12 — THE MERGE-QUEUE UNBLOCKER (operator-approved directly)
+# ---------------------------------------------------------------------------
+# decision: approved
+# approved_by: operator (ben.baichmankass) — in conversation, directly, 2026-09-12
+# covers: WO-20260912-UNBLOCK-THE-MERGE-QUEUE-THE-R13-MERGE
+#
+# THE GATE REFUSED THIS AND WAS RIGHT TO. The work is landing machinery under
+# IN-20260901-OPERATING-LAYER, not the cycle's trading-truth intent, so it is a
+# displacement and only the operator may permit one. The manager put it to them
+# rather than deciding it.
+#
+# ⚠️ AND THE MANAGER DID NOT RE-LABEL THE INTENT TO SLIP PAST, which was
+#    available and would have worked: the PRs this unblocks are MI-279's backlog
+#    drain and MI-278's M20 research, both squarely trading-truth, so filing the
+#    object under IN-20260903 would have passed the gate on its face. That is
+#    exactly the theatre capture_idea.py's docstring warns about — intent
+#    describes what the work IS, not who benefits from it. Recorded because the
+#    next manager under the same pressure will see the same shortcut.
+#
+# WHAT IT IS, MEASURED RATHER THAN ASSERTED (2026-09-12T07:31:49Z):
+#   * #11891 (the per-branch R13 merge-slot claim) reads `guards: PASS 72 · FAIL 1`
+#     and the ONE failure is `ruff-lint` E731 — a lambda assignment at
+#     scripts/ci/check_pr_landing.py:1404. Reproduced locally on the same head.
+#   * 14 of 19 open PRs are unmergeable; 13 of those 14 conflict on
+#     docs/claude/session-board.json::merge_slot ALONE, with 4 clean PRs as the
+#     positive control. R13 requires that claim to arm auto-merge and every armed
+#     branch overwrites the same field, so the queue jams BY CONSTRUCTION at n>1.
+#   * The owning lane MI-280 is RUNNING, reports "all checks clean" and sits at
+#     status need_input "merge PRs #11891, #11889, #11898" — it believes it is
+#     done and is blocked on the manager, so it will not fix its own red check.
+#   * The manager may not fix it: scripts/ci/** is a worker path and
+#     check_manager_scope.py R2 grades manager COMMITS, not net diffs. CLAUDE.md's
+#     own words are that "the cheapest way past this guard must be to route the
+#     work to a session" — which is what this exception permits.
+#
+# ⚠️ TWO MANAGER ERRORS ARE RECORDED HERE RATHER THAN TIDIED AWAY:
+#   1. The session was SPAWNED BEFORE it was REGISTERED, so the gate's refusal
+#      arrived after it was already live and it ran unregistered for ~4 minutes.
+#      Register first; the gate cannot protect a spawn that already happened.
+#   2. The first spawn attempt named NO work object at all and was refused for
+#      that instead. Both refusals were correct and both were the manager's fault.
+#
+# ⚠️ SCOPE: this OBJECT only. It does not license future lint-unblocker spawns,
+#    does not raise the WIP ceiling, and is NOT a standing carve-out for
+#    "anything blocking the merge queue" — the operator was offered that wider
+#    option explicitly and chose the narrow one.
+
+# 2026-09-12 — ROLLBACK TO THREE LANES (operator-directed, directly)
+# ---------------------------------------------------------------------------
+# THIS BLOCK GRANTS NOTHING. It RETIRES exceptions rather than adding one, and
+# it is written here because this file is where a session looks to find out
+# which lanes are legitimate.
+#
+# WHAT THE OPERATOR SAID, kept close to verbatim: "we need to pare back the
+# number of lanes ... back towards the cap. We made specific exceptions for
+# specific things, and if we're done with those items, then we need to roll back
+# to the three lanes exactly to make sure that this kind of issue is not
+# happening ... pace it, get it done ... if a merge needs to wait, that's your
+# job as the manager."
+#
+# WHAT PROMPTED IT, measured rather than felt: the open-PR queue went 19 -> 31 in
+# ~2.5h while the manager merged 5, leaving 26 of 31 unmergeable. That is not a
+# merge-discipline failure; it is six producing lanes against one serialising
+# manager. Adding merge throughput cannot fix a production/consumption mismatch.
+#
+# THE THREE THAT REMAIN — the canonical lanes from the 2026-09-12 three-lane
+# block above, unchanged:
+#   research    MI-278  WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER
+#   ops         MI-279  WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN
+#   engineering MI-280  WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+#
+# THE EXCEPTIONS BEING WOUND DOWN, each with a stated end condition rather than
+# a date, because "we are done with those items" is a fact about the work:
+#   prop        MI-282 — ends when PR #11882 is dispositioned. Its finding is
+#                        delivered: the arbitration fan-out has never dispatched,
+#                        so the allowlist was never the lever.
+#   order-path  MI-283 — ends when PR #11903 is dispositioned. It is at 610k/1M,
+#                        past the hand-off threshold, and its work is captured in
+#                        the PR. ⚠️ #11903 is TIER-2 and blocked on an operator
+#                        approval that is NOT to be re-sought; archiving the
+#                        SESSION does not close the PR.
+#   engineering MI-285 — BOUNDED to its single unit (make lanes use
+#                        --branch-claim) and then archived. It is a SECOND
+#                        engineering lane, which is exactly the sprawl being
+#                        corrected; it was dispatched 3 minutes before the
+#                        operator's instruction and is allowed to finish only
+#                        because its unit is what stops the queue re-jamming.
+#                        It gets NO further work.
+#
+# ⚠️ THE STANDING RULE THIS SETS, and it is the behavioural change: THE MANAGER
+#    DOES NOT SPAWN A REPLACEMENT when a lane finishes. A lane closing returns
+#    the count to three or below and it STAYS there. A hand-off (one lane
+#    replaced 1-for-1 because it is past its context threshold) is not a new
+#    lane and is permitted; a fourth concurrent lane is not, and needs a fresh
+#    operator decision recorded in this file.
+#
+# ⚠️ AND MI-278 IS AT 762,410/1M — past the ~600k hand-off threshold. It is KEPT
+#    (it is the research lane) but must close out its in-flight PRs rather than
+#    start new units. Its eventual replacement is a 1-for-1 hand-off, not growth.

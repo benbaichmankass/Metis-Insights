@@ -1,0 +1,30 @@
+id: WO-20260912-UNBLOCK-THE-MERGE-QUEUE-THE-R13-MERGE
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Unblock the merge queue: the R13 merge-slot unjammer is one lint error from green and its lane cannot see it
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_013njtHZThET6vgiGMdHZPiz
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  #11891 is MERGED and the jam is RE-MEASURED against its own before-figure: 14 of 19 open PRs conflicted, 13 of them on docs/claude/session-board.json::merge_slot alone, 4 clean as the positive control (measured 2026-09-12T07:3xZ with git merge-tree against origin/main over the complete open-PR set). ⚠️ MERGING #11891 IS NOT THE SAME FACT AS THE JAM CLEARING, and must not be reported as one: --branch-claim is action=store_true and the DEFAULT path still splices the shared field, so the capability ships INERT until callers opt in. The second half is therefore owed: the spawn-prompt template, .github/pr-landing/README.md and the session-coordination skill must tell a lane to pass --branch-claim, and only then can the conflict count be expected to fall. Report the AFTER number against the BEFORE.
+
+why: >-
+  MEASURED 2026-09-12T07:31:49Z: guards on #11891 reads PASS 72 / FAIL 1 and the single failure is ruff-lint E731 (a lambda assignment at scripts/ci/check_pr_landing.py:1404). Its owning lane MI-280 is RUNNING but reports 'all checks clean' and status need_input 'merge PRs #11891, #11889, #11898' — it believes it is done and is blocked on the manager, so it will not fix it. The manager must not touch scripts/ci/** (check_manager_scope R2 grades manager COMMITS, not net diffs), so the work is ROUTED to a session, which is the escape hatch CLAUDE.md intends when it says the cheapest way past the guard must be to route the work to a session.
+
+source: >-
+  manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-12
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
