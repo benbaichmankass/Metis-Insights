@@ -284,7 +284,7 @@ def declaration_scope(base: Optional[str],
              "--", ".github/register-removals"],
             capture_output=True, text=True, timeout=60)
         if un.returncode == 0:
-            names |= {Path(l).name for l in un.stdout.split() if l.strip()}
+            names |= {Path(x).name for x in un.stdout.split() if x.strip()}
     except (OSError, subprocess.SubprocessError):
         return UNSCOPED, None
     return IN_DIFF, names
