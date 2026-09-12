@@ -538,9 +538,9 @@ that *is* the authoritative claim is unpostable while #6927 sits at GitHub's har
 2500-comment cap (writes 403 — **MI-182**).
 
 **R13** puts an enforced claim on that route, weakening neither rule: a branch
-that arms must hold `merge_slot` in [`session-board.json`](session-board.json) —
-`held_by`, `branch`, `claimed_at` set to itself — **added-or-modified in its own
-diff**, for the same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it
+that arms must hold an **attributable, timestamped claim naming itself**
+(`held_by`, `branch`, `claimed_at`), **added-or-modified in its own diff**, for
+the same reason `claude-pr-automerge.yml`'s REQUEST GATE demands it
 of the arming file: a branch that merely merged `main` while somebody else's
 claim sat on it has asked for nothing, and presence alone cannot tell the two
 apart. R6 still requires arming; the hook still guards the MCP route unchanged.
@@ -551,11 +551,38 @@ project hook loads.
 
 **R13 does not serialize anything, and must not be described as if it does.**
 `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE` establishes why, and it
-still stands: `merge_slot` lives in a committed file, so a claim written on a
+still stands: the claim lives in a committed file, so a claim written on a
 branch **reaches no other session until that branch merges** — by which point the
 claim is over. Two branches can each arm, each write a valid claim, and never see
-one another. `require-up-to-date` has been off since 2026-08-10, so nothing even
-forces them to collide textually.
+one another.
+
+⚠️ **AND UNTIL 2026-09-12 THEY PAID FOR THAT NON-EXCLUSION WITH A GUARANTEED
+CONFLICT.** This paragraph used to end *"`require-up-to-date` has been off since
+2026-08-10, so nothing even forces them to collide textually"* — **do not
+re-quote that.** It is true of being *behind* `main` and false of the claim
+itself: the shared `merge_slot` is ONE field in ONE file that every armed branch
+must overwrite, so two armed branches collide **at merge time** whatever
+`require-up-to-date` says. Measured over the last 40 commits to `main` touching
+`session-board.json` (2026-09-11T23:12Z → 2026-09-12T09:30Z), **39 of 40 moved
+`merge_slot.branch`** — median gap 11.5 minutes, 26 of 38 under 16 — and
+resolving the conflict pushes a new head that **restarts CI**, so resolving
+faster does not help.
+
+**So R13 now takes either of two claims, and the guard tries the second first:**
+
+| route | file | who takes it |
+|---|---|---|
+| legacy | `session-board.json::merge_slot` | `commit-to-main` + its 27 workflows. Unchanged, still passes. |
+| **per-branch** | `.github/merge-slots/{slug}.json` | **every session branch** — `scripts/ops/claim_merge_slot.py --branch-claim` |
+
+⚠️ **`--branch-claim` is a flag, not the default.** Nothing is given up by taking
+it: R13 never serialized, so the shared field bought conflict and no exclusion,
+while attribution and timestamping are preserved and strengthened — the branch is
+named in the **path** as well as the **body**, and R13 requires the two to agree.
+This is the same defect, in the same route, that
+`.github/pr-automerge-request` → `.github/pr-automerge-requests/{slug}.txt`
+already fixed one layer over on 2026-08-21. Full rationale:
+[`.github/merge-slots/README.md`](../../.github/merge-slots/README.md).
 
 What R13 changes is narrower and worth having anyway:
 
