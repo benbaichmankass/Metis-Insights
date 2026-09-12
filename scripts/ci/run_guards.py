@@ -473,6 +473,28 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The STATUS half of the sibling above. `check_register_field_loss.py`
+        # grades a field DISAPPEARING; this grades a field's VALUE regressing —
+        # a row whose `status` moves from terminal back to live, or whose
+        # populated `resolved_at` is emptied. Neither is a field loss, so the
+        # sibling is structurally blind to both, and the incident that motivated
+        # this one (six hand-resolved rows silently reverted by a merge,
+        # BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION)
+        # went unnoticed precisely because the row COUNT was unchanged.
+        #
+        # `when: None` for the sibling's reason: a regression is written by
+        # whoever last touches a backlog file, and the whole run costs ~1.0s
+        # (measured 2026-09-12: 749ms self-test + 268ms base run), so there is
+        # nothing to buy by scoping it.
+        "name": "backlog-unresolve-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_backlog_unresolve.py", "--self-test"],
+            ["python3", "scripts/ci/check_backlog_unresolve.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # `when: None` — it runs on EVERY diff, for the same reason the
         # wip-ceiling guard below does. A stale `in_flight` row is written by
         # whoever is last to touch either register, and a check that only fires
@@ -612,6 +634,52 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [
             ["python3", "scripts/ops/checklist_routing_age.py", "--self-test"],
+        ],
+    },
+    {
+        # A SPEC THIS DIFF ADDS THAT NOTHING CARRIES FAILS THE PR.
+        #
+        # Closes clause (2) of OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING:
+        # "A MECHANISM makes an un-carried spec visible WITHOUT a session
+        # thinking of it ... and it has been run over the EXISTING tree, not
+        # only armed for new artifacts." Clause (1), the count, was delivered by
+        # MI-152 -- scripts/ops/uncarried_specs.py, its report, and the
+        # per-artifact baseline. NOTHING RAN IT: measured before building, it
+        # appeared in no guard list and no workflow, which
+        # docs/claude/work/RETIRED-MIRRORS-2026-09-11.md had independently
+        # recorded. An instrument nobody runs measures nothing.
+        #
+        # ⚠️ THE CENSUS IS REPORTED AND NEVER GATES. 103 of 124 specs are
+        # un-carried today; a guard that failed on that would red every PR on
+        # day one, and this repo has written down what happens next. What fails
+        # is narrow: a file this diff ADDS that classifies as a spec and that
+        # nothing carries -- the one moment the author can cheaply fix it.
+        #
+        # ⚠️ AND IT DOES NOT DIFF AGAINST THE COMMITTED BASELINE, deliberately.
+        # That file is a snapshot at 817a5a5f and says so in its own `_doc`;
+        # differencing a live census against it blames whichever PR runs the
+        # guard for six days of tree drift. The first draft did exactly that and
+        # reported dozens of untouched docs/research/* files as this diff's
+        # doing -- the same stale-reference blame MI-280 U44 had just fixed in
+        # session-brief-guard, written twice in one session.
+        # ⚠️ COST, STATED RATHER THAN DISCOVERED LATER: these three steps take
+        # ~37s (measured), because the census walks 402 artifacts and reads 1068
+        # register surfaces, and it runs twice -- once as the instrument's own
+        # control and once for the live gate. That is ~17% on top of a ~3.5min
+        # guards job. The duplicate census is the price of the probe being SHOWN
+        # to discriminate rather than assumed to; if that trade is ever revisited
+        # it should be revisited deliberately, not by quietly deleting the
+        # instrument's self-test step.
+        "name": "uncarried-spec-guard",
+        "when": None,
+        "steps": [
+            # The INSTRUMENT's own controls first, then this guard's, then the
+            # live gate. A guard whose probe is never shown to discriminate is
+            # indistinguishable from one that always passes.
+            ["python3", "scripts/ops/uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py",
+             "--base", "origin/main"],
         ],
     },
     {
@@ -2819,8 +2887,37 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # byte-identical that run.
     tree_dirty_at_start = sorted(worktree_files())
 
+    # ⚠️ NAME THE TREE WE ARE GRADING, IN THE OUTPUT ITSELF.
+    # Every line below this is a verdict ABOUT a commit, and until 2026-09-12
+    # not one line said WHICH — the header carried `event` and `base` and
+    # nothing identifying HEAD. A saved run therefore could not be attributed,
+    # and a run whose tree MOVED under it (a background run while the session
+    # checks out another branch) produced a confident verdict for a branch it
+    # had not finished reading. MEASURED: a `pr-landing-guard` FAIL was
+    # recorded against PR #11928 by exactly that route, and reproducing it by
+    # hand on a stable tree returned OK. That is the implicit-input-selection
+    # shape `check_diagnostic_provenance.py` exists to catch, in the harness
+    # that runs it.
+    #
+    # Read from git rather than from the environment, so it is right when run
+    # locally too; `unknown` when git cannot answer -- WE COULD NOT LOOK, never
+    # a fabricated sha.
+    def _git_say(*argv: str) -> str:
+        try:
+            r = subprocess.run(["git", *argv], capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return "unknown"
+        out = (r.stdout or "").strip()
+        return out if (r.returncode == 0 and out) else "unknown"
+
+    head_sha = _git_say("rev-parse", "HEAD")
+    head_branch = _git_say("rev-parse", "--abbrev-ref", "HEAD")
+    head_dirty = "dirty" if tree_dirty_at_start else "clean"
+
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
+    print(f"grading {head_branch} @ {head_sha[:12] if head_sha != 'unknown' else 'unknown'} "
+          f"· worktree {head_dirty} at start")
     if force_all:
         why = "--all" if args.all else "the guard harness itself changed"
         print(f"relevance DISABLED ({why}) — running every guard")

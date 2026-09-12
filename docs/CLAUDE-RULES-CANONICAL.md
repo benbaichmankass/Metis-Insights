@@ -732,6 +732,109 @@ slice of this rule (a new backlog row asserting %/R/$ evidence must carry a
 parseable denominator). The guard is the FLOOR, not the rule — everything it
 cannot see (chat, PR bodies, docs) is still bound by this section.
 
+## The row you are reading outranks the label in it (2026-08-26, binding)
+
+**A stored field's NAME is a claim about what wrote it, not a measurement.**
+Before you draw a conclusion from a field, establish what writes it — and when
+the same row also carries a field that sits closer to the primary observation,
+**that field outranks the label**.
+
+⚠️ **This is deliberately a section of its own and NOT a fifth bullet under
+RULE ONE**, because RULE ONE was in force and binding for every member below
+and prevented none of them.
+`BL-20260826-FOUR-WRONG-CONCLUSIONS-IN-ONE-SESSION-FROM-READING-A-STORED-LABEL-AS-THE-MEASUREMENT`
+asks in terms for it to be *"written where it will actually be read rather than
+added as a fifth bullet to a rule that already exists"*. This is that.
+
+**Why "always verify" cannot catch it:** the read FEELS like verification. A
+journal query IS a measurement — **of the journal**. The mistake is not a
+skipped check; it is a real check aimed one level too shallow.
+
+**THE POPULATION, because this rule is itself a quantitative claim.** Four
+members, one session, the 2026-08-26 BTC-scalp investigation. Each was caught
+and corrected before shipping, two of them only because the operator
+intervened — the drafted outputs were a **demotion of a live real-money
+strategy** and a **Tier-3 entry-gate change that would have deleted the only
+profitable cohort** (6 of 6 wins, +$22.52). In **three of the four** the
+settling field was **in the row already being read**:
+
+| # | the label that was trusted | the field that outranked it | where it was |
+|---|---|---|---|
+| 1 | `trades.pnl` on `bybit_2`, read as the account's money → *"flat, +$0.88, no problem"* | the account BALANCE / `/api/bot/pnl/exchange` — wallet-truth **−$262.52** against a journal sum ~8× smaller | one endpoint away |
+| 2 | `bybit_portfolio`'s **−$2,955.74** quoted as *"what the strategy costs"* | `position_size` — the same signals at ~330× the size | **the same rows** |
+| 3 | `exit_reason` read as the exit MECHANISM → *"83% of exits are not the declared exits"* | `exit_price` — **22 of 28** exits land within 0.05% of a declared bracket level | **the same rows** |
+| 4 | *"`bybit_2` is one-way netting"*, asserted from PROSE | the venue's `positionIdx`, returned on every position row | **the same rows**, dropped at extraction |
+
+A fifth variant is the same error in TIME rather than in provenance: a stored
+field read correctly, with the **window never stated**, so a historical
+measurement is presented as a current condition. The recorded instance is a
+past-stop rate for `vwap` reported as *"real money, one strategy"* for a leg
+that is `execution: shadow` and routed to no live account.
+<!-- population-ok: an EXHIBIT, not a claim — the rate below is quoted verbatim from the original 2026-08-26 report to show the defect, and no denominator was recorded for it then or since. Inventing an n here would fabricate exactly what this rule and its neighbour forbid; the figures stated as MINE are re-measured and carry their own basis. -->
+Quoted as filed: **44.2%**, with **no n recorded then or since** — do not
+re-quote it as a rate; it is an exhibit. What IS re-measurable, and was
+re-measured 2026-09-12 by running `scripts/ops/strategy_liveness.py vwap`
+(exit **2**): `enabled: false`, `running: false`, `routed_to: []`,
+`live_accounts: []`, `why: "not routed to any live account"`. **The `trades`
+table answers "what happened". It does not answer "is this still happening".**
+
+### The mechanical answers that exist — and what each cannot do
+
+- **`scripts/ops/column_provenance.py <table>.<column>`** — every module that
+  WRITES the column; **exit 2 when more than one does**, because a name cannot
+  describe two writers. Run against `trades.stop_loss` on **2026-09-12** it
+  reports **119 write sites across 11 modules** (entry computes the level, the
+  monitor overwrites it on every trailing amend), which is why reading it as
+  the *decision-time* risk denominator mis-graded **95** correctly trailed rows
+  as inverted brackets. ⚠️ **State the unit and the date, because both move:**
+  `RECURRENCE-LEDGER.json` records *"10 writing modules"* from **2026-08-26**
+  and the tool's "module" is a DIRECTORY, not a file (19 distinct `.py` files
+  today) — so re-run it rather than quoting either number. ⚠️ And it is a
+  **grep over assignment sites**, so fixtures and literals are counted among
+  the 119; it answers *"is this column singly-owned?"* (here, emphatically no),
+  not *"how many production writers are there?"*. ⚠️ Exit 1 is *"no writer
+  found"* and is explicitly **NOT** *"nothing writes it"* — verified by running
+  it, exit 1 on an invented column and exit 2 on `trades.stop_loss`.
+- **`scripts/ops/strategy_liveness.py <strategy>`** — the time variant. Checks
+  **both** gates (the strategy's own `execution`, and whether any account it is
+  ROUTED to is live) and exits 2 with *"quote it in the PAST TENSE"* when it is
+  not. Either gate alone misleads — `bybit_2` IS live and runs seven strategies,
+  none of them `vwap`. ⚠️ Exit 1 is *"we could not look"*, distinct from *"not
+  live"*. **Verified by running it 2026-09-12**: `vwap` → exit **2** with
+  *"quote any measurement about this strategy in the PAST TENSE"*,
+  `trend_donchian_sol_4h` → exit **0**; the `unknown` state is covered by the
+  tool's own `--self-test` (*"'unknown' is reachable and distinct from
+  not_live": PASS*), which is a planted control rather than a live unreadable
+  API, and is said that way rather than claimed as a live observation.
+- **`journalTrust` on `/api/bot/trades/closed` and `/api/bot/performance`** —
+  the only one of the three a reader gets **without asking for it**, so it is
+  the shape to copy. Member 1 is now answered in the response itself.
+  ⚠️ **`no_record` IS NOT "trusted"**: `comms/broker_truth_ledger.json` is
+  populated by hand from an operator's venue export, so an absent record means
+  **nobody has reconciled the account**; `unreadable` means *we could not
+  look*. Three states, never collapsed.
+  **OBSERVED LIVE 2026-09-12**, not read off the diff: `bybit_2` returns
+  `known_divergent` on 3 of 3 rows while `bybit_1`, `alpaca_paper` and
+  `ib_paper` each return `no_record` on 2 of 2 — a positive **and** a negative
+  control, so the field varies rather than being a constant. Shipped
+  2026-08-26 under
+  `BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER`.
+
+### The residual, stated rather than hidden
+
+**A LOOKUP CANNOT FORCE ITSELF TO BE RUN.** Two of the three above are tools a
+session must think to invoke, which is the half that has never held; only
+`journalTrust` reaches a reader unasked. So this section is the forcing half,
+and it is prose — the honest description of a rule whose mechanical coverage is
+partial. The recurrence class is `RC-STORED-FIELD-READ-AS-ITS-NAME` in
+[`docs/claude/RECURRENCE-LEDGER.json`](claude/RECURRENCE-LEDGER.json), whose
+own residual-risk note says that at a tenth instance the honest next step is a
+**guard over analysis scripts**, not a stronger adjective. ⚠️ That ledger row
+stands at **`occurrences: 10`** and simultaneously conditions its escalation on
+*"if a 10th instance occurs"* — the two cannot both be forward-looking, so the
+trigger is met or off by one, and the guard has not been built. Recorded here
+so the next session meets the contradiction instead of re-deriving it.
+
 ---
 
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "COMMENTS ONLY in scripts/ci/check_edge_kind_vocabulary.py (a docstring correction and one grandfather-entry note; no predicate, no constant and no control changes) plus one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Both paths are inside TIER1_SURFACE and neither is in check_pr_landing.LANDING_MACHINERY. It RETRACTS a claim I shipped in U37 (#12054) that would have led a reader to reconcile two kind sets that answer different questions over different registers -- doing so would have made a PR-referencing checklist item start owing evidence it does not owe, or widened this guard's vocabulary by a set chosen for another purpose. The guard's verdict on the live store is unchanged and its self-test is unchanged and passing."
+}
