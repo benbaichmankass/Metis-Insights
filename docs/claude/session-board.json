@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "session_013iSqp4LsU1eq8K326eUtgj (OPS lane, MI-279)",
     "branch": "claude/ops-probe-actions-log-reader-2026-09-12",
-    "claimed_at": "2026-09-12T09:53:56Z",
+    "claimed_at": "2026-09-12T09:55:27Z",
     "purpose": "PR #11925 — Tier-1 probe reader fix; arming IS the merge (R13)."
   },
   "active_sessions": [
