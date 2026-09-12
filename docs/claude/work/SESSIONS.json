@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T00:53:26Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 00:52Z tick)",
+  "updated_at": "2026-09-12T01:35:39Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, MI-277 register recovery)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4856,6 +4856,21 @@
       "confirmed_at": "2026-09-11T19:57:14Z",
       "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 708k/1M. Registry read `working`. PR #11829 green; the lane's own summary names the merge_slot conflicts as CI-cadence churn, which matches BL-20260911-R13-MAKES-THE-MERGE-SLOT-A-GUARANTEED-CONFLICT-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES. Check-in armed 22:03Z. Past the ~600k handoff trigger: closes out rather than starting a fourth branch.",
       "manager_observation_2026_09_12T0053Z": "OBSERVED via get_session at 00:53Z: MI-236 engineering. IDLE, status_category completed. #11825 + #11829 MERGED. ⚠️ It flagged on the way out that claim_merge_slot.py has NO RELEASE MECHANISM, so its slot claim could not be handed back -- filed BL-20260910, and the next lane displaces the claim rather than inheriting a free slot."
+    },
+    {
+      "session_id": "session_01Fm4wBus9JMSYenSFRjd71h",
+      "registry_key": "pending-20260912T010220Z",
+      "state": "working",
+      "title": "MI-277 — decompose the winner-size collapse, and grade its provenance BEFORE any remedy",
+      "owns_object": "WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE",
+      "checklist_item": "MI-277",
+      "spawned_at": "2026-09-12T01:02:20Z",
+      "confirmed_at": "2026-09-12T01:35:39Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-271 attributed the bleed to winner-size collapse (average win $404 -> $112, -72%; expectancy +$40 -> -$144) from 2026-08-27. WHY the average win fell is unanswered and is squarely the cycle priority. It must not be answered with a parameter proposal: under CY-20260906-TRADING-TRUTH the measurement is repaired BEFORE it is acted on, and this number is computed from an exit-booking path with 42.9% measured PnL coverage and a live defect (OI-20260908) that books fabricated pnl on false closes.",
+      "note": "RE-APPLIED 2026-09-12T01:12Z. The original registration (commit 49653310e) was pushed to claude/manager-scope-parser-third-instance AFTER auto-merge had armed, and #11846 squashed at head 63e55b8ef without it -- the documented post-arming race. The lane ran for ~9 minutes with NO row on main, which is the MI-15 class this registry exists to prevent."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
