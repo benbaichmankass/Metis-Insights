@@ -838,6 +838,57 @@ disagree with each other and have not been walk-forwarded.** That is a
 negative result about the whole M20 "hold winners longer" framing for this
 family, and it is the deliverable, not a failure to find one.
 
+## 4k. WHAT IS STILL UNTESTED — bounding the negative honestly
+
+U1 measured that **7 of the 8 `ict_scalp_*` legs arm exactly
+`{tp_cross, sl_cross, breakeven_ratchet}`** and that the unit reads no
+`trail_mult` at all. So for this family the negative above is complete only if
+all three are accounted for. They are not — **`sl_cross` is untested**, and
+this section says exactly why rather than letting the omission pass.
+
+**The stop on this family is STRUCTURAL, not a distance parameter**
+(`src/units/strategies/ict_scalp.py:509–516`, read this session):
+
+```
+sl_buffer = params["atr_sl_buffer_mult"] * atr_now      # default 0.20
+sl = sweep["extreme"] − sl_buffer      (long)
+risk = entry − sl
+```
+
+The stop is anchored to the **sweep extreme** — a market-structure level — with
+a small ATR buffer placed outside it. Three consequences, each checkable:
+
+1. **`atr_stop_mult` is genuinely not a parameter of this family**, and its
+   absence is correct rather than an omission: measured against
+   `config/strategies.yaml`, **all 8 `ict_scalp_*` legs declare
+   `atr_stop_mult: None`**. So the **e35 geometry change (2.5 → 2.0) never
+   touched this family** — relevant because
+   `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30` is about that change,
+   and the `ict_scalp_*` win-rate fall it also reports (54.7% → 31.8%)
+   therefore **cannot** be attributed to e35. That is a control the attribution
+   question needs and it comes free here.
+2. **`R` is defined per trade by market structure**, so `tp_at_r: 1.5` is a
+   multiple of a quantity that varies trade to trade. The target grid of §4
+   is therefore a grid over *structural* risk, which is the right shape — but
+   it means a target change and a stop change are not independent knobs.
+3. **The one stop tunable is `atr_sl_buffer_mult` (0.20), and the harness does
+   not expose it.** `scripts/backtest_ict_scalp.py --help` offers
+   `--stale-exit-bars`, `--giveback-*`, `--bank-*`, `--tp-at-r`,
+   `--sim-breakeven`, `--timeout-bars` — and **no stop flag**. Same shape as
+   §1: **unsweepable, not merely unswept.**
+
+⚠️ **SO THE NEGATIVE IS BOUNDED, NOT TOTAL.** The honest statement is: *of the
+three exit mechanisms armed on these legs, two are now swept at live parity
+and return nothing that survives the gate, and the third's only tunable cannot
+currently be swept at all.* Anyone reading §4j's scoreboard as "every
+`ict_scalp` exit lever has been tested" would be over-reading it.
+
+**The buildable next step** is a `--atr-sl-buffer-mult` flag on the same
+`cfg_overrides` path `--tp-at-r` already uses (~the same shape, plus tests and
+a cell family). It is **not** built here: three sweeps are in flight, and a
+fourth lever added mid-flight would land untested alongside results that are
+still being read. Recorded as the next unit rather than started.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
