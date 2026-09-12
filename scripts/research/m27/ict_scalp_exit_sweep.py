@@ -68,6 +68,36 @@ _RUNG_FRACS_OF_TP = (1.0 / 3.0, 2.0 / 3.0)
 _BANK_FRACS = (0.25, 0.5)
 
 
+# M20 `bracket_geometry` (take-profit distance) cells — added 2026-09-12
+# (MI-278 U3). Until `backtest_ict_scalp.py` gained `--tp-at-r` the scalp
+# target was not merely UNSWEPT but UNSWEEPABLE: e35_bracket_geometry_sweep
+# refuses the family by design (`out_of_scope_family`), m20_fleet_exit_sweep
+# passes no target on its `scalp` branch, and this harness exposed 30
+# `add_argument` calls and not one was a target. The 8 ict_scalp_* rows read
+# `pending` in the coverage matrix, which understated that.
+#
+# THE GRID BRACKETS THE LIVE VALUE ON BOTH SIDES, and that is the whole design
+# rather than a courtesy: MI-277's question is "are winners being cut short",
+# which biases an author toward testing only WIDER targets, and a one-sided
+# grid cannot tell "further is better" from "we only looked further".
+#
+# ⚠️ The live value itself is NOT emitted as a cell. It IS the baseline arm, so
+# a cell equal to it would compare the baseline against itself and report a
+# confident zero — the same provable-no-op shape `_RUNG_FRACS_OF_TP` avoids one
+# lever up.
+_TP_GRID = (0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0)
+
+
+def tp_cells(tp_at_r: float) -> list:
+    """(tag, matrix_lever, extra_args) for the take-profit distance grid."""
+    out = []
+    for tp in _TP_GRID:
+        if abs(tp - float(tp_at_r)) < 1e-9:
+            continue                      # the leg's own value is the baseline
+        out.append((f"tp{tp:g}R", "bracket_geometry", ["--tp-at-r", str(tp)]))
+    return out
+
+
 def ladder_cells(tp_at_r: float) -> list:
     """(tag, matrix_lever, extra_args) for the partial-TP ladder grid."""
     out = []
@@ -105,9 +135,37 @@ def declared_lever_flags(leg_cfg: dict) -> list:
 # regime-attribution flags which do not touch the exit path). SYMBOL/TIMEFRAME
 # are filled per-leg by main(); every ict_scalp leg is a config-exact copy so the
 # harness self-loads the shared ict_scalp_5m detection params for all of them.
-def base_flags(symbol: str, timeframe: str, declared: list | None = None) -> list:
-    return (["--symbol", symbol, "--timeframe", timeframe, "--sim-breakeven"]
-            + list(declared or []))
+def base_flags(symbol: str, timeframe: str, declared: list | None = None,
+               timeout_bars: int | None = None) -> list:
+    """The config-exact base every cell is measured against.
+
+    ⚠️ `timeout_bars` IS A LIVE-PARITY AXIS, NOT A TUNING KNOB, and it defaults
+    to None = pass nothing = the harness default of 24, which is byte-for-byte
+    what every M27 scalp verdict already in the coverage matrix was measured at.
+
+    WHY IT EXISTS (MI-278 U3, 2026-09-12): `backtest_ict_scalp.py` force-closes
+    every trade at `timeout_bars`, and NO ict_scalp leg has ANY time-based exit
+    in production — established from six directions with a positive control (the
+    same probe finds `time_decay` in vwap / fvg_range_15m / fade_breakout_4h, so
+    the scalp silence is a real absence). This script never passed the flag, so
+    all 25 graded scalp cells inherit the 24. Measured on one leg-quarter, the
+    timer ends 38.4% of trades at the live `tp_at_r` and supplies ~62% of the
+    reported net R — **the error FLATTERS**, and its grip TIGHTENS as the target
+    widens, so it biases the book against exactly the hold-longer levers M20
+    tests. `BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-
+    HAS-NO-TIME-EXIT-AT-ALL`.
+
+    ⚠️ THE DEFAULT IS DELIBERATELY *NOT* CHANGED TO PARITY. Doing so would
+    silently re-grade every existing scalp cell against a different book, which
+    is the population-mixing this file's own dataset header warns about. A
+    parity run is an EXPLICIT second run, and only IT may be cited by a
+    proposal about how long a winner is held.
+    """
+    out = (["--symbol", symbol, "--timeframe", timeframe, "--sim-breakeven"]
+           + list(declared or []))
+    if timeout_bars is not None:
+        out += ["--timeout-bars", str(int(timeout_bars))]
+    return out
 
 
 # module-level, set in main() so run_cell stays a pure (data, extra)->metrics call
@@ -227,6 +285,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--walkforward", action="store_true",
                     help="After IS/OOS, run the yearly walk-forward confirmation "
                          "(M20 gate) on any cell that passed the IS/OOS pre-filter.")
+    ap.add_argument("--timeout-bars", type=int, default=None, metavar="N",
+                    help="LIVE-PARITY AXIS, not a tuning knob. Default None = pass "
+                         "nothing = the harness default of 24, which is what every "
+                         "M27 scalp cell in the coverage matrix was measured at. "
+                         "Production has NO time-based exit on any ict_scalp leg, so "
+                         "a large value (e.g. 100000) is the PARITY arm — and only "
+                         "the parity arm may be cited by a proposal about hold "
+                         "length. Both arms are reported so the gap is quantified "
+                         "rather than swapped in silently (MI-278 U3).")
     ap.add_argument("--out", required=True, help="Output dir for slices + JSON.")
     args = ap.parse_args(argv[1:])
 
@@ -249,22 +316,24 @@ def main(argv: list[str]) -> int:
         tp_at_r = float(cfg.get("tp_at_r") or 1.5)
 
     global BASE_FLAGS
-    BASE_FLAGS = base_flags(symbol, timeframe, declared)
+    BASE_FLAGS = base_flags(symbol, timeframe, declared, args.timeout_bars)
 
     # Cells = the stale/giveback grid + the config-relative ladder grid,
     # optionally filtered to one matrix lever.
-    cells = list(CELLS) + ladder_cells(tp_at_r)
+    cells = list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)
     if args.cells:
         want = {c.strip() for c in args.cells.split(",") if c.strip()}
         cells = [c for c in cells if c[1] in want]
     if not cells:
         print(f"ERROR: no cells selected (--cells {args.cells!r}); "
               f"available levers: "
-              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r)})}",
+              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)})}",
               file=sys.stderr)
         return 2
+    _to = args.timeout_bars
     print(f"leg={leg_name or '(explicit)'} symbol={symbol} tf={timeframe} "
-          f"tp_at_r={tp_at_r} declared_base={declared or 'none'}", flush=True)
+          f"tp_at_r={tp_at_r} declared_base={declared or 'none'} "
+          f"timeout_bars={_to if _to is not None else '24 (harness default — NOT live parity; production has no time exit)'}", flush=True)
     print(f"cells ({len(cells)}): {[c[0] for c in cells]}", flush=True)
 
     out = Path(args.out)
