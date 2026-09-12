@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two rows in docs/claude/health-review-backlog.json: one resolved on an observed census, one whose resolution_criteria is amended so its `resolved` stops implying the stored column was cleaned. No code, no workflow, no src/, no config/, no deploy/ -- every path is inside TIER1_SURFACE. Recording a measurement and correcting a review record are Tier-1 by the canonical doc's own examples. ⚠️ NO DATA WAS WRITTEN: the census is a READ through the token-gated /api/diag/position_telemetry route, and the row's criterion (1) explicitly asks for a re-run of the census probe rather than a migration. Cleaning the column would have been a Tier-2 DB writeback and was neither needed nor done."
+}
