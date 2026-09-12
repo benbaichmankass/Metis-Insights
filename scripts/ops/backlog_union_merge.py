@@ -151,7 +151,7 @@ def reconcile_appends(base: Dict[str, Any], ours: Dict[str, Any],
     observation to ``BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN``
     (base 2774 chars, main +1595, ours +2006). Refusing there sends a session to
     a hand-merge, and a hand-merge on this file is what
-    ``BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS``
+    ``BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION``
     records going wrong.
 
     ⚠️ **ORDER IS THEIRS-THEN-OURS, deliberately.** ``theirs`` is already the
