@@ -36,6 +36,21 @@ Checks:
       (comments naming it are fine and are stripped before the check — an
       assertion that punished the explanation would train the next editor to
       delete it).
+  C6  the PR is CREATED through a PAT-authenticated client when one is present.
+      GitHub suppresses workflow triggers for the built-in GITHUB_TOKEN, so a PR
+      opened with it is born with no attached checks (isolated in
+      `pr-opener.yml`'s header on #10079, re-measured on #10683).
+  C7  auto-merge is ARMED ONLY BEHIND `scripts/ci/automerge_arming.py`, and the
+      refusal path returns. ⚠️ C7 is why C6 is survivable: if the PAT is absent,
+      the checks do not attach, and C7 then withholds the arming rather than
+      merging a head nothing measured.
+
+⚠️ C6/C7 ARE SOURCE ASSERTIONS AND THAT IS A REAL LIMIT, STATED RATHER THAN
+HIDDEN. They establish that the workflow still ROUTES through the PAT and the
+gate — which is what a later editor deletes — and they cannot establish that the
+gate DECIDES correctly. That half is `automerge_arming.py`'s own planted-defect
+suite, which is where the decision lives precisely so it can be tested. Neither
+check is satisfied by a comment: `_code_only` strips comment lines first.
 
 Run standalone, or `--self-test` to plant each defect and prove the guard fails.
 """
@@ -126,6 +141,40 @@ def check(root: Path) -> list[str]:
             "help because it gates on checks. #10788 and #10764 were both armed this "
             "way while their own bodies said not to merge.")
 
+    # C6 — the PR is opened by a PAT-authenticated client when one is available.
+    pat_read = "PR_OPEN_PAT" in code
+    pat_client = "getOctokit(patToken)" in code
+    pat_used = "opener.rest.pulls.create" in code
+    if not (pat_read and pat_client and pat_used):
+        fails.append(
+            "C6 the job body no longer opens the PR through a PAT-authenticated "
+            "client (reads PR_OPEN_PAT: "
+            f"{pat_read}; builds getOctokit(patToken): {pat_client}; calls "
+            f"opener.rest.pulls.create: {pat_used}). GitHub suppresses workflow "
+            "triggers for the built-in GITHUB_TOKEN, so a PR opened with it is "
+            "born with ZERO attached checks — measured in pr-opener.yml's header "
+            "on #10079 and #10683. Reverting to `github.rest.pulls.create` "
+            "restores that, and C7 would then withhold every arming.")
+
+    # C7 — arming goes through the gate, and the refusal path RETURNS.
+    gate_invoked = "scripts/ci/automerge_arming.py" in code
+    gate_obeyed = "verdict.arm" in code
+    enable_idx = code.find("enablePullRequestAutoMerge")
+    gate_idx = code.find("scripts/ci/automerge_arming.py")
+    ordered = gate_invoked and enable_idx != -1 and gate_idx < enable_idx
+    if not (gate_invoked and gate_obeyed and ordered):
+        fails.append(
+            "C7 auto-merge is not gated on a check having attached (invokes "
+            f"scripts/ci/automerge_arming.py: {gate_invoked}; branches on "
+            f"verdict.arm: {gate_obeyed}; gate precedes the enable call: "
+            f"{ordered}). Arming is not a request to merge, it IS the merge, so "
+            "arming a head no check is measuring hands the outcome to nothing — "
+            "six instances on 2026-09-08 alone, one of which dropped a live "
+            "lane's registry row for nine minutes. ⚠️ A count of check runs "
+            "written inline here would be VACUOUS: a zero-check PR reports ONE "
+            "run, this job's own, so `length > 0` is true on exactly the PR that "
+            "must be refused. The gate excludes the self job by name.")
+
     return fails
 
 
@@ -169,10 +218,23 @@ def self_test() -> int:
         "C4 main comparison removed": lambda r: _mutate_script(
             r, "await blobSha('main')", "null"),
         "C5 un-draft restored": lambda r: _mutate_script(
-            r, "            // 3. enable native auto-merge.",
+            r, "            // 3b. enable native auto-merge.",
             "            await github.graphql(`mutation($id:ID!){ "
             "markPullRequestReadyForReview(input:{pullRequestId:$id}){ pullRequest{ "
             "number } } }`, { id: pr.node_id });"),
+        # C6 — reverting to the bot-authenticated create is the exact regression
+        # that makes every PR born with zero checks.
+        "C6 PR opened with GITHUB_TOKEN again": lambda r: _mutate_script(
+            r, "await opener.rest.pulls.create", "await github.rest.pulls.create"),
+        "C6 PAT client construction removed": lambda r: _mutate_script(
+            r, "require('@actions/github').getOctokit(patToken)", "github"),
+        # C7 — the two ways the gate gets neutered: not consulted, or consulted
+        # and ignored. Both must fail, because a gate whose verdict nobody reads
+        # is decoration.
+        "C7 gate no longer invoked": lambda r: _mutate_script(
+            r, "'scripts/ci/automerge_arming.py', '--input'", "'true', '--input'"),
+        "C7 gate consulted but its verdict ignored": lambda r: _mutate_script(
+            r, "if (!verdict.arm) {", "if (false) {"),
     }
 
     with tempfile.TemporaryDirectory() as td:
