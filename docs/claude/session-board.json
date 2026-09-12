@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
     "branch": "claude/mi279-regime-clause-and-exit-req",
-    "claimed_at": "2026-09-12T06:11:10Z",
+    "claimed_at": "2026-09-12T07:56:11Z",
     "purpose": "PR #11876 — regime-break clause + 60s exit requirement re-measurement (Tier-1, docs only)"
   },
   "active_sessions": [
