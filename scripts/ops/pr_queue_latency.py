@@ -136,6 +136,7 @@ import session_registry as sr  # noqa: E402
 # module's docstring for the two measured instances (#11842, #11738) and for why
 # the LIST endpoint this watcher reads structurally cannot answer the question.
 import pr_mergeability as pm  # noqa: E402
+import ci_skip_directive as csd  # noqa: E402
 
 REPO_ROOT = sr.REPO_ROOT
 STATE_PATH = REPO_ROOT / "docs" / "claude" / "work" / "PR-QUEUE-WATCH.json"
@@ -263,13 +264,43 @@ def branch_times_from_git(refs: List[str], repo_root: Path = REPO_ROOT
     return out
 
 
+def branch_messages_from_git(refs: List[str], repo_root: Path = REPO_ROOT
+                            ) -> Dict[str, Optional[str]]:
+    """Newest commit MESSAGE per head ref, read from the local clone's `origin`.
+
+    The sibling of :func:`branch_times_from_git`, and it takes the same care for
+    the same reason: a ref that cannot be resolved maps to ``None`` -- *we could
+    not look* -- and NEVER to ``""``. An empty string is a real read of an empty
+    message and grades ``absent``; conflating the two would report a branch we
+    never examined as carrying no CI-skip directive, which is the reassuring
+    direction and the wrong one.
+    """
+    out: Dict[str, Optional[str]] = {}
+    for ref in refs:
+        msg: Optional[str] = None
+        for candidate in (f"refs/remotes/origin/{ref}", f"origin/{ref}"):
+            try:
+                res = subprocess.run(
+                    ["git", "-C", str(repo_root), "log", "-1", "--format=%B", candidate],
+                    capture_output=True, text=True, timeout=30)
+            except (OSError, subprocess.SubprocessError):
+                break
+            if res.returncode == 0:
+                msg = res.stdout
+                break
+        out[ref] = msg
+    return out
+
+
 def _pr_number(pr: Dict[str, Any]) -> Any:
     return pr.get("number") or pr.get("id")
 
 
 def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
              threshold_hours: float,
-             merge_row: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+             merge_row: Optional[Dict[str, Any]] = None,
+             head_message: Optional[str] = None,
+             head_message_read: bool = False) -> Dict[str, Any]:
     """PURE. One PR in, one graded row out.
 
     ⚠️ ``merge_row`` is a SECOND, ORTHOGONAL DIMENSION and is deliberately not
@@ -282,6 +313,19 @@ def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
 
     ``None`` means the mergeability read was not attempted for this PR — the row
     then carries ``merge_verdict: "not_computed"``, never a fabricated pass.
+
+    ⚠️ ``head_message`` is a THIRD, EQUALLY ORTHOGONAL DIMENSION, and it is not
+    folded into ``state`` or into ``merge_verdict`` for the same reason those two
+    are kept apart. Quiescence asks *"has anyone moved this artifact?"*;
+    mergeability asks *"could anyone merge it if they tried?"*; this asks
+    **"was CI ever allowed to run on this head at all?"** — a question neither of
+    the others can answer, because a push carrying a CI-skip directive produces
+    no run for any workflow, so nothing triggered by that push can report on it.
+
+    ``head_message_read`` is passed SEPARATELY rather than inferred from
+    ``head_message is None``, copying ``ci_settle.summarise``'s ``*_read_ok``
+    discipline: a successful read of an empty message and a read that never
+    happened are different facts.
     """
     ref = head_ref_of(pr)
     # ⚠️ THE TITLE ONLY, NEVER THE BODY. A body mentioning "do not merge" in
@@ -306,6 +350,16 @@ def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
                 "merge_state_note", "check_state", "misleading"):
         row[key] = mr.get(key)
     row["merge_why"] = mr.get("why", "")
+    # Attached BEFORE any early return, exactly as the mergeability block above
+    # is, and for the same reason: an `undateable` or `held_declared` PR whose
+    # CI was never allowed to run is precisely the row a reader must not lose.
+    skip = csd.scan(head_message if head_message_read else None)
+    row["ci_skip_state"] = skip["state"]
+    row["ci_skip_token"] = skip["token"]
+    row["ci_skip_line"] = skip["line"]
+    row["ci_skip_explains_no_checks"] = csd.explains_no_checks(
+        skip, row.get("check_state"), row.get("merge_verdict"))
+    row["ci_skip_why"] = skip["why"] if skip["state"] != csd.ABSENT else ""
     if HOLD_MARKER.search(title):
         row["state"] = HELD_DECLARED
         row["why"] = ("the PR's own title declares it must not be merged, so it is "
@@ -336,13 +390,20 @@ def assess(prs: Optional[List[Dict[str, Any]]],
            branch_times: Optional[Dict[str, Optional[datetime]]],
            now: datetime,
            threshold_hours: float = DEFAULT_THRESHOLD_HOURS,
-           merge_rows: Optional[Dict[Any, Dict[str, Any]]] = None
+           merge_rows: Optional[Dict[Any, Dict[str, Any]]] = None,
+           branch_messages: Optional[Dict[str, Optional[str]]] = None
            ) -> Dict[str, Any]:
     """PURE, so the policy is arguable in tests rather than against a live queue.
 
     ``merge_rows`` maps PR number -> a `pr_mergeability.grade` row. Omitting it
     leaves every PR ``not_computed`` and the conflict figures at zero-with-a-
     reason, never a clean bill.
+
+    ``branch_messages`` maps head ref -> that head's commit message. Omitting it
+    entirely leaves every row ``ci_skip_state: "unreadable"`` — *we did not look*
+    — and never ``absent``, so a caller that forgets to pass it cannot produce a
+    clean bill it did not earn. Passing the map but having a particular ref
+    missing from it is the same fact and grades the same way.
     """
     if prs is None:
         return {
@@ -357,9 +418,20 @@ def assess(prs: Optional[List[Dict[str, Any]]],
         }
     branch_times = branch_times or {}
     merge_rows = merge_rows or {}
-    rows = [grade_pr(pr, branch_times.get(head_ref_of(pr) or ""), now, threshold_hours,
-                     merge_rows.get(_pr_number(pr)))
-            for pr in prs]
+    # ⚠️ `None` and `{}` are NOT the same here. A missing map means the caller
+    # never read any message; an EMPTY map passed deliberately means the same
+    # for every ref. Both must grade `unreadable`, so membership — not
+    # truthiness — decides, and `.get()` alone would be wrong for a ref whose
+    # message really is the empty string.
+    msgs: Dict[str, Optional[str]] = branch_messages or {}
+    rows = []
+    for pr in prs:
+        ref = head_ref_of(pr) or ""
+        rows.append(grade_pr(
+            pr, branch_times.get(ref), now, threshold_hours,
+            merge_rows.get(_pr_number(pr)),
+            head_message=msgs.get(ref),
+            head_message_read=(ref in msgs and msgs.get(ref) is not None)))
     merge_summary = pm.summarise(rows)
     conflicted_rows = sorted(
         (r for r in rows if r.get("merge_verdict") == pm.CONFLICTED),
@@ -375,6 +447,16 @@ def assess(prs: Optional[List[Dict[str, Any]]],
     by_state: Dict[str, int] = {}
     for r in rows:
         by_state[r["state"]] = by_state.get(r["state"], 0) + 1
+    # The third dimension's own census, kept beside `by_state` rather than
+    # inside it. `ci_skip_rows` is the SUBSET a reader must act on: a directive
+    # that actually explains an observed emptiness of checks.
+    ci_skip_by_state: Dict[str, int] = {}
+    for r in rows:
+        k = r.get("ci_skip_state") or csd.UNREADABLE
+        ci_skip_by_state[k] = ci_skip_by_state.get(k, 0) + 1
+    ci_skip_rows = sorted(
+        (r for r in rows if r.get("ci_skip_explains_no_checks")),
+        key=lambda r: str(r["pr"]))
     dated = [r for r in rows if r["quiet_hours"] is not None]
     if rows and not dated:
         return {
@@ -391,6 +473,9 @@ def assess(prs: Optional[List[Dict[str, Any]]],
             "merge_by_verdict": merge_summary["by_verdict"],
             "conflict_band": conflict_band,
             "rows": sorted(rows, key=lambda r: str(r["pr"])), "by_state": by_state,
+            "ci_skip_by_state": ci_skip_by_state,
+            "ci_skip_suppressed": len(ci_skip_rows),
+            "ci_skip_rows": ci_skip_rows,
             "population": (
                 f"{len(rows)} open PR(s) were READ and NOT ONE head branch time "
                 f"could be resolved, so a COUNT exists and a LATENCY does not. "
@@ -425,6 +510,14 @@ def assess(prs: Optional[List[Dict[str, Any]]],
         "misleading_ungraded": merge_summary["misleading_ungraded"],
         "merge_by_verdict": merge_summary["by_verdict"],
         "conflict_band": conflict_band,
+        # ⚠️ A THIRD, SEPARATE COUNT, added to neither of the other two for the
+        # same reason they are not added to each other: this PR is owed a NEW
+        # COMMIT (owner: the author), and neither a merge decision nor a base
+        # merge moves it. Folding it into `over_threshold` would send a reader
+        # to the manager for a PR the manager cannot help.
+        "ci_skip_suppressed": len(ci_skip_rows),
+        "ci_skip_rows": ci_skip_rows,
+        "ci_skip_by_state": ci_skip_by_state,
         "population": (
             f"ALL {len(rows)} open, unmerged PR(s) on this repo, graded on hours "
             f"since the last commit to the head branch. Drafts INCLUDED -- the "
@@ -471,12 +564,38 @@ def _render_conflicts(verdict: Dict[str, Any]) -> List[str]:
     return lines
 
 
+def _render_ci_skip(verdict: Dict[str, Any]) -> List[str]:
+    """The third dimension's own lines, never merged into the waiting list.
+
+    Silent when nothing is suppressed — this must not become a line every run
+    prints, which is how a real finding gets walked past.
+    """
+    rows = verdict.get("ci_skip_rows") or []
+    if not rows:
+        return []
+    out = [
+        f"  ⚠️ {len(rows)} PR(s) whose CI WAS NEVER ALLOWED TO RUN — a CI-skip "
+        f"directive in the head commit message. NOT waiting on a merge and NOT "
+        f"conflicted: GitHub ran no workflow for that push, so there is no check "
+        f"to go green and nothing to re-run. The remedy is a new commit whose "
+        f"message does not carry it, and it is owed by the AUTHOR.",
+    ]
+    for r in rows:
+        out.append(
+            f"      #{r['pr']}  {str(r.get('head_ref') or '?')[:38]}  "
+            f"{r.get('ci_skip_state')} line {r.get('ci_skip_line')} "
+            f"{r.get('ci_skip_token')!r}")
+    return out
+
+
 def render_digest(verdict: Dict[str, Any], top: int = 8) -> str:
     if verdict["state"] == UNDATEABLE:
         # Mergeability needs no clock, so it is reported even here.
+        # Neither mergeability NOR a suppressed head depends on a clock, so
+        # both are reported even here.
         return "\n".join(
             [f"[pr queue] {verdict['state'].upper()} -- {verdict['population']}"]
-            + _render_conflicts(verdict))
+            + _render_conflicts(verdict) + _render_ci_skip(verdict))
     if verdict["state"] != MEASURED:
         return f"[pr queue] {verdict['state'].upper()} -- {verdict['population']}"
     lines = [
@@ -487,6 +606,7 @@ def render_digest(verdict: Dict[str, Any], top: int = 8) -> str:
         f"  population: {verdict['population']}",
     ]
     lines.extend(_render_conflicts(verdict))
+    lines.extend(_render_ci_skip(verdict))
     for r in verdict["rows"][:top]:
         q = "     ?" if r["quiet_hours"] is None else f"{r['quiet_hours']:6.1f}"
         lines.append(f"  {q}h  {r['state']:<13} #{r['pr']}  {r['title'][:56]}")
@@ -905,11 +1025,65 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("a PR with no resolvable head ref does not crash the grader",
           head_ref_of({"number": 1}) is None)
 
+    # ---- the THIRD dimension: was CI ever allowed to run on this head? ----
+    # The planted positive is the shape that actually happened: a CLEAN subject
+    # with the directive quoted in the BODY. A checker reading only the subject
+    # would pass every other test here and be blind to the real case.
+    _tok = "[" + "skip ci" + "]"
+    body_msg = f"merge main: keep both appends\n\nquoting #11938's {_tok} note\n"
+    clean_msg = "fix: an ordinary commit\n\nnothing special in this body\n"
+    v_skip = assess([pr(1, "a"), pr(2, "b")], {"a": ago(12), "b": ago(12)}, now, 6.0,
+                    {1: mrow("clean", []),
+                     2: mrow("clean", [])},
+                    branch_messages={"a": body_msg, "b": clean_msg})
+    r_bad = [r for r in v_skip["rows"] if r["pr"] == 1][0]
+    r_ok = [r for r in v_skip["rows"] if r["pr"] == 2][0]
+    check("a directive in the head commit BODY is found and reported",
+          r_bad["ci_skip_state"] == "body" and r_bad["ci_skip_explains_no_checks"])
+    check("...and a clean head on the same queue is NOT flagged",
+          r_ok["ci_skip_state"] == "absent"
+          and not r_ok["ci_skip_explains_no_checks"])
+    check("the suppressed count is its OWN number, never folded into "
+          "`over_threshold`",
+          v_skip["ci_skip_suppressed"] == 1 and v_skip["over_threshold"] == 2)
+    check("...and the digest names it, with the PR and the line",
+          "NEVER ALLOWED TO RUN" in render_digest(v_skip)
+          and "#1" in render_digest(v_skip))
+    check("a clean queue prints NO ci-skip line at all — this must not become "
+          "a line every run emits",
+          "NEVER ALLOWED TO RUN" not in render_digest(
+              assess([pr(2, "b")], {"b": ago(12)}, now, 6.0,
+                     {2: mrow("clean", [])},
+                     branch_messages={"b": clean_msg})))
+    # The collapse this dimension exists to refuse, at the `assess` boundary.
+    v_noread = assess([pr(1, "a")], {"a": ago(12)}, now, 6.0,
+                      {1: mrow("clean", [])})
+    check("omitting `branch_messages` grades `unreadable`, NEVER `absent` — a "
+          "caller that forgets to look cannot earn a clean bill",
+          v_noread["rows"][0]["ci_skip_state"] == "unreadable"
+          and v_noread["ci_skip_suppressed"] == 0)
+    v_missing = assess([pr(1, "a")], {"a": ago(12)}, now, 6.0,
+                       {1: mrow("clean", [])},
+                       branch_messages={"other": clean_msg})
+    check("...and a ref MISSING from a supplied map is the same fact",
+          v_missing["rows"][0]["ci_skip_state"] == "unreadable")
+    # A conflict already explains an empty check list; saying the directive did
+    # would swap one confident wrong answer for another.
+    v_conf = assess([pr(1, "a")], {"a": ago(12)}, now, 6.0,
+                    {1: mrow("dirty", [])},
+                    branch_messages={"a": body_msg})
+    check("a CONFLICTED PR's emptiness is NOT re-attributed to the directive",
+          v_conf["rows"][0]["ci_skip_state"] == "body"
+          and not v_conf["rows"][0]["ci_skip_explains_no_checks"])
+    check("...and it is still REPORTED on the row, not silently dropped",
+          v_conf["rows"][0]["ci_skip_line"] == 3)
+
     if not quiet:
         print(f"\n{'FAIL' if fails else 'PASS'}: "
               f"{len(fails)} failure(s) in the pr-queue-latency policy")
         for f in fails:
             print(f"  FAIL {f}")
+
     return (not fails), fails
 
 
@@ -961,10 +1135,16 @@ def main(argv=None) -> int:
             print(f"could not read --open-prs: {exc}", file=sys.stderr)
             raw = None
     prs = normalise_prs(raw)
-    times = branch_times_from_git(
-        sorted({head_ref_of(p) or "" for p in (prs or [])} - {""})) if prs else {}
+    refs = sorted({head_ref_of(p) or "" for p in (prs or [])} - {""}) if prs else []
+    times = branch_times_from_git(refs) if prs else {}
+    # Read from the SAME refs in the same pass. A ref the clone cannot resolve
+    # yields `None` from both readers, so a shallow clone reports `unreadable`
+    # on this dimension exactly as it reports `undateable` on the other —
+    # blind, and saying so.
+    messages = branch_messages_from_git(refs) if prs else {}
     merge_rows = build_merge_rows(args.pr_details, args.pr_checks)
-    verdict = assess(prs, times, now, args.threshold_hours, merge_rows)
+    verdict = assess(prs, times, now, args.threshold_hours, merge_rows,
+                     branch_messages=messages)
 
     state, readable = read_state()
     if verdict["state"] == MEASURED:

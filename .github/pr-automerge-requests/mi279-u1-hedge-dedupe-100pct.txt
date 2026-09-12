@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11935.
+
+Two health-backlog rows amended from live read-only diag measurement:
+the hedge-book dedupe drop measured at 36/36 bybit_1 reads, and a third
+member of the unpaged-detection class. Declaration:
+.github/pr-landing/mi279-u1-hedge-dedupe-100pct.json

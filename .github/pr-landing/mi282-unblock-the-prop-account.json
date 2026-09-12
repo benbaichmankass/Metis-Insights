@@ -1,0 +1,7 @@
+{
+ "tier": 1,
+ "landing": "hold",
+ "hold_reason": "operator_asked_to_hold",
+ "hold_text": "Operator-directed 2026-09-12, in this lane's dispatch, verbatim: \"config/accounts.yaml, the arbitration allowlist and config/prop_rulesets/** are Tier-2/Tier-3 — prepare and route to the manager, never self-land. Declare landing: hold with a typed hold_reason.\" The diff itself enacts NONE of those — it is docs and registers only — but the instruction was to route rather than land, and the PR carries a Tier-2 proposal the manager must read before anyone acts on it. Opened ready-for-review rather than draft so the manager can actually merge it; a draft cannot be merged by the human it is held for.",
+ "why": "Tier-1 by surface: docs/research/**, docs/DOCUMENT-INDEX.md, docs/claude/work/objects/**, docs/claude/health-review-backlog.json, docs/claude/OPEN-ITEMS.json, .github/pr-landing/**. No src/, no config/, no deploy/, no .github/workflows/, no order path, no VM mutation. Held on the operator instruction, not on tier."
+}

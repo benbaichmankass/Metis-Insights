@@ -1,0 +1,1 @@
+arm auto-merge for claude/mi280-digest-liveness-loop (PR #11972)

@@ -71,6 +71,41 @@ inputs:
       `timeout-minutes` above this or the job dies mid-wait — research-queue
       dispatch carries 35 for exactly that reason.
     default: "30"
+  refresh-command:
+    description: >
+      A shell command that RE-DERIVES this caller's generated file(s), run after
+      the stale-branch refresh merges `main` in and BEFORE the result is pushed.
+
+      Empty by default, so every existing caller is byte-for-byte unchanged.
+
+      ⚠️ WITHOUT THIS, THE REFRESH IS INERT FOR A PRODUCER WHOSE OUTPUT IS
+      DERIVED FROM THE THING IT MERGES. Merging `main` mints a new head sha,
+      which re-triggers the checks — and that is the whole of what it does. It
+      never regenerates the derived file, so the new head carries the SAME stale
+      content and the SAME guard fails again, one sha later.
+
+      MEASURED on `constraint-readout.yml`, which has concluded `success` ZERO
+      times in its entire life. Run 34592532948 generated for 31 minutes, opened
+      #11789, and died on `session-brief-guard` with
+      `verdict=introduced_registers_changed`. Its own refresh graded
+      `not_needed_up_to_date`. Reproduced against `origin/main`: render the brief
+      at an older base, advance ONLY the registers to current main — which is
+      what GitHub's MERGE REF does, since PR checks run against
+      branch-merged-with-main — and the guard emits that exact verdict and exits
+      1. The renderer and the guard do NOT disagree (checked: both exit 0 on an
+      unmoved base); the brief is stale against a base that moved underneath it.
+
+      For such a caller, re-running the checks is not the remedy — RE-DERIVING
+      is. Pass the same command the workflow used to generate in the first place
+      (for `constraint-readout.yml`: `python3 scripts/ops/constraint_readout.py
+      --write && python3 scripts/ops/render_session_brief.py --write`).
+
+      ⚠️ A FAILING COMMAND IS ITS OWN STATE AND IS NEVER SILENTLY IGNORED. It
+      grades `failed_refresh_command`, distinct from `refreshed` and from
+      `refreshed_rederived`, because "we re-derived" and "we tried and could
+      not" are opposite facts about the head that is about to be pushed.
+    required: false
+    default: ""
   refresh-stale-branch:
     description: >
       When "true" (the default), a `verify-merged` wait that is not progressing
@@ -136,6 +171,7 @@ runs:
         VERIFY_MERGED: ${{ inputs.verify-merged }}
         VERIFY_TIMEOUT_MINUTES: ${{ inputs.verify-timeout-minutes }}
         REFRESH_STALE_BRANCH: ${{ inputs.refresh-stale-branch }}
+        REFRESH_COMMAND: ${{ inputs.refresh-command }}
       run: |
         set -euo pipefail
         if [ -z "${GH_TOKEN:-}" ]; then
@@ -282,15 +318,17 @@ runs:
         # workflows call. Fixing any single caller would have fixed one prefix
         # and left the rest, which is why the fix is here.
         #
-        # ⚠️ NOT WRITTEN WITH `json.dump`. `session-board.json` is hand-
-        # maintained and matches NO `json.dumps` indent (measured: 1, 2, 3, 4 and
-        # tab all differ; the root sits at 1 space while the `merge_slot` block
-        # sits at 2). A whole-file re-serialisation rewrites ~139 lines to change
-        # 4 — the `backlog_append.py` failure — and worse, this is the one file
-        # every session edits, so a whole-file rewrite turns every concurrent
-        # edit into a guaranteed conflict instead of a 4-line one.
-        # `claim_merge_slot.py` splices the value in place and verifies that no
-        # other top-level key moved before it writes.
+        # ⚠️ THE OLD NOTE HERE IS SUPERSEDED AND IS KEPT ONLY AS THE RECORD OF
+        # WHY IT MATTERED. It read: *NOT WRITTEN WITH `json.dump` —
+        # `session-board.json` is hand-maintained and matches NO `json.dumps`
+        # indent (measured: 1, 2, 3, 4 and tab all differ; the root sits at 1
+        # space while the `merge_slot` block sits at 2), so a whole-file
+        # re-serialisation rewrites ~139 lines to change 4 and turns every
+        # concurrent edit into a guaranteed conflict instead of a 4-line one.*
+        # Every word of that was true and it no longer describes this step: the
+        # claim below takes the per-branch route and touches `session-board.json`
+        # NOT AT ALL, so there is no shared serialisation to preserve. Do not
+        # re-derive a splice requirement from it.
         #
         # ⚠️ FAILS LOUDLY IF THE SCRIPT IS ABSENT rather than skipping the claim.
         # A silent skip would re-create the deadlock invisibly, which is the
@@ -300,13 +338,47 @@ runs:
           echo "::error::commit-to-main: scripts/ops/claim_merge_slot.py is missing from this checkout, so the R13 merge-slot claim cannot be written. REFUSING to open a PR that would fail its own required guard and could never merge."
           exit 1
         fi
-        python3 scripts/ops/claim_merge_slot.py \
+        # ⚠️ `--branch-claim`, NOT THE SHARED FIELD. R13 accepts both routes and
+        # the legacy one still passes, so this action kept writing
+        # `docs/claude/session-board.json::merge_slot` after the per-branch route
+        # shipped — which means every automation PR dirtied every other
+        # board-touching branch, and 27 workflows call this action.
+        #
+        # MEASURED on origin/main 2026-09-12, population = the last 40 commits:
+        # 18 touch `session-board.json` and ALL 18 change the `merge_slot` lines,
+        # INCLUDING ALL 3 automation commits. That is the mechanism
+        # BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET
+        # measured at SEVENTEEN consecutive conflict cycles on one PR: a branch
+        # whose only conflict is those four lines cannot converge, because the
+        # arrival rate of board-touching commits exceeds a CI window.
+        #
+        # ⚠️ NOTHING IS GIVEN UP. R13 never serialized — its own docstring says a
+        # committed claim reaches no other session until the branch merges — so
+        # the shared field bought CONFLICT and no exclusion. Attribution and
+        # timestamping are preserved exactly and strengthened: the claim names
+        # its branch in the PATH as well as in the body, and both must agree.
+        #
+        # ⚠️ THE PATH IS NOT RE-DERIVED HERE. `${SLUG}` and the script's own slug
+        # rule agree on every branch name this action produces, and agreeing
+        # today is not the same as being one rule. `git add` takes the DIRECTORY
+        # so whatever the script wrote is what gets staged — a second derivation
+        # is exactly how the two drift apart later.
+        python3 scripts/ops/claim_merge_slot.py --branch-claim \
           --branch "${BR}" \
           --held-by "github-actions[bot] · ${GITHUB_WORKFLOW:-unknown workflow} run ${GITHUB_RUN_ID:-unknown}" \
           --purpose "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+        # FAIL LOUDLY IF NO CLAIM LANDED. Same reasoning as the missing-script
+        # check above: a step that reports success for something it did not
+        # achieve re-creates the deadlock invisibly. `--branch-claim` exits 0 on
+        # success, but an exit code is a claim about the CALL; the file is the
+        # claim about the RESULT.
+        if [ -z "$(git status --porcelain -- .github/merge-slots/)" ]; then
+          echo "::error::commit-to-main: claim_merge_slot.py --branch-claim wrote nothing under .github/merge-slots/, so this branch holds no R13 claim and the PR could never merge. REFUSING."
+          exit 1
+        fi
         git add -- ".github/pr-landing/${SLUG}.json" \
                    ".github/pr-automerge-requests/${SLUG}.txt" \
-                   "docs/claude/session-board.json"
+                   ".github/merge-slots"
         git commit -m "${MESSAGE}"
         # Push the throwaway branch. The calling job checked out with the PAT, so
         # `origin` is PAT-authenticated → the PR opened below triggers the required
@@ -421,8 +493,21 @@ runs:
                 elif git merge-base --is-ancestor FETCH_HEAD HEAD; then
                   REFRESH_STATE="not_needed_up_to_date"
                 elif ! git merge FETCH_HEAD -m "Merge main so the required checks re-run against the current base"; then
-                  # ⚠️ THE SLOT CLAIM MAKES ONE CONFLICT ROUTINE, SO IT IS
-                  # RESOLVED RATHER THAN ABORTED. R13 has every arming branch
+                  # ⚠️ THIS BRANCH IS NOW UNREACHABLE FROM THIS ACTION, AND IS
+                  # KEPT DELIBERATELY RATHER THAN DELETED. The claim above moved
+                  # to the per-branch route, so this action no longer touches
+                  # `docs/claude/session-board.json` at all and a merge of `main`
+                  # cannot conflict on a file this branch never changed. It stays
+                  # because it costs nothing when it does not fire, and because
+                  # the failure it prevents — a permanently stranded automation
+                  # branch — is the one this action exists to end: if any caller
+                  # reintroduces a board edit, aborting there would trade the
+                  # deadlock for a conflict-strand. The reasoning below is the
+                  # record of why the shared field needed handling at all, and it
+                  # is also the argument for having moved off it.
+                  #
+                  # THE SLOT CLAIM MADE ONE CONFLICT ROUTINE, SO IT IS
+                  # RESOLVED RATHER THAN ABORTED. R13 had every arming branch
                   # rewrite the SAME four lines of `session-board.json`, and R13
                   # does NOT serialize (a committed claim reaches no other
                   # session until the branch merges,
@@ -463,12 +548,79 @@ runs:
                     git merge --abort || true
                     REFRESH_STATE="failed_conflict"
                   fi
-                elif ! git push origin "HEAD:refs/heads/${BR}"; then
-                  REFRESH_STATE="failed_push"
                 else
-                  REFRESH_STATE="refreshed"
-                  # The fresh checks deserve the full budget, not the remainder.
-                  DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                  # ── RE-DERIVE BEFORE PUSHING ────────────────────────────────
+                  # Merging main mints a new sha and re-triggers the checks. For
+                  # a producer whose output is DERIVED FROM the registers it
+                  # just merged, that is not enough: the new head still carries
+                  # the pre-merge derived file, so a guard comparing the two
+                  # fails again one sha later. Re-running the checks is not the
+                  # remedy; re-deriving is.
+                  #
+                  # ⚠️ THREE OUTCOMES, NEVER COLLAPSED. `refreshed` = merged, no
+                  # re-derive asked for. `refreshed_rederived` = merged AND the
+                  # command ran AND changed something. `refreshed_rederive_noop`
+                  # = the command ran and produced no change, which is a real
+                  # and different answer (the derived file was already correct
+                  # for the new base) and must not read as if nothing was tried.
+                  # `failed_refresh_command` = we tried and could not, which is
+                  # the opposite of having re-derived and must never be silent.
+                  REDERIVE_STATE="not_requested"
+                  if [ -n "${REFRESH_COMMAND:-}" ]; then
+                    if bash -c "${REFRESH_COMMAND}"; then
+                      # ⚠️ SCOPED TO ${PATHS}, like the original `git add`, so a
+                      # re-derive can never widen what this caller lands — the
+                      # invariant the `-f` comment above this script exists to
+                      # protect. A change the command made OUTSIDE those paths
+                      # is therefore NOT pushed, so it is reported rather than
+                      # dropped silently: a caller seeing `rederived` must not
+                      # have to wonder what else moved.
+                      # shellcheck disable=SC2086 — PATHS is a pathspec list.
+                      if ! git diff --quiet -- ${PATHS} || ! git diff --cached --quiet -- ${PATHS}; then
+                        # shellcheck disable=SC2086
+                        git add -f -- ${PATHS}
+                        if git commit -q -m "Re-derive after merging main so the generated file matches the new base"; then
+                          REDERIVE_STATE="rederived"
+                        else
+                          REDERIVE_STATE="failed_commit"
+                        fi
+                      else
+                        REDERIVE_STATE="noop"
+                      fi
+                      # ⚠️ `git status --porcelain`, NOT `git diff`. A re-derive
+                      # that CREATES a file leaves it UNTRACKED, and `git diff`
+                      # does not see an untracked file — so the obvious check
+                      # reports a clean tree for exactly the case most worth
+                      # reporting. Found by the test, not by reading it back.
+                      LEFTOVER="$(git status --porcelain --untracked-files=all | sed 's/^...//' | tr '\n' ' ' | sed 's/ *$//')"
+                      if [ -n "${LEFTOVER}" ]; then
+                        echo "::warning::commit-to-main: refresh-command also touched file(s) OUTSIDE this caller's paths (${PATHS}); those are NOT pushed: ${LEFTOVER}"
+                      fi
+                    else
+                      REDERIVE_STATE="failed_command"
+                    fi
+                  fi
+                  if [ "${REDERIVE_STATE}" = "failed_command" ] || [ "${REDERIVE_STATE}" = "failed_commit" ]; then
+                    # Push anyway: the merge alone is still strictly better than
+                    # a branch that never re-triggers its checks, and stranding
+                    # it here would trade a stale-brief failure for a permanent
+                    # strand. But SAY so — a silent fallthrough would report a
+                    # re-derive that did not happen.
+                    echo "::warning::commit-to-main: refresh-command ${REDERIVE_STATE} — pushing the merge WITHOUT a re-derive. The generated file on this head is still the pre-merge one, so a guard that compares it to the registers will fail again."
+                    REFRESH_STATE="failed_refresh_command"
+                  fi
+                  if ! git push origin "HEAD:refs/heads/${BR}"; then
+                    REFRESH_STATE="failed_push"
+                  else
+                    case "${REDERIVE_STATE}" in
+                      rederived)      REFRESH_STATE="refreshed_rederived" ;;
+                      noop)           REFRESH_STATE="refreshed_rederive_noop" ;;
+                      failed_command|failed_commit) : ;;   # already set above
+                      *)              REFRESH_STATE="refreshed" ;;
+                    esac
+                    # The fresh checks deserve the full budget, not the remainder.
+                    DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                  fi
                 fi
                 echo "::notice::commit-to-main: stale-branch refresh -> ${REFRESH_STATE}"
               fi
