@@ -798,3 +798,56 @@ reason_20260911_11767_fix_round: >-
 #    does not raise the WIP ceiling, and is NOT a standing carve-out for
 #    "anything blocking the merge queue" — the operator was offered that wider
 #    option explicitly and chose the narrow one.
+
+# 2026-09-12 — ROLLBACK TO THREE LANES (operator-directed, directly)
+# ---------------------------------------------------------------------------
+# THIS BLOCK GRANTS NOTHING. It RETIRES exceptions rather than adding one, and
+# it is written here because this file is where a session looks to find out
+# which lanes are legitimate.
+#
+# WHAT THE OPERATOR SAID, kept close to verbatim: "we need to pare back the
+# number of lanes ... back towards the cap. We made specific exceptions for
+# specific things, and if we're done with those items, then we need to roll back
+# to the three lanes exactly to make sure that this kind of issue is not
+# happening ... pace it, get it done ... if a merge needs to wait, that's your
+# job as the manager."
+#
+# WHAT PROMPTED IT, measured rather than felt: the open-PR queue went 19 -> 31 in
+# ~2.5h while the manager merged 5, leaving 26 of 31 unmergeable. That is not a
+# merge-discipline failure; it is six producing lanes against one serialising
+# manager. Adding merge throughput cannot fix a production/consumption mismatch.
+#
+# THE THREE THAT REMAIN — the canonical lanes from the 2026-09-12 three-lane
+# block above, unchanged:
+#   research    MI-278  WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER
+#   ops         MI-279  WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN
+#   engineering MI-280  WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+#
+# THE EXCEPTIONS BEING WOUND DOWN, each with a stated end condition rather than
+# a date, because "we are done with those items" is a fact about the work:
+#   prop        MI-282 — ends when PR #11882 is dispositioned. Its finding is
+#                        delivered: the arbitration fan-out has never dispatched,
+#                        so the allowlist was never the lever.
+#   order-path  MI-283 — ends when PR #11903 is dispositioned. It is at 610k/1M,
+#                        past the hand-off threshold, and its work is captured in
+#                        the PR. ⚠️ #11903 is TIER-2 and blocked on an operator
+#                        approval that is NOT to be re-sought; archiving the
+#                        SESSION does not close the PR.
+#   engineering MI-285 — BOUNDED to its single unit (make lanes use
+#                        --branch-claim) and then archived. It is a SECOND
+#                        engineering lane, which is exactly the sprawl being
+#                        corrected; it was dispatched 3 minutes before the
+#                        operator's instruction and is allowed to finish only
+#                        because its unit is what stops the queue re-jamming.
+#                        It gets NO further work.
+#
+# ⚠️ THE STANDING RULE THIS SETS, and it is the behavioural change: THE MANAGER
+#    DOES NOT SPAWN A REPLACEMENT when a lane finishes. A lane closing returns
+#    the count to three or below and it STAYS there. A hand-off (one lane
+#    replaced 1-for-1 because it is past its context threshold) is not a new
+#    lane and is permitted; a fourth concurrent lane is not, and needs a fresh
+#    operator decision recorded in this file.
+#
+# ⚠️ AND MI-278 IS AT 762,410/1M — past the ~600k hand-off threshold. It is KEPT
+#    (it is the research lane) but must close out its in-flight PRs rather than
+#    start new units. Its eventual replacement is a 1-for-1 hand-off, not growth.

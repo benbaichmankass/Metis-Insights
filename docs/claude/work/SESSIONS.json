@@ -4829,14 +4829,14 @@
     {
       "session_id": "session_01MyUujGAQYs72UUgrfXXmFA",
       "registry_key": "pending-20260911T195437Z-2",
-      "state": "review_ready",
+      "state": "completed",
       "title": "OPS LANE MI-276 — the two detectors that are owed: losing-streak and starved-accounts",
       "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
       "checklist_item": "MI-276",
       "spawned_at": "2026-09-11T19:54:37Z",
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "why": "Manager-dispatched 2026-09-11 19:5xZ.",
+      "why": "Manager-dispatched 2026-09-11 19:5xZ. || REGISTRY CORRECTED 2026-09-12T10:0xZ by the manager: OBSERVED 2026-09-12T10:01Z: IDLE/disconnected, status_category completed, 474,869 ctx. Both detectors merged to main. Registry claimed review_ready.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T19:57:14Z",
       "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z.",
@@ -4923,14 +4923,14 @@
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
       "registry_key": "pending-20260912T054504Z",
-      "state": "working",
+      "state": "completed",
       "title": "ORDER-PATH LANE MI-281 — repair the hedge-book flat read closing live Bybit positions",
       "owns_object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",
       "checklist_item": "MI-281",
       "spawned_at": "2026-09-12T05:45:04Z",
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "why": "LIVE real-money defect: rows[0] on a symbol-scoped get_positions makes a hedge-armed symbol read flat, and the reconciler closes a live position with an ESTIMATED pnl. Three provable false closes, +115.86 manufactured, 7 of 49 on bybit_2. Operator-directed 2026-09-12 via a decision prompt.",
+      "why": "LIVE real-money defect: rows[0] on a symbol-scoped get_positions makes a hedge-armed symbol read flat, and the reconciler closes a live position with an ESTIMATED pnl. Three provable false closes, +115.86 manufactured, 7 of 49 on bybit_2. Operator-directed 2026-09-12 via a decision prompt. || REGISTRY CORRECTED 2026-09-12T10:0xZ by the manager: OBSERVED 2026-09-12T06:28Z and unchanged since: IDLE/disconnected, completed. Object ANSWERED; U5 handed to MI-283. Registry claimed working.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:46:10Z"
     },
@@ -4978,8 +4978,8 @@
       "spawned_at": "2026-09-12T07:49:49Z",
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "why": "guards on #11891 reads PASS 72 / FAIL 1, the one failure being ruff-lint E731 at scripts/ci/check_pr_landing.py:1404. MI-280 owns it, is RUNNING, reports 'all checks clean' and is blocked on the manager, so it will not fix it. The manager may not touch scripts/ci/** (check_manager_scope R2 grades manager commits), so the work is routed to a session. Operator approved the spawn-priority exception directly, 2026-09-12.",
-      "state": "working"
+      "why": "guards on #11891 reads PASS 72 / FAIL 1, the one failure being ruff-lint E731 at scripts/ci/check_pr_landing.py:1404. MI-280 owns it, is RUNNING, reports 'all checks clean' and is blocked on the manager, so it will not fix it. The manager may not touch scripts/ci/** (check_manager_scope R2 grades manager commits), so the work is routed to a session. Operator approved the spawn-priority exception directly, 2026-09-12. || REGISTRY CORRECTED 2026-09-12T10:0xZ by the manager: OBSERVED 2026-09-12T09:56Z: IDLE/disconnected, completed, 362,911 ctx. U1 (ruff fix -> #11891 merged 2e294198a) and U2 (#11889 controls repaired -> merged 4833cc421) both delivered. Registry claimed working.",
+      "state": "completed"
     },
     {
       "session_id": "session_01LGXPoWzDGS47DkNZfZyGFM",

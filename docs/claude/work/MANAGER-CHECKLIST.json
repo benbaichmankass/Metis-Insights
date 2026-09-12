@@ -4713,5 +4713,75 @@
       "MI-283's #11903 is Tier-2 and blocked on operator approval for a live-account write",
       "the read-completeness defect from the incident still has no owner"
     ]
+  },
+  "lane_rollback_2026_09_12T1005Z": {
+    "recorded_at": "2026-09-12T10:05Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "operator_decision": {
+      "verdict": "approved",
+      "decided_on": "2026-09-12",
+      "source": "operator, in conversation, directly",
+      "text": "pare back the number of lanes back towards the cap; we made specific exceptions for specific things and if we're done with those items, roll back to the three lanes exactly so this kind of issue is not happening; pace it, get it done; if a merge needs to wait that's your job as the manager",
+      "scope": "retire the exception lanes, hold at three, manager paces the queue"
+    },
+    "why": "MEASURED: open PRs 19 -> 31 in ~2.5h against 5 merges, 26 of 31 unmergeable. A throughput mismatch between six producing lanes and one serialising manager — not something more merging fixes.",
+    "observed_at_1002Z": [
+      {
+        "item": "MI-276",
+        "lane": "ops",
+        "observed": "IDLE / completed, 474,869 ctx",
+        "action": "registry corrected (claimed review_ready)"
+      },
+      {
+        "item": "MI-278",
+        "lane": "research",
+        "observed": "RUNNING, 762,410 ctx",
+        "action": "KEEP — but PAST the ~600k hand-off threshold: close out in-flight PRs, start no new units"
+      },
+      {
+        "item": "MI-279",
+        "lane": "ops",
+        "observed": "RUNNING, 351,343 ctx",
+        "action": "KEEP"
+      },
+      {
+        "item": "MI-280",
+        "lane": "engineering",
+        "observed": "RUNNING, 397,543 ctx",
+        "action": "KEEP"
+      },
+      {
+        "item": "MI-281",
+        "lane": "order-path",
+        "observed": "IDLE / completed",
+        "action": "registry corrected (claimed working)"
+      },
+      {
+        "item": "MI-282",
+        "lane": "prop",
+        "observed": "IDLE / review_ready, 393,127 ctx",
+        "action": "WIND DOWN — ends when #11882 is dispositioned"
+      },
+      {
+        "item": "MI-283",
+        "lane": "order-path",
+        "observed": "RUNNING, 610,309 ctx",
+        "action": "WIND DOWN — past hand-off; ends when #11903 is dispositioned. Archiving the session does NOT close the PR, which is Tier-2 and awaiting an operator approval that must not be re-sought"
+      },
+      {
+        "item": "MI-284",
+        "lane": "engineering",
+        "observed": "IDLE / completed, 362,911 ctx",
+        "action": "registry corrected (claimed working). Delivered both units"
+      },
+      {
+        "item": "MI-285",
+        "lane": "engineering",
+        "observed": "just spawned",
+        "action": "BOUNDED to its one unit then archived — it is a SECOND engineering lane, dispatched 3 min before the operator's instruction, allowed to finish only because its unit is what stops the queue re-jamming. No further work"
+      }
+    ],
+    "standing_rule_set": "THE MANAGER DOES NOT SPAWN A REPLACEMENT WHEN A LANE FINISHES. The count returns to three or below and STAYS there. A 1-for-1 hand-off for a lane past its context threshold is not a new lane; a fourth concurrent lane needs a fresh operator decision recorded in spawn-priority-exception.yaml.",
+    "queue_policy": "PACED, not raced. Merge only what is clean AND green on its own head. Let the rest rebase as lanes wind down — fewer lanes means fewer new PRs, which is what actually drains this. A merge that should wait, waits."
   }
 }
