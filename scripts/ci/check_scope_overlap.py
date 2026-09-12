@@ -879,8 +879,7 @@ def _self_test() -> int:
     ok("src/runtime/orders.py" not in dec and "src/runtime/orders.py" not in exc,
        "a path in loose prose is a MENTION, not a claim — attributed to neither")
 
-    # ── THE BLANK-LINE FAULT, AS AN A/B (BL-20260911-THE-SCOPE-OVERLAP-PARSER-
-    #    MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES). One blank line was the
+    # ── THE BLANK-LINE FAULT, AS AN A/B. One blank line was the
     #    entire difference between 4 paths and 0, and the FAILING shape is what
     #    ordinary markdown produces. Both arms are asserted, because the point
     #    is that they must now AGREE.
