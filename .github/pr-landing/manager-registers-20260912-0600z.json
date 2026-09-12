@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers and work-object bookkeeping only: MANAGER-CHECKLIST keys, SESSIONS rows, two work objects, and the lifecycle/owner/basis fields on the five dispatched objects. No src/, no config/, no workflow, no order path."
+}

@@ -1,0 +1,35 @@
+id: WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+type: question
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Engineering lane: make the landing and register machinery stop losing work
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01BjTp5RYwedmpFfkEtkQo1j
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Each of the four measured failure modes from 2026-09-11/12 has a DETECTOR or a structural fix that a planted defect provably trips: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field. A fix without a planted-defect test does not count.
+
+why: >-
+  Measured this session, not theorised: a commit carrying a live lane's registry row was dropped by the auto-merge race and the lane ran unrecorded for 9 minutes; a green automation PR sat dirty for 3.5h because four green checks read as ready; the scope-overlap audit reported 0 of 6 on a correct declaration because one blank line closed its section.
+
+source: >-
+  operator 2026-09-12: I am absolutely positive without even thinking about the roadmap that there are engineering caps we could take
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t). The
+  empty list is a POSITIVE finding here, not the NOT-ASSESSED default it
+  replaces: nothing blocks this object today, because MI-280 (engineering lane) is RUNNING it right
+  now (session_01BjTp5RYwedmpFfkEtkQo1j) and was observed working - read off `list_sessions`, not inferred
+  from the registry row. This is a statement about TODAY and about THIS object
+  only. It is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT
+  BINDS, never pre-emptively - a false blocker is worse than a missing one,
+  and an anticipated one is a false one until the work arrives at it.
+
+captured_by: scripts/ops/capture_idea.py
