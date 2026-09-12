@@ -70,7 +70,9 @@ from typing import Any, Iterable
 # is imported by a harness from elsewhere. Add it explicitly so the guard cannot
 # fail on an ImportError that depends on how it was invoked.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
+from _backlog import (  # noqa: E402
+    DATE_FIELDS, DATE_STATED, UnsupportedCriteriaShape, criteria_text, row_date,
+)
 from accrual_clock import (  # noqa: E402
     ACCRUAL_LEGS_FIELD,
     CAN_RUN,
@@ -290,6 +292,43 @@ def _verdict(row: dict[str, Any]) -> str | None:
     # its whole job is to drop the row out of review passes until then. An
     # unparseable value would silently either hide the row forever or not at all,
     # and the reader could not tell which.
+    # WHEN WAS THIS ROW OPENED? The fourth structural field, and the one that
+    # was missing until 2026-09-12 --
+    # BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS criterion 4.
+    # A row nobody can date cannot be AGED, so it never surfaces in a
+    # stale-work pass however long it sits: it is invisible in exactly the
+    # direction that matters.
+    #
+    # !! THIS IS GRANDFATHERED BY THE SAME ID-SCOPING AS EVERYTHING ELSE HERE,
+    #    AND THAT IS LOAD-BEARING, NOT TIMIDITY. MEASURED 2026-09-12 over the
+    #    982 LIVE rows across the three backlogs: 40 already carry no
+    #    recognised date key at all. A whole-tree gate would red every PR in
+    #    the repo on day one, which is how a guard gets switched off instead of
+    #    satisfied -- the position check_digest_liveness.py takes on
+    #    `never_ran` for precisely this reason. `_check_new_rows` holds only
+    #    NEW rows to the rule; `_census` keeps the standing 40 visible and
+    #    advisory, so the debt cannot be forgotten either.
+    #
+    # !! AND IT COSTS CURRENT PRACTICE NOTHING, measured rather than hoped:
+    #    of the 249 rows ADDED to the health backlog since origin/main~600,
+    #    ZERO would fail this clause. It is not enforcing a new convention, it
+    #    is making an existing habit checkable -- `backlog_append.py`, the
+    #    mandated filing path, neither stamps nor requires a date, so until now
+    #    nothing would have caught the first author who forgot.
+    when = row_date(row)
+    if when.state != DATE_STATED:
+        if when.field is not None:
+            return (
+                f"{when.field} is {str(when.raw)[:40]!r}, which will not parse as "
+                f"a date -- the row cannot be aged, so it never surfaces in a "
+                f"stale-work pass however long it sits"
+            )
+        return (
+            f"no date field -- none of {list(DATE_FIELDS)} is present, so nothing "
+            f"can tell how long this row has been waiting and it is invisible to "
+            f"every ageing pass"
+        )
+
     snooze = row.get("snoozed_until")
     if snooze is not None and str(snooze).strip():
         if not re.match(r"^\d{4}-\d{2}-\d{2}", str(snooze).strip()):
@@ -674,6 +713,12 @@ def _load_is_open_status():
 is_open_status = _load_is_open_status()
 
 
+#: A date every ACCEPT fixture below carries, because `_verdict` now also
+#: demands one. It is a fixture constant rather than inlined so the date
+#: clause has exactly one place to be turned off, and the reject case that
+#: omits it reads as deliberate rather than as an oversight.
+_GOOD_DATE = "2026-09-12"
+
 _GOOD_CRIT = ("Endpoint /api/bot/x returns field y for a rotated log, verified "
               "on the live fleet via the diag relay.")
 
@@ -726,10 +771,10 @@ def _self_test() -> int:
          True, "list whose PROSE is under the floor"),
         # ...and the list shape still passes on real prose, so the fix did not
         # simply outlaw the minority shape.
-        ({"id": "X", "resolution_criteria": [_GOOD_CRIT, "And a second one."],
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": [_GOOD_CRIT, "And a second one."],
           "severity": "high", "tier": 1},
          False, "LIST of real criteria is accepted"),
-        ({"id": "X", "resolution_criteria": [None, "", _GOOD_CRIT],
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": [None, "", _GOOD_CRIT],
           "severity": "high", "tier": 1},
          False, "list with empty/None entries dropped, real prose kept"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high"},
@@ -742,17 +787,34 @@ def _self_test() -> int:
          True, "tier from which no 1/2/3 can be read"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": "soon"}, True, "unparseable snoozed_until"),
-        # ── accepts ────────────────────────────────────────────────────────
+        # DATE CASES (added 2026-09-12, closing criterion 4 of
+        # BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS). A row
+        # nobody can date cannot be AGED, so it never surfaces in a stale-work
+        # pass however long it sits.
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1},
+         True, "otherwise-complete row with NO date field at all"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "opened_at": "sometime last week"},
+         True, "date present but unparseable — we looked and it is broken"),
+        # The SECOND schema is accepted, not merely tolerated: 352 live rows key
+        # on `opened` and refusing them would be a migration disguised as a guard.
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "opened": "2026-09-12"},
+         False, "the `opened` key is a first-class date, not a typo"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "filed_at": "2026-09-12T08:00:00+00:00"},
+         False, "a long-tail key with a full ISO timestamp is accepted"),
+        # ── accepts ────────────────────────────────────────────────────────
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1},
          False, "complete row"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "MEDIUM", "tier": "Tier-2"},
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "MEDIUM", "tier": "Tier-2"},
          False, "case-insensitive severity + Tier- prefixed tier"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "low",
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "low",
           "tier": "1 (research; any promotion past candidate is Tier-3/operator)"},
          False, "trailing tier annotation is allowed — only unreadable is refused"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": "2026-09-30"}, False, "valid ISO snooze"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": None}, False, "snoozed_until null is fine — the field is optional"),
     ]
     # ── the kept_open exit-condition predicate (criterion 3) ─────────────
@@ -798,6 +860,31 @@ def _self_test() -> int:
               f"expected {'reject' if should_fail else 'accept'}, got "
               f"{'reject' if got else 'accept'}")
         failures += 0 if ok else 1
+
+    # THE TWO DATE REASONS MUST BE TELLABLE APART IN THE OUTPUT, not just in
+    # the verdict. The case table above grades reject-vs-accept only, so a
+    # change that folded `unparseable` into `unstated` would keep every row
+    # rejected and slip through it -- MEASURED: a planted `pass` on the
+    # unparseable branch left all cases green because the outer `return` still
+    # fired. A reader told "no date field" about a row that HAS a broken date
+    # goes and adds a second one. `we looked and it is broken` and `we did not
+    # look` are different repairs, so they get different sentences.
+    _unstated = _verdict({"id": "X", "resolution_criteria": _GOOD_CRIT,
+                          "severity": "high", "tier": 1}) or ""
+    _unparseable = _verdict({"id": "X", "resolution_criteria": _GOOD_CRIT,
+                             "severity": "high", "tier": 1,
+                             "opened_at": "sometime last week"}) or ""
+    if "no date field" not in _unstated:
+        print(f"  [FAIL] a row with NO date key must SAY so; got {_unstated[:80]!r}")
+        failures += 1
+    if "will not parse" not in _unparseable or "no date field" in _unparseable:
+        print("  [FAIL] an UNPARSEABLE date must not be reported as an ABSENT one; "
+              f"got {_unparseable[:80]!r}")
+        failures += 1
+    if _unstated == _unparseable:
+        print("  [FAIL] the two date reasons are byte-identical — collapsed")
+        failures += 1
+
     if failures:
         print("self-test FAILED — the guard does not fail closed.")
         return 1
