@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T20:36:35Z",
+  "updated_at": "2026-09-12T21:53:53Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4936,12 +4936,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi280-u46-scratch"
+        "claude/mi280-u52-shortcircuit-scan-blindspots"
       ],
       "last_observed": {
-        "at": "2026-09-12T20:36:35Z",
+        "at": "2026-09-12T21:53:53Z",
         "via": "get_session",
-        "note": "RUNNING. 780309 (78%) — UNCHANGED across four ticks, the only lane that has not compacted. Self-test green, filing a finding. PAST hand-off threshold."
+        "note": "RUNNING. 780309 (78%) — STILL the only lane that has not compacted, 5 ticks running. Landed 11 PRs. needs_action \"merge #12094\" was ACTIONED-AS-REFUSED: #12094 is mergeable_state dirty AND has no CI (zero-check trap, only watch + open-and-automerge). Poked on the PR; both blockers clear with one conflict resolution on its side. Delivered #12098, the clause-(2) not-yet-observable finding."
       }
     },
     {

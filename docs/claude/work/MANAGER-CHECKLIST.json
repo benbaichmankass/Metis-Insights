@@ -5451,5 +5451,28 @@
       "manager_action": "none required. The lane owns it and is doing it correctly."
     },
     "next": "unchanged from 2036Z — decision 2 needs a contested tick on a non-pairs symbol; MI-283 finishes clause (4); the CLAUDE.md churn row stands."
+  },
+  "manager_tick_2026_09_12T2155Z": {
+    "DECISION_2_WATCH_CONDITION_SHARPENED": {
+      "source": "MI-280 landed #12098 (6fd1fa50e). The manager carried it up rather than re-deriving it.",
+      "clause_1_CONFIRMED_INDEPENDENTLY": "newest 40 soak rows 2026-09-11T14:01Z -> 2026-09-12T17:34Z: 12x v3 / 28x v2, SIX dispatchable with rounds_applied[0] carrying side/entry/sl/tp.",
+      "clause_2_MEASURED_WITH_A_POSITIVE_CONTROL": "ZERO of the 400 newest order_packages carry meta.arbitration_fanout_round — AND all 400 carry a parseable non-empty meta with 10 distinct keys, so the probe demonstrably sees meta keys. The marker also cannot hide in `trades`, which has no meta column.",
+      "WHY_THE_ZERO_IS_CORRECT_BEHAVIOUR_NOT_A_FAILURE": "all six dispatchable rounds are the SAME setup — bybit_1 / ETHUSDT / eth_pullback_2h / SHORT, 15:36Z-17:02Z — and eth_pullback_2h ALREADY HOLDS an open bybit_1 ETHUSDT LONG (journal trade 5701 since 2026-09-11T20:02Z, venue-confirmed ETHUSDT Buy 1.67 at position_idx 1). The netting guard is baseline and unconditional and FLIP_POLICY is hold, so an opposing signal never reverses a held position. NO ORDER SHOULD HAVE BEEN PLACED FOR ANY OF THE SIX, AND NONE WAS.",
+      "corroborating_denominator": "only TWO order_packages exist at all since the 1baff7a1f deploy, both pairs_sol_eth_*, which run through their own executor and never reach the fan-out. The dispatcher has had ZERO eligible packages since the repair.",
+      "THE_CONDITION_IS_NOW_PRECISE": "a dispatchable round whose strategy does NOT already hold an open position on that symbol. Until one occurs, a zero marker count means nothing either way.",
+      "correction_to_my_own_framing": "at 2036Z I told the operator decision 2 'needs a contested tick on a non-pairs symbol'. That was necessary but NOT sufficient — the six dispatchable rounds WERE non-pairs and contested, and still could not produce an order. The held-position clause is the part I did not have."
+    },
+    "MI-280_ask_ACTIONED_AS_REFUSED": {
+      "ask": "needs_action 'merge #12094 to unblock #12095'",
+      "why_not": "#12094 is mergeable_state DIRTY (a real conflict) AND has no CI — only `watch` and `open-and-automerge`, i.e. the documented zero-check trap where a relay-opened PR fires no pull_request event. Not mergeable by anyone.",
+      "action": "poked on the PR with both facts. Both clear with ONE conflict resolution on its side, since that push arms CI. Manager does not resolve it: scripts/ci/** is a worker path (R2)."
+    },
+    "fleet_unchanged": "89 pipeline_result rows 21:00-21:55, ALL no_intents_emitted. Soak still newest 17:34:01Z and the file has STOPPED growing (584431 at both 20:36 and 21:53) — so the earlier 'the file grew' liveness argument is itself now stale, and the current evidence is the direct one: no intents -> no contest -> nothing to write.",
+    "lane_note": "MI-280 is at 780309 (78%) for the FIFTH consecutive tick — the only lane that has never compacted. Everything else has.",
+    "next": [
+      "watch for a dispatchable round on a strategy NOT already holding that symbol — the precise condition now",
+      "take #12094 then #12095 once clean and green",
+      "MI-283 finishes clause (4) of the dedupe observation"
+    ]
   }
 }
