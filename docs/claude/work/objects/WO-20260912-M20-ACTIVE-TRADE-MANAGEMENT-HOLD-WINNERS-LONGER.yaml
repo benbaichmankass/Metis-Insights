@@ -32,4 +32,55 @@ blocked_on_basis: >-
   BINDS, never pre-emptively - a false blocker is worse than a missing one,
   and an anticipated one is a false one until the work arrives at it.
 
+evidence:
+  - docs/research/m20-u2-winner-close-attribution-2026-09-12.md
+  - docs/research/m20-u2b-risk-denominator-ratchet-2026-09-12.md
+  - docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md
+
+note: >-
+  PROGRESS 2026-09-12, by the owner. The done_condition is NOT met: no Tier-3
+  proposal exists yet, and that is correct rather than behind schedule --
+  U3b's screening arm cannot support one. What is established:
+
+  (1) ENUMERATED. U1 (PR #11864, not yet merged) inventoried every mechanism
+  that can end a winner across 55 declared / 44 enabled+live legs, with the
+  monitor-unit map IMPORTED from pipeline.monitor_unit_for and every claimed
+  call site ASSERTED against the unit source. A mechanism fires only if the
+  unit implements the call site AND the YAML declares the key; on that basis
+  giveback_stop -- the only lever that by construction fires on a trade that
+  WAS winning -- is armed on 1 leg of 44.
+
+  (2) MEASURED, AND IT REFUTES THE BRIEFED HYPOTHESIS. U2 attributed every
+  winning close over the post-2026-08-27 population (183 closes / 49 winners):
+  the whole exit-lever family accounts for 3 of 49, and the two giveback_stop
+  fires BANKED +$2,471.70. No lever is cutting winners short. The briefed U3
+  was "the counterfactual for the mechanism U2 implicates" and U2 implicates
+  none, so U3 was re-pointed at target geometry and the trailing stop.
+
+  (3) THE INSTRUMENT WAS PARTLY BROKEN AND IS NOW REPAIRED. U2b established
+  that order_packages.sl is NOT entry-frozen -- the break-even ratchet amends
+  it in place -- so an R denominator read off it shrinks selectively on
+  WINNERS and never on losers, which is exactly the asymmetry a winner-vs-loser
+  R comparison rests on. MI-277's winner-R collapse survives (-63% -> -49%)
+  but its LEVELS were inflated 2.3x. This is the cycle priority applied
+  literally: repair the measurement before acting on what it says.
+
+  (4) U3b's SCREENING ARM IS READ AND SETTLES NOTHING, BY CONSTRUCTION. 0 of
+  28 target cells cleared the IS/OOS gate over 4 legs, and on 4 of 4 the
+  dominant direction REVERSES between IS and OOS -- period character, not a
+  lever. But every cell ran under the harness's 24-bar force-close, which
+  production has on NO ict_scalp leg, and that defect is not neutral across
+  this grid: it truncates preferentially the trades a wider target would have
+  won. A negative here is EXPECTED whether or not the lever is real, so it
+  must not be reported as "the target sweep came back negative". The PARITY
+  arm (timeout_bars=100000) is dispatched and is the only arm a hold-length
+  proposal may cite.
+
+  WHAT IS NOT ESTABLISHED, stated so it is not read as covered: the
+  break-even ratchet -- now the leading candidate lever, and newly sweepable
+  as a be_off cell -- has NOT been run at parity either; and no lever has yet
+  reached the yearly walk-forward that the exit-refinement gate requires
+  BEFORE a Tier-3 proposal. Two of four units are merged; U1 and U3 both
+  declare landing: hold and need a human merge click.
+
 captured_by: scripts/ops/capture_idea.py
