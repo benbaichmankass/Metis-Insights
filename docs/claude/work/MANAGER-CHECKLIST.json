@@ -5392,5 +5392,25 @@
       "if it does not move by the next tick, the CLAUDE.md churn row is the item -- not #11903",
       "still waiting on a market to open before decision 2 has any evidence"
     ]
+  },
+  "manager_tick_2026_09_12T1955Z": {
+    "BOTH_OPERATOR_DECISIONS_DISCHARGED": {
+      "decision_1_fanout_projection": "#11970 MERGED 1baff7a1f and DEPLOYED. 12 v3 soak rows, 6 dispatchable, all carrying the full 7-key geometry.",
+      "decision_3_hedge_book_dedupe": "#11903 MERGED 73747db45 at 19:47:52Z and DEPLOYED — verified by ancestry, not assumed: the running sha 06c3d7db3 CONTAINS 73747db45, restart_pending false.",
+      "decision_2_breakout_1_arming": "STILL GATED and still without evidence. Unchanged."
+    },
+    "how_11903_finally_landed": "the churn measurement + the proposed split were posted at 18:5xZ; the owner landed it within the hour. Auto-merge (armed 17:54:23Z) is the plausible mechanism — it fires the instant mergeable AND green coincide, which is what the manual approach kept missing. NOT claimed as proven: I did not observe which path took it.",
+    "fleet_observation_NOT_ESTABLISHED_BY_ME": {
+      "what_I_measured": "position_read_state_soak tail, 100 rows, 19:27:33 -> 19:54:18 (a TAIL of 16,977,356 bytes). 85 pre-deploy / 15 post-deploy. dedupe_drops = 0 on every account in BOTH halves.",
+      "why_that_proves_NOTHING": "the PRE-deploy half also reads zero, so the drop condition was simply not present in this window — where MI-283 measured bybit_1 at 376 of 376 dropping in the 03:20-07:36Z window. A zero with no denominator is exactly what the open-items row forbids reading as a pass.",
+      "my_own_proxy_was_WRONG_TOO": "I counted `emitted + dropped >= 2` as 'two-sided', but that counts books ACROSS symbols; the condition needs TWO NON-ZERO BOOKS ON ONE SYMBOL. Recorded rather than quietly dropped.",
+      "who_owns_it": "MI-283, which compacted to 481750 and is on claude/mi283-fleet-observation staging the clause-3/4 probes — the clauses that insist on a denominator and on pairing by order_package_id. Correct owner, correct method; the manager is not re-deriving it."
+    },
+    "lane_health_UPDATE": "MI-283 COMPACTED 765012 -> 481750 (77% -> 48%), so its past-threshold warning is STALE — the tick prompt's 'a lane that compacts drops back down' is confirmed live for the second time today (MI-280 did it earlier, then rose again).",
+    "next": [
+      "let MI-283 deliver the fleet observation; do not re-derive it",
+      "decision 2 still needs a market — nothing available on a Saturday",
+      "the CLAUDE.md churn row stands on its own regardless of #11903 landing; it is a repo-wide rate inequality, not one PR's problem"
+    ]
   }
 }

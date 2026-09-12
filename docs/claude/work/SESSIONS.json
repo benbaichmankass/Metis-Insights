@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T18:56:21Z",
+  "updated_at": "2026-09-12T19:54:52Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4994,12 +4994,12 @@
       "why": "MI-281 completed and handed on U5: account_open_positions still dedupes Bybit positions by symbol (if sym in seen), so a hedge book is DROPPED and the order-status reconciler closes a live row. PR #11867 measured it at 378/378 = 100.0% of bybit_1 reads and attributed two false closes totalling -$762.496. bybit_2 (real money) shows 0 ONLY because its books were flat — an empty population, not safety; the dedupe consults no account. REPLACES session_01WnQ1wp2awqbo4xRoiEZfit, which the manager spawned WITHOUT source_url and which blocked immediately with no repo (manager error; that session is ARCHIVED). | OBSERVED 2026-09-12T12:57Z: IDLE/review_ready, 583,145 ctx — DOWN from 740,064 at 10:40Z, i.e. it COMPACTED and the earlier hand-off warning is stale. #11903 is green and clean and BLOCKED on an operator Tier-2 decision. DELIBERATELY NOT ARCHIVED: a real-money order-path change may draw a follow-up question or a condition, and the lane that took the measurement answers it far better than a fresh session. An idle session consumes nothing. Overrule if you disagree.",
       "state": "working",
       "branches": [
-        "claude/mi283-bybit-hedge-book-dedupe"
+        "claude/mi283-fleet-observation"
       ],
       "last_observed": {
-        "at": "2026-09-12T18:56:21Z",
+        "at": "2026-09-12T19:54:52Z",
         "via": "get_session",
-        "note": "RUNNING. 765012 (77%) — ROSE from 641796 at 16:54Z, and the rise is being spent on repeated CLAUDE.md conflict resolution, not on the fix. Past hand-off threshold. Poked on the PR with the churn measurement and a proposed split."
+        "note": "RUNNING. DELIVERED #11903 (merged 73747db45, DEPLOYED — running sha 06c3d7db3 contains it, restart_pending false). COMPACTED 765012 -> 481750 (48%), so the past-threshold warning is STALE. Now on claude/mi283-fleet-observation staging the clause-3/4 probes — it owns the fleet observation, correctly, with the denominator."
       }
     },
     {
