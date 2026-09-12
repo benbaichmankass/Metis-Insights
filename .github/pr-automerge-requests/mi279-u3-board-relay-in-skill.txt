@@ -1,0 +1,6 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12088. Adds the board-post / pr-opener relays to
+.claude/skills/session-coordination/SKILL.md beside its own 403 paragraph, and
+extends BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED
+to name that surface. The row stays OPEN on its observation half.
+Tier-1 surface only: .claude/skills/**, docs/claude/**, .github/**.
