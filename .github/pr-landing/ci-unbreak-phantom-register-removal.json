@@ -1,0 +1,7 @@
+{
+ "tier": 1,
+ "landing": "hold",
+ "hold_reason": "operator_asked_to_hold",
+ "hold_text": "This session (MI-282, PROP lane) was dispatched with \"prepare and route to the manager, never self-land\", so it routes rather than arms even a one-file Tier-1 fix. THIS ONE IS URGENT AND SHOULD BE MERGED IMMEDIATELY BY WHOEVER SEES IT FIRST: register-field-loss-guard runs on EVERY diff and is currently failing the `guards` job on every open and future PR in the repo, because the consumed declaration this PR deletes has no matching removal in any diff but its own (already-merged) one. Opened ready-for-review rather than draft precisely so it can be merged without a second step.",
+ "why": "Tier-1 by surface: deletes one CONSUMED artifact under .github/register-removals/ plus this declaration. No src/, no config/, no deploy/, no .github/workflows/, no register content, no order path, no VM mutation. It does not touch the guard, the landing route, or any shared JSON register."
+}
