@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "`.github/actions/commit-to-main/action.yml` is on the LANDING_MACHINERY list (added 2026-09-09 by MI-208, for exactly this reason), so R12 applies: this PR may not land itself by the route it edits. That is correct and is not weakened here — no automerge request file is added, and the PR is opened ready-for-review rather than draft so a human CAN merge it. Behaviour change to confirm before merging: the shared action now `git add -f`s the caller's explicit paths, which is a strict no-op for all 29 current callers (MEASURED: 0 of their 44 distinct paths are gitignored) and changes behaviour only for a caller that deliberately lands an ignored path.",
+  "why": "Tier-1 by surface (.github/** and docs/** only; no src/, no config/, no deploy/, no order path). Held on R12 by path, not on tier."
+}
