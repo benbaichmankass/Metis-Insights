@@ -1184,11 +1184,123 @@ def src_settled_disposition_owed(
                              f"({pop.get('settled', '?')} settled row(s))")
 
 
+_SPENT_EDGES_TOOL = Path("scripts/ops/spent_decision_edges.py")
+_WORK_OBJECTS = Path("docs/claude/work/objects")
+
+
+def src_spent_decision_edges(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this source grades an edge's REFERENT, and the edge's own `since` is already in the row
+) -> SourceResult:
+    """An object `waiting` on an operator decision that was ALREADY answered.
+
+    ⚠️ **THIS IS CLAUSE (b) OF THE ROW'S OWN CRITERIA, BY ITS SECOND ROUTE.**
+    `BL-20260912-A-WORK-OBJECT-IS-PARKED-WAITING-ON-AN-OPERATOR-DECISION-THAT-WAS-ANSWERED-THREE-DAYS-EARLIER-AND-NOTHING-CLEARS-A-SPENT-BLOCKED-ON-EDGE`
+    asks that something *"DERIVES the edge's liveness from the answer … **or a
+    check reports the disagreement**"*. It is the REPORT, deliberately — clause
+    (a), re-grading the lifecycle, is the object owner's or the manager's call
+    and changes what the WIP ceiling and the constraint readout compute over.
+
+    ⚠️ **THE VERDICT IS NOT COMPUTED HERE.** `scripts/ops/spent_decision_edges.py`
+    owns it and is imported, for the reason `src_settled_disposition_owed` gives
+    one function up: a second definition of "is this edge spent?" is free to
+    drift from the one a reader acts on.
+
+    ⚠️ **LOUD, and the population is why.** Measured 2026-09-12 over all 179
+    objects: of 12 `operator_decision` edges, **ELEVEN are spent and ZERO are
+    live**. This is not a standing backlog that trains sessions to scroll — the
+    actively-parked subset is **three**, and each is an object whose own note
+    calls it unblocked work that is not happening. `WO-20260901-PHASE-F` is the
+    phase the build plan names as *the only one that touches the MEASURED
+    constraint*.
+
+    ⚠️ **IT PROPOSES NO EDIT, AND THE `no_choice` CASE IS WHY THAT MATTERS.**
+    All three parked refs were answered with `chosen: null` or
+    `none_of_the_above` — the operator REJECTED the question as mis-framed.
+    So the edge is spent while the object may still be genuinely blocked, on a
+    successor request. Deleting such an edge would erase a real blocker; the row
+    says RE-POINT and leaves the judgement where it belongs.
+    """
+    tool = root / _SPENT_EDGES_TOOL
+    if not (root / _WORK_OBJECTS).is_dir():
+        return SourceResult("spent_decision_edges", "not_applicable",
+                            note=f"{_WORK_OBJECTS} absent — no work store here")
+    if not tool.exists():
+        return SourceResult("spent_decision_edges", "not_applicable",
+                            note=f"{_SPENT_EDGES_TOOL} absent — nothing in this "
+                                 f"tree grades a decision edge")
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_spent_edges_due", tool)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sweep = mod.sweep(root / _WORK_OBJECTS)
+    except Exception as exc:  # noqa: BLE001 — any failure is `we could not look`
+        return SourceResult("spent_decision_edges", "could_not_read",
+                            note=f"{_SPENT_EDGES_TOOL}: "
+                                 f"{type(exc).__name__}: {exc}")
+
+    pop = sweep.get("population") or {}
+    counts = sweep.get("counts") or {}
+    rows: list[dict] = []
+    for r in sorted(sweep.get("parked_on_a_spent_edge") or [],
+                    key=lambda x: str(x.get("object"))):
+        no_choice = r.get("answer_state") == mod.ANSWER_NO_CHOICE
+        rows.append(_row(
+            "spent_decision_edges", f"spent-edge-{r.get('object')}",
+            f"{r.get('object')} is `waiting` on an answered decision",
+            (f"Its `blocked_on` names {r.get('ref')}, which was answered "
+             f"{r.get('answered') or '(date not recorded)'} — the edge has not "
+             f"been a blocker since. " +
+             ("⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the "
+              "question may still be genuinely open under a SUCCESSOR request: "
+              "RE-POINT the edge, do not delete it. "
+              if no_choice else "") +
+             "⚠️ Re-grading `lifecycle` or editing an edge is the object "
+             "owner's or the manager's call — it changes what the WIP ceiling "
+             "and the constraint readout compute over. This row reports the "
+             "disagreement; it does not propose the edit."),
+            loud=True, link=f"{_WORK_OBJECTS}/{r.get('file')}"))
+
+    for r in sorted(sweep.get("parked_on_an_unresolvable_edge") or [],
+                    key=lambda x: str(x.get("object"))):
+        rows.append(_row(
+            "spent_decision_edges", f"stranded-edge-{r.get('object')}",
+            f"{r.get('object')} is `waiting` on an UNRESOLVABLE edge",
+            (f"Its `blocked_on` ref is {str(r.get('ref'))[:120]!r}, graded "
+             f"{r.get('state')} — no decision request in the store carries that "
+             f"id. ⚠️ THIS IS NOT 'SPENT' AND THE REMEDY IS THE OPPOSITE: a spent "
+             f"edge is discharged by re-pointing or re-grading it, while an "
+             f"unresolvable one can never be discharged by anything that matches "
+             f"on ids, so the object is parked with no way out and no consumer "
+             f"can say what it is waiting for. A typed edge whose ref is prose is "
+             f"untyped. ⚠️ Fixing it is the object owner's or the manager's call."),
+            loud=True, link=f"{_WORK_OBJECTS}/{r.get('file')}"))
+
+    if pop.get("objects_unparseable"):
+        rows.append(_row(
+            "spent_decision_edges", "spent-edge-objects-unparseable",
+            f"{pop['objects_unparseable']} work object(s) did not parse",
+            (f"{', '.join(pop.get('unparseable_files') or []) or '(unnamed)'} — "
+             f"so every count below is over the PARSED set only. A parser "
+             f"silently skipping a file understates the spent set, which is the "
+             f"direction nobody re-checks."),
+            loud=True, link=str(_WORK_OBJECTS)))
+
+    note = (f"{pop.get('graded_edges', '?')} operator_decision edge(s): "
+            f"{counts.get(mod.EDGE_SPENT, 0)} spent, "
+            f"{counts.get(mod.EDGE_LIVE, 0)} live, "
+            f"{counts.get(mod.EDGE_REQUEST_NOT_FOUND, 0)} ref not found, "
+            f"{counts.get(mod.EDGE_REF_MALFORMED, 0)} ref is prose; "
+            f"{len(sweep.get('parked_on_a_spent_edge') or [])} object(s) parked")
+    return SourceResult("spent_decision_edges", "read", rows, note=note)
+
+
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
-    src_settled_disposition_owed,
+    src_settled_disposition_owed, src_spent_decision_edges,
 )
 
 
@@ -1580,7 +1692,148 @@ def _self_test() -> int:
     assert src_settled_disposition_owed in SOURCES, \
         "src_settled_disposition_owed is not registered in SOURCES"
 
-    print("due-list: self-test OK — 63 planted controls all fire")
+    # ── the spent-decision-edge source ─────────────────────────────────────
+    # ⚠️ Same discipline as the block above: each control builds its OWN tree
+    # and copies the REAL grader into it, so the source is exercised through the
+    # import path it uses in production. Calling `sweep` directly would stay
+    # green after somebody re-implemented "is this edge spent?" inline here,
+    # which is the drift this source exists to avoid.
+    _sde = Path(__file__).resolve().parent / "spent_decision_edges.py"
+
+    def _sde_tree(td: str, objects: dict, *, with_tool: str | None = "real"):
+        root = Path(td)
+        (root / "scripts/ops").mkdir(parents=True)
+        if with_tool == "real":
+            _shutil2.copy(_sde, root / _SPENT_EDGES_TOOL)
+        elif with_tool is not None:
+            (root / _SPENT_EDGES_TOOL).write_text(with_tool, encoding="utf-8")
+        (root / _WORK_OBJECTS).mkdir(parents=True)
+        for name, body in objects.items():
+            (root / _WORK_OBJECTS / name).write_text(body, encoding="utf-8")
+        return root
+
+    _WAITING_SPENT = """
+id: WO-TEST-PARKED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-ANSWERED, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-ANSWERED
+    answer: {chosen: option_a, answered_on: '2026-01-02', answered_by: operator}
+"""
+    _WAITING_LIVE = """
+id: WO-TEST-LIVE
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-OPEN, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-OPEN
+    question: 'still open?'
+"""
+    _WAITING_REJECTED = """
+id: WO-TEST-REJECTED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-REJ, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-REJ
+    answer: {chosen: null, free_text: 'REJECTED AS MALFORMED', answered_by: operator}
+"""
+    _DONE_SPENT = """
+id: WO-TEST-DONE
+lifecycle: done
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-ANSWERED2, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-ANSWERED2
+    answer: {chosen: option_a, answered_at: '2026-01-02'}
+"""
+
+    with tempfile.TemporaryDirectory() as td:
+        root = _sde_tree(td, {"a.yaml": _WAITING_SPENT})
+        got = src_spent_decision_edges(root, today)
+        assert got.state == "read", got.state
+        assert {r["id"] for r in got.rows} == {"spent-edge-WO-TEST-PARKED"}, got.rows
+        assert got.rows[0]["loud"], "a parked object is loud, not a footnote"
+        assert "does not propose the edit" in got.rows[0]["why_due"], \
+            "the row must refuse to propose a lifecycle edit — that is the " \
+            "manager's call and it moves the WIP ceiling"
+
+    # THE UNDERSTATEMENT CONTROL: `answered_on` alone must still read SPENT.
+    # An `answered_at`-only probe grades this LIVE and the sweep reads clean,
+    # which is the direction nobody re-checks.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"a.yaml": _WAITING_SPENT}), today)
+        assert got.rows, "an `answered_on`-only answer was read as unanswered"
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"a.yaml": _WAITING_LIVE}), today)
+        assert got.state == "read" and got.rows == [], \
+            "a genuinely unanswered decision is a REAL blocker and earns no row"
+        assert "0 spent, 1 live" in got.note, got.note
+
+    # A REJECTION IS AN ANSWER, AND THE ROW MUST SAY SO DIFFERENTLY.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"a.yaml": _WAITING_REJECTED}), today)
+        assert got.rows, "a rejected question still spends the edge"
+        assert "RE-POINT the edge, do not delete it" in got.rows[0]["why_due"], \
+            "deleting an edge whose question was rejected erases a real blocker"
+
+    # STRANDED IS NOT SPENT, AND POOLING THEM WOULD APPLY THE WRONG REMEDY.
+    _WAITING_PROSE = """
+id: WO-TEST-STRANDED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: 'originate a key, then a Tier-2 set-env', since: '2026-01-01'}
+"""
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"a.yaml": _WAITING_PROSE}), today)
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"stranded-edge-WO-TEST-STRANDED"}, ids
+        assert got.rows[0]["loud"]
+        # ⚠️ THE GRADED STATE ITSELF, not a phrase the surrounding prose also
+        # supplies. An earlier version asserted `"NOT 'SPENT'" in why_due` and a
+        # planted defect that relabelled the row `spent` stayed GREEN, because
+        # that phrase occurs in the caveat two sentences later. A control whose
+        # needle the rest of the string provides grades nothing.
+        why = got.rows[0]["why_due"]
+        assert "'ref_malformed'" in why or "ref_malformed" in why, why
+        assert "graded spent" not in why, \
+            "an unresolvable edge must not be labelled with the spent verdict"
+        assert "1 ref is prose" in got.note, got.note
+
+    # A spent edge on a NON-waiting object is residue, not work not happening.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"a.yaml": _DONE_SPENT}), today)
+        assert got.state == "read" and got.rows == [], got.rows
+        assert "1 spent" in got.note, got.note
+
+    # AN UNPARSEABLE OBJECT IS REPORTED, NEVER SKIPPED.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(
+            _sde_tree(td, {"a.yaml": _WAITING_SPENT, "b.yaml": "\tnot: [yaml"}), today)
+        ids = {r["id"] for r in got.rows}
+        assert "spent-edge-objects-unparseable" in ids, ids
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "scripts/ops").mkdir(parents=True)
+        _shutil2.copy(_sde, root / _SPENT_EDGES_TOOL)
+        assert src_spent_decision_edges(root, today).state == "not_applicable", \
+            "no work store is `not_applicable`, never a clean zero"
+    with tempfile.TemporaryDirectory() as td:
+        root = _sde_tree(td, {"a.yaml": _WAITING_SPENT}, with_tool=None)
+        assert src_spent_decision_edges(root, today).state == "not_applicable"
+    with tempfile.TemporaryDirectory() as td:
+        root = _sde_tree(td, {"a.yaml": _WAITING_SPENT}, with_tool="def (")
+        got = src_spent_decision_edges(root, today)
+        assert got.state == "could_not_read", got.state
+        assert "SyntaxError" in got.note, got.note
+
+    assert src_spent_decision_edges in SOURCES, \
+        "src_spent_decision_edges is not registered in SOURCES"
+
+    print("due-list: self-test OK — 78 planted controls all fire")
     return 0
 
 
