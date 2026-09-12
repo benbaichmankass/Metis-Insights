@@ -531,6 +531,51 @@ leg-and-window specific and can reach ~100%. **A backtest number for an
 could move. What is already settled is the DIRECTION of the bias, because the
 baseline control pins it.
 
+## 4f. A THIRD, INDEPENDENT LEG CONFIRMS THE CORRECTION — AND ADDS A CAPITAL TERM
+
+Same harness, a **different corpus and no IS/OOS split** (so this is
+supporting evidence, **not** a gated verdict): `/tmp/sol5m.csv`, SOLUSDT 5m,
+`--sim-breakeven`, each target run at the 24-bar default and again at
+`--timeout-bars 100000`.
+
+| target | timeout share (24-bar) | mean bars held, 24-bar → parity | net_R 24-bar → parity | **ΔR at parity** |
+|---|--:|--:|--:|--:|
+| 0.75R | 17.1% | 12.0 → 18.1 | 18.68 → 19.00 | **+0.32** |
+| 1.0R | 30.3% | 14.8 → 34.0 | 17.01 → 18.00 | **+0.99** |
+| 1.25R | 32.4% | 15.6 → 40.5 | 15.41 → 13.53 | −1.88 |
+| **1.5R (live)** | 35.6% | 16.7 → 46.5 | 13.69 → 9.74 | −3.95 |
+| 2.0R | 41.1% | 18.2 → 54.2 | 15.57 → 11.80 | −3.77 |
+| 2.5R | 47.9% | 19.1 → 74.4 | 10.46 → 4.02 | −6.43 |
+| 3.0R | 50.7% | 19.3 → 77.3 | 11.06 → 0.80 | −10.26 |
+| 4.0R | 53.4% | 19.5 → 95.2 | 11.28 → **−2.84** | **−14.12** |
+
+**Narrow cells gain at parity, wide cells lose, monotonically** — +0.32 at
+0.75R to −14.12 at 4R. That is the §4e correction reproduced on a third leg
+and a different timeframe, so it is not an artifact of the two 15m corpora.
+
+**And at parity the target grid is monotone DECREASING in net_R** — 19.00,
+18.00, 13.53, 9.74, 11.80, 4.02, 0.80, −2.84. On this leg the tightest target
+tested is the best one, and every widening is worse than the live value.
+
+⚠️ **THE CAPITAL TERM, which the R-only gate does not see.** At parity a 4R
+target holds **95.2 bars against 18.1 at 0.75R — 5.3× longer — while taking
+FEWER trades (59 vs 72)**. So a wider target buys longer occupancy and less
+turnover for *less* R. The `exit-refinement` skill's Path B metric
+(`net_r_per_capital_day`) is the one that prices this, and it would penalise
+the wide cells far harder than the Path A (net_R + maxDD) gate used above.
+**Any U4 proposal must be graded on Path B as well**, or it will understate
+the case against widening.
+
+⚠️ **AND A MISLABEL IN MY OWN THROWAWAY PROBE, recorded rather than quietly
+fixed.** `/tmp/timeout_bias.py` prints its summary under *"net_R the timeout
+DESTROYS"*, and the numbers it reports there are **negative for the wide
+cells**, i.e. the timeout *creates* net_R for them. The label names the
+opposite of what the column computes — UNPROVENANCED DIAGNOSTIC OUTPUT
+sub-class A, in a script written by the session that had just finished writing
+about that failure class. It is a scratch probe and is not committed, so no
+guard would have caught it; the numbers above are read off the per-cell table,
+not off that summary line.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
