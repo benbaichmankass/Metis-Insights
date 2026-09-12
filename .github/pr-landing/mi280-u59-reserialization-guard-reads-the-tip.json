@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one new health-review backlog row; no code, config, workflow, or runtime touched. The measurement behind it was taken on a scratch branch that was deleted, so nothing of the probe remains in the tree."
+}
