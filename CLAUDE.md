@@ -103,22 +103,29 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 - **What that means for you:** Trading-side work no longer needs a spawn-priority exception -- it IS the cycle. ⚠️ THE ORDER MATTERS AND IS THE WHOLE POINT: repair the MEASUREMENT before acting on what it says. A verdict computed from a contaminated instrument is worse than no verdict, because it is acted on. If you are about to propose a promote, a demote, a kill or a param change off expectancyR, establish first that your population is clean. The operating-model build continues underneath: the manager still holds the lease, runs the merge queue, keeps the checklist and registers every spawn. Those are base duties, not items, and they do not compete with this.
 - Set by **operator** on `unknown` · basis **DECIDED** · intent `IN-20260903-TRADING-SYSTEM-HEALTH`
 
-**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-08` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
+**📉 THE COMPUTED READOUT BEHIND THAT PRIORITY** (`docs/claude/READOUT.md`, from `scripts/ops/constraint_readout.py`, generated `2026-09-12` — **it is a dated snapshot, not a live read**; re-run the script rather than trusting its age)
 
-- **No stage is named — verdict `insufficient_basis`.** Only 49 of 682 objects (7.2%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **633 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
-- ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (576 of 682; only 105 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
-- **4 in flight** against a ceiling of 8 · 14 waiting · 0 stopped moving (≥14d, declared dates only).
+- **No stage is named — verdict `insufficient_basis`.** Only 85 of 179 objects (47.5%) have an ASSESSED `blocked_on` basis, below the 50.0% floor. **94 objects carry an empty `blocked_on` that is NOT a claim that nothing blocks them** — it is nobody having looked. Do not read this as *nothing is blocked*.
+- ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (23 of 179; only 153 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
+- **7 in flight** against a ceiling of 8 · 29 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
-- **80 other row(s) due** across the structured registers (§5, completeness `partial`). ⚠️ **LOWER BOUND** — `red_crons`, `unlanded_automation` could not be read, and *could not read* is not *nothing due*.
+- **109 other row(s) due** across the structured registers (§5, completeness `all_sources_read`).
 
 **🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
 - Candidates: `gdx_pullback_1d`, `gld_pullback_1d`, `iaum_pullback_1d`, `mes_trend_long_1d`, `scha_trend_long_1d`, `splg_trend_long_1d`, `spy_trend_long_1d`, `tqqq_trend_long_1d`, `trend_donchian_sol`, `turtle_soup`. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.
 
-**🧭 No filed checklist row crossed 24h unrouted since the last reading.** (Generated — an empty list here means no NEW crossing, not that nothing is waiting; see the standing count below.)
+**🧭 4 FILED ROW(S) CROSSED 24h UNROUTED — nobody has been given them, and this is the first time each is being said.** `MI-246`: filing is not routing. Route it, disposition it, or say why it stays unrouted — it will not be reported again.
 
-- ⚠️ **FIRST READING — armed over a pre-existing backlog of **69** row(s) already past 24h**, which are listed in `seeded_ids` and are deliberately NOT reported one by one (a 69-row block is the desensitised alarm, not a signal). **Seeding is not a disposition** — they are still unrouted.
+- **`MI-257-THE-CHECKLIST-CARRIES-TWO-COMPETING-STATUS-FIELDS-AND-38-OFF-VOCABULARY-VALUES`** — 12 checklist items have `state` and `status` disagreeing, and 38 carry values outside the declared vocabulary — on the page the operator reads
+  - unrouted **46.2h** (since `2026-09-10T12:27:56+00:00`) · status `queued` · owner `unassigned — route when a lane frees; the 3-lane cap is holding` · lane `ops` · tier `1`
+- **`MI-263-REGISTRATION-IS-NOT-ATOMIC-WITH-THE-SPAWN-SO-A-COLD-LANE-MEASURES-ITS-OWN-RECORDS-ABSENT`** — A spawned lane can correctly measure its own pre-spawn registry row as ABSENT, because the manager registers locally and pushes later
+  - unrouted **36.2h** (since `2026-09-10T22:28:14+00:00`) · status `ready` · owner `unassigned — needs a session` · lane `ops` · tier `1`
+- **`MI-243-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND-GIVE-SOAK-BOUND-WORK-ITS-OWN-STATUS`** — Sweep the 623 dormant work objects — close or queue each, and add a lifecycle value for work that is genuinely waiting on a soak or observation
+  - unrouted **28.4h** (since `2026-09-11T06:13:56+00:00`) · status `ready` · owner `unassigned — the retirement needs a session; MI-243's sweep half is delivered` · lane `ops` · tier `1`
+- **`MI-264-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-THE-COMMONEST-BLOCKER-ITS-OWN-REGISTRY-ROW`** — Add a sixth blocked-on kind, registry_confirmed — the class that accounts for 2 of the 5 recorded instances and which the watcher cannot express
+  - unrouted **26.2h** (since `2026-09-11T08:25:54+00:00`) · status `ready` · owner `unassigned — small, well-specified, belongs with whoever next touches blocked_la` · lane `engineering` · tier `1`
 
-- Context, deliberately NOT a page: **0** row(s) already reported and still unrouted · **4** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
+- Context, deliberately NOT a page: **69** row(s) already reported and still unrouted · **4** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
 
 **24 monitoring item(s) DUE — check and record what you OBSERVED:**
 
