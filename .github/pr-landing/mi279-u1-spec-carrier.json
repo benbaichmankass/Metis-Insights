@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "a new CI guard under scripts/ci/ plus its registration and one backlog row; diff-scoped on added files with the standing population advisory, so it cannot red an unrelated PR. No src/, no config/, no VM, no order path"
+}
