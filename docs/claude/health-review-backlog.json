@@ -37683,6 +37683,24 @@
         "BL-20260912-REGISTER-FIELD-LOSS-FAILS-A-MERELY-BEHIND-BRANCH-AND-ITS-SELF-TEST-EMBEDS-A-LIVE-CHECK-SO-THE-CAUSE-IS-MISREPORTED"
       ],
       "checked": "checked 2026-09-12 by running the guard on the affected branch and by reading the row's status at three refs: merge-base 331bd2039 = open, branch HEAD 658d046bf = open, origin/main 5079dfefd = resolved. Census run over 315 files with its classifier stated above."
+    },
+    {
+      "id": "BL-20260912-THE-JSONREGISTER-MERGE-DRIVER-LEAVES-SCRATCH-FILES-IN-THE-REPO-ROOT-AND-A-ROUTINE-GIT-ADD-A-SWEEPS-THEM-INTO-A-COMMIT",
+      "opened_at": "2026-09-12",
+      "opened_by": "claude (MI-279 OPS lane, session_013iSqp4LsU1eq8K326eUtgj)",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — scripts/ops/merge_json_register.py + .gitignore; no live path, no order path",
+      "area": "merge tooling / repo hygiene",
+      "title": "The jsonregister merge driver leaves `.merge_file_*` scratch files in the REPO ROOT, untracked and unignored, so a routine `git add -A` commits them — 18 of them reached a pushed branch today and only `pr-landing-guard` R5 stopped them",
+      "detail": "OBSERVED 2026-09-12 on my own branch, by the guard rather than by me.\n\nWHAT HAPPENED. `git config merge.jsonregister.driver` runs `scripts/ops/merge_json_register.py %O %A %B %P` on a conflicting register merge. Resolving the backlog conflict on SIX branches in one pass left **18** `.merge_file_XXXXXX` files in the repository root. They are untracked and NOT matched by `.gitignore`, so the next ordinary `git add -A` — the idiom this repo's own landing flow uses, and the one I used — staged all eighteen into a commit, which was then pushed.\n\nWHAT CAUGHT IT, and it is the only thing that did: `pr-landing-guard` R5 refused the Tier-1 self-land declaration because the diff contained paths outside `TIER1_SURFACE`, naming five of them. ⚠️ NOTE WHAT THAT MEANS: the guard fired on the TIER question, not on the junk question. A branch declaring `landing: \"hold\"`, or one whose declaration was already satisfied, would have carried all eighteen to `main` with nothing objecting — `git status` shows them as ordinary staged adds and a reviewer skimming a 60-file diff has no reason to look twice.\n\nMEASURED: `git ls-files | grep -c '^\\.merge_file'` returned **18** on the branch and **0** on `origin/main`, and `git log --diff-filter=A -- '.merge_file_*'` attributes all of them to ONE of my commits. So `main` is clean today and this is a near-miss, not a live mess — which is exactly when it is cheapest to fix.\n\nWHY IT IS NOT JUST TIDINESS: these are per-merge TEMPORARIES containing partial register content. Committed, they are a second copy of backlog rows sitting at a path nothing reads, which is the stray-duplicate-journal shape this repo already has a guard for on databases (`canonical-db-resolver`). A future session grepping the tree for a row id would find hits in files that are not the register.",
+      "action": "Two halves, and the second is the durable one. (a) DONE in this change: `.merge_file_*` added to `.gitignore` with the reason recorded inline, and the 18 strays untracked. (b) NOT DONE, and it is the real fix: have `scripts/ops/merge_json_register.py` write its scratch files under a temporary directory (`tempfile.mkdtemp`) and clean them up, rather than in the repo root — an ignore rule makes them invisible, which is better than visible-and-committable but still leaves litter that accumulates across every merge. ⚠️ Check FIRST whether the driver actually creates them or whether git does: git's own `merge-file` machinery writes `%A`-style temporaries, in which case the fix is the ignore rule alone and (b) should be closed as not-applicable rather than built. I did not establish which, and saying so is better than guessing.",
+      "resolution_criteria": "(1) A merge that invokes the jsonregister driver leaves ZERO new untracked files in the repository root — verified by running a real conflicting merge and diffing `git status --porcelain` before and after, not by reading the script. (2) The question in the action is ANSWERED on the record: whether the driver or git itself creates `.merge_file_*`. If it is git, say so and close (b) as not-applicable — the ignore rule is then the whole remedy and pretending otherwise leaves a row nobody can finish. ⚠️ DO NOT close this on the `.gitignore` line alone: that hides the files from `git add`, which is the near-miss this row is about, and does not stop them accumulating.",
+      "refs": [
+        ".gitignore",
+        "scripts/ops/merge_json_register.py",
+        "scripts/ci/check_pr_landing.py"
+      ]
     }
   ]
 }

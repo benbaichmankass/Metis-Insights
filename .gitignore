@@ -166,3 +166,10 @@ scripts/ml/_selftest_probe.py
 # genuinely tracks artifacts/health/ (5 files), and a blanket ignore would make
 # those unstageable by the `git add -A` idiom these sessions use constantly.
 artifacts/research/
+
+# Scratch files left in the repo root by the jsonregister merge driver
+# (scripts/ops/merge_json_register.py). They are per-merge temporaries, never
+# content. Untracked they are invisible; tracked, a routine `git add -A` sweeps
+# 18 of them into a commit — which is how they reached a PR on 2026-09-12 and
+# was caught only by pr-landing-guard R5 refusing to vouch for the paths.
+.merge_file_*
