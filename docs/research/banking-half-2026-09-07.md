@@ -205,3 +205,37 @@ The defensible change is a floor, not a threshold-and-target: **once `peak_r >= 
 - **It does not establish that any banking threshold is profitable.** The benefit side is a lower bound; the cost side is unmeasured.
 - **It does not re-grade any exit-matrix cell,** does not touch `TP_VENUE_CAP_PCT`, and does not arm `ICT_SCALP_EXIT_HEAD_MODE`.
 - **It does not refute MI-155.** Every leg's `insufficient_n` verdict stands; §3 refines the *reason* for 9 of them, which MI-155 had no instrument to distinguish.
+
+---
+
+## 7. POST-MERGE ADDENDUM (2026-09-12) — Proposal A shipped, and the one-shot legs ARE measured now
+
+⚠️ **This section CORRECTS §6's first bullet.** That bullet reads *"It does not measure the one-shot legs. All 8 are structurally invisible (§3). We did not look."* — true when this document was written, and **false since 2026-09-07**. §6 is left standing as the record of what was true at the time; this section is what a reader should act on.
+
+**Proposal A (§ "Proposal A — repair the instrument FIRST") is BUILT, MERGED and OBSERVED WORKING.** PR #11264 merged to `main` as `115b0c25`.
+
+### The first live measurement of the one-shot break-even mechanism
+
+**POPULATION: `/api/diag/position_telemetry?limit=1000`, read 2026-09-07T22:01Z, 173 rows.** Two of them sit on legs §3 measured as structurally invisible, and both carry `peak_state = measured`:
+
+| leg | symbol / account | package | `peak_r` | `open_r` | bars held | `updated_at` |
+|---|---|---|---|---|---|---|
+| `ict_scalp_avax_5m` | AVAXUSDT / `bybit_1` | `pkg-91b8247caa834dd3` | **0.9508** | 0.2049 | 75 | 22:00:51Z |
+| `ict_scalp_mgc_15m` | MGC / `ib_paper` | `pkg-f71c2a7b6cf2435a` | **0.1215** | −0.3533 | 41 | 22:00:21Z |
+
+**Attribution was checked, not assumed:** `/api/diag/version` read `git_sha ba652298` with `restart_pending false`, and `git merge-base --is-ancestor 115b0c25 ba652298` confirms the **running** code contains the merge. Both rows are stamped after it, and `ict_scalp` carried no hook before — so these rows could not have come from anywhere else.
+
+### The reading that is worth more than the fact it worked
+
+**The AVAX leg peaked at 0.9508R and gave back to 0.2049R over 75 bars — it never reached the 1.0R signature default that is the only thing that arms its break-even.** That is one observation consistent with §2.4, from the population §6's first bullet declared *"We did not look"* (`checked: docs/research/banking-half-2026-09-07.md` §6, whose bullet is quoted verbatim at the head of this section, and `checked: /api/diag/position_telemetry` read 2026-09-07T22:01Z, which is where the two rows above come from).
+
+### ⚠️ What this addendum still does NOT establish
+
+- **It is two rows, not a corpus.** §4's gradeability floor is n=30 pooled. The nine legs are now **visible**; the one-shot mechanism is **not yet graded**. Those are different facts and collapsing them would waste the instrument.
+- **`peak_r` remains a LOWER BOUND** (`peak_r_is_lower_bound` true on 171 of 171 in §2.4, and unchanged here): a bar-extreme peak cannot see an intrabar excursion.
+- **It reads the telemetry table, never the venue**, so it cannot say the peak matches what the position actually did.
+- **Proposal B is still unbuilt and still carries no number.** Its gate — a path-aware sweep beating the ungated arm *net of the forgone continuation* — is unchanged and unmet.
+
+### Provenance of this addendum
+
+The measurement above was made by `session_01SZCy1acPMrX3ANUkzhM5te` (MI-164) on 2026-09-07 and lived **only** in `OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING`, whose own `clears_when` said the row was settled and *"RETAINED ONLY SO THE EVIDENCE IS NOT LOST BETWEEN SESSIONS; prune it at the next review."* Verified before pruning: `0.9508` appeared nowhere else in the tree. It is transcribed here **first**, so the prune preserves the finding instead of destroying it.

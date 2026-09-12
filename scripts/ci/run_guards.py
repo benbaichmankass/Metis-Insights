@@ -190,7 +190,14 @@ GUARDS: List[Dict[str, Any]] = [
             # and the job fails unless the rule fires; clean inputs must stay
             # silent, so a rule that always fires is caught too.
             ["python3", "scripts/ci/check_document_index.py", "--self-test"],
-            ["python3", "scripts/ci/check_document_index.py"],
+            # ⚠️ `--base` is what makes R6 a RULE rather than a census. Without
+            # it the guard cannot tell which rows this diff is responsible for,
+            # so R6 reports nothing and only the standing count is printed —
+            # which is "we could not look", not a pass. The census prints either
+            # way, so dropping this flag degrades the guard silently; that is
+            # why the reason is written here rather than only in the script.
+            ["python3", "scripts/ci/check_document_index.py",
+             "--base", "origin/{base_ref}"],
         ],
     },
     {

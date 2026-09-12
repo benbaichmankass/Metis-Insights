@@ -15,6 +15,7 @@ now two surfaces confidently contradict each other. So:
     R1  a document exists in the population and is NOT registered
     R2  a registered row names a file that NO LONGER EXISTS
     R3  a file's own header status DISAGREES with its index row
+    R6  a committed row's status is NOT what a fresh build_rows() computes
     R4  a row is `superseded` without naming a `superseded_by`
     R5  a row uses a category/status outside the closed sets
 
@@ -54,9 +55,11 @@ Run:
 from __future__ import annotations
 
 import argparse
+import datetime
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -82,6 +85,50 @@ def _builder():
 
 
 # ---------------------------------------------------------------------------
+# R6 — the row itself, against the computation that is supposed to produce it
+# ---------------------------------------------------------------------------
+DRIFT_COMPUTED, DRIFT_UNCOMPUTABLE = "computed", "uncomputable"
+
+
+def row_status_drift(rows: List[Dict[str, str]],
+                     computed: Optional[Dict[str, str]]) -> tuple:
+    """`[(path, committed_status, computed_status)]` where the two disagree.
+
+    ⚠️ WHY R3 CANNOT SEE THIS, which is the whole reason R6 exists. R3 compares
+    a file's HEADER against its ROW IN THE COMMITTED INDEX, and both surfaces
+    are written by the same run of `--write`. So they agree with each other and
+    can BOTH disagree with `build_rows()`, which is the computation that is
+    supposed to produce them. Measured on a clean `origin/main`, 2026-09-12:
+    **47 rows** (39 when the finding was filed hours earlier — the population
+    GREW while the row sat open) say `live` where a fresh build computes
+    `unknown`, and `document-index: OK` printed on that same tree. `unknown` is
+    `status_for`'s rung 7, *"nobody has checked"*, and it carries a rendered
+    warning telling a reader not to act on the document as current — so those
+    documents present as `live` while the register's own computation says
+    nobody established that.
+
+    Returns `(state, rows)` where state is `computed` or `uncomputable`.
+
+    ⚠️ THE STATE IS A RETURN VALUE AND NOT A BARE EMPTY LIST, AND A PLANTED
+    DEFECT IS WHY. The first version returned `[]` for BOTH "nothing drifted"
+    and "the fresh row set could not be built", and a mutation replacing
+    `computed is None` with `computed = {}` passed the whole self-test —
+    because at that point the two are behaviourally identical. That is this
+    repo's own collapsed-states defect, committed inside the check written to
+    catch a different one. `uncomputable` is *we could not look*; it is never
+    "no rows drifted", and `evaluate` must not raise a finding from it.
+    """
+    if computed is None:
+        return (DRIFT_UNCOMPUTABLE, [])
+    out = []
+    for r in rows:
+        p = r["path"]
+        if p in computed and r["status"] != computed[p]:
+            out.append((p, r["status"], computed[p]))
+    return (DRIFT_COMPUTED, sorted(out))
+
+
+# ---------------------------------------------------------------------------
 # THE RULE ENGINE — pure
 # ---------------------------------------------------------------------------
 def evaluate(population: Set[str],
@@ -89,7 +136,9 @@ def evaluate(population: Set[str],
              headers: Dict[str, Optional[str]],
              generated: Set[str],
              categories: Set[str],
-             statuses: Set[str]) -> List[str]:
+             statuses: Set[str],
+             computed: Optional[Dict[str, str]] = None,
+             scope: Optional[Set[str]] = None) -> List[str]:
     """Return a list of findings. Empty list = the register is true.
 
     `headers[path]` is the status token read from that file's own stamp, or
@@ -99,6 +148,39 @@ def evaluate(population: Set[str],
     """
     findings: List[str] = []
     registered = {r["path"] for r in rows}
+
+    # R6 — DIFF-SCOPED, and the wider number is CENSUSED by the caller.
+    #
+    # ⚠️ THE SCOPING IS NOT TIMIDITY, IT IS THE ONLY SHIPPABLE SHAPE. There are
+    # 47 standing disagreements on `main` today; an unscoped rule would fail
+    # every PR in the repo from the moment it merged, which is not a guard, it
+    # is an outage. `session-registry-guard` is the precedent named in
+    # CLAUDE.md: enforce narrowly, CENSUS everything else so the narrow
+    # enforcement cannot hide the wider number.
+    #
+    # ⚠️ `scope is None` means *we could not establish what this diff touched*
+    # — no `--base` — and it produces NO findings. That is deliberately not the
+    # same as an empty scope (a diff that touched nothing relevant), and the
+    # caller says which it had.
+    #
+    # ⚠️ THE MESSAGE STATES WHAT WAS MEASURED AND NAMES NO CAUSE. Why the
+    # committed row says what it says is not established here — a row written
+    # when the document was in ACTIVE_DOCS, a hand-edit, and a `--write` that
+    # predates a change to `status_for` are all consistent with the same
+    # evidence, and asserting one would be the unprovenanced-diagnostic class.
+    drift_state, drifted = row_status_drift(rows, computed)
+    if scope is not None and drift_state == DRIFT_COMPUTED:
+        in_scope = {p for p, _c, _f in drifted} & scope
+        for p, committed, fresh in drifted:
+            if p not in in_scope:
+                continue
+            findings.append(
+                f"R6 ROW DRIFT: {INDEX_REL} records status '{committed}' for {p}, "
+                f"but a fresh build_rows() computes '{fresh}'. This diff touches "
+                f"that document, so it is yours to reconcile. R3 cannot see this: "
+                f"the header and the row were written by the same run and agree "
+                f"with each other. Run: python3 scripts/ops/document_index.py "
+                f"--write, then READ what it changed before committing.")
 
     # R1 — a document exists and is not registered.
     for p in sorted(population - registered):
@@ -337,6 +419,62 @@ def self_test() -> int:
             print(f"        {detail}")
             failures += 1
 
+    # ── R6 — its own block, because it needs `computed` and `scope`. ───────
+    #
+    # ⚠️ THE SECOND CASE IS THE LOAD-BEARING ONE. R6 is diff-scoped over 47
+    # standing disagreements, so a rule that quietly fired on all of them would
+    # break every PR in the repo, and one that quietly fired on none would be
+    # decoration. Both directions are pinned.
+    r6 = [
+        ("R6 fires on a drifted row THIS DIFF touches",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"a.md"}, "R6 ROW DRIFT"),
+        ("R6 is SILENT on a drifted row the diff does NOT touch (census only)",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"b.md"}, None),
+        ("R6 is SILENT with no --base — 'we could not look', not a pass",
+         [row("a.md", s="live")], {"a.md": "unknown"}, None, None),
+        ("R6 is SILENT when the fresh row set could not be computed",
+         [row("a.md", s="live")], None, {"a.md"}, None),
+        ("R6 does NOT fire when the row and the computation agree",
+         [row("a.md", s="live")], {"a.md": "live"}, {"a.md"}, None),
+    ]
+    for label, rws, computed, scope, expect in r6:
+        found = [f for f in evaluate({"a.md"}, rws, {"a.md": rws[0]["status"]},
+                                     set(), CATS, STS,
+                                     computed=computed, scope=scope)
+                 if f.startswith("R6")]
+        ok = (any(expect in f for f in found) if expect else not found)
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+        if not ok:
+            print(f"        got {found}")
+            failures += 1
+
+    # The CENSUS must see what the scoped rule deliberately does not. Without
+    # this, narrowing the rule to nothing would still read as a clean guard.
+    _st, census = row_status_drift([row("a.md", s="live"), row("b.md", s="live")],
+                                   {"a.md": "unknown", "b.md": "live"})
+    if census != [("a.md", "live", "unknown")]:
+        print(f"  FAIL  the census must find a drift the scoped rule skips; got {census}")
+        failures += 1
+    else:
+        print("  PASS  the census finds a drift the scoped rule skips")
+    # ⚠️ ASSERT THE STATE, NOT THE EMPTINESS. A planted `computed = {}` in place
+    # of the None guard passed this check while it only tested for `[]`, because
+    # "we could not look" and "nothing drifted" were the same value. That is the
+    # collapsed state this guard's own repo has a rule about, committed here.
+    if row_status_drift([row("a.md", s="live")], None) != (DRIFT_UNCOMPUTABLE, []):
+        print("  FAIL  an uncomputable row set must be NAMED uncomputable, not "
+              "returned as an empty census")
+        failures += 1
+    else:
+        print("  PASS  an uncomputable row set is NAMED, so it cannot read as "
+              "'nothing drifted'")
+    if row_status_drift([row("a.md", s="live")], {"a.md": "live"}) != (DRIFT_COMPUTED, []):
+        print("  FAIL  an agreeing row set must grade `computed` with no rows")
+        failures += 1
+    else:
+        print("  PASS  an agreeing row set grades `computed`, which is a "
+              "different fact from `uncomputable`")
+
     # The rule engine is only half the guard. Grade the POPULATION BUILDER too —
     # the half that was defective while every case above passed.
     pop_failures = population_control()
@@ -346,16 +484,40 @@ def self_test() -> int:
         print(f"document-index self-test: FAIL — {failures} check(s) did not "
               f"behave as declared. The guard cannot be trusted.")
         return 1
-    print(f"document-index self-test: OK — {len(cases)} planted rule cases, "
+    print(f"document-index self-test: OK — {len(cases) + len(r6) + 3} planted rule cases, "
           f"every rule observed FIRING and every clean case observed SILENT; "
           f"plus 3 planted FILES proving the population builder sees a "
           f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
     return 0
 
 
+def _diff_scope(base: Optional[str]) -> Optional[Set[str]]:
+    """Repo-relative paths this diff touches, or None — *we could not look*.
+
+    None and an EMPTY set are different facts and are never collapsed: the
+    first is "no --base was given, so scoping is impossible", the second is
+    "this diff touches no registered document". R6 fires on neither, but only
+    one of them is a clean reading, and `main` prints which it had.
+    """
+    if not base:
+        return None
+    try:
+        r = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"],
+                           cwd=REPO, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    return {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--base", default=None,
+                    help="diff base for R6 scoping (e.g. origin/main). Without "
+                         "it R6 produces no findings and only the census is "
+                         "printed — that is 'we could not look', not a pass.")
     a = ap.parse_args()
 
     if a.self_test:
@@ -379,13 +541,46 @@ def main() -> int:
     # builder to invent a category to satisfy the guard, which is precisely the
     # "an invented status reads as checked" failure this whole register exists
     # to stop. It is admitted deliberately, not overlooked.
+    # A fresh computation of every row's status — what `--write` WOULD record.
+    # Cheap (measured 0.12s over 1063 documents), and it is the only thing that
+    # can see a row and its own header drift together.
+    try:
+        computed = {r["path"]: r["status"]
+                    for r in b.build_rows(datetime.date.today().isoformat())}
+    except Exception as exc:  # noqa: BLE001
+        computed = None
+        print(f"document-index: WARNING — could not compute a fresh row set "
+              f"({type(exc).__name__}: {exc}); R6 is reporting NOTHING, which "
+              f"is 'we could not look' and not a clean reading.")
+    scope = _diff_scope(a.base)
+
     findings = evaluate(population, rows, headers, generated,
-                        set(b.CATEGORIES) | {"unknown"}, set(b.STATUSES))
+                        set(b.CATEGORIES) | {"unknown"}, set(b.STATUSES),
+                        computed=computed, scope=scope)
 
     # ALWAYS STATE THE POPULATION — a guard reporting "no findings" without a
     # denominator is the clean-negative this repo has a rule about.
     print(f"document-index: population={len(population)} registered={len(rows)} "
           f"headers_read={len(headers)} generated_waived={len(generated)}")
+
+    # THE CENSUS. Printed on every run, including a clean one, so the narrow
+    # (diff-scoped) enforcement can never hide the standing number — the
+    # `session-registry-guard` discipline. A guard that enforced on 1 row and
+    # said nothing about the other 46 would read as "the register is coherent".
+    drift_state, drift = row_status_drift(rows, computed)
+    if drift_state == DRIFT_UNCOMPUTABLE:
+        print("document-index: row-drift census UNAVAILABLE — the fresh row set "
+              "could not be computed. NOT 'no rows drifted'.")
+    else:
+        scope_note = ("unscoped (no --base): R6 reports nothing"
+                      if scope is None else f"diff touches {len(scope)} path(s)")
+        print(f"document-index: row-drift census = {len(drift)} committed row(s) "
+              f"whose status a fresh build_rows() does not reproduce; {scope_note}.")
+        for pth, committed_st, fresh_st in drift[:5]:
+            print(f"    census(not a finding): {pth} row='{committed_st}' "
+                  f"computed='{fresh_st}'")
+        if len(drift) > 5:
+            print(f"    ... and {len(drift) - 5} more (census only)")
 
     if findings:
         for f in findings[:60]:
