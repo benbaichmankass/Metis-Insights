@@ -55,6 +55,9 @@ import subprocess
 import sys
 from typing import Any
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _backlog  # noqa: E402  (the ONE owner of "when was this row opened?")
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 BACKLOGS = {
     "health": ROOT / "docs/claude/health-review-backlog.json",
@@ -112,7 +115,7 @@ def _is_shallow() -> bool:
 _SHALLOW = _is_shallow()
 
 
-def _added_after(rel: str, opened_at: str) -> bool | None:
+def _added_after(rel: str, when: "_backlog.RowDate") -> bool | None:
     """Was *rel* first added to the tree AFTER the row was opened?
 
     This is the signal `path_exists` should have been. A criterion naming a file
@@ -130,17 +133,34 @@ def _added_after(rel: str, opened_at: str) -> bool | None:
     """
     if _SHALLOW:
         return None
-    if not opened_at:
-        return False
+    if not when.ok:
+        # ⚠️ `None`, NOT `False`. This used to return False -- a definite "the
+        # file was NOT added since" -- for a row whose open date had never been
+        # established, which is the same collapse the `_SHALLOW` branch two
+        # lines up exists to avoid. MEASURED 2026-09-12 over 982 LIVE rows
+        # across the three backlogs: a reader keyed on `opened_at` alone can
+        # date 587 (59.8%), so the definite negative was being handed out for
+        # up to 40.2% of the corpus. `row_date` reaches 94.7% and says
+        # `unstated` for the rest. Filed as
+        # BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS.
+        return None
     try:
         res = subprocess.run(
             ["git", "log", "--diff-filter=A", "--format=%cI", "-1", "--", rel],
             cwd=ROOT, capture_output=True, text=True, timeout=25,
         )
         first = (res.stdout or "").strip()
-        return bool(first) and first > opened_at
     except Exception:  # noqa: BLE001
         return False
+    first_day = _backlog._as_day(first)
+    if first_day is None:
+        # git answered with something that is not a date. We looked and cannot
+        # read it -- not evidence that nothing shipped.
+        return None
+    # STRICTLY after, compared by DAY. A file added the same day the row was
+    # filed is not evidence the row was addressed, and grading it `True` would
+    # manufacture a candidate out of the row's own filing commit.
+    return first_day > when.day
 
 
 def assess(row: dict[str, Any], diag_src: str) -> dict[str, Any]:
@@ -156,7 +176,7 @@ def assess(row: dict[str, Any], diag_src: str) -> dict[str, Any]:
         # is in dozens of them). The discriminating question is whether it was
         # CREATED AFTER the row was opened, i.e. something shipped since.
         exists = (ROOT / m).exists()
-        added = _added_after(m, str(row.get("opened_at") or "")) if exists else False
+        added = _added_after(m, _backlog.row_date(row)) if exists else False
         signals.append({"kind": "path_added_since_filing", "needle": m, "ok": added})
     decidable = [s for s in signals if s["ok"] is not None]
     if not decidable:
