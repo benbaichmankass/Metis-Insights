@@ -1,0 +1,1 @@
+U28 — resolve the digest-header row with the measured denominator.
