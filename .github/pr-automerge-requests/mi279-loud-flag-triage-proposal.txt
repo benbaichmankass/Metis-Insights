@@ -1,0 +1,4 @@
+Arm auto-merge: the loud-flag triage, measured and proposed (MI-279 OPS lane, U4).
+
+Tier-1: docs/claude/health-review-backlog.json only. Nothing is enacted.
+GitHub still merges only on green required checks.
