@@ -52,6 +52,48 @@ Unauthenticated GET routes — Tier 1 read surface. See
 `docs/api-tier-policy.md` for the complete tier inventory (Tier 1 / 2 /
 2.5 / 3) and the rules for adding routes.
 
+> ### ⚠️ TWO MEASUREMENT TRAPS ON `/api/bot/trades/closed`, BOTH ALREADY PAID FOR
+>
+> Read this **before** measuring real-money performance from this surface. Both have already
+> produced a wrong operator-facing conclusion (2026-09-08, MI-200;
+> `OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS`).
+> ⚠️ **Both are still live** — re-measured against the running API on **2026-09-12**, and one has
+> got **worse**.
+>
+> **1 · `include_paper=true` NARROWS the real-money set. It does not widen it.**
+> The default is already real-money-only, so passing it and then filtering to
+> `accountClass == 'real_money'` leaves whatever fraction of the newest `limit` MIXED rows happens
+> to be real money. Measured 2026-09-12 against `https://ict-bot.duckdns.org`:
+>
+> | request | rows | real_money | paper |
+> |---|---|---|---|
+> | `?limit=200` | 200 | **200** | 0 |
+> | `?limit=200&include_paper=true` | 200 | **8** | 192 |
+> | paged to exhaustion (3 pages) | **453** | 453 | 0 |
+>
+> The real-money closed population is **453**, window `2026-05-09 .. 2026-09-11`. ⚠️ **That widen-then-filter
+> mistake returned 15 rows on 2026-09-08 and returns 8 today** — the figure drifts with the paper/real
+> mix, so a session repeating it gets a different wrong answer each time.
+> ⚠️ **THE FAILURE IS SILENT:** `200 OK`, every row genuinely real money, and nothing in the response
+> says the set was truncated. `limit` is capped at **200** (a larger value is a loud `422`), so
+> **exhausting the population takes explicit paging** — there is no "just ask for all of it".
+>
+> **2 · `closeReason` is a COARSER taxonomy than `trades.exit_reason`, and a different one from
+> `/api/bot/strategies`'.** It folds fifteen distinct mechanisms into `other`, including rows that ARE
+> strategy exits (`vwap_cross`, `sl_cross`, `tp_cross`, `exit_head`, `time_decay`, `stale_stop`), so
+> reading `other` as *"not a strategy exit"* is wrong in **both** directions. Measured 2026-09-12 over
+> the full 453: `other` **232 (51.2%)** · `sl` 102 · `reconciler` 91 · `tp` 28. The two surfaces
+> disagreed on 174 of 447 rows (38.9%) when last cross-checked, 53 of them reading `sl` on one and
+> `other` on the other.
+> ➜ **To answer "did the strategy's exit fire?", read RAW `trades.exit_reason`** — via
+> `/api/bot/db/table/trades` or `/api/diag/journal`, never `closeReason`.
+>
+> ⚠️ **This block is the MINIMUM fallback for clause (a) of that open item and clears NEITHER half.**
+> The row is explicit that documenting the trap *"satisfies the MINIMUM fallback of (a) and nothing of
+> (b)"*: (a) closes when a caller can tell a WINDOW from a POPULATION **without already knowing the
+> answer**, and (b) when the disagreement count falls to 0 or the route publishes the raw
+> `exit_reason` beside `closeReason`. Both are route changes in `src/web/api/routers/`.
+
 | Endpoint | Returns | Data source |
 |----------|---------|-------------|
 | `GET /api/bot/stats` | `BotStats` JSON | `trade_journal.db` + `psutil` + `heartbeat.txt` |
