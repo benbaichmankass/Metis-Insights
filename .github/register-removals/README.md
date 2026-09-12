@@ -36,6 +36,33 @@ and any remaining `/` replaced by `-`), matching every sibling relay here:
   excuse a whole-row loss, and there is a test for that.
 * For a top-level key, omit `id` and put the key in `keys`.
 
+## ⚠️ DELETE THE FILE ONCE ITS PR HAS MERGED
+
+A declaration has to be **in** the diff that performs the removal, or the guard
+cannot excuse it — so it merges to `main` alongside that removal, and from the
+**next** diff onward the row it names is gone from the base too and it matches
+nothing.
+
+**The first ever use of this directory proved what that costs.** `#11915`
+landed one file on 2026-09-12; `main` itself then returned **rc=1** with
+`PHANTOM declaration`, and every open PR went red with it. The mechanism
+guaranteed a repo-wide red after every single use.
+
+`check_register_field_loss.py` now grades that case **`spent`** rather than
+`phantom` — a true statement about a *past* diff, not a false one about this
+diff — so it no longer fails a run. It is a receipt, not a silencer.
+
+⚠️ **`spent` fails CLOSED and is not a loophole.** It requires positive evidence
+that the declared row is absent from the **base**. With no base map, or a
+declaration naming a file the map does not cover, the verdict stays `phantom`:
+*we could not look* is never promoted to *it was already gone*. A declaration
+naming a row that **is** on the base and was **not** removed here is still a
+phantom, and still fails.
+
+**So: delete your file in the next PR you open.** The guard prints the
+instruction beside the spent line. Leaving it costs nothing today and is noise
+tomorrow.
+
 ## ⚠️ The declaration is VERIFIED, not presence-only
 
 **A declared removal that did not actually happen FAILS the run** — it is

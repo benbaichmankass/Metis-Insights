@@ -221,15 +221,39 @@ def _covers(decl: Dict[str, Any], finding: Dict[str, Any]) -> bool:
 
 
 def apply_removals(findings: Sequence[Dict[str, Any]],
-                   removals: Sequence[Dict[str, Any]]
+                   removals: Sequence[Dict[str, Any]],
+                   base_present: Optional[Dict[str, Dict[str, set]]] = None
                    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]],
-                              List[Dict[str, Any]]]:
-    """(still failing, excused, PHANTOM declarations).
+                              List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """(still failing, excused, PHANTOM declarations, SPENT declarations).
 
     ⚠️ THE THIRD RETURN IS WHAT MAKES THE OVERRIDE VERIFIED. A declaration that
     matches no actual loss is a claim about this diff that is FALSE, and it fails
     — so the file cannot be used as a blanket silencer, only as an accurate
     statement of what was deliberately removed.
+
+    ⚠️ THE FOURTH EXISTS BECAUSE THE MECHANISM GUARANTEED A REPO-WIDE RED AFTER
+    EVERY SINGLE USE, AND ITS FIRST USE PROVED IT. A declaration must be IN the
+    diff that performs the removal, or the guard cannot excuse it — so it merges
+    to `main` alongside that removal. From the very next diff onward the row it
+    names is gone from the base too, the declaration matches no finding, and it
+    graded `phantom`: `main` itself went red, and with it every open PR.
+    MEASURED 2026-09-12: `.github/register-removals/` held exactly one file
+    besides its README — the first ever use, landed by #11915 — and
+    `check_register_field_loss.py --base origin/main` returned rc=1 on `main`.
+
+    A SPENT declaration is not a false statement; it is a TRUE statement about a
+    PAST diff whose file was never cleaned up. Distinguishing them is the
+    difference between "someone is silencing the guard" and "someone forgot to
+    delete a receipt", and only the first should stop a merge.
+
+    ⚠️ IT FAILS CLOSED, WHICH IS THE WHOLE REASON THIS IS SAFE. `spent` requires
+    POSITIVE evidence that the declared row is absent from the BASE. With no
+    `base_present` map, or with the declaration naming a file the map does not
+    cover, the verdict stays `phantom` — *we could not look* is never promoted
+    to *it was already gone*. And a declaration naming a row that IS on the base
+    and was NOT removed here is still a phantom, which is the case the verified
+    override exists for.
     """
     excused, remaining = [], []
     used = set()
@@ -240,8 +264,26 @@ def apply_removals(findings: Sequence[Dict[str, Any]],
         else:
             used.add(hit)
             excused.append(f)
-    phantom = [d for i, d in enumerate(removals) if i not in used]
-    return remaining, excused, phantom
+    phantom, spent = [], []
+    for i, d in enumerate(removals):
+        if i in used:
+            continue
+        (spent if _already_gone(d, base_present) else phantom).append(d)
+    return remaining, excused, phantom, spent
+
+
+def _already_gone(decl: Dict[str, Any],
+                  base_present: Optional[Dict[str, Dict[str, set]]]) -> bool:
+    """Is what this declaration names ALREADY absent from the base? Fail closed."""
+    if not base_present:
+        return False
+    seen = base_present.get(decl["file"])
+    if seen is None:
+        return False
+    if decl.get("id") is None:
+        keys = decl.get("keys") or []
+        return bool(keys) and all(k not in seen["keys"] for k in keys)
+    return decl["id"] not in seen["ids"]
 
 
 def check(base: Optional[str], root: Path = REPO_ROOT,
@@ -279,6 +321,12 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
                             f"reporting a green that checked nothing.")}
 
     results = []
+    # What the BASE holds, per register, so a declaration whose removal already
+    # landed can be graded `spent` instead of `phantom`. Built here rather than
+    # in verdict_of because only this function reads the base blobs — and built
+    # for EVERY register whose base parses, including the ones this diff does
+    # not touch, since the spent case is precisely a register that is unchanged.
+    base_present: Dict[str, Dict[str, set]] = {}
     for path, array, id_field in registers:
         base_text = _git_show(base, path, root)
         live = root / path
@@ -292,6 +340,12 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
             results.append({"path": path, "state": UNREADABLE, "findings": [],
                             "why": f"the BASE blob did not parse: {exc}"})
             continue
+        base_rows = base_doc.get(array) if isinstance(base_doc, dict) else base_doc
+        base_present[path] = {
+            "ids": {r.get(id_field) for r in base_rows if isinstance(r, dict)}
+                   if isinstance(base_rows, list) else set(),
+            "keys": set(base_doc) if isinstance(base_doc, dict) else set(),
+        }
         try:
             head_doc = json.loads(live.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -304,11 +358,13 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
             continue
         results.append(compare(base_doc, head_doc, array, id_field, path))
 
-    return verdict_of(results, load_removals(root))
+    return verdict_of(results, load_removals(root), base_present)
 
 
 def verdict_of(results: Sequence[Dict[str, Any]],
-               removals: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+               removals: Sequence[Dict[str, Any]],
+               base_present: Optional[Dict[str, Dict[str, set]]] = None
+               ) -> Dict[str, Any]:
     """PURE. The per-register comparisons plus the declarations, one verdict out.
 
     ⚠️ THIS IS A SEPARATE FUNCTION BECAUSE A MUTATION RUN SHOWED IT HAD TO BE.
@@ -319,7 +375,8 @@ def verdict_of(results: Sequence[Dict[str, Any]],
     direction nothing else pins.
     """
     all_findings = [f for r in results for f in r["findings"]]
-    remaining, excused, phantom = apply_removals(all_findings, removals)
+    remaining, excused, phantom, spent = apply_removals(
+        all_findings, removals, base_present)
     unreadable = [r for r in results if r["state"] == UNREADABLE]
     return {
         # ⚠️ ALL THREE TERMS. `phantom` is here because a declaration that names
@@ -331,12 +388,12 @@ def verdict_of(results: Sequence[Dict[str, Any]],
         # clean diff.
         "ok": not remaining and not phantom and not unreadable,
         "results": list(results), "findings": remaining, "excused": excused,
-        "phantom": phantom, "unreadable": unreadable,
+        "phantom": phantom, "spent": spent, "unreadable": unreadable,
         "summary": (f"{sum(1 for r in results if r['state'] == COMPARED)} register(s) "
                     f"compared, {sum(1 for r in results if r['state'] == SKIPPED)} "
                     f"untouched, {len(unreadable)} unreadable; {len(remaining)} "
                     f"loss(es), {len(excused)} declared, {len(phantom)} phantom "
-                    f"declaration(s)."),
+                    f"and {len(spent)} spent declaration(s)."),
     }
 
 
@@ -347,6 +404,12 @@ def render(verdict: Dict[str, Any]) -> str:
     for f in verdict.get("findings", []):
         lines.append(f"::error::register-field-loss: {f['kind'].upper()} in "
                      f"{f['path']} — {f['why']}")
+    for d in verdict.get("spent", []):
+        lines.append(
+            f"  spent declaration (not a failure): {d['declared_in']} — its removal of "
+            f"{d['file']} {d.get('id') or 'top-level ' + str(d['keys'])} is ALREADY on "
+            f"the base, so it excuses nothing here and is a receipt, not a silencer. "
+            f"DELETE the file; leaving it costs nothing today and is noise tomorrow.")
     for d in verdict.get("phantom", []):
         lines.append(f"::error::register-field-loss: PHANTOM declaration in "
                      f"{d['declared_in']} — it says {d['file']} row "
@@ -439,17 +502,17 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     finding = v["findings"]
     decl = [{"file": "R.json", "id": "s1",
              "keys": ["observed_2026_09_12T0152Z"], "declared_in": "x.json"}]
-    rem, exc, ph = apply_removals(finding, decl)
+    rem, exc, ph, _sp = apply_removals(finding, decl)
     ok("a TRUE declaration excuses its own loss", not rem and len(exc) == 1 and not ph)
 
     wrong_key = [{"file": "R.json", "id": "s1", "keys": ["something_else"],
                   "declared_in": "x.json"}]
-    rem2, exc2, ph2 = apply_removals(finding, wrong_key)
+    rem2, exc2, ph2, _ = apply_removals(finding, wrong_key)
     ok("a declaration naming the WRONG key excuses nothing", len(rem2) == 1 and not exc2)
     ok("…AND is reported as a PHANTOM — a false statement about the diff, "
        "which is what stops the file being a blanket silencer", len(ph2) == 1)
 
-    rem3, _, ph3 = apply_removals([], decl)
+    rem3, _, ph3, _ = apply_removals([], decl)
     ok("a declaration with NO matching loss at all is a phantom",
        not rem3 and len(ph3) == 1)
 
@@ -466,6 +529,49 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
        len(apply_removals(v_row["findings"],
                           [{"file": "R.json", "id": "s1", "keys": ["title"],
                             "declared_in": "x.json"}])[0]) == 1)
+
+    # ── SPENT vs PHANTOM. A declaration must live in the diff that performs
+    #    the removal, so it MERGES alongside it — and from the next diff on it
+    #    matches nothing. Grading that `phantom` turned `main` red after the
+    #    mechanism's FIRST use. These controls pin the distinction, and pin that
+    #    it fails CLOSED.
+    gone = {"R.json": {"ids": {"s2"}, "keys": {"items"}}}      # s1 absent on base
+    still = {"R.json": {"ids": {"s1", "s2"}, "keys": {"items"}}}
+    _, _, ph_s, sp_s = apply_removals([], decl, gone)
+    ok("a declaration whose row is ALREADY absent from the base is SPENT, not phantom",
+       not ph_s and len(sp_s) == 1)
+    ok("…and a spent declaration does not fail the verdict",
+       verdict_of(clean_result_for_spent := [{"path": "R.json", "state": COMPARED,
+                                              "findings": [], "why": ""}],
+                  decl, gone)["ok"])
+    _, _, ph_t, sp_t = apply_removals([], decl, still)
+    ok("a declaration whose row IS on the base and was NOT removed here is still a "
+       "PHANTOM — the silencer case the override exists to catch",
+       len(ph_t) == 1 and not sp_t)
+    ok("…and that phantom still FAILS the verdict",
+       not verdict_of(clean_result_for_spent, decl, still)["ok"])
+
+    _, _, ph_n, sp_n = apply_removals([], decl, None)
+    ok("with NO base map it stays PHANTOM — *we could not look* is never promoted "
+       "to *it was already gone*", len(ph_n) == 1 and not sp_n)
+    _, _, ph_u, sp_u = apply_removals([], decl, {"OTHER.json": {"ids": set(), "keys": set()}})
+    ok("…and a base map that does not COVER the declaration's file is likewise "
+       "phantom, not spent", len(ph_u) == 1 and not sp_u)
+
+    top_decl = [{"file": "R.json", "id": None, "keys": ["schema_version"],
+                 "declared_in": "x.json"}]
+    _, _, ph_k, sp_k = apply_removals([], top_decl, {"R.json": {"ids": set(), "keys": {"items"}}})
+    ok("a TOP-LEVEL key declaration whose key is absent from the base is spent too",
+       not ph_k and len(sp_k) == 1)
+    _, _, ph_k2, sp_k2 = apply_removals([], top_decl,
+                                        {"R.json": {"ids": set(), "keys": {"items", "schema_version"}}})
+    ok("…and phantom while that key is still there", len(ph_k2) == 1 and not sp_k2)
+
+    ok("SPENT NEVER SWALLOWS A REAL LOSS: a declaration that matches a live "
+       "finding is EXCUSED, not spent, even with a base map that would have "
+       "called it spent",
+       (lambda r: not r[0] and len(r[1]) == 1 and not r[2] and not r[3])(
+           apply_removals(finding, decl, gone)))
 
     # ── THE VERDICT ASSEMBLY, which a mutation run proved was unpinned ──────
     clean_result = [{"path": "R.json", "state": COMPARED, "findings": [], "why": ""}]

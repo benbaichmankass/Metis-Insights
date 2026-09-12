@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "a CI guard under scripts/ci/ gains a fail-closed state, its README documents the lifecycle, one spent declaration is deleted and one backlog row filed; no src/, no config/, no VM, no order path"
+}
