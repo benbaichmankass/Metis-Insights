@@ -89,8 +89,8 @@ def existing_stamp(rel: str) -> Optional[Dict[str, str]]:
     return m.groupdict() if m else None
 
 
-def carry_last_verified(rel: str, computed: Dict[str, str],
-                        today: str) -> Tuple[str, str]:
+def carry_last_verified(rel: str,
+                        computed: Dict[str, str]) -> Tuple[str, str]:
     """The date to stamp, and WHY — never `today` by default.
 
     ⚠️ THIS IS THE WHOLE FIX, AND IT IS A REFUSAL RATHER THAN A WARNING.
@@ -115,6 +115,15 @@ def carry_last_verified(rel: str, computed: Dict[str, str],
     So the date is CARRIED unless the assessment actually changed. Returns
     ``(date, basis)`` with basis in
     ``carried`` / ``assessment_changed`` / ``new`` / ``restamped``.
+
+    ⚠️ THERE IS DELIBERATELY NO `today` PARAMETER, AND ADDING ONE WOULD BE A
+    BUG RATHER THAN A TIDY-UP. It had one until `diagnostic-provenance-guard`
+    caught it accepted-and-never-read (D/inert-parameter). The mint paths must
+    keep reading ``computed["last_verified"]``, which `assess` sets to
+    **`never`** when the status basis is `not-assessed` and to `today` only
+    otherwise — so substituting `today` would stamp a real date on a document
+    nobody has assessed, which is the precise claim this function exists to
+    refuse, reintroduced through the parameter meant to serve it.
     """
     prev = existing_stamp(rel)
     if prev is None:
@@ -697,7 +706,7 @@ def stamp_for(rel: str, today: str) -> str:
     # Carry here too. A generator that rewrites its own document wholesale must
     # emit the SAME date the index row carries, or it reintroduces the churn
     # one file at a time.
-    r["last_verified"], _ = carry_last_verified(rel, r, today)
+    r["last_verified"], _ = carry_last_verified(rel, r)
     return stamp_line(rel, r["status"], r["category"],
                       r["superseded_by"], r["last_verified"])
 
@@ -723,7 +732,7 @@ def build_rows(today: str, *, restamp: bool = False) -> List[Dict[str, str]]:
             r["verified_basis"] = "restamped"
         else:
             r["last_verified"], r["verified_basis"] = carry_last_verified(
-                rel, r, today)
+                rel, r)
         rows.append(r)
     return rows
 

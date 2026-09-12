@@ -75,20 +75,20 @@ def _stamped(tmp_path, monkeypatch, *, status="live", category="instruction",
 def test_an_unchanged_document_keeps_the_date_it_already_had(tmp_path, monkeypatch):
     """The whole point: May stays May."""
     rel = _stamped(tmp_path, monkeypatch, date="2026-05-04")
-    date, basis = D.carry_last_verified(rel, _computed(), TODAY)
+    date, basis = D.carry_last_verified(rel, _computed())
     assert (date, basis) == ("2026-05-04", "carried")
 
 
 def test_a_document_whose_STATUS_changed_is_re_dated(tmp_path, monkeypatch):
     """Carrying here would assert the old date describes a NEW assessment."""
     rel = _stamped(tmp_path, monkeypatch, status="live", date="2026-05-04")
-    date, basis = D.carry_last_verified(rel, _computed(status="superseded"), TODAY)
+    date, basis = D.carry_last_verified(rel, _computed(status="superseded"))
     assert (date, basis) == (TODAY, "assessment_changed")
 
 
 def test_a_document_whose_CATEGORY_changed_is_re_dated(tmp_path, monkeypatch):
     rel = _stamped(tmp_path, monkeypatch, category="instruction", date="2026-05-04")
-    date, basis = D.carry_last_verified(rel, _computed(category="evidence"), TODAY)
+    date, basis = D.carry_last_verified(rel, _computed(category="evidence"))
     assert (date, basis) == (TODAY, "assessment_changed")
 
 
@@ -96,14 +96,14 @@ def test_a_document_with_no_stamp_gets_one(tmp_path, monkeypatch):
     p = tmp_path / "fresh.md"
     p.write_text("# fresh\n\nno stamp here\n", encoding="utf-8")
     monkeypatch.setattr(D, "REPO", tmp_path)
-    date, basis = D.carry_last_verified("fresh.md", _computed(), TODAY)
+    date, basis = D.carry_last_verified("fresh.md", _computed())
     assert (date, basis) == (TODAY, "new")
 
 
 def test_an_UNREADABLE_file_is_treated_as_unstamped_not_as_carried(tmp_path, monkeypatch):
     """`we could not read it` must not silently preserve a date we never saw."""
     monkeypatch.setattr(D, "REPO", tmp_path)
-    date, basis = D.carry_last_verified("does-not-exist.md", _computed(), TODAY)
+    date, basis = D.carry_last_verified("does-not-exist.md", _computed())
     assert (date, basis) == (TODAY, "new")
 
 
@@ -113,7 +113,7 @@ def test_never_is_CARRIED_because_it_is_a_deliberate_claim(tmp_path, monkeypatch
     rel = _stamped(tmp_path, monkeypatch, status="unknown", category="unknown",
                    date="never")
     date, basis = D.carry_last_verified(
-        rel, _computed(status="unknown", category="unknown", lv="never"), TODAY)
+        rel, _computed(status="unknown", category="unknown", lv="never"))
     assert (date, basis) == ("never", "carried")
 
 
@@ -174,3 +174,55 @@ def test_the_two_regexes_agree_about_status_on_the_same_line(tmp_path, monkeypat
     text = (tmp_path / rel).read_text(encoding="utf-8")
     assert D.STAMP_RE.search(text).group("status") == \
         D.STAMP_FULL_RE.search(text).group("status") == "superseded"
+
+
+# ── THE INERT PARAMETER, and why its absence is load-bearing ────────────────
+# `carry_last_verified` accepted a `today` it never read, until
+# `diagnostic-provenance-guard` caught it (D/inert-parameter) on this very PR.
+# The tempting tidy-up is to USE it in the mint paths instead of removing it.
+# That would be a bug, not a cleanup: `assess` sets
+# `computed["last_verified"]` to **`never`** when the status basis is
+# `not-assessed`, and to `today` only otherwise — so substituting `today`
+# would stamp a real date on a document nobody has assessed, which is exactly
+# the false claim this function exists to refuse, re-entering through the
+# parameter meant to serve it.
+#
+# The signature control alone would be satisfiable by renaming the parameter,
+# so the behavioural control below is the one that matters; the signature
+# control is kept because it names the reason at the place a contributor
+# would otherwise re-add it.
+
+def test_minting_an_unassessed_document_yields_never_not_a_date(tmp_path,
+                                                                monkeypatch):
+    """THE BEHAVIOURAL CONTROL. No prior stamp, so this is the MINT path — the
+    one a re-added `today` would take over. `never` must survive it."""
+    monkeypatch.setattr(D, "REPO", tmp_path)
+    (tmp_path / "unassessed.md").write_text("no stamp here\n", encoding="utf-8")
+    date, basis = D.carry_last_verified("unassessed.md",
+                                        _computed(lv="never"))
+    assert basis == "new", "no prior stamp is the mint path"
+    assert date == "never", (
+        "the mint path must carry through what `assess` computed — `never` — "
+        "and must not substitute today's date")
+    assert date != TODAY
+
+
+def test_minting_on_an_assessment_CHANGE_also_refuses_to_invent_a_date(
+        tmp_path, monkeypatch):
+    """The second mint path: a stamp exists but the assessment moved. It too
+    reads `computed`, so `never` must survive it as well."""
+    rel = _stamped(tmp_path, monkeypatch, status="live", date="2026-05-04")
+    date, basis = D.carry_last_verified(
+        rel, _computed(status="superseded", lv="never"))
+    assert basis == "assessment_changed"
+    assert date == "never" and date != TODAY
+
+
+def test_carry_last_verified_takes_no_today_parameter():
+    """SIGNATURE CONTROL. Weaker than the two above on purpose — it is here so
+    the reason is stated where someone would re-add the parameter."""
+    import inspect
+    params = list(inspect.signature(D.carry_last_verified).parameters)
+    assert params == ["rel", "computed"], (
+        f"unexpected signature {params}: a date parameter here is inert at "
+        "best and, if wired up, re-introduces the false `verified today` claim")
