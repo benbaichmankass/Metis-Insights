@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Deletes ONE spent file: .github/register-removals/mi279-u5-clear-digest-carrier.json, whose declaring PR (#11915) has merged. check_register_field_loss.py reads every file in that directory and requires each declared removal to be in the CURRENT diff, so a merged declaration becomes a permanent PHANTOM that fails every register-touching PR fleet-wide. MEASURED with a positive control on a clean detached origin/main (a one-line scratch edit to health-review-backlog.json fails identically), and the fix re-verified with the same control (FAIL -> OK). .github/** only. No src/, no config/, no deploy/, no scripts/, no runtime, no order path, no strategy config, no risk cap. Destroys no record: the removal, its rationale and its decider live in #11915. The STRUCTURAL fix (scope declarations to those added in the diff) is deliberately NOT taken here and is filed for the guard's owner."
+}
