@@ -114,7 +114,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 **🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
 - Candidates: `gdx_pullback_1d`, `gld_pullback_1d`, `iaum_pullback_1d`, `mes_trend_long_1d`, `scha_trend_long_1d`, `splg_trend_long_1d`, `spy_trend_long_1d`, `tqqq_trend_long_1d`, `trend_donchian_sol`, `turtle_soup`. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.
 
-**🧭 ⚠️ THIS READING IS 33h OLD — its producer has not run.** The rows below were measured at `2026-09-11T10:39:09+00:00`, not today. `.github/workflows/constraint-readout.yml` writes this register on a daily cron; anything that crossed the threshold since then is NOT in it, and a row listed as `newly_stalled` may since have been routed. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.
+**🧭 ⚠️ THIS READING IS 35h OLD — its producer has not run.** The rows below were measured at `2026-09-11T10:39:09+00:00`, not today. `.github/workflows/constraint-readout.yml` writes this register on a daily cron; anything that crossed the threshold since then is NOT in it, and a row listed as `newly_stalled` may since have been routed. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.
 
 **🧭 No filed checklist row crossed 24h unrouted since the last reading.** (Generated — an empty list here means no NEW crossing, not that nothing is waiting; see the standing count below.)
 
@@ -122,7 +122,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 
 - Context, deliberately NOT a page: **0** row(s) already reported and still unrouted · **4** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
 
-**3 monitoring item(s) DUE — check and record what you OBSERVED:**
+**2 monitoring item(s) DUE — check and record what you OBSERVED:**
 
 - **`OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT`** — A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now inherits the cycle's priority without a human retyping it. ⚠️ NOTHING HAS BEEN OBSERVED ACTING ON IT. Shipped and working are different states, and the channel it rides is itself unproven — OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION is still open. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one.
   - **Clears when:** A session that was NOT told the priority by its prompt states this cycle's priority AND cites the CLAUDE.md session brief as where it read it AND says what it did differently because of it. ⚠️ RENDERING IS NOT EVIDENCE — that the block appears in CLAUDE.md is a deploy, not an observation; this is the same distinction that keeps OI-20260826 open. ⚠️ A SESSION POINTED HERE BY ITS PROMPT CANNOT CLEAR THIS, for the reason the MHG row names: it has been told. The uncontaminated observation is a later session that arrived cold — record which it was. ⚠️ 'A session read it and ignored it' does NOT clear this either: that is a different and more useful finding, and belongs in observation rather than being treated as a pass.
