@@ -66,9 +66,17 @@ STATES, NEVER COLLAPSED
                  but the message says plainly that the `unrefreshable` case was
                  not ruled out.
 
-WHY `unrefreshable` EXISTS (BL-20260909-A-BASE-BRANCH-RED-CAN-EXPIRE-THE-MANAGER
--LEASE-OF-A-SESSION-THAT-IS-ALIVE-AND-HEARTBEATING)
---------------------------------------------------------------------------------
+WHY `unrefreshable` EXISTS
+-------------------------
+Tracked by:
+BL-20260909-A-BASE-BRANCH-RED-CAN-EXPIRE-THE-MANAGER-LEASE-OF-A-SESSION-THAT-IS-ALIVE-AND-HEARTBEATING
+
+⚠️ THAT ID IS ON ONE LINE ON PURPOSE AND MUST STAY THERE. It was originally
+wrapped inside a parenthetical heading, which split it across a newline;
+`check_backlog_refs.py` then read the truncated prefix, resolved it to nothing,
+and failed the PR — correctly. A reference that does not resolve reads as
+tracked while being tracked by nobody, which is the whole point of that guard.
+Do not re-wrap it to fit the column.
 MEASURED 2026-09-09T08:05:10Z: `status` read `heartbeat_at=07:34:57Z` against a
 90-minute TTL, while the holder had heartbeated THREE more times (07:46:27,
 07:54:48, 07:56:42) — every one trapped in PR #11515, which could not merge
