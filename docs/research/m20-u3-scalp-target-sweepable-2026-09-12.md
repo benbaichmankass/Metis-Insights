@@ -244,6 +244,56 @@ Stated here so the grid cannot be chosen after seeing results.
 runner. U3b runs the grid; only then can U4 make a Tier-3 proposal, and only for
 a lever that clears the gate.
 
+## 4b. CONVERGENT EVIDENCE FROM THE LIVE BOOK — and it points AGAINST the queue's hypothesis
+
+The sweep is a backtest. The U5 excursion instrument answers the same question
+from a **methodologically independent** direction: ATR-unit favourable/adverse
+excursion measured off the candle path, needing **no PnL, no exit price, no R
+denominator and no provenance** — so it is immune to both the fabricated-PnL
+class and to U2b's ratcheted-risk contamination.
+
+Run on the live book: `/api/diag/journal` trades + order_packages (`limit=1000`),
+restricted to MI-271's decision population, **705 (package, window) rows**,
+windows 4/12/24/48h.
+
+| family | 4h | 12h | 24h | 48h |
+|---|--:|--:|--:|--:|
+| **scalp** (fixed 1.5R target — the M20 subject), n=113–124 | **1.12** | **1.13** | **1.30** | **1.16** |
+| donchian (trailing), n=36–43 | 0.53 | 0.65 | 0.96 | 1.69 |
+| pullback, n=16–17 | 0.81 | 0.79 | 0.59 | 1.54 |
+
+*(mean MFE ÷ mean MAE, both in ATR units. Medians tell the same story: scalp
+0.96 / 1.10 / 1.28 / 1.10.)*
+
+**For the scalp family the excursion profile beyond entry is essentially
+SYMMETRIC at every horizon.** Favourable and adverse movement are the same
+magnitude, so a wider fixed target has no free lunch available to it: the extra
+favourable excursion it reaches for must be paid for with the extra adverse
+excursion sitting alongside it. That is precisely the trade the parity backtest
+measured — at `tp_at_r` 3.0, `tp_hit` fell 31 → 16 while `sl_hit` rose 34 → 40
+and net R went **+2.03 → −0.96**.
+
+For donchian and pullback the ratio is **below 1** at 4–24h — adverse excursion
+*dominates* — so holding longer is worse still there.
+
+### ⚠️ What this instrument does NOT say, and why the caveat cuts one way
+
+The excursion is measured **from entry over a fixed window, regardless of when
+the trade actually closed**, so it answers *was more movement available?* and
+not *could any rule have captured it?* In particular **it ignores path order**:
+an 8-ATR favourable excursion arriving *after* a 6-ATR adverse one is
+unreachable by any stop-respecting rule, and this measurement counts it anyway.
+
+**That bias runs TOWARD the hold-longer hypothesis, not against it** — the
+instrument is generous to the case it is being used to test, and the case still
+does not clear. So the reading here is conservative, which is the direction a
+negative result needs to be.
+
+⚠️ Two instruments agreeing is not a verdict either. Both are pre-gate: the
+backtest is a **screen** with no walk-forward, and this is an observational
+profile with per-leg weekly n of 3–9. **U3b's gated run decides**; this is why
+the pre-registered grid brackets `1.5` on BOTH sides rather than only widening.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
