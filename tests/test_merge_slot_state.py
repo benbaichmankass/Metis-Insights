@@ -186,3 +186,61 @@ def test_the_incumbent_report_does_not_alter_what_is_written(tmp_path):
     assert cms.main(["--board", str(with_check)] + args) == 0
     assert cms.main(["--board", str(without), "--no-incumbent-check"] + args) == 0
     assert with_check.read_text(encoding="utf-8") == without.read_text(encoding="utf-8")
+
+
+# ── A PAYLOAD THAT DOES NOT ANSWER IS NOT `open` ────────────────────────────
+# MEASURED 2026-09-12, live: `GET /repos/.../pulls/` with an empty number
+# returns `{"message": "Request path could not be canonicalized."}` — a dict
+# with no `merged`, no `merged_at` and no `state`. `str(pr.get("state") or
+# "open")` turned that into LIVE, with a `why` reading "PR #None ... is OPEN":
+# a definite answer the code never established, about a PR it never saw.
+#
+# ⚠️ IT FAILED IN THE CAUTIOUS DIRECTION — it refused to displace — so nothing
+# unsafe happened, and it is still the exact collapse this module exists to
+# refuse, one level in from the presence-is-not-liveness refusal it was
+# written for. A guard that invents the answer it was built to demand is worse
+# than one that admits it does not have it.
+
+ERROR_PAYLOAD = {"message": "Request path could not be canonicalized."}
+
+
+@pytest.mark.parametrize("pr", [ERROR_PAYLOAD, {}, {"number": 7},
+                                {"state": ""}, {"state": "   "}])
+def test_a_payload_that_answers_nothing_does_not_grade_live(pr):
+    row = G.grade(CLAIM, branch_present=True, pr=pr)
+    assert row["state"] == G.UNDECIDABLE, row
+    assert row["state"] != G.LIVE
+    assert row["safe_to_displace"] is False
+
+
+def test_an_unusable_payload_SAYS_it_was_unusable():
+    """Falling through silently would leave a reader thinking no payload was
+    supplied — which is a different fact and points at a different fix."""
+    row = G.grade(CLAIM, branch_present=True, pr=ERROR_PAYLOAD)
+    assert "could not be read" in row["why"], row["why"]
+    assert "no recognised `state`" in row["why"]
+
+
+def test_an_unusable_payload_does_not_BLOCK_the_proxy_from_settling_it():
+    """The proxy is still decisive where it is decisive. A branch that is GONE
+    is spent whatever the payload did or did not say."""
+    row = G.grade(CLAIM, branch_present=False, pr=ERROR_PAYLOAD)
+    assert row["state"] == G.SPENT and row["safe_to_displace"] is True
+    assert "could not be read" in row["why"], "and it still says the payload failed"
+
+
+def test_a_payload_with_no_number_does_not_render_PR_None():
+    """`PR #None` reads as a fact about a pull request rather than as the
+    absence of one."""
+    row = G.grade(CLAIM, branch_present=True, pr={"state": "open"})
+    assert "#None" not in row["why"], row["why"]
+    assert "no number in the payload" in row["why"]
+
+
+@pytest.mark.parametrize("state,want", [("open", G.LIVE), ("closed", G.SPENT),
+                                        ("merged", G.SPENT)])
+def test_the_recognised_states_still_decide(state, want):
+    """POSITIVE CONTROL. Without it, a change that graded every payload
+    `undecidable` would pass every assertion above and destroy the direct
+    answer the whole module is built around."""
+    assert G.grade(CLAIM, True, {"number": 1, "state": state})["state"] == want
