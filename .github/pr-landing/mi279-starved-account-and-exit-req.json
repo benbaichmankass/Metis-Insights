@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — a single backlog register file (docs/claude/health-review-backlog.json). No src/, config/, deploy/, workflow or order path. The one defect left open is Tier-2 and is explicitly NOT proposed as fixed here."
+}
