@@ -30,6 +30,40 @@ name: claude-pr-automerge
 # born ready (that IS the request being fulfilled); a draft somebody else opened is
 # REFUSED, loudly, and left exactly as it was.
 #
+# ⚠️ TWO CHANGES, 2026-09-12 (MI-280 U2) — A PR OPENED HERE USED TO BE BORN WITH
+# NO CHECKS, AND WAS THEN ARMED ANYWAY.
+#
+# GitHub deliberately suppresses workflow triggers for actions taken with the
+# built-in GITHUB_TOKEN (recursion prevention). This job opened the PR with
+# exactly that token, so the `pull_request` event never fired and the repo's
+# required checks were never created. That is not inferred — `pr-opener.yml`'s
+# own header isolates it on PR #10079 and re-measures it on #10683, where a head
+# pushed with the caller's own credentials STILL returned `total_count: 0`.
+# Arming is not a request to merge, it IS the merge, so arming such a PR hands
+# the outcome to a head nothing is measuring; six instances were observed on
+# 2026-09-08 alone (#11356, #11392, #11395, #11407, #11419, #11424), and the
+# 2026-09-12 one dropped the commit carrying a LIVE lane's registry row, leaving
+# that lane running unrecorded on `main` for nine minutes.
+#
+#   (a) THE PR IS OPENED UNDER A PAT when `BRANCH_PROTECTION_TOKEN` is present,
+#       so the `pull_request` event fires and the checks attach on the FIRST
+#       head. Falling back to GITHUB_TOKEN is still allowed — a missing secret
+#       must not take the relay down — but it is announced LOUDLY and (b) then
+#       refuses to arm, so the fallback degrades to "PR opened, not merged"
+#       rather than to the silent hazard.
+#   (b) ARMING IS GATED ON A CHECK HAVING ATTACHED, decided by
+#       `scripts/ci/automerge_arming.py` — a pure function, so the policy is
+#       arguable in tests rather than against a live PR.
+#       ⚠️ THE SUBTLETY THAT MAKES A NAIVE GATE VACUOUS: a zero-check PR does
+#       not report zero check runs. It reports ONE — this job's own
+#       `open-and-automerge` run, green because it succeeded at opening the PR.
+#       `check_runs.length > 0` is therefore TRUE on precisely the PR the gate
+#       must refuse. The self job is excluded BY NAME, and a planted defect that
+#       stops excluding it fails that module's suite.
+#
+# NEITHER CHANGE CAN MERGE ANYTHING THE OLD ONE WOULD NOT HAVE. Both are strictly
+# subtractive: (a) changes who opens the PR, (b) only ever WITHHOLDS arming.
+#
 # Observe/CI-only — opens + merges a PR, touches no runtime, no order path. The merge still
 # obeys every required status check + branch-protection rule.
 
@@ -120,8 +154,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
       - name: "Request gate, then open-or-find the PR and enable auto-merge"
+        id: automerge
         uses: actions/github-script@v7
+        env:
+          # Optional. Absent -> the PR is opened under GITHUB_TOKEN, the checks do
+          # not attach, and the gate in step 3 refuses to arm. Loud, not silent.
+          PR_OPEN_PAT: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          ARMING_INPUT: ${{ runner.temp }}/automerge-arming.json
         with:
           script: |
             const head = context.ref.replace('refs/heads/', '');
@@ -179,12 +222,47 @@ jobs:
 
             // ---------------------------------------------------------------
             // 1. find or create the PR.
+            //
+            // ⚠️ CREATED UNDER A PAT WHEN ONE IS AVAILABLE. GitHub does not fire
+            // workflow triggers for actions taken with the built-in GITHUB_TOKEN
+            // (recursion prevention), so a PR opened with it never emits the
+            // `pull_request` event and the required checks are never created —
+            // measured in `pr-opener.yml`'s header on #10079 and #10683. Opening
+            // under `BRANCH_PROTECTION_TOKEN` makes the checks attach on the
+            // FIRST head, which is what step 3's gate then looks for.
+            //
+            // THREE STATES, never collapsed, because the third is the one a
+            // reader needs: `pat` (the event will fire) · `github_token` (it
+            // will not, and step 3 will refuse to arm) · `adopted` (we did not
+            // open this PR at all, so neither statement is about us — a PR the
+            // caller opened themselves already carries its own checks, which is
+            // why adopting is the documented workaround).
+            const patToken = process.env.PR_OPEN_PAT || '';
+            // `@actions/github` is bundled with actions/github-script; getOctokit
+            // gives a client authenticated as the PAT's owner rather than as
+            // github-actions[bot], which is the whole point — the event fires for
+            // a human/PAT actor and does not for the bot.
+            const opener = patToken
+              ? require('@actions/github').getOctokit(patToken)
+              : github;
+
             let pr = (await github.rest.pulls.list({
               owner, repo, head: `${owner}:${head}`, state: 'open',
             })).data[0];
             let created = false;
+            let openerKind = 'adopted';
             if (!pr) {
-              pr = (await github.rest.pulls.create({
+              openerKind = patToken ? 'pat' : 'github_token';
+              if (!patToken) {
+                core.warning(
+                  'BRANCH_PROTECTION_TOKEN is NOT set, so this PR is being opened ' +
+                  'with GITHUB_TOKEN. GitHub suppresses the `pull_request` event ' +
+                  'for that token, so the required checks will NOT attach to the ' +
+                  'first head and step 3 will REFUSE to arm auto-merge. The PR is ' +
+                  'still opened — the relay does not go down over a missing secret ' +
+                  '— but it will need one ordinary push before it can merge.');
+              }
+              const createArgs = {
                 owner, repo, head, base: 'main', draft: false,
                 title: subject,
                 body: [
@@ -194,9 +272,35 @@ jobs:
                   '---',
                   '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
                 ].join('\n'),
-              })).data;
+              };
+              // ⚠️ AN UNUSABLE PAT MUST NOT TAKE THE RELAY DOWN.
+              // Whether `BRANCH_PROTECTION_TOKEN` carries PR-create scope is NOT
+              // established — it cannot be read from a session, and it is the one
+              // open question on this change. Without this fallback the answer
+              // decides whether the relay works at all: a token lacking the scope
+              // returns 403 here, the whole script throws, and NO PR is opened —
+              // strictly worse than the GITHUB_TOKEN behaviour this change
+              // replaces. With it, the unknown degrades to the SAME state a
+              // missing secret already degrades to: PR opened, checks absent,
+              // arming refused by step 3. The question stops being load-bearing.
+              // Only the PAT attempt is guarded; a GITHUB_TOKEN failure is a real
+              // failure and still propagates.
+              try {
+                pr = (await opener.rest.pulls.create(createArgs)).data;
+              } catch (e) {
+                if (opener === github) { throw e; }
+                core.warning(
+                  `opening the PR under BRANCH_PROTECTION_TOKEN FAILED (${e.status || '?'}: ` +
+                  `${e.message}). Falling back to GITHUB_TOKEN. The PR will still be ` +
+                  `opened, but GitHub suppresses the \`pull_request\` event for that ` +
+                  `token, so the required checks will NOT attach to the first head and ` +
+                  `step 3 will REFUSE to arm auto-merge. If this is a 403, the PAT is ` +
+                  `missing PR-create scope — grant it, or expect one ordinary push per PR.`);
+                openerKind = 'github_token';
+                pr = (await github.rest.pulls.create(createArgs)).data;
+              }
               created = true;
-              core.notice(`opened PR #${pr.number}`);
+              core.notice(`opened PR #${pr.number} (opener: ${openerKind})`);
             } else {
               core.notice(`found open PR #${pr.number} (draft: ${pr.draft})`);
             }
@@ -226,7 +330,62 @@ jobs:
             }
 
             // ---------------------------------------------------------------
-            // 3. enable native auto-merge.
+            // 3. THE ARMING GATE — has anything actually attached to this head?
+            //
+            // Arming is not a request to merge, it IS the merge, so arming a head
+            // that no check is measuring hands the outcome to nothing. The
+            // DECISION is a pure function in `scripts/ci/automerge_arming.py` so
+            // the policy is arguable in tests rather than against a live PR; this
+            // step only gathers the evidence and obeys the verdict.
+            //
+            // ⚠️ THE COUNT THAT LOOKS RIGHT AND IS VACUOUS: a zero-check PR
+            // reports ONE check run — this very job, green because it opened the
+            // PR. `check_runs.length > 0` is TRUE on exactly the PR this gate
+            // must refuse. The module excludes the self job BY NAME.
+            //
+            // A FAILED READ IS NOT AN EMPTY READ. `checks_read_ok: false` grades
+            // `unreadable`, which refuses — an unread head is the head the gate
+            // exists to protect, not a safe one.
+            const armHead = pr.head?.sha || context.sha;
+            let checkRuns = null, checksReadOk = false;
+            try {
+              const r = await github.rest.checks.listForRef({
+                owner, repo, ref: armHead, per_page: 100 });
+              checkRuns = r.data?.check_runs ?? null;
+              checksReadOk = Array.isArray(checkRuns);
+            } catch (e) {
+              core.warning(`could not read check runs for ${armHead.slice(0,8)}: ${e.message}`);
+            }
+            require('fs').writeFileSync(process.env.ARMING_INPUT,
+              JSON.stringify({ check_runs: checkRuns, checks_read_ok: checksReadOk }));
+
+            const gate = require('child_process').spawnSync(
+              'python3', ['scripts/ci/automerge_arming.py', '--input', process.env.ARMING_INPUT],
+              { encoding: 'utf-8' });
+            let verdict;
+            try { verdict = JSON.parse(gate.stdout); }
+            catch (e) {
+              // The gate could not be RUN or could not be PARSED. That is not a
+              // licence to arm: the one thing a broken gate must never do is
+              // degrade to the behaviour it was added to prevent.
+              core.setFailed(
+                `the arming gate could not be evaluated (exit ${gate.status}: ` +
+                `${(gate.stderr || e.message || '').slice(0, 400)}). NOT arming ` +
+                `auto-merge. PR #${pr.number} is open and untouched; push one ` +
+                `ordinary commit and let CI decide, or merge it by hand.`);
+              return;
+            }
+            core.notice(`arming gate: ${verdict.state} — ${verdict.why}`);
+            if (!verdict.arm) {
+              core.notice(
+                `NOT ARMING #${pr.number} (opener: ${openerKind}). The PR is open ` +
+                `and left exactly as it is — nothing un-drafted, nothing merged. ` +
+                `This is the gate working, not a failure.`);
+              return;
+            }
+
+            // ---------------------------------------------------------------
+            // 3b. enable native auto-merge.
             try {
               await github.graphql(`mutation($id:ID!){ enablePullRequestAutoMerge(input:{pullRequestId:$id, mergeMethod:SQUASH}){ pullRequest{ number } } }`, { id: pr.node_id });
               core.notice(`auto-merge enabled on #${pr.number} — merges when CI is green`);
