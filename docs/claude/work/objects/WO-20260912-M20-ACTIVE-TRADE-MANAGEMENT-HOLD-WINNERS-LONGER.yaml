@@ -2,58 +2,77 @@ id: WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER
 type: question
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
-  M20 Active Trade Management: what actually ends a winning trade, which mechanism fired,
-  and would an alternative have held winners longer
+  M20 Active Trade Management: hold winners longer in the current regime, measured end to end
 stage: EVIDENCE
 lifecycle: in_flight
 owner: session_01Wv1BdfEUnmCBZrhvUjeBzb
 opened_at: 2026-09-12
+closed_at: null
 review_trigger: >-
-  At each unit boundary (U1..U5) the owning session reports to the manager. If the session
-  dies, the next owner resumes at the first unit with no merged memo -- the units are
-  deliberately independently landable so a death costs one unit, not the queue.
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
 done_condition: >-
-  FIVE units, each with its population stated. U1: a per-leg inventory of every mechanism
-  that can end a WINNING trade, with the config/env that ARMS each -- done when a reader can
-  say, for any live leg, what could have cut its winner short. U2: over the post-2026-08-27
-  population, each winning close ATTRIBUTED to the mechanism that ended it, provenance-graded
-  per src/runtime/provenance.py; a mechanism that cannot be attributed from the journal is
-  named as a gap, and the gap IS a finding. U3: for the mechanism(s) U2 implicates, a
-  counterfactual on the config-exact harness, IS/OOS with a yearly walk-forward, at the
-  exit-refinement skill's gate (Path A or Path B), not at a correlation bar. U4: one Tier-3
-  PROPOSAL per lever that cleared U3, evidence attached, routed to the manager -- a memo is
-  not the deliverable. U5: the MFE/MAE-in-ATR-units instrument
-  (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
+  The active-management levers that govern when a WINNER is closed are enumerated, measured against the post-2026-08-27 population, and each is graded as it-helps / it-hurts / not-gradeable with a stated population. At least one lever reaches a Tier-3 proposal with IS/OOS + walk-forward evidence behind it. NOT done when a memo exists -- done when a proposal the operator can accept or reject exists.
 
 why: >-
-  MI-277 (docs/research/winner-size-collapse-2026-09-12.md, merged #11848) established that
-  the expectancy flip is an R COLLAPSE on the winner side: winner hold fell 5.17h -> 1.90h
-  while LOSER hold rose, losses stayed pinned at ~1R (-0.891 -> -0.939, the control that
-  isolates the winner side), and the R term is 97.4% of the winner-size fall. It refuted
-  size, the venue clamp, exit levers and composition -- but its lever refutation is
-  explicitly scoped to bybit_1 in that window and is NOT a general claim, and its own
-  section 5 names the unanswered question: nothing has enumerated what CAN end a winner per
-  leg, so "no lever fired here" cannot yet be distinguished from "we did not look at the
-  right lever". M20 is named Active Trade Management (operator directive 2026-08-20) and
-  holding winners longer is its subject.
+  MI-277 measured the mechanism: winner hold collapsed 5.17h -> 1.90h while LOSER hold ROSE and losses stayed at exactly 1R. The sizer and stops are intact; what changed is how long a winner is allowed to run. That is the M20 subject by name.
 
 source: >-
-  manager dispatch 2026-09-12, on MI-277's section 5 open questions; cycle priority
-  CY-20260906-TRADING-TRUTH
+  operator 2026-09-12: active management is what we are working on right now, and no sessions should stop until we have resolved that issue
 
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-12 by session_01Wv1BdfEUnmCBZrhvUjeBzb, and the empty list is a real
-  claim about U1 rather than the migration default. U1 needs only source inspection and the
-  live journal, both readable this session (direct HTTPS diag answers from this container).
-  U3 has a REAL candidate blocker that is deliberately NOT written as an edge yet, because
-  writing an unverified one is worse than a missing one (this store's README, 2026-09-01):
-  the config-exact harness needs 3-5y of native-TF candles reachable for the implicated
-  family, and whether that holds is a P0 question U1/U2 answer rather than assume. If it
-  fails, the edge gets written THEN, with the measurement behind it.
-  ⚠️ A doubt this unit INHERITS and does not re-derive: the netting_attributed path carries
-  the largest single share of the collapse, is 100% ESTIMATED, and is OI-20260908's own
-  population -- a live unfixed defect. That is a caveat on U2's attribution, not a blocker
-  on U1, and it is stated on every number it touches.
+  ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t). The
+  empty list is a POSITIVE finding here, not the NOT-ASSESSED default it
+  replaces: nothing blocks this object today, because MI-278 (research lane) is RUNNING it right
+  now (session_01Wv1BdfEUnmCBZrhvUjeBzb) and was observed working - read off `list_sessions`, not inferred
+  from the registry row. This is a statement about TODAY and about THIS object
+  only. It is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT
+  BINDS, never pre-emptively - a false blocker is worse than a missing one,
+  and an anticipated one is a false one until the work arrives at it.
 
-captured_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+captured_by: scripts/ops/capture_idea.py
+
+# ── Appended by the owning session (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12 ──
+# The manager's object above is kept VERBATIM and is authoritative: it carries the
+# operator's own directive and the manager's blocked_on_basis. This session created a
+# competing copy before the manager's had landed on main (the registry row it was told
+# to confirm was absent, so it could not tell). That copy is DISCARDED, not merged --
+# only the unit breakdown below is carried across.
+unit_breakdown: >-
+  U1 enumerate what CAN end a winner, per leg, with what arms it. U2 attribute what DID,
+  provenance-graded, and name the gap where it cannot be attributed. U3 counterfactual on
+  the config-exact harness, IS/OOS with a yearly walk-forward, at the exit-refinement gate
+  (Path A or Path B) -- not at a correlation bar. U4 one Tier-3 proposal per lever that
+  cleared U3, evidence attached, routed to the manager. U5 the MFE/MAE-in-ATR instrument
+  (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
+
+progress:
+  U1: >-
+    DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map
+    IMPORTED from pipeline.monitor_unit_for; every call site ASSERTED against the unit source;
+    cross-checked against 1000 journal rows, 24 pairs confirmed, 0 contradictions. giveback_stop
+    -- the only lever that by construction fires on a trade that WAS winning -- is armed on 1 of
+    44. Seven of eight ict_scalp_* legs arm exactly {tp_cross, sl_cross, breakeven_ratchet} and
+    that unit reads no trail_mult. HEADLINE IS THE INSTRUMENT: reconciler_filled is 84 of 294
+    closes and can never name a mechanism by construction (the reconciler watches the ENTRY
+    order); _classify_broker_exit refuses on 27 of 27 broker-truth rows because each fill lands a
+    median 0.55-0.79bp SHORT of the level its strict inequality tests.
+  U2: >-
+    DELIVERED, PR #11874. Over 183 closes / 49 winners with created_at >= 2026-08-27: NO EXIT
+    LEVER IS CUTTING WINNERS SHORT -- the lever family is 3 of 49, and the two giveback_stop
+    fires banked +$2,471.70. THE GAP IS THE FINDING: of the 31 winners short of their declared
+    tp_r, 17 (55%) carry an unattributable or contaminated label. That share is INVARIANT to the
+    label-recovery tolerance across 0.000R-0.250R, so it is a measurement and not a threshold
+    artifact. MI-277 section 2.2 is reported UNGRADEABLE (its ratio swings 1.18-1.98 at n~10),
+    and MI-277 section 3.3's cap_r figures could not be reproduced, so that table is deliberately
+    NOT adjudicated.
+  U3: >-
+    RESHAPED BY U2's RESULT, and the change is deliberate rather than a drift from the brief.
+    The brief says counterfactual "the mechanism(s) U2 implicates"; U2 implicates NONE, so
+    running the briefed unit would measure a mechanism found idle. The only mechanism with
+    enough attributed mass is the TAKE-PROFIT (18 of 49 winners ended exactly there; the stop
+    family banked another 6 at 12-13% of declared target), so U3 tests target geometry and the
+    trailing stop that precedes it. It must treat any live-population firing rate as a LOWER
+    BOUND, because 43% of the window is unattributable or contaminated.
