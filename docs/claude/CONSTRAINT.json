@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T13:47:44+00:00",
+  "generated_at": "2026-09-12T14:08:19+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -1009,8 +1009,8 @@
             "source": "open_items",
             "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
             "title": "E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/cla",
-            "why_due": "monitoring row 6d since last observation (cadence 3d)",
-            "age_days": 6,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1534,7 +1534,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=27.9h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=28.3h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 9,
@@ -1825,7 +1825,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-12T06:27:27+00:00, age 7.3h",
+        "note": "digest 2026-09-12T06:27:27+00:00, age 7.7h",
         "row_count": 12,
         "covered_elsewhere": null,
         "rows_shown": 12,
@@ -1833,7 +1833,7 @@
           {
             "source": "error_feed",
             "id": "ERROR-FEED-DIGEST-STALE",
-            "title": "error-feed digest is 7.3h old — expected hourly",
+            "title": "error-feed digest is 7.7h old — expected hourly",
             "why_due": "EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
             "age_days": 0,
             "loud": true,

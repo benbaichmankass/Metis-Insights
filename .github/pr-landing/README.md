@@ -17,11 +17,30 @@ waiting on the manager. Tier-1 work — which `docs/CLAUDE-RULES-CANONICAL.md`
 through a human on every single session, by convention.
 
 Three of those PR bodies blamed `pr-opener.yml` for "creating every PR as a
-draft regardless of `draft:false`". **That is false and should not be repeated.**
-`pr-opener.yml` honours `draft:false`; `true` is only the default, and those
-sessions' request files asked for `"draft": true`. The cause was a blanket
-instruction in the spawn template plus a permissions asymmetry, not a bug in the
-relay.
+draft regardless of `draft:false`".
+
+⚠️ **This paragraph used to say "That is false and should not be repeated," and
+that rebuttal was itself wrong.** Those sessions were reporting a real defect.
+At the time, `pr-opener.yml` read the flag as `jq '.draft // true'`, and jq's
+`//` treats an explicit `false` as *absent* — so
+`"draft": false` was genuinely **unreachable** and every PR the relay opened came
+out a draft whatever the request asked for. Filed as
+`BL-20260903-PR-OPENER-DRAFT-FALSE-IS-UNREACHABLE-SO-TIER-1-CAN-NEVER-SELF-LAND-THROUGH-THE-RELAY`,
+whose resolution criteria require, in terms, that this file stop asserting the
+reporting sessions were wrong. This correction is that.
+
+**Both halves are now fixed.** The expression is `jq -r '.draft // false'`, and
+the default itself flipped to **`false`** on 2026-09-03 by operator ruling (see
+the header of `pr-opener.yml`) — so the old sentence "`true` is only the default"
+is stale twice over. **Verified by observation, not by reading the diff:** PR
+#11966 was opened through this relay from a request file containing
+`"draft": false` and comes back `draft: false` on `pull_request_read`, opened by
+`github-actions[bot]`.
+
+What the original paragraph got right is that a blanket "open as draft"
+instruction in the spawn template, plus the permissions asymmetry that stops a
+sub-session clearing its own draft, were **also** in play. Two causes, not one;
+the relay bug was the half this file denied.
 
 ## The two mechanisms are not alternatives
 
