@@ -5339,5 +5339,35 @@
       "pick up MI-279's routed alpaca protective-class defect",
       "do NOT respawn MI-278 or MI-280 when they close; that returns the count to the operator's three"
     ]
+  },
+  "manager_tick_2026_09_12T1755Z": {
+    "11903_UNBLOCKED_STRUCTURALLY": {
+      "state_at_17:53Z": "CLEAN (head 4a4310352, 17:44:11Z), 4 of 5 checks green, pytest-run in_progress since 17:48:54Z (~19 min).",
+      "action": "ARMED GITHUB AUTO-MERGE (SQUASH) at 17:54:23Z rather than polling for the window.",
+      "why_this_is_the_right_move": "GitHub auto-merge fires ONLY when the PR is mergeable AND every required check is green — which is EXACTLY the operator's stated condition, mechanized. It also breaks the non-convergence recorded last tick: the clean-and-green window kept closing between my hourly ticks because CLAUDE.md changes faster than the ~19-minute pytest-run. Auto-merge does not need me to be awake for that window.",
+      "safety": "it CANNOT fire in a state the operator did not authorize — a conflict leaves it pending, a red check leaves it pending. No condition is widened.",
+      "not_claimed": "it has NOT merged yet. Merged is not the same as armed."
+    },
+    "fanout": {
+      "soak_to": "2026-09-12T17:34:01Z",
+      "schema": "{2: 88, 3: 12}",
+      "v3": "12 rows — dispatchable x6, no_allowlisted_account x6",
+      "reading": "the dispatcher half keeps holding, now 6 times. Still no order, and the market is still shut (Saturday) — see the 1655Z entry for the 200-row all-skipped measurement behind that."
+    },
+    "routed_item_NOT_FOUND": {
+      "claim": "MI-279's post_turn_summary says 'alpaca protective class defect routed to manager'.",
+      "searched": "health(1537)/performance(135)/ml(111)/research(19) backlogs on origin/main — ZERO alpaca+protective rows opened 2026-09-12, across 19 rows opened today.",
+      "disposition": "CANNOT LOCATE THE ARTIFACT. Not manufacturing one. Recorded here because a route that names no artifact IS the un-carried-work failure class this repo keeps paying for — the claim of routing and the existence of a carrier are different facts, and only the first is evidenced.",
+      "next": "if it does not surface on main by the next tick, treat the ROUTE as the defect rather than hunting further."
+    },
+    "lanes_observed_this_tick": {
+      "MI-279": "RUNNING, 351343 (35%), branch claude/mi279-spent-edge-guard, merged #12030 — the only lane comfortably under threshold",
+      "not_re-observed": "MI-278 / MI-280 / MI-283 were observed at 16:54Z and nothing in the queue suggests change; stated rather than implied."
+    },
+    "next": [
+      "let auto-merge take #11903; confirm MERGED next tick rather than assuming",
+      "watch for a dispatchable fan-out round once a market is open — that is decision 2's evidence",
+      "if the alpaca route produces no artifact, file the ROUTE as the finding"
+    ]
   }
 }
