@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ci/check_canonical_doc_coherence.py (one new check plus its registration), a new tests/test_env_knob_live_value_coverage.py, and one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. All three paths are inside TIER1_SURFACE (scripts/ci/**, tests/**, docs/**) and none is in check_pr_landing.LANDING_MACHINERY -- verified against that list rather than assumed, so R12 does not apply. The check RATCHETS rather than failing on today's residue (18 of 73 claimed), so it cannot red any existing PR; it fails only if a stated live value is deleted. It EDITS NO ENV VALUE and annotates none of the 40 silent rows -- writing a live value not read off /proc/<MainPID>/environ would be the exact fabrication the coverage figure exists to expose."
+}
