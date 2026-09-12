@@ -1,0 +1,1 @@
+PR #12021 — U27 constraint-readout commits its register. Tier-1, self-landing.
