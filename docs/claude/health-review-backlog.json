@@ -36399,6 +36399,17 @@
         "scripts/ops/session_registry.py",
         "docs/claude/work/SESSIONS.json"
       ]
+    },
+    {
+      "id": "BL-20260912-TWO-OF-27-COMMIT-TO-MAIN-CALLERS-CHECK-OUT-WITH-THE-DEFAULT-TOKEN-SO-THEIR-LANDING-PR-NEVER-GETS-CHECKS",
+      "severity": "high",
+      "status": "resolved",
+      "area": "ci/automation",
+      "tier": 1,
+      "title": "e35-bracket-sweep:corpus and strategy-review-packets:packets checked out without the PAT, so commit-to-main opened PRs that never receive the required checks",
+      "detail": "FOUND 2026-09-12 by a NEW test written while porting sunset-pass.yml onto commit-to-main, i.e. by the guard on its first run rather than by an incident. POPULATION (n=27): all 27 commit-to-main caller JOBS across .github/workflows/*.yml -> 2 of 27 checked out with a bare actions/checkout@v4. THE MECHANISM IS STATED IN THE ACTION'S OWN DOCSTRING, line 12: 'the calling job must actions/checkout with token: <the PAT>'. Verified in its source rather than taken from the comment: the pushes at lines 314/456/466 are a bare `git push origin`, so the branch goes up with whatever credential the CHECKOUT configured. Under the default GITHUB_TOKEN, GitHub's recursion prevention suppresses the `on: pull_request` event, so the landing PR never receives the required checks and auto-merge waits for checks that will never arrive. !! BOTH WORKFLOWS ALREADY PASSED THE PAT TO THE ACTION (e35-bracket-sweep.yml:410, strategy-review-packets.yml:234) AND THAT IS THE TRAP - it authenticates `gh` only, and reads at a glance as if the credential question had been handled. !! TWO DIFFERENT FAILURE SHAPES, both silent about the cause: WITHOUT verify-merged the step exits 0 the moment the PR opens, so the run is GREEN and the artifact never lands; WITH it, the job burns its whole merge wait and reports a timeout. Both of these callers set verify-merged: true, so theirs is the timeout shape. !! NOT MEASURED HERE: how many of their runs actually died this way. The mechanism is established from the action's source and GitHub's documented behaviour; the run histories were not read, so this row claims a defect and NOT a count of its victims.",
+      "proposed_fix": "FIXED: token: ${{ secrets.BRANCH_PROTECTION_TOKEN }} added to both checkouts, merged INTO e35-bracket-sweep's existing `with:` block rather than added as a second one. !! THAT DETAIL COST A FALSE PASS AND IS WORTH THE WARNING: the first attempt appended a SECOND `with:` key to a step that already had one. yaml.safe_load ACCEPTED it - duplicate keys, last one wins - so the edit validated clean while the token was silently discarded, and only the test caught it. Validate a YAML edit by READING BACK the key you meant to set, never by the file merely parsing. RECURRENCE: tests/test_commit_to_main_callers.py gains test_every_caller_checks_out_with_a_pat (a job with NO checkout at all is REPORTED, not skipped, so the population cannot be silently empty) and test_the_caller_population_is_not_empty (if USES is renamed every test in that file iterates an empty list and the whole file goes green over nothing). Both go red on a planted defect, and the suite's 9 existing tests still pass. !! IT CHECKS THE BINDING, NOT THE SECRET: a token: naming an unset secret, or a PAT lacking the scopes, passes here and fails on the runner.",
+      "source": "MI-280 U8, session_01BjTp5RYwedmpFfkEtkQo1j"
     }
   ]
 }
