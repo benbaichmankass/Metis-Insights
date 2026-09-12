@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One `updates` entry appended to one existing row in docs/claude/health-review-backlog.json. No code, no config, no workflow, no test, no runtime, no order path. Recording a measurement into a review backlog is Tier-1 by the canonical doc's own examples. ⚠️ NO NEW ROW WAS FILED, DELIBERATELY: backlog_search surfaced BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY at 0.75 overlap and this is the same symptom with a different mechanism, so it belongs on that row as an update rather than as a second row competing with it."
+}
