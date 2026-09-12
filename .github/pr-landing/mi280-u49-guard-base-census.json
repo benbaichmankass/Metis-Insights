@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One new module scripts/ci/_git_base.py, one guard scripts/ci/check_backlog_unresolve.py, and one filed row in docs/claude/health-review-backlog.json. Every path is inside TIER1_SURFACE and none is in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list rather than by reading prose. No src/, no config/, no deploy/, no workflow, no runtime, no order path. ⚠️ It changes a GUARD's behaviour, so state the direction: it can only REMOVE a false failure (an unresolvable merge base falls back to the tip, i.e. the prior behaviour) and it ADDS a failure where the guard previously went silent on an unreadable base. Both directions are asserted by controls, and a real re-open is verified to still fail."
+}
