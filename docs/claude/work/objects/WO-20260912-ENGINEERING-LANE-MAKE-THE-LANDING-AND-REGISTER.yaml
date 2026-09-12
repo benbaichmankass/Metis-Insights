@@ -1,35 +1,81 @@
 id: WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
-type: question
+type: commitment
 parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
-  Engineering lane: make the landing and register machinery stop losing work
-stage: CAPABILITY
+  Make the landing and register machinery stop losing the other lanes' work
+stage: BUILD
 lifecycle: in_flight
 owner: session_01BjTp5RYwedmpFfkEtkQo1j
 opened_at: 2026-09-12
 closed_at: null
+captured_by: scripts/ops/capture_idea.py
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.
+checklist_item: MI-280
+
 done_condition: >-
-  Each of the four measured failure modes from 2026-09-11/12 has a DETECTOR or a structural fix that a planted defect provably trips: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field. A fix without a planted-defect test does not count.
+  Each queued unit (U1..U7) reaches one of exactly two terminal states, and says WHICH:
+  (a) a LANDED fix carrying a planted-defect test -- a test in which the planted defect
+  makes the guard/detector FAIL and a positive control keeps it quiet, so a green run is
+  evidence rather than decoration; or (b) a written REFUSAL stating what was measured and
+  why the fix is not feasible or not correct, filed where a later session will meet it.
+  A fix without a planted-defect test does NOT satisfy (a), and a green run alone never
+  does. Units are independent: the object is not done when one lands, and the queue does
+  not end when U1..U6 do -- U7 names what follows.
 
 why: >-
-  Measured this session, not theorised: a commit carrying a live lane's registry row was dropped by the auto-merge race and the lane ran unrecorded for 9 minutes; a green automation PR sat dirty for 3.5h because four green checks read as ready; the scope-overlap audit reported 0 of 6 on a correct declaration because one blank line closed its section.
+  Four failure modes were MEASURED on 2026-09-11/12 and all four are unowned, and each
+  one loses work that OTHER lanes did. U1: PR #11842 was 4-of-4 green from 01:02Z and
+  unmergeable for 3.5h on mergeable_state: dirty -- four green checks read identically
+  to ready and nothing surfaces the difference. U2: claude-pr-automerge arms auto-merge
+  before any check attaches, so a commit pushed afterwards may or may not make the
+  squash; five measured instances, and the 2026-09-12 one dropped the commit carrying a
+  LIVE lane's registry row, leaving that lane running unrecorded on main for nine
+  minutes. U3: check_scope_overlap.py drops the declared paths under four of five real
+  declaration shapes -- an A/B on live audit runs parsed 4 paths from a START whose
+  bullets sit on the line after a bold header and 0 from the identical START with one
+  blank line between them, and the blank-line shape is what ordinary markdown produces.
+  U4: a shared-register merge can silently revert a FIELD while a union-by-id-set proof
+  -- the remedy everyone reaches for -- reads clean; observed live on MI-277's branch,
+  where resolving only the marked conflicts would have reverted two observation
+  write-backs.
 
 source: >-
-  operator 2026-09-12: I am absolutely positive without even thinking about the roadmap that there are engineering caps we could take
+  operator, directly -- the engineering lane exists so the same problems stop recurring;
+  spawn-priority exception filed under the 2026-09-12 block of
+  docs/claude/work/spawn-priority-exception.yaml
 
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t). The
-  empty list is a POSITIVE finding here, not the NOT-ASSESSED default it
-  replaces: nothing blocks this object today, because MI-280 (engineering lane) is RUNNING it right
-  now (session_01BjTp5RYwedmpFfkEtkQo1j) and was observed working - read off `list_sessions`, not inferred
-  from the registry row. This is a statement about TODAY and about THIS object
-  only. It is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
-  queue is a real future blocker and must be written as a typed edge WHEN IT
-  BINDS, never pre-emptively - a false blocker is worse than a missing one,
-  and an anticipated one is a false one until the work arrives at it.
+  TWO ASSESSMENTS, BOTH KEPT, because they are different observations and neither
+  substitutes for the other. ⚠️ This field is itself an instance of U4, the failure this
+  object exists to catch: `main` and this branch each wrote a full `blocked_on_basis`,
+  the merge was an add/add, and taking either side wholesale would have SILENTLY
+  REVERTED the other's assessment while the file still parsed and still read ASSESSED.
+  Resolved by union rather than by choosing.
+  (1) ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t), landed on
+  `main`: the empty list is a POSITIVE finding, not the NOT-ASSESSED default it replaces
+  — nothing blocks this object today, because MI-280 is RUNNING it right now
+  (session_01BjTp5RYwedmpFfkEtkQo1j) and was OBSERVED WORKING, read off `list_sessions`
+  rather than inferred from the registry row. That is an observation the lane cannot make
+  about itself, which is why it is kept verbatim. It is a statement about TODAY and about
+  THIS object only, and is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT BINDS, never
+  pre-emptively — a false blocker is worse than a missing one, and an anticipated one is a
+  false one until the work arrives at it.
+  (2) ASSESSED 2026-09-12 by session_01BjTp5RYwedmpFfkEtkQo1j, the lane itself: every
+  input each unit needs is readable from this container — scripts/ci/**, scripts/ops/**,
+  .github/workflows/**, the GitHub MCP for PR/check state, and the board. Nothing here
+  waits on an operator decision, a soak, or a VM read. ONE NOTED NON-BLOCKER, recorded so
+  a successor does not read it as one: a change to the landing machinery itself cannot
+  self-land (check_pr_landing.py R12), so those PRs declare `landing: hold` and route to
+  the manager. That is a LANDING route, not a blocker on doing the work. ⚠️ CORRECTED
+  2026-09-12: this lane published a wrong reading of that list — `scripts/ops/claim_merge_slot.py`
+  IS landing machinery (11 entries; import the module, do not grep it), and U5 (#11881) is
+  a `hold` in consequence.
 
-captured_by: scripts/ops/capture_idea.py
+scope_limits: >-
+  scripts/ci/**, scripts/ops/**, .github/workflows/**, tests/**, docs/**. Tier-1 tooling
+  only. NOT src/, NOT config/, NOT deploy/. R12 is not to be defeated, marked, or
+  excepted -- it is the machinery protecting itself from a change to the machinery.
