@@ -1,0 +1,8 @@
+MI-283 — Tier-1, registers only. Arms auto-merge on PR #12059.
+
+Lands the four MI-283 register rows (3x health-review-backlog, 1x OPEN-ITEMS
+monitoring carrier) plus the regenerated CLAUDE.md SESSION-BRIEF block, so that
+the Tier-2 order-path PR #11903 can drop its register delta to zero and converge.
+
+No src/, no tests/, no config, no workflow. Tier-1 self-lands per
+docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers.
