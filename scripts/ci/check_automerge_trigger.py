@@ -190,11 +190,29 @@ def _sandbox(tmp: Path) -> Path:
     return root
 
 
-def _mutate_script(root: Path, old: str, new: str) -> None:
+def _mutate_script(root: Path, old: str, new: str,
+                   all_occurrences: bool = False) -> None:
+    """Plant one defect in the workflow copy under ``root``.
+
+    ⚠️ ``all_occurrences`` IS NOT A CONVENIENCE — it is what keeps a plant
+    honest when the thing it removes has more than one construction site. A
+    plant that replaces only the FIRST of two ways to build the PAT client
+    leaves the second standing, the guard keeps passing, and the self-test
+    reports the GUARD as broken when the guard is fine. That happened: the
+    C6 client plant escaped the moment `claude-pr-automerge.yml` grew a
+    two-attempt `_patClient` (2026-09-12). A plant that does not plant the
+    defect is indistinguishable from one that escapes.
+
+    Both the presence assert and the post-mutation assert are load-bearing:
+    the first catches a plant whose pattern has gone stale, the second
+    catches one whose replacement is a no-op.
+    """
     p = root / WORKFLOW_REL
     s = p.read_text(encoding="utf-8")
     assert old in s, f"self-test plant is stale, {old!r} not in the workflow"
-    p.write_text(s.replace(old, new, 1), encoding="utf-8")
+    mutated = s.replace(old, new, -1 if all_occurrences else 1)
+    assert mutated != s, f"self-test plant is inert, {old!r} -> {new!r} changed nothing"
+    p.write_text(mutated, encoding="utf-8")
 
 
 def self_test() -> int:
@@ -226,8 +244,14 @@ def self_test() -> int:
         # that makes every PR born with zero checks.
         "C6 PR opened with GITHUB_TOKEN again": lambda r: _mutate_script(
             r, "await opener.rest.pulls.create", "await github.rest.pulls.create"),
+        # ⚠️ EVERY construction site, not the first. The workflow builds the
+        # client through two `require` spellings (the plain one, and the
+        # `__original_require__` that survives actions/github-script's module
+        # shim), so removing one leaves C6's literal still present and the
+        # plant escapes. Matching the EXACT string C6 tests for keeps the
+        # plant and the check from drifting apart.
         "C6 PAT client construction removed": lambda r: _mutate_script(
-            r, "require('@actions/github').getOctokit(patToken)", "github"),
+            r, "getOctokit(patToken)", "github", all_occurrences=True),
         # C7 — the two ways the gate gets neutered: not consulted, or consulted
         # and ignored. Both must fail, because a gate whose verdict nobody reads
         # is decoration.
