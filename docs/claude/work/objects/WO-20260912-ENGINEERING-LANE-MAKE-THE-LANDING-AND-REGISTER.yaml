@@ -1,0 +1,58 @@
+id: WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+type: commitment
+parent_intent: IN-20260901-OPERATING-LAYER
+title: >-
+  Make the landing and register machinery stop losing the other lanes' work
+stage: BUILD
+lifecycle: in_flight
+owner: session_01BjTp5RYwedmpFfkEtkQo1j
+opened_at: 2026-09-12
+checklist_item: MI-280
+
+done_condition: >-
+  Each queued unit (U1..U7) reaches one of exactly two terminal states, and says WHICH:
+  (a) a LANDED fix carrying a planted-defect test -- a test in which the planted defect
+  makes the guard/detector FAIL and a positive control keeps it quiet, so a green run is
+  evidence rather than decoration; or (b) a written REFUSAL stating what was measured and
+  why the fix is not feasible or not correct, filed where a later session will meet it.
+  A fix without a planted-defect test does NOT satisfy (a), and a green run alone never
+  does. Units are independent: the object is not done when one lands, and the queue does
+  not end when U1..U6 do -- U7 names what follows.
+
+why: >-
+  Four failure modes were MEASURED on 2026-09-11/12 and all four are unowned, and each
+  one loses work that OTHER lanes did. U1: PR #11842 was 4-of-4 green from 01:02Z and
+  unmergeable for 3.5h on mergeable_state: dirty -- four green checks read identically
+  to ready and nothing surfaces the difference. U2: claude-pr-automerge arms auto-merge
+  before any check attaches, so a commit pushed afterwards may or may not make the
+  squash; five measured instances, and the 2026-09-12 one dropped the commit carrying a
+  LIVE lane's registry row, leaving that lane running unrecorded on main for nine
+  minutes. U3: check_scope_overlap.py drops the declared paths under four of five real
+  declaration shapes -- an A/B on live audit runs parsed 4 paths from a START whose
+  bullets sit on the line after a bold header and 0 from the identical START with one
+  blank line between them, and the blank-line shape is what ordinary markdown produces.
+  U4: a shared-register merge can silently revert a FIELD while a union-by-id-set proof
+  -- the remedy everyone reaches for -- reads clean; observed live on MI-277's branch,
+  where resolving only the marked conflicts would have reverted two observation
+  write-backs.
+
+source: >-
+  operator, directly -- the engineering lane exists so the same problems stop recurring;
+  spawn-priority exception filed under the 2026-09-12 block of
+  docs/claude/work/spawn-priority-exception.yaml
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by session_01BjTp5RYwedmpFfkEtkQo1j. The empty list is a real
+  claim, not the migration default: every input each unit needs is readable from this
+  container -- scripts/ci/**, scripts/ops/**, .github/workflows/**, the GitHub MCP for
+  PR/check state, and the board. Nothing here waits on an operator decision, a soak, or
+  a VM read. ONE NOTED NON-BLOCKER, recorded so a successor does not read it as one: a
+  change to the landing machinery itself cannot self-land (check_pr_landing.py R12), so
+  those PRs declare landing: hold and route to the manager. That is a LANDING route, not
+  a blocker on doing the work.
+
+scope_limits: >-
+  scripts/ci/**, scripts/ops/**, .github/workflows/**, tests/**, docs/**. Tier-1 tooling
+  only. NOT src/, NOT config/, NOT deploy/. R12 is not to be defeated, marked, or
+  excepted -- it is the machinery protecting itself from a change to the machinery.
