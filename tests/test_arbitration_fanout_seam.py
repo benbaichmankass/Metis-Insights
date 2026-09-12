@@ -119,33 +119,135 @@ def test_the_multiplexer_writes_the_key_the_pipeline_reads():
     assert '"arbitration_fanout"' in reader and '"apply_rounds"' in reader
 
 
-def test_a_plan_written_by_the_multiplexer_is_readable_by_the_pipeline():
-    """End-to-end on the real structures, not a hand-made dict."""
-    from src.runtime.arbitration_fanout import plan_per_account_election
-    from src.runtime.intents import StrategyIntent, elect_from_gated
-
-    def _i(name, entry, sl, tp):
-        return StrategyIntent(
-            strategy=name, symbol="SOLUSDT", side="long", target_qty=0.0,
-            regime="trending", adx_14=30.0, vol_regime=None,
-            entry=entry, sl=sl, tp=tp,
-        )
-
-    plan = plan_per_account_election(
-        (_i("trend_donchian_sol", 100.0, 95.0, 115.0),
-         _i("trend_donchian_sol_prop", 200.0, 190.0, 230.0)),
-        accounts={
-            "bybit_1": {"strategies": ["trend_donchian_sol"]},
-            "breakout_1": {"strategies": ["trend_donchian_sol_prop"]},
-        },
-        elect_fn=elect_from_gated,
-        intents_before_gate=2,
+def _intent(name, entry, sl, tp, symbol="SOLUSDT"):
+    from src.runtime.intents import StrategyIntent
+    return StrategyIntent(
+        strategy=name, symbol=symbol, side="long", target_qty=0.0,
+        regime="trending", adx_14=30.0, vol_regime=None,
+        entry=entry, sl=sl, tp=tp,
     )
-    plan["apply_rounds"] = plan["rounds"]          # what apply mode attaches
-    sig = {"symbol": "SOLUSDT", "meta": {"arbitration_fanout": plan}}
-    assert len(_fanout_apply_rounds(sig)) == 2, (
-        "a plan the planner really produced was rejected by the pipeline reader"
+
+
+_SEAM_ACCOUNTS = {
+    "bybit_1": {"strategies": ["trend_donchian_sol"]},
+    "breakout_1": {"strategies": ["trend_donchian_sol_prop"]},
+}
+
+
+def _write_real_plan(monkeypatch, *, allow="bybit_1,breakout_1", accounts=None):
+    """Drive the REAL writer and hand back ``(signal, plan)``.
+
+    ⚠️ **THE POINT OF THIS HELPER IS THAT NO TEST HAND-BUILDS ``apply_rounds``
+    AGAIN.** The test below used to do ``plan["apply_rounds"] = plan["rounds"]``
+    under the comment *"what apply mode attaches"* — and that is exactly what
+    apply mode did NOT attach. The writer rebuilt each round as a new dict
+    carrying only ``strategy`` and ``accounts``, so the assertion passed over a
+    defect that made the fan-out dispatch nothing for twelve days. A seam test
+    that constructs the seam's own input by hand is not testing the seam.
+    """
+    from src.runtime import intent_multiplexer as mux
+
+    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
+    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", allow)
+    monkeypatch.setattr(
+        mux, "_load_accounts_dict", lambda: accounts or _SEAM_ACCOUNTS
     )
+    signal = {"symbol": "SOLUSDT",
+              "meta": {"strategy_name": "trend_donchian_sol_prop"}}
+    plan = mux._attach_fanout_plan(
+        signal,
+        (_intent("trend_donchian_sol", 100.0, 95.0, 115.0),
+         _intent("trend_donchian_sol_prop", 200.0, 190.0, 230.0)),
+        symbol="SOLUSDT", intents_before_gate=2,
+    )
+    return signal, plan
+
+
+def test_a_plan_written_by_the_multiplexer_is_readable_by_the_pipeline(monkeypatch):
+    """End-to-end through the REAL writer — the regression pin for the 12-day gap.
+
+    ``_attach_fanout_plan`` projected ``apply_rounds`` as
+    ``{"strategy": ..., "accounts": [...]}`` while ``_fanout_apply_rounds``
+    refuses any round without ``side``/``entry``/``sl``/``tp``. Because the
+    reader is fail-closed the result was ``[]`` on every tick and the fan-out
+    silently fell back to the global dispatch — MEASURED on the live soak
+    (``/api/diag/log_file?name=arbitration_fanout_soak``, read 2026-09-12):
+    93 of 93 ``rounds_applied`` entries carried exactly
+    ``('accounts', 'strategy')``.
+    """
+    signal, plan = _write_real_plan(monkeypatch)
+
+    rounds = _fanout_apply_rounds(signal)
+    assert len(rounds) == 2, (
+        "the plan the REAL writer produced was rejected by the pipeline reader "
+        f"— writer emitted {plan.get('apply_rounds')!r}"
+    )
+    by_strategy = {r["strategy"]: r for r in rounds}
+    # The geometry must be each round's OWN, and must actually be present.
+    assert by_strategy["trend_donchian_sol"]["entry"] == 100.0
+    assert by_strategy["trend_donchian_sol"]["sl"] == 95.0
+    assert by_strategy["trend_donchian_sol"]["tp"] == 115.0
+    assert by_strategy["trend_donchian_sol_prop"]["entry"] == 200.0
+
+
+def test_the_writers_projection_satisfies_the_readers_validator(monkeypatch):
+    """WRITER AND READER MAY NOT DRIFT. Asserted on the real writer's output.
+
+    This is the assertion whose absence let the defect ship: every unit test
+    on either side passed, because each side was self-consistent. The only
+    thing neither could see was that they disagreed about the round shape.
+    """
+    from src.runtime.arbitration_fanout import (
+        ROUND_DISPATCH_FIELDS, accepted_rounds,
+    )
+
+    _, plan = _write_real_plan(monkeypatch)
+    written = plan.get("apply_rounds") or []
+    assert written, "the writer attached no rounds at all — the premise is gone"
+
+    assert accepted_rounds(written) == written, (
+        "the writer produced rounds the dispatcher's own validator refuses"
+    )
+    for r in written:
+        missing = [f for f in ROUND_DISPATCH_FIELDS if r.get(f) is None]
+        assert not missing, f"{r['strategy']} is missing {missing}"
+    assert plan["apply_state"] == "dispatchable"
+    assert plan["applied"] is True
+
+
+def test_the_v2_two_key_round_is_exactly_what_the_reader_refuses():
+    """NEGATIVE CONTROL — without it, the test above proves nothing.
+
+    A test asserting the writer's output is accepted is only meaningful if the
+    OLD output would have been refused. This pins the defective shape verbatim
+    as it appears on 93 live rows, so a future projection that regresses to it
+    fails here rather than silently on the VM.
+    """
+    v2_round = {"strategy": "trend_donchian_sol", "accounts": ["bybit_1"]}
+    sig = {"symbol": "SOLUSDT",
+           "meta": {"arbitration_fanout": {"apply_rounds": [v2_round]}}}
+    assert _fanout_apply_rounds(sig) == [], (
+        "the reader accepted a geometry-less round — the fail-closed contract "
+        "that makes the writer's projection load-bearing is gone"
+    )
+
+
+def test_a_held_back_account_is_planned_but_never_written(monkeypatch):
+    """The allowlist scopes the BINDING, not the MEASUREMENT.
+
+    `breakout_1` is the account the operator has NOT armed. It must still be
+    elected and reported, and must not appear in anything the dispatcher acts
+    on — the correction `NETTING_ATTRIBUTION_ACCOUNTS` needed on 2026-08-09.
+    """
+    signal, plan = _write_real_plan(monkeypatch, allow="bybit_1")
+
+    planned = {r["strategy"]: r["accounts"] for r in plan["rounds"]}
+    assert planned["trend_donchian_sol_prop"] == ["breakout_1"], (
+        "the held-back account was not even PLANNED — the evidence a reviewer "
+        "needs before widening the allowlist would not exist"
+    )
+    routed = {a for r in _fanout_apply_rounds(signal) for a in r["accounts"]}
+    assert routed == {"bybit_1"}, f"a non-allowlisted account was routed: {routed}"
 
 
 # --- seam 2: each round's OWN geometry survives to the package -------------
