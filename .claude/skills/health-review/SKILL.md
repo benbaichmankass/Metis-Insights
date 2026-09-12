@@ -138,6 +138,24 @@ specific pulls health-review needs.
 | Health snapshot — history | `GET /api/bot/health/history?hours=N` | newest-first list of snapshots in the window |
 | Health services | `GET /api/bot/health/services` | systemd state of `ict-trader-live` + `ict-web-api` |
 
+> ⚠️ **BEFORE YOU CONCLUDE ANYTHING FROM A FIELD IN THESE PULLS, read
+> `docs/CLAUDE-RULES-CANONICAL.md` § "The row you are reading outranks the
+> label in it".** Every pull above returns STORED fields, and a stored field's
+> name is a claim about what wrote it, not a measurement. One session produced
+> **four** wrong conclusions about a live real-money strategy from exactly these
+> rows — `pnl` read as the account's money, a portfolio total quoted without
+> `position_size`, `exit_reason` read as the exit mechanism without
+> `exit_price`, netting mode asserted from prose over the venue's own
+> `positionIdx` — and in **three of the four the settling field was in the row
+> already being read**. The drafted outputs were a real-money demotion and a
+> Tier-3 entry-gate change. **"Always verify" was in force and prevented none of
+> them**, because a journal query IS a measurement — of the journal.
+> Cheap mechanical answers: `journalTrust` rides in the `/api/bot/trades/closed`
+> response already (⚠️ `no_record` is NOT "trusted"); `scripts/ops/column_provenance.py
+> trades.<column>` names every writer; `scripts/ops/strategy_liveness.py <strategy>`
+> answers whether a rate you are about to quote is still happening or belongs in
+> the past tense.
+
 **Batch these into ONE `vm-diag-request` issue, not nine.** Per the
 `diag-data` skill's default pattern (MB-20260706-CI-MINUTES — every
 relay issue is its own billed Actions job, and this repo hit its 2,000

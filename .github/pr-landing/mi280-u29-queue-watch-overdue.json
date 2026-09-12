@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling only: scripts/ci/check_manager_queue_watch.py (a CI guard's state vocabulary), scripts/ops/render_due_list.py (a new due-list source, registered), and one row's updates in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no workflow, no order path, no risk caps. Observability and read paths are Tier-1 by the canonical doc's own examples."
+}

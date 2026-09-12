@@ -29,10 +29,27 @@ by one entry every time somebody needs to say something it cannot express.
 
 ⚠️ **THIS GUARD DOES NOT DECIDE THE VOCABULARY, DELIBERATELY.** Whether `pr` and
 `backlog_row` should be declared kinds is a schema question for the store's
-owner — and there is already evidence the answer is yes for `pr`, which
-`scripts/ops/manager_preflight.py::_INTERNAL_KINDS` has treated as internal all
-along while the README omits it. That is itself a second-vocabulary drift, and
-it is REPORTED here rather than resolved.
+owner, and nothing here answers it.
+
+⚠️ **CORRECTION, 2026-09-12 — DO NOT "RECONCILE" THIS SET WITH
+`manager_preflight._INTERNAL_KINDS`.** This file shipped claiming that set was
+"evidence the answer is yes for `pr`" and "itself a second-vocabulary drift".
+**That was wrong, and acting on it would break a working check.** Read together,
+the two answer DIFFERENT questions over DIFFERENT registers:
+
+* **here** — *is this `kind` declared for a work-object `blocked_on` edge?*,
+  over `docs/claude/work/objects/*.yaml`;
+* **`_INTERNAL_KINDS`** — *does this edge name something INSIDE the repo whose
+  state a reader can go and check?*, over `MANAGER-CHECKLIST.json` items, to
+  decide whether a blocked item owes a **dated observation**
+  (`edge_is_live_state_claim` → `check_blocked_claims`).
+
+`pr` belongs in that set because a PR's state IS checkable in-repo — which says
+nothing about whether the work store should declare `pr` as an edge kind. They
+overlap in the strings they contain and agree on nothing else. Making either
+import the other would make a PR-referencing checklist item start owing evidence
+it does not owe, or silently widen this vocabulary by a set chosen for another
+purpose.
 
 ⚠️ **SO THE SIX EXISTING KINDS ARE GRANDFATHERED, and a SEVENTH fails.** A guard
 that failed on today's residue would red every PR in the repo on the day it
@@ -68,9 +85,9 @@ _DECLARED_MARKER = "`blocked_on` is a typed edge"
 #: kind must fail, and the remedy is to declare it in the README or to re-point
 #: the edge, never to widen this.
 GRANDFATHERED_2026_09_12 = {
-    # `manager_preflight._INTERNAL_KINDS` already treats `pr` as internal while
-    # the README omits it — a second vocabulary, reported not resolved.
-    "pr": "names a PR number; already internal to manager_preflight, undeclared in the README",
+    # ⚠️ Its presence in `manager_preflight._INTERNAL_KINDS` is NOT an argument
+    # for declaring it here — see the CORRECTION in the module docstring.
+    "pr": "names a PR number; undeclared in the README",
     "backlog_row": "names a backlog id; one of the two live refs is TRUNCATED and resolves to nothing",
     # THE ONE THAT IS A DEFECT RATHER THAN A GAP.
     "work_object": "a MISSPELLING of `object`; its ref IS in the store and grade_edge calls it not_in_store_by_design",
