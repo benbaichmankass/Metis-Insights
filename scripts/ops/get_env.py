@@ -115,6 +115,38 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # CSV — the same class as ACCOUNT_DOWN_ALERT_SKIP, which carries no secret.
     "ARBITRATION_FANOUT_MODE",
     "ARBITRATION_FANOUT_ACCOUNTS",
+    # CENTRALIZED_ALLOCATOR + MULTI_STRATEGY_INTENT_LAYER (2026-09-12, MI-279):
+    # the two flags that decide WHICH DISPATCH BRANCH the pipeline takes, and
+    # neither had a read surface. Both are booleans naming a code path — there
+    # is no value either could hold that is unsafe to publish.
+    #
+    # ⚠️ CENTRALIZED_ALLOCATOR is a PRECONDITION for reading the per-account
+    # arbitration fan-out at all: `pipeline.py` takes the typed-allocator branch
+    # ABOVE `_fanout_apply_rounds`, so if it is true the fan-out never runs and
+    # a fan-out repair is the wrong fix however correct its diff. That is
+    # `BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES`'s
+    # own stated first question, and it could not be answered from anywhere.
+    #
+    # ⚠️ AND `/proc/<MainPID>/environ` IS THE WHOLE ANSWER FOR IT, WHICH IS NOT
+    # OBVIOUS FROM THE RESOLVER. `runtime_flags._centralized_allocator_enabled`
+    # reads `settings.get("CENTRALIZED_ALLOCATOR")` FIRST and only falls through
+    # to `os.environ` when that is None — so an env read settles the question
+    # ONLY IF the settings dict can never carry the key. MEASURED 2026-09-12 on
+    # `main`: `validation.build_settings_from_env()` returns exactly 10 keys
+    # (exchange, symbol, timeframe, risk_per_trade, log_level, tick_interval,
+    # loop, MAX_DAILY_LOSS_USD, MAX_OPEN_POSITIONS, HALT_FLAG_PATH) and this is
+    # not one of them, and nothing anywhere mutates that dict (zero hits for
+    # `settings[` / `.update(` / `.setdefault(` in `src/main.py` and
+    # `src/runtime/pipeline.py`). The settings branch is therefore DEAD for this
+    # key and the env IS the sole source. Do not delete this note on the
+    # strength of the resolver's first line.
+    #
+    # MULTI_STRATEGY_INTENT_LAYER rides along for the same reason one level
+    # over: it is declared `true` in `deploy/ict-trader-live.service` and is the
+    # documented no-redeploy rollback, and a rollback nobody can READ BACK is
+    # the blindness half of `OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED`.
+    "CENTRALIZED_ALLOCATOR",
+    "MULTI_STRATEGY_INTENT_LAYER",
     # PROTECTION_REASSERT_* (2026-08-23): re-asserts a diverged protective leg at
     # its journal-declared level — an order-path mutation gated by a mode + a
     # scope allowlist, the same shape as the two above. `..._ACCOUNTS` is the
