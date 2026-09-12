@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One workflow (.github/workflows/pr-queue-watch.yml), one test (tests/test_pr_queue_watch_reports_always.py), and one `updates` entry in docs/claude/health-review-backlog.json. Adds `if: always()` to the manager-state observation step so an unrelated earlier failure can no longer skip it, plus an explicit absent-watcher arm for the state `always()` newly makes reachable. pr-queue-watch.yml is NOT in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list rather than by reading prose -- so R12 does not apply. Every path is inside TIER1_SURFACE. No src/, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps. The change cannot page: the step keeps `continue-on-error: true` and carries no `exit 1`, and a test asserts that."
+}
