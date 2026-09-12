@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research tooling + read-only diag pulls, entirely inside TIER1_SURFACE (scripts/research/**, docs/**). No config/, no src/, no deploy/, no unit file, no order path, no live parameter. The script makes no network call of its own -- it prints the diag_fetch plan for a person to run, and its trade->close matcher is imported from scripts/research/netting_close_venue_adjudication.py rather than rebuilt. The Tier-2 change this unit's evidence argues for (persisting stop_order_type / cancel_type at close time in order_monitor) is PROPOSED in the memo and deliberately NOT taken here."
+}

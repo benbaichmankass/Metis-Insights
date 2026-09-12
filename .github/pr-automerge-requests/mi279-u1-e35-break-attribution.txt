@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11942.
+
+A read-only measurement: scripts/research/e35_break_attribution.py, the
+docs/research/ memo, its DOCUMENT-INDEX row, and one backlog annotation
+on the critical regime-break row. No parameter change is proposed.
+Declaration: .github/pr-landing/mi279-u1-e35-break-attribution.json

@@ -145,6 +145,7 @@ def test_no_caller_overrides_the_wait_with_its_own_timeout():
 # ─────────────────────────────────────────────────────────────────────────────
 
 SESSION_BOARD = "docs/claude/session-board.json"
+BRANCH_SLOT_DIR = ".github/merge-slots"
 CLAIM_SCRIPT = "scripts/ops/claim_merge_slot.py"
 
 
@@ -179,9 +180,19 @@ def test_the_claim_is_staged_in_the_same_commit_as_the_arming_file():
     like the fix is present."""
     script = _action_script()
     add_block = script.split('git add -- ".github/pr-landing/')[-1].split("git commit")[0]
-    assert SESSION_BOARD in add_block, (
-        f"{SESSION_BOARD} is not staged alongside the arming file. R13 grades "
-        f"the branch's own diff; an unstaged claim is not a claim.")
+    # ⚠️ THIS ASSERTED `SESSION_BOARD in add_block` UNTIL 2026-09-12, WHICH PINNED
+    #    THE ROUTE RATHER THAN THE INVARIANT. R13 accepts two routes and the
+    #    action moved to the per-branch one, so naming the shared file made a
+    #    correct action fail. The invariant is unchanged and is what is asserted
+    #    now: whatever route the claim takes, it is STAGED in the same commit as
+    #    the arming file, because R13 reads the claim out of the branch's own
+    #    diff. Accepting EITHER route is not a weakening — staging NEITHER still
+    #    fails, which is the only thing this test ever protected.
+    assert (BRANCH_SLOT_DIR in add_block) or (SESSION_BOARD in add_block), (
+        f"no R13 claim is staged alongside the arming file — neither "
+        f"{BRANCH_SLOT_DIR} (the per-branch route) nor {SESSION_BOARD} (the "
+        f"legacy shared field). R13 grades the branch's own diff; an unstaged "
+        f"claim is not a claim.")
 
 
 def test_a_missing_claim_script_refuses_rather_than_opening_a_doomed_pr():
@@ -207,3 +218,65 @@ def test_the_slot_conflict_is_resolved_not_aborted():
         "a slot conflict must be resolved by taking MAIN's board and "
         "re-asserting our own claim over it, so another branch's claim and any "
         "`active_sessions` edits survive.")
+
+
+def test_every_caller_checks_out_with_a_pat():
+    """A caller that checks out with the default token opens a PR NOTHING CHECKS.
+
+    ⚠️ THIS FAILS SILENTLY AND FOREVER, which is why it belongs beside
+    `verify-merged` rather than in a reviewer's head. `commit-to-main` pushes its
+    branch with whatever credential the checkout configured, and GitHub does not
+    fire workflow triggers for actions taken with the built-in `GITHUB_TOKEN`
+    (recursion prevention). So a caller checking out without a PAT opens a PR
+    that never receives the `on: pull_request` required checks — and auto-merge
+    then waits for checks that will never arrive. The action's own docstring
+    states the PAT as a REQUIREMENT of calling it.
+
+    The two failure shapes are different and both are bad: WITHOUT
+    `verify-merged` the step exits 0 the moment the PR opens, so the run is
+    green and the artifact never lands; WITH it, the job burns its whole merge
+    wait and reports a timeout. Neither names the cause.
+
+    MEASURED 2026-09-12: `sunset-pass.yml` was being ported onto
+    `commit-to-main` and checked out with a bare `actions/checkout@v4`. The
+    existing suite passed on it — every other invariant here is about the
+    `uses:` step, and this one is about a step three above it — so the port
+    would have swapped a loud weekly failure (a protected-branch push declined
+    with GH006, which at least errors) for a silent permanent one.
+
+    ⚠️ IT CHECKS THE BINDING, NOT THE SECRET. A `token:` naming a secret that is
+    unset, or one whose PAT lacks the scopes, passes here and fails on the
+    runner. That is stated rather than implied: this catches the omission an
+    author makes, never a credential problem.
+    """
+    missing = []
+    for wf, job_name, job in _caller_jobs():
+        checkouts = [s for s in job["steps"]
+                     if str(s.get("uses", "")).startswith("actions/checkout@")]
+        if not checkouts:
+            # No checkout at all in the job that calls the action — the action
+            # could not run. Reported rather than skipped: a silent pass here
+            # would be a verdict over an empty population.
+            missing.append(f"{wf}:{job_name} (no actions/checkout step at all)")
+            continue
+        if not any("token" in (s.get("with") or {}) for s in checkouts):
+            missing.append(f"{wf}:{job_name}")
+    assert not missing, (
+        "these callers check out with the default GITHUB_TOKEN, so the PR "
+        "`commit-to-main` opens for them never receives the required checks and "
+        "auto-merge waits forever: " + ", ".join(missing)
+    )
+
+
+def test_the_caller_population_is_not_empty():
+    """A guard with no population is not a clean guard.
+
+    If `USES` is ever renamed, every test above iterates an empty list and the
+    whole file goes green while checking nothing — the vacuous-verdict shape
+    this repo enforces against elsewhere.
+    """
+    assert list(_caller_jobs()), (
+        f"no workflow calls `{USES}` — either the action was renamed (fix this "
+        f"file) or every producer stopped landing rows (a much larger finding). "
+        f"Either way the tests above just passed over NOTHING."
+    )

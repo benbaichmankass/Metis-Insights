@@ -98,6 +98,30 @@ jobs:
       # A failure here must NOT silently leave a fresh digest with a stale
       # due-list, so the step is not `continue-on-error`.
       - name: Re-render the due-list over the fresh digest
+        env:
+          # ⚠️ WITHOUT THIS THE RE-RENDER BLINDS TWO OF THE NINE DUE-LIST SOURCES,
+          # and because this workflow is HOURLY it is the writer that wins.
+          # `render_due_list.py`'s `src_red_crons` and `src_unlanded_automation`
+          # read the Actions API; with no token they return `could_not_read` —
+          # honestly, and by design, since reporting "no red crons" would be
+          # worse. But the artifact they land on `main` then carries that
+          # refusal, overwriting whatever `due-list.yml` or `probes.yml`
+          # rendered WITH a token hours earlier.
+          #
+          # MEASURED 2026-09-12 over the last 60 commits to docs/claude/DUE.json:
+          # 47 (78.3%) were written by THIS workflow, against 6 by due-list.yml
+          # and 5 by probes.yml — this one runs `35 * * * *`, the others daily.
+          # The live artifact at 06:27:30Z read
+          # `red_crons: could_not_read — no GITHUB_TOKEN`.
+          #
+          # `red_crons` is the F1 class its own docstring names — "a nightly
+          # nobody is waiting on" — and it is exactly what would have surfaced
+          # replay-pregate-nightly's 77 consecutive red scheduled runs over 2.5
+          # months, which reached no register and no page.
+          #
+          # Read-only; only those two sources use it, and it is an env var
+          # rather than an argv so it cannot reach the run log.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/ops/render_due_list.py --write
 
       - name: Summary

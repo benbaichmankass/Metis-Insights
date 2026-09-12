@@ -431,6 +431,32 @@ GUARDS: List[Dict[str, Any]] = [
         # ⚠️ `when: None` — it runs on EVERY diff. The comparison is per-register
         # and skips the ones a diff does not touch, so scoping the GUARD would
         # only add a way for it not to run.
+        "name": "spec-carrier-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_spec_carrier.py", "--self-test"],
+            # BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK.
+            # ⚠️ DIFF-SCOPED ON ADDED FILES, DELIBERATELY. Measured 2026-09-12:
+            # 42 of 87 spec-shaped artifacts are ALREADY un-carried, so a
+            # whole-tree gate would fail on day one and get switched off — the
+            # same reasoning that keeps check_backlog_criteria diff-scoped.
+            {
+                "argv": ["python3", "scripts/ci/check_spec_carrier.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+            # The standing population REPORTED rather than gated, because the
+            # row's own criterion says a mechanism covering only NEW artifacts
+            # leaves the existing one unaddressed — and a number nobody prints
+            # is a number nobody acts on.
+            {
+                "argv": ["python3", "scripts/ci/check_spec_carrier.py", "--census"],
+                "allow_fail": True,
+                "hint": "the standing un-carried population is advisory, not gating",
+            },
+        ],
+    },
+    {
         "name": "register-field-loss-guard",
         "when": None,
         "steps": [
@@ -1888,6 +1914,21 @@ GUARDS: List[Dict[str, Any]] = [
                 "pr_only": True,
             },
         ],
+    },
+    {
+        "name": "due-list-token-guard",
+        # UNGATED. `when: None` because the failure it catches is a workflow
+        # that renders the due-list WITHOUT a token, and a diff-scoped guard
+        # cannot see a fourth such workflow being added months later — which is
+        # exactly how the third one shipped without an `env:` block and then, at
+        # `35 * * * *`, won 47 of the last 60 writes to docs/claude/DUE.json.
+        # It is a sub-second YAML scan, so the cost of running it always is
+        # nothing against a source that was blind in production for months.
+        "when": None,
+        # Self-test FIRST, the collapsed-state-guard posture: a guard that
+        # silently stopped matching must not read as a clean pass.
+        "steps": [["python3", "scripts/ci/check_due_list_token.py", "--self-test"],
+                  ["python3", "scripts/ci/check_due_list_token.py"]],
     },
     {
         "name": "collapsed-state-guard",

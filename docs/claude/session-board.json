@@ -5,9 +5,9 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · stale-automation-sweep run 34693039593",
+    "held_by": "github-actions[bot] · stale-automation-sweep run 34702697646",
     "branch": "automation/data-commit-34689800742-1",
-    "claimed_at": "2026-09-12T12:25:36Z",
+    "claimed_at": "2026-09-12T15:36:17Z",
     "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
   },
   "active_sessions": [
