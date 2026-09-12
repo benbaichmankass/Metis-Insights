@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
-    "branch": "claude/mi280-constraint-readout-cause",
-    "claimed_at": "2026-09-12T07:43:18Z",
-    "purpose": "MI-280 U9: constraint-readout cause reproduction"
+    "branch": "claude/mi280-document-index-restamp",
+    "claimed_at": "2026-09-12T09:13:58Z",
+    "purpose": "MI-280 U12 (#11909): document-index restamp"
   },
   "active_sessions": [
     {
