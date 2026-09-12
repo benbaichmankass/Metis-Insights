@@ -967,6 +967,46 @@ GUARDS: List[Dict[str, Any]] = [
         # for the reason the pr-queue-watch guard above records: failing on it
         # would red every PR the day this merges, which is how a guard gets
         # disabled instead of fixed.
+        # THE DETECTOR, WIRED. THE REPORT, STILL NOT.
+        #
+        # check_guard_glob_coverage.py asks whether each guard is TRIGGERED by
+        # every file its check actually reads -- the 2026-08-23 defect where
+        # `exit-coverage-matrix-guard` joined config/strategies.yaml and did not
+        # list it, so the one edit that could stale the matrix was the one edit
+        # that would not run the guard.
+        #
+        # ⚠️ ONLY `--self-test` RUNS HERE, AND THAT IS THE WHOLE DESIGN. Its
+        # report emits LEADS, not verdicts, and exits 1 on any un-triaged one --
+        # its author declared it manual-only for exactly that reason, and was
+        # right: a build failing on unconfirmed leads trains everyone to walk
+        # past it, the desensitised-alarm P1. That reasoning is about the
+        # REPORT. It was never an argument for leaving the DETECTOR unproven,
+        # and the two were bundled.
+        #
+        # MEASURED 2026-09-12: `guard-selftest-coverage` graded this file
+        # `none` -- "no failure-path evidence anywhere", the only one of 89 in
+        # that bucket -- while its --self-test plants the real 2026-08-23 defect
+        # (dropping config/strategies.yaml from that guard's globs) and requires
+        # the audit to flag it, AND asserts the real table still reads clean. A
+        # positive and a negative control, run by nothing. 0.4s, stdlib, no
+        # network, no diff needed.
+        #
+        # `when: None`: the input it grades is the GUARDS table in this very
+        # file plus the paths other guards' scripts open, so a PR that breaks it
+        # need not touch anything a `when:` could name.
+        #
+        # ⚠️ THE LEADS STILL DO NOT GATE. Nothing here runs the report, so the
+        # one live lead (exit-mechanism-coverage-guard reading
+        # config/lever_reachability.json, re-confirmed non-verdict-bearing by
+        # perturbation on 2026-09-12) cannot red a PR. If someone ever wires the
+        # report too, that is a different decision and needs its own argument.
+        "name": "guard-glob-coverage-detector",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_glob_coverage.py", "--self-test"],
+        ],
+    },
+    {
         "name": "digest-liveness-guard",
         "when": None,
         "steps": [
