@@ -47,6 +47,22 @@ Tier-1 work that should land itself on green:
 ...and add `.github/pr-automerge-requests/<slug>.txt` (any contents — its
 **path** is the signal) and open the PR **not** as a draft.
 
+Tier-2 work that the operator has already approved, where the approval is
+**already recorded on `main`**:
+
+```json
+{
+  "tier": 2,
+  "landing": "self",
+  "approved_by": "docs/claude/work/approvals/{slug}.json",
+  "why": "runtime exit-loop change, Tier-2 by path, landing on a recorded approval"
+}
+```
+
+...plus the same arming file and merge-slot claim Tier-1 self-landing needs.
+See **R15** below and `docs/claude/work/approvals/README.md` for the record's
+shape. **Tier-3 never self-lands and no record admits it.**
+
 Anything a human must approve, or that is simply not ready:
 
 ```json
@@ -69,6 +85,7 @@ an adjective:
 | `depends_on_unmerged_pr` | must land after another PR | **must name it as `#N`** |
 | `awaiting_evidence` | prepared, but an observation must land first | say *which* observation |
 | `operator_asked_to_hold` | an explicit instruction | quote it |
+| `unvouchable_paths` | Tier-1 work touching a path outside `TIER1_SURFACE` | **verified against the diff** |
 
 ## What bites, and why it can
 
@@ -85,7 +102,30 @@ The checks that matter most:
   **allowlist** (docs, tests, CI, `.github/`, `comms/`, lint config). A path it
   does not recognise is not thereby dangerous — it is one the guard cannot
   vouch for, and self-landing is refused on it rather than granted by default.
+- **R15** — a **Tier-2** PR may self-land, but only against an approval record
+  it **demonstrably could not have written**: the record must already exist at
+  the branch's merge-base with `main`, be byte-identical at HEAD, be absent from
+  the diff entirely, name **this** branch, and carry a `scope_paths` glob list
+  that **covers the diff**. The record is parsed from the merge-base blob, never
+  from the worktree.
+  ⚠️ **R4's reason is not weakened.** R4 held that a change and its own approval
+  must not be the same act — correct — but used *"a human clicks Merge"* as the
+  proxy. R15 replaces the proxy with the property. **Tier-3 is still refused
+  outright**, and a `scope_paths` entry naming a Tier-3 path does not buy one.
+  ⚠️ **What it buys, stated honestly:** for a single one-off Tier-2 PR this is
+  roughly a wash — one human read of the approval instead of one merge click.
+  The win is that an approval is **per-decision, not per-PR**: every subsequent
+  push under an existing record lands free, and the record is a 12-line JSON
+  carrying the operator's verbatim words rather than a thousand-line diff.
+  ⚠️ **And what it does NOT establish:** that the operator *originated* the
+  record. Commit metadata cannot tell a session-written record from an
+  operator-written one — measured 2026-09-11, every squash-merge on `main`
+  carries the same author and committer. What stands behind it is R12.
 - **R12** — a PR that changes the landing machinery may not land itself by it.
+  ⚠️ **`docs/claude/work/approvals/**` is landing machinery**, so *writing* an
+  approval is a held, human-read PR while *using* one is free. That asymmetry is
+  what closes the two-PR chain (self-land PR A writing an approval for your own
+  PR B, then self-land B against it).
 - **R13** — a branch that ARMS auto-merge must hold the merge slot in
   `docs/claude/session-board.json`, claimed in its own diff. Arming is not a
   request to merge, it **is** the merge. The `PreToolUse` merge-slot guard in
