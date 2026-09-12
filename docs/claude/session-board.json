@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
     "branch": "claude/mi280-armed-branch-push-watch",
-    "claimed_at": "2026-09-12T07:23:31Z",
-    "purpose": "MI-280 U2: armed-branch push drop detector (#11873)"
+    "claimed_at": "2026-09-12T07:38:50Z",
+    "purpose": "MI-280 U2 detector (#11873)"
   },
   "active_sessions": [
     {

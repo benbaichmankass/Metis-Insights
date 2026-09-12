@@ -22,13 +22,27 @@ why: >-
 source: >-
   operator (conversational), 2026-09-11
 
-blocked_on:
-  - kind: external_event
-    ref: >-
-      PR #11817 needs its R12 human read and merge. PROBED 2026-09-12T05:51Z via
-      pull_request_read: state open, merged false, draft false, head 88f111059.
-    since: 2026-09-11
+blocked_on: []
 blocked_on_basis: >-
+  ⚠️ RE-ASSESSED AGAIN 2026-09-12T07:0xZ, AND THE EDGE THIS FIELD JUSTIFIED IS NOW
+  REMOVED BECAUSE IT BECAME FALSE — read this paragraph before the two below it, which
+  are preserved as the record and must not be acted on. THE EDGE READ: `kind:
+  external_event, ref: PR #11817 needs its R12 human read and merge, since:
+  2026-09-11`. IT WAS DISCHARGED: #11817 MERGED at 2026-09-12T06:55:51Z as squash
+  `2cd829991`, `merged_by: benbaichmankass`, head `d29e31913` — read from
+  pull_request_read (`merged: true`, `closed_at 06:55:52Z`) and corroborated on main
+  by `git log -1 2cd829991`, not inferred from a check going green. So the list is
+  `[]` and that is a MEASURED EMPTY, not a NOT_ASSESSED one. ⚠️ THE EMPTY LIST IS
+  NOT THE CLAIM THAT THIS OBJECT IS DONE — `lifecycle` stays `waiting` and
+  `lifecycle_basis` says why. What the done_condition still owes is the two
+  OBSERVATIONS (an ADMITTED landing and a REFUSAL), and those remain deliberately
+  UNEDGED for the reason the 2026-09-11 text gives and the 2026-09-12 text repeats:
+  the first real approval record is an operator/manager act that NOBODY HAS BEEN
+  ASKED FOR, and an invented edge is read by the constraint computation as a real
+  blocker — a false blocker is worse than a missing one. Leaving the discharged
+  edge in place would have been exactly that false blocker, which is why it is
+  removed in the same act that records the merge.
+blocked_on_basis_2026_09_12_pre_merge: >-
   ⚠️ RE-ASSESSED 2026-09-12 AND THE 2026-09-11 READING BELOW IS SUPERSEDED, NOT
   DELETED — the earlier text is preserved verbatim under
   blocked_on_basis_2026_09_11 because it was CORRECT WHEN WRITTEN and a reader
