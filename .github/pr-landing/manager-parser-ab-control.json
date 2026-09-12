@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Appends a measured positive control to one existing open backlog row. Backlog only; no new row, no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}

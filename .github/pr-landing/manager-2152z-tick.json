@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register push only: MANAGER-LEASE.json (the 21:53:01Z heartbeat), MANAGER-CHECKLIST.json (three lane rows restated against observed get_session status, plus the tick record), SESSIONS.json (three rows corrected from a claimed state to an OBSERVED one), and this branch's own landing/arming/merge-slot files. No src/, config/, scripts/, deploy/, .github/workflows/ or tests. R12 checked as a list, not inferred: this diff touches nothing on LANDING_MACHINERY except its OWN declaration, which R12 excludes by construction. R7 positive duty satisfied: the heartbeat is 58 min after the previous one, inside the 90 min TTL, and SESSIONS.json is updated in the same commit so the supervision record is not staler than the lease. Tier-1 by the canonical doc's own examples (docs + registers)."
+}

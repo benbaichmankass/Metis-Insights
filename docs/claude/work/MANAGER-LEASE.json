@@ -19,12 +19,16 @@
     "reads to pick them up. Design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml"
   ],
   "schema_version": 1,
-  "state": "released",
-  "holder": null,
-  "released_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "released_at": "2026-09-11T16:45:40Z",
-  "previous_holder": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
-  "forced": false,
-  "force_reason": null,
+  "state": "held",
+  "holder": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "claimed_at": "2026-09-11T23:53:42Z",
+  "heartbeat_at": "2026-09-12T04:53:24Z",
+  "expires_at": "2026-09-12T06:23:24Z",
+  "ttl_minutes": 90,
+  "heartbeat_target_minutes": 30,
+  "claimed_over_state": "expired",
+  "forced": true,
+  "force_reason": "SAME-HOLDER RE-CLAIM AFTER A MECHANICAL LAPSE, NOT A TAKEOVER. The recorded holder is this session and no other session has claimed. The TTL lapsed because the 22:53:00Z heartbeat is sitting in PR #11839, which has not merged (base stale at 37b70063 vs main 2f260543, zero check runs) -- so the heartbeat was COMMITTED AND PUSHED TO A BRANCH but never landed on main, which is exactly the failure mode the tick prompt names. The manager did not die. Re-claimed with --reason rather than silently, per the lease contract; if the operator disagrees, this line is the record to point at. ROOT CAUSE IS BEING FIXED IN THE SAME TICK: the lease's liveness depends on a PR merging, and a register PR can be blocked by CI or a conflict, so a live working manager can lose its lease to a stuck PR.",
+  "previous_holder": "session_01HoFquGdTrD3TTGbMMRc43t",
   "note": null
 }

@@ -3,8 +3,20 @@ type: question
 parent_intent: IN-20260901-OPERATING-LAYER
 title: Sweep the 623 dormant work objects and give soak-bound work its own status
 stage: INTEGRITY
-lifecycle: in_flight
-owner: session_01LoZJDARzLr1REPnqQ5Kgbz
+lifecycle: ready
+owner: null
+manager_lifecycle_note: >-
+  MEASURED CORRECTION 2026-09-11T17:45Z by manager session_01HoFquGdTrD3TTGbMMRc43t. in_flight ->
+  ready, owner cleared. POPULATION: all 40 sessions returned by list_sessions(mine=true,
+  limit=40), read 2026-09-11T17:42Z. The owning session session_01LoZJDARzLr1REPnqQ5Kgbz reads
+  SESSION_STATUS_IDLE / STATUS_BUCKET_COMPLETED, disconnected -- post_turn_summary: MI-243 graded,
+  47 rows fixed, 555 dormant. EXACTLY ONE session in that listing is RUNNING and it is the manager
+  itself, so no lane holds this object. READY IS NOT DONE and is not a claim of progress: it says
+  nobody is working this and it is available to be worked. Deliberately NOT `waiting`, which would
+  assert a blocker nobody measured, and deliberately NOT `done`, which means MERGED AND OBSERVED.
+  The stale in_flight was holding the WIP ceiling at 7 of 8 and blocking the operator's chosen
+  spawns; this is BL/MI-236 (decay stale in_flight rows) observed live and is why that item is now
+  prioritised.
 opened_at: 2026-09-11
 closed_at: null
 review_trigger: Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes

@@ -17,6 +17,16 @@ Overview page** for the important, can't-miss conditions (not routine pings):
     announced as crossed whose position is still open in the journal. Never
     fires on an unacted ticket — that is the expected shape on a manual bridge.
     From ``prop_fills_staleness.stale_fill_accounts()``.
+  * **losing_streak** / **losing_streak_unmeasurable** (severity ``warning``)
+    — an account has lost money on N consecutive trading days, or its closes
+    carry no readable PnL so the question cannot be answered at all. From
+    ``losing_streak_alert.status()``. WARNING, not ``alert``: the book is
+    trading and losing, not unprotected.
+  * **starved_account** / **starved_account_unreadable** (severity
+    ``warning``) — an account the per-symbol arbitration keeps electing and
+    discarding, so it takes no trades and produces no journal row to notice;
+    or the soak that measures it could not be read. From
+    ``starved_account_alert.status()``.
   * **trade_open** (severity ``info``) — a compact "recently opened trades"
     notice (best-effort, last ``TRADE_OPEN_BANNER_WINDOW_MIN`` minutes), so a
     fresh entry surfaces on the banner too. Never fails the endpoint.
@@ -292,6 +302,131 @@ def _prop_fills_stale_banners() -> List[Dict[str, Any]]:
                 })
     except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
         logger.debug("notifications: prop fills-stale banners failed: %s", exc)
+    return out
+
+
+def _losing_streak_banners() -> List[Dict[str, Any]]:
+    """The read half of :mod:`src.runtime.losing_streak_alert` (MI-276).
+
+    ⚠️ **BRANCHES ON THREE OF THE FOUR STATES, AND THE THIRD IS THE ONE THAT
+    MATTERS.** ``streak_active`` is the finding. ``unreadable`` is *we looked
+    and could not read it* and gets its OWN banner with its own remedy — an
+    account whose closes carry no usable PnL is unmeasurable, which renders
+    identically to a healthy account on any surface that only reports
+    findings, and is exactly the collapse this detector exists to refuse one
+    level up. ``insufficient_days`` is *we could not look yet* and correctly
+    produces nothing, because a book with too few closes to grade is not a
+    finding; it is named here so the absence is a decision rather than an
+    oversight. ``no_streak`` is the clean negative.
+
+    Severity is ``warning``, never ``alert``: the book is trading and losing,
+    not unprotected. The top of this feed is reserved for money-at-risk.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        from src.runtime.losing_streak_alert import (
+            STREAK_ACTIVE, STREAK_INSUFFICIENT, STREAK_UNREADABLE, status,
+        )
+        for aid, st in (status() or {}).items():
+            if not isinstance(st, dict):
+                continue
+            state = st.get("state")
+            if state == STREAK_ACTIVE:
+                cov = st.get("pnl_coverage")
+                cov_text = ("coverage unknown" if cov is None
+                            else f"{float(cov):.0%} broker-measured")
+                out.append({
+                    "severity": "warning",
+                    "kind": "losing_streak",
+                    "message": (f"{aid} has lost money "
+                                f"{st.get('streak_days')} days running"),
+                    "detail": (
+                        f"${abs(float(st.get('streak_loss_usd') or 0.0)):,.2f} "
+                        f"over {st.get('streak_days')} consecutive trading "
+                        f"days ({st.get('streak_start')} → "
+                        f"{st.get('streak_end')}), {cov_text}. Graded from "
+                        f"{st.get('graded_days')} day(s) of activity."
+                    ),
+                    "since": st.get("streak_start"),
+                })
+            elif state == STREAK_UNREADABLE:
+                out.append({
+                    "severity": "warning",
+                    "kind": "losing_streak_unmeasurable",
+                    "message": f"Cannot measure PnL for {aid}",
+                    "detail": (
+                        f"{aid} closed {st.get('rows')} trade(s) in the window "
+                        "and none carried a readable, non-fabricated PnL, so "
+                        "whether it is bleeding CANNOT be established. This is "
+                        "not a clean bill of health."
+                    ),
+                    "since": st.get("updated_at"),
+                })
+            elif state == STREAK_INSUFFICIENT:
+                # Deliberately no banner: too few gradeable days for a streak
+                # of the configured length to EXIST yet. Reported through
+                # `status()` for the review skills, which need the denominator.
+                continue
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: losing-streak banners failed: %s", exc)
+    return out
+
+
+def _starved_account_banners() -> List[Dict[str, Any]]:
+    """The read half of :mod:`src.runtime.starved_account_alert` (MI-276).
+
+    ⚠️ **THIS EXISTS BECAUSE THE UNDERLYING SIGNAL WAS CORRECT AND UNREAD FOR
+    TWELVE DAYS.** ``arbitration_fanout_soak`` recorded
+    ``starved_accounts: ["breakout_1"]`` on every occurrence while the account
+    took no trade at all (MI-274). Rendering the detector's verdict here is the
+    point of the unit, not decoration: a detector reachable only by a Telegram
+    ping that may not be read reproduces the same defect one level up.
+
+    Branches on ``starved_persistent`` (the finding) and ``soak_unreadable``
+    (*we tried and failed* — which must not render as a quiet fleet, since an
+    absent soak most likely means the measurement itself is switched off).
+    ``routing`` is the clean negative and ``not_observed`` is *we could not
+    look*; neither is a banner, and both stay readable through ``status()``.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        from src.runtime.starved_account_alert import (
+            STARVED_PERSISTENT, STARVED_SOAK_UNREADABLE, status,
+        )
+        for aid, st in (status() or {}).items():
+            if not isinstance(st, dict):
+                continue
+            state = st.get("state")
+            if state == STARVED_PERSISTENT:
+                out.append({
+                    "severity": "warning",
+                    "kind": "starved_account",
+                    "message": f"{aid} is taking no trades — starved by arbitration",
+                    "detail": (
+                        f"It held a candidate and lost the symbol "
+                        f"{st.get('starved')} time(s) and routed nothing, over "
+                        f"{st.get('gradeable_rows')} gradeable soak row(s). Its "
+                        "legs are signalling; no journal row, ticket or refusal "
+                        "exists for this. Check ARBITRATION_FANOUT_ACCOUNTS."
+                    ),
+                    "since": st.get("updated_at"),
+                })
+            elif state == STARVED_SOAK_UNREADABLE:
+                out.append({
+                    "severity": "warning",
+                    "kind": "starved_account_unreadable",
+                    "message": "Arbitration starvation cannot be measured",
+                    "detail": (
+                        "arbitration_fanout_soak.jsonl could not be read, so "
+                        "whether any account is being starved is UNKNOWN. Most "
+                        "likely ARBITRATION_FANOUT_MODE=off, which switches the "
+                        "measurement itself off. This is not a report that no "
+                        "account is starved."
+                    ),
+                    "since": st.get("updated_at"),
+                })
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: starved-account banners failed: %s", exc)
     return out
 
 
@@ -636,6 +771,8 @@ def get_notifications() -> Dict[str, Any]:
         banners.append(tdb)
     banners.extend(_account_down_banners())
     banners.extend(_prop_fills_stale_banners())
+    banners.extend(_losing_streak_banners())
+    banners.extend(_starved_account_banners())
     banners.extend(_operator_alert_banners())
     orb = _orphan_unreconciled_banner()
     if orb:

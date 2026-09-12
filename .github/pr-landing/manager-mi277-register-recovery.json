@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register recovery: re-applies the MI-277 registry row and checklist item that #11846 dropped in the post-arming auto-merge race, plus a fifth instance appended to the existing open row for that race. Registers and backlog only; no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}

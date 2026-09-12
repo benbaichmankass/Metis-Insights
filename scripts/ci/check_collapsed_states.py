@@ -106,6 +106,68 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "losing_streak_alert.state",
+        "producer": "src/runtime/losing_streak_alert.py",
+        "producer_field": "",
+        "consumer_token": (r"\bSTREAK_ACTIVE\b|\bSTREAK_NONE\b|"
+                           r"\bSTREAK_INSUFFICIENT\b|\bSTREAK_UNREADABLE\b"),
+        "states": ["streak_active", "no_streak", "insufficient_days",
+                   "unreadable"],
+        "why": (
+            "MI-276. bybit_1 lost money on 16 consecutive days (-$36,997, "
+            "2026-08-27 -> 2026-09-11) and the OPERATOR found it, not a "
+            "monitor -- every per-day risk threshold stayed inside its cap and "
+            "a losing account refuses nothing, so silent_refusal_alert grades "
+            "it absent. THE TWO PAIRS THAT MUST NOT COLLAPSE. (1) "
+            "`insufficient_days` vs `no_streak`: a book with fewer gradeable "
+            "days than the threshold CANNOT have a streak of that length, and "
+            "reading that as a clean negative is the sub-class C error this "
+            "repo names (an empty result read as a labelled answer) -- a book "
+            "with no closes is not a book that is winning, and the two have "
+            "opposite remedies (look harder vs nothing to do). (2) "
+            "`unreadable` vs `no_streak`: an account whose closed rows carry "
+            "no readable, non-fabricated PnL is UNMEASURABLE, and folding that "
+            "into the clean negative would let a book bleed behind an "
+            "instrument that cannot see it -- which is exactly how MI-271's "
+            "own headline moved: the week carrying the 'profitable fortnight' "
+            "baseline contains ZERO measured rows. Both non-findings are "
+            "reported through `status()` and only `unreadable` raises a "
+            "banner, because 'we cannot measure this account' is actionable "
+            "and 'not enough data yet' is not."
+        ),
+    },
+    {
+        "name": "starved_account_alert.state",
+        "producer": "src/runtime/starved_account_alert.py",
+        "producer_field": "",
+        "consumer_token": (r"\bSTARVED_PERSISTENT\b|\bSTARVED_ROUTING\b|"
+                           r"\bSTARVED_NOT_OBSERVED\b|"
+                           r"\bSTARVED_SOAK_UNREADABLE\b"),
+        "states": ["starved_persistent", "routing", "not_observed",
+                   "soak_unreadable"],
+        "why": (
+            "MI-276, reading the signal MI-274 measured as correct-and-unread. "
+            "breakout_1 (mode: live, prop) took no trade for TWELVE days while "
+            "its legs signalled in lockstep with their bybit_1 siblings, and "
+            "arbitration_fanout_soak recorded `starved_accounts: "
+            "[\"breakout_1\"]` on EVERY occurrence with no reader at all. "
+            "THE TWO PAIRS THAT MUST NOT COLLAPSE. (1) `soak_unreadable` vs "
+            "`routing`: an absent or unparseable soak most likely means "
+            "ARBITRATION_FANOUT_MODE=off, i.e. the MEASUREMENT is switched "
+            "off, and rendering that as a quiet healthy fleet is the exact "
+            "failure the soak itself already warns about -- a clean negative "
+            "over a denominator nobody established. It therefore raises its "
+            "own banner rather than staying silent. (2) `not_observed` vs "
+            "`routing`: an account that vanishes from arbitration entirely is "
+            "NOT one that is routing fine -- its legs may have stopped "
+            "signalling, which is a different and unmeasured problem -- so it "
+            "can never be credited as evidence of health, and a latch released "
+            "into it says so in terms instead of sending a recovery message "
+            "nobody measured. `routing` is the ONLY clean negative and it "
+            "requires positive evidence: routed > 0."
+        ),
+    },
+    {
         "name": "blocked_lane_watch.blocker_state",
         # The producer OWNS the vocabulary: the four states are module constants
         # in blocked_lane_watch and nowhere else, so no `producer_field` is
@@ -291,7 +353,29 @@ CONTRACTS: List[Dict[str, object]] = [
             "both registers, 10 supported / 17 unsupported / 8 "
             "could_not_establish, and on the 8 work objects that FILL the WIP "
             "ceiling it is 2 / 4 / 2, i.e. at most two of the eight slots "
-            "holding the ceiling shut have an owner the registry shows active."
+            "holding the ceiling shut have an owner the registry shows active. "
+            "\u26a0\ufe0f RE-MEASURED LATER THE SAME DAY, AFTER `_support_for` "
+            "GAINED THE FRESHNESS TEST, AND THE SPLIT MOVED -- do not read the "
+            "figures above as current. Population: all 27 in_flight rows at "
+            "`886c93e` (25 checklist + 2 objects), which is a DIFFERENT and "
+            "later population than the 35 above, so the two are not "
+            "subtractable. It now reads 0 supported / 13 unsupported / 14 "
+            "could_not_establish: every row that had graded `supported` rested "
+            "on an observation 24x-48x past the module's own 90-minute window, "
+            "and a live `list_sessions` read put FOUR of those six owners at "
+            "IDLE/COMPLETED with none RUNNING. `supported` is therefore "
+            "measured at ZERO over THAT population -- but read the next sentence "
+            "before quoting it. \u26a0\ufe0f RE-MEASURED ~30 MINUTES LATER at the "
+            "merged head, `supported` is 3 of 30, NOT zero, and the zero was an "
+            "artefact of WHEN the population was cut: the three rows are the "
+            "lanes spawned 31.7 minutes earlier (MI-275, MI-276 and this lane "
+            "itself), all three genuinely RUNNING, so the state has a live "
+            "positive control with zero false positives. What survives is "
+            "narrower and is still real: the basis on all three is "
+            "`spawn_confirmation`, so a lane grades `supported` only inside 90 "
+            "minutes of its spawn or of a manager observation, and will fall to "
+            "`could_not_establish` while still working unless somebody looks "
+            "again. Filed as its own row rather than papered over."
         ),
     },
     {
