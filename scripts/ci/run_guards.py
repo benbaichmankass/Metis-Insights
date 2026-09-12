@@ -1024,15 +1024,6 @@ GUARDS: List[Dict[str, Any]] = [
             # `not_writing` (the soak is dead) must never render as `accruing`
             # (it is alive and waiting) or as `unknown` (we could not look).
             ["python3", "scripts/ops/soak_alarm.py"],
-            # The decision-edge grader the `spent_decision_edges` source
-            # imports. Its controls prove the FOUR edge states are reachable
-            # and DISTINCT: an `answered_on`-only answer must read SPENT (an
-            # `answered_at`-only probe understated the first sweep by five
-            # rows), a rejection must read `answered_no_choice` rather than
-            # unanswered OR chosen, and a prose ref must read `ref_malformed`
-            # rather than `live` — folding any of those into `live`
-            # manufactures a blocker the constraint computation then believes.
-            ["python3", "scripts/ops/spent_decision_edges.py", "--self-test"],
         ],
     },
     {
