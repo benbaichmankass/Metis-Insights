@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11934.
+
+Two OPEN-ITEMS observations (e35 geometry clause (b) graded over the whole
+closed real-money population; prop status-request suppression re-confirmed
+with its positive control) plus the GENERATED CLAUDE.md SESSION-BRIEF
+re-render. Declaration: .github/pr-landing/mi279-u5-e35-and-prop-suppression.json
