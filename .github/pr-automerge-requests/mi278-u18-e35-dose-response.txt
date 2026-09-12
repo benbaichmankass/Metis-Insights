@@ -1,0 +1,9 @@
+MI-278 U18 — e35 dose-response gradeability.
+
+Tier-1, every path inside TIER1_SURFACE (scripts/research/** is allowlisted).
+Read-only research: one instrument, one memo, its index row, one backlog row
+dispositioned. No src/**, no config/**, nothing enacted.
+
+The headline is a REFUSAL: the dose-response is still not gradeable after the
+venue was asked. The nominally-significant p=0.0486 on the gradeable subset is
+reported only beside the sensitivity band that disqualifies it.
