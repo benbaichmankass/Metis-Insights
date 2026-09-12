@@ -1,6 +1,6 @@
 # Would the pre-e35 2.5-ATR stop have been hit? — the stop-width counterfactual
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Unit:** MI-275 · `WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE`
 **Row:** `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED` (third reading)
