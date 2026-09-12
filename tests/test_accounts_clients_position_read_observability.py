@@ -20,6 +20,21 @@ function over the same venue payloads the characterization suite uses and pins
 the exact list, key by key. A future change that "improves" what is emitted
 fails here, loudly, instead of reaching a close decision.
 
+⚠️ **SUPERSEDED IN PART, 2026-09-12 (MI-283) -- READ THIS BEFORE QUOTING THE
+PARAGRAPH ABOVE.** The unchanged-return invariant was MI-222's APPROVED SCOPE,
+never a claim that the dedupe was correct; this file said so itself, pinning the
+drop with the docstring *"The defect is COUNTED, not fixed."* The fix is now
+approved and landed: the dedupe keys on ``(symbol, position_idx)`` and the
+return carries ``position_idx``. Two assertions are INVERTED rather than
+deleted, each naming what it used to say, so the file still records which
+behaviour was deliberate and when it changed.
+
+**What is NOT superseded, and is now load-bearing in the other direction:** the
+return value may only ever GAIN the book that was being dropped. The class
+below still pins the ordinary, flat, zero-size and could-not-read cases exactly
+as before, because a "fix" that also moved any of those would be a second,
+unapproved behaviour change riding the approved one.
+
 WHAT IS DELIBERATELY NOT DONE, so the next reader does not file it as an
 omission:
 
@@ -80,11 +95,23 @@ VENUE_ZERO_SIZE_ROW = [
      "unrealisedPnl": "0", "positionIdx": 1},
 ]
 
-# Two LIVE books on one symbol. Both clear the size gate, so the SECOND is
-# dropped by the symbol dedupe -- the drop that reaches money.
+# Two LIVE books on one symbol, opposite sides. Both clear the size gate. Until
+# 2026-09-12 the SECOND was dropped by the symbol-only dedupe -- the drop that
+# reaches money. Both are now returned.
 VENUE_TWO_LIVE_BOOKS = [
     {"symbol": "ETHUSDT", "side": "Sell", "size": "0.10", "avgPrice": "2492.67",
      "unrealisedPnl": "-1.0", "positionIdx": 2},
+    {"symbol": "ETHUSDT", "side": "Buy", "size": "0.04", "avgPrice": "2453.97",
+     "unrealisedPnl": "0.6464", "positionIdx": 1},
+]
+
+# The ONLY shape that still reaches the dedupe after 2026-09-12: the venue
+# listing the SAME book twice. It is not an expected venue answer, which is
+# exactly why the drop-reporting machinery is kept and re-pointed here rather
+# than deleted along with the defect it used to fire on.
+VENUE_DUPLICATE_BOOK = [
+    {"symbol": "ETHUSDT", "side": "Buy", "size": "0.04", "avgPrice": "2453.97",
+     "unrealisedPnl": "0.6464", "positionIdx": 1},
     {"symbol": "ETHUSDT", "side": "Buy", "size": "0.04", "avgPrice": "2453.97",
      "unrealisedPnl": "0.6464", "positionIdx": 1},
 ]
@@ -124,24 +151,32 @@ class TestReturnValueIsByteIdentical:
         out, _, _ = _run(bybit_account, VENUE_ORDINARY, tmp_path)
         assert out == [
             {"symbol": "BTCUSDT", "side": "Buy", "size": 0.005,
-             "entry_price": 78250.4, "unrealised_pnl": 1.23},
+             "entry_price": 78250.4, "unrealised_pnl": 1.23,
+             "position_idx": 1},
             {"symbol": "SOLUSDT", "side": "Sell", "size": 12.0,
-             "entry_price": 150.0, "unrealised_pnl": -0.4},
+             "entry_price": 150.0, "unrealised_pnl": -0.4,
+             "position_idx": 2},
         ]
 
-    def test_no_position_idx_leaks_into_the_returned_rows(
+    def test_returned_rows_now_carry_position_idx(
         self, bybit_account, tmp_path,
     ):
-        """The observation records ``position_idx``; the RETURN must not gain it.
-
-        Adding a key here would change what every consumer receives, which is
-        precisely the Tier-3 change that was not approved.
+        """⚠️ INVERTED 2026-09-12 (MI-283) — it read
+        ``test_no_position_idx_leaks_into_the_returned_rows`` and asserted the
+        RETURN must NOT gain the key, because MI-222's approved scope was
+        observation-only. That scope was the reason, not the design: emitting
+        ``position_idx`` is half of what the backlog row asks for, and it is
+        approved now. The assertion is inverted rather than deleted so the
+        history of the decision survives in the file that enforces it.
         """
         out, _, _ = _run(bybit_account, VENUE_ORDINARY, tmp_path)
+        assert out, "fixture produced no rows; the assertion below is vacuous"
         for row in out:
             assert set(row) == {
                 "symbol", "side", "size", "entry_price", "unrealised_pnl",
+                "position_idx",
             }
+        assert [r["position_idx"] for r in out] == [1, 2]
 
     @pytest.mark.parametrize(
         "label,rows,expected",
@@ -156,13 +191,30 @@ class TestReturnValueIsByteIdentical:
         out, _, _ = _run(bybit_account, rows, tmp_path)
         assert out == expected, f"{label}: the return value moved"
 
-    def test_symbol_dedupe_still_drops_the_second_live_book(
+    def test_both_live_hedge_books_are_returned(
         self, bybit_account, tmp_path,
     ):
-        """The defect is COUNTED, not fixed. Fixing it is the Tier-3 change."""
+        """⚠️ INVERTED 2026-09-12 (MI-283) — THIS IS THE WHOLE FIX.
+
+        It read ``test_symbol_dedupe_still_drops_the_second_live_book`` and
+        asserted ``len(out) == 1``, with the docstring *"The defect is COUNTED,
+        not fixed. Fixing it is the Tier-3 change."* This IS that change.
+
+        Why it matters, concretely: the returned list feeds
+        ``order_monitor._exchange_position_set``, which keys on
+        ``(symbol, normalised_side)`` and gates the CLOSE decision. The two
+        books here are OPPOSITE sides, so dropping one removed a whole
+        ``(symbol, side)`` pair from that set and the surviving journal row on
+        the other side read FLAT. Two false closes and -$762.496 of
+        manufactured loss were attributed to exactly this (#11867).
+        """
         out, _, _ = _run(bybit_account, VENUE_TWO_LIVE_BOOKS, tmp_path)
-        assert len(out) == 1
-        assert out[0]["side"] == "Sell"
+        assert len(out) == 2, f"a live hedge book was dropped: {out}"
+        # Both books survive AND keep their own side/size -- a fix that
+        # returned two copies of one book would pass a length check alone.
+        assert {(r["side"], r["size"], r["position_idx"]) for r in out} == {
+            ("Sell", 0.10, 2), ("Buy", 0.04, 1),
+        }
 
     def test_could_not_read_still_returns_none_not_empty(self, bybit_account):
         """``None`` (could not read) must stay distinct from ``[]`` (flat).
@@ -209,10 +261,18 @@ class TestThreeStatesAreNowCountable:
         assert dropped["position_idx"] == 1
         assert dropped["size_raw"] == "0"
 
-    def test_dropped_hedge_book_is_named_with_its_position_idx(
+    def test_a_duplicate_book_is_still_named_with_its_position_idx(
         self, bybit_account, tmp_path,
     ):
-        _, lines, _ = _run(bybit_account, VENUE_TWO_LIVE_BOOKS, tmp_path)
+        """⚠️ RE-POINTED 2026-09-12 (MI-283), NOT DELETED.
+
+        It read ``test_dropped_hedge_book_is_named_with_its_position_idx`` and
+        drove ``VENUE_TWO_LIVE_BOOKS``, because a hedge sibling WAS what this
+        dedupe dropped. It no longer is. The reporting machinery is still
+        correct and still worth pinning, so it is driven by the one shape that
+        can still reach it -- the venue listing the same book twice.
+        """
+        _, lines, _ = _run(bybit_account, VENUE_DUPLICATE_BOOK, tmp_path)
         row = lines[0]
         assert row["dropped_symbol_dedupe_count"] == 1
         dropped = row["dropped_symbol_dedupe"][0]
@@ -221,6 +281,23 @@ class TestThreeStatesAreNowCountable:
         assert dropped["side"] == "Buy"
         assert row["rows_seen"] == 2
         assert row["emitted"] == 1
+
+    def test_two_hedge_books_no_longer_record_a_drop_at_all(
+        self, bybit_account, tmp_path,
+    ):
+        """The counter must go to ZERO for the shape that used to trip it.
+
+        Asserted separately from the return-value test because "both books are
+        returned" and "nothing was recorded as dropped" are different facts,
+        and a fix that emitted both while still logging a phantom drop would
+        keep firing the alarm this change is supposed to retire.
+        """
+        out, lines, _ = _run(bybit_account, VENUE_TWO_LIVE_BOOKS, tmp_path)
+        assert len(out) == 2
+        assert lines[0]["dropped_symbol_dedupe_count"] == 0
+        assert lines[0]["dropped_symbol_dedupe"] == []
+        assert lines[0]["rows_seen"] == 2
+        assert lines[0]["emitted"] == 2
 
     def test_a_failed_cross_check_records_could_not_look(self, tmp_path):
         """A read that FAILED is never a synonym for flat.
@@ -266,10 +343,18 @@ class TestThreeStatesAreNowCountable:
 class TestFindingReachesAHumanSurface:
     """``logger.warning`` reaches the journal and nowhere else."""
 
-    def test_dropped_live_book_reports_through_outcomes(
+    def test_duplicate_book_reports_through_outcomes(
         self, bybit_account, tmp_path,
     ):
-        client = _client_returning(VENUE_TWO_LIVE_BOOKS)
+        """⚠️ RE-POINTED + RENAMED EVENT 2026-09-12 (MI-283).
+
+        It drove ``VENUE_TWO_LIVE_BOOKS`` and asserted the event name
+        ``hedge_book_dropped``. Both moved, and the event rename is deliberate:
+        after the dedupe keys on ``(symbol, position_idx)`` a hedge sibling
+        cannot collide, so that name would describe a cause no code path can
+        reach -- ``diagnostic-provenance`` sub-class A, in our own alarm.
+        """
+        client = _client_returning(VENUE_DUPLICATE_BOOK)
         with patch("src.units.accounts.clients.bybit_client_for",
                    return_value=client), \
              patch("src.utils.paths.runtime_logs_dir", return_value=tmp_path), \
@@ -279,8 +364,27 @@ class TestFindingReachesAHumanSurface:
         assert rep.call_count == 1
         args, kwargs = rep.call_args
         assert args[0] == "position_read_state"
-        assert args[1] == "hedge_book_dropped"
+        assert args[1] == "duplicate_book_dropped"
         assert kwargs["account_id"] == "bybit_not_in_accounts_yaml"
+
+    def test_two_hedge_books_no_longer_page(self, bybit_account, tmp_path):
+        """The 506-occurrence warn class is retired, and that is asserted.
+
+        MEASURED: ``hedge_book_dropped`` appears 506x in
+        ``docs/claude/ERROR-FEED-DIGEST.md`` and ``position_read_state`` is 168
+        of the 1000 (capped, therefore truncated) warn rows measured
+        2026-09-11. Every one of those was this shape. If a future change
+        re-introduces the page for a routine two-book read, the feed occlusion
+        comes back with it -- so it fails here.
+        """
+        client = _client_returning(VENUE_TWO_LIVE_BOOKS)
+        with patch("src.units.accounts.clients.bybit_client_for",
+                   return_value=client), \
+             patch("src.utils.paths.runtime_logs_dir", return_value=tmp_path), \
+             patch("src.runtime.outcomes.report") as rep:
+            out = account_open_positions(bybit_account)
+        assert len(out) == 2, "guard: the fixture must produce the two-book read"
+        assert rep.call_count == 0
 
     def test_a_clean_read_does_not_page(self, bybit_account, tmp_path):
         """A WARN per read would be the desensitised-alarm failure."""

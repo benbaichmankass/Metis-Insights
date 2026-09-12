@@ -3176,9 +3176,17 @@ async def get_bybit_raw_positions(
     does the VENUE not return a position, or does the BOT drop it after the
     read?** Every other Bybit position reader answers a REDUCED version — both
     ``account_open_positions`` and ``account_bybit_open_orders`` skip
-    ``size <= 0`` and dedupe by SYMBOL — so *"genuinely flat"*, *"a zero-size
-    hedge-mode sibling book was returned"* and *"no row was returned at all"*
-    are ONE observation to every consumer in the system.
+    ``size <= 0`` — so *"genuinely flat"*, *"a zero-size hedge-mode sibling
+    book was returned"* and *"no row was returned at all"* are ONE observation
+    to every consumer in the system.
+
+    ⚠️ **CORRECTED 2026-09-12 (MI-283).** This said both readers *"skip
+    ``size <= 0`` AND dedupe by SYMBOL"*. The dedupe half is no longer true:
+    both now key on ``(symbol, position_idx)``, because the symbol-only key
+    dropped a hedge symbol's second LIVE book on 376 of 376 ``bybit_1`` reads
+    and false-closed two live positions. **The ``size <= 0`` half is
+    UNCHANGED**, so this route's reason to exist is undiminished — a zero-size
+    row is still invisible to both readers, which is the collapse above.
 
     That collapse is not theoretical and it is not new: it blocked root-cause
     on **two real-money P1 investigations one day apart**.

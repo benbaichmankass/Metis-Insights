@@ -223,28 +223,43 @@ class TestThreeVenueStatesRenderIdentically:
         ):
             out = account_open_positions(bybit_account)
 
-        assert out and "position_idx" not in out[0]
+        # ⚠️ INVERTED 2026-09-12 (MI-283). It asserted
+        # ``"position_idx" not in out[0]`` -- a correct characterization of the
+        # defect, which is what made the three venue states indistinguishable
+        # to a caller. The row now carries it.
+        assert out and out[0]["position_idx"] == 1
         assert set(out[0]) == {
             "symbol", "side", "size", "entry_price", "unrealised_pnl",
+            "position_idx",
         }
 
 
 class TestSymbolDedupeDropsTheSecondBook:
-    """``seen`` is keyed on SYMBOL, so two LIVE books collapse to one."""
+    """⚠️ REPAIRED 2026-09-12 (MI-283) — the dedupe keys on the BOOK now.
 
-    def test_two_live_hedge_books_on_one_symbol_report_as_one(
+    The class name is deliberately left alone: it is what this file
+    CHARACTERIZED, and several rows reference it by name. The behaviour it
+    characterized is gone; read the test bodies, not the class name.
+    """
+
+    def test_two_live_hedge_books_on_one_symbol_are_both_returned(
         self, bybit_account,
     ):
-        """The hedge-mode drop MI-221 § 4a confirmed, in executable form.
+        """⚠️ INVERTED 2026-09-12 (MI-283) — this is the defect being repaired.
 
-        Both books are non-zero, so both clear the ``size <= 0`` guard. The
-        first adds ``ETHUSDT`` to ``seen``; the second hits ``if sym in seen:
-        return`` and is **silently dropped** — no counter, no log.
+        It read ``test_two_live_hedge_books_on_one_symbol_report_as_one`` and
+        asserted ``len(out) == 1``, characterizing the hedge-mode drop MI-221
+        § 4a confirmed: both books clear the ``size <= 0`` guard, the first
+        added ``ETHUSDT`` to ``seen``, and the second hit ``if sym in seen:
+        return`` and was **silently dropped**.
 
-        Consequence, spelled out because it is a live-money one: if the dropped
-        book is the one a journal row sits on, ``_exchange_position_set`` lacks
-        that ``(symbol, side)`` pair, the test at ``order_monitor.py:4348``
-        reads flat, and the reconciler CLOSES A LIVE POSITION.
+        The consequence was a live-money one, which is why it is repaired: if
+        the dropped book is the one a journal row sits on,
+        ``_exchange_position_set`` lacks that ``(symbol, side)`` pair, the test
+        at ``order_monitor.py:4348`` reads flat, and the reconciler CLOSES A
+        LIVE POSITION. Two such closes, -$762.496 of manufactured loss, were
+        attributed to it (#11867), against a drop rate MEASURED at 376 of 376
+        ``bybit_1`` reads (100.0%) over 2026-09-12T03:20:49Z→07:36:53Z.
         """
         rows = [
             {
@@ -265,12 +280,17 @@ class TestSymbolDedupeDropsTheSecondBook:
             out = account_open_positions(bybit_account)
 
         assert out is not None
-        assert len(out) == 1, "symbol dedupe drops the second live book"
-        # The SHORT survives; the live 0.04 LONG — trade 5471's book — is gone.
-        assert out[0]["side"] == "Sell"
-        assert not [p for p in out if p.get("side") == "Buy"], (
-            "the live long was dropped and nothing in the return value says so"
-        )
+        assert len(out) == 2, f"a live hedge book was dropped: {out}"
+        # Both SIDES survive. Asserted on side rather than count alone because
+        # the whole harm was the loss of a (symbol, side) pair from
+        # ``_exchange_position_set`` -- two rows of the SAME side would pass a
+        # length check and still leave the close decision broken.
+        assert {p["side"] for p in out} == {"Buy", "Sell"}
+        # The live 0.04 LONG -- trade 5471's book, the one that used to vanish.
+        longs = [p for p in out if p["side"] == "Buy"]
+        assert len(longs) == 1
+        assert longs[0]["size"] == 0.04
+        assert longs[0]["position_idx"] == 1
 
 
 class TestCouldNotReadIsStillDistinguishable:

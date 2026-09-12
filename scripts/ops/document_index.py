@@ -313,6 +313,23 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live "
         "work plan WORKPLAN-2026-08-29.md, not a replacement for it",
     ),
+    # Written 2026-09-12 by MI-283, which is also the session that authored the
+    # change it documents, so the status is ESTABLISHED rather than inferred: it
+    # is the evidence doc for PR #11903, that PR is open and unmerged, and every
+    # measurement in it was taken this session against a stated population.
+    # It carried `unknown` for the same reason TASK-PRIORITY-2026-09-07 did --
+    # written after the rules that could have seen it, so no rule can derive a
+    # status from anything but its own self-declared header, which this register
+    # deliberately refuses to trust.
+    # ⚠️ It goes `historical` the moment #11903 is merged or rejected: it is
+    # evidence for a DECISION, and once the decision is taken the doc records
+    # something that happened rather than something pending.
+    "docs/claude/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md": (
+        "live",
+        "read:MI-283-authored-it-this-session-evidence-for-open-PR-11903",
+        "evidence for the Tier-2 ask in PR #11903, which is open and unmerged; "
+        "goes historical when that PR is decided",
+    ),
 }
 
 # ---------------------------------------------------------------------------
