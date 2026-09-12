@@ -707,6 +707,72 @@ directions** — one leg wants a tighter target, one wants a wider one. That is
 not a family-level lever; it is at most two per-leg ones, and neither is
 walk-forwarded.
 
+## 4i. ROBUSTNESS NOTE — the fan-out denominator, applied to this queue's OWN inputs
+
+`BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY`
+says a rate about PRICE behaviour computed per `trades` row double-counts,
+because one signal fans out to several accounts sharing one price path. **U3's
+own numbers are unaffected** — they are backtest output from one engine, where
+no fan-out exists. **U2's are not**, and U2 is merged, so this is checked here.
+
+**Measured** on the live journal (`/api/diag/journal`, 1000 rows, ids
+4720–5719, pulled 2026-09-12T08:5xZ), restating U2's population exactly
+(closed · non-backtest · `pnl NOT NULL` · pairs excluded · `created_at >=
+2026-08-27`):
+
+| U2 figure | rows | distinct order_packages | inflation |
+|---|--:|--:|--:|
+| the decision population | 184 | 143 | 1.287× |
+| ...of which winners | 49 | **43** | 1.140× |
+
+**U2's conclusions survive.** Its headline is *the whole exit-lever family is
+3 of 49 winners* — three fires is three packages either way, 6.1% per row
+against ≤7.0% per package, and *"no lever is cutting winners short"* is
+unchanged. What is owed under the row's own resolution criterion is that the
+package count be **stated**, which it now is.
+
+**But the inflation is NOT uniform, and that direction matters**: 1.287× over
+all rows against 1.140× on winners, so a per-row *win rate* is biased **down**.
+Measured: **26.6% per row (49/184) against 28.7% per package (41/143)** — 2.0 pp
+absolute, +7.7% relative.
+
+### Two packages book a win and a loss on the SAME signal
+
+Only 2 of 143, and both land in already-known defective populations rather than
+being new:
+
+- `pkg-261c8a3bf39a45c7` — **two rows on the SAME account** (`bybit_1`,
+  `ict_scalp_sol_5m`): one `stuck_strategy_watchdog` at **−888.91**, one
+  `netting_attributed` at **+30.23**. Not account fan-out at all; this is the
+  `OI-20260908` netting population, where a live position is closed off a
+  side-blind read.
+- `pkg-293021e2e84a48db` — three accounts, all `reconciler_filled`:
+  `bybit_portfolio` **−594.00**, real-money `bybit_2` **−3.92**, `bybit_1`
+  **+200.62**. Sizes differ legitimately; the **sign** does not follow from one
+  price path. All three carry the label U1 established *cannot name a mechanism
+  by construction*.
+
+### The surfaces, named — and the scariest one is CLEAN
+
+The row asks that the surfaces computing such rates be named. A lexical screen
+over `scripts/{research,ops,ml}`, `src/runtime` and `src/web/api/routers` for
+files that (a) read the LIVE journal, (b) compute a rate, and (c) mention a
+price-path concept returns **27 files, 17 of which reference no package unit
+anywhere**. Controls: the package probe fires on the other 10, and the pure
+backtest harnesses (`scripts/backtest_ict_scalp.py`,
+`scripts/research/m27/ict_scalp_exit_sweep.py`) are correctly **absent**.
+
+⚠️ **That 17 is a LEXICAL SCREEN, not a finding — each hit needs a real check,
+and the first one I ran came back clean.** The only production surface in the
+list is `src/web/api/routers/strategies.py`, which serves the SPA's Strategies
+tab. **It is NOT affected**: the route filters to real money only, and that
+population has **inflation exactly 1.000×** — 42 closed non-backtest
+real-money rows, 42 distinct packages, every multiplicity 1, all on `bybit_2`
+(the only real-money account in the window). A per-row win rate there equals
+the per-package one. **An earlier draft of this section named it as at-risk on
+the strength of the screen alone; that would have been an accusation against a
+correct surface, and it is recorded rather than silently dropped.**
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`

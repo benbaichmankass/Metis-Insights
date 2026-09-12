@@ -151,9 +151,13 @@ def timeout_share(window: dict) -> float | None:
     """Fraction of a window's trades force-closed by the harness time exit.
 
     THIS IS A FIDELITY NUMBER, NOT A PERFORMANCE ONE. Production has NO
-    time-based exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-
-    FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL), so every
-    `timeout` trade is one the live leg would still have been holding. It is
+    time-based exit on any ict_scalp leg, so every `timeout` trade is one the
+    live leg would still have been holding. Tracked by
+    BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL
+    — the id is kept on ONE line deliberately: a tracking id wrapped across two
+    lines is graded as dangling by artifact-validity-guard, i.e. it reads as
+    tracked while being tracked by nobody. This session made that exact mistake
+    twice before catching it here. It is
     printed beside each cell's verdict because it is NOT constant across the
     grid: measured on SOLUSDT 5m it rises MONOTONICALLY with the target,
     21.4% at 0.75R to 58.5% at 4R, so a wide cell is graded on a population
