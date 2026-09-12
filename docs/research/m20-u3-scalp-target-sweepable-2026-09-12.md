@@ -636,6 +636,77 @@ of eight, on a Path A gate that §4f shows omits the capital term, with no
 walk-forward yet run on the target grid at parity. The prediction is about the
 INSTRUMENT, not about shipping anything.
 
+## 4h. THE RESULT — my prediction was HALF RIGHT, and the half that failed matters more
+
+`ict_scalp_avax_5m` at parity landed at **08:58Z**, after the §4g prediction was
+committed (`b8eda76f6`, **08:56:13Z**). Grading it against what I wrote:
+
+| cell | IS ΔR @24-bar | IS ΔR @parity | collapse | IS maxDD @24-bar | IS maxDD @parity |
+|---|--:|--:|--:|--:|--:|
+| tp2R | +1.43 | −2.77 | −294% | 87.14 | **28.27** |
+| tp2.5R | +12.20 | −2.05 | −117% | 84.86 | **29.38** |
+| tp3R | +16.52 | **+4.51** | −73% | 87.15 | **36.99** |
+| tp4R | +28.59 | **+9.80** | −66% | 83.38 | **24.90** |
+
+*(baseline: IS R 147.04 → 133.76, IS maxDD 80.59 → **87.99** at parity)*
+
+**CONFIRMED — the R gains collapsed, as predicted.** `tp4R` fell from +28.59 to
++9.80 (−66%), `tp3R` from +16.52 to +4.51 (−73%), and `tp2R`/`tp2.5R` went
+negative outright. The §4e mechanism holds on the hardest case.
+
+**REFUTED — the cells nevertheless PASSED.** `tp3R` and `tp4R` are the
+**first `bracket_geometry` CANDIDATES at parity on a widening**, and they
+passed on the half I was not watching: **in-sample max-drawdown falls from
+~83–87 R to ~25–37 R.** I predicted the gate outcome from the R column alone
+and did not consider that removing the clock would change the drawdown path.
+That is a real miss, and the prediction is recorded as half-refuted rather than
+re-described as a success.
+
+### ⚠️ Why I am NOT treating this as a finding yet — the drawdown is n=1 in EPISODES
+
+**maxDD is a path statistic set by a single worst episode.** A −59 to −63 R
+improvement appearing on all four wide cells is **four views of the same
+episode**, not four independent observations — the same nesting caveat §4d
+applied to net R, applied to drawdown, where it bites harder because the
+statistic is an extremum rather than a sum. The whole PASS rests on the
+baseline's one deep in-sample drawdown being one the wider targets happen to
+sit out.
+
+**The walk-forward is exactly the test for that**, and it is the M20 gate
+anyway: a one-episode artifact will not reproduce across yearly folds, a real
+property will. It was **not** run here (`walkforward=false` on this arm), so
+**`tp3R`/`tp4R` are IS/OOS candidates and nothing more.** A parity run with
+`walkforward=true` is dispatched.
+
+### What this does and does not change
+
+- **It does NOT reverse §4e or §4f.** The clock still flatters wide targets;
+  that is why these cells collapsed by two-thirds.
+- **It DOES retire the sentence "widening does not help" as a family-wide
+  claim.** On 6 parity legs read, 5 return nothing and 1 returns two widening
+  candidates. The honest statement is now **leg-specific**, not fleet-wide.
+- **It does NOT approach a Tier-3 proposal.** One leg of eight, no
+  walk-forward, on a Path A gate that §4f shows omits the capital term — and
+  §4f measured wide targets holding ~5× longer for fewer trades, which is
+  precisely what Path B would charge them for and Path A does not.
+
+### Parity scoreboard so far (6 of 7 legs)
+
+| leg | candidates |
+|---|---|
+| `ict_scalp_eth_15m` | none (Σ IS −60.03, Σ OOS −23.04) |
+| `ict_scalp_sol_15m` | none |
+| `ict_scalp_xrp_15m` | **tp1.25R** — a *narrowing* |
+| `ict_scalp_sol_5m` | none |
+| `ict_scalp_xrp_5m` | none |
+| `ict_scalp_avax_5m` | **tp3R, tp4R** — *widenings*, on drawdown |
+| `ict_scalp_5m` (BTC) | still running |
+
+**3 candidates in 42 parity cells, on 2 of 6 legs, pointing in OPPOSITE
+directions** — one leg wants a tighter target, one wants a wider one. That is
+not a family-level lever; it is at most two per-leg ones, and neither is
+walk-forwarded.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
