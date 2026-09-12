@@ -145,6 +145,7 @@ def test_no_caller_overrides_the_wait_with_its_own_timeout():
 # ─────────────────────────────────────────────────────────────────────────────
 
 SESSION_BOARD = "docs/claude/session-board.json"
+BRANCH_SLOT_DIR = ".github/merge-slots"
 CLAIM_SCRIPT = "scripts/ops/claim_merge_slot.py"
 
 
@@ -179,9 +180,19 @@ def test_the_claim_is_staged_in_the_same_commit_as_the_arming_file():
     like the fix is present."""
     script = _action_script()
     add_block = script.split('git add -- ".github/pr-landing/')[-1].split("git commit")[0]
-    assert SESSION_BOARD in add_block, (
-        f"{SESSION_BOARD} is not staged alongside the arming file. R13 grades "
-        f"the branch's own diff; an unstaged claim is not a claim.")
+    # ⚠️ THIS ASSERTED `SESSION_BOARD in add_block` UNTIL 2026-09-12, WHICH PINNED
+    #    THE ROUTE RATHER THAN THE INVARIANT. R13 accepts two routes and the
+    #    action moved to the per-branch one, so naming the shared file made a
+    #    correct action fail. The invariant is unchanged and is what is asserted
+    #    now: whatever route the claim takes, it is STAGED in the same commit as
+    #    the arming file, because R13 reads the claim out of the branch's own
+    #    diff. Accepting EITHER route is not a weakening — staging NEITHER still
+    #    fails, which is the only thing this test ever protected.
+    assert (BRANCH_SLOT_DIR in add_block) or (SESSION_BOARD in add_block), (
+        f"no R13 claim is staged alongside the arming file — neither "
+        f"{BRANCH_SLOT_DIR} (the per-branch route) nor {SESSION_BOARD} (the "
+        f"legacy shared field). R13 grades the branch's own diff; an unstaged "
+        f"claim is not a claim.")
 
 
 def test_a_missing_claim_script_refuses_rather_than_opening_a_doomed_pr():
