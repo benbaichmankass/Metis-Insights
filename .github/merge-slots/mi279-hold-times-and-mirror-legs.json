@@ -1,0 +1,6 @@
+{
+  "held_by": "session_013iSqp4LsU1eq8K326eUtgj",
+  "branch": "claude/mi279-hold-times-and-mirror-legs",
+  "claimed_at": "2026-09-12T10:24:59Z",
+  "purpose": "PR #11888 — moved off the shared merge_slot onto the per-branch claim (#11891); arming IS the merge (R13)."
+}
