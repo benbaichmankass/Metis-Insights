@@ -278,6 +278,13 @@ GEOMETRY_SENSITIVE_LEVERS = frozenset({
     # cells were measured net-of-fees WITH the cap applied, so none is stale
     # today — the entry states the RULE, not a current condition.
     "bracket_geometry",
+    # `stop_geometry` (2026-09-12, MI-278 U3) belongs here for the same reason
+    # as `bracket_geometry` and an even more direct one: it sweeps the STOP,
+    # which is the R denominator. A cell measured under a different stop width
+    # is not aged, it graded a different bracket AND a different R. Its own
+    # cells were measured at live parity on the `ict_scalp` family, so none is
+    # stale today — this entry states the RULE, not a current condition.
+    "stop_geometry",
 })
 
 _DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
@@ -711,6 +718,17 @@ _COLUMNS_WITH_THEIR_OWN_DRIVER = frozenset({
     "exit_head_ml",       # scripts/research/m20_exit_head_round.py
     "regime_flip_exit",   # scripts/research/m20_flip_replay_sweep.py
     "bracket_geometry",   # scripts/research/e35_bracket_geometry_sweep.py
+    # `stop_geometry` (2026-09-12, MI-278 U3). It is NOT in
+    # COLUMNS_WITH_A_SWEEP_PRODUCER because the FLEET sweep does not emit it --
+    # `m20_fleet_exit_sweep.cells_for` emits no `stop_geometry` cell, and the
+    # test that CALLS that function over the real configs would fail if this
+    # were claimed there. Its producer is the m27 scalp sweep, whose
+    # `stop_buffer_cells` swept 42 cells over 7 legs at live parity.
+    # ⚠️ The e35 bracket sweep is NOT its producer and cannot become one: the
+    # `ict_scalp` stop is STRUCTURAL (`sweep_extreme +/- atr_sl_buffer_mult x
+    # ATR`), so `atr_stop_mult` -- the axis e35 sweeps -- does not exist for
+    # this family, which is why e35 excludes it by design.
+    "stop_geometry",      # scripts/research/m27/ict_scalp_exit_sweep.py
 })
 
 
