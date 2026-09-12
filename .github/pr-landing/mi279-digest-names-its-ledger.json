@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/work_digest.py (operator-digest rendering), scripts/ci/check_open_items.py (a CI guard rule + self-tests), one 21-byte repair to docs/claude/OPEN-ITEMS.json, and register rows. Observability and CI only — no src/, no config/, no VM mutation, no order path."
+}
