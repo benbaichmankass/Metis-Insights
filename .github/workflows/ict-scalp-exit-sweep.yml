@@ -149,6 +149,34 @@ jobs:
           echo "---VERDICTS_JSON---"
           cat "out/${SYM}_${TF}/verdicts.json" >> verdicts_raw.json || true
 
+      # MI-278 U6, 2026-09-12. THE VERDICT COMMENT WAS THE ONLY DURABLE RECORD,
+      # AND IT IS NOT RELIABLE. Run 34684742080 computed all seven legs and its
+      # post step failed with "no open PR found for commit 84a3dab8", so six
+      # verdicts had to be hand-transcribed out of job logs — weaker provenance
+      # than a posted comment, and job logs expire. Every M27 ict_scalp cell in
+      # `docs/research/exit-refinement-coverage.json` rests on this path, and
+      # `verdicts.json` was written to a runner-local `out/` and thrown away.
+      #
+      # `if: always()` deliberately, and for the same reason as the post step:
+      # a run that dies after computing some cells still holds the only copy of
+      # them. `retention-days: 90` is the plan default made EXPLICIT, so the
+      # window is a stated fact rather than whatever the org setting happens to
+      # be — 90 days is NOT permanent, and the standing fix is for these
+      # verdicts to reach `docs/research/m20-sweep-corpus.jsonl`, which today
+      # holds ZERO ict_scalp rows (measured: 1376 rows across 5 levers, none of
+      # them this family). Filed as
+      # `BL-20260912-EVERY-M27-ICT-SCALP-VERDICT-IS-CARRIED-BY-A-PR-COMMENT-THAT-HAS-ALREADY-FAILED-TO-POST-ONCE`.
+      - name: Upload the sweep verdicts as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-sweep-${{ matrix.leg.name }}
+          path: |
+            out/**/verdicts.json
+            sweep.out
+          if-no-files-found: warn
+          retention-days: 90
+
       - name: Post verdict comment on PR
         if: always()
         uses: actions/github-script@v7
