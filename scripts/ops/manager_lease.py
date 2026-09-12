@@ -53,6 +53,51 @@ STATES, NEVER COLLAPSED
                  two concurrent managers, so an unreadable lease fails CLOSED.
                  `--force --reason "..."` is the escape, and it is recorded in
                  the file so a takeover on no evidence is never invisible.
+``unrefreshable``
+                 past the TTL, **and `main` is red**, so a heartbeat could not
+                 have landed however promptly it was opened. NOT claimable.
+                 ⚠️ **`expired` and `unrefreshable` are opposite facts and only
+                 one of them means nobody is managing.** See below.
+``expired_unverified``
+                 past the TTL, and `main`'s state COULD NOT BE READ. Claimable
+                 — deliberately, because failing closed here would make the
+                 lease unclaimable exactly when a manager has genuinely DIED
+                 and CI is unreachable, which is the case takeover exists for —
+                 but the message says plainly that the `unrefreshable` case was
+                 not ruled out.
+
+WHY `unrefreshable` EXISTS (BL-20260909-A-BASE-BRANCH-RED-CAN-EXPIRE-THE-MANAGER
+-LEASE-OF-A-SESSION-THAT-IS-ALIVE-AND-HEARTBEATING)
+--------------------------------------------------------------------------------
+MEASURED 2026-09-09T08:05:10Z: `status` read `heartbeat_at=07:34:57Z` against a
+90-minute TTL, while the holder had heartbeated THREE more times (07:46:27,
+07:54:48, 07:56:42) — every one trapped in PR #11515, which could not merge
+because an unrelated guard was red **on clean main**. So a session that was
+alive, working and beating on cadence read as expired, and a session arriving
+cold would have found it claimable.
+
+⚠️ **THE COUPLING NOBODY DESIGNED.** The lease lives in the repo precisely so it
+survives its holder's DEATH and is readable COLD — correct, and why it cannot be
+session state. But that makes its refresh a MERGE, and a merge is gated on the
+repo being green. **Lease liveness therefore depends on CI health, a completely
+unrelated property.**
+
+⚠️ **THIS IS NOT THE 2026-09-07 PACING CLASS.** That one is a heartbeat stamped
+when its PR opens and merged ~60 min later, so it lands two-thirds through its
+own TTL; the fix there is to merge sooner. This one is not fixable by pacing at
+all — when every PR is blocked, no heartbeat lands however promptly it is
+opened. Conflating them makes the wrong fix look sufficient.
+
+⚠️ **WHAT THIS DOES NOT DO, STATED PLAINLY.** It does NOT make a heartbeat reach
+`main` while `main` is red — that is the row's option (a)/(c) and would need a
+landing path outside the guard set. This is option (b): the TTL is suspended and
+**the reason is recorded**, so the register says *"could not refresh"* instead of
+silently reading *expired*. A blocked manager still cannot refresh; what changes
+is that its successor is no longer told the lease is free.
+
+⚠️ **AND IT IS EMPHATICALLY NOT A TTL WIDENING OR A GUARD BYPASS**, both of which
+that row rules out by name. The TTL is unchanged at 90 minutes and no guard is
+skipped.
 
 The TTL is CHOSEN, NOT MEASURED (see ``TTL_MINUTES``).
 """
@@ -90,8 +135,19 @@ TTL_MINUTES = 90
 #: a missed beat is visible before it is fatal.
 HEARTBEAT_TARGET_MINUTES = 30
 
-CLAIMABLE = {"expired", "released", "absent"}
-REFUSING = {"held_fresh", "unreadable"}
+#: `expired_unverified` IS claimable, on purpose. Failing closed there would make
+#: the lease unclaimable exactly when a manager has DIED and CI is unreachable —
+#: the case takeover exists for — so the uncertainty is carried in the MESSAGE
+#: rather than in the refusal.
+CLAIMABLE = {"expired", "expired_unverified", "released", "absent"}
+REFUSING = {"held_fresh", "unreadable", "unrefreshable"}
+
+#: How `main`'s CI was read. Three values, never collapsed: a repo we could not
+#: ask about is not a green one.
+MAIN_GREEN = "green"
+MAIN_RED = "red"
+MAIN_UNKNOWN = "unknown"
+MAIN_STATES = (MAIN_GREEN, MAIN_RED, MAIN_UNKNOWN)
 
 
 def _now() -> datetime:
@@ -123,9 +179,113 @@ def read_lease(path: Path = LEASE_PATH) -> Tuple[Optional[Dict[str, Any]], bool]
     return (d, True) if isinstance(d, dict) else (None, False)
 
 
+def main_ci_state(timeout: float = 8.0) -> Tuple[str, str]:
+    """Is `main` mergeable right now? ``(state, detail)`` over ``MAIN_STATES``.
+
+    ⚠️ THREE VALUES AND `unknown` IS LOAD-BEARING. No token, no network, a
+    rate-limit, an unparseable payload — every one of them is *we could not
+    look*, and reporting any of them as `green` would silently restore the
+    exact collapse this function exists to prevent. It is the value this
+    returns most often outside CI, so it is the one written first.
+
+    ⚠️ IT DOES NOT CLASSIFY *WHY* MAIN IS RED, and that is deliberate rather
+    than lazy. The row this implements says "red on a guard unrelated to the
+    lease", but the property that matters to a heartbeat is only whether a
+    merge can happen at all — a red caused BY the lease file blocks it just as
+    completely. Classifying the cause would add a judgement the caller cannot
+    check, to reach the same answer.
+
+    BOUNDED: one request, `timeout` seconds. A manager reading `status` must
+    never hang on GitHub being slow — an unreachable API grades `unknown`,
+    which is claimable, so a slow network cannot deadlock a takeover.
+    """
+    import urllib.error
+    import urllib.request
+
+    token = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
+    if not token:
+        return MAIN_UNKNOWN, "no GITHUB_TOKEN/GH_TOKEN in the environment"
+
+    repo = os.environ.get("GITHUB_REPOSITORY", "benbaichmankass/Metis-Insights")
+    url = f"https://api.github.com/repos/{repo}/commits/main/check-runs?per_page=100"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "manager_lease",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, ValueError, TimeoutError) as exc:
+        return MAIN_UNKNOWN, f"could not read main's check runs: {exc}"
+
+    runs = payload.get("check_runs")
+    if not isinstance(runs, list):
+        return MAIN_UNKNOWN, "the check-runs payload carried no `check_runs` list"
+    if not runs:
+        # ⚠️ NOT green. Zero check runs on main is the same shape as the
+        # zero-check trap CLAUDE.md documents for PRs: it renders identically
+        # to "all passed" and to "nothing ran".
+        return MAIN_UNKNOWN, "main's head reported ZERO check runs — not a pass"
+
+    failed = sorted({r.get("name") for r in runs
+                     if r.get("conclusion") in ("failure", "timed_out")})
+    if failed:
+        return MAIN_RED, "red on " + ", ".join(x for x in failed if x)
+    pending = [r for r in runs if r.get("status") != "completed"]
+    if pending:
+        return MAIN_UNKNOWN, (f"{len(pending)} check(s) still running on main — "
+                              "not yet a pass and not a failure")
+    return MAIN_GREEN, f"{len(runs)} check(s) on main, none failing"
+
+
+def _past_ttl(holder: str, age_min: Optional[float], ttl_minutes: int,
+              main_ci: str) -> Tuple[str, str]:
+    """A lease past its TTL — but WHY it is past it decides whether to claim.
+
+    ⚠️ The whole point of this split: a holder that COULD NOT refresh and one
+    that DID NOT are opposite facts, and only the second means nobody is
+    managing. Collapsing them is what let a live, heartbeating manager read as
+    claimable on 2026-09-09.
+    """
+    how = (f"last heartbeat {age_min:.0f} min ago — past the {ttl_minutes} min TTL"
+           if age_min is not None else
+           "and it carries no readable heartbeat_at or claimed_at, so its "
+           "freshness cannot be established")
+
+    if main_ci == MAIN_RED:
+        return "unrefreshable", (
+            f"held by {holder}, {how} — BUT `main` is RED, so a heartbeat could "
+            f"not have landed however promptly it was opened. The lease refreshes "
+            f"by MERGING, and a merge is gated on the repo being green, so this "
+            f"says NOTHING about whether {holder} is alive. NOT claimable: "
+            f"'could not refresh' and 'did not refresh' are opposite facts and "
+            f"only the second means nobody is managing. Get `main` green, or "
+            f"claim with --force --reason if you have independent evidence that "
+            f"{holder} is gone.")
+
+    if main_ci == MAIN_UNKNOWN:
+        return "expired_unverified", (
+            f"held by {holder}, {how}. Claimable — but ⚠️ `main`'s CI state could "
+            f"NOT be read, so the `unrefreshable` case was not ruled out: if "
+            f"`main` is red, {holder} may be alive and simply unable to land a "
+            f"heartbeat. Claiming is still permitted, deliberately, because "
+            f"refusing here would make the lease unclaimable exactly when a "
+            f"manager has DIED and CI is unreachable. Say in your claim that you "
+            f"could not check.")
+
+    return "expired", (
+        f"held by {holder}, {how}. Claimable, and `main` is GREEN — so a "
+        f"heartbeat COULD have landed and did not. ⚠️ If that session is in fact "
+        f"still alive it will discover on its next heartbeat that it no longer "
+        f"holds the lease and stand down; that is the designed takeover, not a "
+        f"race.")
+
+
 def grade(lease: Optional[Dict[str, Any]], readable: bool, me: Optional[str],
           now: Optional[datetime] = None,
-          ttl_minutes: int = TTL_MINUTES) -> Tuple[str, str]:
+          ttl_minutes: int = TTL_MINUTES,
+          main_ci: str = MAIN_UNKNOWN) -> Tuple[str, str]:
     """Grade the lease. PURE, so the policy is arguable in tests rather than
     against a live pair of sessions.
 
@@ -151,18 +311,11 @@ def grade(lease: Optional[Dict[str, Any]], readable: bool, me: Optional[str],
 
     beat = _parse_iso(lease.get("heartbeat_at")) or _parse_iso(lease.get("claimed_at"))
     if beat is None:
-        return "expired", (
-            f"held by {holder}, but it carries no readable heartbeat_at or "
-            f"claimed_at — so its freshness cannot be established and it cannot be "
-            f"shown to be live. Treated as expired and claimable.")
+        return _past_ttl(holder, None, ttl_minutes, main_ci)
 
     age_min = (now - beat).total_seconds() / 60.0
     if age_min > ttl_minutes:
-        return "expired", (
-            f"held by {holder}, last heartbeat {age_min:.0f} min ago — past the "
-            f"{ttl_minutes} min TTL. Claimable. ⚠️ If that session is in fact still "
-            f"alive it will discover on its next heartbeat that it no longer holds "
-            f"the lease and stand down; that is the designed takeover, not a race.")
+        return _past_ttl(holder, age_min, ttl_minutes, main_ci)
 
     if me and holder == me:
         return "held_by_me", (
@@ -203,15 +356,34 @@ _DOC = [
 ]
 
 
+def _resolve_main_ci(a) -> Tuple[str, str]:
+    """`main`'s CI state for this invocation.
+
+    ⚠️ ON BY DEFAULT. A default-off flag in front of this would leave the
+    collapse it fixes live for everybody who does not know to pass it — the
+    shape this repo forbids. `--no-check-main` is the deliberate opt-out and
+    grades `unknown`, which is CLAIMABLE, so opting out can only ever make the
+    tool more permissive and never silently block a takeover.
+    """
+    if getattr(a, "no_check_main", False):
+        return MAIN_UNKNOWN, "--no-check-main: we did not look"
+    return main_ci_state()
+
+
 def cmd_status(a) -> int:
     lease, readable = read_lease()
-    state, msg = grade(lease, readable, a.session_id)
+    main_ci, why = _resolve_main_ci(a)
+    state, msg = grade(lease, readable, a.session_id, main_ci=main_ci)
     print(f"manager-lease: state={state}")
     print(f"manager-lease: {msg}")
     if lease and lease.get("holder"):
         print(f"manager-lease: holder={lease.get('holder')} "
               f"claimed_at={lease.get('claimed_at')} "
               f"heartbeat_at={lease.get('heartbeat_at')}")
+    # Printed ALWAYS, not only when it changed the verdict: a reader needs to
+    # know the basis was checked even when the lease is fresh, or `main_ci` is
+    # invisible exactly when someone later asks why a verdict was what it was.
+    print(f"manager-lease: main_ci={main_ci} ({why})")
     print(f"manager-lease: claimable={state in CLAIMABLE}")
     return 0
 
@@ -230,7 +402,10 @@ def _commit(paths, message: str) -> None:
 
 def cmd_claim(a) -> int:
     lease, readable = read_lease()
-    state, msg = grade(lease, readable, a.session_id)
+    main_ci, why = _resolve_main_ci(a)
+    state, msg = grade(lease, readable, a.session_id, main_ci=main_ci)
+    if state == "unrefreshable" and not a.force:
+        print(f"manager-lease: main_ci={main_ci} ({why})")
     if state == "held_by_me":
         print(f"manager-lease: you already hold it. {msg}")
         return 0
@@ -350,9 +525,35 @@ def _self_test() -> int:
           grade(fresh, True, "S2", now=t0 + timedelta(minutes=5))[0], "held_fresh")
     check("the holder sees held_by_me, not held_fresh",
           grade(fresh, True, "S1", now=t0 + timedelta(minutes=5))[0], "held_by_me")
-    check("THE TAKEOVER PATH: past the TTL it is claimable by a stranger",
-          grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES + 1))[0],
+    # ⚠️ THE BASIS IS NOW EXPLICIT. `expired` means the holder COULD have
+    # refreshed and did not, which is only knowable if `main` was green — so
+    # these cases state MAIN_GREEN rather than relying on a default. Before the
+    # split they read `expired` on no basis at all, which is the defect.
+    check("THE TAKEOVER PATH: past the TTL, main GREEN, claimable by a stranger",
+          grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES + 1),
+                main_ci=MAIN_GREEN)[0],
           "expired")
+    check("PAST THE TTL WITH MAIN RED IS *NOT* A TAKEOVER — the holder may be "
+          "alive and simply unable to land a heartbeat",
+          grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES + 1),
+                main_ci=MAIN_RED)[0],
+          "unrefreshable")
+    check("...and `unrefreshable` is not claimable",
+          "unrefreshable" in CLAIMABLE, False)
+    check("with main UNREADABLE it is claimable, but SAYS it could not check — "
+          "refusing here would break takeover after a genuine death",
+          grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES + 1),
+                main_ci=MAIN_UNKNOWN)[0],
+          "expired_unverified")
+    check("...and `expired_unverified` IS claimable",
+          "expired_unverified" in CLAIMABLE, True)
+    check("the DEFAULT basis is `unknown`, so an uninformed caller is never "
+          "told main is fine",
+          grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES + 1))[0],
+          "expired_unverified")
+    check("a RED main does not touch a lease that is still fresh",
+          grade(fresh, True, "S2", now=t0 + timedelta(minutes=5),
+                main_ci=MAIN_RED)[0], "held_fresh")
     check("EXACTLY AT the TTL it is still held — the boundary is not a takeover",
           grade(fresh, True, "S2", now=t0 + timedelta(minutes=TTL_MINUTES))[0],
           "held_fresh")
@@ -363,10 +564,14 @@ def _self_test() -> int:
           grade({"state": "released", "holder": None, "released_by": "S1"},
                 True, "S2", now=t0)[0], "released")
     check("a lease with NO readable timestamp cannot be shown live, so it expires",
-          grade({"state": "held", "holder": "S1"}, True, "S2", now=t0)[0], "expired")
+          grade({"state": "held", "holder": "S1"}, True, "S2", now=t0,
+                main_ci=MAIN_GREEN)[0], "expired")
+    check("...but with main RED that same lease is `unrefreshable`, not expired",
+          grade({"state": "held", "holder": "S1"}, True, "S2", now=t0,
+                main_ci=MAIN_RED)[0], "unrefreshable")
     check("a garbage timestamp is not silently read as fresh",
           grade({"state": "held", "holder": "S1", "heartbeat_at": "yesterday-ish"},
-                True, "S2", now=t0)[0], "expired")
+                True, "S2", now=t0, main_ci=MAIN_GREEN)[0], "expired")
     check("a heartbeat in the FUTURE (clock skew) is not treated as expired",
           grade({"state": "held", "holder": "S1",
                  "heartbeat_at": _iso(t0 + timedelta(hours=5))},
@@ -390,6 +595,11 @@ def main(argv=None) -> int:
                        help="this session's id (defaults to $CLAUDE_SESSION_ID)")
         p.add_argument("--commit", action="store_true",
                        help="git add+commit the lease (never pushes)")
+        p.add_argument("--no-check-main", action="store_true",
+                       help="skip reading main's CI state. Grades main_ci "
+                            "`unknown`, which is CLAIMABLE — so this can only "
+                            "make the tool more permissive, never block a "
+                            "takeover. Use it offline or to avoid the API call.")
         p.add_argument("--force", action="store_true")
         p.add_argument("--reason", default=None)
         p.add_argument("--note", default=None)
