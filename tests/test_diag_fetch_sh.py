@@ -250,3 +250,70 @@ def test_a_query_string_survives_path_normalisation(tmp_path):
     _proc, attempted = _run(tmp_path, base=_CANONICAL, succeed_on=_CANONICAL,
                             path="/api/diag/journal?table=trades&limit=100")
     assert attempted[0] == f"{_CANONICAL}/api/diag/journal?table=trades&limit=100", attempted
+
+
+# --- 2026-09-12 (MI-279): a NON-diag /api/... path must be refused, not dialled ---
+#
+# RECURRENCE of the class this file's own header records. The 2026-08-20 fix
+# strips the `api/diag/` prefix so the full form no longer builds a doubled URL
+# -- but it strips ONE prefix, and the defect lives in the whole `api/` family.
+# A caller passing `/api/bot/work/checklist` kept `api/bot/...`, the script built
+# `<base>/api/diag/api/bot/work/checklist`, and the answered_404 branch advised
+# "check the path form", which is the wrong remedy: the path form is fine and the
+# TOOL is wrong. MEASURED that day -- that URL 404s while plain curl on
+# `https://ict-bot.duckdns.org/api/bot/work/checklist` returns 200, and a session
+# was one step from reporting the operator's live Workflow page as a dead route.
+#
+# These tests assert the REFUSAL happens before any curl at all, which is the
+# property that matters: no network, no relay fallback, and exit 2 (usage) rather
+# than 3, because this script's fallback -- the issue relay -- is diag-only too.
+
+
+@pytest.mark.parametrize("path", [
+    "/api/bot/work/checklist",
+    "api/bot/stats",
+    "/api/health",
+    "api/pnl/history",
+])
+def test_a_non_diag_api_path_is_refused_before_curl(tmp_path, path):
+    proc, urls = _run(tmp_path, base=_CANONICAL, path=path)
+    assert proc.returncode == 2, proc.stderr
+    assert urls == [], f"curl was dialled for a non-diag path: {urls}"
+    assert "not a /api/diag/* path" in proc.stderr
+    # BL-20260822's criteria say presence of the new string is INSUFFICIENT --
+    # both branches must be DISTINGUISHABLE, so the old path-form advice must be
+    # absent for this input. It is the wrong remedy here and is what sent two
+    # sessions (2026-08-22, 2026-09-12) hunting for a route that was serving 200.
+    assert "check the path form" not in proc.stderr
+
+
+def test_a_genuine_diag_404_still_gets_the_path_form_advice(tmp_path):
+    """The other half of "distinguishable": the old branch must still exist.
+
+    A 404 on a REAL diag path is the case that advice was written for, and
+    deleting it to satisfy the new test would trade one wrong message for a
+    missing one.
+    """
+    proc, urls = _run(tmp_path, base=_CANONICAL, path="version", http_status="404")
+    assert urls, "a diag path must still be dialled"
+    assert "check the path form" in proc.stderr
+    assert "not a /api/diag/* path" not in proc.stderr
+
+
+@pytest.mark.parametrize("path", [
+    "version",
+    "/api/diag/version",
+    "api/diag/version",
+    "journal?table=trades&limit=10",
+])
+def test_a_real_diag_path_is_not_refused(tmp_path, path):
+    """The control: the refusal must not catch any legitimate form.
+
+    `api/diag/...` is stripped BEFORE the check, so it must survive — that form
+    is the whole point of the 2026-08-20 liberal-path fix and re-breaking it
+    would trade one silent 404 for another.
+    """
+    proc, urls = _run(tmp_path, base=_CANONICAL, succeed_on=_CANONICAL, path=path)
+    assert proc.returncode == 0, proc.stderr
+    assert urls, "a legitimate diag path was never dialled"
+    assert "/api/diag/api/" not in urls[0], f"doubled path built: {urls[0]}"

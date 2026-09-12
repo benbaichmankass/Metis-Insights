@@ -110,6 +110,13 @@ class TestBybitHappyPath:
             "size": 0.005,
             "entry_price": 78250.4,
             "unrealised_pnl": 1.23,
+            # MI-283 (2026-09-12): the row now names WHICH BOOK it is, so the
+            # dedupe can key on (symbol, position_idx) instead of dropping a
+            # hedge symbol's second live book. ``None`` here because this
+            # fixture's rows carry no ``positionIdx`` — the venue declaring no
+            # book keys exactly as the old symbol-only dedupe did, which is the
+            # deliberate fallback.
+            "position_idx": None,
         }
         assert sol["symbol"] == "SOLUSDT"
         assert sol["size"] == 12.0

@@ -47,6 +47,38 @@ fi
 path="${path#/}"
 path="${path#api/diag/}"
 
+# ...BUT BEING LIBERAL ABOUT `api/diag/` IS NOT THE SAME AS ACCEPTING ANY
+# `api/...` PATH, AND THE DIFFERENCE COST A SESSION ITS DIAGNOSIS ON 2026-09-12.
+# The strip above only removes the `api/diag/` prefix, so a caller who passes a
+# NON-diag route -- `/api/bot/work/checklist` -- keeps `api/bot/...` and line
+# ~117 builds `<base>/api/diag/api/bot/work/checklist`. That is a real 404, and
+# the answered_404 branch then advises "check the path form (pass 'version',
+# not '/api/diag/version')" -- which is the WRONG REMEDY for this input: the
+# path form is fine and the TOOL is wrong. This script fetches `/api/diag/*`
+# ONLY, by construction, and so does the issue relay it tells you to fall back
+# to, so exit 3 would send the caller down a second dead end.
+#
+# MEASURED 2026-09-12 (MI-279): `/api/bot/work/checklist` -> answered_404 here,
+# while plain `curl https://ict-bot.duckdns.org/api/bot/work/checklist` -> 200.
+# The session was one step from reporting the operator's live Workflow page as
+# a missing route; what caught it was running `/api/bot/stats` as a POSITIVE
+# CONTROL and seeing that 404 too.
+#
+# This is a RECURRENCE of the class the header above already records -- the
+# 2026-08-20 fix stripped ONE prefix and the defect lives in the whole `api/`
+# family. Exit 2 (usage), not 3: the caller used the wrong tool, and no fallback
+# of this script's reaches a non-diag route.
+case "$path" in
+  api/*)
+    echo "diag_fetch: '$1' is not a /api/diag/* path. This script fetches the" >&2
+    echo "  diag surface ONLY -- it prefixes <base>/api/diag/ -- so this would" >&2
+    echo "  have built '<base>/api/diag/${path}' and 404'd, and the relay it" >&2
+    echo "  falls back to is diag-only too. For a /api/bot/* route use curl" >&2
+    echo "  against https://ict-bot.duckdns.org directly (those routes need no" >&2
+    echo "  bearer -- the SPA calls them browser-direct)." >&2
+    exit 2 ;;
+esac
+
 # Only the BEARER is genuinely required. DIAG_BASE_URL is now optional: the
 # candidate list below falls back to the canonical HTTPS base, so an env that
 # never set it is no longer stranded on the relay. Previously this gate
