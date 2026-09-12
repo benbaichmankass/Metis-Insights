@@ -280,7 +280,16 @@ def main() -> int:
           + (f", legs={sorted(legs)}" if legs else ", all non-pairs legs"))
     rows = grade(pkgs, args.interval, legs, pkg_id_filter=pkg_filter)
     if not rows:
-        print("::error::no gradeable (package, window) rows — this is NOT a clean reading.",
+        # provenance: len(pkgs)/len(pkg_filter)/len(WINDOWS_H) — the denominator the
+        # refusal ranges over, so an empty result can be attributed rather than read
+        # as a clean negative. grade() has already printed its per-reason skip counts.
+        denom = len(pkgs) * len(WINDOWS_H)
+        print(f"::error::0 gradeable rows out of a candidate {denom} "
+              f"({len(pkgs)} packages x {len(WINDOWS_H)} windows"
+              + (f", filtered to {len(pkg_filter)} decision-population package ids"
+                 if pkg_filter is not None else ", UNFILTERED")
+              + "). This is NOT a clean reading — it is 'we graded nothing'. "
+                "Read the per-reason skip counts printed above to attribute it.",
               file=sys.stderr)
         return 2
     print(f"\ngraded {len(rows)} (package, window) rows\n")
