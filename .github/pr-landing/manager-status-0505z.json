@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the operator-requested full status into the live Workflow page before the answer is given. Registers only; no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}
