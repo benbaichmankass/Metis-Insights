@@ -120,11 +120,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 
 - Context, deliberately NOT a page: **0** row(s) already reported and still unrouted · **4** unrouted but inside 24h · **0** whose status could not be graded (*we did not look* — `MI-237`'s two competing status fields). A standing row is a COUNT because reporting all of them every run is the desensitised alarm, not a signal.
 
-<<<<<<< HEAD
-**30 monitoring item(s) DUE — check and record what you OBSERVED:**
-=======
-**28 monitoring item(s) DUE — check and record what you OBSERVED:**
->>>>>>> origin/main
+**27 monitoring item(s) DUE — check and record what you OBSERVED:**
 
 - **`OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING`** — docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration instrument); this row keeps the CLASS visible.
   - **Clears when:** BOTH, and they are different facts - say WHICH you cleared. (1) The un-carried-spec COUNT is MEASURED and reported with a stated classifier and a positive control (WO-20260906-COUNT-THE-UN-CARRIED-SPECS). Until then nobody knows whether the 14-day case was a one-off or a population. (2) A MECHANISM makes an un-carried spec visible WITHOUT a session thinking of it - see BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK - and it has been run over the EXISTING tree, not only armed for new artifacts. !! DO NOT CLEAR BECAUSE A SESSION IS RUNNING. A session being spawned is exactly the state that looked fine on 2026-08-23. !! DO NOT CLEAR ON ANOTHER MEMO. The failure class is a well-written artifact nothing points at; an eighth document restating the diagnosis makes this row MORE true. !! IF THE OPERATOR DECIDES the count is not worth measuring, this row does not clear - it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like work about to start.
