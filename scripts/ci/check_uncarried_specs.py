@@ -365,7 +365,6 @@ def _self_test_added_only() -> bool:
     Needs a real repository: the property lives in a git invocation, and a pure
     test cannot see a wrong `--diff-filter`.
     """
-    import os
     import shutil
     import subprocess
     import tempfile
