@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research tooling + read-only reads, entirely inside TIER1_SURFACE (scripts/research/**, docs/**). config/strategies.yaml and config/accounts.yaml are READ and never written; no src/, no deploy/, no unit file, no order path, no live parameter. The instrument makes no network call of its own. The one config change this unit's evidence points at -- routing htf_pullback_trend_2h to execution: live so the widened e35 arm can report -- is TIER-3 and is explicitly NOT proposed, in the memo and in the backlog row alike."
+}
