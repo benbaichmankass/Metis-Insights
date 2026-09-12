@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — one new evidence doc under docs/claude/ plus its DOCUMENT-INDEX.md row. No src/, config/, deploy/, workflow or order path. No backlog row is dispositioned by it."
+}
