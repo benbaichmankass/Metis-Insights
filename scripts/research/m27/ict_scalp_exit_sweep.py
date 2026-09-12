@@ -88,6 +88,42 @@ _BANK_FRACS = (0.25, 0.5)
 _TP_GRID = (0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0)
 
 
+# M20 `breakeven_ratchet` cells — added 2026-09-12 (MI-278 U3). The ratchet
+# (`_base.monitor_breakeven_sl`, `be_offset_bps: 15`, armed at 1R) is ON for
+# all 8 live ict_scalp legs and rides in BASE_FLAGS as `--sim-breakeven`, i.e.
+# it is part of the config-exact BASE of every scalp cell ever measured —
+# CORRECT, and exactly why it has never been a swept VARIABLE.
+#
+# ⚠️ THIS CELL FAMILY IS A DISARM, WHICH IS THE OPPOSITE POLARITY TO EVERY
+# OTHER CELL HERE. The others ADD a lever to the base; this one REMOVES one.
+# Read a positive delta as "the shipped baseline is costing this much", not as
+# "an override helps" — the two are easy to confuse in a verdict table.
+#
+# Screened on one leg-quarter (SOLUSDT 5m 2025Q3, live parity): disarming was
+# worth +2.729 R at the live `tp_at_r`, with `be_stop` share rising 0.0% ->
+# 40.0% as the target widened from 0.75R to 3.0R. That is a SCREEN, and it is
+# what this cell exists to test properly.
+#
+# ⚠️ IT IS A NO-OP BELOW 1R BY CONSTRUCTION and the grid must not pretend
+# otherwise: the ratchet arms at 1R, so on a leg whose `tp_at_r <= 1.0` the
+# trade exits before it can ever arm, and the cell would measure exactly zero
+# while reading like a tested negative. Verified to three decimals on the
+# screen. Emitted only where it can bind — the same discipline
+# `_RUNG_FRACS_OF_TP` applies to the ladder rungs.
+_BE_ARM_AT_R = 1.0
+
+
+def breakeven_cells(tp_at_r: float) -> list:
+    """(tag, matrix_lever, extra_args) for DISARMING the break-even ratchet.
+
+    Returns [] when the leg's target sits at or below the arming threshold,
+    because there the cell is a provable no-op rather than a negative result.
+    """
+    if float(tp_at_r) <= _BE_ARM_AT_R:
+        return []
+    return [("be_off", "breakeven_ratchet", ["--no-sim-breakeven"])]
+
+
 def tp_cells(tp_at_r: float) -> list:
     """(tag, matrix_lever, extra_args) for the take-profit distance grid."""
     out = []
@@ -109,6 +145,19 @@ def ladder_cells(tp_at_r: float) -> list:
             out.append((f"bank{frac:g}@{rung:g}R", "exit_ladder",
                         ["--bank-frac", str(frac), "--bank-at-r", str(rung)]))
     return out
+
+
+def all_cells(tp_at_r: float) -> list:
+    """THE assembly of every cell this sweep offers — one owner, not two.
+
+    Production and the tests both read this. It was inlined twice in `main`
+    (once to build the run set, once to name the available levers in the
+    no-cells-selected error), and a family added to one and not the other
+    would be a lever the sweep can run but cannot NAME — or worse, one the
+    error message advertises and the sweep never runs.
+    """
+    return (list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)
+            + breakeven_cells(tp_at_r))
 
 
 def declared_lever_flags(leg_cfg: dict) -> list:
@@ -182,8 +231,24 @@ def run_cell(data_csv: Path, extra: list[str], out_json: Path) -> dict:
             return json.loads(out_json.read_text())
         except Exception:  # noqa: BLE001 — corrupt/partial, re-run
             pass
+    # A cell may REMOVE a base flag as well as add one: `--no-<flag>` strips
+    # `--<flag>` from the base rather than being passed through. Needed because
+    # the break-even ratchet is part of the config-exact BASE, so the only way
+    # to make it a variable is to take it out — and an unknown `--no-*` must
+    # never reach the harness, which would exit non-zero and read as a failed
+    # cell rather than a broken sweep.
+    base = list(BASE_FLAGS)
+    passthrough = []
+    for a in extra:
+        if a.startswith("--no-"):
+            drop = "--" + a[len("--no-"):]
+            if drop not in base:
+                return {"error": f"cell asks to remove {drop!r} which is not in BASE_FLAGS"}
+            base.remove(drop)
+        else:
+            passthrough.append(a)
     cmd = [sys.executable, str(_HARNESS), "--data", str(data_csv),
-           *BASE_FLAGS, *extra, "--json", str(out_json)]
+           *base, *passthrough, "--json", str(out_json)]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         return {"error": res.stderr.strip()[-500:] or "nonzero exit"}
@@ -322,14 +387,14 @@ def main(argv: list[str]) -> int:
 
     # Cells = the stale/giveback grid + the config-relative ladder grid,
     # optionally filtered to one matrix lever.
-    cells = list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)
+    cells = all_cells(tp_at_r)
     if args.cells:
         want = {c.strip() for c in args.cells.split(",") if c.strip()}
         cells = [c for c in cells if c[1] in want]
     if not cells:
         print(f"ERROR: no cells selected (--cells {args.cells!r}); "
               f"available levers: "
-              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)})}",
+              f"{sorted({c[1] for c in all_cells(tp_at_r)})}",
               file=sys.stderr)
         return 2
     _to = args.timeout_bars
