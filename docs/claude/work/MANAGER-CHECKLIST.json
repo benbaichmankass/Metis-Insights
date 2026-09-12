@@ -5309,5 +5309,35 @@
       "merge #11903 the moment it is clean AND green; do not hand-resolve it",
       "if #11903 cannot converge, the manager action is to SERIALIZE (pause taking other PRs), not to resolve it"
     ]
+  },
+  "manager_tick_2026_09_12T1655Z": {
+    "fanout": {
+      "state": "WORKING at the dispatcher, consistently. Still no order.",
+      "measured": "soak tail 100 rows to 16:40:57Z — fanout_schema {2:91, 3:9}. Of the 9 v3 rows: apply_state dispatchable x5, no_allowlisted_account x4. ALL 5 dispatchable rounds carry 7 keys (pre-fix rows carried 2).",
+      "orders": "ZERO trades since the first v3 row. Newest trade in the whole journal is id 5727 at 12:01:21Z.",
+      "why_that_is_NOT_a_fanout_fault": "200 pipeline_result rows 16:00-16:55 are ALL `skipped` — 198 no_intents_emitted, 2 all_intents_gated — across all 23 symbols. It is Saturday: equities and futures are closed, and the crypto legs are finding no setups. The fleet is QUIET, not broken, and this was checked rather than assumed.",
+      "breakout_1": "starved in all 5 dispatchable rows, apply_scope not_allowlisted — correct, that is the gated step.",
+      "decision_2": "still NOT brought back to the operator. The gate is an OBSERVED dispatch producing an order; the dispatcher half is now proven 5 times over, the order half needs a market that trades."
+    },
+    "11903_cannot_converge": {
+      "observed": "CONFLICTED at 14:5x, 15:5x and again now (head 1f057f3db, 16:48:45Z — resolved minutes before I read it).",
+      "only_conflict_is_CLAUDE_md": "the other three files auto-merge every time.",
+      "the_structural_problem": "pytest-run takes ~19 min and CLAUDE.md changes faster than that, so the operator condition `clean AND green` is rarely true at the same instant. This is the same non-convergence mechanism #11958 fixed for automation PRs, on a different file.",
+      "manager_cannot_resolve": "CLAUDE.md prose outside the generated SESSION-BRIEF block is a worker path; check_manager_scope R2 grades exactly that commit.",
+      "note": "branch protection has require-up-to-date UNTICKED (strict:false), so being BEHIND does not block a merge — only a genuine conflict does. The window is real but narrow."
+    },
+    "lane_health_FLAG": {
+      "three_of_four_past_the_hand_off_threshold": "MI-278 769500 (77%), MI-280 780025 (78% — JUMPED from 277133 in one hour), MI-283 641796 (64%). Only MI-279 (351343, 35%) is comfortably under.",
+      "MI-280_stalled": "task_summary 'context expired; awaiting continuation signal', current_branches EMPTY. Its findings ARE logged, so the work is not lost.",
+      "rate_limit": "all four lanes now report rateLimitType seven_day with status allowed_warning — an ACCOUNT-level signal, not per-lane.",
+      "observed_spend_today": "MI-280 $565.60 + MI-278 $440.89 + MI-283 $154.80 + MI-286 $22.68 = $1184 across four lanes (MI-279 did not report a usage block). Surfacing this to the operator; it is their call, not mine."
+    },
+    "routed_to_manager_this_tick": "MI-279 reports an alpaca protective-class defect routed to the manager. Not yet picked up — next tick.",
+    "next": [
+      "watch for a v3 dispatchable round in a market that actually trades; that is decision 2's evidence",
+      "merge #11903 the instant it is clean AND green — do not hand-resolve",
+      "pick up MI-279's routed alpaca protective-class defect",
+      "do NOT respawn MI-278 or MI-280 when they close; that returns the count to the operator's three"
+    ]
   }
 }

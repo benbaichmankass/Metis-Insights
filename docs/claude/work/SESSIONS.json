@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T14:54:12Z",
+  "updated_at": "2026-09-12T16:54:42Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4895,9 +4895,9 @@
         "claude/mi278-u3-scalp-target-sweepable"
       ],
       "last_observed": {
-        "at": "2026-09-12T14:54:12Z",
+        "at": "2026-09-12T16:54:42Z",
         "via": "get_session",
-        "note": "RUNNING. context 769500/1000000 (77%) — UNCHANGED from 13:53, still past the hand-off threshold. Resolving a conflict on #11933. Will NOT be given new work and will NOT be respawned when it closes."
+        "note": "RUNNING. 769500 (77%) — unchanged for 3 ticks. Awaiting #11933/#11976 merge. PAST hand-off threshold."
       }
     },
     {
@@ -4914,12 +4914,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi279-loud-flag-triage-proposal"
+        "claude/mi279-workflow-push-target-guard-v2"
       ],
       "last_observed": {
-        "at": "2026-09-12T14:54:12Z",
+        "at": "2026-09-12T16:54:42Z",
         "via": "get_session",
-        "note": "RUNNING. context 351343 (35%) — unchanged, healthy. Debugging a duplicate-key JSON trap in the monitoring ledger."
+        "note": "RUNNING. 351343 (35%) — the only lane comfortably under threshold. Health review done: 1526 rows, 714 open (+15 net), 20 critical (-3). ROUTED TO MANAGER: an alpaca protective-class defect."
       }
     },
     {
@@ -4935,13 +4935,11 @@
       "why": "Four failure modes measured 2026-09-11/12, all unowned: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
-      "branches": [
-        "claude/mi280-queue-verdict-always"
-      ],
+      "branches": [],
       "last_observed": {
-        "at": "2026-09-12T14:54:12Z",
+        "at": "2026-09-12T16:54:42Z",
         "via": "get_session",
-        "note": "RUNNING. context 277133 (28%) — DROPPED from 397543 at 13:53, i.e. it compacted; the earlier reading is stale, exactly as the tick warns. Its \"1 blocked on human merge\" was #11958 — R12-held landing machinery; manager did the R12 read and MERGED it (d466ebb5d)."
+        "note": "RUNNING but STALLED. 780025 (78%) — JUMPED from 277133 one hour ago. task_summary \"context expired; awaiting continuation signal\"; current_branches is EMPTY. Findings are logged, so its work is not lost. PAST hand-off threshold."
       }
     },
     {
@@ -4997,9 +4995,9 @@
         "claude/mi283-bybit-hedge-book-dedupe"
       ],
       "last_observed": {
-        "at": "2026-09-12T14:54:12Z",
+        "at": "2026-09-12T16:54:42Z",
         "via": "get_session",
-        "note": "IDLE / review_ready at 14:44:54Z. Parked on \"#11903 green, waiting on Tier-2 decision; next check 15:30Z\". The decision IS now given (approved, conditional on clean AND green). #11903 measured CLEAN at 14:55Z with 5 of 6 checks green; pytest-run still in_progress, so the condition is NOT yet met and the manager is holding."
+        "note": "IDLE. 641796 (64%). Still resolving #11903 conflicts on a treadmill; head 1f057f3db at 16:48:45Z and CONFLICTED again minutes later. PAST hand-off threshold."
       }
     },
     {
