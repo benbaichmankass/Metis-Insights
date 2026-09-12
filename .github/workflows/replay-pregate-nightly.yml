@@ -124,6 +124,13 @@ jobs:
         with:
           ref: ${{ steps.params.outputs.ref }}
           fetch-depth: 0
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN: the `main` landing path below
+          # calls `.github/actions/commit-to-main`, which pushes its branch with
+          # whatever credential the checkout configured, and a PR opened by
+          # GITHUB_TOKEN does NOT trigger the `on: pull_request` required checks
+          # — so it would stall auto-merge forever. The action's own docstring
+          # states this as a REQUIREMENT of calling it.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - name: Set up SSH key
         env:
@@ -351,7 +358,7 @@ jobs:
             --outcome-out /tmp/pregate_outcome.json \
             --github-output "$GITHUB_OUTPUT"
 
-      - name: Write report + markdown summary, commit back
+      - name: Write report + markdown summary
         id: commit
         if: steps.outcome.outputs.wrote_report == 'true' || steps.outcome.outputs.wrote_partial == 'true'
         env:
@@ -382,23 +389,78 @@ jobs:
           if [ "${WROTE_REPORT}" = "true" ]; then
             cp /tmp/pregate_summary.md "$DIR/latest.md"
           fi
+          # HAND OFF TO THE LANDING STEPS BELOW. This step now only WRITES the
+          # artifact; it no longer tries to land it. See the two steps that
+          # follow for why the landing had to be split by target ref.
+          echo "dir=${DIR}" >> "$GITHUB_OUTPUT"
+          echo "message=${MSG}" >> "$GITHUB_OUTPUT"
+          echo "wrote=true" >> "$GITHUB_OUTPUT"
+
+      # ── LANDING ────────────────────────────────────────────────────────────
+      # ⚠️ THIS STEP USED TO BE A DIRECT `git push origin HEAD:main`, AND ON THE
+      # SCHEDULED PATH IT COULD NEVER HAVE WORKED — which is the whole of
+      # BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING
+      # criterion (2). `main` is protected and REJECTS a direct workflow push
+      # (GH006); `.github/actions/commit-to-main` exists precisely to absorb
+      # that (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN), and
+      # `session-reaper.yml` was ported off the identical pattern for the
+      # identical reason.
+      #
+      # MEASURED 2026-09-12, run 34580398446 (2026-09-11, event=schedule): the
+      # classifier salvaged 10 of 22 heads, the commit succeeded locally
+      # (`[main 9c5cb6536] ... 1 file changed, 742 insertions(+)`) and the push
+      # was then rejected — `! [rejected] HEAD -> main (fetch first)` — taking
+      # 742 lines of salvaged evidence with it. The run lost the race to a
+      # `main` that moved during its ~38-minute window; had it won that race it
+      # would have hit GH006 instead. Both roads end in a discarded artifact.
+      # Corroborated by census: 300 of the 300 newest commits on `main` carry a
+      # `(#N)` squash suffix — ZERO direct pushes.
+      #
+      # ⚠️ A CORRECTION TO session-reaper.yml's OWN COMMENT, recorded rather
+      # than left to mislead: it states that "measured 2026-09-02,
+      # session-reaper.yml was the ONLY workflow in the repo pushing straight to
+      # main". THIS workflow was doing it too, on that date and until now. That
+      # measurement missed a positive, so do not re-quote it as a census.
+      - name: Land the report on main (auto-merge PR)
+        if: steps.commit.outputs.wrote == 'true' && steps.params.outputs.ref == 'main'
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: ${{ steps.commit.outputs.dir }}
+          message: ${{ steps.commit.outputs.message }}
+          pr-title: "chore(ml): replay pre-gate fleet report (auto)"
+          pr-body: >-
+            Automated replay pre-gate report. Generated artifact only; auto-merge.
+            A COMPLETE run also advances `latest.json`/`latest.md`; a PARTIAL run
+            lands only its own timestamped file and deliberately never touches
+            `latest.json`.
+          branch-prefix: automation/replay-pregate
+          # ⚠️ LOAD-BEARING. Without it the step exits 0 the moment the PR
+          # OPENS, so a green run would mean "a PR exists" and never "the report
+          # is on main" — and this row's criterion (1) asks for the committed
+          # file, not for a PR. A workflow whose entire finding is that shipped
+          # and landed are different states cannot be one of the callers that
+          # verifies nothing.
+          verify-merged: "true"
+
+      # A non-`main` ref (workflow_dispatch `ref:` / an issue-body `ref:` line)
+      # is an ordinary unprotected branch, where a direct push is both
+      # legitimate and the only thing that makes sense — `commit-to-main` lands
+      # on `main` by construction and would silently retarget the run. This
+      # branch is therefore kept byte-for-byte as it was, `-f` included:
+      # `.gitignore` ignores `runtime_logs/`, so a plain `git add` refuses the
+      # path outright and, under `set -e`, kills the step. Measured on run #4390
+      # (2026-09-02): the classifier had salvaged 10 of 22 heads and the commit
+      # step then destroyed them.
+      - name: Land the report on a non-main ref (direct push)
+        if: steps.commit.outputs.wrote == 'true' && steps.params.outputs.ref != 'main'
+        env:
+          DIR: ${{ steps.commit.outputs.dir }}
+          MSG: ${{ steps.commit.outputs.message }}
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # `-f` IS LOAD-BEARING, NOT DEFENSIVE. `.gitignore:29` ignores
-          # `runtime_logs/`, so a plain `git add` REFUSES this path outright
-          # ("The following paths are ignored by one of your .gitignore files")
-          # and, under `set -e`, kills the step. Measured on run #4390
-          # (2026-09-02): the classifier had salvaged 10 of 22 heads and the
-          # commit step then destroyed them.
-          #
-          # ⚠️ THIS IS PRE-EXISTING AND STRUCTURAL, NOT A REGRESSION FROM THE
-          # DETACH CHANGE. `runtime_logs/replay_pregate/` has NEVER had a file
-          # on main — `git ls-tree -r origin/main -- runtime_logs/replay_pregate/`
-          # returns 0 across the repo's whole fetched history, while 72 other
-          # files under runtime_logs/ ARE tracked (force-added). So this file's
-          # own header — "commits the report back to the repo, so the result
-          # survives a dead Claude session" — has been false since it was
-          # written: the COMPLETE path fails here too, for the same reason.
           git add -f "$DIR"
           if git diff --cached --quiet; then
             echo "no changes to commit"

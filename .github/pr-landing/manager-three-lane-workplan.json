@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the operator-directed three-lane continuous workplan, the spawn-priority exception for the engineering lane, and the registry rows for three dispatched lanes. Docs and registers only; no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}
