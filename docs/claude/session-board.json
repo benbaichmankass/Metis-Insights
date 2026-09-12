@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
     "branch": "claude/mi279-hold-times-and-mirror-legs",
-    "claimed_at": "2026-09-12T09:13:52Z",
+    "claimed_at": "2026-09-12T09:18:29Z",
     "purpose": "PR #11888 — hold-time / mirror-leg / IB-trailing measurements (Tier-1, docs only)"
   },
   "active_sessions": [
