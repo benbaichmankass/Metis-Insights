@@ -209,6 +209,11 @@ GUARD_REL = "scripts/ci/check_pr_landing.py"
 # `.github/pr-automerge-requests/**` note guards against.
 SESSION_BOARD = "docs/claude/session-board.json"
 
+# R13's SECOND, CONFLICT-FREE ROUTE (2026-09-12, MI-280). One file per branch,
+# named for the branch, so two armed branches can never contend for the same
+# lines. See `slot_claim_state` for the measurement that forced it.
+BRANCH_SLOT_DIR = ".github/merge-slots"
+
 # The Tier-1 EXAMPLES from docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers.
 # An allowlist: a path not matched here cannot self-land. See the module
 # docstring for why this polarity rather than a denylist.
@@ -434,20 +439,97 @@ def _added_or_modified(root: Path, base: str, rel: str) -> bool:
     return head_sha != base_sha
 
 
+def _branch_slot_rel(branch: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]", "-", branch.removeprefix("claude/"))
+    return f"{BRANCH_SLOT_DIR}/{slug}.json"
+
+
+def _branch_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
+    """The per-branch route. Same proof, a file that cannot collide."""
+    rel = _branch_slot_rel(branch)
+    path = root / rel
+    if not path.exists():
+        return (False, f"{rel} is absent")
+    if not _added_or_modified(root, base, rel):
+        return (False, f"{rel} is unchanged from `{base}` — inherited, not claimed")
+    try:
+        claim = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return (False, f"{rel} is unreadable/invalid JSON: {exc}")
+    if not isinstance(claim, dict):
+        return (False, f"{rel} is not a JSON object")
+    if claim.get("branch") != branch:
+        return (False, f"{rel} names branch {claim.get('branch')!r}, not {branch!r}. "
+                       f"The FILENAME is not the claim — a file copied from another "
+                       f"branch would pass on its path alone, so the branch is named "
+                       f"inside it and both must agree")
+    for field in ("held_by", "claimed_at"):
+        if not str(claim.get(field) or "").strip():
+            return (False, f"{rel} `{field}` is empty — a claim nobody can attribute "
+                           f"or time out is not a claim")
+    return (True, f"held by this branch via {rel}")
+
+
 def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
     """Does THIS branch hold the merge slot, and did it claim it in THIS diff?
 
-    Added-or-modified is load-bearing, for exactly the reason
-    `claude-pr-automerge.yml`'s REQUEST GATE gives: a branch that merely merged
-    `main` while somebody else's claim sat on it has asked for nothing, and by
-    presence alone its diff is indistinguishable from a real claim.
+    TWO ROUTES, either sufficient. Both prove the same thing — an ATTRIBUTABLE,
+    TIMESTAMPED claim made by THIS branch in THIS diff — and the difference is
+    only whether making it forces a merge conflict.
+
+    ⚠️ THE SHARED FIELD MAKES ARMING AND LANDING MUTUALLY EXCLUSIVE WHEN `main`
+    MOVES FASTER THAN CI, AND THAT IS MEASURED, NOT FEARED. `merge_slot` is ONE
+    field in ONE file that every armed branch must overwrite, so every armed
+    branch conflicts with `main` the moment anything else claims it. Population:
+    the last 40 commits to `main` touching `session-board.json` (2026-09-11T23:12Z
+    -> 2026-09-12T09:30Z); **39 of 40 MOVED `merge_slot.branch`**, with
+    inter-move gaps of min 3.3m / median 11.5m / max 61.8m and **26 of 38 under
+    16 minutes**. Resolving the conflict pushes a new head and restarts CI, so
+    resolving FASTER does not help — the clock restarts each time.
+    Observed the same morning on one session's six PRs: **all four ARMED ones
+    went `dirty` together, and the only two that stayed CLEAN were the two
+    declaring `landing: "hold"`, which write no claim.** Two controls, and the
+    claim is the one difference between them.
+
+    ⚠️ AND THIS REPO HAS ALREADY FIXED THIS EXACT CLASS ONCE, ONE LAYER OVER.
+    `.github/pr-automerge-request` was a single shared file every requesting PR
+    had to modify; it collided by construction, hit live on 2026-08-21 (#10083
+    merged, #10086 came back `dirty` with that file as the ONLY conflicted path),
+    and was split into `.github/pr-automerge-requests/<slug>.txt`. The claim is
+    the same defect in the same route, and takes the same remedy.
+
+    ⚠️ WHAT IS *NOT* BEING GIVEN UP: nothing, because R13 never serialized. Its
+    own docstring says so — a committed claim reaches no other session until the
+    branch merges, so two branches can each arm, each write a valid claim, and
+    never see one another. The shared field therefore bought CONFLICT and no
+    exclusion. Attribution and timestamping — the things R13 actually buys — are
+    preserved exactly, and strengthened: the claim now names its branch in the
+    PATH as well as in the body, and both must agree.
+
+    The legacy route is UNCHANGED and still passes, so `commit-to-main` and the
+    27 workflows behind it keep working byte-for-byte; this only ADDS a way to
+    satisfy R13. Added-or-modified stays load-bearing on both, for exactly the
+    reason `claude-pr-automerge.yml`'s REQUEST GATE gives: a branch that merely
+    merged `main` while somebody else's claim sat on it has asked for nothing,
+    and by presence alone its diff is indistinguishable from a real claim.
     """
+    ok, detail = _branch_claim_state(root, base, branch)
+    if ok:
+        return (True, detail)
+    branch_detail = detail
+
     path = root / SESSION_BOARD
     if not path.exists():
         return (False, f"{SESSION_BOARD} does not exist")
     if not _added_or_modified(root, base, SESSION_BOARD):
-        return (False, f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
-                       f"claimed nothing; it is carrying whatever `main` already had")
+        return (False, f"neither route was taken: {branch_detail}, and "
+                       f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
+                       f"claimed nothing; it is carrying whatever `main` already "
+                       f"had. PREFER the per-branch route: "
+                       f"`python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                       f"--branch {branch} --held-by <session>` writes "
+                       f"{_branch_slot_rel(branch)}, which cannot conflict with "
+                       f"another branch's claim")
     try:
         slot = json.loads(path.read_text(encoding="utf-8")).get("merge_slot")
     except (OSError, json.JSONDecodeError) as exc:
@@ -456,9 +538,16 @@ def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
         return (False, f"{SESSION_BOARD} carries no `merge_slot` object")
     if slot.get("branch") != branch:
         return (False, f"`merge_slot.branch` is {slot.get('branch')!r}, not "
-                       f"{branch!r} — the slot is held by someone else. That is "
-                       f"the serialization working, not a technicality to route "
-                       f"around; wait for the release")
+                       f"{branch!r}, and the per-branch route was not taken "
+                       f"either ({branch_detail}). ⚠️ DO NOT WAIT FOR A RELEASE: "
+                       f"R13 does not serialize (see its docstring — a committed "
+                       f"claim reaches no other session until this branch "
+                       f"merges), and `main` moved this field 39 times in the "
+                       f"last 40 commits that touched it, so waiting for it to "
+                       f"name you is waiting for something that does not happen. "
+                       f"Write {_branch_slot_rel(branch)} instead: "
+                       f"`python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                       f"--branch {branch} --held-by <session>`")
     for field in ("held_by", "claimed_at"):
         if not str(slot.get(field) or "").strip():
             return (False, f"`merge_slot.{field}` is empty — a claim nobody can "
@@ -765,6 +854,51 @@ def _claim_slot(root: Path, branch: str = "claude/demo") -> None:
         encoding="utf-8")
 
 
+def _branch_claim(root: Path, branch: str = "claude/demo",
+                  named: str | None = "__same__") -> None:
+    """Write the per-branch claim. `named` overrides the branch NAMED INSIDE,
+    so the self-test can plant the copied-from-another-branch case."""
+    rel = root / _branch_slot_rel(branch)
+    rel.parent.mkdir(parents=True, exist_ok=True)
+    inside = branch if named == "__same__" else named
+    body = {"held_by": "session_selftest", "claimed_at": "2026-09-12T00:00:00Z",
+            "purpose": "self-test"}
+    if inside is not None:
+        body["branch"] = inside
+    rel.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+
+
+def _inherit_branch_claim(root: Path, branch: str = "claude/demo") -> None:
+    """Put the per-branch claim on `main` and MERGE it in, so the branch carries
+    it byte-identically without having claimed anything.
+
+    ⚠️ THIS PLANT EXISTS BECAUSE ITS ABSENCE LET A REAL MUTATION ESCAPE. On the
+    first mutation run of the per-branch route, deleting the
+    `_added_or_modified` check entirely left the self-test reporting OK: every
+    other plant writes a file that is ABSENT on base, so `added-or-modified` is
+    trivially true and the check was never reached. A control that cannot reach
+    the branch it targets proves nothing about it — the same shape that let the
+    scope-overlap parser sit broken behind a passing suite.
+
+    It reproduces the real case rather than simulating it: a branch that merged
+    `main` while somebody else's claim sat on it has asked for nothing, and by
+    presence alone its diff is indistinguishable from a real claim.
+    """
+    rel = _branch_slot_rel(branch)
+    g = lambda *a: subprocess.run(["git", "-C", str(root), *a], check=True,
+                                  capture_output=True)
+    g("checkout", "-q", "main")
+    (root / rel).parent.mkdir(parents=True, exist_ok=True)
+    (root / rel).write_text(json.dumps({
+        "held_by": "session_someone_else", "branch": branch,
+        "claimed_at": "2026-09-12T00:00:00Z", "purpose": "landed on main"},
+        indent=2) + "\n", encoding="utf-8")
+    g("add", "--", rel)
+    g("commit", "-qm", "somebody's claim lands on main")
+    g("checkout", "-q", branch)
+    g("merge", "-q", "--no-edit", "main")
+
+
 def _commit(root: Path) -> None:
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "work"], check=True)
@@ -779,6 +913,14 @@ def self_test() -> int:
         "tier-1 armed self-land on a docs-only diff": (
             lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
                        _claim_slot(r)),
+            True, "declared_self_land"),
+        # R13's SECOND ROUTE. If this ever stops passing, every lane branch is
+        # forced back onto the one shared field that `main` rewrites every ~11
+        # minutes, and arming becomes a race against CI that resolving faster
+        # cannot win.
+        "armed self-land holding the PER-BRANCH claim and NOT the shared field": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r)),
             True, "declared_self_land"),
         "tier-3 diff held with a typed reason": (
             lambda r: _declare(r, tier=3, landing="hold",
@@ -901,6 +1043,42 @@ def self_test() -> int:
         "R13 armed self-land riding another branch's slot claim": (
             lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
                        _claim_slot(r, branch="claude/somebody-else")), True),
+        # The per-branch route must not be weaker than the shared one. The
+        # filename alone cannot be the proof — a claim copied from another
+        # branch and renamed would sit at the right path — so the branch is
+        # named INSIDE and the two must agree.
+        "R13 per-branch claim naming somebody else's branch inside": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r, named="claude/somebody-else")), True),
+        "R13 per-branch claim with no `branch` field at all": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r, named=None)), True),
+        "R13 per-branch claim that is not attributable": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           json.dumps({"branch": "claude/demo", "held_by": "  ",
+                                       "claimed_at": "2026-09-12T00:00:00Z"},
+                                      indent=2) + "\n", encoding="utf-8")), True),
+        "R13 per-branch claim merely INHERITED from main, never claimed": (
+            lambda r: (_inherit_branch_claim(r),
+                       _declare(r, tier=1, landing="self", why=_GOOD_WHY),
+                       _arm(r)), True),
+        # ⚠️ VALID JSON that is not an OBJECT. Distinct from the case below and
+        # not covered by it: `{not json` fails at `json.loads` and never reaches
+        # the `isinstance(claim, dict)` branch, so without this plant that branch
+        # had no control at all — the second escape the mutation run found, and
+        # the same shape as the inherited-claim one above.
+        "R13 per-branch claim that is valid JSON but not an object": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           "[1, 2, 3]\n", encoding="utf-8")), True),
+        "R13 per-branch claim that is not valid JSON": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           "{not json", encoding="utf-8")), True),
         "R11 no declaration on a branch that could have known": (
             lambda r: None, True),
         "R1 a tier outside 1-3": (
