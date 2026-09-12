@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three backlog dispositions and one new filing, all from live diag/API reads. docs/claude/health-review-backlog.json only — no src/, no config, no scripts, no order path. The new row's subject is a src/ read route, so its FIX is explicitly not proposed for this lane to land."
+}
