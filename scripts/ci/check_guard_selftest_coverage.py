@@ -312,6 +312,91 @@ def asserts_on_main_or_rc(body: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# IS A `declared_but_never_invoked` ENTRY AN OVERSIGHT, OR A STATED DECISION?
+#
+# This report used to name every script that declares `--self-test` and is not
+# invoked with it by run_guards.py, and say nothing more. BOTH live entries are
+# DELIBERATE and say so IN THE FILE, so the line read as a to-do list of two
+# things to fix when there was nothing to fix — and it cost a session real work
+# before it read the files (2026-09-12, MI-280 U54). That is the
+# desensitised-alarm shape in miniature: a report that cannot distinguish a
+# decision from a defect trains its reader to discount both.
+#
+# THE CONVENTION ALREADY EXISTED AND NOTHING READ IT. Measured over the 71
+# files in scripts/ci/: 17 carry a `# wiring:` comment stating what fires them.
+#
+# ⚠️ WHOLE-FILE SCAN, NOT A HEADER WINDOW. The declaration sits at line 2 in 15
+# of them and at line 60 and line 78 in the other two — after the module
+# docstring rather than before it. A 30-line window finds 15 of 17 and reports
+# the two stragglers as undeclared, which is exactly the pair this check is
+# about. That was measured, not guessed: the first draft of this scan used a
+# 30-line window and produced that false negative.
+#
+# ⚠️ VERIFIED, NEVER PRESENCE-ONLY. `new-table-wiring-guard`'s lesson is that a
+# marker cheaper to lie to than to satisfy is worse than no marker. A
+# declaration counts only when it RESOLVES:
+#   * `manual-only` resolves iff the script really is in neither run_guards.py
+#     nor any workflow — a file claiming to be manual-only while wired is
+#     making a false statement, and reads as unexplained;
+#   * otherwise it must name a workflow FILE THAT EXISTS and that references
+#     this script.
+# So the states are never collapsed: `declared_and_verified` (a decision),
+# `declared_unverified` (a claim that does not hold — worse than silence,
+# because it reads as settled), and `undeclared` (nobody said).
+# ---------------------------------------------------------------------------
+
+_WIRING = re.compile(r"^# wiring:(.*(?:\n#.*)*)", re.M)
+
+WIRING_VERIFIED = "declared_and_verified"
+WIRING_UNVERIFIED = "declared_unverified"
+WIRING_UNDECLARED = "undeclared"
+
+
+def wiring_declaration(path: Path) -> str | None:
+    """The `# wiring:` text anywhere in *path*, or None."""
+    try:
+        m = _WIRING.search(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return None
+    return m.group(1).strip() if m else None
+
+
+def workflows_referencing(repo: Path, name: str) -> List[str]:
+    """Workflow files whose text names *name*. [] when the dir is unreadable."""
+    wdir = repo / ".github" / "workflows"
+    if not wdir.is_dir():
+        return []
+    out = []
+    for p in sorted(wdir.glob("*.yml")) + sorted(wdir.glob("*.yaml")):
+        try:
+            if name in p.read_text(encoding="utf-8", errors="replace"):
+                out.append(p.name)
+        except OSError:
+            continue
+    return out
+
+
+def grade_wiring(repo: Path, path: Path, *, reachable: bool) -> dict:
+    """Three states, never collapsed. See the block comment above."""
+    text = wiring_declaration(path)
+    carriers = workflows_referencing(repo, path.name)
+    if text is None:
+        return {"wiring_state": WIRING_UNDECLARED, "wiring_text": None,
+                "wiring_carriers": carriers}
+    if "manual-only" in text:
+        held = not reachable and not carriers
+        return {"wiring_state": WIRING_VERIFIED if held else WIRING_UNVERIFIED,
+                "wiring_text": text, "wiring_carriers": carriers,
+                "wiring_note": None if held else
+                "declares `manual-only` but IS wired — the declaration is false"}
+    named = [w for w in carriers if w in text or Path(w).stem in text]
+    return {"wiring_state": WIRING_VERIFIED if named else WIRING_UNVERIFIED,
+            "wiring_text": text, "wiring_carriers": carriers,
+            "wiring_note": None if named else
+            "names no workflow that exists AND references this script"}
+
+
+# ---------------------------------------------------------------------------
 # assessment
 
 
@@ -364,6 +449,7 @@ def assess(repo: Path) -> List[dict]:
             "reachable_from_run_guards": reachable,
             "declares_self_test_flag": declares,
             "declared_but_never_invoked": declares and not invoked_a and not invoked_b,
+            **grade_wiring(repo, g, reachable=reachable),
             "registry_names": reg_names,
             "pytest_files": named_by,
             "asserts_a_verdict": asserts_a_verdict(body) if path else False,
@@ -427,6 +513,14 @@ def evaluate(rows: List[dict], exemptions: Dict[str, dict],
         "asserts_on_main_or_rc": sum(1 for r in covered if r["asserts_on_main_or_rc"]),
         "declared_but_never_invoked": [r["guard"] for r in rows
                                        if r["declared_but_never_invoked"]],
+        # Reported beside it, never folded into it: a file that STATES why it
+        # is not in run_guards, where the statement was checked and holds.
+        "wiring_declared_and_verified": [
+            r["guard"] for r in rows
+            if r["declared_but_never_invoked"]
+            and r.get("wiring_state") == WIRING_VERIFIED],
+        "wiring_notes": {r["guard"]: r["wiring_note"] for r in rows
+                         if r.get("wiring_note")},
     }
     v: List[str] = []
 
@@ -511,9 +605,22 @@ def report(rows: List[dict], stats: dict, verbose: bool) -> None:
           f"`main()`'s return or a subprocess return code (REPORTED, not gated — see "
           f"the note beside _STRICT_RETURN).")
     if stats["declared_but_never_invoked"]:
-        print("  declared `--self-test` that run_guards.py never invokes with it:")
-        for g in stats["declared_but_never_invoked"]:
-            print(f"      {g}")
+        # SPLIT, never one list: a stated decision and an oversight are
+        # different facts, and pooling them made both look like to-dos.
+        explained = stats.get("wiring_declared_and_verified", [])
+        unexplained = [g for g in stats["declared_but_never_invoked"]
+                       if g not in explained]
+        if unexplained:
+            print("  declared `--self-test` that run_guards.py never invokes, "
+                  "and NOTHING says why:")
+            for g in unexplained:
+                note = stats.get("wiring_notes", {}).get(g)
+                print(f"      {g}" + (f"  [{note}]" if note else ""))
+        if explained:
+            print("  declared `--self-test`, not in run_guards, and the file "
+                  "SAYS WHY (verified, not taken on trust):")
+            for g in explained:
+                print(f"      {g}")
     if verbose:
         for r in rows:
             if r["population"] != "guards_context":
@@ -690,6 +797,66 @@ def self_test() -> int:
         (t / "scripts" / "check_second.py").write_text(BARE)
         check("a guard reachable from nothing is still in the denominator",
               evaluate(assess(t), {}, floor=0)[1]["total"], 2)
+
+    # -----------------------------------------------------------------
+    # THE WIRING DECLARATION (2026-09-12, MI-280 U54). Three states, each
+    # planted, because the whole point is that they are NOT one state.
+    # -----------------------------------------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        (tmp / "scripts" / "ci").mkdir(parents=True)
+        (tmp / ".github" / "workflows").mkdir(parents=True)
+        g = tmp / "scripts" / "ci" / "check_planted.py"
+
+        # (a) UNDECLARED — nobody said why. Must NOT read as explained.
+        g.write_text("print('x')\n")
+        check("[wiring] no declaration reads `undeclared`",
+              grade_wiring(tmp, g, reachable=False)["wiring_state"],
+              WIRING_UNDECLARED)
+
+        # (b) manual-only, and TRUE (in neither run_guards nor a workflow).
+        g.write_text("# wiring: manual-only - a report, not a gate\nprint('x')\n")
+        check("[wiring] a TRUE `manual-only` verifies",
+              grade_wiring(tmp, g, reachable=False)["wiring_state"],
+              WIRING_VERIFIED)
+
+        # (c) manual-only, and FALSE — the file IS wired. A declaration that
+        #     does not hold is worse than silence: it reads as settled.
+        check("[wiring] `manual-only` on a WIRED script does NOT verify",
+              grade_wiring(tmp, g, reachable=True)["wiring_state"],
+              WIRING_UNVERIFIED)
+
+        # (d) names a workflow that exists AND references it.
+        (tmp / ".github" / "workflows" / "planted-watch.yml").write_text(
+            "run: python3 scripts/ci/check_planted.py --self-test\n")
+        g.write_text("# wiring: fired by `.github/workflows/planted-watch.yml`\n"
+                     "print('x')\n")
+        check("[wiring] a declaration naming a REAL carrier verifies",
+              grade_wiring(tmp, g, reachable=False)["wiring_state"],
+              WIRING_VERIFIED)
+
+        # (e) names a workflow that does NOT exist. Presence is not proof.
+        g.write_text("# wiring: fired by `.github/workflows/does-not-exist.yml`\n"
+                     "print('x')\n")
+        check("[wiring] a declaration naming a NON-EXISTENT carrier does not verify",
+              grade_wiring(tmp, g, reachable=False)["wiring_state"],
+              WIRING_UNVERIFIED)
+
+        # ⚠️ (d) planted a workflow that references this script, and it is
+        #     still on disk. Leaving it makes (f)'s `manual-only` FALSE — the
+        #     grader would be right and the control wrong. Caught by running
+        #     it, which is the only way that class is ever caught.
+        (tmp / ".github" / "workflows" / "planted-watch.yml").unlink()
+
+        # (f) THE FALSE NEGATIVE THIS WAS BUILT WITH. Two of the 17 live
+        #     declarations sit AFTER the module docstring (lines 60 and 78);
+        #     a header-window scan reports exactly those two as undeclared,
+        #     which is the pair the split is about.
+        g.write_text('"""doc."""\n' + "\n" * 60 +
+                     "# wiring: manual-only - stated late, still stated\n")
+        check("[wiring] a declaration at line ~62 is still found (whole-file scan)",
+              grade_wiring(tmp, g, reachable=False)["wiring_state"],
+              WIRING_VERIFIED)
 
     if fails:
         print("\n".join(fails))
