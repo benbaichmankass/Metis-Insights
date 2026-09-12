@@ -1,0 +1,30 @@
+id: WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Decompose the winner-size collapse and grade its provenance before any remedy is proposed
+stage: EVIDENCE
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The $404 -> $112 average-win fall is decomposed into its arithmetic factors (qty, price distance, fees) with each factor's PnL provenance graded per src/runtime/provenance.py, over a STATED population; and the question 'is this collapse MEASURED, or an artifact of the exit-booking path' is answered either way. A remedy PROPOSAL is explicitly NOT part of the done condition -- any parameter change is Tier-3 and returns to the operator separately.
+
+why: >-
+  MI-271 attributed the bleed to winner-size collapse from 2026-08-27 (win rate 46.0->41.1%, average win -72%, expectancy +$40 -> -$144). The mechanism behind the average win falling is unanswered. Under CY-20260906-TRADING-TRUTH the order matters: this number is computed from a population whose measured PnL coverage was 42.9% at last reading, and OI-20260908 records a LIVE defect booking fabricated pnl on false closes on the very venue carrying most of these rows. A verdict computed from a contaminated instrument is worse than no verdict.
+
+source: >-
+  operator priority 2026-09-11: 'we've had a pretty miserable week performance wise... we need to figure out why we're bleeding so hard what we're gonna do about it'; carried forward by the manager after MI-271 answered the WHEN and the WHAT but not the WHY
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
