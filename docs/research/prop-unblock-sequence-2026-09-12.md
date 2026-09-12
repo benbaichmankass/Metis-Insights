@@ -102,10 +102,10 @@ proving nothing.**
 
 **False.** `apply_rounds` never survives validation, so the global dispatch has run
 **unchanged** throughout. The prop twin's pre-existing route — occasionally winning the
-global symbol slot (`BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-…`) — was
+global symbol slot (`BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING`) — was
 **never removed**, and arming `bybit_1` closed no door at all.
 
-`BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE`
+`BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE-AND-THE-SOAK-RECORDED-IT-EVERY-TIME`
 is filed on a false premise and is corrected in place rather than duplicated.
 
 **MI-274's core verdict is untouched:** `breakout_1` IS starved. It is starved by the

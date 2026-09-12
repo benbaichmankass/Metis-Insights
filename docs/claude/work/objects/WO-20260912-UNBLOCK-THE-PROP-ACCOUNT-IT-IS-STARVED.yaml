@@ -77,7 +77,7 @@ findings: >-
   global dispatch ran unchanged and the prop twin's BL-20260827 route was never
   removed. breakout_1 IS starved, by the ORIGINAL global one-winner-per-symbol
   election, not by the allowlist.
-  BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE
+  BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE-AND-THE-SOAK-RECORDED-IT-EVERY-TIME
   is filed on a false premise and is corrected in place.
   (2) THE STALE BALANCE DOES NOT BIND, and MI-274's own hop-5 table disproves its
   hop 6: two trend_donchian_eth_prop tickets reached `emit_prop_ticket` on
