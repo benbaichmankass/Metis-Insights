@@ -36615,7 +36615,7 @@
       "id": "BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL-BACKLOG-DISPOSITIONS-ARE-NONE-OF-THE-SIX-THE-GUARD-ACCEPTS",
       "opened": "2026-09-12",
       "opened_by": "MI-280 engineering lane (session_01BjTp5RYwedmpFfkEtkQo1j) — hit live while closing a row",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": "1 (docs + scripts/ci — prose vs guard enum; no order path)",
       "area": "backlog-governance / doc-drift",
@@ -36631,6 +36631,14 @@
         "docs/CLAUDE-RULES-CANONICAL.md",
         "scripts/check_claim_basis.py",
         "docs/claude/health-review-backlog.json"
+      ],
+      "updates": [
+        {
+          "at": "2026-09-12T18:35:50+00:00",
+          "by": "MI-280 engineering lane U35",
+          "disposition": "resolved",
+          "note": "RESOLVED, all four criteria, and the diagnosis CHANGED under measurement -- the row was right to refuse both 'just use the enum' and 'just edit the doc'. (1) COUNTED, which is the number the row said nobody had. POPULATION: all four review backlogs, 1,803 rows. `status` carries ONLY the six enum values -- resolved 776, open 770, kept_open 229, superseded 14, wont_fix 10, invalid 4 -- and ZERO rows carry any of the doc's five. So the migration denominator is 0 and the enum needed no widening. (2) DECIDED, on that evidence: the guard's enum is canonical and the doc was the drift (field beats comment). BUT THE ROW'S OWN CAVEAT WAS CORRECT AND THE ANSWER IS NOT 'the five are retired' -- they are a DIFFERENT FIELD. `disposition` carries them live: 103 row-level and 794 update-level entries (snoozed 41, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 14, CLOSE_UNFIXABLE 3, fixed 2 at row level). `snoozed` is additionally the `snoozed_until` FIELD of rule 4, exactly as the row suspected. So rule 3 was not merely misspelling the enum, it was describing one field and naming another. (3) ONE HOME. check_claim_basis.py::STATUS_ENUM is it; the canonical doc now MIRRORS it between `status-enum` markers and cites the file rather than listing words of its own. (4) THE CONTROL, in canonical-doc-coherence's own shape: check_status_enum_mirror imports the enum and fails BOTH directions -- a doc listing a value CI rejects, and a doc omitting one CI accepts -- and a missing marker or unreadable enum FAILS rather than printing PASS. TWO FURTHER DEFECTS FOUND WHILE VERIFYING, both fixed here rather than filed: (a) claim-basis-guard scanned THREE backlogs while scripts/ops/work_digest.py reads FOUR, so docs/claude/research-review-backlog.json was the one place a free-text status could land unremarked; measured at 19 rows, all already in-enum, so adding it widens coverage and changes no verdict today. (b) work_digest.BACKLOG_TERMINAL listed EIGHT values of which FOUR -- fixed, closed_answered, closed_unfixable, promoted_to_roadmap -- the `status` field can never hold, under a comment asserting 'the on-disk files also carry the historical spellings', which the 1,803-row count refutes. They were unreachable predicates; the digest was not broken by them because the reachable half covers every terminal transition that exists. BACKLOG_TERMINAL is now DERIVED as STATUS_ENUM minus {open, kept_open}, so a value added to the enum becomes terminal automatically. NOT FIXED HERE, DELIBERATELY: `disposition` itself has no enum and no guard and its update-level vocabulary has drifted to 35 distinct values including three that bake a qualifier into the string. A second vocabulary is a second migration with its own denominator and its own open question (whether it should be closed at all). Filed as BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT. Controls: tests/test_status_enum_single_home.py, 7 of them. Seven planted defects, all caught: doc re-adds `fixed`, doc drops a value, mirror markers removed, the enum widened without the doc, the research backlog dropped from the guard's scan set, BACKLOG_TERMINAL re-listed by hand, and the mirror check short-circuited to return no findings."
+        }
       ]
     },
     {
@@ -37236,6 +37244,23 @@
         "scripts/ops/pr_queue_latency.py",
         "tests/test_pr_queue_watch_reports_always.py",
         "docs/claude/work/PR-QUEUE-WATCH.json"
+      ]
+    },
+    {
+      "id": "BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT",
+      "opened": "2026-09-12",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 (scripts/ci + docs — a second vocabulary, no order path)",
+      "area": "backlog-governance",
+      "title": "`disposition` is a second backlog vocabulary with no enum and no guard, and its update-level values have drifted to 35 distinct strings including free text with a qualifier baked in",
+      "detail": "MEASURED 2026-09-12 (MI-280 U35) while fixing the SIBLING defect in `status` (BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL-BACKLOG-DISPOSITIONS-ARE-NONE-OF-THE-SIX-THE-GUARD-ACCEPTS). POPULATION: all four review backlogs, 1,803 rows. `status` is clean -- a closed six-value enum, CI-enforced whole-file by claim-basis-guard, ZERO off-enum rows. `disposition` is the opposite and nothing watches it. ROW-LEVEL: 103 rows, 6 distinct values -- snoozed 41, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 14, CLOSE_UNFIXABLE 3, fixed 2. UPDATE-LEVEL: 794 entries, THIRTY-FIVE distinct values -- kept_open 612, snoozed 49, resolved 39, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 15, wont_fix 5, then a long tail of singletons including 'partially-resolved', 'premise_refuted_pending_wider_check', 'kept_open_readable_but_wrong_population', 'fix_shipped_awaiting_live_verification', and three values that are a status with a QUALIFIER baked into the string: 'kept_open (REFUSED -- gate still not evaluable, now with the numbers)', 'open (REFUSED -- headline stale for the SECOND time; corrected again)', 'kept_open (REFUSED -- measured, does not close, and has WORSENED)'. THAT LAST GROUP IS THE HARM NAMED EXACTLY: check_claim_basis.py's own comment above STATUS_ENUM says 'A qualifier belongs in detail, never in status' -- the same thing has already happened in `disposition`, in the field nobody guarded. CASE IS ALSO INCONSISTENT AND IS NOT A SPELLING VARIANT: 27 rows carry CLOSE_ANSWERED / CLOSE_UNFIXABLE while docs/CLAUDE-RULES-CANONICAL.md wrote closed_answered / closed_unfixable -- a different prefix (CLOSE_ vs closed_), so a case-insensitive comparison would not reconcile them either. NOT ESTABLISHED, and must not be assumed: whether `disposition` SHOULD be a closed vocabulary at all. It records WHY a row ended, which is prose-shaped in a way `status` is not, and 'do_now' is not a terminal disposition in any reading -- it may be a different concept sharing a field name. Someone must read the population and decide, not pick the answer that is easier to enforce. WHAT IS ALREADY DONE AND MUST NOT BE RE-DERIVED: the `status` side is fixed and guarded -- one home (check_claim_basis.py::STATUS_ENUM), the canonical doc mirrors it behind status-enum markers, canonical-doc-coherence fails if the two disagree, the guard now scans all FOUR backlogs (it scanned three while work_digest read four), and work_digest's BACKLOG_TERMINAL is DERIVED from the enum instead of restating a superset that carried four members the field can never hold.",
+      "evidence": "Reproduce: collections.Counter over r.get('disposition') for every row, and over u.get('disposition') for every entry of r.get('updates'), across docs/claude/{health,performance,ml,research}-review-backlog.json. Consumers that already read these words: scripts/ops/work_digest.py and scripts/ops/checklist_routing_age.py.",
+      "resolution_criteria": [
+        "Decide whether `disposition` is a closed vocabulary or deliberately free prose, and say which in docs/CLAUDE-RULES-CANONICAL.md rather than leaving it unstated -- 'nobody decided' is what produced 35 values.",
+        "If it is closed: give it ONE home next to STATUS_ENUM, import it (never a second literal), reconcile the CLOSE_ANSWERED/closed_answered case-and-prefix split over its measured 27 rows, and decide where 'do_now' belongs -- it is not terminal.",
+        "Either way, split the three qualifier-bearing values so the qualifier lives in prose and the field holds a value, which is the rule `status` already has and this field does not.",
+        "Add the control in the shape of the status one: a test that the doc and the enforced vocabulary agree, plus a planted-defect control showing it can go red. A one-time cleanup without it is the same class of drift again."
       ]
     }
   ]
