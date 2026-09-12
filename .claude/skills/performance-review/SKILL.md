@@ -131,6 +131,24 @@ pulls:
 | Sweep mirror | `GET /api/bot/backtests/sweeps?limit=5` | trainer-VM sweeps that may justify a tweak proposal |
 | **Prop trade quality** | `python3 scripts/prop/trade_quality_review.py` (reads `/api/bot/prop/{fills,tickets}`) | **placed-vs-ticketed** — the cut that separates a BRIDGE problem from a STRATEGY one |
 
+> ⚠️ **BEFORE YOU CONCLUDE ANYTHING FROM A FIELD IN THESE PULLS, read
+> `docs/CLAUDE-RULES-CANONICAL.md` § "The row you are reading outranks the
+> label in it".** Every pull above returns STORED fields, and a stored field's
+> name is a claim about what wrote it, not a measurement. One session produced
+> **four** wrong conclusions about a live real-money strategy from exactly these
+> rows — `pnl` read as the account's money, a portfolio total quoted without
+> `position_size`, `exit_reason` read as the exit mechanism without
+> `exit_price`, netting mode asserted from prose over the venue's own
+> `positionIdx` — and in **three of the four the settling field was in the row
+> already being read**. The drafted outputs were a real-money demotion and a
+> Tier-3 entry-gate change. **"Always verify" was in force and prevented none of
+> them**, because a journal query IS a measurement — of the journal.
+> Cheap mechanical answers: `journalTrust` rides in the `/api/bot/trades/closed`
+> response already (⚠️ `no_record` is NOT "trusted"); `scripts/ops/column_provenance.py
+> trades.<column>` names every writer; `scripts/ops/strategy_liveness.py <strategy>`
+> answers whether a rate you are about to quote is still happening or belongs in
+> the past tense.
+
 All pulls go through the **diag relay** (issue label
 `vm-diag-request`, title is the path) OR direct HTTPS when the
 session is configured for it. Do not SSH; do not ask the operator to

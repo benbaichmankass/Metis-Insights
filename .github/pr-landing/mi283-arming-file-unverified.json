@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ONE NEW BACKLOG ROW — no src/, no tests/, no config, no workflow. Files the RECURRENCE of the truncated-tracking-id class (three instances in one session, all the same author) together with the structural cause of the third one, which is the part worth keeping: the auto-merge arming file and the merge-slot claim are written on the SECOND push because pr-landing-guard R6 is satisfiable only there, so that class of file is BY CONSTRUCTION outside every local guard run the session performed, and the arming file is free-form prose, which is exactly what the ref/population/caveat guards scan. Measured on PR #12074 (run 34716712790, job 103615209631): artifact-validity-guard failed on a file no local run had ever seen. The row records that the remedy applied after the first two instances -- 'write the full id', i.e. a reminder -- did not hold either time, and proposes three mechanisms instead, none applied. It also records the trap that cost this session a confused re-run: check_backlog_refs reads {base}...HEAD, so an UNCOMMITTED fix is invisible to it."
+}
