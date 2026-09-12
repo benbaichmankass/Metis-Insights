@@ -957,6 +957,49 @@ def fixed_window_excursion(units_pre: list[dict], units_post: list[dict],
 # ===========================================================================
 # Dose-response -- the natural experiment, no simulation needed
 # ===========================================================================
+def _per_package_rates(rs: list[dict], tol: float) -> dict:
+    """The same cell counted per ORDER PACKAGE, stated beside the per-row rate.
+
+    Added by MI-278 U19 for
+    `BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY`
+    clause 1. It ADDS a figure and changes none, so every number this file has
+    already published is byte-identical.
+
+    A package whose rows DISAGREE about the exit is reported and never arbitrated:
+    MI-278 U15 measured that choosing which fan-out row to believe swings a
+    headline by 4.3-28.2pp, so picking one here would be a choice wearing the
+    clothes of a fact. Such a package is in neither numerator nor denominator.
+    """
+    by: dict[str, list[dict]] = collections.defaultdict(list)
+    orphan = 0
+    for r in rs:
+        pid = r.get("order_package_id")
+        if not pid:
+            orphan += 1
+            continue
+        by[str(pid)].append(r)
+    states: collections.Counter = collections.Counter()
+    stops = gradeable = 0
+    for rows in by.values():
+        v = [adjudicate_exit(r, tol) for r in rows]
+        g = [x for x in v if x in ("reached_stop", "reached_target", "neither")]
+        if not g:
+            states["ungradeable"] += 1
+        elif len(set(g)) == 1:
+            states["unanimous"] += 1
+            gradeable += 1
+            stops += 1 if g[0] == "reached_stop" else 0
+        else:
+            states["disagreement"] += 1
+    return {
+        "packages": len(by), "rows_without_package": orphan,
+        "states": dict(states), "gradeable": gradeable, "stop_outs": stops,
+        "stop_rate": round(stops / gradeable, 3) if gradeable else None,
+        "stop_rate_ci": wilson(stops, gradeable) if gradeable else None,
+        "inflation": round(len(rs) / len(by), 3) if by else None,
+    }
+
+
 def dose_response(trades: list[dict], tol: float) -> dict:
     """Group e35 legs by the SIZE of their stop change and compare eras.
 
@@ -1001,6 +1044,21 @@ def dose_response(trades: list[dict], tol: float) -> dict:
                 "stop_outs": adj["reached_stop"], "gradeable": gradeable,
                 "stop_rate": round(adj["reached_stop"] / gradeable, 3) if gradeable else None,
                 "stop_rate_ci": wilson(adj["reached_stop"], gradeable) if gradeable else None,
+                # ⚠️ THE RATES ABOVE ARE PER ROW, AND THIS FILE'S OWN DOCSTRING
+                # PROMISES PER PACKAGE. Fan-out means several rows share ONE price
+                # path, so for a question about what price did they are not
+                # independent — and the arms are inflated UNEQUALLY, so it does not
+                # cancel (BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY).
+                # The per-package figure is stated BESIDE rather than replacing the
+                # per-row one, which is that row's clause 1, so no published number
+                # moves. MI-278 U19 re-derived this cell: the p on the
+                # `tightened_to_2_from_2.5` bucket goes ~0 -> 0.021, the conclusion
+                # survives and its strength does not, and the dose INVERSION holds.
+                # Full derivation, including the PRE cell's two internally
+                # contradictory packages: scripts/research/package_denominator_rederive.py.
+                "row_denominator_note": (
+                    "stop_rate/win_rate above are per ROW; see per_package below"),
+                "per_package": _per_package_rates(rs, tol),
                 "pnl": round(sum(_f(r.get("pnl")) or 0 for r in rs), 2),
             }
         a, b = cell.get("pre", {}), cell.get("post", {})
