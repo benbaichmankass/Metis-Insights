@@ -1,0 +1,8 @@
+MI-283 — Tier-1, one existing backlog row extended. Arms auto-merge on PR #12074.
+
+Records the ROOT CAUSE of BL-20260908-CLAUDE-PR-AUTOMERGE-...'s defect (1),
+observed in the workflow's own job log: the PAT client fails to construct because
+`@actions/github` is not resolvable from the github-script inline script, so it
+falls back to GITHUB_TOKEN. That makes the fix a module-resolution one, not auth.
+
+No new row. No src/, no tests/, no config, no workflow.
