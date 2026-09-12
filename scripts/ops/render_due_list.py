@@ -90,6 +90,8 @@ _PROBES_WORKFLOW = Path(".github/workflows/probes.yml")
 #: Its carrier is `scripts/ops/stuck_automation_branches.py --receipt`.
 _STUCK_RECEIPT = Path("docs/claude/STUCK-BRANCHES.json")
 _STUCK_CARRIER = "stuck_automation_branches.py"
+_OPEN_PR_RECORD_TOOL = Path("scripts/ops/open_pr_record.py")
+_OPEN_PR_RECORD = Path("docs/claude/work/OPEN-PRS.json")
 # Slack on top of the declared cadence before a report is called stale. The
 # probes job carries `timeout-minutes: 60`, so a run that starts on time can
 # still be committing an hour later; 6h absorbs that plus a retry without
@@ -1097,10 +1099,96 @@ def src_stuck_branches(
                         note=f"{n_stuck} branch(es) standing")
 
 
+def src_settled_disposition_owed(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this source grades a record's CONTENT, which carries no age
+) -> SourceResult:
+    """A PR that was CLOSED WITHOUT MERGING and nobody said why.
+
+    ⚠️ **THIS IS THE (c) OF A ROW THAT NAMED ITS OWN THREE CANDIDATE FIXES.**
+    `BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY`
+    proposes *"(c) a `disposition_owed` signal surfaced where a manager will see
+    it before five PRs accumulate."* This is that surface. It is **not** (a) —
+    the automated job still cannot be mergeable without a hand-written field —
+    so the row stays open on its own criterion.
+
+    ⚠️ **THE VERDICT IS NOT COMPUTED HERE.** It is
+    `scripts/ops/open_pr_record.py::grade_settled`, imported, because a second
+    definition of "does this settled row owe a reason?" is free to drift from
+    the one CI refuses on — and the two disagreeing about a blockage is worse
+    than either being wrong alone. This source decides only WHICH verdicts earn
+    a row.
+
+    ⚠️ **WHY LOUD, WHERE `src_sunset_dispositions` IS DELIBERATELY NOT.** That
+    source argues — correctly — that ten permanently-due candidates become the
+    thing sessions scroll past. This population is the opposite shape on BOTH
+    terms, and the difference is measured rather than asserted: on 2026-09-12
+    the record holds **94 settled rows and ZERO findings**, and the 2026-09-05
+    incident was **one** row. It arrives one at a time because the reconciler
+    moves a PR as it closes. And it is not a standing backlog to work through —
+    while it stands, `open_pr_record.py --strict` refuses, so **every**
+    automation PR in the repo is red: five `automation/reconcile-open-prs-*`
+    PRs stacked unmergeable in 3h20m, and the blockage was found only because a
+    manager happened to read a failing guard log.
+
+    ⚠️ **IT DOES NOT PROPOSE A DISPOSITION AND MUST NOT.** 'superseded', 'the
+    operator refused it' and 'the author gave up' are opposite next actions; the
+    row that names the gap is the whole contribution, and back-filling a reason
+    nobody gave is what that backlog row explicitly rules out.
+    """
+    tool = root / _OPEN_PR_RECORD_TOOL
+    if not tool.exists():
+        return SourceResult("settled_disposition_owed", "not_applicable",
+                            note=f"{_OPEN_PR_RECORD_TOOL} absent — nothing in "
+                                 f"this tree grades the settled record")
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_open_pr_record_due", tool)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        doc, readable = mod.read_record(root / _OPEN_PR_RECORD)
+        v = mod.grade_settled(doc, readable)
+    except Exception as exc:  # noqa: BLE001 — any failure is `we could not look`
+        return SourceResult("settled_disposition_owed", "could_not_read",
+                            note=f"{_OPEN_PR_RECORD_TOOL}: "
+                                 f"{type(exc).__name__}: {exc}")
+
+    state = v.get("state")
+    rows: list[dict] = []
+    if state == "undispositioned":
+        owed = [str(f.get("pr")) for f in (v.get("findings") or [])]
+        rows.append(_row(
+            "settled_disposition_owed", "settled-prs-disposition-owed",
+            f"{len(owed) or 'some'} closed-unmerged PR(s) record no reason",
+            (f"PR(s) {', '.join(owed) or '(unnamed)'} ended without reaching "
+             f"`main` and nobody said why. ⚠️ THIS IS BLOCKING RIGHT NOW, not a "
+             f"backlog item: `open_pr_record.py --strict` refuses while it "
+             f"stands, so every automation PR in the repo is red, and the "
+             f"reconciler keeps opening more — five stacked unmergeable in "
+             f"3h20m on 2026-09-05. Write the reason into that row's "
+             f"`disposition` in {_OPEN_PR_RECORD}; do NOT invent one, and do "
+             f"NOT relax the guard."),
+            loud=True, link=str(_OPEN_PR_RECORD)))
+    elif state == "unreadable":
+        rows.append(_row(
+            "settled_disposition_owed", "settled-prs-unreadable",
+            "the open-PR record could not be read",
+            f"{v.get('why') or _OPEN_PR_RECORD} — so whether a closed PR owes a "
+            f"reason is UNESTABLISHED. That is `we did not look`, never `none "
+            f"is owed`.",
+            loud=True, link=str(_OPEN_PR_RECORD)))
+
+    pop = v.get("population") or {}
+    return SourceResult("settled_disposition_owed", "read", rows,
+                        note=f"settled record grades {state} "
+                             f"({pop.get('settled', '?')} settled row(s))")
+
+
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
+    src_settled_disposition_owed,
 )
 
 
@@ -1426,7 +1514,73 @@ def _self_test() -> int:
         assert "68" in stand["title"], \
             "standing + seeded are ONE stock — a seeded row is still unrouted"
 
-    print("due-list: self-test OK — 51 planted controls all fire")
+    # ── the settled-disposition source ─────────────────────────────────────
+    # ⚠️ Every control builds its OWN tree and copies the REAL grader into it,
+    # so the source is exercised through the same import path it uses in
+    # production. Calling `grade_settled` directly here would stay green after
+    # somebody re-implemented the verdict inline in this file, which is the
+    # drift this source exists to avoid.
+    import shutil as _shutil2
+    _opr = Path(__file__).resolve().parent / "open_pr_record.py"
+
+    def _opr_tree(td: str, doc):
+        root = Path(td)
+        (root / "scripts/ops").mkdir(parents=True)
+        _shutil2.copy(_opr, root / _OPEN_PR_RECORD_TOOL)
+        (root / "docs/claude/work").mkdir(parents=True)
+        if doc is not None:
+            (root / _OPEN_PR_RECORD).write_text(
+                doc if isinstance(doc, str) else json.dumps(doc), encoding="utf-8")
+        return root
+
+    def _settled(**kw):
+        return {"schema_version": 3, "open_prs": [], "settled_prs": [dict(kw)]}
+
+    with tempfile.TemporaryDirectory() as td:
+        root = _opr_tree(td, _settled(pr=4242, terminal="closed_unmerged"))
+        got = src_settled_disposition_owed(root, today)
+        assert got.state == "read", got.state
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"settled-prs-disposition-owed"}, ids
+        row = got.rows[0]
+        assert row["loud"], "a live CI blockage is loud"
+        assert "4242" in row["why_due"], row["why_due"]
+        assert "do NOT invent one" in row["why_due"], \
+            "the row must refuse to manufacture a reason, or it invites the " \
+            "one fix the backlog row rules out"
+
+    with tempfile.TemporaryDirectory() as td:
+        root = _opr_tree(td, _settled(pr=4242, terminal="closed_unmerged",
+                                      disposition="superseded by #4243"))
+        got = src_settled_disposition_owed(root, today)
+        assert got.state == "read" and got.rows == [], \
+            "a dispositioned row is settled business and must earn no row"
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_settled_disposition_owed(_opr_tree(td, "{not json"), today)
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"settled-prs-unreadable"}, ids
+        assert got.rows[0]["loud"], \
+            "`we could not look` at a blocking condition is loud, never quiet"
+
+    # THE VERDICT MUST COME FROM THE GRADER, NOT FROM A COPY OF ITS RULES.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "docs/claude/work").mkdir(parents=True)
+        assert src_settled_disposition_owed(root, today).state == "not_applicable"
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "scripts/ops").mkdir(parents=True)
+        (root / _OPEN_PR_RECORD_TOOL).write_text("def (", encoding="utf-8")
+        (root / "docs/claude/work").mkdir(parents=True)
+        got = src_settled_disposition_owed(root, today)
+        assert got.state == "could_not_read", got.state
+        assert "SyntaxError" in got.note, got.note
+
+    assert src_settled_disposition_owed in SOURCES, \
+        "src_settled_disposition_owed is not registered in SOURCES"
+
+    print("due-list: self-test OK — 63 planted controls all fire")
     return 0
 
 
