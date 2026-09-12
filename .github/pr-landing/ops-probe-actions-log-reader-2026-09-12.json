@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "an observability READER under scripts/ops/ plus two register annotations; no runtime, order path, service, timer or config touched — the probe is read-only and cannot fire a job"
+}
