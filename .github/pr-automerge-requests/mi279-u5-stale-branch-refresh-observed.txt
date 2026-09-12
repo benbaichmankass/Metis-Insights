@@ -1,1 +1,6 @@
 armed by session_013iSqp4LsU1eq8K326eUtgj for claude/mi279-u5-stale-branch-refresh-observed (PR #11999)
+
+RE-ARMED 2026-09-12 after a base merge. The first arming file reached `main`
+through an unrelated PR (#11994) byte-identical, which made this branch's copy
+"unchanged from origin/main" and so no longer a signal — pr-landing R6 then
+reported the branch as NOT ARMED. This line restores the difference.

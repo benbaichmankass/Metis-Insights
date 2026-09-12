@@ -1,0 +1,5 @@
+Arm auto-merge: webapp auth observed on the fleet — login returns 500
+auth_unavailable, re-confirmed a day after MI-265 first measured it
+(MI-279 OPS lane, U5).
+
+GitHub still merges only on green required checks.
