@@ -1276,11 +1276,31 @@ def _record_position_read_observation(obs: Dict[str, Any]) -> None:
         except Exception:  # noqa: BLE001 - a soak write must never break a read
             pass
         if deduped:
-            # The live-money one. A second book on a symbol we already emitted
-            # was discarded, so a caller keyed on (symbol, side) cannot see it.
+            # ⚠️ RENAMED AND RE-MEANT 2026-09-12 (MI-283). It read
+            # "DROPPED %d hedge book(s) by symbol dedupe" / ``hedge_book_dropped``
+            # and that label is now FALSE BY CONSTRUCTION: the dedupe keys on
+            # ``(symbol, position_idx)``, so a hedge sibling can no longer
+            # collide. The ONLY way to reach this branch is the venue listing
+            # the SAME book twice, which should never happen -- so the event
+            # goes from routine to anomalous and the name must say which.
+            #
+            # This is the ``diagnostic-provenance`` sub-class A remedy applied
+            # to our own alarm: branch on the actual condition, do not reword a
+            # label over a changed meaning. MEASURED before the rename: nothing
+            # BRANCHES on the string (producer + one test + two generated
+            # digests only), so the rename breaks no consumer.
+            #
+            # ⚠️ AND IT RETIRES A HIGH-VOLUME WARN CLASS. ``hedge_book_dropped``
+            # appears 506x in docs/claude/ERROR-FEED-DIGEST.md and
+            # ``position_read_state`` is 168 of the 1000 rows in the (capped,
+            # therefore truncated) warn feed measured 2026-09-11 -- feed
+            # occlusion, per that finding's own words, not pager fatigue, since
+            # WARN is persist-only. Fewer rows here widens the reviewable
+            # history of every OTHER warn class.
             logger.warning(
-                "account_open_positions(%s): DROPPED %d hedge book(s) by "
-                "symbol dedupe: %s",
+                "account_open_positions(%s): DROPPED %d DUPLICATE book(s) -- "
+                "the venue listed the same (symbol, positionIdx) twice, which "
+                "is not an expected venue answer: %s",
                 obs.get("account_id"), len(deduped), deduped,
             )
             try:
@@ -1288,7 +1308,7 @@ def _record_position_read_observation(obs: Dict[str, Any]) -> None:
                 from src.utils.json_notes import dump_capped
                 report(
                     "position_read_state",
-                    "hedge_book_dropped",
+                    "duplicate_book_dropped",
                     level=Level.WARN,
                     account_id=obs.get("account_id"),
                     # NOT json.dumps(...)[:400] — character-slicing JSON cuts
@@ -1330,6 +1350,51 @@ def _bybit_configured_symbols(account: Dict[str, Any]) -> list:
         return list(resolved) if isinstance(resolved, (list, tuple)) else []
     except Exception:  # noqa: BLE001
         return []
+
+
+def _bybit_book_key(raw: Any) -> Any:
+    """Canonical dedupe key for ONE Bybit position book.
+
+    Bybit v5 returns a ``positionIdx`` per position row: **0 = one-way**,
+    **1 = hedge long**, **2 = hedge short**. A symbol in HEDGE mode therefore
+    returns TWO rows, and they are two different books holding two different
+    positions -- not a duplicate to be collapsed.
+
+    Three cases, deliberately not collapsed:
+
+    ``int``
+        A declared book. Two rows of the same symbol with different ids are
+        DIFFERENT books and both survive the dedupe.
+    ``None``
+        The venue declared no book at all. Every such row for one symbol keys
+        alike, which is EXACTLY the pre-2026-09-12 symbol-only behaviour -- so
+        a venue that never sends ``positionIdx`` is unaffected by this change.
+    ``("unparsed", <raw>)``
+        A book id that will not parse. Kept DISTINCT from every real id, so an
+        unreadable id can never silently collapse two live books into one.
+        ⚠️ The polarity is deliberate and it is the opposite of
+        :func:`src.runtime.bybit_position_book._parse_size`'s: there an
+        unreadable value is fatal because the question is *which single book do
+        I grade*; here the question is *what books exist*, a DROP is what closes
+        live positions (two false closes, -$762.496, 2026-09-12), and an extra
+        row is idempotent for every set-keyed consumer downstream. Erring toward
+        emitting is the safe direction for a LISTING; erring toward refusing is
+        the safe direction for a SELECTION.
+
+    ⚠️ MEASURED, and it is why the ``None`` branch is a fallback rather than the
+    common path: over 1000 ``position_read_state_soak`` rows read 2026-09-12
+    (03:20:49Z -> 07:36:53Z, all three Bybit accounts) EVERY position row
+    carried a parseable ``positionIdx`` -- ``0`` on one-way symbols, ``1``/``2``
+    on hedge-armed ones. The key is present in practice; the fallbacks exist so
+    that a venue which stops sending it degrades to today's behaviour instead of
+    to a crash or to a silent double-emit.
+    """
+    if raw is None:
+        return None
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        return ("unparsed", str(raw))
 
 
 def account_open_positions(
@@ -1462,6 +1527,19 @@ def account_open_positions(
             resp = client.get_positions(category=category, settleCoin="USDT")
             raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
             out: list = []
+            # TWO sets, and conflating them is the defect this change repairs.
+            #
+            # ``seen_books`` keys the EMIT dedupe on ``(symbol, book)`` -- the
+            # thing a position actually is. ``seen`` stays keyed on SYMBOL and
+            # gates only the per-symbol CROSS-CHECK below, whose question is
+            # "did the settleCoin page surface this symbol at all"; that
+            # question is genuinely symbol-shaped, and re-keying it would fire
+            # a fresh venue call for every configured symbol on every read --
+            # an unbounded per-tick broker round-trip, which is the shape of
+            # both June 2026 wedges. ``seen`` is written at exactly the same
+            # point as before (first EMITTED row for the symbol), so the
+            # cross-check's behaviour is unchanged.
+            seen_books: set = set()
             seen: set = set()
             # MI-222 (Tier-2, observable-first; operator-approved 2026-09-09).
             # OBSERVATION ONLY. Nothing below changes ``out`` -- not its
@@ -1512,11 +1590,13 @@ def account_open_positions(
                         {"symbol": sym, "position_idx": idx,
                          "size_raw": p.get("size")})
                     return
-                if sym in seen:
+                book = (sym, _bybit_book_key(idx))
+                if book in seen_books:
                     obs["dropped_symbol_dedupe"].append(
                         {"symbol": sym, "position_idx": idx,
                          "size_raw": p.get("size"), "side": p.get("side")})
                     return
+                seen_books.add(book)
                 seen.add(sym)
                 obs["emitted"] += 1
                 out.append({
@@ -1525,6 +1605,10 @@ def account_open_positions(
                     "size": size,
                     "entry_price": _f(p.get("avgPrice")),
                     "unrealised_pnl": _f(p.get("unrealisedPnl")),
+                    # Emitted so a consumer can tell WHICH book a row is. No
+                    # consumer branches on it yet; it is the field whose
+                    # absence made the drop unattributable for three days.
+                    "position_idx": _bybit_book_key(idx),
                 })
 
             obs["queries"].append({
@@ -2055,14 +2139,35 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # protection lives.
         presp = client.get_positions(category=category, settleCoin="USDT")
         praw = ((presp or {}).get("result") or {}).get("list") or []
+        # SECOND INSTANCE of the symbol-dedupe defect, found 2026-09-12 (MI-283)
+        # and NOT named by the backlog row, which describes only
+        # ``account_open_positions``. This surface already computed
+        # ``position_idx`` (``_bybit_position_row``) and still collapsed two
+        # hedge books into one, so it could report a symbol's protection off
+        # whichever book the venue happened to list first.
+        #
+        # ⚠️ NOT the order path -- the sole consumer is
+        # ``/api/diag/bybit_open_orders`` (``src/web/api/routers/diag.py:2935``),
+        # a read-only surface. But it is the instrument a session is told to
+        # verify a resized protective leg against
+        # (``OI-20260909-INTENT-REDUCE-LEG-RESIZE-...``'s own clears_when says
+        # to read the qty back off this route), so a dropped book here means a
+        # VERIFICATION made against the wrong book.
+        #
+        # Same two-set split, same reason, as ``account_open_positions``:
+        # ``seen`` gates the per-symbol cross-check below and stays keyed on
+        # SYMBOL so no extra venue call is introduced.
+        seen_books: set = set()
         seen: set = set()
         for p in praw:
             size = _f(p.get("size"))
             if size <= 0:
                 continue
             sym = p.get("symbol")
-            if sym in seen:
+            book = (sym, _bybit_book_key(p.get("positionIdx")))
+            if book in seen_books:
                 continue
+            seen_books.add(book)
             seen.add(sym)
             positions.append(_bybit_position_row(p))
 
@@ -2486,14 +2591,26 @@ def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, A
     other Bybit position reader in this repo REDUCES the venue's answer before
     anyone sees it, and the reductions are the same on both:
 
-    * ``account_open_positions._emit`` — ``if size <= 0: return`` then
-      ``if sym in seen: return`` (dedupe by SYMBOL, no ``position_idx``).
-    * ``account_bybit_open_orders`` — the identical ``size <= 0`` skip and
-      symbol dedupe.
+    * ``account_open_positions._emit`` — ``if size <= 0: return`` then a
+      dedupe.
+    * ``account_bybit_open_orders`` — the identical ``size <= 0`` skip and the
+      same dedupe.
 
     So *"genuinely flat"*, *"a ZERO-SIZE row"* (the hedge-mode sibling book,
     routine since ``BYBIT_HEDGE_MODE_SYMBOLS`` was armed 2026-08-30) and *"no
     row at all"* are ONE observation to every existing reader.
+
+    ⚠️ **CORRECTED 2026-09-12 (MI-283) — THE DEDUPE HALF OF THAT IS NO LONGER
+    TRUE AND MUST NOT BE RE-QUOTED.** Both bullets read *"dedupe by SYMBOL, no
+    ``position_idx``"* until then, which was an accurate description of a live
+    defect: a symbol's SECOND hedge book was dropped, measured at **376 of 376
+    reads (100.0%) on ``bybit_1``** over 2026-09-12T03:20:49Z→07:36:53Z. Both
+    now dedupe on ``(symbol, position_idx)`` via :func:`_bybit_book_key`, and
+    ``account_open_positions`` emits ``position_idx`` on every row. **The
+    ``size <= 0`` reduction is UNCHANGED**, so this instrument's reason to
+    exist is undiminished: a zero-size row is still invisible to both readers,
+    and telling *"genuinely flat"* from *"a zero-size row was returned"* from
+    *"no row at all"* is still something only this sweep can do.
 
     ⚠️ **WIDENED 2026-09-09 (MI-221), AND THE REASON IS A CORRECTION.** The
     first version sent exactly the same two queries the production readers send
