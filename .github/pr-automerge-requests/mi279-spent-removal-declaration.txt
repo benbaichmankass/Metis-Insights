@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11946. URGENT — main is currently red.
+
+register-field-loss grades a declaration whose removal already landed as
+`spent` rather than `phantom`, fail-closed, mutation-checked both ways.
+Plus the spent file's deletion, the README lifecycle and one backlog row.
+Declaration: .github/pr-landing/mi279-spent-removal-declaration.json
