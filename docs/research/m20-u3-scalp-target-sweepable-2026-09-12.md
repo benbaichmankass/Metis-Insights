@@ -908,6 +908,53 @@ a cell family). It is **not** built here: three sweeps are in flight, and a
 fourth lever added mid-flight would land untested alongside results that are
 still being read. Recorded as the next unit rather than started.
 
+## 4l. THE PARITY ARM, COMPLETE — and it corrects §4d a THIRD time
+
+All 7 legs, `timeout_bars=100000`, same corpora and split as the screening arm.
+
+| leg | base IS R | base OOS R | Σ IS ΔR | Σ OOS ΔR | IS/OOS sign | candidates |
+|---|--:|--:|--:|--:|:--:|---|
+| `ict_scalp_eth_15m` | 44.05 | 19.13 | −60.03 | −23.04 | same (both −) | — |
+| `ict_scalp_sol_15m` | 24.11 | 0.20 | +27.99 | −35.78 | flips | — |
+| `ict_scalp_xrp_15m` | 32.28 | 6.48 | +1.21 | +2.15 | same (both +) | **tp1.25R** |
+| `ict_scalp_sol_5m` | 89.46 | 59.34 | −49.47 | −44.55 | same (both −) | — |
+| `ict_scalp_xrp_5m` | 118.79 | 18.78 | −80.77 | −8.83 | same (both −) | — |
+| `ict_scalp_avax_5m` | 133.76 | 38.31 | +3.95 | −3.08 | flips | **tp3R, tp4R** |
+| `ict_scalp_5m` (BTC) | 54.83 | 35.71 | −40.59 | −49.38 | same (both −) | — |
+
+**3 candidates in 49 cells, on 2 of 7 legs, pointing in OPPOSITE directions** —
+`xrp_15m` wants the target **narrowed**, `avax_5m` wants it **widened**.
+
+### ⛔ The IS/OOS sign flipping was largely the HARNESS, not "period character"
+
+§4d read the flipping as *"the signature of period character rather than of a
+lever."* Measured across both arms on the same legs and corpora, with only the
+timeout differing:
+
+| | legs flipping IS/OOS sign |
+|---|--:|
+| screening (24-bar force-close) | **5 of 7** |
+| **live parity** | **2 of 7** |
+
+**Removing the harness's clock removed three of the five flips.** So the
+instability I attributed to the market was substantially manufactured by the
+instrument. That is the third correction §4d has needed — after the direction
+of the bias (§4e) and the 4-of-4 count (§4d note) — and all three run the same
+way: **I read an artifact of the 24-bar force-close as a property of the
+data.**
+
+⚠️ **AND IT MAKES THE NEGATIVE STRONGER, NOT WEAKER.** At parity **5 of 7 legs
+are negative in BOTH windows**, several decisively (`xrp_5m` Σ IS −80.77,
+`eth_15m` Σ IS −60.03 / Σ OOS −23.04, `btc_5m` −40.59 / −49.38). That is not a
+noisy null; it is a consistent finding that **moving the `ict_scalp` target in
+either direction loses R on most legs**, now measured on the population that
+matches production.
+
+`btc_5m` is the cleanest illustration of why the two arms disagree so much: at
+parity its IS grid runs **+31.42 at 0.75R monotonically down to −33.39 at 4R**,
+a 65 R spread across the grid, and its OOS runs the other way. Under the 24-bar
+clock that structure was invisible (Σ IS −10.98).
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
