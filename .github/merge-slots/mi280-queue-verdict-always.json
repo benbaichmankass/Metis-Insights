@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
+  "branch": "claude/mi280-queue-verdict-always",
+  "claimed_at": "2026-09-12T14:57:32Z",
+  "purpose": "MI-280 U20: the PR-queue escalation must not be skippable"
+}
