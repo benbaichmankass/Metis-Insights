@@ -63,7 +63,7 @@ was read as an *instruction*.
 | `instruction` | 44 | A session must OBEY it. Binding. |
 | `architecture` | 91 | A declared contract about how the system is built; read as truth about the system. |
 | `plan` | 64 | A forward commitment -- what we intend to do next. NEVER obeyed as instruction. |
-| `evidence` | 369 | A measurement that may be CITED. True of its date and population. |
+| `evidence` | 370 | A measurement that may be CITED. True of its date and population. |
 | `history` | 369 | A record of what happened. Never obeyed, never cited as a current measurement. |
 | `lookup` | 45 | Consulted for a fact. Neither obeyed, nor a measurement, nor a record of events. |
 | `unknown` | 90 | **Could not be categorised. Not a category — the absence of one.** |
@@ -77,7 +77,7 @@ was read as an *instruction*.
 | `closed_unfinished` | 9 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
 | `historical` | 371 | A record of something that happened. Correct forever, actionable never. |
 | `reference` | 0 | Consulted on demand. Neither current-and-actionable nor superseded. |
-| `unknown` | 644 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
+| `unknown` | 645 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
 
 ⚠️ **`superseded` and `closed_unfinished` are DIFFERENT FACTS and are never
 collapsed.** Overtaken by a successor is not the same as abandoned mid-flight.
@@ -111,7 +111,7 @@ document that declares itself **alive** is **not** — it is `unknown`.
 
 That asymmetry *is* the lesson of 2026-09-07. A self-declared death is rarely
 wrong in the dangerous direction; a self-declared life is precisely the claim
-that misled a manager. Measured across this population, **201 of 1072 documents
+that misled a manager. Measured across this population, **201 of 1073 documents
 declare something status-like in their first 15 lines, in an entirely
 uncontrolled vocabulary** — including `tier`, `scope`, `a proposal`,
 `measured`, and `credentialfree pipeline built`. There was no controlled status
@@ -180,10 +180,10 @@ point: registration is not optional, and it is not left to memory.
 
 ## The table
 
-**Population: 1072 documents** — every file matching the git pathspecs
+**Population: 1073 documents** — every file matching the git pathspecs
 `:(glob)docs/**/*.md`, `ROADMAP*.md`, `CLAUDE.md`, `:(glob).claude/skills/**/*.md`
 as tracked by `git ls-files` (so an untracked scratch file can never silently
-enter or leave the register). **1072 registered.**
+enter or leave the register). **1073 registered.**
 
 ⚠️ **The `:(glob)` prefix is part of the population, not decoration.** These are
 git PATHSPECS: without it, `*` crosses `/` and `**/` needs a literal intervening
@@ -726,6 +726,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u2-winner-close-attribution-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u21-fanout-exit-unit-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u22-wire-fanout-exit-unit-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u24-exit-label-state-census-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u25-performance-sign-agreement-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u2b-risk-denominator-ratchet-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u5-excursion-regime-instrument-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
