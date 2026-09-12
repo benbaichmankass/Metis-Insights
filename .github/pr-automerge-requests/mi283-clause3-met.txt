@@ -1,0 +1,9 @@
+MI-283 — Tier-1, one register row. Arms auto-merge on PR #12073.
+
+Records clause (3) of OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-... as MET, with
+the denominator: 12 post-restart bybit_1 soak rows at emitted 6 / rows_seen 7 /
+dropped_symbol_dedupe_count 0 while the venue held ETHUSDT on two non-zero books.
+The two-sided symbol was created by the pairs sleeve (trade 5729), which is the
+mechanism that produced the original false closes.
+
+No src/, no tests/, no config, no workflow.
