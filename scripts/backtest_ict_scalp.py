@@ -56,7 +56,14 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
-from src.units.strategies.ict_scalp import order_package  # noqa: E402
+from src.units.strategies.ict_scalp import (  # noqa: E402
+    order_package,
+    # IMPORTED, never re-derived. The effective take-profit distance has ONE
+    # definition -- the unit's -- and a second copy of `1.5` in this harness is
+    # how the two drift and a sweep silently measures a bracket production does
+    # not run. Private on purpose upstream; reading it here is the lesser evil.
+    _DEFAULTS as _UNIT_DEFAULTS,
+)
 from src.units.strategies import load_strategy_config  # noqa: E402
 
 # Execution-realism cost config (P1 § 3.B). ict_scalp previously had NO cost model
@@ -142,6 +149,53 @@ def _date_filter(df: pd.DataFrame, start: Optional[str],
     if end:
         mask &= ts <= pd.Timestamp(end, tz="UTC")
     return df[mask].reset_index(drop=True)
+
+
+class TpOverrideError(ValueError):
+    """`--tp-at-r` was given a value that is not a book production can run."""
+
+
+def resolve_tp_at_r_override(raw: Optional[float]) -> Optional[float]:
+    """THE one place `--tp-at-r` is validated. Returns None when unset.
+
+    Raises :class:`TpOverrideError` at or below zero: the target would sit at
+    or behind entry, and measuring that book would produce a verdict about
+    something the venue can never be asked for. Refusing beats reporting.
+    """
+    if raw is None:
+        return None
+    val = float(raw)
+    if not (val > 0.0):
+        raise TpOverrideError(
+            f"--tp-at-r must be > 0 (got {raw}). At or below zero the target "
+            f"sits at or behind entry, which is not a book production can run "
+            f"— refusing rather than measuring it.")
+    return val
+
+
+def bank_rung_state(bank_frac: float, bank_at_r: float,
+                    effective_tp_at_r: Any) -> str:
+    """Is the partial-TP rung capable of measuring anything? FOUR states.
+
+    ict_scalp is a FIXED-bracket strategy, so a rung at or above the leg's own
+    ``tp_at_r`` is a PROVABLE no-op — the TP check returns on the same bar and
+    ``bank_frac*tp + (1-bank_frac)*tp == tp``. Such an arm reports a clean
+    "no change" that is INDISTINGUISHABLE from "tested and lost".
+
+    ``--tp-at-r`` is what makes this worth stamping rather than commenting:
+    before it the ceiling was the constant 1.5, and now it is a swept quantity,
+    so the same rung can be inert in one cell of a grid and live in the next.
+
+    ``unknown`` is *we could not establish the ceiling* — never a pass.
+    """
+    if not bank_frac:
+        return "no_ladder"
+    if effective_tp_at_r is None or isinstance(effective_tp_at_r, bool):
+        return "unknown"
+    if not isinstance(effective_tp_at_r, (int, float)):
+        return "unknown"
+    return ("provable_no_op" if bank_at_r >= float(effective_tp_at_r)
+            else "rung_below_target")
 
 
 def _load_yaml_params() -> Dict[str, Any]:
@@ -644,6 +698,22 @@ def run_backtest(
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                          bank_frac=bank_frac, bank_at_r=bank_at_r)
+    # THE BANK RUNG vs THE FIXED TARGET — four states, never collapsed.
+    #
+    # ict_scalp is a FIXED-bracket strategy, so a bank rung at or above the
+    # leg's own tp_at_r is a PROVABLE no-op: the TP check returns on the same
+    # bar and `bank_frac*tp + (1-bank_frac)*tp == tp`. That arm then reports a
+    # clean `no change` which is indistinguishable from `tested and lost` --
+    # and `--tp-at-r` makes the trap far easier to hit, because the ceiling the
+    # rung must sit under is now a swept quantity rather than a constant. So
+    # the condition is STAMPED rather than left to a comment nobody reads.
+    #
+    # `unknown` is *we could not establish the ceiling*, never a pass.
+    _eff_tp = cfg_overrides.get("tp_at_r", _UNIT_DEFAULTS.get("tp_at_r"))
+    summary["tp_at_r_effective"] = _eff_tp
+    summary["tp_at_r_source"] = ("cli_or_yaml_override" if "tp_at_r" in cfg_overrides
+                                 else "unit_default")
+    summary["bank_rung_state"] = bank_rung_state(bank_frac, bank_at_r, _eff_tp)
     if _collect_trades:
         # (confidence, r_multiple) per trade — lets the sweep filter by
         # threshold without re-walking the (expensive) 5m frame N times.
@@ -1033,9 +1103,23 @@ def build_parser() -> argparse.ArgumentParser:
                         "Mirrors backtest_trend.py / backtest_pullback.py.")
     p.add_argument("--bank-at-r", type=float, default=1.0, metavar="R",
                    help="Rung for --bank-frac, in R (default 1.0). MUST be "
-                        "strictly below the leg's tp_at_r (1.5R on every live "
-                        "ict_scalp leg) — at or above it the rung coincides "
-                        "with the fixed TP and the lever is a provable no-op.")
+                        "strictly below the EFFECTIVE tp_at_r (the YAML's 1.5 "
+                        "unless --tp-at-r overrides it) — at or above it the "
+                        "rung coincides with the fixed TP and the lever is a "
+                        "provable no-op. The run stamps `bank_rung_state` so "
+                        "that no-op is distinguishable from a tested loss.")
+    p.add_argument("--tp-at-r", type=float, default=None, metavar="R",
+                   help="Override the leg's fixed take-profit distance, in R. "
+                        "Default None = use the YAML value (1.5 on every live "
+                        "ict_scalp leg), i.e. config-exact and byte-for-byte "
+                        "the legacy behaviour. This is the ONLY way to sweep "
+                        "the scalp target: e35_bracket_geometry_sweep.py "
+                        "refuses the family by design and m20_fleet_exit_sweep "
+                        "passes no target on its scalp branch, so before this "
+                        "flag the target was UNSWEEPABLE rather than unswept "
+                        "(MI-278 U3). The override is applied to cfg_overrides, "
+                        "so the LIVE order_package() still computes the bracket "
+                        "— the harness never derives a target of its own.")
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
@@ -1075,6 +1159,13 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    try:
+        _tp_override = resolve_tp_at_r_override(args.tp_at_r)
+    except TpOverrideError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if _tp_override is not None:
+        cfg_overrides["tp_at_r"] = _tp_override
     vol_spec = None
     if args.vol_spec_json:
         try:
