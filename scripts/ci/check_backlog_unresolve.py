@@ -144,7 +144,42 @@ def _fresh_reason(base_row: dict, head_row: dict) -> str | None:
     return None
 
 
+def comparison_point(base_ref: str) -> tuple[str, str]:
+    """``(ref, how)`` — the commit this diff is graded AGAINST.
+
+    ⚠️ IT IS THE MERGE BASE, NOT THE BASE REF'S TIP, AND THE DIFFERENCE IS A
+    FALSE POSITIVE THAT REDDENS EVERY STALE BRANCH. Measured 2026-09-12, hours
+    after this guard shipped: branch `claude/mi279-u5-channel-separation-clause-a`
+    was reported as silently re-opening
+    `BL-20260909-PEAK-R-SENTINEL-ROWS-STILL-LIVE-WHILE-ITS-BACKLOG-ROW-READS-RESOLVED`.
+    It had changed nothing — the row read `open` at the merge base `331bd2039`
+    AND on the branch, and `main` RESOLVED it afterwards in `5079dfefd`. Against
+    the tip that is indistinguishable from a re-opening; against the merge base
+    it is correctly nothing at all.
+
+    On a register `main` moves every few minutes, so nearly every open branch is
+    behind on it — which made this guard red the repo for doing nothing, the
+    shape its own docstring calls a guard reddening the repo for the right
+    behaviour. It is also a RECURRENCE: the same defect was filed the SAME DAY
+    against `register-field-loss`
+    (``BL-20260912-REGISTER-FIELD-LOSS-COMPARES-MAINS-TIP-NOT-THE-MERGE-BASE-SO-A-MERELY-STALE-BRANCH-READS-AS-A-ROW-LOSS``)
+    and then written into this guard anyway, which is why the fix ships with a
+    planted control rather than a note.
+
+    ⚠️ THE FALLBACK IS NAMED, NEVER SILENT. Where no merge base exists (a shallow
+    clone, an unrelated history) the tip is used and ``how`` says so, because a
+    comparison point nobody can identify is how a verdict becomes unattributable.
+    """
+    out = subprocess.run(["git", "merge-base", "HEAD", base_ref], cwd=REPO,
+                         capture_output=True, text=True)
+    base = out.stdout.strip()
+    if out.returncode == 0 and base:
+        return base, f"merge-base(HEAD, {base_ref})"
+    return base_ref, f"{base_ref} TIP (no merge base — a stale branch may false-positive)"
+
+
 def findings(base_ref: str) -> list[str]:
+    base_ref, _how = comparison_point(base_ref)
     out: list[str] = []
     for rel in BACKLOGS:
         head_path = REPO / rel
@@ -234,6 +269,56 @@ def _self_test() -> int:
           run({"id": "BL-Z", "status": "open"},
               {"id": "BL-Z", "status": "resolved", "resolved_at": "2026-09-12"}) == [])
 
+    # ⚠️ THE CONTROL THIS GUARD SHIPPED WITHOUT, AND PAID FOR WITHIN HOURS.
+    # Every control above builds a LINEAR two-commit repo, where the base ref's
+    # tip and the merge base are the same commit — so a guard graded against
+    # either passes identically and the distinction is invisible. The real world
+    # is not linear: a branch cut from `main`, with `main` then moving on, is
+    # the ordinary case on a register that changes every few minutes.
+    #
+    # MEASURED 2026-09-12: this guard reported branch
+    # `claude/mi279-u5-channel-separation-clause-a` as silently re-opening
+    # `BL-20260909-PEAK-R-SENTINEL-ROWS-STILL-LIVE-WHILE-ITS-BACKLOG-ROW-READS-RESOLVED` when it had changed nothing at all —
+    # the row read `open` at the merge base AND on the branch, and `main`
+    # resolved it afterwards. A guard reddening a PR for doing nothing.
+    def run_behind() -> list[str]:
+        """base -> branch (no change) while MAIN resolves the row afterwards."""
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            def g(*a):
+                subprocess.run(["git", *a], cwd=repo, check=True,
+                               capture_output=True)
+            g("init", "-q", "-b", "main")
+            g("config", "user.email", "t@t")
+            g("config", "user.name", "t")
+            rel = BACKLOGS[0]
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            row = {"id": "BL-BEHIND", "status": "open"}
+            (repo / rel).write_text(json.dumps([row]), encoding="utf-8")
+            g("add", "-A")
+            g("commit", "-qm", "merge base")
+            g("checkout", "-q", "-b", "feature")
+            # the branch touches something ELSE entirely
+            (repo / "unrelated.txt").write_text("x", encoding="utf-8")
+            g("add", "-A")
+            g("commit", "-qm", "unrelated work")
+            g("checkout", "-q", "main")
+            (repo / rel).write_text(json.dumps(
+                [{**row, "status": "resolved", "resolved_at": "2026-09-12"}]),
+                encoding="utf-8")
+            g("add", "-A")
+            g("commit", "-qm", "main closes the row")
+            g("checkout", "-q", "feature")
+            global REPO
+            saved, REPO = REPO, repo
+            try:
+                return findings("main")
+            finally:
+                REPO = saved
+
+    check("PLANTED: a branch merely BEHIND — main closed the row after the merge "
+          "base — is CLEAN, not a re-opening", run_behind() == [])
+
     print(f"backlog-unresolve self-test: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1
 
@@ -245,15 +330,19 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
+    _point, _how = comparison_point(args.base)
     found = findings(args.base)
     for f in found:
         print(f"::error::backlog-unresolve: {f}", file=sys.stderr)
     if found:
-        print(f"backlog-unresolve: {len(found)} silent re-opening(s) against {args.base}.",
-              file=sys.stderr)
+        print(f"backlog-unresolve: {len(found)} silent re-opening(s) against "
+              f"{_point[:12]} [{_how}].", file=sys.stderr)
         return 1
+    # Name the comparison point on the PASS too: a verdict whose basis is not
+    # printed cannot be checked, and this guard's one false-positive class was
+    # precisely a wrong comparison point.
     print(f"backlog-unresolve: OK — no closed row was re-opened without a reason "
-          f"(base {args.base}).")
+          f"(graded against {_point[:12]} [{_how}]).")
     return 0
 
 
