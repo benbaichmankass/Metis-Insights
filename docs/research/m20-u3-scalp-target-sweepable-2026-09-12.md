@@ -1,4 +1,4 @@
-# M20 · U3a — the scalp target was UNSWEEPABLE, not unswept
+# M20 · U3 — the `ict_scalp` exit levers, made sweepable and then swept
 
 > **Doc status:** `live` · category `research` · 2026-09-12 · MI-278 unit U3a ·
 > object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER` ·
@@ -9,6 +9,53 @@
 > `tp_at_r: 1.5` is **unchanged on every leg** — this builds the runner that
 > makes a proposal *possible*, and the proposal itself is Tier-3 and is not
 > made here.
+
+## 0. READ THIS FIRST — the answer, and what it is worth
+
+**1,195 lines is too long to make a reader traverse for a verdict**, and a
+well-written artifact nobody can use is the failure this repo keeps paying for.
+So: the answer, and where to check it.
+
+**Nothing tested makes winners run longer and survives the gate.** One cell
+survived out of everything swept, and it goes the other way.
+
+| lever | population | cleared IS/OOS | cleared walk-forward | where |
+|---|--:|--:|--:|---|
+| `bracket_geometry` @ 24-bar timeout | 49 cells / 7 legs | 0 | — | §4d |
+| `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3, on 2 legs, **opposite directions** | **1** (`avax_5m` still running) | §4l, §4n, §4p |
+| `breakeven_ratchet` @ live parity | 7 cells / 7 legs | **0** | — | §4j |
+| `stop_geometry` (the stop buffer) | **built, UNRUN** | — | — | §4k, §4p |
+
+**The survivor: `ict_scalp_xrp_15m` `tp_at_r` 1.5 → 1.25** — IS ΔR +5.82 /
+ΔDD −2.53 (n198), OOS +5.93 / −3.72 (n117), walk-forward 3/4 usable folds. It
+**narrows** the target: take profit *sooner*. MI-277 measured winner hold
+collapsing 5.17h → 1.90h and this object is titled *hold winners longer*; the
+only lever that clears the gate says the opposite, on one leg. The Tier-3
+proposal is **not** here — it is
+[`m20-u4-scalp-exit-proposals-2026-09-12.md`](m20-u4-scalp-exit-proposals-2026-09-12.md).
+
+**The finding worth more than the target question (§2b, §4e, §4l).** The
+harness force-closes at 24 bars and production has **no time exit** on any
+`ict_scalp` leg. That defect is **worth up to 99% of a leg-window's entire
+reported profit** (`sol_15m` OOS +20.46 R → +0.20 R at parity), it **changes
+verdicts** (it flipped the survivor above from non-candidate), and **0 of 24**
+tested `ict_scalp` cells in the coverage matrix declare that axis while 160 of
+320 declare the venue-cap one.
+
+⚠️ **What this document is NOT.** Every verdict is **Path A only** (§4m) —
+the gate has two qualifying paths and Path B is deliberately ungraded
+repo-wide because its thresholds are operator-reserved. The `MIN_OOS_TRADES`
+floor is unenforced here, and binds on nothing (§4o). One of three armed
+mechanisms is still unrun (§4k). **Reading the scoreboard as "every
+`ict_scalp` exit lever has been tested" would over-read it.**
+
+⚠️ **Five of my own conclusions were corrected in place rather than amended
+away**, and they are worth reading before trusting any single section: the
+timeout bias runs the OPPOSITE way to what §4d first said (§4e); a
+pre-registered prediction was half wrong (§4h); "4 of 4 legs flip" is 5 of 7
+(§4d note); the sign-flipping was largely the harness rather than the market
+(§4l); and I was one step from writing a Path B **grader** before reading that
+doing so would invent an operator-reserved threshold (§4m).
 
 ## 1. What this unit found before it built anything
 
