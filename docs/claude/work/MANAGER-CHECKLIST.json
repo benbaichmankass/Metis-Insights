@@ -5153,5 +5153,25 @@
     "manager_errors_this_tick": [
       "None found this tick. The 11:00Z tick's three stand as recorded."
     ]
+  },
+  "manager_tick_2026_09_12T1335Z": {
+    "operator_raised": "'still not getting prop trades' (2026-09-12). Second time the prop account has been raised.",
+    "measured": {
+      "newest_prop_ticket": "2026-09-05T17:01:01Z (7 days stale)",
+      "population": "100-row tail of arbitration_fanout_soak, 561017 bytes on disk, 2026-09-09T09:50 -> 2026-09-12T13:27",
+      "rounds_applied_keysets": "93 of 93 == ('accounts','strategy'); ZERO carry side",
+      "rounds_planned_keysets": "106 of 106 == full 7-key geometry",
+      "breakout_1": "starved 13 of 13 gradings; apply_scope not_allowlisted 13 of 13",
+      "conclusion": "the fan-out apply path has dispatched NOTHING on ANY account since PR #10544 / 2026-08-31"
+    },
+    "two_independent_blockers": [
+      "(0) writer/reader contract broken: _attach_fanout_plan writes a 2-key projection; _fanout_apply_rounds requires side/entry/sl/tp and fail-closes to [] every tick",
+      "(1) allowlist: breakout_1 not in ARBITRATION_FANOUT_ACCOUNTS"
+    ],
+    "why_order_matters": "pipeline uses `if _rounds: fanout else: global` -- the fan-out REPLACES global dispatch. Fixing (0) arms a never-exercised routing path on bybit_1 (demo, live-mode). Doing (1) first would be INERT AND HARMFUL: apply_scope flips to allowlisted and breakout_1 enters rounds_applied while still starved, so every observability surface would report it routed.",
+    "routed_to": "MI-286 session_015K3oTDNwh2X6C33P6jh6CR, owns WO-20260912-THE-ARBITRATION-FAN-OUT-APPLY-PATH-HAS, scope = prepare+validate only, landing hold",
+    "manager_holds": "the Tier-2 decision on landing (0), and the separate later decision on (1)",
+    "lane_count": "4 working: MI-278 / MI-279 / MI-280 (the operator's three keepers) + MI-286 (new, operator-raised). MI-283 order-path lane remains blocked on the operator's Tier-2 approval of #11903.",
+    "eth_short_closed": "separately resolved this tick: bybit_2 ETHUSDT short was bracketed at entry, its own stop filled 2026-09-11T08:30:35.831Z, venue-confirmed. No naked position. No action."
   }
 }

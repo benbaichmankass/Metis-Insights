@@ -1,0 +1,30 @@
+id: WO-20260912-THE-ARBITRATION-FAN-OUT-APPLY-PATH-HAS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The arbitration fan-out apply path has never dispatched: apply_rounds drops the geometry its own reader validates
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A live arbitration_fanout_soak row shows a rounds_applied entry carrying side/entry/sl/tp, AND a dispatch attributable to that round is observed on bybit_1 (demo). Adding breakout_1 to ARBITRATION_FANOUT_ACCOUNTS is a SEPARATE, LATER step and is NOT part of this object's done-condition.
+
+why: >-
+  MEASURED 2026-09-12T13:27Z over the 100-row arbitration_fanout_soak tail (2026-09-09T09:50 -> 2026-09-12T13:27): 93 of 93 rounds_applied entries carry EXACTLY the key-set ('accounts','strategy'); 106 of 106 rounds_planned entries carry the full 7-key geometry. intent_multiplexer._attach_fanout_plan builds a two-key projection; pipeline._fanout_apply_rounds requires side/entry/sl/tp and returns [] otherwise, so the reader fail-closes EVERY tick and the fan-out has dispatched nothing on any account since PR #10544 (2026-08-31). breakout_1 is additionally dropped at the allowlist gate (apply_scope not_allowlisted, 13 of 13 starved gradings). Newest prop ticket 2026-09-05T17:01Z, 7 days stale.
+
+source: >-
+  operator (conversational), 2026-09-12: 'still not getting prop trades'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
