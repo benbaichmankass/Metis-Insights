@@ -1,7 +1,39 @@
-# The three-lane continuous workplan — 2026-09-12
+# Lane queues — 2026-09-12
 
-> **Status:** `live` · operator-directed 2026-09-12 · owner: the manager holding
-> `docs/claude/work/MANAGER-LEASE.json`
+> **Not a plan of record, and deliberately not named one.** The ONE live plan is
+> [`../WORKPLAN-2026-08-29.md`](../WORKPLAN-2026-08-29.md) and it stays live. This
+> file is the manager's **lane dispatch register**: which lanes are running, and
+> the ordered queue each one works. Operator-directed 2026-09-12 · owner: the
+> manager holding `docs/claude/work/MANAGER-LEASE.json`.
+>
+> ⚠️ **I nearly made this a second live plan, and `one-live-workplan` stopped it.**
+> That guard exists because `WORKPLAN-2026-08-14.md` read `ACTIVE` for 24 days and
+> misled a manager into a wrong status read. Superseding the 08-29 plan would also
+> have been **off the manager surface** — `check_manager_scope.py` named it as
+> doing an item rather than managing, and it was right. Two guards, two different
+> objections, both correct.
+>
+> **How this register relates to the live plan** — it staffs one of its lanes and
+> adds two; it replaces none of them:
+>
+> | 08-29 plan lane | staffed by |
+> |---|---|
+> | **Lane B — M20 Active Trade Management** *(already "the operator's stated priority" on 2026-08-29)* | **MI-278.** Read Lane B first — it is MI-278's prior art, not a parallel thread |
+> | Lane C — order-path correctness | partly, where health-register rows exist (MI-279) |
+> | Lane A — Alpaca real-money go-live | **nobody** — blocked on a T+1 settlement decision |
+> | Lane P — promotion pipeline | **nobody** — gates every real-money graduation |
+> | Lane R — prop account | **nobody** — MI-274 attributed it; the unblock is a sequence |
+> | Lanes D / S / T / E | **nobody** |
+> | *(new)* the machinery that loses lanes' work | **MI-280** |
+>
+> ⚠️ **"Nobody" means no lane is working it, not that it stopped mattering.** Four
+> are real-money-adjacent. They are the candidates for a fourth lane the moment the
+> operator's 3-concurrent cap allows one, and the manager names them at every
+> handoff rather than letting them fall off the edge.
+>
+> ⚠️ **Neither this nor the 08-29 plan outranks the cycle priority.**
+> `docs/claude/CYCLE-PRIORITY.json` (`CY-20260906-TRADING-TRUTH`) is what reaches a
+> session before its first tool call. Here they agree: the research lane IS it.
 
 ## Why this file exists
 
