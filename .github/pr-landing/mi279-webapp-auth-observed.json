@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "registers only — one monitoring row observed and dated, one backlog row given a dated re-confirmation. Read-only probes (two HTTPS requests to /api/auth/login, no credential attempted). No src/, no config/, no VM mutation, no order path."
+}
