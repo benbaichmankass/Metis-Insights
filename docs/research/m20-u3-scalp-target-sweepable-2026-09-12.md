@@ -1490,9 +1490,10 @@ exactly on every leg.
 ### ⛔ THE SCREEN'S MECHANISM IS REFUTED — the effect goes the OPPOSITE way
 
 The screen's causal story was that `be_stop` share rises monotonically with the
-target — **0.0 / 0.0 / 18.5 / 28.1 / 40.0% of closes at tp 0.75/1.0/1.5/2.0/3.0,
-over n = 60–72 trades per arm on ONE leg-quarter (SOLUSDT 5m, 2025-07-01 to
-2025-09-30, 26,496 bars), which is the whole population the screen ever had** —
+target. Its population was ONE leg-quarter — SOLUSDT 5m, 2025-07-01 to
+2025-09-30, 26,496 bars, n = 60–72 trades per arm — and that is the whole
+population the screen ever had. On it:
+**over n = 60–72 trades per arm, 0.0 / 0.0 / 18.5 / 28.1 / 40.0% of closes were `be_stop` at tp 0.75 / 1.0 / 1.5 / 2.0 / 3.0**,
 **because a wider target keeps the trade above 1R longer**, so disarming should
 help MORE at wider targets. Measured here on 7 legs over the full `m27_data`
 corpora — `disarm_effect(tp) = ΔR(be_off@tpXR) − ΔR(armed tpXR)`, both against
