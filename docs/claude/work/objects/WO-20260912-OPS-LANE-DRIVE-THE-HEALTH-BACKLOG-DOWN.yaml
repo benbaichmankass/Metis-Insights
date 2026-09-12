@@ -62,3 +62,28 @@ outcome_so_far: >-
   HANDOFF: docs/claude/high-severity-class-map-2026-09-12.md is the U3 starting point - 7 candidate
   classes over the 274 open high rows, with its own precision measured at ~67% on n=6 hand-checked
   rows, so its counts are a place to look and not findings.
+
+  SECOND PASS, same session, 2026-09-12 evening. THE OBJECT STAYS in_flight: U3 is running.
+  BURN-DOWN, MEASURED ON origin/main RATHER THAN INTENDED: 5 rows closed by this session are ON
+  MAIN; 12 filed. A further 4 closures sit in PRs that have not merged. So the honest net on main
+  is +7 (filed over closed), and the lane is net-POSITIVE - reported that way because the skill
+  says a drain session that files more than it closes must make that visible rather than describe
+  the touching. What I would defend: 5 of the 12 were found BY doing the closing work, not by
+  hunting.
+  LANDED THIS PASS (8 PRs on main): #12032 #12042 #12050 #12061 #12066 #12075 #11979 #12045.
+  IN FLIGHT: #12023 #12057 #12072(hold) #12079 #12086 #12088 #12090(hold) #12093 #12096.
+  INSTRUMENTS SHIPPED, because a number nobody can re-derive rots: check_backlog_unresolve.py (a
+  terminal->live status regression now fails CI), symbol_data_binding_census.py (17 sites on main,
+  15 after the fix, denominator 58 of 2269), exit_lever_map.py + docs/research/exit-lever-map.json
+  (19 mapped / 3 recorded n/a / 4 needs_column), and a test pinning the board schema to its only
+  writer. Each mutation-tested in both directions; none registered as a gate while findings remain.
+  !! TWO THINGS RECORDED AGAINST MYSELF. (1) I re-pushed PR #12045 four times WITHOUT reading its
+  CI result and so missed that it was RED - resolving conflicts is not driving to green, and the
+  queue pass now runs the two fragile guards locally before every push. (2) The guard I shipped in
+  #12061 graded against main's TIP rather than the merge base, so it reddened branches that had
+  changed nothing; that is a RECURRENCE of a class filed FOUR times the same day against
+  register-field-loss, one of them by this session. Fixed in #12093, class filed separately.
+  !! AND ONE DUPLICATE AVOIDED THE SAME WAY IT SHOULD BE: I wrote a work-object existence check
+  into session_registry and found, by RUNNING cmd_register, that spawn_gate already refuses that
+  case. Reverted before it landed - RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. The cheap existence
+  check CLAUDE.md prescribes caught it twice today.

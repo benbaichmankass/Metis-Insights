@@ -1,0 +1,5 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12099. Corrects BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED
+from 6/584=1.0% to the live 85/180=47.2% (five objects from the floor), and
+records this lane's second pass on its own work object.
+Tier-1 surface only: docs/claude/**, .github/**.
