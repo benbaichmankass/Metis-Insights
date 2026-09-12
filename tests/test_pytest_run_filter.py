@@ -108,6 +108,14 @@ COVERED = {
         "the LIVE doc has no drift — and the only other check of that property is "
         "the WEEKLY doc-audit-weekly.yml, so without this a docs-only PR can break "
         "it and merge green. Costly (this doc is edited often) and included anyway",
+    "docs/CLAUDE-RULES-CANONICAL.md":
+        "test_status_enum_single_home reads the REAL canonical doc and asserts "
+        "its status vocabulary matches the one home. The drift it catches IS a "
+        "docs-only diff -- a status name edited here and nowhere else -- so "
+        "without this the guard's own subject can change and merge on a green "
+        "tick from a run that executed nothing. Costly (this is the #1 canonical "
+        "doc and is edited on many PRs) and included anyway, the same accepted "
+        "trade-off already recorded for ARCHITECTURE-CANONICAL.md just above",
     "docs/claude/work/SESSIONS.json":
         "test_register_field_loss plants a FIELD revert into the REAL 231-row "
         "register and asserts the guard goes red WHILE the union-by-id proof still "
