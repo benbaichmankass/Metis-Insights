@@ -117,6 +117,36 @@ def canonical_items() -> list[dict[str, str]]:
     return items
 
 
+# The spellings a creation / close date actually appears under, in preference
+# order. NOT a guess: every one was read off the live registers and each value
+# sampled to confirm it is an ISO date rather than prose or a boolean. Order
+# matters only for `creation_key_basis` — the MONTH is the same whichever key
+# supplies it.
+#
+# ⚠️ WIDENING THIS LIST IS THE RISK, not narrowing it. Each added key is a name
+# somebody could use for something that is not the date this function means, so
+# a new entry needs its values sampled first. `resolved` (14 rows) and
+# `resolved_on` (1) were checked this way and are dates; `updated_at` (138) was
+# deliberately NOT added — it is when the row was last TOUCHED, which is not
+# when it was closed, and folding it in would manufacture closures.
+CREATION_KEYS = ("opened_at", "opened", "filed_at", "date")
+CLOSE_KEYS = ("resolved_at", "resolved", "resolved_on", "closed", "superseded_at")
+
+
+def _row_month(row: dict[str, Any], keys: tuple[str, ...]) -> tuple[str, str]:
+    """First key that yields a `YYYY-MM` prefix, and WHICH key it was.
+
+    Returns ``("", "(none)")`` when the row carries none of them — which the
+    caller must publish rather than drop, because "we could not tell when" and
+    "nothing happened that month" are different facts.
+    """
+    for k in keys:
+        v = row.get(k)
+        if isinstance(v, str) and len(v) >= 7 and v[4] == "-":
+            return v[:7], k
+    return "", "(none)"
+
+
 def backlog_burndown() -> dict[str, Any]:
     """Opened vs CLOSED per month across the three backlogs.
 
@@ -134,6 +164,35 @@ def backlog_burndown() -> dict[str, Any]:
     ⚠️ RESOLVED ROWS ARE NEVER RE-TRIAGED. They are kept for historical
     reference (that is how a recurrence gets recognised as one), and counting
     them as work-to-do is precisely the treadmill.
+
+    ⚠️ A DATE IS NOT SPELLED ONE WAY, AND READING ONE SPELLING SILENTLY DROPPED
+    HUNDREDS OF ROWS FROM BOTH SIDES OF THE RATIO. `backlog_append.py` does not
+    stamp a creation key — it is on the caller — so the register accumulated
+    four spellings of "when this was filed" and five of "when it was closed".
+    MEASURED 2026-09-12 over ALL 1732 rows in the three backlogs (health 1494,
+    performance 127, ml 111):
+
+        creation   opened_at 1230 · opened 395 · date 11 · filed_at (subset)
+                   NO CREATION KEY AT ALL: 80
+        close      of 764 closed rows: resolved_at 568 · via `updates` 75 ·
+                   NO CLOSE DATE AT ALL: 121
+
+    So reading `opened_at` alone lost ~407 rows from the OPENED series, and
+    reading `resolved_at` + `updates` alone loses 121 from the CLOSED series.
+    THE TWO BIASES POINT OPPOSITE WAYS — under-counting opens flatters the
+    burn-down, under-counting closes damns it — which is exactly why neither
+    can be waved off as conservative.
+
+    ⚠️ AND THE ROWS WITH NO DATE AT ALL ARE PUBLISHED, NEVER SILENTLY DROPPED.
+    `undated` is the "we could not tell WHEN" state, and it is a different fact
+    from "this month had no activity". A reader comparing `sum(by_month.opened)`
+    against the row count must be able to see where the difference went;
+    otherwise the series looks complete and is not.
+
+    ⚠️ `open_now` IS COMPUTED FROM `status`, NOT FROM THE MONTHLY SERIES, and
+    is therefore unaffected by any of the above — it is the one number here a
+    missing date cannot move. That is deliberate: it is the direct census the
+    monthly series is checked against.
     """
     import collections
     files = {
@@ -144,7 +203,12 @@ def backlog_burndown() -> dict[str, Any]:
     CLOSED = {"resolved", "wont_fix", "invalid", "superseded"}
     opened: Any = collections.Counter()
     closed: Any = collections.Counter()
+    spellings: Any = collections.Counter()
     open_now = 0
+    rows_total = 0
+    closed_total = 0
+    undated_opened = 0
+    undated_closed = 0
     for path in files.values():
         if not path.is_file():
             continue
@@ -152,12 +216,21 @@ def backlog_burndown() -> dict[str, Any]:
         key = next(k for k, v in doc.items()
                    if isinstance(v, list) and v and isinstance(v[0], dict))
         for r in doc[key]:
-            o = (r.get("opened_at") or "")[:7]
+            rows_total += 1
+            o, o_key = _row_month(r, CREATION_KEYS)
             if o:
                 opened[o] += 1
+                spellings[o_key] += 1
+            else:
+                undated_opened += 1
+                spellings["(none)"] += 1
             if r.get("status") in CLOSED:
-                ra = (r.get("resolved_at") or "")[:7]
+                closed_total += 1
+                ra, _ = _row_month(r, CLOSE_KEYS)
                 if not ra:
+                    # The `updates` fallback stays LAST: an explicit close date
+                    # on the row is a statement, an update timestamp is an
+                    # inference from when somebody last wrote to the row.
                     ups = [u for u in (r.get("updates") or []) if isinstance(u, dict)]
                     for u in reversed(ups):
                         if u.get("disposition") in CLOSED:
@@ -167,11 +240,25 @@ def backlog_burndown() -> dict[str, Any]:
                         ra = (ups[-1].get("at") or "")[:7]
                 if ra:
                     closed[ra] += 1
+                else:
+                    undated_closed += 1
             else:
                 open_now += 1
     months = sorted(set(opened) | set(closed))
     return {
         "open_now": open_now,
+        "rows_total": rows_total,
+        "closed_total": closed_total,
+        # ⚠️ READ THIS BESIDE `by_month`, NOT AFTER IT. These rows are in NO
+        # month, so the series does not sum to the census and is not supposed
+        # to. Reporting the series without them is the understatement this
+        # block exists to end.
+        "undated": {
+            "opened": undated_opened,
+            "closed": undated_closed,
+            "closed_of": closed_total,
+        },
+        "creation_key_basis": dict(spellings),
         "by_month": [
             {"month": m, "opened": opened[m], "closed": closed[m],
              "net": opened[m] - closed[m]}
