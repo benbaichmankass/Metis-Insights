@@ -132,6 +132,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import queue_latency as ql  # noqa: E402
 import session_registry as sr  # noqa: E402
 
+# ONE OWNER for "can this PR actually be merged?", for the same reason. See that
+# module's docstring for the two measured instances (#11842, #11738) and for why
+# the LIST endpoint this watcher reads structurally cannot answer the question.
+import pr_mergeability as pm  # noqa: E402
+
 REPO_ROOT = sr.REPO_ROOT
 STATE_PATH = REPO_ROOT / "docs" / "claude" / "work" / "PR-QUEUE-WATCH.json"
 
@@ -263,8 +268,21 @@ def _pr_number(pr: Dict[str, Any]) -> Any:
 
 
 def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
-             threshold_hours: float) -> Dict[str, Any]:
-    """PURE. One PR in, one graded row out."""
+             threshold_hours: float,
+             merge_row: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """PURE. One PR in, one graded row out.
+
+    ⚠️ ``merge_row`` is a SECOND, ORTHOGONAL DIMENSION and is deliberately not
+    folded into ``state``. The quiescence states answer *"has anyone moved this
+    artifact?"*; mergeability answers *"could anyone merge it if they tried?"*.
+    They have different owners and opposite remedies, and collapsing them is the
+    defect: PR #11738 is ``waiting`` (12h since a push) AND ``conflicted``, and
+    the first reading sends a reader to the manager while the truth is that the
+    merge is impossible until its AUTHOR merges the base branch in.
+
+    ``None`` means the mergeability read was not attempted for this PR — the row
+    then carries ``merge_verdict: "not_computed"``, never a fabricated pass.
+    """
     ref = head_ref_of(pr)
     # ⚠️ THE TITLE ONLY, NEVER THE BODY. A body mentioning "do not merge" in
     # passing prose would silently hold a PR nobody meant to hold, and a marker
@@ -279,6 +297,15 @@ def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
         "state": None,
         "why": "",
     }
+    # Attached BEFORE any early return, so an `undateable` or `held_declared`
+    # row still carries its mergeability. A held PR that is ALSO conflicted is
+    # exactly the row a reader must not lose: the hold explains why nobody
+    # merged it and explains nothing at all about why nobody COULD.
+    mr = merge_row if merge_row is not None else pm.grade(None)
+    for key in ("merge_verdict", "merge_possible", "mergeable_state",
+                "merge_state_note", "check_state", "misleading"):
+        row[key] = mr.get(key)
+    row["merge_why"] = mr.get("why", "")
     if HOLD_MARKER.search(title):
         row["state"] = HELD_DECLARED
         row["why"] = ("the PR's own title declares it must not be merged, so it is "
@@ -308,20 +335,43 @@ def grade_pr(pr: Dict[str, Any], pushed_at: Optional[datetime], now: datetime,
 def assess(prs: Optional[List[Dict[str, Any]]],
            branch_times: Optional[Dict[str, Optional[datetime]]],
            now: datetime,
-           threshold_hours: float = DEFAULT_THRESHOLD_HOURS) -> Dict[str, Any]:
-    """PURE, so the policy is arguable in tests rather than against a live queue."""
+           threshold_hours: float = DEFAULT_THRESHOLD_HOURS,
+           merge_rows: Optional[Dict[Any, Dict[str, Any]]] = None
+           ) -> Dict[str, Any]:
+    """PURE, so the policy is arguable in tests rather than against a live queue.
+
+    ``merge_rows`` maps PR number -> a `pr_mergeability.grade` row. Omitting it
+    leaves every PR ``not_computed`` and the conflict figures at zero-with-a-
+    reason, never a clean bill.
+    """
     if prs is None:
         return {
             "state": NO_OBSERVATION, "over_threshold": None, "worst_min": None,
             "worst_hours": None, "band": None, "rows": [], "by_state": {},
+            "conflicted": None, "conflicted_rows": [], "misleading": None,
+            "merge_by_verdict": {}, "conflict_band": None,
             "population": (
                 "WE COULD NOT LOOK -- the open-PR list was unreadable, so nothing "
                 "was counted. This is NOT 'no PR is open': an empty queue is a "
                 "real reading and grades `measured` with zero waiting."),
         }
     branch_times = branch_times or {}
-    rows = [grade_pr(pr, branch_times.get(head_ref_of(pr) or ""), now, threshold_hours)
+    merge_rows = merge_rows or {}
+    rows = [grade_pr(pr, branch_times.get(head_ref_of(pr) or ""), now, threshold_hours,
+                     merge_rows.get(_pr_number(pr)))
             for pr in prs]
+    merge_summary = pm.summarise(rows)
+    conflicted_rows = sorted(
+        (r for r in rows if r.get("merge_verdict") == pm.CONFLICTED),
+        key=lambda r: -(r["quiet_hours"] or 0))
+    # ⚠️ The conflict band rides on QUIESCENCE HOURS, which is a PROXY for how
+    # long the PR has been stuck and is stated as one: we do not know when it
+    # WENT conflicted, only when its branch last moved. Undateable conflicted
+    # rows contribute 0 to the band and still contribute 1 to the COUNT, so an
+    # undateable conflict can never be silently dropped for want of a clock.
+    conflict_hours = [r["quiet_hours"] for r in conflicted_rows
+                      if r["quiet_hours"] is not None]
+    conflict_band = ql.band_of(int(round(max(conflict_hours) * 60))) if conflict_hours else 0
     by_state: Dict[str, int] = {}
     for r in rows:
         by_state[r["state"]] = by_state.get(r["state"], 0) + 1
@@ -330,6 +380,16 @@ def assess(prs: Optional[List[Dict[str, Any]]],
         return {
             "state": UNDATEABLE, "over_threshold": None, "worst_min": None,
             "worst_hours": None, "band": None,
+            # ⚠️ The CONFLICT figures survive an undateable read, deliberately.
+            # Mergeability does not depend on a clock, so refusing to report it
+            # here would throw away a real measurement because a different one
+            # failed — and a conflicted PR is the finding whether or not we can
+            # date it.
+            "conflicted": merge_summary["conflicted"],
+            "conflicted_rows": conflicted_rows,
+            "misleading": merge_summary["misleading"],
+            "merge_by_verdict": merge_summary["by_verdict"],
+            "conflict_band": conflict_band,
             "rows": sorted(rows, key=lambda r: str(r["pr"])), "by_state": by_state,
             "population": (
                 f"{len(rows)} open PR(s) were READ and NOT ONE head branch time "
@@ -354,6 +414,17 @@ def assess(prs: Optional[List[Dict[str, Any]]],
         "waiting": waiting,
         "by_state": by_state,
         "threshold_hours": threshold_hours,
+        # ⚠️ A SECOND, SEPARATE COUNT. `conflicted` is NEVER added to
+        # `over_threshold`: a waiting PR is owed a merge DECISION (owner: the
+        # manager) and a conflicted PR is owed a BASE MERGE (owner: the author).
+        # Summing them would hand one number to two people, and the existing
+        # `waiting` reading is what sent readers to the manager for #11738.
+        "conflicted": merge_summary["conflicted"],
+        "conflicted_rows": conflicted_rows,
+        "misleading": merge_summary["misleading"],
+        "misleading_ungraded": merge_summary["misleading_ungraded"],
+        "merge_by_verdict": merge_summary["by_verdict"],
+        "conflict_band": conflict_band,
         "population": (
             f"ALL {len(rows)} open, unmerged PR(s) on this repo, graded on hours "
             f"since the last commit to the head branch. Drafts INCLUDED -- the "
@@ -363,7 +434,49 @@ def assess(prs: Optional[List[Dict[str, Any]]],
     }
 
 
+def _render_conflicts(verdict: Dict[str, Any]) -> List[str]:
+    """The CONFLICT half of the digest, rendered even when the queue is quiet.
+
+    ⚠️ It prints the `not_computed` count too. A run that could not compute
+    mergeability for any PR would otherwise render a blind watcher identically
+    to a clean queue — the collapse this whole dimension exists to end.
+    """
+    n = verdict.get("conflicted")
+    by = verdict.get("merge_by_verdict") or {}
+    if n is None:
+        return ["  mergeability: NOT GRADED -- no per-PR read was supplied. "
+                "This is NOT 'nothing is conflicted'."]
+    lines: List[str] = [
+        "  mergeability: " + (", ".join(f"{k}={v}" for k, v in sorted(by.items()))
+                              or "none")]
+    ungraded = verdict.get("misleading_ungraded") or 0
+    if n:
+        mis = verdict.get("misleading") or 0
+        lines.append(
+            f"  ⚠️ {n} open PR(s) CANNOT BE MERGED BY ANYONE (merge conflict); "
+            f"{mis} of them read as READY (checks green). "
+            + (f"{ungraded} could not be graded for that (checks not fetched)."
+               if ungraded else "")
+        )
+        lines.append("     The owner is each PR's AUTHOR, not the manager: the "
+                     "remedy is to merge the base branch in. Merging cannot "
+                     "discharge this and waiting will not clear it.")
+        for r in verdict.get("conflicted_rows", [])[:8]:
+            q = "     ?" if r["quiet_hours"] is None else f"{r['quiet_hours']:6.1f}"
+            flag = "  <-- GREEN AND UNMERGEABLE" if r.get("misleading") else ""
+            lines.append(f"  {q}h  conflicted   #{r['pr']}  "
+                         f"{r['title'][:48]}  checks={r.get('check_state')}{flag}")
+    else:
+        lines.append("  no open PR is in merge conflict.")
+    return lines
+
+
 def render_digest(verdict: Dict[str, Any], top: int = 8) -> str:
+    if verdict["state"] == UNDATEABLE:
+        # Mergeability needs no clock, so it is reported even here.
+        return "\n".join(
+            [f"[pr queue] {verdict['state'].upper()} -- {verdict['population']}"]
+            + _render_conflicts(verdict))
     if verdict["state"] != MEASURED:
         return f"[pr queue] {verdict['state'].upper()} -- {verdict['population']}"
     lines = [
@@ -373,10 +486,99 @@ def render_digest(verdict: Dict[str, Any], top: int = 8) -> str:
                                     sorted(verdict["by_state"].items())) or "none"),
         f"  population: {verdict['population']}",
     ]
+    lines.extend(_render_conflicts(verdict))
     for r in verdict["rows"][:top]:
         q = "     ?" if r["quiet_hours"] is None else f"{r['quiet_hours']:6.1f}"
         lines.append(f"  {q}h  {r['state']:<13} #{r['pr']}  {r['title'][:56]}")
     return "\n".join(lines)
+
+
+#: Where the CONFLICT escalation keeps its own `last_paged_at` / `last_band`.
+#: A separate namespace inside the same receipt, so the two escalations cannot
+#: silence each other: a queue-latency page must not make a newly-conflicted PR
+#: read as "already reported", and vice versa.
+CONFLICT_LATCH_KEY = "conflict_latch"
+
+
+def conflict_escalation_due(verdict: Dict[str, Any],
+                            state: Optional[Dict[str, Any]],
+                            state_readable: bool, now: datetime,
+                            repage_hours: float = DEFAULT_REPAGE_HOURS
+                            ) -> Tuple[bool, str]:
+    """Should the CONFLICTED set page this firing?
+
+    ⚠️ IT REUSES `queue_latency.escalation_due` RATHER THAN COPYING THE POLICY.
+    Two copies of *"when do we page?"* are free to drift, and this file's own
+    header already states that as the reason `band_of` is imported. What differs
+    is only the INPUT (a synthetic verdict over the conflicted set) and the
+    LATCH (its own namespace) — never the ladder.
+
+    ⚠️ AND THE COUNT, NOT THE CLOCK, IS THE TRIGGER. A conflicted PR pages on
+    its FIRST sighting, with no quiescence threshold, because its quiescence
+    clock never starts: nobody pushes to a PR they believe is finished. #11738
+    sat 12h and #11842 sat 3.5h precisely because everyone involved thought the
+    ball was in someone else's court.
+    """
+    if verdict["state"] not in (MEASURED, UNDATEABLE):
+        return False, (f"state is {verdict['state']} — nothing was graded, so "
+                       f"mergeability was not graded either.")
+    synthetic = {
+        "state": ql.MEASURED,
+        "over_threshold": verdict.get("conflicted") or 0,
+        "band": verdict.get("conflict_band") or 0,
+    }
+    return ql.escalation_due(synthetic, state, state_readable, now, repage_hours)
+
+
+def build_merge_rows(details_path: Optional[str], checks_path: Optional[str]
+                     ) -> Dict[Any, Dict[str, Any]]:
+    """Load the per-PR reads and grade each one. Never raises.
+
+    ⚠️ AN UNREADABLE DETAILS FILE RETURNS ``{}``, which leaves every PR
+    ``not_computed`` — *we did not look* — and NEVER a clean queue. That is the
+    `curl … || echo '{}'` collapse this repo names by class, so it is written
+    out rather than left to a reader's charity.
+
+    ⚠️ A per-PR entry that is present but carries NO ``mergeable_state`` key is
+    graded ``unreadable``, not ``not_computed``: a fetch that came back shaped
+    wrong is a broken read, while GitHub answering ``unknown`` is a real
+    observation of GitHub. The two are kept apart at the point they diverge.
+    """
+    if not details_path:
+        return {}
+    try:
+        raw = json.loads(Path(details_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"could not read --pr-details: {exc} — every PR will grade "
+              f"`not_computed`, which is NOT a clean queue.", file=sys.stderr)
+        return {}
+    checks_by_pr: Dict[str, Any] = {}
+    if checks_path:
+        try:
+            loaded = json.loads(Path(checks_path).read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                checks_by_pr = loaded
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"could not read --pr-checks: {exc} — conflicted rows will "
+                  f"grade `misleading: null` (we did not look).", file=sys.stderr)
+    if not isinstance(raw, list):
+        raw = [raw] if isinstance(raw, dict) else []
+    out: Dict[Any, Dict[str, Any]] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        num = item.get("number") or item.get("id")
+        if num is None:
+            continue
+        read_ok = "mergeable_state" in item
+        entry = checks_by_pr.get(str(num), checks_by_pr.get(num))
+        checks = None
+        if isinstance(entry, dict) and isinstance(entry.get("check_runs"), list):
+            checks = entry["check_runs"]
+        elif isinstance(entry, list):
+            checks = entry
+        out[num] = pm.grade(item, checks, read_ok=read_ok)
+    return out
 
 
 def read_state(path: Path = STATE_PATH) -> Tuple[Optional[Dict[str, Any]], bool]:
@@ -407,7 +609,9 @@ def refresh_due(state: Optional[Dict[str, Any]], state_readable: bool,
 
 
 def build_state(verdict: Dict[str, Any], now: datetime, paged: bool,
-                page_reason: str, prev: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+                page_reason: str, prev: Optional[Dict[str, Any]],
+                conflict_paged: bool = False,
+                conflict_reason: str = "") -> Dict[str, Any]:
     prev = prev or {}
     runs = [r for r in (prev.get("runs") or []) if isinstance(r, dict)][-19:]
     runs.append({
@@ -416,6 +620,8 @@ def build_state(verdict: Dict[str, Any], now: datetime, paged: bool,
         "waiting": verdict.get("over_threshold"),
         "worst_hours": verdict.get("worst_hours"),
         "escalated": paged,
+        "conflicted": verdict.get("conflicted"),
+        "conflict_escalated": conflict_paged,
     })
     out: Dict[str, Any] = {
         "_doc": (
@@ -437,9 +643,26 @@ def build_state(verdict: Dict[str, Any], now: datetime, paged: bool,
         "worst_hours": verdict.get("worst_hours"),
         "threshold_hours": verdict.get("threshold_hours"),
         "by_state": verdict.get("by_state") or {},
+        # The SECOND dimension, persisted so `check_pr_queue_watch.py` and any
+        # later reader can tell a queue that nobody merged from one that nobody
+        # COULD merge. `misleading` is the green-but-conflicted subset.
+        "conflicted": verdict.get("conflicted"),
+        "misleading": verdict.get("misleading"),
+        "misleading_ungraded": verdict.get("misleading_ungraded"),
+        "merge_by_verdict": verdict.get("merge_by_verdict") or {},
         "rows": verdict.get("rows") or [],
         "runs": runs,
     }
+    # ⚠️ ITS OWN LATCH NAMESPACE. Nested rather than prefixed so it can be handed
+    # to `ql.escalation_due` unchanged — the policy stays one function.
+    prev_latch = prev.get(CONFLICT_LATCH_KEY)
+    latch = dict(prev_latch) if isinstance(prev_latch, dict) else {}
+    if conflict_paged:
+        latch["last_paged_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        latch["last_band"] = verdict.get("conflict_band")
+        latch["last_page_reason"] = conflict_reason
+    if latch:
+        out[CONFLICT_LATCH_KEY] = latch
     if paged:
         out["last_paged_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         out["last_band"] = verdict.get("band")
@@ -578,6 +801,103 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("the run ring is bounded", len(build_state(v_hot, now, False, "", {
         "runs": [{"at": "x"} for _ in range(50)]})["runs"]) <= 20)
 
+    # --- MERGEABILITY: the second dimension, and it must not pool with the first
+    ok_run = {"name": "guards", "status": "completed", "conclusion": "success"}
+
+    def mrow(state, checks=None):
+        return pm.grade({"mergeable_state": state}, checks)
+
+    # THE MOTIVATING CASE. #11738: green checks, `dirty`, 12h quiet. The old
+    # grader called that `waiting` and nothing else.
+    v_m = assess([pr(1, "a"), pr(2, "b")], {"a": ago(12), "b": ago(0.5)}, now, 6.0,
+                 {1: mrow("dirty", [ok_run]), 2: mrow("clean", [ok_run])})
+    check("a green+dirty PR is still graded `waiting` on the quiescence axis "
+          "(the dimensions are orthogonal, not replaced)",
+          {r["pr"]: r["state"] for r in v_m["rows"]}[1] == WAITING)
+    check("...AND it is separately graded `conflicted`",
+          {r["pr"]: r["merge_verdict"] for r in v_m["rows"]}[1] == pm.CONFLICTED)
+    check("...AND it is flagged as reading like a ready PR", v_m["misleading"] == 1)
+    check("the conflicted count does NOT inflate the waiting count "
+          "(different owners, different remedies)",
+          v_m["conflicted"] == 1 and v_m["over_threshold"] == 1)
+    check("a clean+green PR is NOT counted as conflicted (the control)",
+          {r["pr"]: r["merge_verdict"] for r in v_m["rows"]}[2] == pm.MERGEABLE)
+    check("the digest NAMES the finding where a human reads it",
+          "CANNOT BE MERGED BY ANYONE" in render_digest(v_m))
+    check("the digest names the AUTHOR as the owner, not the manager",
+          "AUTHOR" in render_digest(v_m))
+
+    v_clean = assess([pr(1, "a")], {"a": ago(12)}, now, 6.0, {1: mrow("clean")})
+    check("a queue with no conflict says so plainly",
+          v_clean["conflicted"] == 0
+          and "no open PR is in merge conflict" in render_digest(v_clean))
+
+    # NOT LOOKING IS NOT A CLEAN BILL.
+    v_blind = assess([pr(1, "a")], {"a": ago(12)}, now, 6.0)
+    check("with NO per-PR read, every PR grades `not_computed`",
+          v_blind["merge_by_verdict"][pm.NOT_COMPUTED] == 1)
+    check("...and `not_computed` is never counted as conflicted OR as clean — "
+          "the digest prints the verdict census",
+          v_blind["conflicted"] == 0
+          and "not_computed=1" in render_digest(v_blind))
+    check("an unreadable --pr-details file yields NO rows rather than clean ones",
+          build_merge_rows("/nonexistent/path.json", None) == {})
+
+    # A HELD PR THAT IS ALSO CONFLICTED MUST NOT LOSE THE CONFLICT.
+    v_held = assess([pr(3, "h", title="[DO NOT MERGE] x")], {"h": ago(30)}, now, 6.0,
+                    {3: mrow("dirty", [ok_run])})
+    check("a held_declared PR still carries its conflict verdict",
+          v_held["rows"][0]["state"] == HELD_DECLARED
+          and v_held["rows"][0]["merge_verdict"] == pm.CONFLICTED
+          and v_held["conflicted"] == 1)
+
+    # AN UNDATEABLE READ MUST NOT THROW AWAY A CLOCK-FREE MEASUREMENT.
+    v_ud = assess([pr(4, "gone")], {"gone": None}, now, 6.0,
+                  {4: mrow("dirty", [ok_run])})
+    check("an undateable queue still reports its conflicts",
+          v_ud["state"] == UNDATEABLE and v_ud["conflicted"] == 1)
+    check("...and still names them in the digest",
+          "CANNOT BE MERGED" in render_digest(v_ud))
+
+    # `blocked` is the EXPECTED state of a held PR and must never page.
+    v_blocked = assess([pr(5, "e")], {"e": ago(30)}, now, 6.0, {5: mrow("blocked")})
+    check("a `blocked` PR is NOT counted as a conflict", v_blocked["conflicted"] == 0)
+    cb, _ = conflict_escalation_due(v_blocked, None, True, now, DEFAULT_REPAGE_HOURS)
+    check("...and never pages", not cb)
+
+    # --- the CONFLICT escalation: its own latch, and it discriminates ----------
+    c_due, _ = conflict_escalation_due(v_m, None, True, now, DEFAULT_REPAGE_HOURS)
+    check("a first conflict pages IMMEDIATELY — no quiescence threshold", c_due)
+    fresh_latch = {"last_paged_at": (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                   "last_band": v_m["conflict_band"]}
+    c_due2, _ = conflict_escalation_due(v_m, fresh_latch, True, now, DEFAULT_REPAGE_HOURS)
+    check("a standing conflict inside the cooldown does NOT re-page", not c_due2)
+    c_due3, _ = conflict_escalation_due(v_clean, None, True, now, DEFAULT_REPAGE_HOURS)
+    check("a conflict-free queue never pages on this axis", not c_due3)
+    c_due4, _ = conflict_escalation_due(v_none, None, True, now, DEFAULT_REPAGE_HOURS)
+    check("an unreadable queue does not page on this axis either "
+          "(nothing was graded)", not c_due4)
+    c_due5, _ = conflict_escalation_due(v_m, fresh_latch, False, now, DEFAULT_REPAGE_HOURS)
+    check("an UNREADABLE latch pages rather than suppressing, here too", c_due5)
+
+    # The two latches are independent: a queue-latency page must not silence a
+    # conflict page. This is the whole reason for the separate namespace.
+    s_q = build_state(v_m, now, True, "queue page", None, False, "")
+    check("a queue-only page leaves the conflict latch unset",
+          CONFLICT_LATCH_KEY not in s_q)
+    c_after, _ = conflict_escalation_due(
+        v_m, s_q.get(CONFLICT_LATCH_KEY), True, now, DEFAULT_REPAGE_HOURS)
+    check("...so the conflict still pages after a queue page", c_after)
+    s_c = build_state(v_m, now, False, "", None, True, "conflict page")
+    check("a conflict page records its own band",
+          s_c[CONFLICT_LATCH_KEY]["last_band"] == v_m["conflict_band"])
+    s_c2 = build_state(v_clean, now + timedelta(hours=1), False, "", s_c, False, "")
+    check("a later conflict-free run KEEPS the prior conflict page record",
+          s_c2[CONFLICT_LATCH_KEY]["last_paged_at"]
+          == s_c[CONFLICT_LATCH_KEY]["last_paged_at"])
+    check("the receipt persists the conflict count so a reader can tell "
+          "'nobody merged it' from 'nobody could'", s_c["conflicted"] == 1)
+
     # --- head-ref parsing is tolerant across both `gh` shapes -------------------
     check("`gh api` head shape parses", head_ref_of({"head": {"ref": "a"}}) == "a")
     check("`gh pr list --json` head shape parses",
@@ -602,6 +922,21 @@ def main(argv=None) -> int:
                          "GRADES `no_observation`, NEVER an empty queue -- there is "
                          "deliberately no flag that asserts the queue is fine, "
                          "because asserting it is what fails.")
+    ap.add_argument("--pr-details", default=None,
+                    help="Path to a JSON list of PER-PR payloads (from `gh api "
+                         "repos/OWNER/REPO/pulls/N`, one per open PR). ⚠️ "
+                         "REQUIRED for mergeability: the LIST endpoint does NOT "
+                         "carry `mergeable_state` (measured 0 of 5 on 2026-09-12 "
+                         "against a positive control), so omitting this leaves "
+                         "every PR `not_computed` -- which is reported as such "
+                         "and NEVER as a clean queue.")
+    ap.add_argument("--pr-checks", default=None,
+                    help="Path to a JSON object mapping PR number -> that PR's "
+                         "check-run list. Optional, and fetched only for the "
+                         "CONFLICTED rows in practice, so the extra cost is "
+                         "proportional to the finding count rather than to the "
+                         "queue size. Without it a conflicted row's `misleading` "
+                         "reads `null` -- we did not look -- not `false`.")
     ap.add_argument("--threshold-hours", type=float, default=DEFAULT_THRESHOLD_HOURS)
     ap.add_argument("--repage-hours", type=float, default=DEFAULT_REPAGE_HOURS)
     ap.add_argument("--refresh-hours", type=float, default=DEFAULT_REFRESH_HOURS)
@@ -628,7 +963,8 @@ def main(argv=None) -> int:
     prs = normalise_prs(raw)
     times = branch_times_from_git(
         sorted({head_ref_of(p) or "" for p in (prs or [])} - {""})) if prs else {}
-    verdict = assess(prs, times, now, args.threshold_hours)
+    merge_rows = build_merge_rows(args.pr_details, args.pr_checks)
+    verdict = assess(prs, times, now, args.threshold_hours, merge_rows)
 
     state, readable = read_state()
     if verdict["state"] == MEASURED:
@@ -636,30 +972,47 @@ def main(argv=None) -> int:
     else:
         paged, reason = ql.unknown_report_due(verdict, state, readable, now,
                                               args.repage_hours)
+    conflict_paged, conflict_reason = conflict_escalation_due(
+        verdict, (state or {}).get(CONFLICT_LATCH_KEY), readable, now,
+        args.repage_hours)
 
     changed = ((state or {}).get("read_state") != verdict["state"]
-               or (state or {}).get("waiting") != verdict.get("over_threshold"))
+               or (state or {}).get("waiting") != verdict.get("over_threshold")
+               # A change in the CONFLICT count is a verdict change too, or a
+               # newly-conflicted PR would leave no trace until the refresh
+               # floor elapsed.
+               or (state or {}).get("conflicted") != verdict.get("conflicted"))
     ref_due, ref_reason = refresh_due(state, readable, now, args.refresh_hours)
     wrote = False
-    if args.write_state and (paged or changed or ref_due):
+    if args.write_state and (paged or conflict_paged or changed or ref_due):
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
         STATE_PATH.write_text(
-            json.dumps(build_state(verdict, now, paged, reason, state),
+            json.dumps(build_state(verdict, now, paged, reason, state,
+                                   conflict_paged, conflict_reason),
                        indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         wrote = True
 
     if args.json:
         print(json.dumps({"verdict": verdict, "escalate": paged, "reason": reason,
+                          "conflict_escalate": conflict_paged,
+                          "conflict_reason": conflict_reason,
                           "receipt_written": wrote, "refresh": ref_reason},
                          indent=2, ensure_ascii=False, default=str))
     else:
         print(render_digest(verdict))
         print(f"\n  escalate: {paged} -- {reason}")
+        print(f"  conflict escalate: {conflict_paged} -- {conflict_reason}")
         print(f"  receipt : {'written' if wrote else 'not written'} -- {ref_reason}")
 
+    # ⚠️ EXIT-CODE ORDER: `4` (we could not look) outranks `3` (escalate),
+    # unchanged. But a CONFLICT escalation now also reaches 3 from an
+    # `undateable` read, because mergeability needs no clock — a queue we
+    # cannot date can still be a queue nobody can merge.
+    if verdict["state"] == UNDATEABLE and conflict_paged:
+        return 3
     if verdict["state"] != MEASURED:
         return 4
-    return 3 if paged else 0
+    return 3 if (paged or conflict_paged) else 0
 
 
 if __name__ == "__main__":
