@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row amended with a measurement, through update_row rather than a hand splice. The diff is 2 lines in docs/claude/health-review-backlog.json and nothing else -- no src/, no config/, no scripts/, no .github/workflows/, no deploy/, no order path. Every read behind the measurement was a local git-history walk; no live VM read and no GET against the fleet. It changes no behaviour: it records that 84 of 86 dangling tracking references were never filed rather than deleted, which answers criterion 1 of the row it amends."
+}

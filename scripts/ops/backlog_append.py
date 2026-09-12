@@ -175,6 +175,150 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
     return len(items)
 
 
+class RowNotFound(Exception):
+    """No row in this backlog carries that id — refuse rather than create one.
+
+    An `update_row` that silently APPENDED on a miss would turn a typo'd id
+    into a new, half-populated row, which is strictly worse than an error: the
+    caller believes it amended the row it named.
+    """
+
+
+def update_row(path: pathlib.Path, row_id: str,
+               *, fields: Optional[Dict[str, Any]] = None,
+               append: Optional[Dict[str, str]] = None,
+               updated_at: Optional[str] = None) -> Dict[str, Any]:
+    """Amend an EXISTING row in place, preserving the file's exact bytes.
+
+    Returns the amended row. `fields` REPLACES named keys (creating one is
+    allowed — see below); `append` adds text to the END of an existing string
+    field. At least one of them is required.
+
+    WHY THIS EXISTS — THE TWO GUARDS PUSHED IN OPPOSITE DIRECTIONS
+    --------------------------------------------------------------
+    `BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-REQUIRES-THE-FORBIDDEN-HAND-EDIT`.
+    `CLAUDE.md` says to file through `append_row`, NEVER by hand. But
+    `check_backlog_criteria` REFUSES a row missing `resolution_criteria` or
+    `tier`, so rows *will* need amending — and this module only appended. The
+    cheapest route to a required edit was therefore the forbidden one, which is
+    this repo's own definition of a guard cheaper to lie to than to satisfy.
+
+    CREATING A KEY VIA `fields` IS DELIBERATELY ALLOWED, because adding the two
+    fields that guard demands is the motivating case. `append` is the opposite:
+    it REFUSES a missing or non-string field, since appending to a field that
+    does not exist means the caller is wrong about the row's shape.
+
+    ⚠️ AND THAT REFUSAL IS LOAD-BEARING, BECAUSE THE BACKLOGS CARRY TWO ROW
+    SHAPES. Measured on the health backlog 2026-09-12: **614 of 1496 rows have
+    no `detail` field at all** (377 resolved / 118 kept_open / 106 open / 8
+    wont_fix / 4 superseded / 1 invalid) and narrate in `summary` + `evidence`
+    instead. So the `--append-field detail` default is wrong for ~41% of rows,
+    and a helper that CREATED the missing field on append would quietly give
+    those rows a second, competing narrative field that no reader knows to look
+    at. The refusal is how a caller finds out which shape it is holding — which
+    is what happened the first time this tool was used in anger.
+
+    ⚠️ IT HAS HAPPENED THREE TIMES, WHICH IS WHY THE REMEDY IS CODE RATHER THAN
+    A REMINDER. `BL-20260901-BACKLOG-ROUND-TRIP-BROKEN-AGAIN-BY-A-HAND-WRITTEN-SPLICE`
+    recorded the second occurrence ONE DAY after the first was repaired; a third
+    landed 2026-09-12, from the most natural idiom there is —
+    ``json.dumps(text)[1:-1]``, whose default is ``ensure_ascii=True``, spliced
+    into a file stored ``ensure_ascii=False``. The file still parses and still
+    reads correctly through ``json.load``; what breaks is the BYTE round-trip,
+    so ``append_row`` then refuses EVERY write to that backlog, repo-wide, for
+    every session. The blast radius is the argument: one session's splice
+    disarms the mandated writer for everyone.
+
+    WHAT IS VERIFIED BEFORE THE WRITE (the row's own criterion asks for it):
+      * the file reproduces byte-for-byte under a known serialisation, or this
+        REFUSES — inherited from :func:`detect_format`, and the reason a
+        hand-splice is unsafe in the first place;
+      * every OTHER row is byte-identical under that same serialisation, so a
+        diff-scoped guard cannot re-attribute someone else's row to this change;
+      * every field of the target row that was NOT named is byte-identical;
+      * an appended field's new value STARTS WITH its old value — an append that
+        rewrote history would otherwise pass every other check here.
+    """
+    if not fields and not append:
+        raise ValueError("update_row needs `fields` and/or `append` — refusing a no-op write")
+
+    raw = path.read_text()
+    doc = json.loads(raw)
+    kw, trailing = detect_format(raw, doc)
+
+    items = doc["items"] if isinstance(doc, dict) else doc
+    matches = [i for i in items if isinstance(i, dict) and i.get("id") == row_id]
+    if not matches:
+        raise RowNotFound(
+            f"{row_id} is not filed in {path.name} — refusing to create it. "
+            "If this is a new finding, file it with append_row; if the id is a "
+            "typo, fix the id (citing a row that does not exist reads as tracked "
+            "while being tracked by nobody)."
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"{row_id} appears {len(matches)} times in {path.name} — refusing to "
+            "guess which one to amend"
+        )
+    target = matches[0]
+    before_rows = [json.dumps(i, **kw) for i in items]
+    before_target = dict(target)
+
+    for key, value in (append or {}).items():
+        current = target.get(key)
+        if not isinstance(current, str):
+            raise ValueError(
+                f"cannot append to {key!r} on {row_id}: it is "
+                f"{type(current).__name__}, not a string. Use `fields` to SET it."
+            )
+        target[key] = current + value
+    for key, value in (fields or {}).items():
+        target[key] = value
+
+    if isinstance(doc, dict) and updated_at:
+        doc["updated_at"] = updated_at
+
+    out = json.dumps(doc, **kw) + trailing
+
+    check = json.loads(out)
+    check_items = check["items"] if isinstance(check, dict) else check
+    if len(check_items) != len(items):
+        raise FormatNotReproducible("round-trip lost or gained rows — refusing to write")
+    touched = 0
+    for before_ser, after_row in zip(before_rows, check_items):
+        after_ser = json.dumps(after_row, **kw)
+        if before_ser != after_ser:
+            touched += 1
+            if after_row.get("id") != row_id:
+                raise FormatNotReproducible(
+                    f"row {after_row.get('id')!r} changed and is not the target — "
+                    "refusing to write, because a diff-scoped guard would "
+                    "re-attribute it to this change"
+                )
+    if touched != 1:
+        raise FormatNotReproducible(
+            f"expected exactly 1 changed row, {touched} changed — refusing to write"
+        )
+    amended = [i for i in check_items if i.get("id") == row_id][0]
+    named = set(fields or {}) | set(append or {})
+    for key, value in before_target.items():
+        if key in named:
+            continue
+        if json.dumps(amended.get(key), **kw) != json.dumps(value, **kw):
+            raise FormatNotReproducible(
+                f"field {key!r} on {row_id} changed but was not named — refusing to write"
+            )
+    for key in (append or {}):
+        if not str(amended.get(key, "")).startswith(str(before_target.get(key, ""))):
+            raise FormatNotReproducible(
+                f"append to {key!r} did not PRESERVE the existing text — refusing "
+                "to write; an append that rewrites history passes every other "
+                "check here, which is why this one exists"
+            )
+    path.write_text(out)
+    return amended
+
+
 def _self_test() -> int:
     """Planted controls — including the exact failure this helper exists for."""
     import tempfile
@@ -220,6 +364,90 @@ def _self_test() -> int:
             ck("refuses a duplicate id", False)
         except ValueError:
             ck("refuses a duplicate id", True)
+
+        # (4) update_row — the EDIT path
+        #     Its row is BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-REQUIRES-THE-FORBIDDEN-HAND-EDIT
+        #     -- ON ONE LINE, over the margin, deliberately. Eliding it to
+        #     `...` AND wrapping it both produce a token that resolves to
+        #     NOTHING, which reads as tracked while being tracked by nobody;
+        #     I did each of those once writing this file and the guard caught
+        #     both. See BL-20260909-A-MANAGER-TRUNCATED-A-BACKLOG-ID-FOUR-TIMES-IN-ONE-SESSION-AND-ONLY-A-GUARD-EVER-CAUGHT-IT
+        #     Every control
+        #     here is about the file's BYTES, because the failure being
+        #     prevented still parses and still reads correctly.
+        p4 = pathlib.Path(td) / "edit.json"
+        base = {"schema_version": 1, "updated_at": "2026-01-01", "items": [
+            {"id": "BL-A", "title": "first — em dash", "detail": "alpha"},
+            {"id": "BL-B", "title": "second ⚠️ warn", "detail": "beta"},
+        ]}
+        canon = json.dumps(base, indent=2, ensure_ascii=False) + "\n"
+        p4.write_text(canon)
+        row = update_row(p4, "BL-B", append={"detail": " + appended — with an em dash"})
+        after4 = p4.read_text()
+        ck("update_row appends to a string field", row["detail"].startswith("beta"))
+        ck("the appended non-ASCII is stored LITERALLY, not \\uXXXX "
+           "(the exact 3rd-occurrence defect)",
+           "appended — with" in after4 and "\\u2014" not in after4)
+        ck("the file still round-trips byte-for-byte after an update",
+           after4 == json.dumps(json.loads(after4), indent=2, ensure_ascii=False) + "\n")
+        ck("an untouched row is byte-identical",
+           json.dumps(json.loads(after4)["items"][0], indent=2, ensure_ascii=False)
+           == json.dumps(base["items"][0], indent=2, ensure_ascii=False))
+        ck("the DIFF IS LINE-LOCAL — exactly one line differs",
+           sum(1 for a, b in zip(canon.splitlines(), after4.splitlines()) if a != b) == 1
+           and len(canon.splitlines()) == len(after4.splitlines()))
+
+        #     `fields` may CREATE a key — the motivating case is adding the
+        #     `tier`/`resolution_criteria` that check_backlog_criteria demands.
+        row = update_row(p4, "BL-A", fields={"tier": "1", "detail": "replaced"})
+        ck("fields may create a key that did not exist", row.get("tier") == "1")
+        ck("fields REPLACES rather than appends", row["detail"] == "replaced")
+
+        #     Refusals.
+        try:
+            update_row(p4, "BL-NOPE", fields={"tier": "1"})
+            ck("refuses an id that is not filed", False)
+        except RowNotFound:
+            ck("refuses an id that is not filed", True)
+        update_row(p4, "BL-A", fields={"refs": []})
+        try:
+            update_row(p4, "BL-A", append={"refs": "x"})
+            ck("refuses to append to a non-string field", False)
+        except ValueError:
+            ck("refuses to append to a non-string field", True)
+        try:
+            update_row(p4, "BL-A", append={"no_such_field": "x"})
+            ck("refuses to append to a field that does not exist", False)
+        except ValueError:
+            ck("refuses to append to a field that does not exist", True)
+        try:
+            update_row(p4, "BL-A")
+            ck("refuses a no-op write", False)
+        except ValueError:
+            ck("refuses a no-op write", True)
+
+        #     THE MUTATION CONTROL the backlog row asks for BY NAME: corrupt the
+        #     serialisation and confirm the edit path goes red, so the passes
+        #     above cannot be passing for an unrelated reason.
+        #
+        #     ⚠️ THE CORRUPTION MUST BE **MIXED**, AND FINDING THAT OUT IS ITSELF
+        #     THE CONTROL WORKING. A wholly ensure_ascii=True file is a KNOWN
+        #     serialisation (`_CANDIDATES`), so it reproduces and is legitimately
+        #     editable — the first version of this control wrote one and failed,
+        #     correctly. What no candidate can reproduce is one row escaped and
+        #     another literal, which is exactly what a hand-splice leaves behind
+        #     and exactly the third occurrence this edit path exists to end.
+        p5 = pathlib.Path(td) / "corrupt.json"
+        p5.write_text(canon.replace("first — em dash", "first \\u2014 em dash", 1))
+        ck("a MIXED file is NOT byte-reproducible (control is armed)",
+           "\\u2014" in p5.read_text() and "⚠️" in p5.read_text())
+        raw5 = p5.read_text()
+        try:
+            update_row(p5, "BL-A", fields={"tier": "1"})
+            ck("MUTATION: refuses to edit a file it cannot reproduce", False)
+        except FormatNotReproducible:
+            ck("MUTATION: refuses to edit a file it cannot reproduce", True)
+        ck("MUTATION: the refused file is untouched", p5.read_text() == raw5)
 
     ok = sum(checks)
     print(f"self-test: {ok}/{len(checks)} passed")
@@ -311,11 +539,35 @@ def main(argv=None) -> int:
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--check-live", action="store_true",
                     help="round-trip every live backlog; refuse if any cannot be reproduced")
+    # The EDIT path. Text comes from a FILE, never from argv: an observation
+    # worth recording is a paragraph, and shell quoting is where the em-dashes
+    # and newlines this helper exists to protect get mangled on the way in.
+    ap.add_argument("--update", metavar="ROW_ID",
+                    help="amend an EXISTING row instead of appending a new one")
+    ap.add_argument("--append-field", default="detail",
+                    help="with --update: the string field --text is appended to (default: detail)")
+    ap.add_argument("--text", metavar="PATH",
+                    help="with --update: file whose contents are APPENDED to --append-field")
+    ap.add_argument("--set", metavar="PATH", dest="set_json",
+                    help="with --update: JSON object of fields to REPLACE (may create a key)")
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
     if a.check_live:
         return check_live_backlogs()
+    if a.update:
+        if not a.backlog:
+            ap.error("--backlog is required with --update")
+        if not (a.text or a.set_json):
+            ap.error("--update needs --text and/or --set")
+        append = {a.append_field: pathlib.Path(a.text).read_text()} if a.text else None
+        fields = json.loads(pathlib.Path(a.set_json).read_text()) if a.set_json else None
+        row = update_row(pathlib.Path(a.backlog), a.update,
+                         fields=fields, append=append, updated_at=a.updated_at)
+        print(f"updated {row.get('id')} — field(s) "
+              f"{sorted(set(append or {}) | set(fields or {}))}; the file still "
+              f"round-trips and no other row changed")
+        return 0
     if not (a.backlog and a.row_json):
         ap.error("--backlog and --row-json are required (or --self-test)")
     row = json.loads(pathlib.Path(a.row_json).read_text())
