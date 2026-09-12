@@ -43,30 +43,7 @@
   "as_of": "2026-09-11T15:30:49Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [
-    {
-      "pr": 11738,
-      "title": "Arm R2 — the per-pass IB circuit breaker (MI-240, Tier-2, operator-approved)",
-      "owner_session": "session_01CTPC91xaHrK6ES33UKjkTY",
-      "checklist_item": "MI-240",
-      "draft": false,
-      "tier": "2 (live exit-evaluation path; on this repo merging IS the deploy)",
-      "state": "green_awaiting_one_human_merge_click",
-      "head": "04d4d322f6f7d894c33c1de18f9e3837e9275caf",
-      "observed_at": "2026-09-11T15:3xZ",
-      "observed": "mergeable_state=clean, draft=false, open since 2026-09-10T21:53:16Z (17h40m).",
-      "operator_decision": {
-        "verdict": "approved_with_conditions",
-        "scope": "r2_only — the per-pass IB circuit breaker ONLY",
-        "condition": "R1 (moving _start_exit_loop above _apply_per_account_leverage) was OFFERED AND NOT CHOSEN and must not ride along; `both` is NOT a safer reading of `r2_only`. Whether the restart boundary is in scope for the 60s promise at all was option 4 and was ALSO not chosen — unsettled, not settled by implication.",
-        "decided_on": "2026-09-10",
-        "text": "Operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z from a four-option popup stating each remedy, its measured effect and its rollback."
-      },
-      "blocker": "ONE HUMAN MERGE CLICK. pr-landing R4 bars a Tier-2 diff from landing itself WHATEVER its approval state, so this cannot self-land and the manager must not merge it. ⚠️ THE APPROVAL IS ALREADY RECORDED AND MUST NOT BE RE-SOUGHT — what is outstanding is the click, not the decision.",
-      "⚠️_its_head_keeps_moving_and_that_is_correct": "Observed at 1a0d95b78 (13:29Z) and 04d4d322f (14:40Z). Its author session merges main in to keep the PR clean. That is maintenance, not churn, and it changes nothing about the R4 hold.",
-      "opened_at": "2026-09-10"
-    }
-  ],
+  "open_prs": [],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -2143,10 +2120,35 @@
       "terminal": "merged",
       "merge_sha": "c0139b78da83b368326b0422d1498e004ce84e0b",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 11738,
+      "title": "Arm R2 — the per-pass IB circuit breaker (MI-240, Tier-2, operator-approved)",
+      "owner_session": "session_01CTPC91xaHrK6ES33UKjkTY",
+      "checklist_item": "MI-240",
+      "draft": false,
+      "tier": "2 (live exit-evaluation path; on this repo merging IS the deploy)",
+      "state": "green_awaiting_one_human_merge_click",
+      "head": "04d4d322f6f7d894c33c1de18f9e3837e9275caf",
+      "observed_at": "2026-09-12T06:13:27Z",
+      "observed": "mergeable_state=clean, draft=false, open since 2026-09-10T21:53:16Z (17h40m).",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "scope": "r2_only — the per-pass IB circuit breaker ONLY",
+        "condition": "R1 (moving _start_exit_loop above _apply_per_account_leverage) was OFFERED AND NOT CHOSEN and must not ride along; `both` is NOT a safer reading of `r2_only`. Whether the restart boundary is in scope for the 60s promise at all was option 4 and was ALSO not chosen — unsettled, not settled by implication.",
+        "decided_on": "2026-09-10",
+        "text": "Operator chose `r2_only` on DEC-20260910-EXIT-EVAL-60S-REMEDY at 2026-09-10T07:52Z from a four-option popup stating each remedy, its measured effect and its rollback."
+      },
+      "blocker": "ONE HUMAN MERGE CLICK. pr-landing R4 bars a Tier-2 diff from landing itself WHATEVER its approval state, so this cannot self-land and the manager must not merge it. ⚠️ THE APPROVAL IS ALREADY RECORDED AND MUST NOT BE RE-SOUGHT — what is outstanding is the click, not the decision.",
+      "⚠️_its_head_keeps_moving_and_that_is_correct": "Observed at 1a0d95b78 (13:29Z) and 04d4d322f (14:40Z). Its author session merges main in to keep the PR clean. That is maintenance, not churn, and it changes nothing about the R4 hold.",
+      "opened_at": "2026-09-10",
+      "terminal": "merged",
+      "merge_sha": "c5fe9c35b294183e18eef3240962f2869520160d",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-11T16:23:37Z",
-  "last_reconciled_sha": "c0139b78da83b368326b0422d1498e004ce84e0b",
+  "last_reconciled_at": "2026-09-12T06:13:27Z",
+  "last_reconciled_sha": "c5fe9c35b294183e18eef3240962f2869520160d",
   "updated_at": "2026-09-11T15:30:49Z",
   "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
 }

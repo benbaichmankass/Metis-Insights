@@ -1,0 +1,35 @@
+id: WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  M20 Active Trade Management: hold winners longer in the current regime, measured end to end
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_01Wv1BdfEUnmCBZrhvUjeBzb
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  The active-management levers that govern when a WINNER is closed are enumerated, measured against the post-2026-08-27 population, and each is graded as it-helps / it-hurts / not-gradeable with a stated population. At least one lever reaches a Tier-3 proposal with IS/OOS + walk-forward evidence behind it. NOT done when a memo exists -- done when a proposal the operator can accept or reject exists.
+
+why: >-
+  MI-277 measured the mechanism: winner hold collapsed 5.17h -> 1.90h while LOSER hold ROSE and losses stayed at exactly 1R. The sizer and stops are intact; what changed is how long a winner is allowed to run. That is the M20 subject by name.
+
+source: >-
+  operator 2026-09-12: active management is what we are working on right now, and no sessions should stop until we have resolved that issue
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t). The
+  empty list is a POSITIVE finding here, not the NOT-ASSESSED default it
+  replaces: nothing blocks this object today, because MI-278 (research lane) is RUNNING it right
+  now (session_01Wv1BdfEUnmCBZrhvUjeBzb) and was observed working - read off `list_sessions`, not inferred
+  from the registry row. This is a statement about TODAY and about THIS object
+  only. It is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT
+  BINDS, never pre-emptively - a false blocker is worse than a missing one,
+  and an anticipated one is a false one until the work arrives at it.
+
+captured_by: scripts/ops/capture_idea.py
