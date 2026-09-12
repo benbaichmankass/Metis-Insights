@@ -1,0 +1,46 @@
+id: WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Repair the hedge-book flat read that closes live Bybit positions, and OBSERVE the repair
+stage: OBSERVATION
+lifecycle: in_flight
+owner: session_01ALe9gTsSEMVWYyR8X8TY79
+opened_at: 2026-09-12
+review_trigger: >-
+  If a netting_attribution_soak row on a hedge-armed symbol is ever seen again carrying
+  exchange_qty 0.0 with exchange_read_source 'no_rows', or a netting_attributed close is
+  followed within 1h by a same-size adopted_orphan on the same account/symbol/direction,
+  this is NOT repaired and the row must be reopened as a defect.
+
+done_condition: >-
+  All three clauses of OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT
+  are satisfied ON THE FLEET, with the population stated for every number and each clause
+  reported SEPARATELY rather than the row being cleared on the easiest: (1) the root cause
+  lands with its two collapses separated; (2) the fix is OBSERVED — a soak row on a
+  hedge-armed symbol carrying a NON-ZERO exchange_qty where the venue holds a position, AND
+  no further netting_attributed -> same-size-adopt pair, the latter reported only alongside
+  a POSITIVE CONTROL showing the probe can find such a pair; (3) the nine ungradeable flat
+  reads are graded, or the soak carries source + position_idx and the count is RECORDED.
+
+why: >-
+  Operator-directed 2026-09-12 as a dedicated ORDER-PATH lane. This is a live real-money
+  defect: 7 of 49 netting_attributed closes are on real-money bybit_2, three closes are
+  provably false (+$115.8575 of manufactured ESTIMATED pnl), and three is a LOWER BOUND
+  because the soak could not distinguish a genuinely-flat venue from a wrong-book read.
+
+source: >-
+  manager dispatch 2026-09-12 (checklist item MI-281), on
+  OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by session_01ALe9gTsSEMVWYyR8X8TY79. The empty list is a real claim,
+  not the migration default. The code half was found ALREADY LANDED AND DEPLOYED on arrival
+  (46e1efb1f, PR #11435, 2026-09-08T18:53Z; /api/diag/version read 2026-09-12T05:47:40Z
+  shows git_sha == git_sha_on_disk == c5a0ba993 with restart_pending false, which contains
+  it by merge-base --is-ancestor), so nothing is waiting on a build or a merge. Every input
+  the observation needs was readable this session: /api/diag/log_file?name=netting_attribution_soak,
+  /api/diag/journal?table=trades, and the test suite.
+
+captured_by: session_01ALe9gTsSEMVWYyR8X8TY79
