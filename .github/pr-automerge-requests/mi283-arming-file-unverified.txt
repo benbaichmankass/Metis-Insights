@@ -1,0 +1,11 @@
+MI-283 — Tier-1, one new backlog row. Arms auto-merge on PR 12078.
+
+Files the recurrence of the truncated-tracking-id class, together with the
+structural reason its fourth instance escaped: this very file is written on the
+second push, after the session's last local guard run, because pr-landing-guard
+R6 is satisfiable only there. So this class of file reaches CI unverified.
+
+Deliberately naming NO tracking id in this file — that is the mistake being
+filed, and the guard cannot tell a mention from a use. The row names them.
+
+No src/, no tests/, no config, no workflow.
