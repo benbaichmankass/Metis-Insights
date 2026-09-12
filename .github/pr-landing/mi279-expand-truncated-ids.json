@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two backlog rows amended through update_row, one .github/pr-landing/README.md paragraph corrected, and the pr-opener request/result files for this PR's own experiment. Both paths are on the Tier-1 surface (docs and .github/). No src/, no scripts/, no config/, no deploy/, no workflow logic, no order path. The one live read was a GET on /api/diag/ib_open_orders; the Tier-2 cancel-ib-order action is PROPOSED to the manager and deliberately NOT dispatched, dry run included."
+}
