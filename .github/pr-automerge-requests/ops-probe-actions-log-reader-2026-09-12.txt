@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11925.
+
+scripts/ops/probe_actions_log.py (an observability READER — read-only, no
+order path, cannot fire a job) plus register annotations and the generated
+SESSION-BRIEF re-render. Declaration:
+.github/pr-landing/ops-probe-actions-log-reader-2026-09-12.json
