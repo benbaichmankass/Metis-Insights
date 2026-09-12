@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "registers only — docs/claude/OPEN-ITEMS.json observations and docs/claude/health-review-backlog.json supersessions. No runtime, order path, config, workflow or deploy file is touched; every live read this session made was a GET."
+}
