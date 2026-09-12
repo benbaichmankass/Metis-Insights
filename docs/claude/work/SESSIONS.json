@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T07:33:29Z",
+  "updated_at": "2026-09-12T07:49:49Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4968,6 +4968,17 @@
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-281 completed and handed on U5: account_open_positions still dedupes Bybit positions by symbol (if sym in seen), so a hedge book is DROPPED and the order-status reconciler closes a live row. PR #11867 measured it at 378/378 = 100.0% of bybit_1 reads and attributed two false closes totalling -$762.496. bybit_2 (real money) shows 0 ONLY because its books were flat — an empty population, not safety; the dedupe consults no account. REPLACES session_01WnQ1wp2awqbo4xRoiEZfit, which the manager spawned WITHOUT source_url and which blocked immediately with no repo (manager error; that session is ARCHIVED).",
+      "state": "working"
+    },
+    {
+      "session_id": "session_013njtHZThET6vgiGMdHZPiz",
+      "title": "MI-284 — unblock the merge queue: one ruff line on #11891, then #11889's two positive controls",
+      "owns_object": "WO-20260912-UNBLOCK-THE-MERGE-QUEUE-THE-R13-MERGE",
+      "checklist_item": "MI-284",
+      "spawned_at": "2026-09-12T07:49:49Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "guards on #11891 reads PASS 72 / FAIL 1, the one failure being ruff-lint E731 at scripts/ci/check_pr_landing.py:1404. MI-280 owns it, is RUNNING, reports 'all checks clean' and is blocked on the manager, so it will not fix it. The manager may not touch scripts/ci/** (check_manager_scope R2 grades manager commits), so the work is routed to a session. Operator approved the spawn-priority exception directly, 2026-09-12.",
       "state": "working"
     }
   ],
