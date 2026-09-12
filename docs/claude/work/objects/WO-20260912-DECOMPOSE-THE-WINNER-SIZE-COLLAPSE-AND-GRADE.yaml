@@ -4,9 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Decompose the winner-size collapse (avg win $404 -> $112) and grade whether it is MEASURED
 stage: EVIDENCE
-lifecycle: in_flight
+lifecycle: done
 owner: session_01Fm4wBus9JMSYenSFRjd71h
 opened_at: 2026-09-12
+closed_at: 2026-09-12
 review_trigger: >-
   None owed on the decomposition itself. What remains are two OPERATOR items carried on
   OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED:
@@ -36,5 +37,49 @@ blocked_on_basis: >-
   not the migration default: every input this unit needs (the journal, order_packages,
   src/runtime/provenance.py, src/units/accounts/risk.py) was readable this session, and the
   two predecessor units it depends on (MI-271, MI-275) are both merged to main.
+
+outcome: >-
+  ANSWERED. Memo docs/research/winner-size-collapse-2026-09-12.md, merged in PR #11848
+  (squash, 2026-09-12T02:19:31Z); reproducible via
+  scripts/research/winner_size_collapse_2026_09_12.py. POPULATION: /api/diag/journal
+  trades+order_packages limit=1000 pulled 2026-09-12T01:0xZ (ids 4709-5708); MI-271's
+  population() IMPORTED not restated (294 rows); account bybit_1, 79 pre / 101 post,
+  split on created_at at 2026-08-30T08:53:19Z; package join 180/180. || THE ANSWER: an R
+  COLLAPSE, not a sizing collapse. On the exact identity mean(pnl|win) =
+  mean(risk_usd)*mean(R) + cov (residual asserted zero inside the transform) the R term is
+  97.4% of the fall. EVERY in-system mechanism tests NEGATIVE: size did not fall (median
+  risk over the FULL book ROSE 303.60 -> 438.10; the winners-only halving is a SELECTION
+  EFFECT and I reached the wrong reading from it first); the venue clamp truncated 16.7% of
+  pre-era winners and 0.0% of post-era ones with cap_r unmoved at 66.0; no package in either
+  era declares a trailing stop or rung and stale_stop/giveback_stop appear zero times;
+  composition explains ~1-7% against ~75% from the legs, with all 7 common legs falling
+  (exact two-sided p=0.0156). The LOSER SIDE is the control that carries it: median R -0.891
+  -> -0.939, unchanged, so the sizer and the stops are intact. The PRICE-FREE half cannot be
+  an artifact at all: winner hold 5.17h -> 1.90h while loser hold ROSE, win rate 0.537 ->
+  0.256 pooled across bybit, and volatility ROSE 29% by the stop-distance proxy -- more
+  movement, less follow-through, corroborating MI-275's truncation-free excursion result on
+  a different leg family by an independent route. || TWO CORRECTIONS TO MI-271, both filed:
+  its section 4.3 table is the ONLY one computed with the PAIRS SLEEVE INCLUDED (266 of 446
+  rows); pairs-excluded, win rate falls 19.5pp not 4.9pp and average loss IMPROVES 36%
+  rather than worsening 20%, so "not a win-rate collapse" does not survive its own declared
+  population. The -72% RATIO is robust (0.289 vs 0.277) and is NOT disputed. || THE
+  MAGNITUDE IS NOT ESTABLISHED and that is stated rather than papered over: -72.3%
+  all-provenance, -38.5% on broker-measured rows, -81.4% standardised to the pre-era
+  coverage mix, and on measured trades that REACHED a declared target achieved R ROSE 4.835
+  -> 9.841. Binding constraint n=15 pre-era measured winners. The largest single share sits
+  in netting_attributed, 100% ESTIMATED across 39 rows -- OI-20260908's own population -- so
+  that doubt is INHERITED AND STATED; those rows were NOT adjudicated, which needs the
+  venue-side read that row specifies. || INSTRUMENT REPAIR that made the arithmetic
+  possible: risk from the ENTRY-FROZEN order_packages.sl, because trades.stop_loss is the
+  TRAILED stop and in a DENOMINATOR one trailed winner (trade 5027) moved a mean R from 7.3
+  to 102.6. Filed as a RECURRENCE of the trap that withdrew BL-20260908-SL-CROSS-LABELS-
+  NINE-CLOSES-THAT-EXITED-IN-PROFIT. || FOUND AND NOT ATTRIBUTED: a stop-distance floor of
+  exactly 0.00150000 binding 48/180 rows (ict_scalp_* only); searched src/ for the literal,
+  min_stop*, *_bps and clamp names and did not find it -- MEASURED with its origin
+  UNESTABLISHED, and excluding those rows makes the collapse LARGER. || NO PARAMETER CHANGE
+  IS PROPOSED, deliberately: widening stops is refuted (losses are already exactly 1R),
+  tightening targets is refuted (nothing reaches the current one), so a remedy must change
+  which trades are TAKEN -- an entry-side question this unit produced no evidence on. The
+  first item routed to the operator is the MEASUREMENT fix, OI-20260908.
 
 captured_by: session_01Fm4wBus9JMSYenSFRjd71h
