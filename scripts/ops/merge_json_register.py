@@ -37,6 +37,29 @@ re-attributes ~21k lines to whoever touched it last.
 Usage as a git merge driver (see .gitattributes + scripts/ops/install_merge_driver.sh):
     merge_json_register.py %O %A %B          # ancestor, ours(result), theirs
 Exit 0 = merged clean. Exit 1 = REFUSED, conflict markers left in %A for a human.
+
+⚠️ THAT SECOND SENTENCE WAS A LIE FOR THE WHOLE OF THIS DRIVER'S LIFE, AND IT
+COST EIGHT ROWS (fixed 2026-09-12,
+BL-20260912-THE-JSONREGISTER-MERGE-DRIVER-LEAVES-PURE-OURS-WITH-NO-MARKERS-WHEN-IT-REFUSES-SO-A-REFUSAL-READS-AS-A-CLEAN-MERGE).
+``main`` wrote the reason to STDERR and returned 1 WITHOUT EVER WRITING %A —
+and git pre-populates %A with OURS before calling a merge driver. So what a
+refusal left on disk was PURE OURS: valid JSON, correct row ordering, zero
+conflict markers, and every row that existed only on THEIRS silently gone.
+
+⚠️ AND THE REASON IT REACHED A COMMIT IS THE PART THAT MATTERS. `git merge`
+does report a CONFLICT, so a careful session looks — at the file git NAMED,
+which for a plain-text file carries real markers. It resolves that one, runs
+`git add -A`, and commits. The register parses, carries no markers, and shows a
+plausible diff, so NOTHING on the normal path surfaces the loss. Measured on PR
+#11957: 8 of THEIRS missing, 0 of OURS, marker count 0 and 0 on the two
+registers, while the only file git left a marker in was CLAUDE.md. What caught
+it was `register-field-loss-guard` at CI time — whose own fix message
+RECOMMENDS this driver, i.e. the guard that catches the loss pointed the reader
+at the tool that caused it.
+
+The refusal now writes a genuinely conflict-marked file, which is BOTH halves of
+the fix: it keeps the promise above, and it is not valid JSON, so it cannot slip
+through `git add -A` unnoticed the way pure OURS did.
 """
 from __future__ import annotations
 
@@ -390,6 +413,25 @@ def merge_header(base, ours, theirs):
 
 # ------------------------------------------------------------------ top level
 
+def expected_ids(base, ours, theirs):
+    """Which ids MUST survive a clean merge of these three sides.
+
+    ⚠️ NOT "a superset of ours and theirs", which is the obvious statement and
+    is FALSE under this driver's documented deletion rule: a row deleted on one
+    side and untouched on the other STAYS DELETED and is deliberately not
+    resurrected by seeding from base. So a correct clean merge is routinely not
+    a superset of ours. The true invariant subtracts exactly the deliberate
+    deletions:
+
+        expected = (ours | theirs) - (rows base had that either side removed)
+    """
+    b = {i for i, _ in base.rows}
+    o = {i for i, _ in ours.rows}
+    t = {i for i, _ in theirs.rows}
+    deleted = (b - o) | (b - t)
+    return (o | t) - deleted
+
+
 def merge(base_t, ours_t, theirs_t):
     bs, ba = parse(base_t)
     os_, oa = parse(ours_t)
@@ -404,6 +446,24 @@ def merge(base_t, ours_t, theirs_t):
             merged_arrays[k] = merge_rows(ba[k], oa[k], ta[k], k)
         except Refuse as e:
             problems.append(str(e))
+            continue
+        # POST-CONDITION, checked before this result can be called clean.
+        # ⚠️ This cannot fire while merge_rows is correct — it is defence in
+        # depth, and it is stated as such rather than scored as if it were the
+        # thing doing the work. What it buys is that a FUTURE change to
+        # merge_rows that drops a row can no longer exit 0: the driver refuses
+        # rather than writing a register it cannot prove it preserved, and the
+        # refusal is now visible (it writes markers). A mutation test plants
+        # exactly that drop and shows this catch.
+        want = expected_ids(ba[k], oa[k], ta[k])
+        got = {rid for rid, _ in merged_arrays[k]}
+        if got != want:
+            problems.append(
+                "in %r: the merge result does not preserve the rows it must — "
+                "%d id(s) LOST (%s), %d unexpectedly PRESENT (%s). This is a "
+                "defect in the driver, not a conflict between the sides."
+                % (k, len(want - got), ", ".join(sorted(want - got)[:5]) or "-",
+                   len(got - want), ", ".join(sorted(got - want)[:5]) or "-"))
 
     b_txt = [s[1] for s in bs if s[0] == "text"]
     o_txt = [s[1] for s in os_ if s[0] == "text"]
@@ -431,6 +491,41 @@ def merge(base_t, ours_t, theirs_t):
     return "".join(out)
 
 
+OURS_MARK = "<<<<<<< ours"
+SPLIT_MARK = "======="
+THEIRS_MARK = ">>>>>>> theirs"
+
+
+def conflict_text(label, reason, ours_t, theirs_t):
+    """What a REFUSAL leaves in %A. Git-shaped, and deliberately NOT valid JSON.
+
+    ⚠️ THE INVALIDITY IS THE SAFETY PROPERTY, not an accident of formatting.
+    The defect this replaces left valid JSON behind, which is why `git add -A`
+    swallowed it; a reader that parses this file now fails loudly instead of
+    quietly reading a register with eight rows missing.
+
+    ⚠️ BOTH SIDES ARE INLINED IN FULL even though that doubles the file (the
+    health backlog is ~8 MB, so a refusal writes ~16 MB). The cheap alternative
+    — a small stub naming `git show :2:`/`:3:` — was considered and rejected:
+    a stub that a session commits by mistake DESTROYS the register, where
+    markers preserve every byte of both sides in the working tree. The banner
+    names the index paths anyway, for anyone who would rather not open it.
+    """
+    return (
+        "merge_json_register REFUSED to auto-resolve %s\n"
+        "%s\n"
+        "\n"
+        "This file is NOT valid JSON on purpose — resolve it by hand, then\n"
+        "`git add %s`. Both sides are inlined below and are also in the index:\n"
+        "    git show :2:%s   # ours\n"
+        "    git show :3:%s   # theirs\n"
+        "%s\n%s\n%s\n%s\n%s\n"
+        % (label, reason, label, label, label,
+           OURS_MARK, ours_t.rstrip("\n"), SPLIT_MARK,
+           theirs_t.rstrip("\n"), THEIRS_MARK)
+    )
+
+
 def main(argv):
     if len(argv) >= 4 and argv[1] == "--check-round-trip":
         bad = 0
@@ -447,11 +542,13 @@ def main(argv):
     b = open(anc, encoding="utf-8").read()
     o = open(cur, encoding="utf-8").read()
     t = open(other, encoding="utf-8").read()
+    label = argv[4] if len(argv) > 4 else cur
     try:
         res = merge(b, o, t)
     except (Refuse, ParseError) as e:
         sys.stderr.write("merge_json_register: REFUSING to auto-resolve %s\n%s\n"
-                         % (argv[4] if len(argv) > 4 else cur, e))
+                         % (label, e))
+        open(cur, "w", encoding="utf-8").write(conflict_text(label, str(e), o, t))
         return 1
     open(cur, "w", encoding="utf-8").write(res)
     return 0

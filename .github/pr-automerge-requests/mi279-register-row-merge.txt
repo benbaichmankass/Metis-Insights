@@ -1,0 +1,5 @@
+Arm auto-merge: backlog_union_merge reconciles two pure appends instead of
+refusing them (MI-279 OPS lane).
+
+Tier-1: scripts/ops/backlog_union_merge.py + docs/claude/health-review-backlog.json.
+GitHub still merges only on green required checks.

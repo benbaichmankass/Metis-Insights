@@ -381,7 +381,8 @@ def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
         ]
     if state == "unreadable":
         return [
-            "⚠️ STANDING CLOSE WEDGES: ledger present but UNREADABLE "
+            "⚠️ STANDING CLOSE WEDGES: ledger present but UNREADABLE at "
+            f"{sw.get('source')} "
             f"({sw.get('reason') or 'no reason recorded'}). We looked and could "
             "not see — this is NOT 'nothing is wedged'."
         ]
@@ -398,27 +399,38 @@ def render_standing_wedges(sw: dict[str, Any], now: datetime) -> list[str]:
         if freshness == "fresh":
             return [
                 "Standing close wedges: none (ledger read, 0 entries, refreshed "
-                f"{_age_words(sw.get('ageSeconds'))} ago) — a real observation, "
-                "not an absence of one."
+                f"{_age_words(sw.get('ageSeconds'))} ago at {sw.get('source')}) "
+                "— a real observation, not an absence of one."
             ]
         if freshness == "undeclared":
             return [
                 "Standing close wedges: none (ledger read, 0 entries, stamped "
-                f"{_age_words(sw.get('ageSeconds'))} ago) — but the ledger "
+                f"{_age_words(sw.get('ageSeconds'))} ago at {sw.get('source')}) "
+                "— but the ledger "
                 "declares NO refresh cadence, so it predates the writer "
                 "heartbeat and was graded against this reader's fallback. Treat "
                 "as probably-current, not as confirmed-current."
             ]
         return [
-            "⚠️ Standing close wedges: none (ledger read, 0 entries) — but its "
+            "⚠️ Standing close wedges: none (ledger read, 0 entries at "
+            f"{sw.get('source')}) — but its "
             "`updated_at` is MISSING OR UNDATEABLE, so we cannot tell a fresh "
             "look from a stale file. This is NOT a confirmed 'nothing is "
             "wedged'."
         ]
+    # ⚠️ THE SOURCE PATH RIDES ON EVERY BRANCH, NOT ONLY THE BROKEN ONES.
+    # Until 2026-09-12 only `stale` and `not_fetched` named it, so the path was
+    # printed exactly when the ledger was NOT working and never when it was.
+    # That made OI-20260903-CLOSE-WEDGE-LEDGER-...'s clause (2) -- "a work-digest
+    # run NAMES the resolved path and that path is under /data/bot-data/",
+    # written to prove DATA_DIR resolution ON THE VM rather than the
+    # repo-relative agreement that holds on a runner -- satisfiable ONLY while
+    # the thing it verifies is broken. Measured: 0 of 184 rows in
+    # docs/claude/pending-pings.jsonl name /data/bot-data.
     out = [
         f"🧱 STANDING CLOSE WEDGES: {len(rows)} — confirmed unclearable by any "
         f"bot-side lever, downgraded out of the pager and carried HERE until the "
-        f"state changes:"
+        f"state changes (ledger: {sw.get('source')}):"
     ]
     for w in rows:
         out.append(
@@ -1147,9 +1159,38 @@ def _self_test() -> int:
 
         # The path the digest actually read is NAMED in its own output, so which
         # resolver won is checkable from the message rather than from the code.
-        check(22, "the resolved ledger path is operator-visible",
-              str(tmp) in "\n".join(render_standing_wedges(missing, now_t)),
-              str(missing.get("source")))
+        #
+        # ⚠️ THIS USED TO ASSERT ONLY THE `not_fetched` FIXTURE while its comment
+        # claimed the path is visible generally — so the path was printed exactly
+        # when the ledger was NOT working and never when it was, and the test
+        # said that was fine. Measured 2026-09-12: 0 of 184 rows in
+        # docs/claude/pending-pings.jsonl name /data/bot-data, while the digest
+        # was correctly reporting a real wedge the whole time. Now EVERY
+        # reachable state is asserted, the same way check 23 enumerates states
+        # rather than sampling one.
+        path_blind = []
+        for _name, _sw in (
+            ("not_fetched", missing),
+            ("stale", stale),
+            ("read/fresh/empty", fresh),
+            ("read/undated/empty", undated),
+            ("unreadable", {"wedgeState": "unreadable", "source": str(tmp),
+                            "reason": "planted", "wedges": [], "count": 0}),
+            ("read/with-wedges", {"wedgeState": "read", "source": str(tmp),
+                                  "freshness": "fresh", "ageSeconds": 5,
+                                  "count": 1,
+                                  "wedges": [{"account": "a", "symbol": "S",
+                                              "side": "long",
+                                              "share_hold": "x",
+                                              "pages_suppressed": 0,
+                                              "first_seen": None,
+                                              "detail": "d"}]}),
+        ):
+            if str(tmp) not in "\n".join(render_standing_wedges(_sw, now_t)):
+                path_blind.append(_name)
+        check(22, "the resolved ledger path is operator-visible in EVERY state, "
+                  "not only the broken ones",
+              not path_blind, str(path_blind))
 
     # THE ONE THAT MATTERS. No reachable state of the wedge block is silent — an
     # item downgraded out of the pager falling out of the digest too is the

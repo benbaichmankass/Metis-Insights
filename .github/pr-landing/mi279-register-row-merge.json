@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one scripts/ops/ tool extended plus its self-tests, and one backlog row amended. Manual-only tooling for resolving a merge conflict on a review backlog; no src/, no config/, no VM, no order path, and no change to any guard's verdict. The tool is invoked by a human mid-conflict and has no scheduled runner."
+}
