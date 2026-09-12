@@ -71,6 +71,41 @@ inputs:
       `timeout-minutes` above this or the job dies mid-wait — research-queue
       dispatch carries 35 for exactly that reason.
     default: "30"
+  refresh-command:
+    description: >
+      A shell command that RE-DERIVES this caller's generated file(s), run after
+      the stale-branch refresh merges `main` in and BEFORE the result is pushed.
+
+      Empty by default, so every existing caller is byte-for-byte unchanged.
+
+      ⚠️ WITHOUT THIS, THE REFRESH IS INERT FOR A PRODUCER WHOSE OUTPUT IS
+      DERIVED FROM THE THING IT MERGES. Merging `main` mints a new head sha,
+      which re-triggers the checks — and that is the whole of what it does. It
+      never regenerates the derived file, so the new head carries the SAME stale
+      content and the SAME guard fails again, one sha later.
+
+      MEASURED on `constraint-readout.yml`, which has concluded `success` ZERO
+      times in its entire life. Run 34592532948 generated for 31 minutes, opened
+      #11789, and died on `session-brief-guard` with
+      `verdict=introduced_registers_changed`. Its own refresh graded
+      `not_needed_up_to_date`. Reproduced against `origin/main`: render the brief
+      at an older base, advance ONLY the registers to current main — which is
+      what GitHub's MERGE REF does, since PR checks run against
+      branch-merged-with-main — and the guard emits that exact verdict and exits
+      1. The renderer and the guard do NOT disagree (checked: both exit 0 on an
+      unmoved base); the brief is stale against a base that moved underneath it.
+
+      For such a caller, re-running the checks is not the remedy — RE-DERIVING
+      is. Pass the same command the workflow used to generate in the first place
+      (for `constraint-readout.yml`: `python3 scripts/ops/constraint_readout.py
+      --write && python3 scripts/ops/render_session_brief.py --write`).
+
+      ⚠️ A FAILING COMMAND IS ITS OWN STATE AND IS NEVER SILENTLY IGNORED. It
+      grades `failed_refresh_command`, distinct from `refreshed` and from
+      `refreshed_rederived`, because "we re-derived" and "we tried and could
+      not" are opposite facts about the head that is about to be pushed.
+    required: false
+    default: ""
   refresh-stale-branch:
     description: >
       When "true" (the default), a `verify-merged` wait that is not progressing
@@ -136,6 +171,7 @@ runs:
         VERIFY_MERGED: ${{ inputs.verify-merged }}
         VERIFY_TIMEOUT_MINUTES: ${{ inputs.verify-timeout-minutes }}
         REFRESH_STALE_BRANCH: ${{ inputs.refresh-stale-branch }}
+        REFRESH_COMMAND: ${{ inputs.refresh-command }}
       run: |
         set -euo pipefail
         if [ -z "${GH_TOKEN:-}" ]; then
@@ -463,12 +499,79 @@ runs:
                     git merge --abort || true
                     REFRESH_STATE="failed_conflict"
                   fi
-                elif ! git push origin "HEAD:refs/heads/${BR}"; then
-                  REFRESH_STATE="failed_push"
                 else
-                  REFRESH_STATE="refreshed"
-                  # The fresh checks deserve the full budget, not the remainder.
-                  DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                  # ── RE-DERIVE BEFORE PUSHING ────────────────────────────────
+                  # Merging main mints a new sha and re-triggers the checks. For
+                  # a producer whose output is DERIVED FROM the registers it
+                  # just merged, that is not enough: the new head still carries
+                  # the pre-merge derived file, so a guard comparing the two
+                  # fails again one sha later. Re-running the checks is not the
+                  # remedy; re-deriving is.
+                  #
+                  # ⚠️ THREE OUTCOMES, NEVER COLLAPSED. `refreshed` = merged, no
+                  # re-derive asked for. `refreshed_rederived` = merged AND the
+                  # command ran AND changed something. `refreshed_rederive_noop`
+                  # = the command ran and produced no change, which is a real
+                  # and different answer (the derived file was already correct
+                  # for the new base) and must not read as if nothing was tried.
+                  # `failed_refresh_command` = we tried and could not, which is
+                  # the opposite of having re-derived and must never be silent.
+                  REDERIVE_STATE="not_requested"
+                  if [ -n "${REFRESH_COMMAND:-}" ]; then
+                    if bash -c "${REFRESH_COMMAND}"; then
+                      # ⚠️ SCOPED TO ${PATHS}, like the original `git add`, so a
+                      # re-derive can never widen what this caller lands — the
+                      # invariant the `-f` comment above this script exists to
+                      # protect. A change the command made OUTSIDE those paths
+                      # is therefore NOT pushed, so it is reported rather than
+                      # dropped silently: a caller seeing `rederived` must not
+                      # have to wonder what else moved.
+                      # shellcheck disable=SC2086 — PATHS is a pathspec list.
+                      if ! git diff --quiet -- ${PATHS} || ! git diff --cached --quiet -- ${PATHS}; then
+                        # shellcheck disable=SC2086
+                        git add -f -- ${PATHS}
+                        if git commit -q -m "Re-derive after merging main so the generated file matches the new base"; then
+                          REDERIVE_STATE="rederived"
+                        else
+                          REDERIVE_STATE="failed_commit"
+                        fi
+                      else
+                        REDERIVE_STATE="noop"
+                      fi
+                      # ⚠️ `git status --porcelain`, NOT `git diff`. A re-derive
+                      # that CREATES a file leaves it UNTRACKED, and `git diff`
+                      # does not see an untracked file — so the obvious check
+                      # reports a clean tree for exactly the case most worth
+                      # reporting. Found by the test, not by reading it back.
+                      LEFTOVER="$(git status --porcelain --untracked-files=all | sed 's/^...//' | tr '\n' ' ' | sed 's/ *$//')"
+                      if [ -n "${LEFTOVER}" ]; then
+                        echo "::warning::commit-to-main: refresh-command also touched file(s) OUTSIDE this caller's paths (${PATHS}); those are NOT pushed: ${LEFTOVER}"
+                      fi
+                    else
+                      REDERIVE_STATE="failed_command"
+                    fi
+                  fi
+                  if [ "${REDERIVE_STATE}" = "failed_command" ] || [ "${REDERIVE_STATE}" = "failed_commit" ]; then
+                    # Push anyway: the merge alone is still strictly better than
+                    # a branch that never re-triggers its checks, and stranding
+                    # it here would trade a stale-brief failure for a permanent
+                    # strand. But SAY so — a silent fallthrough would report a
+                    # re-derive that did not happen.
+                    echo "::warning::commit-to-main: refresh-command ${REDERIVE_STATE} — pushing the merge WITHOUT a re-derive. The generated file on this head is still the pre-merge one, so a guard that compares it to the registers will fail again."
+                    REFRESH_STATE="failed_refresh_command"
+                  fi
+                  if ! git push origin "HEAD:refs/heads/${BR}"; then
+                    REFRESH_STATE="failed_push"
+                  else
+                    case "${REDERIVE_STATE}" in
+                      rederived)      REFRESH_STATE="refreshed_rederived" ;;
+                      noop)           REFRESH_STATE="refreshed_rederive_noop" ;;
+                      failed_command|failed_commit) : ;;   # already set above
+                      *)              REFRESH_STATE="refreshed" ;;
+                    esac
+                    # The fresh checks deserve the full budget, not the remainder.
+                    DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                  fi
                 fi
                 echo "::notice::commit-to-main: stale-branch refresh -> ${REFRESH_STATE}"
               fi
