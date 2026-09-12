@@ -72,8 +72,10 @@ outcome: >-
   venue-side read that row specifies. || INSTRUMENT REPAIR that made the arithmetic
   possible: risk from the ENTRY-FROZEN order_packages.sl, because trades.stop_loss is the
   TRAILED stop and in a DENOMINATOR one trailed winner (trade 5027) moved a mean R from 7.3
-  to 102.6. Filed as a RECURRENCE of the trap that withdrew BL-20260908-SL-CROSS-LABELS-
-  NINE-CLOSES-THAT-EXITED-IN-PROFIT. || FOUND AND NOT ATTRIBUTED: a stop-distance floor of
+  to 102.6. Filed as a RECURRENCE of the trap that withdrew
+  BL-20260908-SL-CROSS-LABELS-NINE-CLOSES-THAT-EXITED-IN-PROFIT (kept on ONE line: a YAML
+  fold splitting an id is exactly what check_backlog_refs flags, and it caught this).
+  || FOUND AND NOT ATTRIBUTED: a stop-distance floor of
   exactly 0.00150000 binding 48/180 rows (ict_scalp_* only); searched src/ for the literal,
   min_stop*, *_bps and clamp names and did not find it -- MEASURED with its origin
   UNESTABLISHED, and excluding those rows makes the collapse LARGER. || NO PARAMETER CHANGE
