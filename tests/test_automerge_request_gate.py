@@ -72,7 +72,8 @@ HEALTHY_CHECKS = [{"name": "guards"}, {"name": "open-and-automerge"}]
 
 def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
              get_content_raises: bool = False, check_runs=None,
-             pat: str = "", pat_create_fails: bool = False) -> dict:
+             pat: str = "", pat_create_fails: bool = False,
+             checks_raise: bool = False, cwd=None) -> dict:
     """Evaluate the real script against a mocked API; return every call it made.
 
     `blobs` maps (ref, path) -> blob sha, modelling the two `getContent` reads.
@@ -88,12 +89,18 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
     here — it ships inside `actions/github-script` — so `require` is shimmed to
     hand back a stub client rather than being left to throw, which would make
     every PAT path untestable instead of merely unexercised.
+
+    `checks_raise` models the check read FAILING, which is a third thing from
+    an empty list and from a malformed payload. `cwd` runs the step from a
+    directory where `scripts/ci/automerge_arming.py` is not there, which is the
+    only way to reach the branch where the gate cannot be RUN at all.
     """
     harness = """
     const CALLS = [];
     const BLOBS = %(blobs)s;
     const EXISTING = %(existing)s;
     const RAISES = %(raises)s;
+    const CHECKS_RAISE = %(checks_raise)s;
     const CHECK_RUNS = %(check_runs)s;
     const PAT_CREATE_FAILS = %(pat_fails)s;
 
@@ -154,6 +161,7 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
           merge: async () => { CALLS.push({ call: 'pulls.merge' }); return {}; },
         },
         checks: { listForRef: async () => { CALLS.push({ call: 'checks' });
+                                            if (CHECKS_RAISE) { const e = new Error('checks read failed'); e.status = 500; throw e; }
                                             return { data: { check_runs: CHECK_RUNS } }; } },
       },
     };
@@ -168,6 +176,7 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
         "blobs": json.dumps(blobs),
         "existing": json.dumps(existing_pr),
         "raises": "true" if get_content_raises else "false",
+        "checks_raise": "true" if checks_raise else "false",
         "check_runs": json.dumps(HEALTHY_CHECKS if check_runs is None else check_runs),
         "pat_fails": "true" if pat_create_fails else "false",
         "branch": branch,
@@ -183,7 +192,7 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
                "PR_OPEN_PAT": pat}
         out = subprocess.run(["node", "-e", textwrap.dedent(harness)],
                              capture_output=True, text=True, timeout=60,
-                             cwd=REPO, env=env)
+                             cwd=str(cwd or REPO), env=env)
     assert out.returncode == 0, out.stderr
     marker = "___RESULT___"
     assert marker in out.stdout, out.stdout
@@ -301,6 +310,49 @@ def test_an_unreadable_check_list_is_not_read_as_permission_to_arm():
         check_runs="not-a-list",
     )
     assert "enableAutoMerge" not in _kinds(res)
+
+
+def test_a_check_read_that_THREW_is_not_filled_in_with_a_plausible_answer():
+    """The malformed-payload control above does NOT cover this, and a mutation
+    run is how that was established rather than argued.
+
+    Planting `checkRuns = [{name:'guards'}]; checksReadOk = true` on the catch
+    branch — a read that failed, answered with a healthy-looking fixture —
+    ESCAPED the whole suite. The refusal is not enough to pin it either, since
+    an empty read refuses too; what separates them is the STATE the gate
+    reports, so that is what this asserts.
+    """
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        checks_raise=True,
+    )
+    kinds = _kinds(res)
+    assert "pulls.create" in kinds, f"the PR must still be OPENED: {kinds}"
+    assert "enableAutoMerge" not in kinds, kinds
+    assert any("arming gate: unreadable" in c.get("m", "") for c in res["calls"]), \
+        f"a FAILED read must not be reported as an empty one: {res['calls']}"
+
+
+def test_a_gate_that_cannot_RUN_does_not_degrade_to_arming(tmp_path):
+    """The one thing a broken gate must never do is fall back to the behaviour
+    it was added to prevent — the workflow says exactly that at the line, and
+    until now nothing held it. Planting `catch (e) { verdict = {arm: true} }`
+    ESCAPED the suite.
+
+    Run the step from a directory where `scripts/ci/automerge_arming.py` is not
+    there: the spawn fails, stdout does not parse, and the step must FAIL rather
+    than arm. `setFailed` is the assertion, not just the absence of arming —
+    absence alone is also what a silent swallow looks like.
+    """
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        cwd=tmp_path,
+    )
+    kinds = _kinds(res)
+    assert "enableAutoMerge" not in kinds, f"a broken gate armed anyway: {kinds}"
+    assert "setFailed" in kinds, f"a broken gate must fail the step loudly: {kinds}"
 
 
 # --------------------------------------------------------------------------
