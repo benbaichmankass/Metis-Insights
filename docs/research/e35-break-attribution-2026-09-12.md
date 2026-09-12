@@ -55,9 +55,13 @@ rate 0.208) = **0.0586**.
 
 ## What this does and does not license
 
-- **There IS a broad common cause.** The scalp/other arm fell −21.1pp (53.4% →
-  32.4%, n=58→71). The row's *"the market chopped"* candidate is **not refuted**
-  and explains most of the book.
+- **There IS a broad common cause.** The scalp/other arm fell −21.1pp, 53.4% (n=58) → 32.4% (n=71).
+  The row's *"the market chopped"* candidate is **not refuted** and explains most
+  of the book.
+  <!-- the n stays on the SAME line as the percentages on purpose: stated-population-guard
+       is line-scoped, so a claim wrapped away from its denominator reads to it as a
+       bare percentage — the same line-wrapping blind spot CLAUDE.md already records
+       for check_backlog_refs.py and a hard-wrapped tracking id. -->
 - **e35 degraded far beyond it, and beyond its own family.** A 4× gap against a
   family-matched control in the same window is the discriminating fact the row
   asked for.
