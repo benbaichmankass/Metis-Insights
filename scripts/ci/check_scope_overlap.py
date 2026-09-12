@@ -161,10 +161,59 @@ def expand_braces(tok: str) -> list[str]:
 #: silently dropped, so the output can show the negation was honoured.
 #:
 #: NEGATION IS TESTED FIRST, because "not touching" contains "touching".
-_NEGATION_MARKERS = ("not touching", "not editing", "not going to touch",
-                     "won't touch", "will not touch", "not claiming",
-                     "hands off", "leaving alone", "untouched")
-_DECLARATION_MARKERS = ("touching", "scope", "files:", "editing", "claiming")
+#:
+#: ⚠️ THE STEMS ARE PREFIX-ANCHORED REGEXES, NOT BARE SUBSTRINGS, AND THE CHANGE
+#: IS LOAD-BEARING RATHER THAN TIDYING. The four MISSED declaration headers
+#: measured on 2026-09-11 — `**Files I will touch:**`, `**Files I intend to
+#: touch:**`, `**Files I will touch — all append-only registers …:**` — all use
+#: the INFINITIVE while the old vocabulary carried only the gerund `touching`.
+#: Adding the bare substring `touch` would have worked and `edit` would NOT
+#: have: `edit` is a substring of `credit`, `discredit` and `edited`, so a line
+#: mentioning a credit would have opened a declaration section. `\bedit`
+#: matches `edit`/`edits`/`editing` and refuses `credit`, because there is no
+#: word boundary before the `e` in `cr|edit`. Anchoring the START of the stem
+#: and leaving the END open is what buys both the infinitive and the safety.
+#:
+#: NEGATION IS TESTED FIRST, because "not touching" contains "touching" — and
+#: the negation forms are spelled out rather than derived, so `I do not edit`,
+#: `I will NOT touch` and `won't touch` all reach the same verdict.
+_NEGATION_RE = re.compile(
+    r"\b(?:not|never|won'?t|do(?:es)?\s*n'?t|avoid(?:ing)?)\s+"
+    r"(?:going\s+to\s+|be\s+|intend(?:ing)?\s+to\s+|plan(?:ning)?\s+to\s+|"
+    r"want(?:ing)?\s+to\s+|will\s+)?"
+    r"(?:touch|edit|modif|chang|writ|claim|doing)",
+    re.I)
+#: ⚠️ `read-only` IS A REAL NEGATION PHRASING AND IS DELIBERATELY NOT HERE.
+#: Adding it was tried and REVERTED in this same change, because it broke the
+#: `_DRAIN3_START` control: that START's line reads
+#:
+#:     **Scope (exclusive): `docs/…/performance-review-backlog.json`.**
+#:     `docs/claude/OPEN-ITEMS.json` is READ-ONLY for this session.
+#:
+#: — a DECLARATION and a NEGATION in one sentence. Negation is tested first and
+#: wins the whole LINE, so the literal moved the declared backlog into
+#: `excluded` and a genuine cross-session overlap stopped being headlined. That
+#: is the alarm going quiet, which is the failure this module exists to prevent.
+#:
+#: Getting it right needs per-CLAUSE negation, and that is exactly what the
+#: backlog row says no substring parser can represent ("the word doing the work
+#: is **other**"). So the phrasing is left unrecognised — a declaration that is
+#: over-broad by one file is recoverable; a suppressed real overlap is not.
+_NEGATION_LITERALS = ("hands off", "leaving alone", "untouched")
+#: ⚠️ `scope` stays PREFIX-open (`scope`/`scoped`/`scopes`) because real STARTs
+#: write "Scope:", "Scoped to" and "in scope" interchangeably. `files:` keeps
+#: its colon — a bare `files` appears in ordinary prose constantly.
+_DECLARATION_RE = re.compile(
+    r"\b(?:touch|edit|scope|claim|modif|writ)|\bfiles:", re.I)
+
+#: A SECTION HEADER: prose that ends in a colon, optionally inside bold/italic
+#: markup. `**Files I will touch:**` and `Scope:` both match; a sentence ending
+#: in a full stop does not. This is what makes a section STICKY — see
+#: `parse_declared_paths`.
+_SECTION_HEADER_RE = re.compile(r":\s*[*_]*\s*$")
+
+#: A markdown list item, in any of the spellings a session actually writes.
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 
 #: ⚠️ A BACKTICKED SPAN IS A PATH, NEVER PROSE — so it may not supply a MARKER.
 #:
@@ -199,11 +248,20 @@ def _classify(line: str):
     Markers are matched on the line's PROSE ONLY.
     """
     low = _CODE_SPAN_RE.sub(" ", line).lower()
-    if any(m in low for m in _NEGATION_MARKERS):
+    if _NEGATION_RE.search(low) or any(m in low for m in _NEGATION_LITERALS):
         return "exclude"
-    if any(m in low for m in _DECLARATION_MARKERS):
+    if _DECLARATION_RE.search(low):
         return "declare"
     return None
+
+
+def _is_section_header(line: str) -> bool:
+    """A line whose PROSE ends in a colon — `**Files I will touch:**`, `Scope:`.
+
+    Code spans are stripped first for the same reason `_classify` strips them: a
+    path token must not be able to decide the shape of the line that names it.
+    """
+    return bool(_SECTION_HEADER_RE.search(_CODE_SPAN_RE.sub(" ", line).rstrip()))
 
 
 def parse_declared_paths(body: str):
@@ -213,18 +271,65 @@ def parse_declared_paths(body: str):
     is attributed to NEITHER: a path mentioned in prose is a mention, not a
     claim, and treating it as one is what made the first version fire on a
     "Not touching:" list.
+
+    ⚠️ A SECTION OPENED BY A HEADER SURVIVES BLANK LINES — AND ONE BLANK LINE
+    WAS PREVIOUSLY THE ENTIRE DIFFERENCE BETWEEN A DECLARATION AND NOTHING.
+
+    The rule used to be an unconditional ``elif not line.strip(): section =
+    None``. The A/B, on two live audit runs the same day
+    (`BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES`):
+
+    ======================================  =========================  ========
+    declaration                             shape                      parsed
+    ======================================  =========================  ========
+    MI-277's START (comment 5642411173)     header, bullets NEXT LINE  4 paths
+    the manager's re-post (5640748804)      header, BLANK, bullets     **0**
+    ======================================  =========================  ========
+
+    **The failing shape is what ordinary markdown produces.** Most authors put a
+    blank line after a bold header and most renderers do not care; this parser
+    did, silently. A parser whose supported shape is not the one careful authors
+    reach for by default is not narrow — it is inverted. The manager's re-post
+    was written by a session that had READ the row and was trying to declare
+    correctly.
+
+    So a section opened by a line whose prose ends in a colon is STICKY: blank
+    lines do not close it, and it ends at the first line that is neither blank
+    nor a list item. A later paragraph saying *"the fix is in `x.py`"* is still
+    prose rather than a claim, which is what the old rule was protecting.
+
+    ⚠️ AND A NEW HEADER CLOSES THE PREVIOUS SECTION EVEN WHEN IT NAMES NO
+    MARKER. Without that, stickiness would be a REGRESSION rather than a fix: a
+    heading like ``**Explicitly NOT doing:**`` classifies as neither (no
+    negation stem matches `doing`), so an open `declare` section would swallow
+    its bullets and publish a session's disclaimers as its claims — verbatim the
+    inversion this module's own header calls the thing that destroys the
+    mechanism. Under a header that names no marker the paths are attributed to
+    NEITHER bucket, which is the conservative reading and the one this function
+    already takes for anything outside a section.
     """
     declared, excluded, hints = set(), set(), []
     section = None
+    sticky = False
 
     for line in (body or "").splitlines():
         marker = _classify(line)
+        header = _is_section_header(line)
         if marker is not None:
             section = marker
+            sticky = header
+        elif header:
+            # A new header naming no marker: close, never inherit.
+            section, sticky = None, False
         elif not line.strip():
-            # A blank line closes the section, so a later paragraph saying
-            # "the fix is in `x.py`" is prose rather than a claim.
-            section = None
+            # A blank line closes a NON-sticky section, so a later paragraph
+            # saying "the fix is in `x.py`" is prose rather than a claim. A
+            # sticky section survives it — that is the header+blank+list shape.
+            if not sticky:
+                section = None
+        elif sticky and not _LIST_ITEM_RE.match(line):
+            # The list has ended and ordinary prose has resumed.
+            section, sticky = None, False
         if section is None:
             continue
         bucket = declared if section == "declare" else excluded
@@ -773,6 +878,82 @@ def _self_test() -> int:
        "the real declarations still parse")
     ok("src/runtime/orders.py" not in dec and "src/runtime/orders.py" not in exc,
        "a path in loose prose is a MENTION, not a claim — attributed to neither")
+
+    # ── THE BLANK-LINE FAULT, AS AN A/B. One blank line was the
+    #    entire difference between 4 paths and 0, and the FAILING shape is what
+    #    ordinary markdown produces. Both arms are asserted, because the point
+    #    is that they must now AGREE.
+    _tight = "**Files I will touch:**\n- `scripts/ci/a.py`\n- `scripts/ops/b.py`\n"
+    _loose = "**Files I will touch:**\n\n- `scripts/ci/a.py`\n- `scripts/ops/b.py`\n"
+    d_t, _, _ = parse_declared_paths(_tight)
+    d_l, _, _ = parse_declared_paths(_loose)
+    ok(d_t == {"scripts/ci/a.py", "scripts/ops/b.py"},
+       "bullets on the line AFTER a header parse — the shape that already worked")
+    ok(d_l == d_t,
+       "and a BLANK LINE between the header and the bullets now parses "
+       "IDENTICALLY. One blank line used to be the whole difference between a "
+       "declaration and nothing, and the blank form is what ordinary markdown "
+       "produces — so the parser's supported shape was the unusual one")
+
+    ok(not parse_declared_paths(
+        "**Files I will touch:**\n\n- `a/x.py`\n\nThe fix is in `b/y.py`.\n"
+    )[0].issuperset({"b/y.py"}),
+       "…and a later PROSE paragraph still does NOT become a claim — the "
+       "protection the old blank-line rule was providing is kept, by ending the "
+       "section at the first non-blank non-list line instead")
+
+    _disclaimer = ("**Files I will touch:**\n\n- `a/x.py`\n\n"
+                   "**Explicitly NOT doing:**\n\n- `src/runtime/orders.py`\n")
+    d_d, e_d, _ = parse_declared_paths(_disclaimer)
+    ok("src/runtime/orders.py" not in d_d,
+       "a NEW header does not inherit the open section — without this, making "
+       "sections sticky would have published a session's DISCLAIMERS as its "
+       "claims, which is the inversion that destroys this mechanism")
+    ok("a/x.py" in d_d and "src/runtime/orders.py" in e_d,
+       "and both halves land in the right bucket")
+
+    # ⚠️ THE CONTROL ABOVE DOES NOT EXERCISE THE BRANCH IT LOOKS LIKE IT DOES,
+    #    AND A MUTATION RUN IS WHAT ESTABLISHED THAT. `**Explicitly NOT doing:**`
+    #    classifies as `exclude`, so it is handled as a MARKER and the
+    #    "a header naming no marker closes the section" branch is never reached.
+    #    Deleting that branch left the whole suite green. The case below is a
+    #    header that genuinely names NO marker — and it is taken verbatim from a
+    #    real START shape (MI-188b's used `**Scope:**`, `**Reads:**`, `**Writes:**`
+    #    as sibling headings), where inheriting would publish a session's
+    #    READ-ONLY paths as files it claims to write.
+    #    ⚠️ AND THE OPENING SECTION HERE IS DELIBERATELY **NOT** STICKY (it ends
+    #    in a full stop, not a colon). With a sticky opener the list-END rule
+    #    already closes the section at `**Reads:**`, so the header rule is
+    #    redundant and deleting it STILL leaves the suite green — measured, on
+    #    the second mutation run. Only a non-sticky section reaches this branch.
+    _reads = ("Touching `a/x.py` in this unit.\n"
+              "**Reads:**\n"
+              "- `src/runtime/order_monitor.py`\n")
+    d_r, e_r, _ = parse_declared_paths(_reads)
+    ok("src/runtime/order_monitor.py" not in d_r,
+       "a header naming NO marker CLOSES the previous section rather than "
+       "inheriting it — a path a session says it READS must not be published "
+       "as one it claims to write")
+    ok("src/runtime/order_monitor.py" not in e_r,
+       "…and it is attributed to NEITHER bucket, which is the conservative "
+       "reading this function already takes for anything outside a section — "
+       "not silently promoted to an explicit exclusion nobody wrote")
+    ok("a/x.py" in d_r, "positive control: the real declaration above it survives")
+
+    # ── THE INFINITIVE HEADERS, measured on real board comments 2026-09-11 ──
+    for _hdr in ("**Files I will touch:**", "**Files I intend to touch:**",
+                 "**Files I will touch — all append-only registers:**"):
+        ok(_classify(_hdr) == "declare",
+           f"the INFINITIVE header {_hdr[:34]!r} opens a declaration — the old "
+           f"vocabulary carried only the gerund `touching`")
+    ok(_classify("We extended a line of credit to the venue.") is None,
+       "…and `credit` does NOT open one: the stems are prefix-anchored, so "
+       "`\\bedit` cannot match inside `cr|edit`. A bare `edit` substring would "
+       "have opened a declaration section on this sentence")
+    ok(_classify("I do not edit backlogs or `config/`.") == "exclude",
+       "the INFINITIVE negation is recognised too, and negation is tested first")
+    ok(_classify("**NOT doing:** no override marker, no force-push.") == "exclude",
+       "and so is the bare disclaimer heading real STARTs actually write")
 
     both = "Touching: `a/x.py`\nNot touching: `a/x.py`\n"
     dbo, ebo, _ = parse_declared_paths(both)
