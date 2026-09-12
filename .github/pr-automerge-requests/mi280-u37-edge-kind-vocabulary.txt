@@ -1,0 +1,1 @@
+U37 — enforce the typed-edge kind vocabulary; malformed entries stop reading as no-blocker.

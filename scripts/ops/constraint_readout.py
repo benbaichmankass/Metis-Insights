@@ -206,16 +206,49 @@ def grade_blocked_on(obj: dict) -> tuple[str, list[dict]]:
                          was made. This is a CLAIM that nothing blocks it.
     - ``unstated``     — the list is empty and the basis says ``NOT_ASSESSED``,
                          or there is no basis key at all. **Nobody has looked.**
-    - ``malformed``    — ``blocked_on`` is present but is not a list.
+    - ``malformed``    — ``blocked_on`` is present but is not a list, **or it is
+                         a list carrying an entry that is not a typed edge**.
 
     ⚠️ ``declared_none`` and ``unstated`` are the whole point. Reading the
     second as the first is how a false *ready* appears, and across this store it
     would turn 578 unexamined rows into 578 confident all-clears.
+
+    ⚠️ **A NON-DICT ENTRY USED TO BE SILENTLY DROPPED, AND THAT PRODUCED THE
+    STRONGEST WRONG ANSWER THIS FUNCTION CAN GIVE.** The filter below reads
+    ``isinstance(e, dict)``; an entry that is a bare string fell out of it, the
+    surviving list was empty, and the function then fell through to the basis
+    check — so an object with a hand-written ASSESSED basis graded
+    ``declared_none``, *"a CLAIM that nothing blocks this"*. Not ``unstated``,
+    which would at least say nobody looked: a confident all-clear.
+
+    MEASURED 2026-09-12 over all 185 YAML files under ``docs/claude/work/``
+    (0 unparseable, stated as the control): **one** object,
+    ``WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE``, whose
+    ``blocked_on`` is ``["WO-20260907-ROOT-CAUSE-THE-43-PHANTOM-MGC-LOTS"]`` —
+    a bare string. Its own ``blocked_on_basis`` reads *"This is a TRUE edge, not
+    a placeholder"* and explains that proceeding under the wrong attribution
+    would strip protection off the only real MGC position at the venue, citing
+    ``BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG``. It
+    is ``lifecycle: ready`` — queued. The author wrote the blocker; the
+    computation read *nothing blocks it*.
+
+    ⚠️ **n = 1 of 185, and the MECHANISM is the finding, not the count.** One
+    silent drop is all it takes, and a reader of the readout could not tell this
+    object from the 58 that genuinely claim nothing blocks them.
+
+    ⚠️ **``malformed`` DOES NOT COUNT AS ASSESSED** (``assessed = blocked +
+    declared_none``), so this change moves the object out of the coverage
+    numerator, which is correct: we did not read its edge.
     """
     raw = obj.get("blocked_on", None)
     if raw is not None and not isinstance(raw, list):
         return "malformed", []
-    edges = [e for e in (raw or []) if isinstance(e, dict)]
+    entries = list(raw or [])
+    edges = [e for e in entries if isinstance(e, dict)]
+    if len(edges) != len(entries):
+        # SOMETHING WAS DECLARED AND WE COULD NOT READ IT. Never fall through to
+        # the basis check — that is the path that manufactures `declared_none`.
+        return "malformed", edges
     if edges:
         return "blocked", edges
     basis = obj.get("blocked_on_basis")
@@ -1249,6 +1282,33 @@ def _self_test() -> int:
           grade_blocked_on({"blocked_on": [{"kind": "object", "ref": "X"}]})[0], "blocked")
     check("a non-list blocked_on grades `malformed`",
           grade_blocked_on({"blocked_on": "soon"})[0], "malformed")
+    # ⚠️ THE SILENT DROP, WHICH PRODUCED THE STRONGEST WRONG ANSWER THIS
+    # FUNCTION CAN GIVE. A bare-string entry used to fall out of the isinstance
+    # filter, leave an empty list, and fall through to the basis check — so an
+    # object with a hand-written ASSESSED basis graded `declared_none`, a CLAIM
+    # that nothing blocks it. Measured live on
+    # WO-20260908-RE-DISPATCH-THE-MGC-REMEDIATION-AGAINST-THE, whose own basis
+    # says "This is a TRUE edge, not a placeholder".
+    check("a bare-string edge beside an ASSESSED basis grades `malformed`, "
+          "NEVER `declared_none`",
+          grade_blocked_on({"blocked_on": ["WO-SOMETHING"],
+                            "blocked_on_basis": "ASSESSED 2026-09-08 on evidence"})[0],
+          "malformed")
+    # …and the readable half is still RETURNED, so a mixed list is not also a
+    # data loss on top of a misgrade.
+    _mixed_state, _mixed_edges = grade_blocked_on(
+        {"blocked_on": ["WO-SOMETHING", {"kind": "object", "ref": "Y"}],
+         "blocked_on_basis": "ASSESSED"})
+    check("a mixed list grades `malformed`", _mixed_state, "malformed")
+    check("a mixed list still returns its readable edge(s)",
+          [e["ref"] for e in _mixed_edges], ["Y"])
+    # POSITIVE CONTROL on the other side: an empty list with an ASSESSED basis
+    # is STILL the claim it always was. The fix must not turn every assessed
+    # all-clear into `malformed`.
+    check("an empty list with an ASSESSED basis is still `declared_none`",
+          grade_blocked_on({"blocked_on": [],
+                            "blocked_on_basis": "ASSESSED — nothing blocks"})[0],
+          "declared_none")
 
     # Edge grading: a done target holds nothing; a non-object ref is not dangling.
     by_id = {"A": {"id": "A", "lifecycle": "done"}, "B": {"id": "B", "lifecycle": "waiting"}}
