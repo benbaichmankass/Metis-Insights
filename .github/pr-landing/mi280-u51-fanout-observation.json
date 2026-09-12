@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One `observation` field on one row in docs/claude/OPEN-ITEMS.json, recording a live measurement. No code, no workflow, no src/, no config/, no deploy/ -- every path is inside TIER1_SURFACE and none is in LANDING_MACHINERY. ⚠️ NOTHING WAS WRITTEN TO THE FLEET: every read was a GET through the token-gated /api/diag/* surface (arbitration_fanout_soak, journal?table=order_packages, journal?table=trades, exchange_positions). The row is NOT cleared and neither of its two clauses is claimed as met -- the change is that clause (2)'s absence is now explained rather than open, which the row's own text distinguishes from a pass."
+}
