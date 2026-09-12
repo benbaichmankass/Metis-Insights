@@ -4590,9 +4590,9 @@
         {
           "item": "MI-283",
           "lane": "order-path",
-          "session": "session_01WnQ1wp2awqbo4xRoiEZfit",
+          "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
           "state": "dispatched",
-          "observed": "Created 07:00:20Z, registered 07:00:38Z. Takes MI-281's handoff: account_open_positions still dedupes Bybit positions by symbol, so a hedge book is DROPPED and the order-status reconciler closes a live row. REAL MONEY. MI-281 VERIFIED it still live."
+          "observed": "RESPAWNED 07:33:09Z WITH source_url and registered. The FIRST spawn (session_01WnQ1wp2awqbo4xRoiEZfit, 07:00:20Z) is ARCHIVED and marked `aborted`: it was created WITHOUT source_url, so its container had no repo and it blocked immediately on 'cannot verify prior session; no repo, no work object, no auth'. It did nothing and nothing is lost. Takes MI-281's U5 handoff plus #11867's measurement (378/378 = 100.0% of bybit_1 reads drop a non-zero book; two false closes attributed, -$762.496)."
         }
       ],
       "unstaffed": [
@@ -4617,7 +4617,8 @@
       "I REFUTED A CORRECT HYPOTHESIS WITH THE WRONG TEST at 06:25Z — see checklist.jam.correcting_my_own_earlier_call. Guards passing is not mergeability.",
       "I NEARLY MIS-ATTRIBUTED A GUARD FAILURE TO #11891. I grepped the guards output for /FAIL/ and matched 'api-tier-policy guard: FAIL', which is the SELF-TEST DEMONSTRATING its own planted unrowed route — not a failure. Caught it by running check_api_tier_policy.py --all on the PR head AND on origin/main: exit 0 and 'OK — every route carries a row' on BOTH. A grep for the word FAIL cannot distinguish a guard failing from a guard demonstrating failure. Told MI-280 so it does not chase it either.",
       "I CREATED A CONFLICT FOR #11891 by merging #11881 first — both edit scripts/ops/claim_merge_slot.py. Taken deliberately (#11891 was red and must re-push regardless, so it costs a resolution and not a CI cycle) and owned on the PR, but it is a cost I imposed on the lane fixing the jam.",
-      "MY LOCAL GUARD RUN IS NOT A CLEAN BILL OF HEALTH AND IS NOT REPORTED AS ONE: PASS 68 / FAIL 5 / SKIP 22 on #11891's head, and all five failures are MISSING TOOLING (pytest absent, ruff absent, lint-imports exit 127 = not found). That is 'we could not look', not 'nothing is wrong'. CI is the authority."
+      "MY LOCAL GUARD RUN IS NOT A CLEAN BILL OF HEALTH AND IS NOT REPORTED AS ONE: PASS 68 / FAIL 5 / SKIP 22 on #11891's head, and all five failures are MISSING TOOLING (pytest absent, ruff absent, lint-imports exit 127 = not found). That is 'we could not look', not 'nothing is wrong'. CI is the authority.",
+      "I SPAWNED MI-283 WITHOUT A REPO AND THE TOOL TOLD ME NOT TO. create_session was called with no source_url, so the lane came up with no repository and blocked on its first turn. session_registry.py had ALREADY printed the exact warning in the same minute — '⚠️ PASS source_url=... TO create_session. Omitting it is the defect this refusal exists for; the prompt above only lets the CHILD catch it afterwards' — and I read it and moved on. The mechanism worked; the manager did not. Cost: 33 minutes of a real-money order-path lane doing nothing, found only because I ran get_session to check it had started rather than assuming the create call meant it was working. Respawned 07:33:09Z with source_url, first session archived and marked `aborted` in SESSIONS.json so the registry never shows two live MI-283 lanes."
     ]
   }
 }
