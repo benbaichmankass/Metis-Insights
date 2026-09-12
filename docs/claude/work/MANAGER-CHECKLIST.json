@@ -4942,5 +4942,118 @@
       "note_on_11936": "Its `guards` job started 11:06:23Z, AFTER #11915 merged, so that run will fail on the phantom through no fault of its own. It needs a re-run once the deletion lands — not a re-push.",
       "verified_locally_already": "#11936's `automerge-trigger-guard --self-test` passes on its own head: all 10 planted defects caught, clean-tree positive control green, including the REPAIRED C6 plant its change would otherwise have let escape."
     }
+  },
+  "manager_tick_2026_09_12T1153Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T11:53:35Z",
+    "lease_expires_at": "2026-09-12T13:23:35Z",
+    "heartbeat_landed": "d409350a9 — committed AND pushed, not just stamped",
+    "headline": "BOTH repo-wide blockers are CLEARED, and the queue's conflict rate collapsed with them. 36 of 41 open PRs are clean, against 5 of 31 at 09:55Z.",
+    "measured_queue_state_1156Z": {
+      "population": "every open PR at 2026-09-12T11:56Z, n=41, test-merged locally with `git merge-tree --write-tree origin/main <head>` at origin/main=dbe958c62",
+      "clean": 36,
+      "conflicted": 5,
+      "series": [
+        {
+          "at": "07:3xZ",
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14
+        },
+        {
+          "at": "09:55Z",
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26
+        },
+        {
+          "at": "10:56Z",
+          "open": 35,
+          "clean": 22,
+          "conflicted": 13
+        },
+        {
+          "at": "11:56Z",
+          "open": 41,
+          "clean": 36,
+          "conflicted": 5
+        }
+      ],
+      "do_not_read_as": "Still NOT the queue draining — open PRs rose 19 -> 41 across the same series. What improved is MERGEABILITY. Those are different facts and reporting one as the other is how a growing queue gets called healthy.",
+      "attribution_matters": "The drain belongs to MI-280's #11891 (the per-branch merge-slot claim) and the lanes that adopted it — MI-285's own lane said so unprompted about its own docs, which is the right instinct and is recorded here so the credit does not drift."
+    },
+    "blockers_cleared_this_tick": [
+      {
+        "what": "the spent register-removal declaration",
+        "how": "ROUTED to MI-279 at 11:0xZ; it landed as #11947 (ae81d8319). Verified GONE from origin/main by `git cat-file -e`, not by reading the PR.",
+        "manager_role": "routed and verified; did not take the item"
+      },
+      {
+        "what": "the design half of the same defect",
+        "how": "MI-280 shipped #11945 (dbe958c62) — `stop register-field-loss grading every PR against somebody else's merge`. A lane picked up the DESIGN question I filed, not just the one-line deletion.",
+        "note": "That is the outcome the backlog row was filed for, reached in under an hour."
+      }
+    ],
+    "merged_this_tick": [
+      {
+        "pr": 11927,
+        "sha": "7532e24bb0837b023a0e7c23585f1e58426c6409",
+        "what": "MI-285 — name R13's per-branch merge-slot route as the one a lane takes",
+        "verified": "clean against origin/main at merge time; 4 of 5 green on its own head; the only red was the relay crash, which is infrastructure and not a required check"
+      }
+    ],
+    "lane_states_observed_1156Z": {
+      "MI-278": {
+        "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+        "state": "IDLE, connection DISCONNECTED",
+        "context": 774841,
+        "note": "Past the hand-off threshold and mid-sweep (3 of 7 legs). Disconnected is worth watching; it is closing out in-flight PRs only, which is the correct posture."
+      },
+      "MI-279": {
+        "session": "session_013iSqp4LsU1eq8K326eUtgj",
+        "state": "RUNNING",
+        "note": "Took the routed deletion and landed it as #11947. Keeper."
+      },
+      "MI-280": {
+        "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+        "state": "RUNNING, needs_input",
+        "context": 397543,
+        "asked_for": "merge #11936, #11930, #11932, #11940",
+        "manager_answer": "#11932 is ALREADY MERGED (5c0a5c28b) — telling them rather than letting them wait on it. The other three are in CI right now (all pushed 11:47Z, runners backed up); I take them on green."
+      },
+      "MI-282": {
+        "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+        "state": "winding down",
+        "pr": 11882,
+        "pr_state": "now CLEAN (was CLAUDE.md-conflicted); CI restarted 11:54Z"
+      },
+      "MI-283": {
+        "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+        "state": "winding down",
+        "pr": 11903,
+        "pr_state": "now CLEAN",
+        "blocked_on": "operator Tier-2 approval — PENDING, not refused, and must not be re-sought"
+      },
+      "MI-285": {
+        "session": "session_01LGXPoWzDGS47DkNZfZyGFM",
+        "state": "WOUND DOWN AND ARCHIVED",
+        "why": "Deliverable complete — both PRs landed (#11929, #11927). Archived; NO replacement spawned, per the operator's three-lane rollback."
+      }
+    },
+    "lane_count": {
+      "keepers": 3,
+      "winding_down": 2,
+      "archived_this_tick": 1,
+      "target": 3,
+      "note": "MI-282 and MI-283 are the last two above the cap; each ends when its PR is dispositioned. No spawns."
+    },
+    "still_the_operator_s": {
+      "naked_eth_short": "bybit_2 ETHUSDT — re-read 11:12Z: the bot sees 2 positions and 4 orders, ALL reduce-only, ZERO Buy-side ETH legs. ⚠️ Whether the short is still OPEN cannot be established from here: the read that would answer it is the one known to under-report. Containment is an operator action.",
+      "pr_11903": "MI-283's Tier-2 approval is pending, not refused."
+    },
+    "manager_errors_this_tick": [
+      "Committed a stray worktree directory (v11936_wt) into my own branch while inspecting a PR head. Caught on the next `git ls-files`, removed, verified 0 tracked paths remain. Cost: one junk commit on my own branch, nothing on main.",
+      "Started a background poll loop against api.github.com — which this repo's own CLAUDE.md documents as 403 at the sandbox proxy, so it would have spun to timeout reporting nothing. Killed it and polled through the MCP, which is the documented path. I had the rule and reached past it."
+    ]
   }
 }
