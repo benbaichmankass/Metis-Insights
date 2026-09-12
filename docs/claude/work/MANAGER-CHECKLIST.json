@@ -4783,5 +4783,140 @@
     ],
     "standing_rule_set": "THE MANAGER DOES NOT SPAWN A REPLACEMENT WHEN A LANE FINISHES. The count returns to three or below and STAYS there. A 1-for-1 hand-off for a lane past its context threshold is not a new lane; a fourth concurrent lane needs a fresh operator decision recorded in spawn-priority-exception.yaml.",
     "queue_policy": "PACED, not raced. Merge only what is clean AND green on its own head. Let the rest rebase as lanes wind down — fewer lanes means fewer new PRs, which is what actually drains this. A merge that should wait, waits."
+  },
+  "manager_tick_2026_09_12T1100Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T10:56:10Z",
+    "lease_expires_at": "2026-09-12T12:26:10Z",
+    "checklist_first": "This block is the checklist half of the status update; recently-done and next follow it, in that order.",
+    "headline": "THE MERGE QUEUE'S BINDING CONSTRAINT HAS MOVED TWICE IN ONE MORNING, AND THE CURRENT ONE IS NOT CONFLICTS AT ALL. It is a crashed arming relay that makes every lane's PR read RED while nothing can self-land.",
+    "measured_queue_state_1056Z": {
+      "population": "every open PR on benbaichmankass/Metis-Insights at 2026-09-12T10:56Z, n=35, test-merged locally with `git merge-tree --write-tree origin/main <head>` at origin/main=c050b1f9c",
+      "clean": 22,
+      "conflicted": 13,
+      "prior_readings": [
+        {
+          "at": "2026-09-12T07:3xZ",
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14
+        },
+        {
+          "at": "2026-09-12T09:55Z",
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26
+        },
+        {
+          "at": "2026-09-12T10:56Z",
+          "open": 35,
+          "clean": 22,
+          "conflicted": 13
+        }
+      ],
+      "what_changed": "#11891's per-branch merge-slot claim plus MI-285's docs reached the lanes. Clean went 5 -> 22 while the open count still grew 31 -> 35, so this is a real drop in the CONFLICT rate and not an artifact of a smaller queue.",
+      "do_not_read_as": "This is NOT evidence the queue is draining. Open PRs still rose. What improved is mergeABILITY, which is a different fact from throughput and must not be reported as the same one."
+    },
+    "the_binding_constraint_now": {
+      "verdict": "A REPO-WIDE CRASH IN THE ARMING RELAY, not merge conflicts.",
+      "evidence": "`open-and-automerge` fails with `Cannot find module '@actions/github'` (MODULE_NOT_FOUND, actions/github-script@v7). Read off the job log for #11932 (job 103540150681) and confirmed identical on #11927. It is infrastructure, not content: the affected PRs are otherwise 5-of-5 green.",
+      "blast_radius": "#11936's own measurement: 9 of the last 15 relay runs failed across four lanes (mi278/mi279/mi280/mi285), from 2026-09-12T09:56:31Z. Survivors were branches that had not yet merged main, so it SPREAD as lanes synced.",
+      "consequence": "Nothing self-lands, and every lane sees a red check it did not cause. A lane chasing that red is spending its budget on the manager's problem.",
+      "fix": "#11936, in CI now. Three-tier client construction, degrading to a LOUD refusal instead of an unhandled crash.",
+      "manager_call": "HOLD the rest of the queue behind #11936. Merging other PRs first would re-dirty clean branches while nothing can self-land anyway. This is the 'a merge needs to wait' judgement the operator asked me to make, stated before the outcome rather than after."
+    },
+    "conflict_source_has_shifted_too": {
+      "population": "the 13 conflicted PRs at 10:56Z",
+      "CLAUDE.md": 5,
+      "docs/claude/session-board.json": 4,
+      "docs/claude/health-review-backlog.json": 3,
+      "other": "docs/research/exit-refinement-coverage.json, docs/claude/DUE.json, docs/DOCUMENT-INDEX.md",
+      "note": "session-board.json was the dominant source this morning and is now second. CLAUDE.md is first. That is the predicted consequence of fixing the merge_slot splice: the next shared file up the list becomes binding."
+    },
+    "drain_rate_is_throttled_and_it_is_measured": {
+      "question": "If 22 are clean, can 22 be merged?",
+      "answer": "No. 13 of the 22 append to docs/claude/health-review-backlog.json.",
+      "measurement": "Simulated merging ONE of them (#11895) into a scratch tree, then re-test-merged the other 12: 6 STILL CLEAN, 6 NEWLY DIRTY.",
+      "positive_control": "Merged #11936 into a scratch tree and re-tested #11930 (neither touches a hot file) -> still clean. So the probe is not simply reporting everything dirty after any merge.",
+      "implication": "A merge round drains roughly half the backlog-touching PRs before the rest need a rebase. That is a real throughput ceiling, not a discipline failure, and it is why pacing beats racing here."
+    },
+    "merged_this_tick": [
+      {
+        "pr": 11929,
+        "sha": "66a0035e57fab8e6714b2334dc37be13262e22ba",
+        "what": "MI-285 step two — tell lanes to take R13's per-branch merge-slot claim",
+        "verified": "5 of 5 checks green on head cce733f24; clean against origin/main at merge time"
+      }
+    ],
+    "held_deliberately": [
+      {
+        "pr": 11936,
+        "why": "landing: hold (R12, landing machinery) AND CI still running at 10:56Z. It is the unblocker, so it goes first — but a landing-machinery PR merged red is how a jam becomes permanent.",
+        "read_done": "Yes. Diff read in full: the fallback ladder is correct, and it deliberately preserves the literal `getOctokit(patToken)` that automerge-trigger-guard C6 asserts on. It also repairs C6's own self-test plant, which its change would otherwise have let ESCAPE — the plant now mutates every construction site rather than the first."
+      },
+      {
+        "pr": 11927,
+        "why": "MI-285's remaining PR. Clean, 5 of 5 green, ONLY red is the relay crash. Merge after #11936 so the relay fix is in first."
+      },
+      {
+        "pr": 11930,
+        "why": "landing: hold, needs a human read. Queued behind #11936."
+      }
+    ],
+    "lane_states_observed_1059Z": {
+      "method": "get_session on each non-terminal row in SESSIONS.json spawned by this manager; context read from external_metadata.context_usage",
+      "keepers": [
+        {
+          "item": "MI-278",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "note": "not re-read this tick; was 762,410 at 10:02Z and is closing out in-flight PRs only"
+        },
+        {
+          "item": "MI-279",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "note": "not re-read this tick"
+        },
+        {
+          "item": "MI-280",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "note": "not re-read this tick"
+        }
+      ],
+      "winding_down": [
+        {
+          "item": "MI-282",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "RUNNING",
+          "context": 446886,
+          "pr": 11882,
+          "pr_state": "CONFLICTED on CLAUDE.md"
+        },
+        {
+          "item": "MI-283",
+          "session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+          "state": "IDLE / review_ready",
+          "context": 740064,
+          "pr": 11903,
+          "pr_state": "CONFLICTED on CLAUDE.md"
+        },
+        {
+          "item": "MI-285",
+          "session": "session_01LGXPoWzDGS47DkNZfZyGFM",
+          "state": "RUNNING",
+          "context": 447044,
+          "pr": "11927 (11929 landed)",
+          "pr_state": "CLEAN"
+        }
+      ],
+      "disagreement_to_record": "MI-283's own post_turn_summary reads 'PR #957c8bab: 3rd re-merge landed, conflict-free'. My test-merge of that exact head against origin/main at 10:56Z says CONFLICT in CLAUDE.md. Both can be true in sequence — main moved after their re-merge — but the lane's status is STALE, not wrong-at-the-time. Recorded rather than silently corrected, because a lane that believes it is clean will not rebase.",
+      "context_note": "MI-283 at 740,064 is past the ~600k hand-off threshold. It is winding down, so there is no replacement to spawn — it closes out #11903 and stops. That is the rollback working as intended, not a lane being cut short."
+    },
+    "still_the_operator_s_and_not_mine": {
+      "naked_eth_short": "bybit_2 ETHUSDT -0.05 has NO protective legs and is invisible to the dashboard. Last re-verified naked at 09:54Z. Containment is an operator action (stop via '+ Add' on the Bybit terminal, or flatten). I hold no authority to place or cancel a live order.",
+      "pr_11903_tier2": "MI-283's fix is Tier-2 and awaits an operator OK. It is PENDING, not refused, and must not be re-sought."
+    },
+    "manager_errors_this_tick": [
+      "None found yet this tick. The 09:52Z tick's errors stand as recorded."
+    ]
   }
 }
