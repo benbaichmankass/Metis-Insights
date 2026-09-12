@@ -426,6 +426,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/design/alpaca-trade-scoped-close-PROPOSAL.md` | plan | live | — | 2026-09-08 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/b6-split-packet-2026-08-29.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/boot-read-size-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
+| `docs/design/open-items-loud-triage-PROPOSAL-2026-09-12.md` | plan | live | — | 2026-09-12 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/d1b-live-time-stop-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/decision-push-back-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/design/decision-push-back-FEASIBILITY.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
