@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01SrUaz8LmKMcSwNZEr8JupC (MI-273)",
-    "branch": "claude/mi-tier2-approved-self-land",
-    "claimed_at": "2026-09-12T07:27:30Z",
-    "purpose": "PR #11896 — record #11817's merge and delete the blocked_on edge it discharged. Tier-1 docs/registers only."
+    "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
+    "branch": "claude/mi280-constraint-readout-cause",
+    "claimed_at": "2026-09-12T07:43:18Z",
+    "purpose": "MI-280 U9: constraint-readout cause reproduction"
   },
   "active_sessions": [
     {
