@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers only: one backlog row filed through append_row and one amended through update_row, both in docs/claude/health-review-backlog.json. 26 insertions, 2 deletions, one file. It REPORTS a defect in scripts/ops/merge_json_register.py and deliberately does NOT change it -- the driver is on every lane's merge path and the remedy is a design choice, so this PR carries no code. No src/, no scripts/, no .github/workflows/, no config/, no deploy/, no order path."
+}

@@ -150,6 +150,7 @@ cheaper approximation, it is a second, opposite mismatch that looks like a fix.
 | Is an ML-supplemented exit even feasible for a family? | `scripts/research/m20_ml_exit_probe.py` |
 | A/B the declared exit levers over full history | `scripts/research/m20_exit_sweep.py` · fleet-wide: `m20_fleet_exit_sweep.py` |
 | Trainer-side exit analysis | `scripts/research/m20_exit_analysis.py` |
+| **What can end a WINNING trade on this leg, and what arms it** (the two gates: the unit implements the call site AND the YAML declares the key) | `scripts/research/m20_u1_winner_close_inventory.py` |
 | **Has the market's favourable:adverse travel changed?** (MFE/MAE in ATR units over fixed hours-from-entry windows — provenance-free, geometry-invariant, and immune to the break-even-ratchet denominator defect; `--validate` refuses a clean bill unless the known 2026-08-30 move is reproduced) | `scripts/research/m20_u5_excursion_regime.py` |
 | **Is a winner's R inflated by the break-even ratchet?** (identify the ratcheted rows, recover the ENTRY risk from the frozen tp, re-measure — with a control that fails the run) | `scripts/research/m20_u2b_ratchet_risk_basis.py` |
 | **Which mechanism actually ENDED each winning trade** (provenance-graded, with the `reconciler_filled` label recovery and its sensitivity curve) | `scripts/research/m20_u2_winner_close_attribution.py` |
