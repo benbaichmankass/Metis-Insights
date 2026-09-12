@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T01:35:39Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, MI-277 register recovery)",
+  "updated_at": "2026-09-12T01:55:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 01:52Z tick)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4839,7 +4839,8 @@
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T19:57:14Z",
-      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z."
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z.",
+      "observed_2026_09_12T0152Z": "get_session: IDLE / review_ready, 'PR #11827 green, held at 4b9d1f1; next check-in 02:25Z'. Registry state already correct. !! context 777199/1000000 = 78%, past the ~600k close-out threshold: it must not start new work. Any follow-through after the operator rules on #11827 goes to a FRESH lane, not to this one."
     },
     {
       "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",
@@ -4860,7 +4861,7 @@
     {
       "session_id": "session_01Fm4wBus9JMSYenSFRjd71h",
       "registry_key": "pending-20260912T010220Z",
-      "state": "working",
+      "state": "review_ready",
       "title": "MI-277 — decompose the winner-size collapse, and grade its provenance BEFORE any remedy",
       "owns_object": "WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE",
       "checklist_item": "MI-277",
@@ -4870,7 +4871,8 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-271 attributed the bleed to winner-size collapse (average win $404 -> $112, -72%; expectancy +$40 -> -$144) from 2026-08-27. WHY the average win fell is unanswered and is squarely the cycle priority. It must not be answered with a parameter proposal: under CY-20260906-TRADING-TRUTH the measurement is repaired BEFORE it is acted on, and this number is computed from an exit-booking path with 42.9% measured PnL coverage and a live defect (OI-20260908) that books fabricated pnl on false closes.",
-      "note": "RE-APPLIED 2026-09-12T01:12Z. The original registration (commit 49653310e) was pushed to claude/manager-scope-parser-third-instance AFTER auto-merge had armed, and #11846 squashed at head 63e55b8ef without it -- the documented post-arming race. The lane ran for ~9 minutes with NO row on main, which is the MI-15 class this registry exists to prevent."
+      "note": "RE-APPLIED 2026-09-12T01:12Z. The original registration (commit 49653310e) was pushed to claude/manager-scope-parser-third-instance AFTER auto-merge had armed, and #11846 squashed at head 63e55b8ef without it -- the documented post-arming race. The lane ran for ~9 minutes with NO row on main, which is the MI-15 class this registry exists to prevent.",
+      "observed_2026_09_12T0152Z": "get_session: IDLE / review_ready, 'guard suite PASS 72 FAIL 4; 4 failures are missing tools; pushing 05c8ff729'. context 547623/1000000. Delivered PR #11848. Registry said 'working' -- corrected from the observation, not from the claim."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
