@@ -1,0 +1,6 @@
+MI-279 OPS lane — URGENT Tier-1 self-land.
+PR #12093. backlog-unresolve-guard (shipped in #12061, merged) grades against
+main's TIP and reds any branch merely BEHIND on a register. Fix: grade against
+merge-base(HEAD, base) and NAME the comparison point. Verified on the branch it
+falsely reddened; new planted control is the only one that fails without the fix.
+Tier-1 surface only: scripts/ci/**, docs/claude/**, .github/**.
