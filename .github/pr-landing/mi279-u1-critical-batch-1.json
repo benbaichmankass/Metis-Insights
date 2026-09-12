@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three backlog-row dispositions recording measurements: two `critical` rows re-read in the code, and one `high` row re-measured on the trainer VM through the read-only trainer-vm-diag relay. docs/claude/health-review-backlog.json only — no src/, no config, no scripts, no order path. Every fix these rows ask for is Tier-2 by path and is explicitly proposed rather than applied."
+}
