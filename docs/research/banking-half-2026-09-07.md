@@ -24,7 +24,10 @@ The operator's thesis: brackets should predict where price goes, trades should e
 
 The dispatch could not settle this and said everything depends on it. It does.
 
-**Both callers write; nothing reads.**
+**Both callers write; nothing on the LIVE PATH reads.**
+
+> ⚠️ **Corrected 2026-09-12 (MI-278 U8).** This line read *"Both callers write; nothing reads"*, and the reader search below still says *"no `SELECT`, no row access, and no branch anywhere that reads either column back"*. **That is now false of the COLUMN and remains true of the LIVE PATH**, and the two were the same sentence until today. `src/research/stop_attribution.py` reads `order_packages.exit_plan.stop.price` — the entry-frozen declared stop — to answer whether a stop-out was ended by the declared stop or by one a trailing lever had already moved (`BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT`). It is a pure function called from research scripts, never from the monitor, the coordinator or any order path, and it imports nothing from `src/runtime/exit_plan.py`. **THIS MEMO'S VERDICT — that `exit_plan.py`'s levers are SHADOW — is unchanged**, and the standing detector `tests/test_banking_mechanism_audit.py::test_exit_plan_has_no_live_reader` did its job: it fired on the new reference and forced this re-establishment rather than letting the finding quietly go stale. The allowlist entry there carries the same reasoning.
+
 
 | caller | what it does with the plan |
 |---|---|

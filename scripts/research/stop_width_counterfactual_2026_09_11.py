@@ -127,6 +127,7 @@ import datetime as dt
 import importlib.util
 import json
 import os
+import pathlib
 import statistics
 import subprocess
 import sys
@@ -252,6 +253,26 @@ def fetch_candles(cache_dir: str, symbol: str, bar: str,
 # ===========================================================================
 # Small helpers
 # ===========================================================================
+# --- MI-278 U8: one owner for "declared stop or an amended one?" ----------
+# Imported BY NAME so this script and the owner can never drift apart.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from src.research.stop_attribution import classify as classify_stop_basis  # noqa: E402
+
+#: This memo's published vocabulary, preserved so its committed output and every
+#: sentence written about it stay valid. The owner's names are the general ones.
+_MI275_STATE = {
+    "entry_declared": "stop_is_entry_declared",
+    "amended_tighter": "stop_amended_tighter",
+    "amended_wider": "stop_amended_wider",
+    "ungradeable_no_final_stop": "ungradeable_no_final_stop",
+    "ungradeable_no_declared_stop": "ungradeable_no_final_stop",
+    "ungradeable_declared_stop_not_entry_frozen": "ungradeable_no_final_stop",
+    "ungradeable_no_anchor": "ungradeable_no_final_stop",
+    "ungradeable_no_direction": "ungradeable_no_final_stop",
+    "ungradeable_zero_declared_distance": "ungradeable_no_final_stop",
+}
+
+
 def _f(v: Any) -> float | None:
     try:
         if v is None:
@@ -444,20 +465,34 @@ def build_units(trades: list[dict], pkgs: dict[str, dict], tol: float) -> dict:
         # Was the stop amended after entry? If the final stop sits INSIDE the
         # entry-declared e35 stop, something else (a trail, trail_decay,
         # stale_stop) ended the trade and e35's width is not what did it.
-        # Three states, never collapsed.
+        #
+        # DELEGATED to src/research/stop_attribution.py (MI-278 U8, 2026-09-12)
+        # so this script and every later analysis can never disagree about what
+        # counts as an amended stop -- the discipline m20_corpus_union.py uses
+        # when it imports `measurement_key` by name rather than re-deriving it.
+        # The row that asked for it is
+        # BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT,
+        # filed by THIS memo.
+        #
+        # ⚠️ THE VERDICTS ARE UNCHANGED, AND THAT IS MEASURED RATHER THAN
+        # ASSUMED. The owner grades `|final - declared|` against 1% of the
+        # DECLARED WIDTH; this script graded it against 0.02 ATR. The two
+        # coincide exactly at a 2.0-ATR declared width and differ slightly
+        # elsewhere, so they were run side by side over all 322 closed
+        # package-linked trades in the 2026-09-12 journal tail that carry an
+        # entry-frozen ATR: **0 disagreements**. Pinned by
+        # tests/test_stop_attribution.py::TestAgreesWithMI275sOwnTolerance.
         fs = unit["rows"][0]["final_stop"]
-        if fs is None:
-            unit["stop_integrity"] = "ungradeable_no_final_stop"
-        else:
-            moved_atr = (fs - declared_stop) / atr
-            unit["final_stop_atr_from_entry"] = round(abs(anchor - fs) / atr, 3)
-            unit["stop_moved_atr_vs_declared"] = round(abs(moved_atr), 3)
-            if abs(moved_atr) <= 0.02:
-                unit["stop_integrity"] = "stop_is_entry_declared"
-            else:
-                tighter = (fs > declared_stop) if direction == "long" else (fs < declared_stop)
-                unit["stop_integrity"] = ("stop_amended_tighter" if tighter
-                                          else "stop_amended_wider")
+        _att = classify_stop_basis(
+            {"entry": anchor, "direction": direction,
+             "exit_plan": {"stop": {"price": declared_stop}},
+             "meta": {"atr": atr}},
+            {"direction": direction, "stop_loss": fs},
+        )
+        unit["stop_integrity"] = _MI275_STATE[_att["state"]]
+        if fs is not None:
+            unit["final_stop_atr_from_entry"] = round(_att["final_stop_atr_from_anchor"], 3)
+            unit["stop_moved_atr_vs_declared"] = round(_att["moved_atr"], 3)
         out["pre" if era == "pre" else "post"].append(unit)
         out["rows_pre" if era == "pre" else "rows_post"] += len(rows)
     out["pre"].sort(key=lambda u: u["opened_ms"] or 0)
