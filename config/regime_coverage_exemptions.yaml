@@ -304,3 +304,81 @@ coverage_debt:
     added: '2026-07-17'
     reason: >-
       Directional pullback trend-follower on XRPUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+
+# ---------------------------------------------------------------------------
+# ARBITRATION PRIORITY (added 2026-09-12) — a SECOND, independent register.
+#
+# Enforced by the same guard. Every execution:live strategy must have an entry
+# in src/runtime/intents.py::DEFAULT_PRIORITIES, or a dated entry here. An
+# unlisted leg falls back to _UNKNOWN_STRATEGY_PRIORITY, which today it BEATS
+# 45 of 50 mapped legs with — so omission is not merely unsafe, it wins.
+#
+# `priority_exempt` is a DEBT register, not an excuse: every entry below is
+# OWED a DEFAULT_PRIORITIES value and the guard fails the moment an entry here
+# also appears in the map (stale exemption). The ceiling only ratchets DOWN.
+#
+# tracking: BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE
+# decision: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED (operator
+#           chose `fix_constant_and_map_legs` on 2026-09-09; the src change is
+#           Tier-3 and is PROPOSED in docs/research/m20-u17-*.md, not taken here)
+
+priority_exempt_ceiling: 5   # 5 -> 0 when the five legs below are mapped
+
+priority_exempt:
+  gdx_pullback_1d:
+    tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+    added: '2026-09-12'
+    reason: >-
+      Declared execution:live and absent from DEFAULT_PRIORITIES, so it resolves
+      to _UNKNOWN_STRATEGY_PRIORITY=10 and outranks 45 of the 50 mapped legs.
+      Registered rather than mapped because choosing its value is a Tier-3
+      order-routing decision the operator has approved in principle but has not
+      given a number for.
+  iaum_pullback_1d:
+    tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+    added: '2026-09-12'
+    reason: >-
+      As gdx_pullback_1d. Declared execution:live, absent from the map, resolves
+      to the fallback.
+  scha_trend_long_1d:
+    tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+    added: '2026-09-12'
+    reason: >-
+      As gdx_pullback_1d. Declared execution:live, absent from the map, resolves
+      to the fallback.
+  slv_pullback_1d:
+    tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+    added: '2026-09-12'
+    reason: >-
+      As gdx_pullback_1d, and this is the leg with LIVE contention: alpaca_
+      options_paper, alpaca_paper and alpaca_portfolio each route SLV, where
+      slv_trend_1h sits at priority 0 and this leg resolves to 10 — so the
+      unmapped leg currently wins the symbol. The contended accounts are
+      paper-class; the mechanism is account-agnostic.
+  splg_trend_long_1d:
+    tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+    added: '2026-09-12'
+    reason: >-
+      As gdx_pullback_1d. Declared execution:live, absent from the map, resolves
+      to the fallback.
+
+# The distribution assertion's waiver. It excuses the MEASURED STATE below, not
+# the invariant: the guard re-fires if either pinned number moves, and FAILS if
+# this block is still here once the constant is fixed. Deleting it is cheaper
+# than keeping it, which is the only property that makes an override safe.
+priority_inversion_waiver:
+  tracking_id: WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED
+  added: '2026-09-12'
+  observed_constant: 10
+  observed_min: 0
+  reason: >-
+    _UNKNOWN_STRATEGY_PRIORITY=10 is not strictly below
+    min(DEFAULT_PRIORITIES.values())=0, so an unlisted leg WINS arbitration —
+    the inverse of the constant's own stated purpose. The fix is a Tier-3 change
+    to src/runtime/intents.py which the operator approved in principle on
+    2026-09-09 (WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED,
+    chosen: fix_constant_and_map_legs) and which is NOT taken in the change that
+    added this waiver. Arming the assertion hard on 2026-09-12 would have turned
+    every open PR in the repo red for a condition none of them caused, so it is
+    armed against the pinned pair instead. DELETE THIS BLOCK in the same PR that
+    lowers the constant — the guard fails if you do not.
