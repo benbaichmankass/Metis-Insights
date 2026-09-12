@@ -24,16 +24,60 @@ is suspect. Error is reported stratified by that flag, which tests whether the
 check actually discriminates rather than assuming it does.
 """
 import json
+import pathlib as _pathlib
 import sqlite3
+import sys as _sys
 import statistics
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
 
 DB = '/home/ubuntu/ict-trading-bot/data/trade_journal.db'
-MEASURED = {"bybit_closed_pnl", "bybit_closed_pnl_rebuild",
-            "bybit_closed_pnl_backfill", "recorded_exit_price", "exchange",
-            "operator_flatten_fill"}
+# ── GROUND TRUTH HAS ONE OWNER, AND THIS FILE USED TO RE-DERIVE IT ──────────
+# `src/runtime/provenance.py` is THE definition of which `exit_price_source`
+# values are MEASURED. `CLAUDE.md` says so in terms: "One module owns this ...
+# Import it; do not re-derive the vocabulary."
+#
+# This file carried a local copy, and the copy had DRIFTED IN BOTH DIRECTIONS.
+# MEASURED 2026-09-12 over the newest 1000 `trades` rows read via
+# `/api/diag/journal`:
+#
+#   this file's old set matched        50 rows
+#   provenance.MEASURED_SOURCES matches 131 rows
+#   in both                             33
+#
+#   ONLY the old set (17): `recorded_exit_price` — DEMOTED from MEASURED on
+#     2026-08-24 by an operator-approved change
+#     (`BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED`)
+#     because it is not a fill at all. ⚠️ It buckets `estimated`, WHICH IS THE
+#     SAME BUCKET AS `candle_at_close` — the very estimator this script exists
+#     to grade. So a THIRD of the old "ground truth" was the estimator's own
+#     class, and the validator was partly measuring it against itself.
+#   ONLY the canonical set (98): `exchange_fill` 93 + `ib_execution` 5 — i.e.
+#     the script DISCARDED 75% of the genuine broker truth available to it,
+#     including the single largest real source in the journal.
+#
+# ⚠️ AND THE DOCSTRING ABOVE ALREADY NAMED THE RIGHT OWNER ("exit_price_source
+# in MEASURED_SOURCES") while the code below named a different set — prose
+# right, field wrong, which is the direction `CLAUDE.md`'s "field beats
+# comment" rule does NOT cover and that made the drift invisible to a reader.
+_REPO = _pathlib.Path(__file__).resolve().parents[2]
+if str(_REPO) not in _sys.path:
+    _sys.path.insert(0, str(_REPO))
+try:
+    from src.runtime.provenance import MEASURED_SOURCES as MEASURED
+except ImportError as _exc:
+    # NARROW, and it RAISES rather than defaulting: a fallback ground-truth set
+    # is exactly the second definition this change removes, and it would be
+    # silent. Anything that is not an ImportError propagates untouched — an
+    # unexpected failure here must crash loudly, not be reshaped into a tidy
+    # SystemExit that hides it.
+    raise SystemExit(
+        f"{__file__}: cannot import the canonical MEASURED_SOURCES from "
+        f"src/runtime/provenance.py ({_exc}). Refusing to run rather than "
+        f"grading the estimator against a locally re-derived ground-truth set."
+    ) from _exc
+
 BYBIT = "https://api.bybit.com/v5/market/kline"
 STALE_MIN = 30          # recon >this many minutes before closed_at -> flagged
 
