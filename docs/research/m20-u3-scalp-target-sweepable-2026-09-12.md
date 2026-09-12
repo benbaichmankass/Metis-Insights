@@ -365,6 +365,71 @@ A SCREEN.** The surface is also **non-monotonic** at 2.0 (+1.402 against 1.5's
 `be_offset_bps` is **Tier-3**. Nothing here is a proposal; it is the evidence
 that says which proposal is worth building, and U3b's gated run decides.
 
+## 4d. FIRST RESULTS — the SCREENING arm, 4 legs, and it answers nothing on its own
+
+Run [`34681993688`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34681993688)
+(`cells=bracket_geometry`, `walkforward=false`, `timeout_bars` unset ⇒ **the
+harness default of 24**) plus the local `sol_5m` smoke run on the same
+config-exact base. Population per leg is the `m27_data` file the workflow
+pulls, split at **2025-07-01**; every cell is the 7-value grid of §4 with the
+leg's own `tp_at_r: 1.5` excluded as the baseline.
+
+| leg | BASE IS (n, R, maxDD) | BASE OOS (n, R, maxDD) | Σ IS ΔR | Σ OOS ΔR | cells passing |
+|---|---|---|--:|--:|--:|
+| `ict_scalp_eth_15m` | 257 · 44.36 · 8.19 | 130 · 15.73 · 11.69 | **−42.12** | **+4.71** | 0/7 |
+| `ict_scalp_sol_15m` | 280 · 23.65 · 17.82 | 142 · 20.46 · 9.23 | **+75.10** | **−20.15** | 0/7 |
+| `ict_scalp_xrp_15m` | 227 · 20.87 · 10.75 | 134 · 15.71 · 9.26 | **−44.49** | **+21.75** | 0/7 |
+| `ict_scalp_sol_5m` \* | 41 · 15.84 · 4.03 | 32 · −2.16 · 9.21 | **−20.04** | **+23.71** | 0/7 |
+
+\* local smoke run, same config-exact base and the same 24-bar timeout.
+
+**0 of 28 cells cleared the IS+OOS gate. Every one is `honest_negative`.**
+
+### The sign structure is the actual finding
+
+On **4 of 4 legs the dominant direction of the target effect REVERSES between
+IS and OOS.** `sol_15m` says wider is emphatically better in-sample — ΔR rising
+monotonically to **+21.45R at 4R against a 23.65R book, a near-doubling** — and
+uniformly worse out-of-sample, on all seven cells. `xrp_15m`, `eth_15m` and
+`sol_5m` say the opposite, also on 6–7 of 7.
+
+⚠️ **The cell-level agreement rate is 5/28 = 17.9%, and it must NOT be quoted
+as a statistic.** The seven cells within a leg are nested variations over the
+*same* trades, so they are nowhere near independent and the effective n is
+about **4, not 28**. What survives is the leg-level statement above: four legs,
+four reversals, no consistent direction.
+
+That is the signature of period character rather than of a lever. A target that
+was genuinely cutting winners short would improve **both** windows wherever it
+binds; instead the cells that help in one window hurt in the other.
+
+### ⚠️ AND THIS ARM CANNOT SETTLE THE QUESTION, IN THE ONE DIRECTION THAT MATTERS
+
+Every figure above was produced with the **24-bar force-close of §2b**, which
+production does not have on any `ict_scalp` leg. That defect is **not neutral
+across this grid — it is biased against exactly the cells being tested.** A
+wider target needs more bars to reach, so a 24-bar guillotine truncates
+preferentially the trades a wider target would have won. §2b measured the
+truncation at roughly **62% of reported net R at the live target**, and
+**tightening as the target widens**.
+
+So the honest reading is:
+
+- **at 24-bar timeout, no target change clears the gate on any of 4 legs** — and
+- **this arm is incapable of clearing one, because its own defect penalises the
+  wider cells.** A negative here is *expected* whether or not the lever is real.
+
+Reporting "the target sweep came back negative" from this run alone would be
+the unprovenanced-diagnostic failure this repo has a guard for: a true number
+under a label that does not describe what was computed. **The PARITY arm
+(`timeout_bars=100000`) is the one that can answer it**, and it is dispatched;
+only that arm may be cited by any proposal about hold length. Both arms are run
+so the gap is quantified rather than swapped in silently.
+
+⚠️ **Nor does a negative on the TARGET rescue the ratchet hypothesis of §4c** —
+these are different levers, and this run tested only one of them. §4c's
+break-even cell family (`be_off`, now in the sweep) is untested at parity too.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
