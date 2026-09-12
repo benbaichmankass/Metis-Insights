@@ -1,0 +1,1 @@
+U29 — the queue-watch guard stops collapsing 'never fired' into 'not yet fired'.
