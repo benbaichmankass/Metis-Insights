@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01SrUaz8LmKMcSwNZEr8JupC (MI-273)",
-    "branch": "claude/mi273-scope-overlap-granularity",
-    "claimed_at": "2026-09-12T07:34:34Z",
-    "purpose": "PR #11899 — scope-overlap granularity backlog row (Tier-1, docs only)"
+    "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
+    "branch": "claude/mi279-high-class-map",
+    "claimed_at": "2026-09-12T07:50:29Z",
+    "purpose": "PR #11893 — candidate class map for the high rows (Tier-1, docs only)"
   },
   "active_sessions": [
     {
