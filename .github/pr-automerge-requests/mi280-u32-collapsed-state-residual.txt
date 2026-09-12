@@ -1,0 +1,1 @@
+U32 — record the measured state of the collapsed-state guard row.

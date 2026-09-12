@@ -1,0 +1,12 @@
+MI-280 U20 — arm the landing route for claude/mi280-queue-verdict-always.
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. `Report the verdict` in pr-queue-watch.yml gains
+`if: always()` plus an empty-code arm, so the PR-queue escalation can no
+longer be skipped by a failure in the unrelated receipt step. Measured:
+5 of 38 scheduled runs computed a TRUE escalation that was never reported.
+
+PR #11986 was opened BY THIS SESSION before this file was pushed, so it
+carries a real pull_request event and CI fired normally.
+
+⚠️ NOTHING ELSE GOES ON THIS BRANCH AFTER THIS PUSH.
