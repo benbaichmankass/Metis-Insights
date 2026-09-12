@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — .github/pr-landing/README.md, .claude/skills/session-coordination/SKILL.md and docs/claude/coordination-board.md are corrected to name R13's per-branch merge-slot route as the one a lane branch should take. No runtime, order path, config, guard or tool code is touched: scripts/ci/** and scripts/ops/claim_merge_slot.py are deliberately unchanged, and --branch-claim's default is deliberately NOT flipped (that is LANDING_MACHINERY and a bigger change than was approved)."
+}
