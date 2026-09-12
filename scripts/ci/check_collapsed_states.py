@@ -106,6 +106,51 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "digest_liveness.carrier_state",
+        # ⚠️ THE PRODUCER IS THE LOOKUP MODULE, AND THE CONSUMER IS THE GUARD.
+        #    They were ONE file first and this contract refused it -- correctly:
+        #    a module branching on its own constants proves nothing about
+        #    whether anyone acts on the distinction. The split is the fix, not a
+        #    workaround for the guard.
+        "producer": "scripts/ci/digest_carrier.py",
+        # The producer OWNS the vocabulary: the three values are module
+        # constants in check_digest_liveness and nowhere else, so no
+        # `producer_field` is declared -- the literals never share a line with
+        # the word `carrier`, and narrowing here would fail for a spelling
+        # reason rather than a real one.
+        "producer_field": "",
+        "consumer_token": (r"\bCARRIER_FRESHER\b|\bCARRIER_NONE\b|"
+                           r"\bCARRIER_UNKNOWN\b"),
+        "states": ["fresher_receipt_on_open_pr", "no_fresher_receipt",
+                   "could_not_look"],
+        "why": (
+            # ⚠️ THE ROW ID IS ON ONE LINE ON PURPOSE. check_backlog_refs
+            # scans per LINE, so an id wrapped across a string concatenation
+            # reads as a truncated id that resolves to NOTHING — it failed this
+            # branch exactly that way, and it is the third time in one session
+            # that a wrapped or shortened id has done so. Never break one.
+            "BL-20260908-A-BACKED-UP-MERGE-QUEUE-RED-LINES-EVERY-PR-VIA-DIGEST-LIVENESS-WHICH-MAKES-THE-QUEUE-HARDER-TO-CLEAR"  # noqa: E501
+            ". On 2026-09-08 "
+            "digest-liveness graded main's receipt `stale` at 6.1h and FAILED "
+            "every open PR in the repo at once -- while THREE fresher receipts "
+            "existed, each sitting in an unmerged PR. The carrier was not "
+            "broken; the merge queue was. THE PAIR THAT MUST NOT COLLAPSE is "
+            "`could_not_look` vs `no_fresher_receipt`. The lookup is a bounded "
+            "GitHub read, so it can fail for a missing token, a 403, a rate "
+            "limit or a timeout -- and folding any of those into `we looked and "
+            "the carrier is dead` would report *we did not look* as a confident "
+            "verdict, which is the `curl ... || echo '{}'` class this repo "
+            "already paid for when a 403 read as `0 checks` made a CI watcher "
+            "report TIMEOUT having checked nothing. Both states FAIL, so the "
+            "distinction buys no leniency -- it buys a reader who can tell "
+            "`the digest stopped` from `we could not establish whether it "
+            "stopped`, which have different remedies. `fresher_receipt_on_open_"
+            "pr` is the only state that changes the verdict, and it requires "
+            "positive evidence: a receipt READ off an open PR head with a "
+            "timestamp newer than main's."
+        ),
+    },
+    {
         "name": "losing_streak_alert.state",
         "producer": "src/runtime/losing_streak_alert.py",
         "producer_field": "",
