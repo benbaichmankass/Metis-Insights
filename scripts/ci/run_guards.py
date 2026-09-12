@@ -2653,6 +2653,114 @@ def worktree_files() -> List[str]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# ARM THE REGISTER MERGE DRIVER — for a session that never thought to
+# ---------------------------------------------------------------------------
+# BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS
+# asks for the driver to be "ARMED BY DEFAULT for a session that did not think
+# to arm it", and its criterion (a) is "a repo bootstrap step runs
+# install_merge_driver.sh, so a fresh container arms itself".
+#
+# ⚠️ WHY HERE AND NOT IN A HOOK OR A DOC. Project hooks DO NOT RUN on Claude
+# Code on the web (CLAUDE.md records the measurement), so a SessionStart hook
+# arms nothing in exactly the containers that are freshest. And the row itself
+# forbids the doc answer: "DO NOT CLOSE THIS BY ADDING A REMINDER TO A DOC
+# NOBODY READS MID-TASK -- that is the 'reminder is not a mechanism' non-fix
+# this repo has already paid for on MI-15 (twice)." What every session DOES run,
+# worker and manager alike, is this file, before every push.
+#
+# ⚠️ `manager_preflight.py` ALREADY GRADES THIS and is not duplicated: it FAILS
+# an un-armed clone with three never-collapsed states. But only a MANAGER runs
+# it, and the eleven hand-resolutions were paid by a worker. This reuses that
+# module's `merge_driver_installed()` rather than re-deriving the read, because
+# two answers to "is this clone armed?" are free to drift.
+#
+# ⚠️ IT NEVER FAILS THE RUN AND IT NEVER TOUCHES CI. A guard run that went red
+# over a client-side convenience would be a red nobody can act on from a PR, and
+# a CI clone is thrown away after one job -- arming it is a side effect with no
+# beneficiary. `skipped_ci` is therefore its own state, not a silent no-op.
+#
+# ⚠️ AND IT CHANGES NOTHING ABOUT GITHUB. Custom merge drivers are client-side;
+# a conflicted register PR still reports `dirty`. What this removes is the cost
+# of resolving that BY HAND.
+ARM_SKIPPED_CI = "skipped_ci"
+ARM_ALREADY = "already_armed"
+ARM_ARMED = "armed"
+ARM_FAILED = "arm_failed"
+ARM_UNKNOWN = "could_not_look"
+ARM_NO_INSTALLER = "no_installer"
+
+INSTALL_MERGE_DRIVER = REPO / "scripts" / "ops" / "install_merge_driver.sh"
+
+
+def arm_decision(in_ci: bool, installed: Optional[bool],
+                 installer_exists: bool) -> str:
+    """PURE — what SHOULD happen. The doing is separate, so the policy is
+    arguable in a test rather than against a real clone's git config.
+
+    ⚠️ `installed is None` is *we could not read this clone's git config* and
+    grades `could_not_look`. It must never be folded into `already_armed` (which
+    would bank a claim nobody checked) nor into "arm it" (which would run an
+    installer over a state we could not see).
+    """
+    if in_ci:
+        return ARM_SKIPPED_CI
+    if installed is None:
+        return ARM_UNKNOWN
+    if installed:
+        return ARM_ALREADY
+    return ARM_ARMED if installer_exists else ARM_NO_INSTALLER
+
+
+def arm_register_merge_driver() -> str:
+    """Best-effort. Returns the state; prints one line; never raises."""
+    in_ci = bool(os.environ.get("GITHUB_ACTIONS"))
+    installed: Optional[bool] = None
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "ops"))
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_mp_arm", REPO / "scripts" / "ops" / "manager_preflight.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        installed = mod.merge_driver_installed()
+    except Exception:  # noqa: BLE001 — any failure is `we could not look`
+        installed = None
+
+    state = arm_decision(in_ci, installed, INSTALL_MERGE_DRIVER.exists())
+    if state == ARM_ARMED:
+        try:
+            rc = subprocess.run(["bash", str(INSTALL_MERGE_DRIVER)],
+                                capture_output=True, text=True, timeout=60,
+                                cwd=str(REPO)).returncode
+        except (OSError, subprocess.SubprocessError):
+            rc = 1
+        if rc != 0:
+            state = ARM_FAILED
+
+    if state == ARM_SKIPPED_CI:
+        return state
+    msg = {
+        ARM_ALREADY: "register merge driver: already armed in this clone.",
+        ARM_ARMED: ("register merge driver: ARMED this clone "
+                    "(scripts/ops/install_merge_driver.sh). Sibling register "
+                    "appends now merge row-aware instead of by line. "
+                    "Client-side only — GitHub still reports a conflicted PR "
+                    "as dirty."),
+        ARM_FAILED: ("register merge driver: could NOT be armed — "
+                     "install_merge_driver.sh exited non-zero. Register "
+                     "conflicts will need hand resolution."),
+        ARM_NO_INSTALLER: ("register merge driver: scripts/ops/"
+                           "install_merge_driver.sh is MISSING, so this clone "
+                           "cannot be armed."),
+        ARM_UNKNOWN: ("register merge driver: this clone's git config could NOT "
+                      "be read, so whether it is armed is UNESTABLISHED — that "
+                      "is `we did not look`, not `it is fine`."),
+    }[state]
+    print(msg)
+    return state
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-ref", default=os.environ.get("GUARDS_BASE_REF", "main"))
@@ -2663,6 +2771,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--list", action="store_true", help="print the registry and exit")
     ap.add_argument("--notify-file", default=os.environ.get("GUARDS_NOTIFY_FILE"))
     args = ap.parse_args(argv)
+
+    # Before anything else, and never fatal. See `arm_register_merge_driver`.
+    arm_register_merge_driver()
 
     if args.list:
         for g in GUARDS:
