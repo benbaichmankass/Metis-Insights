@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+  "branch": "claude/mi278-prune-spent-register-removal",
+  "claimed_at": "2026-09-12T11:06:30Z",
+  "purpose": "MI-278: prune the spent register-removal declaration blocking every register-touching PR (#11947)"
+}
