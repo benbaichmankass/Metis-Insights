@@ -139,6 +139,70 @@ def breakeven_cells(tp_at_r: float) -> list:
     return [("be_off", "breakeven_ratchet", ["--no-sim-breakeven"])]
 
 
+# M20 `breakeven_ratchet` x target CROSS — added 2026-09-12 (MI-278 U6), for
+# `BL-20260912-THE-BREAK-EVEN-RATCHET-COSTS-2-7R-AT-THE-LIVE-SCALP-TARGET-AND-HAS-NEVER-BEEN-SWEPT`.
+#
+# ⚠️ THE ONE-AXIS `be_off` CELL ABOVE DOES NOT CLOSE THAT ROW, AND MI-278 U3
+# RAN IT AND REPORTED A NEGATIVE ON ALL SEVEN LEGS. The row's resolution
+# criteria asks for the ratchet CROSSED with the target, because the screen
+# that opened it showed the two are ENTANGLED in the live config: part of what
+# "a narrower target" buys is simply putting the target BELOW the ratchet's 1R
+# arming threshold, so a one-axis sweep of EITHER lever attributes the other's
+# effect to it. Screened 2x2 on SOLUSDT 5m 2025Q3 (n=60-72, no IS/OOS, no
+# walk-forward — a SCREEN, and the row says so):
+#
+#                     BE ARMED (live)   BE DISARMED
+#     tp_at_r 0.75       +7.911 R         +7.911 R      <- identical, by construction
+#     tp_at_r 1.5        -0.695 R         +2.033 R
+#
+# THE ARMED ARM IS ALREADY MEASURED. `tp_cells` swept the whole `_TP_GRID` with
+# the ratchet ON (memo section 4l), so the cross only needs the DISARMED row —
+# these cells COMPLETE a 2xN grid rather than re-running half of it.
+#
+# ⚠️ THE GRID IS THE SCREEN'S RUNGS, NOT `_TP_GRID`, AND THAT IS A COST
+# DECISION STATED RATHER THAN HIDDEN. This workflow's own header records that a
+# full 8-arm grid on a ~124k-row file already sits at roughly the 150-minute
+# job timeout, and the 5m corpora are ~373k rows — so crossing every `_TP_GRID`
+# value would risk spending the budget and delivering nothing. These are the
+# screen's rungs either side of the live target, which is where the decision
+# lives. A wider cross is a later run, not a silently dropped one.
+#
+# ⚠️ `tp_at_r == 1.0` IS DELIBERATELY NOT CROSSED. The ratchet arms AT 1R, so a
+# target AT 1R is a tie whose resolution depends on the order the harness
+# evaluates the two within a bar. A number produced there would mean whatever
+# that implementation detail happens to be, which is worse than not measuring
+# it — so it is refused rather than reported.
+_BE_CROSS_TP = (0.75, 2.0, 3.0)
+
+
+def breakeven_cross_cells(tp_at_r: float) -> list:
+    """(tag, matrix_lever, extra_args) for the ratchet DISARMED at other targets.
+
+    One cell per `_BE_CROSS_TP` rung that is not the leg's own target — that
+    rung is the plain `be_off` cell and crossing it would be a duplicate.
+
+    ⚠️ THE RUNG AT OR BELOW THE ARMING THRESHOLD IS KEPT ON PURPOSE, AND IT IS
+    THE POSITIVE CONTROL — the only cell in this sweep whose answer is known in
+    advance. Below 1R the ratchet can never arm, so this cell MUST reproduce
+    the ARMED `tp0.75R` cell exactly, and the screen confirmed that to three
+    decimals. Every other cell here is a claim about a lever; this one is the
+    check that the disarm plumbing does what its tag says. Dropping it as a
+    "provable no-op" — which is the right call in `breakeven_cells`, where the
+    comparison is against a base on which the ratchet is equally unreachable —
+    would remove the only cell that can catch `--no-sim-breakeven` silently
+    failing to strip the flag, and a silent failure there would make every
+    other cell in the family read as a confident zero.
+    """
+    out = []
+    for tp in _BE_CROSS_TP:
+        if abs(tp - float(tp_at_r)) < 1e-9:
+            continue                      # that rung IS the plain `be_off` cell
+        suffix = "_ctl" if tp <= _BE_ARM_AT_R else ""
+        out.append((f"be_off@tp{tp:g}R{suffix}", "breakeven_ratchet",
+                    ["--no-sim-breakeven", "--tp-at-r", str(tp)]))
+    return out
+
+
 def tp_cells(tp_at_r: float) -> list:
     """(tag, matrix_lever, extra_args) for the take-profit distance grid."""
     out = []
@@ -236,7 +300,8 @@ def all_cells(tp_at_r: float) -> list:
     error message advertises and the sweep never runs.
     """
     return (list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)
-            + breakeven_cells(tp_at_r) + sl_buffer_cells())
+            + breakeven_cells(tp_at_r) + breakeven_cross_cells(tp_at_r)
+            + sl_buffer_cells())
 
 
 def declared_lever_flags(leg_cfg: dict) -> list:

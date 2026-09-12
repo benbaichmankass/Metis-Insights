@@ -438,3 +438,71 @@ class TestSlBufferCells:
         for _, _, extra in sw.sl_buffer_cells(0.20):
             assert extra[0].lstrip("-").replace("-", "-") and extra[0] in help_txt, (
                 f"{extra[0]} is not a flag the harness exposes")
+
+
+class TestBreakevenCrossedWithTarget:
+    """MI-278 U6 — the ratchet crossed with the target.
+
+    `BL-20260912-THE-BREAK-EVEN-RATCHET-COSTS-2-7R-AT-THE-LIVE-SCALP-TARGET-AND-HAS-NEVER-BEEN-SWEPT`
+    is explicit that the one-axis `be_off` cell does NOT close it: the two
+    levers are entangled, because narrowing the target below 1R makes the
+    ratchet unreachable, so a one-axis sweep of either attributes the other's
+    effect to it.
+    """
+
+    def test_the_cross_reaches_the_swept_set(self):
+        """Reads the PRODUCTION assembly, never a copy of it."""
+        tags = {t for t, lev, _ in sw.all_cells(1.5) if lev == "breakeven_ratchet"}
+        assert "be_off" in tags, "the one-axis cell must survive the addition"
+        assert {"be_off@tp2R", "be_off@tp3R"} <= tags, (
+            "the cross exists but the sweep never runs it")
+
+    def test_every_crossed_cell_both_disarms_AND_moves_the_target(self):
+        """Either half alone is a cell that already exists elsewhere."""
+        for tag, lever, extra in sw.breakeven_cross_cells(1.5):
+            assert lever == "breakeven_ratchet", tag
+            assert "--no-sim-breakeven" in extra, (
+                f"{tag} does not disarm, so it is a `tp_cells` duplicate")
+            assert "--tp-at-r" in extra, (
+                f"{tag} does not move the target, so it is a `be_off` duplicate")
+
+    def test_the_leg_s_own_target_is_not_crossed(self):
+        """That rung IS the plain `be_off` cell — crossing it double-counts."""
+        for tp in sw._BE_CROSS_TP:
+            tags = {t for t, _, _ in sw.breakeven_cross_cells(tp)}
+            assert not any(f"tp{tp:g}R" in t for t in tags), (
+                f"tp_at_r={tp} is the leg's own target and must fall through "
+                f"to `breakeven_cells`, not be emitted twice")
+
+    def test_1R_is_refused_because_the_tie_is_implementation_defined(self):
+        """The ratchet arms AT 1R; a target AT 1R has no well-defined answer."""
+        assert 1.0 not in sw._BE_CROSS_TP, (
+            "a number measured at the arming point means whatever the harness's "
+            "within-bar evaluation order happens to be, which is worse than "
+            "not measuring it")
+
+    def test_the_sub_arming_rung_IS_emitted_and_is_MARKED_a_control(self):
+        """Opposite polarity to `breakeven_cells`, on purpose.
+
+        There, a sub-1R cell compares against a base on which the ratchet is
+        equally unreachable, so it is a provable no-op. HERE the comparison is
+        against the leg's LIVE target, so the cell carries a real delta AND a
+        known invariant: it must reproduce the ARMED `tp0.75R` cell exactly.
+        It is the only thing that can catch `--no-sim-breakeven` silently
+        failing to strip the flag, which would make every other cell in the
+        family read as a confident zero.
+        """
+        tags = {t for t, _, _ in sw.breakeven_cross_cells(1.5)}
+        ctl = [t for t in tags if t.endswith("_ctl")]
+        assert ctl == ["be_off@tp0.75R_ctl"], (
+            f"expected exactly one marked control cell, got {sorted(tags)}")
+        assert all(float(rung) > sw._BE_ARM_AT_R
+                   for rung in ("2.0", "3.0")), "guard against a silent grid edit"
+
+    def test_the_control_rung_is_below_the_arming_threshold(self):
+        """A 'control' at or above 1R would not be a control at all."""
+        for tag, _, extra in sw.breakeven_cross_cells(1.5):
+            rung = float(extra[extra.index("--tp-at-r") + 1])
+            assert (rung <= sw._BE_ARM_AT_R) == tag.endswith("_ctl"), (
+                f"{tag}: the _ctl marker must mean exactly 'the ratchet cannot "
+                f"arm here', not a naming convention")
