@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Let an approved Tier-2 PR land without a human click, without making approval and landing the same act
 stage: BUILD
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01SrUaz8LmKMcSwNZEr8JupC
 opened_at: 2026-09-11
 closed_at: null
@@ -22,8 +22,30 @@ why: >-
 source: >-
   operator (conversational), 2026-09-11
 
-blocked_on: []
+blocked_on:
+  - kind: external_event
+    ref: >-
+      PR #11817 needs its R12 human read and merge. PROBED 2026-09-12T05:51Z via
+      pull_request_read: state open, merged false, draft false, head 88f111059.
+    since: 2026-09-11
 blocked_on_basis: >-
+  ⚠️ RE-ASSESSED 2026-09-12 AND THE 2026-09-11 READING BELOW IS SUPERSEDED, NOT
+  DELETED — the earlier text is preserved verbatim under
+  blocked_on_basis_2026_09_11 because it was CORRECT WHEN WRITTEN and a reader
+  who sees only the new edge would not know an empty list was once the honest
+  answer. WHAT CHANGED IS THE BUILD FINISHING, NOT THE ASSESSMENT: the guard,
+  its 34 tests and its 27 planted defects are pushed, so the edge that was
+  unwritable on 2026-09-11 (nobody had been asked for anything yet) is now TRUE
+  and DATED — this object waits on a human reading PR #11817 under R12. Kind is
+  `external_event` and NOT `operator_decision` DELIBERATELY: what is owed is an
+  ACT (a read, then a merge), not a choice between options, and an
+  `operator_decision` edge with no matching decision_requests entry is surfaced
+  as an unanswerableOperatorEdge — which would misreport this as a question
+  nobody wrote down, when the question is written down at length in the PR body
+  itself. ⚠️ THE OTHER HALF OF THE DONE-CONDITION IS NOT THIS EDGE: the first
+  real approval record is still an operator/manager act, still unasked, and
+  still deliberately NOT an edge for the same reason it was not one yesterday.
+blocked_on_basis_2026_09_11: >-
   ASSESSED 2026-09-11 by the building lane, from the guard source and the live
   records rather than from the dispatch brief. Nothing blocks the BUILD — the
   guard is a self-contained CI script, and its own PR holding under R12 is the
@@ -32,6 +54,17 @@ blocked_on_basis: >-
   act and not this lane's to perform. ⚠️ That is deliberately NOT written as a
   typed edge: nobody has been asked for it yet, and an invented edge is read by
   the constraint computation as a real blocker.
+lifecycle_basis: >-
+  ⚠️ `waiting`, NOT `in_flight`, AND NOT `done`. It read `in_flight` until
+  2026-09-12 and that became false the moment the lane finished; stale-in-flight-guard
+  caught it on PR #11817 (ratchet base=13 head=14, delta +1) once the guard
+  reached main, and the guard was RIGHT. The registry independently records the
+  same fact in prose — this lane's SESSIONS.json row is `state: completed` with
+  the manager's own 22:53Z observation `the SESSION is terminal, the PR is not`.
+  ⚠️ THIS IS NOT THE AUTO-CLOSE THE GUARD WARNS AGAINST: `done` means MERGED AND
+  OBSERVED and neither holds — the PR is open and zero approval records exist, so
+  R15 has admitted nothing and refused nothing. `waiting` is the fourth of the six
+  never-collapsed lifecycle states and is precisely `waiting on the operator`.
 
 captured_by: scripts/ops/capture_idea.py
 worked_by: session_01SrUaz8LmKMcSwNZEr8JupC (PR #11817)
