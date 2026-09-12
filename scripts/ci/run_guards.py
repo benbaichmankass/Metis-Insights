@@ -2689,8 +2689,37 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # byte-identical that run.
     tree_dirty_at_start = sorted(worktree_files())
 
+    # ⚠️ NAME THE TREE WE ARE GRADING, IN THE OUTPUT ITSELF.
+    # Every line below this is a verdict ABOUT a commit, and until 2026-09-12
+    # not one line said WHICH — the header carried `event` and `base` and
+    # nothing identifying HEAD. A saved run therefore could not be attributed,
+    # and a run whose tree MOVED under it (a background run while the session
+    # checks out another branch) produced a confident verdict for a branch it
+    # had not finished reading. MEASURED: a `pr-landing-guard` FAIL was
+    # recorded against PR #11928 by exactly that route, and reproducing it by
+    # hand on a stable tree returned OK. That is the implicit-input-selection
+    # shape `check_diagnostic_provenance.py` exists to catch, in the harness
+    # that runs it.
+    #
+    # Read from git rather than from the environment, so it is right when run
+    # locally too; `unknown` when git cannot answer -- WE COULD NOT LOOK, never
+    # a fabricated sha.
+    def _git_say(*argv: str) -> str:
+        try:
+            r = subprocess.run(["git", *argv], capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return "unknown"
+        out = (r.stdout or "").strip()
+        return out if (r.returncode == 0 and out) else "unknown"
+
+    head_sha = _git_say("rev-parse", "HEAD")
+    head_branch = _git_say("rev-parse", "--abbrev-ref", "HEAD")
+    head_dirty = "dirty" if tree_dirty_at_start else "clean"
+
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
+    print(f"grading {head_branch} @ {head_sha[:12] if head_sha != 'unknown' else 'unknown'} "
+          f"· worktree {head_dirty} at start")
     if force_all:
         why = "--all" if args.all else "the guard harness itself changed"
         print(f"relevance DISABLED ({why}) — running every guard")
