@@ -91,6 +91,11 @@ jobs:
         # loudly, not write a confident receipt.
         run: |
           python3 scripts/ops/pr_queue_latency.py --self-test
+          # The MERGEABILITY half, for the same reason. It is the axis that
+          # decides whether a green PR is reported as unmergeable at all, so a
+          # broken grader here would silently restore the blindness this step
+          # exists to end.
+          python3 scripts/ops/pr_mergeability.py --self-test
           python3 scripts/ci/check_pr_queue_watch.py --self-test
           # The manager-state half and the Routine's liveness guard, same rule:
           # a watcher whose grading is broken must fail loudly, not write a
@@ -121,6 +126,115 @@ jobs:
             > /tmp/open-prs.json
           echo "read $(jq 'length' /tmp/open-prs.json) open PR(s)"
 
+      - name: Read MERGEABILITY per PR — the list endpoint does not carry it
+        # ⚠️ THIS STEP EXISTS BECAUSE THE LIST ENDPOINT STRUCTURALLY CANNOT
+        # ANSWER THE QUESTION. GitHub computes mergeability lazily, per PR, on
+        # demand, and serves `mergeable` / `mergeable_state` / `rebaseable` ONLY
+        # on `GET .../pulls/{n}`. MEASURED 2026-09-12 with a positive control:
+        # the list was asked for `mergeable_state` BY NAME over all 5 open PRs
+        # and returned it on 0 of 5, while the single-PR read returned
+        # `"mergeable_state": "dirty"` for #11738 minutes later.
+        #
+        # WHAT THAT BLINDNESS COST, measured on the live queue the same morning:
+        # #11738 ("Arm R2 … Tier-2, OPERATOR-APPROVED") was 5-of-5 green and
+        # `dirty` for 12h+, and #11859 (the manager's own status push) was
+        # 5-of-5 green and `dirty` within 20 minutes of being opened. The
+        # watcher graded the first `waiting` — which points a reader at the
+        # MANAGER — and the second `active`, i.e. healthy. Neither can be merged
+        # by anybody.
+        #
+        # ⚠️ ONE RETRY FOR `unknown`, AND IT IS NOT DECORATION. `unknown` means
+        # GitHub has not computed mergeability yet; a cold read lands there
+        # routinely (2 of 5 on the same measurement). Asking again after a pause
+        # is what GitHub's own docs prescribe, and without it a real conflict
+        # reads as "not computed" and is never surfaced.
+        #
+        # ⚠️ A FAILED PER-PR FETCH EMITS `{"number": N}` WITH NO
+        # `mergeable_state`, which `build_merge_rows` grades `unreadable`. It
+        # does NOT emit a clean-looking stub and does NOT drop the PR: "we could
+        # not look" and "it is mergeable" are opposite facts, and the
+        # `curl … || echo '{}'` collapse that fuses them is a named failure
+        # class in this repo.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          numbers=$(jq -r '.[].number' /tmp/open-prs.json)
+          : > /tmp/pr-details.ndjson
+          for n in $numbers; do
+            if ! gh api "repos/${GITHUB_REPOSITORY}/pulls/${n}" \
+                   > "/tmp/pr-${n}.json" 2>/tmp/pr-err.txt; then
+              echo "::warning::per-PR read FAILED for #${n} — grading it \
+          'unreadable', never 'mergeable'. $(tail -1 /tmp/pr-err.txt)"
+              jq -nc --argjson n "$n" '{number: $n}' >> /tmp/pr-details.ndjson
+              continue
+            fi
+            ms=$(jq -r '.mergeable_state // "unknown"' "/tmp/pr-${n}.json")
+            if [ "$ms" = "unknown" ] || [ "$ms" = "null" ]; then
+              # GitHub is computing it. Ask once more, then take whatever it says.
+              sleep 4
+              if gh api "repos/${GITHUB_REPOSITORY}/pulls/${n}" \
+                   > "/tmp/pr-${n}.json" 2>/dev/null; then
+                ms=$(jq -r '.mergeable_state // "unknown"' "/tmp/pr-${n}.json")
+              fi
+              echo "#${n}: mergeable_state was 'unknown' on the first read, \
+          '${ms}' after one retry"
+            fi
+            jq -c '{number, mergeable_state, title, draft, state}' \
+              "/tmp/pr-${n}.json" >> /tmp/pr-details.ndjson
+          done
+          jq -s '.' /tmp/pr-details.ndjson > /tmp/pr-details.json
+          echo "graded mergeability for $(jq 'length' /tmp/pr-details.json) PR(s):"
+          jq -r '.[] | "  #\(.number)  \(.mergeable_state // "UNREADABLE")"' \
+            /tmp/pr-details.json
+
+          # Check runs ONLY for the conflicted rows. A conflicted PR whose
+          # checks are green is the specifically misleading case — it reads as
+          # READY on every surface that counts failures — and fetching only
+          # those keeps the extra API cost proportional to the FINDING count
+          # rather than to the queue size.
+          echo '{}' > /tmp/pr-checks.json
+          conflicted=$(jq -r '.[] | select(.mergeable_state == "dirty") | .number' \
+                        /tmp/pr-details.json)
+          for n in $conflicted; do
+            # ⚠️ THE SHA IS REUSED FROM THE PAYLOAD WE ALREADY HOLD, never
+            # re-fetched. Re-asking cost an API call AND introduced a failure
+            # mode: exercising this step against a stub whose sha read returned
+            # something unexpected produced a check-runs URL that resolved to an
+            # empty object, and `.check_runs` then wrote a literal `null` into
+            # the map. That was SAFE — the grader reads a missing list as
+            # `misleading: null`, *we did not look*, exactly as intended — but it
+            # was silent, and a step that can quietly stop measuring is the thing
+            # this whole dimension exists to prevent.
+            sha=$(jq -r '.head.sha // empty' "/tmp/pr-${n}.json" 2>/dev/null || true)
+            if [ -z "$sha" ]; then
+              echo "::warning::no head sha for conflicted #${n} — its misleading \
+          flag stays null (we did not look), never false."
+              continue
+            fi
+            if ! gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" \
+                 > "/tmp/checks-${n}.json" 2>/dev/null; then
+              echo "::warning::could not read check runs for conflicted #${n} — \
+          its misleading flag stays null (we did not look), never false."
+              continue
+            fi
+            # ⚠️ ONLY MERGE AN ACTUAL ARRAY. `.check_runs` on an unexpected
+            # payload is `null`, and writing that would record "we looked and
+            # found no checks" for a read that did not happen.
+            if ! jq -e 'has("check_runs") and (.check_runs | type == "array")' \
+                 "/tmp/checks-${n}.json" > /dev/null; then
+              echo "::warning::check-runs payload for #${n} is not an array — \
+          leaving its misleading flag null rather than recording a false zero."
+              continue
+            fi
+            jq --argjson n "$n" --slurpfile c "/tmp/checks-${n}.json" \
+              '. + {($n|tostring): $c[0].check_runs}' \
+              /tmp/pr-checks.json > /tmp/pr-checks.next && \
+              mv /tmp/pr-checks.next /tmp/pr-checks.json
+          done
+          echo "fetched check runs for $(jq 'length' /tmp/pr-checks.json) \
+          conflicted PR(s)"
+
       - name: Assess the queue
         id: assess
         # Exit 3 (escalate) and 4 (unknown) are NOT step failures here -- the
@@ -143,6 +257,8 @@ jobs:
           set +e
           python3 scripts/ops/pr_queue_latency.py \
             --open-prs /tmp/open-prs.json \
+            --pr-details /tmp/pr-details.json \
+            --pr-checks /tmp/pr-checks.json \
             --threshold-hours "${{ github.event.inputs.threshold_hours || '6' }}" \
             --write-state > /tmp/digest.txt 2>&1
           echo "code=$?" >> "$GITHUB_OUTPUT"
