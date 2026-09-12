@@ -244,10 +244,8 @@ def did_band(treated_pre: list[dict], treated_post: list[dict],
 
     `sign_survives` is `did_low > 0` -- the claim holds however every
     disagreement is resolved. It invents no alpha and is NOT a significance
-    test: it is insensitive to n and can pass a comparison with no power. (Filed as
-    its own backlog row against MI-278 U18; its id is deliberately NOT quoted here
-    because it rides an unmerged PR, and an id that does not resolve reads as
-    tracked while being tracked by nobody.)
+    test: it is insensitive to n and can pass a comparison with no power:
+    BL-20260912-THE-SIGN-SURVIVAL-CRITERION-IS-INSENSITIVE-TO-N-SO-IT-CAN-PASS-A-COMPARISON-WITH-NO-POWER.
     Read every cell's `denominator` before quoting it.
     """
     cells = {

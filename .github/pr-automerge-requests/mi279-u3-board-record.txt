@@ -1,0 +1,6 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12096. Closes BL-20260819-BOARD-BODY-OVERWRITTEN-BY-ISSUE-WRITE-UPDATE: its
+subject #6927 is CLOSED and RETIRED at the comment cap, and the criterion's
+second branch (the current body is synced into coordination-board.md) is met,
+measured element by element against the live board #11336.
+Tier-1 surface only: docs/claude/**, .github/**.
