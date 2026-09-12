@@ -5412,5 +5412,30 @@
       "decision 2 still needs a market — nothing available on a Saturday",
       "the CLAUDE.md churn row stands on its own regardless of #11903 landing; it is a repo-wide rate inequality, not one PR's problem"
     ]
+  },
+  "manager_update_2026_09_12T2036Z": {
+    "trigger": "operator asked for an update",
+    "operator_decisions": {
+      "1_fanout_projection": "#11970 MERGED + DEPLOYED. Dispatcher half proven: 12 v3 soak rows, 6 dispatchable, all carrying the full 7-key geometry.",
+      "3_hedge_book_dedupe": "#11903 MERGED 73747db45 + DEPLOYED (ancestry-verified). DONE.",
+      "2_breakout_1_arming": "STILL GATED. No new evidence this window — see below. Nothing to bring back."
+    },
+    "fleet": {
+      "trading_resumed": "2 trades since the first v3 row: 5728 bybit_1 SOLUSDT long and 5729 bybit_1 ETHUSDT short, both 20:00:1xZ.",
+      "NEITHER_IS_FANOUT_EVIDENCE": "both are PAIRS SLEEVE legs (pairs_sol_eth_a / _b). The pairs executor is an ISOLATED 2-leg order path called directly from src/main.py, NOT via multi_account_execute, so it bypasses the arbitration fan-out by construction. Checked rather than counted.",
+      "soak_quiet": "arbitration_fanout_soak newest row is 17:34:01Z — 3h stale at 20:36. NOT read as a dead writer: the file GREW this window (569037 -> 584431 bytes), and a row is only written on a CONTESTED tick, which needs emitted intents. The 16:00-16:55 measurement was 200 of 200 pipeline_result rows `skipped`. Consistent with a quiet book, and it is being WATCHED rather than declared fine."
+    },
+    "lanes": {
+      "MI-278": "247881 (25%) — COMPACTED from 769500. Threshold warning STALE.",
+      "MI-279": "289732 (29%) — healthy.",
+      "MI-280": "780309 (78%) — UNCHANGED across four ticks; the ONLY lane that has not compacted. Still past threshold.",
+      "MI-283": "239671 (24%) — COMPACTED from 765012. Owns the #11903 fleet observation.",
+      "reading": "three of four lanes compacted back under threshold this window, which is the tick prompt's own warning confirmed a third time: the context reading must be RE-READ each tick, never carried. MI-280 is the real outlier now, not the group."
+    },
+    "next": [
+      "decision 2 needs a CONTESTED tick on a non-pairs symbol; nothing to do but wait for one",
+      "MI-283 delivers the dedupe fleet observation with a real denominator",
+      "the CLAUDE.md churn row stands on its own — a repo-wide rate inequality, not one PR's problem"
+    ]
   }
 }

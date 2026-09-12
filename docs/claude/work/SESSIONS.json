@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T19:54:52Z",
+  "updated_at": "2026-09-12T20:36:35Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4892,12 +4892,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi278-u3-scalp-target-sweepable"
+        "claude/mi278-u17-arbitration-priority-detectors"
       ],
       "last_observed": {
-        "at": "2026-09-12T18:56:21Z",
+        "at": "2026-09-12T20:36:35Z",
         "via": "get_session",
-        "note": "RUNNING. 769500 (77%). 5 PRs re-guarded and pushed (U3-U15); working a CI event-routing issue on #12031. Past hand-off threshold."
+        "note": "RUNNING. 247881 (25%) — COMPACTED from 769500; the past-threshold warning is STALE. U18 dose-response analysed (p=0.0486, overlapping imputation); U19 queued; self-scheduled check 21:08Z."
       }
     },
     {
@@ -4914,12 +4914,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi279-spent-edge-guard"
+        "claude/mi279-u3-next4"
       ],
       "last_observed": {
-        "at": "2026-09-12T18:56:21Z",
+        "at": "2026-09-12T20:36:35Z",
         "via": "get_session",
-        "note": "RUNNING at 17:54Z (not re-called this tick; the 18:5x sweep covered the other three). 351343 (35%) — the only lane under threshold. Merged #12030."
+        "note": "RUNNING. 289732 (29%) — healthy."
       }
     },
     {
@@ -4936,12 +4936,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi280-u36-spent-decision-edges"
+        "claude/mi280-u46-scratch"
       ],
       "last_observed": {
-        "at": "2026-09-12T18:56:21Z",
+        "at": "2026-09-12T20:36:35Z",
         "via": "get_session",
-        "note": "RUNNING. 780309 (78%) — NOT stalled after all: it has a branch again and is fixing P7/P14 test controls. Its 16:54 \"context expired; awaiting continuation signal\" reading has NOT recurred. Past hand-off threshold."
+        "note": "RUNNING. 780309 (78%) — UNCHANGED across four ticks, the only lane that has not compacted. Self-test green, filing a finding. PAST hand-off threshold."
       }
     },
     {
@@ -4994,12 +4994,12 @@
       "why": "MI-281 completed and handed on U5: account_open_positions still dedupes Bybit positions by symbol (if sym in seen), so a hedge book is DROPPED and the order-status reconciler closes a live row. PR #11867 measured it at 378/378 = 100.0% of bybit_1 reads and attributed two false closes totalling -$762.496. bybit_2 (real money) shows 0 ONLY because its books were flat — an empty population, not safety; the dedupe consults no account. REPLACES session_01WnQ1wp2awqbo4xRoiEZfit, which the manager spawned WITHOUT source_url and which blocked immediately with no repo (manager error; that session is ARCHIVED). | OBSERVED 2026-09-12T12:57Z: IDLE/review_ready, 583,145 ctx — DOWN from 740,064 at 10:40Z, i.e. it COMPACTED and the earlier hand-off warning is stale. #11903 is green and clean and BLOCKED on an operator Tier-2 decision. DELIBERATELY NOT ARCHIVED: a real-money order-path change may draw a follow-up question or a condition, and the lane that took the measurement answers it far better than a fresh session. An idle session consumes nothing. Overrule if you disagree.",
       "state": "working",
       "branches": [
-        "claude/mi283-fleet-observation"
+        "main"
       ],
       "last_observed": {
-        "at": "2026-09-12T19:54:52Z",
+        "at": "2026-09-12T20:36:35Z",
         "via": "get_session",
-        "note": "RUNNING. DELIVERED #11903 (merged 73747db45, DEPLOYED — running sha 06c3d7db3 contains it, restart_pending false). COMPACTED 765012 -> 481750 (48%), so the past-threshold warning is STALE. Now on claude/mi283-fleet-observation staging the clause-3/4 probes — it owns the fleet observation, correctly, with the denominator."
+        "note": "RUNNING. 239671 (24%) — COMPACTED from 765012 (was 481750 an hour ago). Reading the dedupe OPEN-ITEMS row; on `main`, i.e. between branches. Owns the #11903 fleet observation."
       }
     },
     {
