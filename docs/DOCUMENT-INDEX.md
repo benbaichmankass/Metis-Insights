@@ -426,6 +426,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/data/dataset-taxonomy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/versioning-policy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/deployment.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/high-severity-class-map-2026-09-12.md` | evidence | live | — | 2026-09-12 | `dir:claude-is-working-notes / not-assessed` | — |
 | `docs/design/alpaca-trade-scoped-close-PROPOSAL.md` | plan | live | — | 2026-09-08 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/b6-split-packet-2026-08-29.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/boot-read-size-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
