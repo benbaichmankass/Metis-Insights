@@ -1,1 +1,0 @@
-arming file for the claude-pr-automerge relay; contents are never read
