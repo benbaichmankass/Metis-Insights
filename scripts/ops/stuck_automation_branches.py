@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-# wiring: manual-only — a session or operator runs this when triaging why an
-# automation branch never landed. It REPORTS and gates nothing, the same
-# posture as scripts/ops/evidence_workflow_inventory.py, and for the same
-# reason: the judgement about what to do with a stuck branch is a human one.
+# wiring: CARRIED by .github/workflows/probes.yml (daily, `--receipt`), which
+# is the one scheduled workflow that already checks out with `fetch-depth: 0`
+# — mandatory here, because on a shallow clone containment is not computable
+# and this probe manufactures a full population of false findings. It still
+# REPORTS and gates nothing: the carrier writes docs/claude/STUCK-BRANCHES.json
+# and pages only on a TRANSITION, and the judgement about what to do with a
+# stuck branch stays a human one.
+#
+# ⚠️ IT WAS `# wiring: manual-only` UNTIL 2026-09-12 AND THAT MARKER WAS TRUE,
+# which is precisely why nobody saw the 181. Do not restore it while the
+# workflow step exists: `check_unwired_artifacts.py` accepts the marker as a
+# justification, so a stale one would excuse the carrier away again.
 """Which `automation/*` branches never landed, and how far behind they are.
 
 WHY THIS EXISTS
@@ -120,13 +128,14 @@ FIVE STATES, NEVER COLLAPSED
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import os
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional
 
 LANDED, IN_FLIGHT, STUCK, NO_REMOTE, UNKNOWN = (
     "landed", "in_flight", "stuck", "no_remote", "unknown")
@@ -165,6 +174,33 @@ def list_branches(prefix: str) -> Optional[List[str]]:
         if len(parts) == 2:
             names.append(parts[1].removeprefix("refs/heads/"))
     return sorted(names)
+
+
+#: Why a `no_remote` row is what it is. Three states, never collapsed — and
+#: the distinction decides whether the whole receipt is trustworthy.
+REFETCH_NOT_NEEDED = "not_needed"   # every branch resolved on the first pass
+REFETCH_FETCHED = "fetched"         # we re-fetched; what is still absent is GONE
+REFETCH_FAILED = "fetch_failed"     # we could not re-fetch — we did not look
+
+
+def fetch_prefix(prefix: str) -> bool:
+    """Fetch every `prefix*` head into `refs/remotes/origin/`. True on success.
+
+    ⚠️ THIS EXISTS BECAUSE OF A MEASURED RACE, not a hypothetical one. Running
+    the probe live on 2026-09-12, `automation/work-digest-34702634206-1` came
+    back from `git ls-remote` and had no remote-tracking ref: it was pushed
+    after this clone's last fetch. One such branch is enough to make the whole
+    population read `partial` — so without this, a single branch created in the
+    seconds between the checkout and the run would block the receipt FOREVER,
+    which is a carrier that looks armed and never produces: the exact failure
+    class this receipt was built to end.
+
+    The refspec is EXPLICIT rather than relying on `remote.origin.fetch`,
+    because `actions/checkout` narrows that config to the ref it checked out,
+    so a bare `git fetch origin` can legitimately bring back nothing.
+    """
+    return _git("fetch", "--quiet", "origin",
+                f"+refs/heads/{prefix}*:refs/remotes/origin/{prefix}*") is not None
 
 
 def state_for_age(age_hours: float, stale_hours: float) -> str:
@@ -288,6 +324,141 @@ def classify(branch: str, shared_ref: str, stale_hours: float,
     b = "unknown" if behind is None else str(behind)
     return Row(branch, state, age, behind,
                f"unmerged; {age:.1f}h old; {b} commit(s) behind {shared_ref}")
+
+
+# ── THE RECEIPT: what a CARRIER writes, and what a READER grades ────────────
+#
+# The probe above answers "which branches are stranded RIGHT NOW". That answer
+# was knowable and known by nobody, because nothing ran it
+# (BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY): measured
+# 2026-09-12 on a full clone, POPULATION 184 -> 181 stuck, and the only thing
+# on any cadence that looks at `automation/*` at all is
+# ``render_due_list.src_unlanded_automation``, which lists **open PRs** — a
+# different population, blind by construction to a branch whose PR was closed
+# or never opened.
+#
+# ⚠️ THE CARRIER MUST NOT PAGE ON THE STANDING COUNT. 181 rows every morning is
+# the desensitised alarm this repo has already paid for twice, so what is worth
+# reporting is the TRANSITION: a branch that newly stranded, or one that
+# cleared. That is why the receipt carries the SET and not just the number — a
+# branch clearing while another strands leaves the count at 181 and is still a
+# real change.
+
+RECEIPT_SCHEMA = 1
+
+#: Receipt read states. `partial` is *we could not see the whole population*,
+#: and it is NEVER folded into `complete`: a receipt written from a truncated
+#: read would become the baseline, and the next full read would then report
+#: every branch it could not see last time as newly stranded.
+READ_COMPLETE, READ_PARTIAL = "complete", "partial"
+
+#: Transition states, never collapsed.
+FIRST_RUN = "first_run"            # no baseline exists — NOT "nothing changed"
+NO_CHANGE = "no_change"
+CHANGED = "changed"
+DEGRADED = "degraded"              # the CURRENT read is partial — we could not look
+BASELINE_UNREADABLE = "baseline_unreadable"  # a baseline exists and will not parse
+TRANSITION_STATES = (FIRST_RUN, NO_CHANGE, CHANGED, DEGRADED, BASELINE_UNREADABLE)
+
+#: The transitions a carrier should make noise about. `first_run` and
+#: `no_change` are deliberately absent — see the warning above.
+PAGING_STATES = (CHANGED, DEGRADED, BASELINE_UNREADABLE)
+
+
+def build_receipt(rows: List[Row], *, generated_at: str, prefix: str,
+                  shared_ref: str, stale_hours: float,
+                  refetch: str = REFETCH_NOT_NEEDED) -> dict:
+    """The committed artifact. Carries the SET, the counts, and the read state.
+
+    ``read_state`` is ``partial`` — *we could not see the whole population* —
+    under EITHER of two conditions, and they are different facts:
+
+    * any ``unknown`` row. On a shallow clone containment is not computable, so
+      every branch lands here; that is the documented trap, which is why
+      `probes.yml` pins ``fetch-depth: 0``.
+    * any ``no_remote`` row **whose absence we did not confirm**. A name that
+      ``git ls-remote`` returned and the clone cannot resolve is either a
+      branch pushed since the last fetch or one deleted since the listing, and
+      those are opposite readings. ``refetch=REFETCH_FETCHED`` says we asked
+      the remote again and it is still absent, i.e. genuinely gone — that does
+      not degrade the read. ``REFETCH_FAILED`` and ``REFETCH_NOT_NEEDED`` with
+      ``no_remote`` rows present do, because then we never established which.
+    """
+    counts = {st: 0 for st in (STUCK, IN_FLIGHT, LANDED, NO_REMOTE, UNKNOWN)}
+    for r in rows:
+        counts[r.state] = counts.get(r.state, 0) + 1
+    unresolved_unconfirmed = 0 if refetch == REFETCH_FETCHED else counts[NO_REMOTE]
+    degraded = counts[UNKNOWN] + unresolved_unconfirmed
+    return {
+        "schema": RECEIPT_SCHEMA,
+        "generated_at": generated_at,
+        "prefix": prefix,
+        "shared_ref": shared_ref,
+        "stale_hours": stale_hours,
+        "population": len(rows),
+        "refetch": refetch,
+        "read_state": READ_COMPLETE if degraded == 0 else READ_PARTIAL,
+        "read_note": (
+            ("every branch in the population was graded"
+             + (f"; {counts[NO_REMOTE]} confirmed absent from the remote after "
+                "a re-fetch (deleted between the listing and the resolve)"
+                if counts[NO_REMOTE] else ""))
+            if degraded == 0 else
+            f"{counts[UNKNOWN]} unknown + {unresolved_unconfirmed} unconfirmed "
+            f"no_remote of {len(rows)} (refetch={refetch}) — we could not look "
+            f"at all of them; the usual cause is a shallow checkout "
+            f"(needs fetch-depth: 0)"
+        ),
+        "counts": counts,
+        "stuck": sorted(r.branch for r in rows if r.state == STUCK),
+    }
+
+
+def _stuck_set(receipt: Any) -> Optional[set]:
+    """The stuck SET out of a receipt, or None — *we could not read it*."""
+    if not isinstance(receipt, dict):
+        return None
+    got = receipt.get("stuck")
+    if not isinstance(got, list) or not all(isinstance(x, str) for x in got):
+        return None
+    return set(got)
+
+
+def transition(previous: Any, current: dict) -> dict:
+    """Grade this run against the last committed receipt. Five states.
+
+    ⚠️ THE ORDER OF THESE TESTS IS LOAD-BEARING. A ``partial`` CURRENT read is
+    graded ``degraded`` BEFORE any comparison, because comparing a truncated
+    set against a complete baseline reports every branch we failed to fetch as
+    ``cleared`` — a confident, wrong, and reassuring answer, which is the worst
+    of the three available outcomes.
+    """
+    if current.get("read_state") != READ_COMPLETE:
+        return {"state": DEGRADED, "added": [], "cleared": [],
+                "note": ("this run could not see the whole population: "
+                         + str(current.get("read_note", "no note")) +
+                         ". No comparison is possible and the baseline is left "
+                         "untouched.")}
+    if previous is None:
+        return {"state": FIRST_RUN, "added": [], "cleared": [],
+                "note": (f"no baseline receipt yet; recording "
+                         f"{len(current.get('stuck', []))} stuck branch(es) as "
+                         f"the first one. This is NOT a claim that nothing "
+                         f"changed.")}
+    prev = _stuck_set(previous)
+    if prev is None:
+        return {"state": BASELINE_UNREADABLE, "added": [], "cleared": [],
+                "note": ("a baseline receipt exists and its `stuck` list will "
+                         "not parse, so nothing can be compared against it. "
+                         "This is a broken instrument, not a quiet one.")}
+    cur = set(current.get("stuck", []))
+    added, cleared = sorted(cur - prev), sorted(prev - cur)
+    if not added and not cleared:
+        return {"state": NO_CHANGE, "added": [], "cleared": [],
+                "note": f"the same {len(cur)} branch(es) as the last receipt"}
+    return {"state": CHANGED, "added": added, "cleared": cleared,
+            "note": (f"{len(added)} newly stranded, {len(cleared)} cleared "
+                     f"(count {len(prev)} -> {len(cur)})")}
 
 
 def _selftest() -> int:
@@ -424,11 +595,144 @@ def _selftest() -> int:
         os.chdir(cwd)
         shutil.rmtree(tmp, ignore_errors=True)
 
-    total = 4 + 2 + 11
+    # ── RECEIPT + TRANSITION CONTROLS ──────────────────────────────────────
+    # (h) THE LOAD-BEARING ONE. A PARTIAL current read must be graded
+    #     `degraded` BEFORE any set comparison. If this ordering is lost, a
+    #     shallow carrier reports every branch it could not fetch as CLEARED —
+    #     a confident, wrong, reassuring answer.
+    _complete = {"read_state": READ_COMPLETE, "stuck": ["a", "b", "c"]}
+    _partial = {"read_state": READ_PARTIAL, "read_note": "shallow",
+                "stuck": ["a"]}
+    if transition(_complete, _partial)["state"] != DEGRADED:
+        fails.append("a PARTIAL current read must grade `degraded` before any "
+                     "comparison — a truncated set was compared and 2 branches "
+                     "would have been reported as cleared")
+
+    # (i) no baseline is NOT "nothing changed".
+    if transition(None, _complete)["state"] != FIRST_RUN:
+        fails.append(f"an absent baseline must be {FIRST_RUN}")
+
+    # (j) a baseline that will not parse is a BROKEN instrument, not a quiet one.
+    if transition({"stuck": "not-a-list"}, _complete)["state"] != BASELINE_UNREADABLE:
+        fails.append(f"an unparseable baseline must be {BASELINE_UNREADABLE}")
+
+    # (k) / (l) the actual comparison, both directions.
+    if transition(_complete, dict(_complete))["state"] != NO_CHANGE:
+        fails.append(f"an identical set must be {NO_CHANGE}")
+    _moved = {"read_state": READ_COMPLETE, "stuck": ["a", "b", "d"]}
+    _t = transition(_complete, _moved)
+    if _t["state"] != CHANGED or _t["added"] != ["d"] or _t["cleared"] != ["c"]:
+        fails.append(f"a changed set must report its added/cleared, got {_t}")
+
+    # (m) THE DESENSITISED-ALARM CONTROL. Paging on the standing count is the
+    #     failure this carrier exists to avoid, so it is asserted, not assumed.
+    if FIRST_RUN in PAGING_STATES or NO_CHANGE in PAGING_STATES:
+        fails.append("the carrier would page on the STANDING COUNT — 181 rows "
+                     "every morning is the alarm everyone walks past")
+
+    # (n) `unknown` and `no_remote` must both degrade the receipt. A name that
+    #     ls-remote returned and the clone has no ref for means we did not
+    #     FETCH it, which is not evidence that branch is fine.
+    for _st in (UNKNOWN, NO_REMOTE):
+        _r = build_receipt([Row("x", STUCK, 9.0, 0, ""), Row("y", _st, None, None, "")],
+                           generated_at="2026-09-12T00:00:00+00:00",
+                           prefix="automation/", shared_ref="origin/main",
+                           stale_hours=6.0)
+        if _r["read_state"] != READ_PARTIAL:
+            fails.append(f"a receipt containing a `{_st}` row must be "
+                         f"{READ_PARTIAL}, got {_r['read_state']}")
+
+    # (o) A CONFIRMED absence must NOT degrade the read, and an UNCONFIRMED
+    #     one must. Without the first half, one branch pushed in the seconds
+    #     between the checkout and the run blocks the receipt forever (measured
+    #     live: automation/work-digest-34702634206-1). Without the second, an
+    #     under-fetched clone reads as a clean empty answer.
+    _one_absent = [Row("x", STUCK, 9.0, 0, ""), Row("y", NO_REMOTE, None, None, "")]
+    _kw = dict(generated_at="2026-09-12T00:00:00+00:00", prefix="automation/",
+               shared_ref="origin/main", stale_hours=6.0)
+    if build_receipt(_one_absent, refetch=REFETCH_FETCHED, **_kw)["read_state"] != READ_COMPLETE:
+        fails.append("an absence CONFIRMED by a re-fetch must not degrade the "
+                     "read — one racing branch would block the receipt forever")
+    if build_receipt(_one_absent, refetch=REFETCH_FAILED, **_kw)["read_state"] != READ_PARTIAL:
+        fails.append("an UNCONFIRMED absence must degrade the read — a "
+                     "under-fetched clone would read as a clean empty answer")
+
+    total = 4 + 2 + 11 + 10
     for f in fails:
         print("FAIL " + f)
     print(f"selftest: {total - len(fails)}/{total} passed")
     return 1 if fails else 0
+
+
+def _emit_receipt(rows: List[Row], path: pathlib.Path, *, prefix: str,
+                  shared_ref: str, stale_hours: float,
+                  refetch: str = REFETCH_NOT_NEEDED) -> int:
+    """Grade, report, and refresh the committed receipt.
+
+    ⚠️ THE STANDING COUNT IS NOT AN ANNOTATION. Only `changed`, `degraded` and
+    `baseline_unreadable` reach the log as a warning; `first_run` and
+    `no_change` are recorded and stay quiet, because 181 rows every morning is
+    the alarm everyone learns to walk past.
+
+    ⚠️ AND A DEGRADED RUN NEVER OVERWRITES THE BASELINE. Writing a truncated
+    set would make the next COMPLETE run report every unseen branch as newly
+    stranded, and would destroy the only evidence a reader has that the last
+    good read happened. The receipt then ages instead, which is a state the
+    due-list grades — so a carrier that has silently gone shallow announces
+    itself rather than going quiet.
+
+    Returns 0 even on a finding: this rides the `probes` cadence, whose own
+    contract is that the run fails only when the RUNNER is broken.
+    """
+    current = build_receipt(
+        rows, generated_at=datetime.now(timezone.utc).isoformat(),
+        prefix=prefix, shared_ref=shared_ref, stale_hours=stale_hours,
+        refetch=refetch)
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        previous = None
+    except (OSError, ValueError):
+        # A receipt that exists and will not parse is NOT a missing one: saying
+        # `first_run` here would silently re-baseline over a broken instrument.
+        previous = {"stuck": None}
+
+    verdict = transition(previous, current)
+    state = verdict["state"]
+    print(f"\ntransition: {state} — {verdict['note']}")
+    for b in verdict["added"]:
+        print(f"  + newly stranded: {b}")
+    for b in verdict["cleared"]:
+        print(f"  - cleared: {b}")
+
+    if state == DEGRADED:
+        print(f"::error::stuck-branch receipt NOT refreshed — {verdict['note']} "
+              f"The carrier must check out with fetch-depth: 0.")
+        return 0
+    if state in PAGING_STATES:
+        print(f"::warning::stuck automation branches CHANGED — "
+              f"{verdict['note']}. See {path}.")
+
+    # The transition is carried INTO the artifact, not only into the run log.
+    # A verdict that exists only in a job log is one a session cannot reach —
+    # this repo's own `probe_actions_log` rows exist because two clears_when
+    # literals were printed nowhere else. `render_due_list.src_stuck_branches`
+    # reads this field. ⚠️ IT IS THE LAST RUN'S DELTA, NOT A LEDGER: a
+    # `changed` is superseded by the next run's `no_change`, so the durable
+    # record of every change is this file's own git history, and the due-list
+    # surfaces a new stranding for one cadence period. That is stated rather
+    # than papered over.
+    current["last_transition"] = {
+        "state": state,
+        "added": verdict["added"],
+        "cleared": verdict["cleared"],
+        "note": verdict["note"],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {path} (read_state={current['read_state']}, "
+          f"stuck={len(current['stuck'])})")
+    return 0
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -437,6 +741,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--shared-ref", default="origin/main")
     ap.add_argument("--stale-hours", type=float, default=DEFAULT_STALE_HOURS)
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--receipt", metavar="PATH", default=None,
+                    help="write/refresh the committed receipt at PATH and "
+                         "grade this run against the one already there")
     a = ap.parse_args(argv)
     if a.selftest:
         return _selftest()
@@ -453,6 +760,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     rows = [classify(n, a.shared_ref, a.stale_hours) for n in names]
+
+    # A name ls-remote returned that this clone cannot resolve is ambiguous —
+    # pushed since our last fetch, or deleted since the listing. Ask once,
+    # then the answer is established rather than assumed. ONE call for the
+    # whole prefix, not one per branch.
+    refetch = REFETCH_NOT_NEEDED
+    if any(r.state == NO_REMOTE for r in rows):
+        refetch = REFETCH_FETCHED if fetch_prefix(a.prefix) else REFETCH_FAILED
+        if refetch == REFETCH_FETCHED:
+            rows = [classify(r.branch, a.shared_ref, a.stale_hours)
+                    if r.state == NO_REMOTE else r for r in rows]
+        else:
+            print("::warning::could not re-fetch "
+                  f"{a.prefix}* — branches that do not resolve stay "
+                  "UNCONFIRMED, which degrades the read rather than reading "
+                  "as 'not stuck'.", file=sys.stderr)
+
     by = {}
     for r in rows:
         by.setdefault(r.state, []).append(r)
@@ -471,6 +795,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     n_unknown = len(by.get(UNKNOWN, []))
     print(f"\nstuck={n_stuck} · unknown={n_unknown} (unknown is 'we could not "
           f"look', NOT 'not stuck')")
+    if a.receipt:
+        return _emit_receipt(rows, pathlib.Path(a.receipt), prefix=a.prefix,
+                             shared_ref=a.shared_ref, stale_hours=a.stale_hours,
+                             refetch=refetch)
     if n_stuck:
         print("::warning::" + f"{n_stuck} automation branch(es) have not landed. "
               "Check each one's PR: a red check on a base that has since been "
