@@ -1,0 +1,3 @@
+MI-278 / U20 — OI-20260831 clause (a) observed.
+PR #12097, opened by this session so CI fires on a real pull_request event.
+Tier-1: docs/claude/OPEN-ITEMS.json + this branch's landing declaration.
