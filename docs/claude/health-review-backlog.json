@@ -36525,6 +36525,21 @@
         "PR-11903",
         "MI-283"
       ]
+    },
+    {
+      "id": "BL-20260912-REGISTER-FIELD-LOSS-GUARD-REDS-MAIN-ON-A-LANDED-DECLARATION-AND-REDS-ANY-BEHIND-BRANCH-BY-COMPARING-TO-MAINS-TIP",
+      "opened": "2026-09-12",
+      "status": "open",
+      "severity": "critical",
+      "tier": "1 — CI tooling (scripts/ci/check_register_field_loss.py + tests/test_register_field_loss.py)",
+      "title": "check_register_field_loss reds `main` itself on a LANDED removal declaration, and reds any BEHIND branch by comparing to main's TIP instead of the merge-base — pytest-run fails on every open PR",
+      "detail": "MEASURED 2026-09-12 on a CLEAN origin/main (66a0035e5) worktree with no other changes present: G.check('origin/main') returns ok=False, summary '0 register(s) compared, 6 untouched, 0 unreadable; 0 loss(es), 0 declared, 1 phantom declaration(s).' tests/test_register_field_loss.py::test_the_real_register_is_clean_on_this_tree asserts that value is ok, so pytest-run is RED ON MAIN and on every branch cut from it (3 tests in that file fail). Observed live on PR #11903.\n\nTWO DISTINCT DEFECTS IN ONE GUARD; a fix for either leaves the other standing.\n\n(1) PHANTOM ON A LANDED DECLARATION — this is the one reding main. The guard reads declaration files from the TREE, not from the diff. .github/register-removals/mi279-u5-clear-digest-carrier.json has LANDED on main; it was a true statement about MI-279's own PR, but on every subsequent branch the removal it declares is already history and therefore in no diff, so it grades PHANTOM forever. Verified the file is byte-identical on origin/main and on the branch and appears in neither diff.\n\n(2) LOSS IS COMPUTED AGAINST MAIN'S TIP, NOT THE MERGE-BASE — check() calls _git_show(base, path) at line 283, so anything main adds AFTER a branch's merge-base is reported as FIELD_LOSS/ROW_LOSS on that branch. MEASURED on #11903: 6 reported losses (4 FIELD_LOSS: 'observation' on BL-20260911-MFE-OVER-MAE..., 'resolved_at' and 'resolution' on BL-20260911-THE-SCOPE-OVERLAP-PARSER..., 'updates' on BL-20260912-REGISTER-RESERIALIZATION...; 2 ROW_LOSS: BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL... and BL-20260912-THE-SCALP-FAMILY-S-TARGET...). ALL SIX were absent at the branch's merge-base AND absent at its HEAD — the branch never had them and never dropped them. Merging main cleared all six, which is the proof they were staleness and not loss.\n\n[!] DEFECT (2) EFFECTIVELY REINSTATES require-up-to-date, which CLAUDE.md records as deliberately turned OFF on 2026-08-10 because 'a defensive re-sync just buys another ~9-minute CI cycle'. With main advancing every ~20 minutes in this repo, a branch now goes red for being behind, and each re-merge costs a full CI cycle during which main can move again.\n\n[!] THE GUARD'S PURPOSE IS SOUND AND THIS ROW IS NOT AN ARGUMENT AGAINST IT. A union-by-id proof IS blind to a dropped field, and that is a real class this repo has paid for. What is broken is that it cannot distinguish 'this branch reverted a write-back' from 'main moved on' — the exact distinction it exists to make — so today it fires on the second and would be walked past when it fires on the first.",
+      "resolution_criteria": "G.check('origin/main') returns ok=True on a CLEAN origin/main worktree — the positive control this row was opened on — AND a branch deliberately left BEHIND main by a commit that adds a register row grades CLEAN rather than reporting ROW_LOSS. [!] BOTH CLAUSES ARE REQUIRED and they are different defects: fixing the phantom-declaration half unreds main while leaving every behind-branch red, and fixing the merge-base half leaves main red. [!] A GREEN pytest-run ALONE DOES NOT CLEAR THIS unless the clean-main control above is stated, because a branch that happens to be exactly up to date passes both defects vacuously. [!] AND DO NOT CLEAR IT BY DELETING THE DECLARATION FILE ALONE: that unreds main today and leaves the mechanism intact, so the next landed declaration re-reds it.",
+      "refs": [
+        "PR-11903",
+        "MI-283",
+        "BL-20260911-A-SHARED-REGISTER-LOSES-ITS-TOP-LEVEL-KEYS-TO-A-LINE-LEVEL-MERGE-WHILE-ITS-ROWS-SURVIVE"
+      ]
     }
   ]
 }
