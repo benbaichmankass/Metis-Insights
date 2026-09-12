@@ -403,6 +403,48 @@ That is the signature of period character rather than of a lever. A target that
 was genuinely cutting winners short would improve **both** windows wherever it
 binds; instead the cells that help in one window hurt in the other.
 
+### The bias is now MEASURED, not inferred — and it is monotone across the grid
+
+§2b established the truncation in aggregate. This measures it **per cell, on the
+exact grid being swept**, from the sweep's own `by_outcome` map. Population:
+`/tmp/sol5m.csv`, 26,496 SOLUSDT 5m bars, split `2025-08-15`, `--sim-breakeven`,
+24-bar timeout. **One leg and a small corpus** — this establishes the SHAPE, not
+a fleet magnitude.
+
+| target | IS n | IS timeout | share | OOS n | OOS timeout | share |
+|---|--:|--:|--:|--:|--:|--:|
+| 0.75R | 42 | 9 | **21.4%** | 34 | 4 | **11.8%** |
+| 1.0R | 42 | 14 | 33.3% | 34 | 9 | 26.5% |
+| 1.25R | 41 | 14 | 34.1% | 33 | 10 | 30.3% |
+| **1.5R (live)** | 41 | 15 | **36.6%** | 32 | 11 | **34.4%** |
+| 2.0R | 41 | 17 | 41.5% | 32 | 13 | 40.6% |
+| 2.5R | 41 | 21 | 51.2% | 32 | 14 | 43.8% |
+| 3.0R | 41 | 23 | 56.1% | 32 | 14 | 43.8% |
+| 4.0R | 41 | 24 | **58.5%** | 32 | 15 | **46.9%** |
+
+**The share rises monotonically with the target in both windows** — IS 21.4% →
+58.5%, OOS 11.8% → 46.9%. At 4R **the majority of trades never resolved at a
+level**; they were killed by a clock production does not have. The wide cells
+are therefore not merely noisy, they are graded on a substantially different
+population from the narrow ones, and the difference runs in the direction that
+makes them look worse.
+
+**Every cell verdict now prints this** (`timeout_share` /
+`_fidelity_suffix`), so a future reader cannot mistake a screening verdict for
+a parity one. It returns **`None`, never `0.0`**, when a window has no trades
+or no outcome map — `0.0` would read as *perfect fidelity*, which is the most
+flattering wrong answer available.
+
+⚠️ **A candidate finding was RAISED AND REFUTED here, recorded so it is not
+re-raised.** On this smoke corpus five widening cells tied IS max-drawdown to
+four decimals (`ΔDD = +0.000000`), which looks like the gate rejecting cells on
+a criterion they cannot move — `tp2R` improves net R in **both** windows
+(+1.09 IS, +0.80 OOS) and improves OOS drawdown, and is discarded on an exact
+tie. **It does not reproduce**: across the four 124k-bar corpora the count of
+exact IS ties is **0/7 on every leg**, against 5/7 here. It is a small-sample
+artifact of a 26k-bar run, **not** a gate defect, and `tp2R` is not a
+candidate — its grading is simply uninformative at this timeout.
+
 ### ⚠️ AND THIS ARM CANNOT SETTLE THE QUESTION, IN THE ONE DIRECTION THAT MATTERS
 
 Every figure above was produced with the **24-bar force-close of §2b**, which
