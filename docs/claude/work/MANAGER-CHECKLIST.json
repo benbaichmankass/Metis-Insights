@@ -5493,5 +5493,25 @@
       "the dedupe row is LOUD and on a 2-day cadence — it is due 2026-09-14 and must be re-observed, not carried",
       "watch for the sharpened fan-out condition"
     ]
+  },
+  "manager_tick_2026_09_12T2355Z": {
+    "verdict": "Nothing changed on the FLEET. One thing changed in the QUEUE and it strengthens a filed finding.",
+    "fleet_unchanged": {
+      "soak": "newest still 2026-09-12T17:34:01Z, size still 584431 — flat for 6h19m. Cause established two ticks ago (no intents -> no contest -> nothing to write), not re-derived.",
+      "trades": "newest still id 5729 (20:00:15Z)",
+      "decision_2": "still gated, still no evidence, condition unchanged"
+    },
+    "12094_IS_A_SECOND_INSTANCE_OF_THE_NON_CONVERGENCE_CLASS": {
+      "observed": "THIRD resolve->CI cycle in ~2.5h. Created 21:17. Head 1155c8ed1 at 22:45 (CI armed, 5 green). Head 3294c7a49 at 23:48, CI restarted 23:52-23:53 and running again.",
+      "what_the_range_actually_contains": "git log 1155c8ed1..3294c7a49 = TWO base merges (37432e03c, 62b933e21) plus one deliberate scope reduction — 'drop the register row from this PR, it lands on its own in #12127'.",
+      "why_it_matters": "the row filed at 1855Z was measured on CLAUDE.md. This is the SAME rate inequality on the REGISTERS, which means the class is not CLAUDE.md-specific: it is ANY file multiple lanes touch under this merge velocity. That is strengthening evidence for the filed row rather than a new finding, so NO duplicate row was filed.",
+      "the_owner_reached_the_same_remedy_independently": "narrowing the PR to escape contention is exactly the split the manager proposed to MI-283 on #11903 at 1855Z. Two lanes converging on it without coordination says the remedy is right and the mechanism is real.",
+      "manager_action": "NONE. Auto-merge was armed at 22:46 and a push does not disarm it; it lands when CI is green and main has not moved. Merging by hand would not beat the race and would burn a CI cycle."
+    },
+    "next": [
+      "let #12094 land on its own, then #12095",
+      "the dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
+      "watch for the sharpened fan-out condition"
+    ]
   }
 }
