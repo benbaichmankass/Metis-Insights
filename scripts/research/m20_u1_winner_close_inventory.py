@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -315,7 +314,14 @@ def build(strategies_yaml: Path, accounts_yaml: Path) -> Dict[str, Any]:
         try:
             unit = monitor_unit_for(name)
             unit_state = "resolved"
-        except Exception as exc:                       # noqa: BLE001
+        # NOT swallowed — the failure is RECORDED as its own state: monitor_unit_state
+        # carries "unresolved: <ExcType>" and the leg still appears with
+        # monitor_unit=None, so "we could not resolve this leg's unit" stays
+        # distinguishable from "this leg has no armed mechanism". A narrow except is
+        # not available — monitor_unit_for resolves through an import registry and can
+        # raise KeyError, ImportError or AttributeError, and a NEW failure mode must
+        # surface as unresolved rather than abort the inventory for the other 54 legs.
+        except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as unresolved, not swallowed
             unit, unit_state = None, f"unresolved: {type(exc).__name__}"
         armed, orphaned, available = {}, [], []
         for mech, spec in MECHANISMS.items():
