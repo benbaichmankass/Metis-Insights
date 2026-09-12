@@ -356,7 +356,13 @@ def _self_test() -> int:
             ck("refuses a duplicate id", True)
 
         # (4) update_row — the EDIT path
-        #     (BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-...). Every control
+        #     Its row is BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-REQUIRES-THE-FORBIDDEN-HAND-EDIT
+        #     -- ON ONE LINE, over the margin, deliberately. Eliding it to
+        #     `...` AND wrapping it both produce a token that resolves to
+        #     NOTHING, which reads as tracked while being tracked by nobody;
+        #     I did each of those once writing this file and the guard caught
+        #     both. See BL-20260909-A-MANAGER-TRUNCATED-A-BACKLOG-ID-FOUR-TIMES-IN-ONE-SESSION-AND-ONLY-A-GUARD-EVER-CAUGHT-IT
+        #     Every control
         #     here is about the file's BYTES, because the failure being
         #     prevented still parses and still reads correctly.
         p4 = pathlib.Path(td) / "edit.json"
