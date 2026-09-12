@@ -36737,6 +36737,24 @@
         "/api/diag/bybit_raw_closed_pnl?account_id=bybit_2&symbol=ETHUSDT -- venue record for trade 5644, exit 2477.45, pnl -3.42411245"
       ],
       "found_by": "manager session_01HoFquGdTrD3TTGbMMRc43t during the bybit_2 ETHUSDT naked-short investigation"
+    },
+    {
+      "id": "BL-20260912-THE-GENERATED-SESSION-BRIEF-REWRITES-CLAUDE-MD-FASTER-THAN-CI-RUNS-SO-NO-PR-TOUCHING-IT-CAN-EVER-CONVERGE",
+      "opened": "2026-09-12",
+      "severity": "P2",
+      "tier": 1,
+      "status": "open",
+      "area": "ci/landing",
+      "title": "The generated SESSION-BRIEF block rewrites CLAUDE.md every ~15.7 min while pytest-run takes ~19 min, so any PR touching CLAUDE.md conflicts faster than it can go green",
+      "detail": "MEASURED 2026-09-12T18:5xZ on origin/main. POPULATION: the last 60 commits to main, and the last 25 commits touching CLAUDE.md.\n\n(1) RATE. 39 of 60 commits to main touch CLAUDE.md (65%). Consecutive CLAUDE.md commit times over the last 12: 15:44:33, 15:52:49, 16:11:36, 16:29:32, 16:41:31, 16:50:17, 17:11:16, 17:27:59, 18:04:31, 18:17:35, 18:33:16, 18:47:39 -- gaps 8.3 to 36.5 min, MEDIAN ~15.7 min.\n\n(2) CAUSE. 23 of those last 25 CLAUDE.md commits change ~4 lines of which 2 carry SESSION-BRIEF markers (the generated block: 'SESSION BRIEF', \"CYCLE'S PRIORITY\", 'monitoring item(s) DUE', 'COMPUTED READOUT'). Only 2 of 25 are prose edits. So the churn is the GENERATED block, not humans or sessions editing canon.\n\n(3) THE ARITHMETIC. pytest-run on this repo takes ~19 min (measured on several PRs today: 14:06:07->14:21:07, 17:48:54 start). A PR that edits CLAUDE.md must, after each base merge, survive ~19 min of CI without main touching CLAUDE.md again -- and main touches it every ~15.7 min. The expected number of clean windows is therefore LOW BY CONSTRUCTION. This is not contention bad luck; it is a rate inequality.\n\nOBSERVED INSTANCE. PR #11903 (Tier-2, operator-approved) was resolved by its owning lane at 13:51, 15:31, 16:48 and 18:34 and measured CONFLICTED again within minutes each time, on CLAUDE.md ALONE -- its other three conflicting files (DOCUMENT-INDEX.md, OPEN-ITEMS.json, health-review-backlog.json) auto-merge every time. GitHub auto-merge was armed on it at 17:54:23Z and still could not fire an hour later, because auto-merge requires a MERGEABLE PR and this one is mergeable only for minutes at a time.\n\nWHY THIS IS THE SAME CLASS AS THE AUTOMATION MERGE-SLOT DEFECT, one level up: that one was 'every automation PR rewrites the same four lines of a shared register', measured at seventeen consecutive conflict cycles, and was fixed by moving the claim to a per-branch path (#11958). This is the identical shape on a different shared file, and the fix shape is likely the same -- move the generated block OUT of CLAUDE.md so regenerating it does not rewrite a file that hand-edited canon also lives in.\n\nNOT PROPOSED HERE, DELIBERATELY: the remedy touches the brief renderer and CLAUDE.md's structure, which is worker scope. This row is filed by the manager as the carrier.\n\nRESOLUTION CRITERIA. A PR that edits CLAUDE.md is OBSERVED going from opened to merged without its owner hand-resolving a CLAUDE.md conflict more than once. NOT SUFFICIENT: a single PR landing by luck in a quiet window -- state the gap distribution it landed against. NOT SUFFICIENT: lowering CI time alone, unless the resulting margin is stated against the MEASURED churn rate rather than assumed.",
+      "evidence": [
+        "git log origin/main -60 --name-only -- CLAUDE.md : 39 of 60 commits touch it",
+        "git log origin/main -12 --format=%ci -- CLAUDE.md : median inter-commit gap ~15.7 min",
+        "23 of the last 25 CLAUDE.md commits are ~4-line generated-brief updates (2 brief-marker lines each)",
+        "PR #11903: four owner resolutions (13:51, 15:31, 16:48, 18:34), CONFLICTED on CLAUDE.md alone within minutes each time",
+        "PR #11903: auto-merge armed 17:54:23Z, had not fired by 18:53Z"
+      ],
+      "found_by": "manager session_01HoFquGdTrD3TTGbMMRc43t, after three ticks reporting the same non-convergence"
     }
   ]
 }

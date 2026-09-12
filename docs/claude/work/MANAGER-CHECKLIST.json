@@ -5369,5 +5369,28 @@
       "watch for a dispatchable fan-out round once a market is open — that is decision 2's evidence",
       "if the alpaca route produces no artifact, file the ROUTE as the finding"
     ]
+  },
+  "manager_tick_2026_09_12T1855Z": {
+    "11903_ROOT_CAUSED_not_just_reported_again": {
+      "verified_first": "#11903 is NOT merged. Read off origin/main, not assumed. mergeable_state from the API reads `unknown` (GitHub computes it lazily), so the verdict is the LOCAL merge-tree: CONFLICTED, on CLAUDE.md alone.",
+      "why_auto_merge_did_not_fire": "auto-merge requires a MERGEABLE PR. Armed 17:54:23Z, still unfired at 18:53Z, because the PR is mergeable only in minutes-long gaps.",
+      "MEASURED": {
+        "population": "last 60 commits to origin/main; last 25 touching CLAUDE.md",
+        "rate": "39 of 60 commits touch CLAUDE.md; median inter-commit gap ~15.7 min (12 samples, 8.3-36.5)",
+        "cause": "23 of the last 25 CLAUDE.md commits are ~4-line GENERATED SESSION-BRIEF updates (2 brief-marker lines each); only 2 of 25 are prose",
+        "ci": "pytest-run ~19 min",
+        "conclusion": "the clean window is SHORTER than the test run. A PR touching CLAUDE.md cannot converge -- arithmetic, not contention bad luck."
+      },
+      "filed": "a health-backlog row carrying the measurement and the resolution criteria. Same class as the automation merge-slot defect #11958 fixed, one level up: a shared file rewritten by a generator faster than anything touching it can land.",
+      "poked": "commented on #11903 with the measurement and ONE concrete unblock -- split the CLAUDE.md doc-reconciliation edits out and let the CODE land alone. Proposed, not imposed: the split is the owner's call.",
+      "manager_still_not_resolving_it": "CLAUDE.md prose outside the generated block is a worker path; R2 grades exactly that commit.",
+      "operator_approval": "UNCHANGED and applies to whatever shape lands. Auto-merge stays armed. Not re-sought."
+    },
+    "three_ticks_rule": "This is the third tick on the same blocker. Reporting it a third time unchanged would BE the desensitised-alarm pattern, so it was measured, filed and routed instead.",
+    "next": [
+      "if the owner splits the PR, take the code half the moment it is clean and green",
+      "if it does not move by the next tick, the CLAUDE.md churn row is the item -- not #11903",
+      "still waiting on a market to open before decision 2 has any evidence"
+    ]
   }
 }
