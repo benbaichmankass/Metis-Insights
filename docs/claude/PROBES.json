@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T09:51:15.785788+00:00",
+  "generated_at": "2026-09-12T16:29:18.870030+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 57,
+  "monitoring_rows": 65,
   "rows_with_a_probe": 15,
-  "rows_without_a_probe": 42,
+  "rows_without_a_probe": 50,
   "counts": {
-    "pass": 6,
+    "pass": 7,
     "fail": 4,
     "source_empty": 0,
-    "could_not_run": 47
+    "could_not_run": 54
   },
   "results": [
     {
@@ -73,11 +73,11 @@
         "--positive-control",
         "decision~stray_unkeyed,no_strays,could_not_look"
       ],
-      "matched": 4,
-      "scanned": 23,
+      "matched": 5,
+      "scanned": 24,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=4 scanned=23\nprobe: PASS — 4 of 23 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 23 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 23)"
+      "detail": "probe-counts: matched=5 scanned=24\nprobe: PASS — 5 of 24 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 24 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 24)"
     },
     {
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
@@ -129,11 +129,11 @@
         "--positive-control",
         "pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h"
       ],
-      "matched": 4,
+      "matched": 5,
       "scanned": 200,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=4 scanned=200\nprobe: PASS — 4 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 43)"
+      "detail": "probe-counts: matched=5 scanned=200\nprobe: PASS — 5 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 44)"
     },
     {
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 360,
-      "scanned": 476,
+      "matched": 411,
+      "scanned": 533,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=360 scanned=476\nprobe: PASS — 360 of 476 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 476 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=411 scanned=533\nprobe: PASS — 411 of 533 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 533 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -253,7 +253,7 @@
       "scanned": null,
       "state": "could_not_run",
       "reason": "exit_2",
-      "detail": "probe: COULD NOT LOOK — [guards.yml] guards.yml: 20 run(s) listed but NONE had readable logs (20 unread). That is an unread population, not an absent line."
+      "detail": "probe: COULD NOT LOOK — [due-list.yml] due-list.yml: 20 run(s) listed but NONE had readable logs (20 unread). That is an unread population, not an absent line."
     },
     {
       "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
@@ -428,27 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.6h ago, inside the 30.0h window.\n  queue at last run: 0 PR(s) waiting on a merge decision, worst 0.9h  (reported, not enforced here)"
-    },
-    {
-      "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
-      "checks": "A work-digest job log contains the literal `work-digest: trigger=push`, i.e. a run of that workflow was carried by a PUSH event. That is the only thing that settles clause (1): the workflow file declaring `push` is a declaration, and this repo's whole finding is that a declared trigger is not a run. The positive control is `work-digest: trigger=` WITHOUT the event value, so a log that is fetched but no longer carries the line at all grades could_not_run rather than a clean negative -- the unstated-denominator error one level up.",
-      "is_not": "A PASS DOES NOT CLEAR THIS ROW. It establishes that a push-triggered run EXISTED; it says nothing about (a) whether that run actually queued a digest -- the gate may have graded `not_due` and skipped, which is correct behaviour and not a delivery, (b) whether the receipt docs/claude/work/WORK-DIGEST.json LANDED on main, which is the fact clause (1) actually requires and which only a read of main can show, (c) clause (2) at all, the detector arming itself on a PR other than #10845, and (d) the QUIET-WINDOW half, which is the part this change does not fix -- a push-triggered run is by definition evidence from a period when main was NOT quiet, so it is the wrong population for that question entirely. A FAIL today is the CORRECT reading, not a defect: nothing has fired yet.",
-      "cmd": [
-        "python3",
-        "scripts/ops/probe_actions_log.py",
-        "--workflow",
-        "work-digest.yml",
-        "--contains",
-        "work-digest: trigger=push",
-        "--positive-control",
-        "work-digest: trigger="
-      ],
-      "matched": null,
-      "scanned": null,
-      "state": "could_not_run",
-      "reason": "exit_2",
-      "detail": "probe: COULD NOT LOOK — [work-digest.yml] work-digest.yml: 10 run(s) listed but NONE had readable logs (10 unread). That is an unread population, not an absent line."
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 0.6h ago, inside the 30.0h window.\n  queue at last run: 4 PR(s) waiting on a merge decision, worst 6.8h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -504,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 19,
+      "matched": 40,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=19 scanned=1000\nprobe: PASS — 19 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=40 scanned=1000\nprobe: PASS — 40 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -542,11 +522,11 @@
         "--positive-control",
         "peak_state~measured,unanchored,thin_window,no_risk"
       ],
-      "matched": 24,
-      "scanned": 229,
+      "matched": 31,
+      "scanned": 246,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=24 scanned=229\nprobe: PASS — 24 of 229 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 229 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 229)"
+      "detail": "probe-counts: matched=31 scanned=246\nprobe: PASS — 31 of 246 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 246 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 246)"
     },
     {
       "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
@@ -569,14 +549,6 @@
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "NO PROBE EXISTS AND THE HALF THAT MATTERS CANNOT HAVE ONE, which is a property of the condition rather than of the effort available. Clause (a) asks whether a GitHub Actions run of e35-bracket-sweep.yml SCHEDULED both legs and its fetch step returned real rows — that lives in a run log and in `actions_list`, and CI holds no mcp__github__* tool, so a probe running IN CI cannot read it. ⚠️ AND THE O",
-      "checks": null,
-      "is_not": null
-    },
-    {
-      "id": "OI-20260908-CANCEL-ACCEPTED-INEFFECTIVE-MERGED-AND-NEVER-EMITTED-ON-THE-FLEET",
-      "state": "could_not_run",
-      "reason": "no_probe_declared",
-      "detail": "A PROBE IS POSSIBLE FOR THE DENOMINATOR AND CANNOT SETTLE THE CLAIM, and the gap is a property of the condition rather than of the effort available. Grepping the give-up log / operator_alerts ring for the `cancel_accepted_ineffective` token WOULD establish whether the state has ever been emitted, and that is worth doing. What it cannot do is read a SILENCE. The exercising condition is two specific",
       "checks": null,
       "is_not": null
     },
@@ -667,6 +639,100 @@
       "detail": "NO PROBE IS POSSIBLE YET AND THE REASON IS DATED, NOT PERMANENT. The gate emits a logger.warning on refusal and writes no soak file, so there is no allowlisted diag surface to read: a probe written today would grade could_not_read forever while LOOKING like a quiet negative. A soak was deliberately NOT added because the refusal is expected to be rare, and a soak that is empty by design cannot be t",
       "checks": null,
       "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE IS POSSIBLE AND IS NOT WIRED YET, and the reason is dated rather than permanent: the condition is a field read (`newly_stalled` non-empty, minus the seed) on a committed JSON register, which probe_file could express. It is deliberately not wired today because the register has been written exactly ONCE, and a probe over a single observation would grade a cadence nobody has seen. Wire it onc",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO OFFLINE PROBE CAN OBSERVE THIS ROW'S CRITERION, and saying so is the point. The criterion is that a LIVE blocked lane is woken and acts on it; establishing that needs list_sessions/get_session -- mcp__* tools CI does not hold -- so a probe would report `unknown` permanently, which scripts/ops/queue_latency.py already does for the same reason and says is not yet a guard. !! WHAT *IS* PROBED IS T",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No offline probe can observe this row's criterion. Attribution requires a per-leg stop-out and MFE-at-stop comparison against a chosen 2026-08-30 split, which is an ANALYSIS a session performs and records, not a condition a cadence can read. ⚠️ WHAT COULD BE PROBED AND DELIBERATELY IS NOT: 'is the book still losing' — because a return to profit does NOT clear this row (its clears_when says so expl",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND ITS ABSENCE IS HALF THE FINDING. arbitration_fanout_soak ALREADY records starved_accounts: ['breakout_1'] on every occurrence -- the data is correct, durable and complete, and NOTHING READS IT. Building that reader is itself filed as BL-20260911-A-DECLARED-LIVE-ACCOUNT-CAN-BE-STARVED-FOR-TWELVE-DAYS-AND-EVERY-DETECTOR-READS-HEALTHY. Until it exists this row is carried by re-obs",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE EXISTS FOR HALF OF THIS AND IS NAMED RATHER THAN BUILT ANEW: each detector writes runtime_logs/<name>_observed_state.json with a __last_check__ stamp, allowlisted on /api/diag/log_file as losing_streak_observed_state and starved_account_observed_state, so 'did the tick hook run at all' is mechanically readable. What is NOT mechanical is the half this row exists for - whether the PING reach",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE WOULD BE PREMATURE AND IS DELIBERATELY NOT BUILT. Clause (1) needs a fleet observation of someone else's fix; clause (2) needs a population that may never exist. Automating a re-run of the decomposition would produce a number on every schedule and answer neither — and MI-271's own script header records why this class of one-off attribution must NOT be scheduled: it would re-answer a dated ",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-TIER-2-APPROVED-SELF-LANDING-IS-BUILT-AND-NO-PR-HAS-LANDED-OR-BEEN-REFUSED-BY-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No offline probe can observe either criterion. (1) needs a PR's merge event joined to an approval record, and (2) needs a REFUSAL on a PR nobody wrote on purpose -- neither is a condition a cadence can read, and a probe that reported 'the guard is registered' would be measuring the deploy, which is the substitution this row exists to refuse. ⚠️ WHAT COULD BE PROBED AND DELIBERATELY IS NOT: 'does d",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS DECLARED, AND THE REASON IS THAT EVERY AVAILABLE PREDICATE WOULD LIE IN THE REASSURING DIRECTION. The breaker writes no soak file of its own -- deliberately: a trip is rare by construction, so a dedicated log would be EMPTY for long stretches and 'empty by design' cannot be told from 'the writer is dead', which is the exact collapse a soak alarm exists to prevent. The verdict is instea",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "There is no single probe, and there deliberately is not one: these are eight DIFFERENT instruments whose evidence lives in eight different places (a workflow run log, a committed JSON field, a PR's check list, a venue-free git read). A single probe would have to collapse them, and collapsing is the failure most of them exist to prevent. The per-unit reads below are each cheap; what is missing is a",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
+      "checks": "A v3 arbitration_fanout_soak row exists in which the repaired writer produced rounds the dispatcher ACCEPTS -- fanout_schema 3 (so the row was written by the post-#11970 code at all) AND apply_state `dispatchable` (so accepted_rounds returned every round that was written). That is exactly clause (1) of clears_when. The positive control accepts either schema, so a run that matches nothing over a populated log is a real negative rather than a fetch that quietly returned an empty page -- which matters unusually much here, because `nothing matched` is the state this row is ALREADY in and would otherwise be indistinguishable from the expected one.",
+      "is_not": "A PASS CLEARS CLAUSE (1) ONLY AND MUST NOT BE READ AS CLEARING THE ROW. Clause (2) asks for a JOURNAL ROW on bybit_1 carrying meta.arbitration_fanout_round whose entry/sl/tp match that round -- an ORDER, which this probe cannot see because it reads the soak, and the soak is the fan-out's own account of its PLAN. Treating a soak row as evidence of dispatch is precisely the conflation #11970 repaired (93 of 93 v2 rows read `applied: true` while nothing dispatched), so a probe pass standing in for clause (2) would re-make that error one level up, in the instrument instead of the code. A FAIL (exit 1) is ALSO NOT A FINDING TODAY: it is the accurate reading until the first contested tick occurs, and the soak deliberately writes only on a NOTABLE tick, so silence can mean no contest rather than no dispatch. Exit 3 (source_empty) WOULD be a finding -- the soak has stopped writing entirely. And an apply_state of `refused_by_dispatcher` fails this predicate correctly while being the MORE valuable outcome: the projection is still wrong and the trader journal will carry an ERROR naming the missing fields.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=arbitration_fanout_soak&lines=1000",
+        "--require",
+        "fanout_schema=3",
+        "--require",
+        "apply_state=dispatchable",
+        "--positive-control",
+        "fanout_schema~2,3"
+      ],
+      "matched": 4,
+      "scanned": 533,
+      "state": "pass",
+      "reason": "exit_0",
+      "detail": "probe-counts: matched=4 scanned=533\nprobe: PASS — 4 of 533 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 533 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 520)"
     }
   ]
 }

@@ -85,6 +85,11 @@ _ERROR_FEED_MAX_ROWS = 10
 # missed run plus a retry without absorbing a whole day.
 _ERROR_FEED_STALE_AFTER_H = 6.0
 _PROBES_WORKFLOW = Path(".github/workflows/probes.yml")
+
+#: The stuck-automation-branch receipt, written by the same `probes` run.
+#: Its carrier is `scripts/ops/stuck_automation_branches.py --receipt`.
+_STUCK_RECEIPT = Path("docs/claude/STUCK-BRANCHES.json")
+_STUCK_CARRIER = "stuck_automation_branches.py"
 # Slack on top of the declared cadence before a report is called stale. The
 # probes job carries `timeout-minutes: 60`, so a run that starts on time can
 # still be committing an hour later; 6h absorbs that plus a retry without
@@ -975,10 +980,127 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: t
     return SourceResult("checklist_unrouted", "read", rows)
 
 
+def src_stuck_branches(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one grades against `now`, which carries the time of day `today` throws away
+    *,
+    now: datetime | None = None,
+) -> SourceResult:
+    """Automation BRANCHES that never landed — the TRANSITION, not the count.
+
+    ⚠️ THIS IS A DIFFERENT POPULATION FROM ``src_unlanded_automation``, which
+    lists open PRs. A branch whose PR was closed, or that never had one, is
+    invisible to that source by construction — and most of them are: measured
+    2026-09-12 on a full clone, 184 stuck branches against the handful of open
+    `automation/*` PRs the PR source sees.
+
+    ⚠️ AND IT DELIBERATELY EMITS NO ROW FOR THE STANDING COUNT. 184 rows every
+    morning is the desensitised alarm this repo already pays for; the count
+    lives in this source's ``note``, where a reader meets it without being
+    paged by it. What earns a row is a CHANGE, a receipt that has gone STALE
+    (the carrier stopped), or a carrier running DEGRADED — i.e. the instrument
+    failing, which is the thing a standing count cannot tell you.
+
+    ⚠️ A ROW LASTS ONE CADENCE PERIOD. ``last_transition`` is the last run's
+    delta and is superseded by the next run's ``no_change``, so a new stranding
+    is surfaced once. The durable record of every change is the receipt's own
+    git history. Stated rather than papered over.
+    """
+    now = now or datetime.now(timezone.utc)
+
+    try:
+        declared = _STUCK_CARRIER in (root / _PROBES_WORKFLOW).read_text(encoding="utf-8")
+    except OSError:
+        declared = False
+
+    p = root / _STUCK_RECEIPT
+    if not p.exists():
+        if not declared:
+            return SourceResult("stuck_branches", "not_applicable",
+                                note=f"{_STUCK_RECEIPT} absent and no workflow "
+                                     f"declares the carrier")
+        # DECLARED AND NEVER PRODUCED is not "nothing to report" — it is the
+        # exact state the receipt was built to end, one level up.
+        return SourceResult("stuck_branches", "could_not_read",
+                            note=f"{_PROBES_WORKFLOW} declares {_STUCK_CARRIER} "
+                                 f"and no receipt has ever landed at "
+                                 f"{_STUCK_RECEIPT} — the carrier is armed and "
+                                 f"has produced nothing")
+    try:
+        doc = _load_json(p)
+    except (OSError, ValueError) as exc:
+        return SourceResult("stuck_branches", "could_not_read",
+                            note=f"{_STUCK_RECEIPT}: {type(exc).__name__}: {exc}")
+    if not isinstance(doc, dict):
+        return SourceResult("stuck_branches", "could_not_read",
+                            note=f"{_STUCK_RECEIPT} is not an object")
+
+    rows: list[dict] = []
+    stuck = doc.get("stuck")
+    n_stuck = len(stuck) if isinstance(stuck, list) else None
+
+    cadence_h, basis = probe_cadence_hours(root)
+    fresh, age_h = probe_freshness(doc.get("generated_at"), cadence_h, now)
+    if fresh != "fresh":
+        rows.append(_row(
+            "stuck_branches", "stuck-branches-receipt-" + fresh,
+            f"the stuck-branch receipt is {fresh}",
+            (f"age {age_h:.1f}h against {basis}. " if age_h is not None
+             else "the receipt carries no readable generated_at. ")
+            + "A receipt that is not current cannot tell you whether a branch "
+              "stranded today — and the carrier going quiet looks exactly like "
+              "a quiet week. Check the `probes` workflow run history.",
+            age_days=int(age_h // 24) if age_h is not None else None,
+            loud=True, link=str(_STUCK_RECEIPT)))
+
+    if doc.get("read_state") != "complete":
+        rows.append(_row(
+            "stuck_branches", "stuck-branches-degraded",
+            "the stuck-branch carrier is running DEGRADED",
+            f"read_state={doc.get('read_state')!r}: {doc.get('read_note', 'no note')}. "
+            "The usual cause is a checkout without fetch-depth: 0, on which "
+            "containment is not computable. Until it is fixed this receipt "
+            "cannot be read as a count of anything.",
+            loud=True, link=str(_STUCK_RECEIPT)))
+
+    tr = doc.get("last_transition")
+    tr = tr if isinstance(tr, dict) else {}
+    tstate = tr.get("state")
+    added = tr.get("added") if isinstance(tr.get("added"), list) else []
+    cleared = tr.get("cleared") if isinstance(tr.get("cleared"), list) else []
+    if tstate == "changed":
+        rows.append(_row(
+            "stuck_branches", "stuck-branches-changed",
+            f"{len(added)} automation branch(es) newly stranded, "
+            f"{len(cleared)} cleared",
+            (", ".join(added[:5]) + ("…" if len(added) > 5 else "")
+             if added else "nothing newly stranded") +
+            ". A stranded automation branch is a producer whose output never "
+            "landed; a red check on a base that has since been fixed will "
+            "NEVER re-run on its own, so nothing recovers it without a push.",
+            loud=bool(added), link=str(_STUCK_RECEIPT)))
+    elif tstate in ("degraded", "baseline_unreadable"):
+        rows.append(_row(
+            "stuck_branches", f"stuck-branches-{tstate}",
+            f"the stuck-branch comparison could not be made ({tstate})",
+            str(tr.get("note", "no note")),
+            loud=True, link=str(_STUCK_RECEIPT)))
+
+    if not rows:
+        # The standing count belongs HERE and not in a row — see the docstring.
+        how_many = "an unreadable number of" if n_stuck is None else str(n_stuck)
+        return SourceResult(
+            "stuck_branches", "read", [],
+            note=(f"nothing due: {how_many} branch(es) standing, unchanged "
+                  f"since the last run; receipt {fresh}"))
+    return SourceResult("stuck_branches", "read", rows,
+                        note=f"{n_stuck} branch(es) standing")
+
+
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
-    src_sunset_dispositions, src_checklist_unrouted,
+    src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
 )
 
 
