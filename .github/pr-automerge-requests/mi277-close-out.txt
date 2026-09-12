@@ -1,0 +1,1 @@
+MI-277: close out the work object after #11848 merged (Tier-1, register only).
