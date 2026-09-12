@@ -1401,8 +1401,9 @@ def _inherit_branch_claim(root: Path, branch: str = "claude/demo") -> None:
     presence alone its diff is indistinguishable from a real claim.
     """
     rel = _branch_slot_rel(branch)
-    g = lambda *a: subprocess.run(["git", "-C", str(root), *a], check=True,
-                                  capture_output=True)
+    def g(*a):
+        return subprocess.run(["git", "-C", str(root), *a], check=True,
+                              capture_output=True)
     g("checkout", "-q", "main")
     (root / rel).parent.mkdir(parents=True, exist_ok=True)
     (root / rel).write_text(json.dumps({
