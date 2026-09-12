@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
     "branch": "claude/mi280-scope-overlap-parser",
-    "claimed_at": "2026-09-12T05:52:12Z",
+    "claimed_at": "2026-09-12T06:11:46Z",
     "purpose": "MI-280 U3: scope-overlap declaration parser (#11866)"
   },
   "active_sessions": [
