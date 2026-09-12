@@ -142,15 +142,23 @@ def build_group_units(trades: list[dict], pkgs: dict[str, dict],
 
         era = BA.era_of(rows[0])
         if era == "unknown":
-            drop("unknown_era"); continue
+            drop("unknown_era")
+
+            continue
         pkg = pkgs.get(pid)
         if pkg is None:
-            drop("no_package"); continue
+            drop("no_package")
+
+            continue
         if symbol not in CF.INST:
-            drop("no_candle_source"); continue
+            drop("no_candle_source")
+
+            continue
         direction = str(rows[0].get("direction") or "").lower()
         if direction not in ("long", "short"):
-            drop("no_direction"); continue
+            drop("no_direction")
+
+            continue
         try:
             meta = (json.loads(pkg["meta"]) if isinstance(pkg.get("meta"), str)
                     else (pkg.get("meta") or {}))
@@ -158,7 +166,9 @@ def build_group_units(trades: list[dict], pkgs: dict[str, dict],
             meta = {}
         atr = CF._f(meta.get("atr"))
         if atr is None or atr <= 0:
-            drop("no_entry_frozen_atr"); continue
+            drop("no_entry_frozen_atr")
+
+            continue
 
         # ANCHOR = the package's declared entry, for MI-275's own reason: it is what
         # the bot measured its geometry from, and the trade row's entry_price is the
@@ -169,7 +179,9 @@ def build_group_units(trades: list[dict], pkgs: dict[str, dict],
             entry = CF._f(rows[0].get("entry_price"))
             entry_source = "trade_fill_price"
         if entry is None or entry <= 0:
-            drop("no_entry_frozen_atr"); continue
+            drop("no_entry_frozen_atr")
+
+            continue
 
         # ⚠️ THE TRADE'S created_at, NOT THE PACKAGE'S, and the choice is forced
         # rather than preferred: CF.excursion_regime windows on the unit's
@@ -183,7 +195,9 @@ def build_group_units(trades: list[dict], pkgs: dict[str, dict],
         opened_ms = CF._ms(str(rows[0].get("created_at") or ""))
         closed_ms = CF._ms(str(rows[0].get("closed_at") or ""))
         if opened_ms is None or closed_ms is None:
-            drop("unknown_era"); continue
+            drop("unknown_era")
+
+            continue
 
         declared_mult = CF._f(meta.get("atr_stop_mult"))
         unit = {
@@ -252,7 +266,7 @@ def _median(xs: list[float]) -> float | None:
     return s[len(s) // 2]
 
 
-def symbol_matched(fixed: dict, units_pre: list[dict], units_post: list[dict],
+def symbol_matched(units_pre: list[dict], units_post: list[dict],
                    cache: str, window_h: int) -> dict:
     """Fixed-window MFE/MAE split BY SYMBOL, so the pooled number can be checked.
 
@@ -397,7 +411,7 @@ def main() -> int:
 
     print("symbol-matched view ...", file=sys.stderr)
     result["symbol_matched"] = symbol_matched(
-        result["fixed_window_excursion"], units["pre"], units["post"], a.cache, windows[-1])
+        units["pre"], units["post"], a.cache, windows[-1])
 
     out = json.dumps(result, indent=1, sort_keys=False)
     if a.out:
