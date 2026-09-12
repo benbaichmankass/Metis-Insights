@@ -43,6 +43,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -2223,6 +2224,101 @@ def _subst(argv: Sequence[str], ctx: Dict[str, str]) -> List[str]:
     return [a.format(**ctx) for a in argv]
 
 
+class CouldNotRun(str):
+    """A reason meaning WE DID NOT LOOK — never "the diff is bad".
+
+    ⚠️ THIS IS A THIRD STATE AND POOLING IT WITH `fail` COST TWO REAL DEFECTS.
+    On 2026-09-10 a session ran this script in a container without `pytest`,
+    read `FAIL 4, all four environmental, not the diff`, and shipped. CI — the
+    one runner where the tools are installed — then named two load-bearing
+    defects that were sitting inside those very guards: a `system-action`
+    absent from `EXPECTED_ACTIONS`, which would have merged looking correct and
+    aborted the first time an operator ran an approved real-money-adjacent
+    repair; and a `notify_run.sh` with no priority mapping. Neither is
+    reachable by any non-pytest guard.
+
+    ⚠️ THE GAP WAS ROUTING, NOT KNOWLEDGE. The one-command remedy was already
+    written down — in a 1298-row backlog `CLAUDE.md` itself calls too large to
+    read at session start — while the coordination board, which every session
+    DOES read, carried a true-and-incomplete note whose practical effect was to
+    license discounting three guards. So the remedy has to arrive HERE, at the
+    moment the condition is hit, and not in another document.
+
+    ⚠️ AND IT STILL FAILS THE RUN. A guard that could not run is not a guard
+    that passed, and in CI an absent runner means the image is broken. What
+    changes is only that it can no longer be mistaken for a finding about the
+    diff.
+    """
+
+
+# How to get each runner back. Keyed by the RUNNER, not by the guard, because
+# a new guard using pytest must inherit the remedy without anyone remembering.
+# POPULATION (measured over the registry, 2026-09-12): 212 steps — `python3`
+# x210 of which 3 are `python3 -m pytest`, `lint-imports` x1, `ruff` x1.
+RUNNER_REMEDY = {
+    "pytest": "pip install pytest",
+    "lint-imports": "pip install import-linter",
+    "ruff": "pip install ruff",
+}
+
+_RUNNER_PRESENT: Dict[str, bool] = {}
+
+
+def _module_importable(interpreter: str, module: str) -> bool:
+    """Ask THE INTERPRETER THE STEP WILL USE, not this process.
+
+    `importlib.util.find_spec` here answers about the process running
+    run_guards.py, which need not be the same environment as `python3` on PATH.
+    Getting that wrong would report a runner present that the step cannot find,
+    which is the failure this whole change is about, one level down.
+    """
+    try:
+        proc = subprocess.run(
+            [interpreter, "-c",
+             "import importlib.util,sys;"
+             f"sys.exit(0 if importlib.util.find_spec({module!r}) else 1)"],
+            cwd=REPO, capture_output=True)
+    except FileNotFoundError:
+        return False
+    return proc.returncode == 0
+
+
+def missing_runner(argv: Sequence[str]) -> Optional[str]:
+    """The runner this step needs and does not have, or ``None``.
+
+    ``None`` means "the runner is there", NOT "we did not check" — every
+    supported shape is probed, and an unrecognised shape is reported present
+    so this can never turn a real failure into a silent `could_not_run`.
+    """
+    if not argv:
+        return None
+    head = argv[0]
+    if head in ("python3", "python") and len(argv) >= 3 and argv[1] == "-m":
+        mod = argv[2]
+        key = f"{head} -m {mod}"
+        if key not in _RUNNER_PRESENT:
+            _RUNNER_PRESENT[key] = _module_importable(head, mod)
+        return None if _RUNNER_PRESENT[key] else mod
+    if head not in _RUNNER_PRESENT:
+        _RUNNER_PRESENT[head] = shutil.which(head) is not None
+    return None if _RUNNER_PRESENT[head] else head
+
+
+def _absent_runner_reason(argv: Sequence[str], runner: str) -> CouldNotRun:
+    remedy = RUNNER_REMEDY.get(runner)
+    fix = (f"    FIX, one command: {remedy}" if remedy else
+           f"    `{runner}` is not on PATH and this script has no recorded "
+           f"remedy for it — add one to RUNNER_REMEDY so the next session is "
+           f"not left to work it out.")
+    print(f"    ::error::COULD NOT RUN — `{runner}` is not available in this "
+          f"environment, so this guard checked NOTHING. That is not a finding "
+          f"about your diff.", flush=True)
+    print(fix, flush=True)
+    return CouldNotRun(
+        f"`{' '.join(argv)}` could not run: {runner} is absent"
+        + (f" — {remedy}" if remedy else ""))
+
+
 def _run(argv: Sequence[str]) -> int:
     print(f"    $ {' '.join(argv)}", flush=True)
     try:
@@ -2296,6 +2392,10 @@ def run_guard(
             print(f"    ({reason}) {' '.join(step['argv'])}", flush=True)
             continue
         argv = _subst(step["argv"], ctx)
+        absent = missing_runner(argv)
+        if absent is not None:
+            print(f"    $ {' '.join(argv)}", flush=True)
+            return _absent_runner_reason(argv, absent)
         rc = _run(argv)
         if rc != 0:
             if step.get("allow_fail"):
@@ -2495,6 +2595,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 2
 
     failures: List[tuple] = []
+    # ⚠️ A THIRD BUCKET, NEVER POOLED WITH `failures`. A guard whose RUNNER is
+    # absent checked nothing; reporting that as a failure is what let a session
+    # read `FAIL 4, all four environmental` and ship two real defects on
+    # 2026-09-10. It still fails the run — see `CouldNotRun` — it just stops
+    # reading as a finding about the diff.
+    could_not_run: List[tuple] = []
     skipped: List[str] = []
     passed: List[str] = []
     notify: List[str] = []
@@ -2517,6 +2623,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if reason is None:
             passed.append(name)
             print(f"--- {name}: PASS ({dt:.1f}s)", flush=True)
+        elif isinstance(reason, CouldNotRun):
+            could_not_run.append((name, reason))
+            print(f"--- {name}: COULD NOT RUN ({dt:.1f}s) — {reason}",
+                  flush=True)
         else:
             failures.append((name, reason))
             if guard.get("notify"):
@@ -2524,7 +2634,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"--- {name}: FAIL ({dt:.1f}s) — {reason}", flush=True)
 
     print("\n" + "=" * 72)
-    print(f"PASS {len(passed)} · FAIL {len(failures)} · SKIP {len(skipped)}")
+    print(f"PASS {len(passed)} · FAIL {len(failures)} · "
+          f"COULD-NOT-RUN {len(could_not_run)} · SKIP {len(skipped)}")
+    if could_not_run:
+        print()
+        print("COULD NOT RUN — these guards CHECKED NOTHING. This is the "
+              "ENVIRONMENT, not your diff, and it is not a pass either:")
+        remedies = []
+        for n, r in could_not_run:
+            print(f"  ::error::{n}: {r}")
+            for runner, cmd in RUNNER_REMEDY.items():
+                if f"{runner} is absent" in r and cmd not in remedies:
+                    remedies.append(cmd)
+        if remedies:
+            print("  Run this, then re-run the guards — it is one command and "
+                  "it is the whole fix:")
+            for cmd in remedies:
+                print(f"      {cmd}")
+        print("  ⚠️ DO NOT discount these guards instead. On 2026-09-10 a "
+              "session did, on this exact condition, and CI then named TWO "
+              "real defects sitting inside them — neither reachable by any "
+              "guard that does not need this runner.")
     if skipped:
         print("skipped (not relevant): " + ", ".join(skipped))
     if unscoped:
@@ -2576,6 +2706,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("\nFAILING GUARDS — every one is listed here, so one run is enough:")
         for name, reason in failures:
             print(f"  ::error::{name}: {reason}")
+        if could_not_run:
+            print(f"  ⚠️ AND {len(could_not_run)} FURTHER GUARD(S) COULD NOT "
+                  f"RUN AT ALL — listed above. This list is therefore a LOWER "
+                  f"BOUND on what is wrong; install the missing runner before "
+                  f"concluding anything from it.")
+        return 1
+
+    # ⚠️ A GUARD THAT COULD NOT RUN IS NOT A GUARD THAT PASSED, so this exits
+    # non-zero even with zero failures. In CI it means the image is broken and
+    # a green here would be a green that checked nothing — the one outcome this
+    # repo treats as worse than a red.
+    if could_not_run:
+        print(f"\nNO GUARD FAILED — but {len(could_not_run)} could not run, "
+              f"so this is NOT a pass. See the COULD NOT RUN block above for "
+              f"the one-command fix.")
         return 1
 
     # The line that lied. "All relevant guards passed" is true of what RAN,
