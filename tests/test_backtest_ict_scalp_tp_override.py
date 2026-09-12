@@ -240,3 +240,153 @@ class TestBankRungState:
         assert h.bank_rung_state(0.5, 1.0, bad) == "unknown", (
             "an unreadable ceiling must not be graded as a measurable rung -- "
             "that is the collapsed state this stamp exists to prevent")
+
+
+# ── --atr-sl-buffer-mult : the family's ONLY stop-side knob ──────────────────
+#
+# The ict_scalp stop is STRUCTURAL — sl = sweep_extreme ± mult*ATR — so
+# atr_stop_mult (the e35 lever) does not exist here: all 8 live legs declare it
+# None. This buffer is the only stop tunable, and before the flag it was
+# UNSWEEPABLE rather than unswept, exactly like the target was.
+
+class TestSlBufferOverride:
+
+    def test_unset_is_None_so_the_default_book_is_byte_for_byte(self):
+        assert h.resolve_sl_buffer_override(None) is None
+
+    def test_positive_passes_through_as_float(self):
+        assert h.resolve_sl_buffer_override(0.4) == 0.4
+        assert h.resolve_sl_buffer_override("0.05") == 0.05
+
+    def test_zero_is_REFUSED_and_that_differs_from_tp_at_r(self):
+        """0.0 puts the stop ON the swept extreme — the one level the setup is
+        defined by having swept, i.e. guaranteed to sit inside the noise the
+        buffer exists to clear. It is also not the unset state (None), so
+        accepting it would make 'no buffer' and 'no override' the same value."""
+        with pytest.raises(h.SlBufferOverrideError) as e:
+            h.resolve_sl_buffer_override(0.0)
+        assert "swept extreme" in str(e.value)
+
+    def test_negative_is_REFUSED(self):
+        with pytest.raises(h.SlBufferOverrideError):
+            h.resolve_sl_buffer_override(-0.2)
+
+    def test_it_is_its_OWN_error_type_not_the_tp_one(self):
+        """Sharing TpOverrideError would make a stop failure read as a target
+        failure in any caller that branches on the type."""
+        assert h.SlBufferOverrideError is not h.TpOverrideError
+        assert issubclass(h.SlBufferOverrideError, ValueError)
+
+    def test_the_key_matches_the_UNIT_default_name(self):
+        """A typo'd key is silently ignored by the unit and the run reports the
+        DEFAULT book under an override label — the worst available failure."""
+        assert "atr_sl_buffer_mult" in h._UNIT_DEFAULTS, (
+            "the override key must be one the unit actually reads")
+
+    def test_the_buffer_REACHES_THE_LIVE_UNIT_via_run_backtest(self):
+        """Captures every cfg the harness hands `order_package`.
+
+        The arithmetic cases above would pass against a flag that is parsed and
+        then silently dropped — the failure mode where a run reports the
+        DEFAULT book under an override label. This one fails if the value stops
+        reaching the unit for any reason.
+        """
+        import numpy as np
+        import pandas as pd
+
+        seen = []
+
+        def _spy(cfg, candles_df=None, **kw):
+            seen.append(dict(cfg))
+            raise ValueError("no signal")
+
+        rng = np.random.default_rng(11)
+        n = 220
+        close = 100.0 + np.cumsum(rng.normal(0, 0.4, n))
+        df = pd.DataFrame({
+            "timestamp": pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC"),
+            "open": close, "high": close + 0.5, "low": close - 0.5,
+            "close": close, "volume": 1000.0,
+        })
+
+        orig = h.order_package
+        try:
+            h.order_package = _spy
+            h.run_backtest(df, cfg_overrides={"atr_sl_buffer_mult": 0.37},
+                           timeframe="5m", symbol="BTCUSDT",
+                           warmup_bars=50, timeout_bars=24, cooldown_bars=3)
+        finally:
+            h.order_package = orig
+
+        assert seen, ("order_package was never called — the fixture proves "
+                      "nothing; fix it rather than trusting a green")
+        assert all(c.get("atr_sl_buffer_mult") == 0.37 for c in seen), (
+            f"the buffer override did not reach the live unit: "
+            f"{ {c.get('atr_sl_buffer_mult') for c in seen} }")
+
+    def test_the_two_overrides_are_INDEPENDENT(self):
+        """Setting one must not disturb the other — they are different knobs
+        on different sides of the bracket, and a shared cfg key or a copy-paste
+        in the wiring would couple them silently."""
+        cfg = {}
+        t = h.resolve_tp_at_r_override(2.5)
+        if t is not None:
+            cfg["tp_at_r"] = t
+        b = h.resolve_sl_buffer_override(0.45)
+        if b is not None:
+            cfg["atr_sl_buffer_mult"] = b
+        assert cfg == {"tp_at_r": 2.5, "atr_sl_buffer_mult": 0.45}
+
+    def test_the_CLI_HOP_carries_the_BUFFER_all_the_way_to_the_unit(self, tmp_path):
+        """The hop the `run_backtest` test above does NOT cover.
+
+        Mutation-checked: without this, a typo'd cfg key and a flag that is
+        parsed and then never written to `cfg_overrides` BOTH survived — the
+        run would report the DEFAULT book under an override label, which is the
+        worst available failure for a sweep. Drives the real CLI.
+        """
+        import numpy as np
+        import pandas as pd
+
+        n = 220
+        rng = np.random.default_rng(13)
+        close = 100.0 + np.cumsum(rng.normal(0, 0.4, n))
+        csv = tmp_path / "candles.csv"
+        pd.DataFrame({
+            "timestamp": pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC"),
+            "open": close, "high": close + 0.5, "low": close - 0.5,
+            "close": close, "volume": 1000.0,
+        }).to_csv(csv, index=False)
+
+        seen = []
+
+        def _spy(cfg, candles_df=None, **kw):
+            seen.append(dict(cfg))
+            raise ValueError("no signal")
+
+        orig = h.order_package
+        try:
+            h.order_package = _spy
+            rc = h.main(["backtest_ict_scalp", "--data", str(csv),
+                         "--symbol", "BTCUSDT", "--ignore-yaml",
+                         "--atr-sl-buffer-mult", "0.37"])
+        finally:
+            h.order_package = orig
+
+        assert rc == 0
+        assert seen, ("order_package was never called — the fixture proves "
+                      "nothing; fix it rather than trusting a green")
+        assert all(c.get("atr_sl_buffer_mult") == 0.37 for c in seen), (
+            f"the CLI value did not reach the unit: "
+            f"{ {c.get('atr_sl_buffer_mult') for c in seen} }")
+
+    def test_the_CLI_REFUSES_a_non_positive_buffer_end_to_end(self, tmp_path):
+        import pandas as pd
+        csv = tmp_path / "c.csv"
+        pd.DataFrame({"timestamp": pd.date_range("2026-01-01", periods=5,
+                                                 freq="5min", tz="UTC"),
+                      "open": 1.0, "high": 1.1, "low": 0.9, "close": 1.0,
+                      "volume": 1.0}).to_csv(csv, index=False)
+        rc = h.main(["backtest_ict_scalp", "--data", str(csv), "--symbol", "BTCUSDT",
+                     "--ignore-yaml", "--atr-sl-buffer-mult", "0"])
+        assert rc == 2, "a zero buffer must be refused by the CLI, not measured"

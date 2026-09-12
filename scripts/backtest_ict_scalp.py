@@ -173,6 +173,40 @@ def resolve_tp_at_r_override(raw: Optional[float]) -> Optional[float]:
     return val
 
 
+class SlBufferOverrideError(ValueError):
+    """`--atr-sl-buffer-mult` was given a value the unit cannot place a stop from."""
+
+
+def resolve_sl_buffer_override(raw: Optional[float]) -> Optional[float]:
+    """THE one place `--atr-sl-buffer-mult` is validated. None when unset.
+
+    The ict_scalp stop is STRUCTURAL — `sl = sweep_extreme ± mult * ATR`
+    (src/units/strategies/ict_scalp.py) — so this multiplier is a BUFFER
+    placed outside a market-structure level, not a stop distance. Two
+    consequences drive the validation and neither is arbitrary:
+
+    * ``0.0`` is REFUSED, and this is the difference from ``--tp-at-r``.
+      A zero buffer puts the stop exactly ON the sweep extreme, the level the
+      setup is defined by having swept, so it is the one value guaranteed to
+      sit inside the noise the buffer exists to clear. It is also not the
+      unset state — that is ``None`` — so accepting it would make "no buffer"
+      and "no override" indistinguishable at the call site.
+    * negative is REFUSED because it puts the stop on the WRONG SIDE of the
+      extreme, i.e. inside the position, which is not a book production can
+      run. Refusing beats measuring it.
+    """
+    if raw is None:
+        return None
+    val = float(raw)
+    if not (val > 0.0):
+        raise SlBufferOverrideError(
+            f"--atr-sl-buffer-mult must be > 0 (got {raw}). At zero the stop "
+            f"sits exactly on the swept extreme, and below zero it sits inside "
+            f"the position — neither is a book production can run, and zero is "
+            f"not the unset state (that is None).")
+    return val
+
+
 def bank_rung_state(bank_frac: float, bank_at_r: float,
                     effective_tp_at_r: Any) -> str:
     """Is the partial-TP rung capable of measuring anything? FOUR states.
@@ -1120,6 +1154,19 @@ def build_parser() -> argparse.ArgumentParser:
                         "(MI-278 U3). The override is applied to cfg_overrides, "
                         "so the LIVE order_package() still computes the bracket "
                         "— the harness never derives a target of its own.")
+    p.add_argument("--atr-sl-buffer-mult", type=float, default=None, metavar="M",
+                   help="Override the leg's ATR stop BUFFER (default None = the "
+                        "YAML/unit value, 0.20, i.e. config-exact and "
+                        "byte-for-byte the legacy behaviour). NOTE THIS IS NOT "
+                        "A STOP DISTANCE: the ict_scalp stop is structural "
+                        "(sl = sweep_extreme +/- M * ATR), so this moves the "
+                        "stop's clearance OUTSIDE a market-structure level. "
+                        "atr_stop_mult — the e35 lever — does not exist for "
+                        "this family (all 8 live legs declare it None), so "
+                        "this is the ONLY stop-side knob it has, and before "
+                        "this flag it was UNSWEEPABLE rather than unswept "
+                        "(MI-278 U3). Applied via cfg_overrides so the LIVE "
+                        "order_package() still computes the bracket.")
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
@@ -1166,6 +1213,13 @@ def main(argv: List[str]) -> int:
         return 2
     if _tp_override is not None:
         cfg_overrides["tp_at_r"] = _tp_override
+    try:
+        _sl_buf_override = resolve_sl_buffer_override(args.atr_sl_buffer_mult)
+    except SlBufferOverrideError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if _sl_buf_override is not None:
+        cfg_overrides["atr_sl_buffer_mult"] = _sl_buf_override
     vol_spec = None
     if args.vol_spec_json:
         try:
