@@ -69,6 +69,9 @@ that floor** (only `m20_fleet_exit_sweep.py` does). Measured over the 77
 cell-OOS observations in this workstream the minimum is **95**, so the missing
 floor **binds on nothing here** — but it is a latent gap that would pass a thin
 leg silently, and it is recorded rather than left implied. The
+<!-- population-ok: not a claim — a verbatim quote of the sweep's own per-cell
+     output stamp, whose two percentages are the timeout share of that cell's
+     own IS and OOS trade counts (n=198 and n=117, in the block above). -->
 `[timeout IS 0% OOS 0%]` stamp is the fidelity readout confirming it ran at
 parity rather than under the harness's 24-bar force-close.
 

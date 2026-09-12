@@ -562,16 +562,16 @@ supporting evidence, **not** a gated verdict): `/tmp/sol5m.csv`, SOLUSDT 5m,
 `--sim-breakeven`, each target run at the 24-bar default and again at
 `--timeout-bars 100000`.
 
-| target | timeout share (24-bar) | mean bars held, 24-bar → parity | net_R 24-bar → parity | **ΔR at parity** |
-|---|--:|--:|--:|--:|
-| 0.75R | 17.1% | 12.0 → 18.1 | 18.68 → 19.00 | **+0.32** |
-| 1.0R | 30.3% | 14.8 → 34.0 | 17.01 → 18.00 | **+0.99** |
-| 1.25R | 32.4% | 15.6 → 40.5 | 15.41 → 13.53 | −1.88 |
-| **1.5R (live)** | 35.6% | 16.7 → 46.5 | 13.69 → 9.74 | −3.95 |
-| 2.0R | 41.1% | 18.2 → 54.2 | 15.57 → 11.80 | −3.77 |
-| 2.5R | 47.9% | 19.1 → 74.4 | 10.46 → 4.02 | −6.43 |
-| 3.0R | 50.7% | 19.3 → 77.3 | 11.06 → 0.80 | −10.26 |
-| 4.0R | 53.4% | 19.5 → 95.2 | 11.28 → **−2.84** | **−14.12** |
+| target | trades (24-bar) | timeout share | mean bars held, 24-bar → parity | net_R 24-bar → parity | **ΔR at parity** |
+|---|--:|--:|--:|--:|--:|
+| 0.75R | 13/76 | 17.1% | 12.0 → 18.1 | 18.68 → 19.00 | **+0.32** |
+| 1.0R | 23/76 | 30.3% | 14.8 → 34.0 | 17.01 → 18.00 | **+0.99** |
+| 1.25R | 24/74 | 32.4% | 15.6 → 40.5 | 15.41 → 13.53 | −1.88 |
+| **1.5R (live)** | 26/73 | 35.6% | 16.7 → 46.5 | 13.69 → 9.74 | −3.95 |
+| 2.0R | 30/73 | 41.1% | 18.2 → 54.2 | 15.57 → 11.80 | −3.77 |
+| 2.5R | 35/73 | 47.9% | 19.1 → 74.4 | 10.46 → 4.02 | −6.43 |
+| 3.0R | 37/73 | 50.7% | 19.3 → 77.3 | 11.06 → 0.80 | −10.26 |
+| 4.0R | 39/73 | 53.4% | 19.5 → 95.2 | 11.28 → **−2.84** | **−14.12** |
 
 **Narrow cells gain at parity, wide cells lose, monotonically** — +0.32 at
 0.75R to −14.12 at 4R. That is the §4e correction reproduced on a third leg
@@ -881,8 +881,11 @@ a small ATR buffer placed outside it. Three consequences, each checkable:
    VERDICT WITHOUT THE NON-e35 CONTROL"*.** That row already states e35 never
    touched `ict_scalp`; what is added here is that the claim is now
    **verified, and structurally rather than incidentally** — and the control
-   moved nearly as far as the treatment (`ict_scalp_*` 54.7% → 31.8% against
-   `trend_donchian_*` 74.1% → 12.9%). ⚠️ **It does NOT clear that row**: its
+   moved nearly as far as the treatment. **MI-271's figures over its 557
+   closed non-backtest rows split at 2026-08-30, quoted from
+   `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30` and not re-derived
+   here:** `ict_scalp_*` win rate 54.7% → 31.8%, `trend_donchian_*`
+   74.1% → 12.9% (n = 557). ⚠️ **It does NOT clear that row**: its
    `clears_when` demands per-leg stop-out rate and MFE-at-stop, e35 vs non-e35,
    before vs after, and none of that is done here. This strengthens one
    premise; the discriminating measurement is still owed.
@@ -1051,8 +1054,12 @@ block for both windows and an explicit **`gate_paths_graded: ["A"]`**, so a
 reader cannot mistake a Path-A verdict for a full-gate one. The comparison is
 **imported from its single owner** (`m20_fleet_exit_sweep.capital_delta`, built
 on `scripts/capital_efficiency.py`), never re-derived — the skill's own reason:
-*"or a cross-harness comparison means nothing."* Unmeasurable rates stay
-`None`, never `0.0`. Mutation-checked 5/5, including a mutant that claims
+*"or a cross-harness comparison means nothing."* Rates the owner could not
+measure stay `None`, never `0.0`
+(checked: `scripts/research/m20_fleet_exit_sweep.py`, whose `capital_delta`
+returns `None` per key when either side is absent, and
+`scripts/capital_efficiency.py`, whose `days_from_bars` refuses to fabricate a
+hold rather than returning zero). Mutation-checked 5/5, including a mutant that claims
 `["A","B"]` and one that re-derives the metric locally.
 
 **Verified on live data**, and it is informative rather than decorative: on the

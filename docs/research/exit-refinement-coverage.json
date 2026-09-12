@@ -2546,8 +2546,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "All 7 cells honest_negative; Σ IS ΔR −49.47, Σ OOS ΔR −44.55 — negative in BOTH windows. Base IS 89.46 R / OOS 59.34 R. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {
@@ -2594,8 +2595,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "All 7 cells honest_negative; Σ IS ΔR −80.77, Σ OOS ΔR −8.83 — negative in BOTH windows, the largest IS penalty in the family. Base IS 118.79 R / OOS 18.78 R. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {
@@ -2734,8 +2736,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "All 7 cells honest_negative; Σ IS ΔR −40.59, Σ OOS ΔR −49.38 — negative in BOTH windows. Base IS 54.83 R / OOS 35.71 R. ⚠️ Its IS grid is strongly monotone (+31.42 at 0.75R → −33.39 at 4R, a 65 R spread) while OOS runs the other way, so tp0.75R is the cell most likely to be re-read if Path B is ever graded: +31.42 R IS with maxDD −18.81, rejected on OOS R alone. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {
@@ -2782,8 +2785,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "passed_unshipped",
+    "ref": "**`tp1.25R` CLEARED THE FULL M20 GATE** — the only cell in MI-278 to improve net_R AND maxDD in BOTH windows (IS ΔR +5.82 ΔDD −2.53 n198; OOS ΔR +5.93 ΔDD −3.72 n117) and then pass the yearly walk-forward (3/4 usable folds, need 3; 2021/2022 SKIPPED as empty on m27_data, 2024 failed). ⚠️ It NARROWS the target (1.5 → 1.25), i.e. take profit SOONER — the opposite direction to MI-277's 'winners cut short' framing. ⚠️ PASSES BY EXACTLY THE MINIMUM: one fold moving flips it. Tier-3 PROPOSAL only, not shipped: `docs/research/m20-u4-scalp-exit-proposals-2026-09-12.md`, decision `DEC-20260912-ICT-SCALP-XRP-15M-TARGET`. The other 6 cells are honest_negative. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {
@@ -2830,8 +2834,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "All 7 cells honest_negative; Σ IS ΔR +27.99, Σ OOS ΔR −35.78 (sign flips). Base IS 24.11 R / OOS 0.20 R — ⚠️ this leg's OOS baseline is 99% harness clock (+20.46 R at 24 bars → +0.20 R at parity), so read its OOS deltas against a book that is barely profitable at parity. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {
@@ -2877,8 +2882,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "All 7 cells honest_negative; Σ IS ΔR −60.03, Σ OOS ΔR −23.04 — negative in BOTH windows. Base IS 44.05 R / OOS 19.13 R. MEASURED 2026-09-12 (MI-278 U3b), run 34683160559 (IS/OOS) + 34684742080 (walk-forward), `m27_data/<SYM>_<TF>.csv`, split 2025-07-01, config-exact base (`--sim-breakeven` + the leg's declared levers), grid 0.75/1/1.25/2/2.5/3/4 R with the leg's own 1.5 excluded as the baseline. ⚠️ RUN AT **LIVE PARITY** (`timeout_bars=100000`) and that is load-bearing, not a detail: the harness force-closes at 24 bars by default and production has NO time exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL). The clock FLATTERS wide targets — removing it moved cells by up to 23.17 R and cut the IS/OOS sign disagreement from 5 of 7 legs to 2 of 7 — so the same grid at 24 bars returns 0 of 49 and is NOT this verdict. Each cell line carries a `[timeout IS x% OOS y%]` stamp. ⚠️ **PATH A ONLY** — the gate has two qualifying paths and this sweep grades net_R AND maxDD; capital-efficiency evidence is now RECORDED per cell but deliberately NOT graded, because Path B's thresholds are operator-reserved and unset repo-wide. ⚠️ The sweep also does not implement `MIN_OOS_TRADES=25`; checked by hand, min OOS n over 77 cell-observations here is 95, so it binds on nothing. Memo: `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md`.",
+    "basis": "live_lever"
    }
   },
   {

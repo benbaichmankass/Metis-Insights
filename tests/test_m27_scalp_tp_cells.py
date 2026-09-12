@@ -430,7 +430,8 @@ class TestSlBufferCells:
     def test_cells_pass_the_flag_the_harness_actually_exposes(self):
         """A cell naming a flag the harness does not have exits non-zero and
         reads as a failed cell rather than as a broken sweep."""
-        import subprocess, sys
+        import subprocess
+        import sys
         help_txt = subprocess.run(
             [sys.executable, "scripts/backtest_ict_scalp.py", "--help"],
             capture_output=True, text=True).stdout
