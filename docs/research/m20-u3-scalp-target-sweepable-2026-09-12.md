@@ -902,11 +902,40 @@ and return nothing that survives the gate, and the third's only tunable cannot
 currently be swept at all.* Anyone reading §4j's scoreboard as "every
 `ict_scalp` exit lever has been tested" would be over-reading it.
 
-**The buildable next step** is a `--atr-sl-buffer-mult` flag on the same
-`cfg_overrides` path `--tp-at-r` already uses (~the same shape, plus tests and
-a cell family). It is **not** built here: three sweeps are in flight, and a
-fourth lever added mid-flight would land untested alongside results that are
-still being read. Recorded as the next unit rather than started.
+### ✅ BUILT — the buffer is sweepable now (updated 2026-09-36Z)
+
+This section first said the flag was *"not built here"* because three sweeps
+were in flight. That reasoning applied to **dispatching** a fourth arm, not to
+**building** one, and the distinction was worth acting on: `--atr-sl-buffer-mult`
+now exists on the same `cfg_overrides` path `--tp-at-r` uses, with a
+`stop_geometry` cell family behind it. **No fourth sweep is dispatched here** —
+the original caution stands for that.
+
+- **Default `None` is byte-for-byte the old behaviour**, and the value lands on
+  `cfg_overrides` so the LIVE `order_package()` still computes the bracket;
+  the harness derives no stop of its own.
+- **`0.0` is REFUSED**, and that is the deliberate difference from `--tp-at-r`:
+  a zero buffer puts the stop exactly ON the swept extreme — the level the
+  setup is defined by having swept — and it is not the unset state, so
+  accepting it would make *no buffer* and *no override* indistinguishable.
+  Its own error type, so a stop failure cannot read as a target failure.
+- **Six cells bracketing the live 0.20 on both sides** (0.05/0.10/0.15,
+  0.30/0.40/0.60), the leg's own value excluded as a provable no-op and `0.0`
+  excluded because the harness refuses it.
+- **It moves the book**, verified rather than asserted: on the smoke corpus
+  0.20 → 13.686 R / 9.208 DD, 0.10 → 14.274 / 8.970, 0.40 → 14.692 / 8.160.
+  ⚠️ **No verdict is claimed from that** — n=73, one small corpus, no IS/OOS
+  split, and *both* directions improving at that n is what noise looks like.
+- **Mutation-checked 7/7 on the flag and 5/5 on the cells.** Two initially
+  survived, both on the CLI hop — a typo'd `cfg_overrides` key and a flag
+  parsed then never written — each of which would report the **default** book
+  under an override label, the worst failure available to a sweep. That is the
+  third time this session that testing the helper and not the wiring let a
+  mutant through.
+
+So the enumeration is now **complete and sweepable**: all three mechanisms
+armed on these legs have a runner. Two are measured and empty; the stop buffer
+is built and **not yet run**, and no claim is made about it.
 
 ## 4l. THE PARITY ARM, COMPLETE — and it corrects §4d a THIRD time
 
