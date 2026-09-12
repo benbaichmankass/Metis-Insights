@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/manager-three-lane-workplan",
-    "claimed_at": "2026-09-12T05:21:09Z",
-    "purpose": "three-lane workplan + dispatch, PR #11860"
+    "branch": "claude/manager-registers-20260912-0600z",
+    "claimed_at": "2026-09-12T06:02:39Z",
+    "purpose": "register consolidation, PR #11871 (prior holder claude/manager-three-lane-workplan merged as #11860 — that claim is spent)"
   },
   "active_sessions": [
     {

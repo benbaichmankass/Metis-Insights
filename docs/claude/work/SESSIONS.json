@@ -4919,6 +4919,34 @@
       "why": "Four failure modes measured 2026-09-11/12, all unowned: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z"
+    },
+    {
+      "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
+      "registry_key": "pending-20260912T054504Z",
+      "state": "working",
+      "title": "ORDER-PATH LANE MI-281 — repair the hedge-book flat read closing live Bybit positions",
+      "owns_object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",
+      "checklist_item": "MI-281",
+      "spawned_at": "2026-09-12T05:45:04Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "LIVE real-money defect: rows[0] on a symbol-scoped get_positions makes a hedge-armed symbol read flat, and the reconciler closes a live position with an ESTIMATED pnl. Three provable false closes, +115.86 manufactured, 7 of 49 on bybit_2. Operator-directed 2026-09-12 via a decision prompt.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-12T05:46:10Z"
+    },
+    {
+      "session_id": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+      "registry_key": "pending-20260912T054504Z-2",
+      "state": "working",
+      "title": "PROP LANE MI-282 — unblock the prop account, which is starved at dispatch",
+      "owns_object": "WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED",
+      "checklist_item": "MI-282",
+      "spawned_at": "2026-09-12T05:45:04Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-274 attributed it: breakout_1 absent from ARBITRATION_FANOUT_ACCOUNTS, 8 elected / 8 starved / 0 routed. The operator raised this as one of two priorities and it still is not trading. The unblock is a sequence, not a flip.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-12T05:46:10Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

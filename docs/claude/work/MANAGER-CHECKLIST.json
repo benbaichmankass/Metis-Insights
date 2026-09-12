@@ -4376,5 +4376,63 @@
       ]
     },
     "engineering_lane_note": "MI-280 sits under IN-20260901-OPERATING-LAYER, not the cycle priority, so its spawn required a priority exception — filed at docs/claude/work/spawn-priority-exception.yaml, operator-approved directly, scoped to that ONE object. The argument that earns its slot: this machinery LOSES the other lanes' work, measured, not theorised."
+  },
+  "operator_status_request_2026_09_12T0505Z": {
+    "scope": "Operator asked for a full status on everything completed and everything in flight. Pushed BEFORE answering, per the standing rule.",
+    "management_window": "Lease claimed 2026-09-11T23:53:42Z, heartbeat 04:53:24Z, expires 06:23:24Z. 17 PRs merged to main in the window (11839, 11842-11857).",
+    "lanes_all_eight": {
+      "completed": [
+        "MI-271 bleed attribution",
+        "MI-272 system review",
+        "MI-273 self-land engineering",
+        "MI-274 prop starvation",
+        "MI-275 e35 revert question",
+        "MI-236b stale in_flight decay",
+        "MI-277 winner-size decomposition"
+      ],
+      "live": [
+        "MI-276 losing-streak + starved-account detectors -- review_ready, #11827 green, parked on the operator OK"
+      ]
+    },
+    "operator_questions_answered": {
+      "the_bleed": "ANSWERED as far as measurement allows. Began 2026-08-27, three days BEFORE e35. Mechanism is an R COLLAPSE, not a sizing collapse: R term is 97.4% of the fall on the exact identity, residual asserted zero. Size REFUTED (median risk over the full book ROSE $303.60 -> $438.10), venue clamp REFUTED, exit levers REFUTED, composition REFUTED (all 7 common legs fell, exact p=0.0156). REGIME supported on PRICE-FREE evidence: winner hold 5.17h -> 1.90h while LOSER hold rose; losers unchanged at ~1R. Losers-as-control prove the sizer and stops are intact. THE LOST CAPITAL IS PAPER -- real money is bybit_2 at -$20.36 over 40 closed rows.",
+      "the_prop": "ANSWERED. The cushion story was REFUTED. breakout_1 is STARVED AT DISPATCH -- absent from ARBITRATION_FANOUT_ACCOUNTS; 8 elected / 8 starved / 0 routed; legs signalled at identical timestamps to healthy siblings. Nothing alarmed for 12 days across four surfaces while arbitration_fanout_soak.starved_accounts had it right every time and was read by nothing."
+    },
+    "what_is_NOT_answered": "The MAGNITUDE of the winner collapse: -38.5% (broker-measured) to -81.4% (standardised), binding on n=15 pre-era measured winners, with the largest share in netting_attributed which is 100% ESTIMATED over 39 rows -- OI-20260908's own population. And the REMEDY is entry-side, which is Tier-3 and the operator's.",
+    "standing_with_operator": [
+      "#11827 -- MI-276's two detectors. Tier-2 HOLD, green, nothing armed, no env key set or proposed. One OK, merge only.",
+      "#11817 -- R15 bootstrap click.",
+      "#11738 -- MI-240 R2 breaker, approved r2_only.",
+      "OI-20260908 measurement fix -- MI-277's ONE routed recommendation. Lane scoped, deliberately NOT dispatched."
+    ],
+    "loud_row_census": "OPEN-ITEMS carries 82 rows of which 69 are loud:true. Reporting 69 rows individually IS the desensitised alarm the repo's own P1 rule names. The four opened by THIS manager's lanes are reported by name in the operator answer; the standing 65 are a COUNT, deliberately."
+  },
+  "operator_decisions_2026_09_12T0540Z": {
+    "_how": "Put to the operator as decision prompts and answered directly. RECORDED so no successor re-seeks any of them.",
+    "d1_tier2_prs": {
+      "asked": "Three green PRs waiting on approval to merge: #11827, #11738, #11817.",
+      "answer": "APPROVED ALL THREE.",
+      "outcome": "#11827 MERGED 819d1b90c (MI-276's losing-streak + starved-account detectors are now on main). #11738 and #11817 were both CONFLICTED and could not merge; the manager resolved both and pushed. They land on green.",
+      "note": "#11738 was ALREADY approved r2_only before today. It needed the click, not a fresh approval, and none was re-sought."
+    },
+    "d2_measurement_fix": {
+      "asked": "OI-20260908 -- the hedge-book flat read closing live Bybit positions and booking invented PnL. Dispatch a dedicated lane, fold into MI-278, or hold?",
+      "answer": "DISPATCH A DEDICATED LANE NOW.",
+      "outcome": "MI-281, session_01ALe9gTsSEMVWYyR8X8TY79. Scoped Tier-2: it prepares and routes the fix, never self-lands an order-path change."
+    },
+    "d3_concurrency": {
+      "asked": "Four real-money-adjacent lanes (A Alpaca go-live, P promotion pipeline, R prop, C order-path) have nobody on them against a standing 3-concurrent cap.",
+      "answer": "RAISE THE CAP TO 5.",
+      "outcome": "Five lanes live: MI-278 research (M20), MI-279 ops (backlog), MI-280 engineering (machinery), MI-281 order-path (the measurement fix), MI-282 prop (the unblock). MI-276 is review_ready and parked, not consuming a slot.",
+      "supersedes": "The previous standing cap of 3 concurrent work sessions. A successor must not re-apply the 3-cap from an older note."
+    }
+  },
+  "lane_roster_2026_09_12T0548Z": {
+    "MI-278": "research — M20 Active Trade Management (the cycle priority)",
+    "MI-279": "ops — health backlog, 20 critical first, class-first",
+    "MI-280": "engineering — the landing/register machinery that loses lanes' work",
+    "MI-281": "order-path — OI-20260908, a LIVE real-money defect (Tier-2 fix, routed not self-landed)",
+    "MI-282": "prop — unblock breakout_1, starved at dispatch (Tier-2/3 proposal, routed)",
+    "still_unstaffed": "Lane A (Alpaca real-money go-live) and Lane P (promotion pipeline) from the 08-29 plan. Named every handoff so they do not fall off the edge."
   }
 }
