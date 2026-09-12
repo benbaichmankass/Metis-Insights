@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T01:05:00Z",
+  "updated_at": "2026-09-12T01:12:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4095,10 +4095,26 @@
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 708k/1M, own check-in armed 22:03Z. #11825 MERGED; #11829 (a third branch, mi236c) green with guards + pytest-collect + repo-inventory passing. The manager handed it a measured finding on #11829 -- parse_identity cannot read a session id that is present but not on line 0 -- with an explicit instruction to FILE it and not widen #11829. Past the handoff trigger.",
       "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11829 open and green.",
       "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, #11825 + #11829 MERGED. On the way out it flagged that claim_merge_slot.py has NO RELEASE MECHANISM -- a slot can be claimed and never handed back -- filed as BL-20260910. The next lane DISPLACES the claim rather than finding a free slot."
+    },
+    {
+      "id": "MI-277",
+      "added": "2026-09-12",
+      "lane": "research",
+      "status": "in_flight",
+      "owner": "session_01Fm4wBus9JMSYenSFRjd71h",
+      "title": "Decompose the winner-size collapse, and grade its provenance BEFORE any remedy",
+      "owns_object": "WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE",
+      "why": "MI-271 answered WHEN the bleed started (2026-08-27, three days before e35) and WHAT it looks like (average win $404 -> $112, -72%, the dominant term; win rate only 46.0 -> 41.1%). WHY the average win fell is unanswered, and it is the cycle priority.",
+      "manager_note": "PHASE 1 IS THE POINT AND IT COMES FIRST: establish whether the collapse is MEASURED or an artifact of the exit-booking path. Measured PnL coverage was 42.9% at last reading, and OI-20260908 is a LIVE unfixed defect booking fabricated pnl on false closes on the venue carrying most of these rows (+$115.86 across three provable false closes, a LOWER BOUND -- nine soak rows are ungradeable). If a material share of the wins in either window is ESTIMATED or FABRICATED, the -72% may be an instrument artifact, and SAYING SO IS THE FINDING, not a failed investigation.",
+      "scope": "Measurement only, Tier-1. Memo to docs/research/** plus backlog rows. Proposes NO parameter change -- every one is Tier-3 and returns to the operator through the manager.",
+      "state": "in_flight",
+      "dispatched": "2026-09-12T01:03:16Z",
+      "dispatch_basis": "The manager told the operator at the 00:52Z tick: 'say the word and it goes out, or I'll dispatch it at the next tick if I don't hear otherwise.' No direction came. Dispatched at 01:03Z rather than 01:52Z because all three prior lanes had gone terminal and the cycle-priority question had NO lane on it -- a manager holding zero live lanes against the named priority is itself the constraint. The commitment was a floor on when, not a promise to idle.",
+      "register_recovery_2026_09_12T0112Z": "This item and its SESSIONS.json row were LOST for ~9 minutes. They were committed (49653310e) onto a branch whose PR had already armed auto-merge; #11846 squashed at the previous head and the commit never reached main. Re-applied here on a FRESH branch -- a merged PR is finished and cannot carry follow-up work. Filed as a backlog row: the hazard is documented in CLAUDE.md and was still walked into, which makes it a recurrence rather than a first offence."
     }
   ],
-  "as_of": "2026-09-12T01:05:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, parser-finding disposition)",
+  "as_of": "2026-09-12T01:12:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, MI-277 register recovery)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
