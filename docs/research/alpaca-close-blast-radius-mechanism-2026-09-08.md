@@ -1,6 +1,6 @@
 # The Alpaca sibling-liquidation mechanism, established from code — and why `alpaca_portfolio`/TLT is the same condition on one exit path and not on the other
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-08` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **Scope: MEASUREMENT AND PROPOSAL ONLY.** Nothing was closed, cancelled,
 > repaired or re-armed. No order-path file is edited by this unit. The remedy

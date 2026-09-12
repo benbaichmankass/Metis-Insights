@@ -1,6 +1,6 @@
 # How wrong is the backtest instrument about the live exit? — measured, 2026-09-08
 
-> **Doc status:** `live` · category `research` · MI-193 (LANE 2) ·
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > `session_012cVryifpv359yAWWVkrmnk`
 
 Joins three filed rows —
