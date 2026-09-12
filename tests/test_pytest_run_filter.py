@@ -47,6 +47,7 @@ does not name, and these tables are mitigation, not a fix.
 from __future__ import annotations
 
 import ast
+import pathlib
 import re
 import subprocess
 from pathlib import Path
@@ -144,6 +145,33 @@ COVERED = {
         "session, identical to no relay — the exact gap the relay was built to close. "
         "Removing those references is a DOCS-ONLY diff, so without this it merges on a "
         "green tick from a run that executed nothing and silently re-opens the gap",
+    # The four found 2026-09-12 by fixing the two scans below, which had been
+    # blind to them for different reasons -- the line scan dropped the
+    # one-string join spelling, the AST scan had all of docs/ excluded by a
+    # per-file entry widening to its top-level directory. Both now see them,
+    # and the two agree, which is the cross-check.
+    "docs/claude/session-board.json":
+        "test_claim_merge_slot asserts over the REAL board at BYTE level -- that "
+        "a splice rewrites only the merge_slot span, that `merge_slot` is found "
+        "at top level and NOT in the `_doc` prose or the nested `schema` "
+        "description that both mention it, and that a whole-file re-serialisation "
+        "still blows the size budget. Every one of those premises is falsifiable "
+        "by a docs-only edit to this file, so excluding it would exempt exactly "
+        "the diff the tests are about. ⚠️ COSTLY AND SAID SO: 27 workflows write "
+        "this file and every shared-slot claim touches it, so this really does "
+        "run the full suite often. If that proves unaffordable the honest move is "
+        "an EXCLUDED_TREES/DELIBERATELY_EXCLUDED entry with the reasoning, never "
+        "deleting the check",
+    "docs/claude/work/objects/WO-20260901-PHASE-G.yaml":
+        "test_phase_g_sunset_and_pull reads this REAL work object; a fixture "
+        "cannot carry the premise that the LIVE object and the LIVE pass agree",
+    "docs/research/e35-bracket-corpus.jsonl":
+        "test_e35_achieved_oos_count counts achieved OOS folds out of the REAL "
+        "corpus -- the count IS the file's contents, so a corpus-only diff is "
+        "precisely what can change the answer",
+    "docs/research/research-disposition-ledger.jsonl":
+        "test_research_disposition reads the REAL ledger and compares before/after; "
+        "a ledger row is a docs-only diff and is the whole subject of the test",
     "src/runtime/order_monitor.py": "python",
     "requirements.txt": "dependency pin",
 }
@@ -165,6 +193,32 @@ DELIBERATELY_EXCLUDED = {
     # every research memo for no assertion.
     "docs/research/exit-refinement-notes.md":
         "prose; no suite assertion reads it",
+}
+
+
+# Excluded as a WHOLE TREE, which is a different statement from the per-file
+# entries above and must be made separately.
+#
+# ⚠️ THE TWO WERE ONE TABLE UNTIL 2026-09-12, AND THAT COLLAPSE BLINDED THE
+# GENERAL SCAN OVER ALL OF `docs/`. `_excluded` below matched on a candidate's
+# TOP-LEVEL component, so a single per-FILE entry excluded its entire tree:
+# `data/some_fixture.csv` was meant to say "the bulk data tree" (and does), but
+# the one `docs/...` entry -- a per-file decision, verified per-file, about a
+# backlog whose readers all use tmp_path -- silently excluded `docs/` as well.
+# MEASURED that day: 17 committed docs/ paths the AST scan finds are read by the
+# suite, and it was reporting on NONE of them; four were genuinely uncovered by
+# the filter. `docs/` is where five of the six recurrences of this class lived,
+# so it was the worst possible tree to go blind over.
+#
+# A file entry now excludes THAT FILE. A tree entry excludes its subtree, and
+# saying so is deliberately a separate line somebody has to write.
+EXCLUDED_TREES = {
+    "data": "bulk candle/fixture data. The three files under it the suite DOES "
+            "read as committed are named individually in the filter (see the "
+            "`_excluded` docstring below); the rest is bulk and pulling the "
+            "tree in would run the full suite on every data refresh. This is "
+            "the ONE tree the original top-level widening was actually about, "
+            "and it keeps exactly the scope it had.",
 }
 
 
@@ -233,7 +287,26 @@ _REPO_DOCS_JOIN = re.compile(
     r'|\b_?REPO(?:_ROOT)?\s*/\s*["\']docs/'
 )
 # `REPO / "docs" / "research" / "exit-refinement-coverage.json"` -> the path.
-_SEGMENTS = re.compile(r'["\']([A-Za-z0-9_\-.]+)["\']')
+#
+# ⚠️ `/` IS IN THE CHARACTER CLASS, AND IT WAS NOT UNTIL 2026-09-12. Readers
+# spell the join two ways and this scan only ever saw one of them: the
+# SEGMENTED form (one quoted string per path component) was seen, and the form
+# that puts the whole path in ONE quoted string was dropped.
+#
+# The drop was silent and, worse, it looked handled: `_REPO_DOCS_JOIN` above
+# carries a dedicated alternation for the one-string form, so the line MATCHED
+# and then the extractor returned [] (no `/` in the class), the `"docs" not in
+# segs` guard skipped it, and that alternation was dead code.
+#
+# MEASURED on the real tree the day it was fixed: FOUR committed docs/ files
+# read as-committed by the suite, every one of them uncovered by the filter,
+# every one invisible here -- the merge-slot board read by the claim tests, a
+# work object read by the phase-G tests, and two research corpora. They are
+# not named literally in this comment on purpose: this scan is a LINE REGEX,
+# and an earlier draft that spelled them out was duly picked up as a real
+# reader of one of them. That is false-positive class 3 in the AST section
+# below, reproduced by the very comment describing the fix.
+_SEGMENTS = re.compile(r'["\']([A-Za-z0-9_\-./]+)["\']')
 
 
 def _committed_docs_readers() -> dict[str, set[str]]:
@@ -243,10 +316,24 @@ def _committed_docs_readers() -> dict[str, set[str]]:
         for line in path.read_text(encoding="utf-8").splitlines():
             if not _REPO_DOCS_JOIN.search(line):
                 continue
-            segs = _SEGMENTS.findall(line)
+            # Flatten BEFORE testing for "docs": the one-string spelling
+            # yields a single segment `docs/claude/session-board.json`, which
+            # is not equal to "docs", so testing first is what dropped it.
+            segs = [part
+                    for seg in _SEGMENTS.findall(line)
+                    for part in seg.split("/") if part]
             if "docs" not in segs:
                 continue
-            joined = "/".join(segs[segs.index("docs"):])
+            tail = segs[segs.index("docs"):]
+            # Stop at the first segment carrying an extension. Anything after a
+            # filename on the same line is a different string literal, not a
+            # deeper path component -- an `encoding="utf-8"` kwarg appended a
+            # `/utf-8` to a real finding while this scan was being fixed.
+            for i, seg in enumerate(tail):
+                if "." in seg:
+                    tail = tail[:i + 1]
+                    break
+            joined = "/".join(tail)
             found.setdefault(joined, set()).add(
                 path.relative_to(REPO).as_posix())
     return found
@@ -362,6 +449,37 @@ def test_the_general_scan_finds_the_tree_that_motivated_it():
         "picking it up means the scan is matching prose again")
 
 
+def _scan_excluded(rel: str) -> bool:
+    """Honour the exclusion tables rather than silently overriding them.
+
+    A documented decision outranks a derived one UNTIL evidence falsifies it —
+    and then the decision is narrowed, not deleted. That happened twice.
+    `data/` carried "bulk data, not asserted structurally by pytest", but this
+    scan measured three files under it that ARE read as committed; the filter
+    now names those three and the bulk tree stays excluded, so the original
+    rationale still holds for everything it was actually about.
+
+    ⚠️ FILE AND TREE ARE SEPARATE STATEMENTS, and they were one until
+    2026-09-12. This matched a candidate's TOP-LEVEL component against every
+    entry, so a per-FILE `docs/...` entry excluded the whole `docs/` tree — 17
+    committed paths the suite reads, four of them genuinely uncovered, in the
+    tree where five of this class's six recurrences lived.
+
+    ⚠️ AND IT IS AT MODULE SCOPE FOR A REASON. It was nested inside the test
+    below, so the control written for the fix could not call it and
+    reimplemented the rule instead — which meant the control passed against its
+    OWN copy while the reverted production rule stayed green. Measured by
+    planting exactly that revert. A predicate its control cannot reach is a
+    predicate nothing proves.
+    """
+    if rel in DELIBERATELY_EXCLUDED:
+        return True
+    for tree in EXCLUDED_TREES:
+        if rel == tree or rel.startswith(tree + "/"):
+            return True
+    return False
+
+
 def test_every_committed_tree_the_suite_reads_is_covered():
     """No committed path the suite reads may short-circuit pytest-run.
 
@@ -372,27 +490,10 @@ def test_every_committed_tree_the_suite_reads_is_covered():
     """
     tracked = _tracked()
 
-    def _excluded(rel: str) -> bool:
-        """Honour DELIBERATELY_EXCLUDED rather than silently overriding it.
-
-        A documented decision outranks a derived one UNTIL evidence falsifies
-        it — and then the decision is narrowed, not deleted. That happened here:
-        `data/` carried "bulk data, not asserted structurally by pytest", but
-        this scan measured three files under it that ARE read as committed
-        (backtest_candles.csv, btc_1m_sample.csv, ict_validate_manifest.csv).
-        The filter now names those three; the bulk tree stays excluded, so the
-        original rationale still holds for everything it was actually about.
-        """
-        for ex in DELIBERATELY_EXCLUDED:
-            top = ex.split("/", 1)[0]
-            if rel == ex or rel == top or rel.startswith(top + "/"):
-                return True
-        return False
-
     uncovered = {
         rel: (sorted(readers), _uncovered_children(rel, tracked))
         for rel, readers in _committed_readers_any_tree().items()
-        if not _excluded(rel)
+        if not _scan_excluded(rel)
     }
     uncovered = {k: v for k, v in uncovered.items() if v[1]}
     assert not uncovered, (
@@ -431,3 +532,128 @@ def test_docs_committed_readers_are_all_covered():
         "executed nothing is indistinguishable from a real pass at the merge "
         "button (this is how PR #9208 merged and left main red)."
     )
+
+
+# ---------------------------------------------------------------------------
+# THE TWO BLIND SPOTS, 2026-09-12. Both scans above were reporting CLEAN over
+# four committed files the suite reads as-committed and the filter did not
+# cover, each for its own reason. Neither blind spot is visible from a green
+# run — that is the whole problem with them — so each gets a control that goes
+# red the moment the fix is reverted.
+# ---------------------------------------------------------------------------
+
+
+def test_the_line_scan_sees_both_spellings_of_a_docs_join():
+    """PLANTED: the one-string join form must be extracted, not dropped.
+
+    Readers spell the join two ways and the scan only ever saw the segmented
+    one. The drop LOOKED handled — `_REPO_DOCS_JOIN` carries an alternation
+    for the one-string form, so the line matched and the extractor then
+    returned nothing, making that alternation dead code.
+
+    Asserted over SYNTHETIC lines, deliberately: a control that reads the live
+    tree passes for as long as no reader happens to use the unseen spelling,
+    which is exactly how this went unnoticed. The paths below do not exist.
+    """
+    import tempfile
+
+    # ⚠️ ASSEMBLED AT RUNTIME, NEVER WRITTEN OUT. This scan is a LINE REGEX
+    # over the source of every file under tests/ — including this one — so a
+    # synthetic example spelled literally here IS picked up as a live reader of
+    # a path that does not exist. That is false-positive class 3, and the first
+    # draft of this control duly reddened the two live scans with its own
+    # fixtures. Keeping the root and the tree name out of the source text is
+    # what makes the control a control instead of a contaminant.
+    root, tree = "RE" + "PO", "do" + "cs"
+    segmented = f'A = {root} / "{tree}" / "planted" / "seg.json"'
+    one_string = f'B = {root} / "{tree}/planted/one.json"'
+    with_kwarg = (f'C = ({root} / "{tree}/planted/kw.json")'
+                  '.read_text(encoding="utf-8")')
+
+    with tempfile.TemporaryDirectory() as td:
+        fake = pathlib.Path(td) / "tests"
+        fake.mkdir()
+        (fake / "test_planted.py").write_text(
+            "\n".join([segmented, one_string, with_kwarg]), encoding="utf-8")
+        global REPO
+        saved, REPO = REPO, pathlib.Path(td)
+        try:
+            found = _committed_docs_readers()
+        finally:
+            REPO = saved
+
+    assert "docs/planted/seg.json" in found, (
+        "the SEGMENTED spelling is no longer seen — this scan is broken "
+        f"outright, not merely narrow: {sorted(found)}")
+    assert "docs/planted/one.json" in found, (
+        "the ONE-STRING spelling was dropped. `_REPO_DOCS_JOIN` matches the "
+        "line and the segment extractor must not then discard it — that "
+        "combination is what hid four real readers: "
+        f"{sorted(found)}")
+    assert "docs/planted/kw.json" in found, (
+        "a trailing kwarg literal on the same line broke the path. The walk "
+        f"must stop at the filename segment: {sorted(found)}")
+    assert not any(k.endswith("/utf-8") for k in found), (
+        "an `encoding=` literal was appended as a path component — the path "
+        f"is fabricated and will never match the filter: {sorted(found)}")
+
+
+def test_a_per_file_exclusion_does_not_swallow_its_whole_tree():
+    """PLANTED: the file/tree distinction, which was collapsed until 2026-09-12.
+
+    `_excluded` matched a candidate's TOP-LEVEL component against every entry,
+    so one per-file `docs/...` entry excluded all of `docs/` from the general
+    scan — the tree where five of this class's six recurrences lived. A tree
+    exclusion must now be WRITTEN as one.
+    """
+    tracked = _tracked()
+
+    # ⚠️ THE PRODUCTION PREDICATE, NOT A COPY. The first draft of this control
+    # reimplemented the rule locally, so it asserted over its own logic while
+    # the real one stayed nested inside the test below — and planting the exact
+    # revert left this control GREEN. That is what a control that cannot reach
+    # its subject is worth.
+    excluded = _scan_excluded
+
+    file_entries = [e for e in DELIBERATELY_EXCLUDED if e not in EXCLUDED_TREES]
+    assert file_entries, "nothing to test — the exclusion table is empty"
+
+    for entry in file_entries:
+        assert excluded(entry), f"{entry} no longer excludes itself"
+        top = entry.split("/", 1)[0]
+        if top in EXCLUDED_TREES:
+            continue          # declared as a tree ON PURPOSE; that is the point
+        sibling = f"{top}/__planted_sibling_of_{entry.split('/')[-1]}"
+        assert not excluded(sibling), (
+            f"the per-FILE entry {entry!r} is swallowing its whole {top}/ tree "
+            f"({sibling!r} reads as excluded). A tree exclusion must be stated "
+            "in EXCLUDED_TREES, with a reason — this collapse is what blinded "
+            "the general scan over docs/")
+
+    # And the converse, so the narrowing did not quietly drop a real tree
+    # exclusion: `data/` is declared and must still cover its children.
+    assert "data" in EXCLUDED_TREES, "the bulk data tree lost its exclusion"
+    assert excluded("data/ohlcv/README.md"), (
+        "EXCLUDED_TREES no longer covers a subtree — the narrowing went too "
+        "far and the CI-minutes trade-off it protects is gone")
+    assert any(t.startswith("data/") for t in tracked), (
+        "no committed file under data/ — this control is vacuous")
+
+
+def test_the_two_scans_agree_on_the_live_tree():
+    """Cross-check, not a third scan.
+
+    The line scan and the AST scan find docs/ readers by entirely different
+    means (a per-line regex vs a parsed path expression). They disagreed for
+    months and each disagreement was a blind spot. Every docs/ path the LINE
+    scan finds must therefore also be found by the AST walk — if it is not,
+    one of them has gone narrow again and the other is carrying it silently.
+    """
+    line_scan = set(_committed_docs_readers())
+    ast_scan = {k for k in _committed_readers_any_tree() if k.startswith("docs/")}
+    assert line_scan, "the line scan found nothing — vacuous"
+    assert ast_scan, "the AST scan found nothing over docs/ — vacuous"
+    missing = sorted(line_scan - ast_scan)
+    assert not missing, (
+        "the AST scan no longer sees docs/ paths the line scan does, so it is "
+        f"blind again over part of that tree: {missing}")
