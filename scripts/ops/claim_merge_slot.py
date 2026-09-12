@@ -50,6 +50,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# ONE OWNER for "is the incumbent claim a ghost?" — imported rather than
+# re-derived, so the claimant's report and any other reader cannot drift.
+import merge_slot_state as mss  # noqa: E402
+
 
 class SpliceError(RuntimeError):
     """The claim could not be written safely, so nothing was written."""
@@ -198,6 +204,15 @@ def main(argv=None) -> int:
     ap.add_argument("--claimed-at", default=None,
                     help="override the timestamp (tests only)")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--no-incumbent-check", action="store_true",
+                    help="Skip grading the claim being overwritten. It costs one "
+                         "`git ls-remote`; this exists for offline tests, not as "
+                         "a way to stop looking.")
+    ap.add_argument("--incumbent-pr-json", default=None,
+                    help="Optional pull-request payload for the INCUMBENT "
+                         "claim's branch. Authoritative when given; without it a "
+                         "still-present branch grades `undecidable`, never "
+                         "`live`.")
     a = ap.parse_args(argv)
 
     if a.self_test:
@@ -211,6 +226,42 @@ def main(argv=None) -> int:
     except OSError as exc:
         print(f"claim-merge-slot: cannot read {path}: {exc}", file=sys.stderr)
         return 2
+    # ── WHAT AM I DISPLACING? ────────────────────────────────────────────────
+    # The release half of this protocol has NO mechanism and never has: measured
+    # over the last 25 commits touching this file, ZERO wrote a cleared slot. So
+    # the incumbent claim is almost always a ghost, and every claimant has had to
+    # make that call alone — waiting forever on a merged PR, or displacing blind.
+    # Both happened live on 2026-09-09.
+    #
+    # ⚠️ IT IS PRINTED BEFORE THE WRITE AND NEVER BLOCKS IT. R13's own docstring
+    # says a committed claim reaches no other session until the branch merges, so
+    # this field serializes nothing and refusing to overwrite it would invent a
+    # lock the protocol does not have — and would deadlock every armed branch
+    # behind whichever ghost happened to be last. The answer is information at
+    # the moment the judgement is made, which is the cost the backlog rows name.
+    if not a.no_incumbent_check:
+        try:
+            incumbent, readable = mss.read_claim(path)
+            if readable:
+                pr = None
+                if a.incumbent_pr_json:
+                    try:
+                        raw = json.loads(
+                            Path(a.incumbent_pr_json).read_text(encoding="utf-8"))
+                        pr = raw[0] if isinstance(raw, list) and raw else raw
+                    except (OSError, json.JSONDecodeError, TypeError):
+                        pr = None
+                branch = str((incumbent or {}).get("branch") or "")
+                print(mss.render(mss.grade(
+                    incumbent, mss.branch_on_origin(branch, path.parent.parent.parent)
+                    if branch else None, pr)))
+        except Exception as exc:                      # noqa: BLE001
+            # ⚠️ A REPORT MUST NEVER TAKE DOWN THE WRITE IT ANNOTATES. R13 fails
+            # an armed branch that does not hold the slot, so a crash here would
+            # red a PR over a courtesy read.
+            print(f"claim-merge-slot: could not grade the incumbent claim "
+                  f"({exc}) — WE DID NOT LOOK. Proceeding with the claim.")
+
     try:
         new_text = splice(text, build_claim(a.branch, a.held_by, a.purpose,
                                             a.claimed_at))
