@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "registers only — docs/claude/OPEN-ITEMS.json observations and docs/claude/health-review-backlog.json supersessions. No runtime, order path, config, workflow or deploy file is touched; every live read this session made was a GET."
+  "why": "Registers plus the GENERATED brief block. docs/claude/health-review-backlog.json and docs/claude/OPEN-ITEMS.json carry the drain's row edits; CLAUDE.md changes ONLY inside the `SESSION BRIEF` block that render_session_brief.py writes from those registers, verified by diffing the changed line ranges against the block bounds (lines 95-196) — no canonical prose is touched, so this is not a manager-scope edit. No runtime, order path, config, workflow or deploy file is touched. Every live read this session made was a GET."
 }
