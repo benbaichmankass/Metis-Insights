@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research and register records only: a docs/research/ memo, a manual-only analysis script under scripts/research/, one docs/claude/work/objects/ work object, four backlog rows filed through backlog_append.py, one new docs/claude/OPEN-ITEMS.json row plus an evidence append to an existing one (spliced surgically, with the prior text asserted to survive as a substring), one hand-added docs/DOCUMENT-INDEX.md row and one RESEARCH-CAPABILITY-INDEX.md row. NO src/, config/ (every remedy is a PROPOSAL and the config is deliberately untouched — the memo explicitly declines to propose any parameter change), deploy/, .github/workflows/ or scripts/ci/. No runtime, no order path, no strategy config, no risk caps, no live-VM file, nothing armed. Read-only against production throughout; every call was a GET and no order was placed, modified or cancelled. Tier-1 by the canonical doc's own examples (docs + analysis tooling + observability/read paths)."
+}

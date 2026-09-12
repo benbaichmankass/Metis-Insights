@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One work-object register edit: WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE moves lifecycle in_flight -> done with its outcome recorded, now that PR #11848 has MERGED (squash, 2026-09-12T02:19:31Z) and its content is verified present on origin/main by CONTENT rather than ancestry. No src/, config/, deploy/, .github/workflows/ or scripts/ci/. No runtime, no order path, no strategy config, no risk caps, nothing armed. Tier-1 by the canonical doc's own examples (docs + register maintenance)."
+}
