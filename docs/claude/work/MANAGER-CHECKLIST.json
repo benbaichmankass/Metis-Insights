@@ -4656,5 +4656,62 @@
       "the read-completeness defect gets its own unit — NOT MI-283, which is at 610k context and should hand off",
       "establish how many other hedge books are currently unfetched — note the instrument that would answer it is the one that is blind"
     ]
+  },
+  "manager_tick_2026_09_12T0952Z": {
+    "recorded_at": "2026-09-12T09:58Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T09:54:03Z",
+      "expires": "2026-09-12T11:24:03Z"
+    },
+    "checklist": {
+      "headline": "ALL THREE OPERATOR-APPROVED PRs ARE LANDED. THE JAM GREW ANYWAY, AND THAT IS THE PREDICTED RESULT.",
+      "jam_remeasured": {
+        "method": "git merge-tree --write-tree origin/main <pr-head> over the COMPLETE open-PR set",
+        "before_0730Z": {
+          "open": 19,
+          "clean": 5,
+          "conflicted": 14,
+          "on_session_board_merge_slot": 13
+        },
+        "after_0955Z": {
+          "open": 31,
+          "clean": 5,
+          "conflicted": 26,
+          "on_session_board_merge_slot": 25
+        },
+        "reading": "NOT a failure of #11891 and must not be reported as one. --branch-claim is action=store_true and the DEFAULT still splices the shared field, so the capability shipped INERT — which the manager stated BEFORE the merge rather than after the number came back. The count grew because the lanes opened ~12 more PRs in the window and every armed branch still writes the one shared field.",
+        "step_two": "MI-285, dispatched 09:57Z under the SAME object and the SAME approved exception — no new operator decision needed"
+      },
+      "merged_this_tick": [
+        {
+          "pr": 11891,
+          "sha": "2e294198a",
+          "what": "R13 per-branch merge-slot claim — the unjammer"
+        },
+        {
+          "pr": 11889,
+          "sha": "4833cc421",
+          "what": "never arm auto-merge on a head no check is measuring"
+        }
+      ],
+      "structural_finding": "THE QUEUE IS GROWING FASTER THAN IT DRAINS. 19 -> 31 open PRs in ~2.5h while the manager merged 5. 26 of 31 are unmergeable. This is not a merge-discipline problem — it is a throughput mismatch between six producing lanes and one serialising manager, and it is the thing to put to the operator rather than out-merge."
+    },
+    "incident": {
+      "state": "UNCHANGED — still naked, still awaiting operator containment",
+      "reverified_at": "2026-09-12T09:54Z",
+      "evidence": "/api/diag/bybit_open_orders?account_id=bybit_2 returns 4 resting orders, ALL reduce-only, and ZERO are ETH Buy-side. A short is closed by a BUY, so no protection exists for any ETH short on that account. ⚠️ STATED PRECISELY: the ORDER book is complete and that read is sound, but the POSITION read is the blind one — so 'no protection exists' is established while 'the short still exists' is not confirmable from any bot surface. The operator's terminal remains the only source for that half."
+    },
+    "recently_done": [
+      "Merged #11891 and #11889, each verified on its exact head (checks attached to THAT commit, ruff clean, test-merge clean, and for #11889 the two positive controls grepped by name to confirm they were repaired rather than deleted).",
+      "Re-measured the jam against its own before-figure and reported the growth honestly.",
+      "Dispatched MI-285 for step two — REGISTERED BEFORE SPAWNING this time, which is the ordering error made twice earlier today."
+    ],
+    "next": [
+      "MI-285 lands the docs/skill/template change so lanes use --branch-claim",
+      "re-measure the conflict count once lanes re-push — that number, not the merge, says the jam cleared",
+      "MI-283's #11903 is Tier-2 and blocked on operator approval for a live-account write",
+      "the read-completeness defect from the incident still has no owner"
+    ]
   }
 }
