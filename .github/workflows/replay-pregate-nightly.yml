@@ -366,6 +366,36 @@ jobs:
           WROTE_REPORT: ${{ steps.outcome.outputs.wrote_report }}
         run: |
           set -euo pipefail
+          # ⚠️ NO `[skip ci]` IN EITHER MESSAGE BELOW, AND THAT IS THE WHOLE
+          # POINT OF THIS BLOCK. It suppresses EVERY workflow for the commit,
+          # including the four REQUIRED checks, so the PR `commit-to-main`
+          # opens can never go green and `verify-merged` waits out its full 30
+          # minutes on a PR that is unmergeable by construction.
+          #
+          # MEASURED on PR #11916 (scheduled run 34683288123, 2026-09-12): it
+          # carries exactly ONE check run, `scope-overlap-audit` — which
+          # survives only because it triggers on `pull_request_target`, an
+          # event GitHub does not skip — and NONE of guards / pytest-run /
+          # pytest-collect / repo-inventory. Its head commit message ends
+          # `... (undetermined) [skip ci]`.
+          # POSITIVE CONTROL: PR #11919, opened by the SAME `commit-to-main`
+          # action the same day with no `[skip ci]`, carries all four, green.
+          #
+          # ⚠️ THE ORIGINAL REASON DOES NOT APPLY HERE. `[skip ci]` exists in
+          # this repo to stop a workflow retriggering ITSELF when it commits
+          # onto its own trigger path (`pr-opener.yml`, `board-post.yml`). This
+          # workflow triggers on `schedule`, `workflow_dispatch` and `issues`
+          # ONLY — there is no `push:` trigger, so a commit on an
+          # `automation/**` branch cannot retrigger it. `board-post.yml` states
+          # exactly this remedy for exactly this reason: "there is no
+          # self-retrigger, no `[skip ci]`, and the PR keeps CI."
+          #
+          # ⚠️ AND THE REPO HAS PAID FOR THIS CLASS THREE TIMES ALREADY:
+          # `pr-opener.yml` records measuring `total_count 0` on its own
+          # `[skip ci]` commits, and `trainer-diag-relay.yml` records it
+          # stranding PR CI on #10076/#10077/#10078. Removing it here puts this
+          # caller on the same footing as the other 26 `commit-to-main` landing
+          # jobs, none of which carries the marker.
           TS="$(date -u +%Y%m%dT%H%M%SZ)"
           DIR="runtime_logs/replay_pregate"
           mkdir -p "$DIR"
@@ -374,7 +404,7 @@ jobs:
             cp /tmp/pregate.json "$DIR/${TS}.json"
             cp /tmp/pregate.json "$DIR/latest.json"
             SRC="$DIR/latest.json"
-            MSG="chore(ml): replay pre-gate fleet report ${TS} [skip ci]"
+            MSG="chore(ml): replay pre-gate fleet report ${TS}"
           else
             # PARTIAL run: preserved as evidence, but deliberately NEVER written
             # to latest.json. A partial baseline that could pass for a complete
@@ -382,7 +412,7 @@ jobs:
             # silently lose the heads the run never reached.
             cp /tmp/pregate_partial.json "$DIR/${TS}.partial.json"
             SRC="$DIR/${TS}.partial.json"
-            MSG="chore(ml): PARTIAL replay pre-gate report ${TS} (${STATE}) [skip ci]"
+            MSG="chore(ml): PARTIAL replay pre-gate report ${TS} (${STATE})"
           fi
           python3 scripts/ml/replay_pregate_summary.py "$SRC" > /tmp/pregate_summary.md || \
             echo "(summary renderer unavailable)" > /tmp/pregate_summary.md
