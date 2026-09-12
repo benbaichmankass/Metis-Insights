@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01Wv1BdfEUnmCBZrhvUjeBzb (MI-278)",
     "branch": "claude/mi278-u2-winner-close-attribution",
-    "claimed_at": "2026-09-12T07:41:42Z",
-    "purpose": "PR #11874 — MI-278 U2/U2b winner-close attribution + risk denominator (Tier-1)"
+    "claimed_at": "2026-09-12T07:53:29Z",
+    "purpose": "PR #11874 — MI-278 U2/U2b (Tier-1)"
   },
   "active_sessions": [
     {
