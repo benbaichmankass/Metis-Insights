@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One new row plus two `updates` entries in docs/claude/health-review-backlog.json. No code, no workflow, no src/, no config/, no deploy/ -- every path is inside TIER1_SURFACE. The PR now carries a same-day CORRECTION by its own filer: PR #12068 (this lane, non-draft) merged at 20:15:27Z via github-actions[bot], which proves the adopt-and-arm route WORKS and refutes the strongest reading of the row. The blocker is the draft rule and only the draft rule; the four stuck PRs were marked ready, which is the workflow's own first-named remedy and what this lane's earlier PRs already did."
+}
