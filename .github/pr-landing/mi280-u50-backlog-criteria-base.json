@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One guard, scripts/ops/check_backlog_criteria.py, resolved through scripts/ci/_git_base.py so its two diff-scoped checks compare against the branch's fork point rather than the base tip. STACKED on #12094, which introduces that module; either merge order is fine and it is deliberately NOT declared depends_on_unmerged_pr because it does not NEED that PR to land first -- landing first simply carries its content along. Every path is inside TIER1_SURFACE and none is in LANDING_MACHINERY, verified by importing the list. No src/, no config/, no deploy/, no workflow, and no backlog row -- deliberately, to keep the register conflict surface down while five of this lane's PRs are in flight. ⚠️ It changes GUARD behaviour, so state the direction: it removes a false failure (a branch blamed for a kept_open transition the BASE made) and tightens an under-enforcement (a genuinely new row skipped because main took the same id), and an unresolvable merge base falls back to the ref as given, i.e. the prior behaviour. A real violation is verified to still exit 1."
+}
