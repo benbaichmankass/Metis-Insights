@@ -5173,5 +5173,35 @@
     "manager_holds": "the Tier-2 decision on landing (0), and the separate later decision on (1)",
     "lane_count": "4 working: MI-278 / MI-279 / MI-280 (the operator's three keepers) + MI-286 (new, operator-raised). MI-283 order-path lane remains blocked on the operator's Tier-2 approval of #11903.",
     "eth_short_closed": "separately resolved this tick: bybit_2 ETHUSDT short was bracketed at entry, its own stop filled 2026-09-11T08:30:35.831Z, venue-confirmed. No naked position. No action."
+  },
+  "manager_tick_2026_09_12T1350Z": {
+    "trigger": "operator asked for status",
+    "lease": "held_fresh, heartbeat 2026-09-12T13:49:46Z, expires 15:19:46Z",
+    "main_ci": "green (2 checks on main, none failing)",
+    "queue": {
+      "open": 27,
+      "clean": 16,
+      "conflicted": 11,
+      "method": "git merge-tree --write-tree origin/main <head>, every open PR, local and API-free",
+      "conflicted_breakdown": "10 of 11 are automation/* cron PRs; the 11th lane PR is #11925 (ops-probe). #11903 (MI-283, Tier-2) has ALSO gone conflicted while waiting on the operator.",
+      "root_cause_fix_in_flight": "#11958 (MI-280, commit-to-main takes the per-branch merge slot) is CLEAN, auto-merge armed, CI in flight at 13:46Z. It kills the automation conflict class; NOT hand-resolving the 10."
+    },
+    "lanes": {
+      "MI-278": "research/M20 active trade management — 1 clean PR (#11933)",
+      "MI-279": "ops/health backlog by class — 6 clean PRs (#11967 #11966 #11942 #11937 #11928 #11920 #11902)",
+      "MI-280": "engineering/landing+register machinery — 7 clean PRs (#11969 #11959 #11958 #11914 #11909 #11900 #11895)",
+      "MI-286": "order-path, NEW this tick — RUNNING, branch claude/mi286-fanout-apply-projection, fix mutation-tested at 13:49Z",
+      "MI-283": "order-path, BLOCKED on the operator's Tier-2 approval of #11903, which is now conflicted"
+    },
+    "operator_items_this_tick": {
+      "eth_short": "CLOSED as a question — venue-confirmed the short was bracketed at entry and its own stop filled 2026-09-11T08:30:35.831Z. No naked position, no action taken, evidence preserved.",
+      "prop_trades": "ROOT-CAUSED — the fan-out apply path has never dispatched. Routed to MI-286. Two Tier-2 decisions are the manager's to carry to the operator: land the projection fix (arms a never-exercised path on bybit_1 demo), then separately arm breakout_1."
+    },
+    "next": [
+      "let #11958 land on green; re-measure the automation conflict count after it deploys",
+      "merge the clean MI-279/MI-280 PRs paced, taking what is green on its own head",
+      "take MI-286's PR when it opens; hold it, do not land without the operator",
+      "#11903 needs a base merge — it is degrading while it waits on approval"
+    ]
   }
 }
