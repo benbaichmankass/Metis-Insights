@@ -1,0 +1,40 @@
+id: WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Decompose the winner-size collapse (avg win $404 -> $112) and grade whether it is MEASURED
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_01Fm4wBus9JMSYenSFRjd71h
+opened_at: 2026-09-12
+review_trigger: >-
+  None owed on the decomposition itself. What remains are two OPERATOR items carried on
+  OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED:
+  whether to act on the regime reading at all, and whether to fix the
+  netting_attributed path (OI-20260908) before any further verdict is computed off
+  this population.
+done_condition: >-
+  A verdict, with its population stated, on (a) whether the $404 -> $112 average-win
+  collapse is a MEASURED fact or an artifact of the exit-booking path, and (b) an
+  attribution of the collapse across position size, exit distance, leg composition and
+  regime, with each factor's share. Tier-3 items are PROPOSALS only.
+
+why: >-
+  MI-271 (docs/research/bleed-attribution-2026-09-11.md) established WHEN the bleed began
+  and WHAT it looks like, and named the winner-size collapse as the dominant term in the
+  expectancy flip. It did not establish WHY, and the cycle priority CY-20260906-TRADING-TRUTH
+  requires repairing the MEASUREMENT before acting on what it says -- PnL coverage was
+  42.9% at its last reading and OI-20260908 is a live unfixed defect on the venue carrying
+  most of these rows.
+
+source: >-
+  manager, on MI-271's own "separate research unit" recommendation (section 5.4)
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by session_01Fm4wBus9JMSYenSFRjd71h. The empty list is a real claim,
+  not the migration default: every input this unit needs (the journal, order_packages,
+  src/runtime/provenance.py, src/units/accounts/risk.py) was readable this session, and the
+  two predecessor units it depends on (MI-271, MI-275) are both merged to main.
+
+captured_by: session_01Fm4wBus9JMSYenSFRjd71h
