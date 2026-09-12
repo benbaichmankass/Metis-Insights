@@ -955,6 +955,58 @@ parity its IS grid runs **+31.42 at 0.75R monotonically down to −33.39 at 4R**
 a 65 R spread across the grid, and its OOS runs the other way. Under the 24-bar
 clock that structure was invisible (Σ IS −10.98).
 
+## 4m. ⚠️ EVERY VERDICT ABOVE IS PATH-A ONLY — the sweep implements HALF the binding gate
+
+Found by auditing my own instrument against the skill that governs it, after
+the results were in. **`exit-refinement/SKILL.md` states the gate as two
+alternative qualifying paths** (operator directive 2026-08-10, *"capital
+efficiency is a SHIPPING criterion, no longer a tiebreak"*):
+
+- **Path A — return.** Beats baseline on **net_R AND maxDD** in both windows.
+- **Path B — capital efficiency.** Improves **`net_r_per_capital_day`** in both
+  windows, maxDD does not worsen (as a *derived tolerance*,
+  `allowed = D_b × (dN / N_b)` capped at `D_b`), and net_R falls by no more
+  than a declared floor.
+
+**`scripts/research/m27/ict_scalp_exit_sweep.py::beats` implements Path A and
+only Path A** — `cell.total_r > base.total_r and cell.max_dd_r < base.max_dd_r`
+— and the cell record it stores carries **only `total_r` and `max_dd_r`**. So
+`net_r_per_capital_day` is not merely ungraded, it is **not recorded**, and
+Path B cannot be evaluated retroactively on any run in this document.
+
+⚠️ **CONSEQUENCE, STATED PLAINLY: every "0 candidates" in §4d/§4h/§4j/§4l is a
+PATH-A verdict, not a full-gate verdict.** A cell that loses R while freeing
+capital faster is exactly what Path B exists to qualify, and this sweep
+discards it silently. The direction matters here: **§4f measured wide targets
+holding 5.3× longer for fewer trades**, which is a large capital-efficiency
+*penalty* Path A cannot see — so for the WIDE cells Path B is very unlikely to
+rescue anything, and the negative stands. For the **NARROW** cells the reverse
+is true: they hold less capital for less time, so Path B is where they would
+qualify if anywhere, and **`btc_5m` at parity runs +31.42 R at 0.75R with maxDD
+−18.81** — a cell rejected only because its OOS R fell. **That one is a real
+candidate for Path B and has not been graded.**
+
+⚠️ **THIS IS A PRE-EXISTING DEFECT IN THE M27 SWEEP, NOT ONE THIS PR
+INTRODUCED** — the Path-A-only docstring predates MI-278 (the file's own §GATE
+paragraph). Recording that because it means every prior M27 `bracket_geometry`
+and ladder verdict measured with this script carries the same limitation, not
+just today's. It is fixed here rather than filed onward, per Generation
+Discipline Rule 2: an audited non-compliant precedent that touches what I ship
+gets fixed in the same PR.
+
+**The fix is small because both owners already exist and must be IMPORTED, not
+re-derived** (the skill: *"single-homed in `scripts/capital_efficiency.py` —
+never re-derived per harness, or a cross-harness comparison means nothing"*):
+`scripts/capital_efficiency.py` owns the metric, and
+`m20_fleet_exit_sweep.py::drawdown_exchange_rate` owns the derived tolerance
+and its `dN/N_b ≤ 1.0` grant cap. The harness already emits everything needed
+(`net_r_per_capital_day`, `capital_days`, `net_total_r`), and it correctly
+reports `capital_days == position_days` — the unweighted case the skill says
+must be reported rather than fabricated.
+
+**The Path-B verdicts require a RE-RUN**, since the metric was never stored.
+Until that run lands, the scoreboard in §4j must be read as *Path A only*.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
