@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two files and one backlog edit. tests/test_pytest_run_filter.py and .github/workflows/pytest-run.yml are both inside TIER1_SURFACE, and neither is in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list, not by reading prose. No src/, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps. ⚠️ IT CHANGES CI BEHAVIOUR, SO STATE THE DIRECTION: the workflow change only WIDENS what counts as relevant, so it can make pytest-run RUN where it previously skipped -- it can never cause a skip that did not happen before, and the negative control test_short_circuit_is_still_possible_at_all asserts the filter has not been widened to everything. The test changes make two derived scans SEE more, so they can only ADD a failure, never remove one; three planted reverts each go red on the right control and the fixed tree is green over all 34 tests in the module. The cost is real and named per-file in COVERED: docs/claude/session-board.json is written by 27 workflows, so the full suite will now run on diffs that previously skipped."
+}
