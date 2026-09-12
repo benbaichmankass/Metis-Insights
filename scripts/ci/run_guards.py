@@ -362,6 +362,35 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RE-SERIALIZATION, which is neither of the two above. `register-id-guard`
+        # catches a SEMANTIC collision and `register-field-loss` catches a lost
+        # value; this catches a diff in which nothing was lost at all and the
+        # whole file was nonetheless rewritten — every row re-attributed to this
+        # PR, every sibling branch made to conflict, and the row-level history
+        # gone.
+        #
+        # ⚠️ IT EXISTS BECAUSE THE ONLY THING THAT NOTICED THE 2026-09-12
+        # INCIDENT WAS A CANARY IN AN UNRELATED TOOL THAT NAMED A DIFFERENT
+        # CONDITION: `manager_preflight.py --self-test` hardcodes "OPEN-ITEMS.json
+        # does not round-trip" as an expectation, so it fires on churn only as a
+        # side effect and reads as a broken self-test. A session could "fix" it
+        # by editing the expectation and destroy the only detector, and if that
+        # file ever becomes round-trippable the canary dies silently.
+        #
+        # `when: None` — every diff. The register set comes from `.gitattributes`
+        # (the driver's own binding) rather than a second hardcoded list, and the
+        # guard reports how many unmarked candidates it did NOT check, so a clean
+        # verdict is a scope result and cannot be read as full coverage.
+        "name": "register-reserialization-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_reserialization.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_register_reserialization.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # `when: None` — it runs on EVERY diff, for the same reason the
         # wip-ceiling guard below does. A stale `in_flight` row is written by
         # whoever is last to touch either register, and a check that only fires
