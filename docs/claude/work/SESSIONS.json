@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T09:57:51Z",
+  "updated_at": "2026-09-12T11:56:25Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4984,14 +4984,14 @@
     {
       "session_id": "session_01LGXPoWzDGS47DkNZfZyGFM",
       "registry_key": "pending-20260912T095647Z",
-      "state": "working",
+      "state": "completed",
       "title": "MI-285 — make the per-branch merge-slot claim the route lanes actually take",
       "owns_object": "WO-20260912-UNBLOCK-THE-MERGE-QUEUE-THE-R13-MERGE",
       "checklist_item": "MI-285",
       "spawned_at": "2026-09-12T09:56:47Z",
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "why": "#11891 merged (2e294198a) and the jam did NOT clear, exactly as predicted: --branch-claim is action=store_true and the DEFAULT still splices the shared session-board.json::merge_slot field, so the capability shipped INERT. MEASURED before 07:3xZ = 19 PRs, 5 clean, 14 conflicted, 13 on merge_slot alone; AFTER 09:55Z = 31 PRs, 5 clean, 26 conflicted, 25 on merge_slot. The count grew because the lanes opened ~12 more PRs, every armed branch writes the shared field, and nothing tells them to use the new route. Step two is the spawn-prompt template, .github/pr-landing/README.md and the session-coordination skill.",
+      "why": "#11891 merged (2e294198a) and the jam did NOT clear, exactly as predicted: --branch-claim is action=store_true and the DEFAULT still splices the shared session-board.json::merge_slot field, so the capability shipped INERT. MEASURED before 07:3xZ = 19 PRs, 5 clean, 14 conflicted, 13 on merge_slot alone; AFTER 09:55Z = 31 PRs, 5 clean, 26 conflicted, 25 on merge_slot. The count grew because the lanes opened ~12 more PRs, every armed branch writes the shared field, and nothing tells them to use the new route. Step two is the spawn-prompt template, .github/pr-landing/README.md and the session-coordination skill. | OBSERVED 2026-09-12T11:56Z: IDLE/review_ready, 489,928 ctx. Deliverable COMPLETE — both PRs landed (#11929 66a0035e5, #11927 7532e24bb). Archived by the manager under the three-lane rollback; no replacement spawned, by design.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T09:57:51Z"
     }
