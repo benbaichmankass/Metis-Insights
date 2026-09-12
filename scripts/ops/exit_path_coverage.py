@@ -153,10 +153,44 @@ _CLOSE_B = re.compile(
 # family, which trades real money, as having LOST two mechanisms it still runs.
 # The self-test's planted positive control is what caught that; without it the
 # refactor would have silently degraded this file's every verdict.
-_SHARED_VERDICTS = {
-    "stale_stop_verdict": "stale_stop",
-    "giveback_verdict": "giveback_stop",
-}
+#
+# ⚠️ THIS MAP IS NO LONGER DEFINED HERE, AND THAT IS THE FIX RATHER THAN TIDYING.
+# It used to be a SECOND copy of the lever vocabulary, free to disagree with
+# `exit_mechanism_coverage`'s — and it did. MEASURED 2026-09-12 on main, before
+# this change: `exit_mechanism_coverage.module_implements(trend_donchian,
+# "exit_head")` returned True while `exit_path_coverage.module_reads(same unit,
+# exit_head keys)` returned False. Two audits, one capability, opposite answers,
+# on `trend_donchian` (REAL MONEY) and `ict_scalp` (8 legs) -- both of which
+# delegate `exit_head_verdict` to `src/runtime/exit_head_apply.py` and run the
+# lever perfectly.
+#
+# The cause was structural, not a typo: the sibling generalised its entry to
+# carry the OWNING MODULE per mechanism on 2026-09-06, and this file kept a bare
+# symbol->reason map plus ONE hardcoded module path, so `exit_head` -- whose body
+# lives in a different module -- could not be seen here at all. Adding a third
+# entry here would have fixed today and re-broken on the next extraction, which
+# is BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS's whole
+# point.
+#
+# So there is now ONE owner of "which symbol means which lever, and which module
+# owns its body". This file READS it. Two audits that cannot disagree is a
+# stronger property than two audits that currently agree -- the same reasoning
+# `_resolver()` below already records for the leg->unit resolver: "rather than
+# writing a second one that is free to disagree with it".
+
+
+def _shared_lever_map() -> Dict[str, Tuple[str, str]]:
+    """``{symbol: (mechanism, owning module path)}``, from the ONE owner.
+
+    ⚠️ An import failure RAISES rather than returning an empty map. An empty map
+    here does not mean "no unit delegates a lever" -- it means we could not look,
+    and every delegating unit would silently grade `not_implemented`, which is
+    precisely the under-reporting this row exists to stop. Failing loudly is the
+    only honest option for a detector whose silent answer is the defect.
+    """
+    import exit_mechanism_coverage as emc  # noqa: E402  (sibling, same dir)
+    return {sym: (mech, rel)
+            for mech, (sym, rel) in emc._SHARED_VERDICT_SYMBOLS.items()}
 
 
 def _imported_shared_reasons(unit_src: str) -> List[str]:
@@ -166,7 +200,7 @@ def _imported_shared_reasons(unit_src: str) -> List[str]:
     `exit_levers` for `since_entry` is not the same capability as importing
     `stale_stop_verdict`, and treating them alike would over-report.
     """
-    return [reason for sym, reason in _SHARED_VERDICTS.items()
+    return [mech for sym, (mech, _rel) in _shared_lever_map().items()
             if re.search(rf"\b{sym}\b", unit_src)]
 
 
@@ -186,13 +220,21 @@ def module_reads(unit_src: str, keys: Tuple[str, ...]) -> bool:
     """
     if any(f'"{k}"' in unit_src for k in keys):
         return True
-    try:
-        shared = (REPO / "src" / "runtime" / "exit_levers.py").read_text()
-    except OSError:
-        return False
-    for sym, _reason in _SHARED_VERDICTS.items():
-        if re.search(rf"\b{sym}\b", unit_src) and any(f'"{k}"' in shared
-                                                       for k in keys):
+    # ⚠️ THE MODULE COMES FROM THE LEVER ENTRY, NEVER FROM A CONSTANT. Reading
+    # one hardcoded file made every lever whose body lives elsewhere invisible
+    # here -- measured live on `exit_head`, see the note above the map.
+    for sym, (_mech, rel) in _shared_lever_map().items():
+        if not re.search(rf"\b{sym}\b", unit_src):
+            continue
+        try:
+            shared = (REPO / rel).read_text()
+        except OSError:
+            # We could not read the module that owns the body. That is *we did
+            # not look*, so it must not bank as evidence for this symbol -- but
+            # another symbol may still answer, so keep going rather than
+            # returning a definite False for the whole question.
+            continue
+        if any(f'"{k}"' in shared for k in keys):
             return True
     return False
 
