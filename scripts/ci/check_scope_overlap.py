@@ -166,10 +166,39 @@ _NEGATION_MARKERS = ("not touching", "not editing", "not going to touch",
                      "hands off", "leaving alone", "untouched")
 _DECLARATION_MARKERS = ("touching", "scope", "files:", "editing", "claiming")
 
+#: ⚠️ A BACKTICKED SPAN IS A PATH, NEVER PROSE — so it may not supply a MARKER.
+#:
+#: MEASURED 2026-09-11 on the manager's standing START (board #11336 comment
+#: 5639940646), which reads:
+#:
+#:     **I do NOT touch** `src/`, `config/`, `scripts/`, `.github/workflows/`,
+#:     `deploy/`, or any order path — `check_manager_scope.py` enforces that
+#:     and I want it enforced.
+#:
+#: That line classified **`declare`**, and the marker that matched was `scope`
+#: — from INSIDE the path token `check_manager_scope.py`. Isolated with a
+#: control: strip that one filename and `_classify` returns None; leave it in
+#: and the line is a declaration. So a DISCLAIMER was promoted to a CLAIM by
+#: the name of the guard the sentence cites, and the five paths
+#: `check_manager_scope.py` R2 FORBIDS the manager from touching were published
+#: as its declared scope — making every lane that touches `src/`, `config/`,
+#: `scripts/`, `deploy/` or `.github/workflows/` collide with it. Those
+#: positives are guaranteed false by a CI guard, not merely unlikely, and the
+#: manager posts this wording every session. It is verbatim the inversion the
+#: section note above says destroys this mechanism, in a new spelling.
+#:
+#: Stripping code spans BEFORE marker matching removes the whole class: no path
+#: can classify the line that names it. Path EXTRACTION is untouched and still
+#: reads the original line, so nothing stops being declared.
+_CODE_SPAN_RE = re.compile(r"`[^`]*`")
+
 
 def _classify(line: str):
-    """`declare` / `exclude` / None (not a marker — inherits the open section)."""
-    low = line.lower()
+    """`declare` / `exclude` / None (not a marker — inherits the open section).
+
+    Markers are matched on the line's PROSE ONLY.
+    """
+    low = _CODE_SPAN_RE.sub(" ", line).lower()
     if any(m in low for m in _NEGATION_MARKERS):
         return "exclude"
     if any(m in low for m in _DECLARATION_MARKERS):
