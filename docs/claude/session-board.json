@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
-    "branch": "claude/mi279-record-lane-outcome",
-    "claimed_at": "2026-09-12T07:10:14Z",
-    "purpose": "PR #11894 — record the ops-lane first-pass outcome (Tier-1, docs only)"
+    "held_by": "session_01SrUaz8LmKMcSwNZEr8JupC (MI-273)",
+    "branch": "claude/mi-tier2-approved-self-land",
+    "claimed_at": "2026-09-12T07:27:30Z",
+    "purpose": "PR #11896 — record #11817's merge and delete the blocked_on edge it discharged. Tier-1 docs/registers only."
   },
   "active_sessions": [
     {
