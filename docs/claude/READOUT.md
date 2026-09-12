@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-12T13:32:25+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-12T14:08:19+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -156,24 +156,24 @@ The two sources are kept **separate rather than merged** — one says *this work
 
 > Ported here by operator decision 2026-09-08 (`consolidate_into_the_readout`) so that ONE surface answers *what is due right now*. ⚠️ **This did not improve the diagnosis in §1.** Folding registers in adds ROWS, not assessed `blocked_on` BASIS — §1 still refuses to name a stage, and refusing is still correct. A longer readout is not a better-evidenced one.
 
-**Completeness: `all_sources_read`** · **121 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
+**Completeness: `all_sources_read`** · **120 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
 
 | source | state | rows | note |
 |---|---|---|---|
-| `open_items` | `read` | 72 |  |
+| `open_items` | `read` | 71 |  |
 | `soaks` | `read` | 4 | 4 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=3 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=27.7h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
+| `probes` | `read` | 9 | freshness=fresh age=28.3h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
 | `red_crons` | `read` | 11 |  |
 | `unlanded_automation` | `read` | 9 |  |
-| `error_feed` | `read` | 12 | digest 2026-09-12T06:27:27+00:00, age 7.1h |
+| `error_feed` | `read` | 12 | digest 2026-09-12T06:27:27+00:00, age 7.7h |
 | `sunset` | `read` | 0 |  |
 | `checklist_unrouted` | `read` | 1 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
 
-**`open_items` — 72 due**
+**`open_items` — 71 due**
 
 - 🔔 `OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING` · 3d — monitoring row 3d since last observation (cadence 3d)
   - docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 l…
@@ -183,8 +183,6 @@ The two sources are kept **separate rather than merged** — one says *this work
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends r…
 - 🔔 `OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW` · 11d — monitoring row 11d since last observation (cadence 1d)
   - The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THA…
-- `OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION` · 3d — monitoring row 3d since last observation (cadence 3d)
-  - The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working…
 - 🔔 `OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED` · 0d — loud row — must be reported on every session
   - ⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link …
 - 🔔 `OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED` · 1d — loud row — must be reported on every session
@@ -410,7 +408,7 @@ The two sources are kept **separate rather than merged** — one says *this work
 **`error_feed` — 12 due**
 
 - 🔔 `ERROR-FEED-DIGEST-STALE` · 0d — EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition …
-  - error-feed digest is 7.1h old — expected hourly
+  - error-feed digest is 7.7h old — expected hourly
 - `ERRFEED-0c821ed7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…
   - [error] NEW x2 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: BTCUSDT | Side: short Trade id: N Origin: reverse_reconciler_adopt R
 - `ERRFEED-dc1aa4a7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…
