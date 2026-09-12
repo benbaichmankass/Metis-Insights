@@ -1,6 +1,6 @@
 # MI-222 — the roster-driven sweep already exists; the gap is that the read collapses states
 
-> **Doc status:** `live` · category `evidence` · MI-222 · branch `claude/mi-222-venue-truth-detector`
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > · investigated 2026-09-09 · session `session_01WmFdLwfq4U5aLLjFRDDy6b`
 
 **Every finding below is a source read or an executed test. No order was placed, modified

@@ -1,6 +1,6 @@
 # MI-278 U19 — the dose result re-derived per package: the conclusion survives, its strength does not, and my own U18 verdict flips on a 0.004 margin
 
-> **Doc status:** `unknown` · category `research` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **Unit:** MI-278 U19 · object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER` · cycle `CY-20260906-TRADING-TRUTH`
 > **Pays clause 1 of** `BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY` **for the one surface MI-278 U12 named as most load-bearing, and audits its own author's just-published result.**
