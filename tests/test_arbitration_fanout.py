@@ -321,6 +321,69 @@ def test_a_row_that_DID_apply_says_so(monkeypatch, tmp_path):
     assert row["elected_by_account"]["bybit_1"] == "trend_donchian_sol"
 
 
+def test_written_rounds_the_dispatcher_refuses_never_read_as_applied(
+    monkeypatch, tmp_path
+):
+    """THE 2026-09-12 DEFECT, pinned on the row that concealed it.
+
+    ``applied`` used to be ``bool(apply_rounds)`` — a statement about what the
+    WRITER produced, which cannot fail. It said ``true`` on 93 consecutive live
+    rows while ``pipeline._fanout_apply_rounds`` refused every one of those
+    rounds for missing geometry and the fan-out dispatched nothing, on any
+    account, for twelve days.
+
+    The row must now distinguish three facts that the v2 row collapsed into
+    one: what was PLANNED, what was WRITTEN, and what the dispatcher ACCEPTS.
+    """
+    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
+    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
+    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
+    # The EXACT shape the live log carried on all 93 rows.
+    v2_rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"]}]
+    full = [dict(v2_rounds[0], side="long", entry=100.0, sl=95.0, tp=115.0)]
+    row = soak.record(
+        ["trend_donchian_sol", "trend_donchian_sol_prop"],
+        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
+        plan={"roster_state": "read", "rounds": full, "apply_rounds": v2_rounds,
+              "apply_state": "refused_by_dispatcher",
+              "accounts_planned": 2, "accounts_elected": 2,
+              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
+    )
+    assert row is not None, (
+        "a refused plan must STILL write a row — gating the row on acceptance "
+        "would silence the soak exactly where the evidence is needed"
+    )
+    assert row["applied"] is False, "nothing the dispatcher refuses was applied"
+    assert row["mode"] == "annotate", "effective mode is what HAPPENED"
+    assert row["global_mode"] == "apply", "beside what was REQUESTED"
+    assert row["rounds_applied"] == [], "the dispatcher acts on none of these"
+    assert row["rounds_written"] == v2_rounds, (
+        "what the writer produced must stay visible — otherwise a reviewer "
+        "cannot tell a refused plan from a plan that was never written"
+    )
+    assert row["apply_state"] == "refused_by_dispatcher"
+
+
+def test_a_row_that_really_will_dispatch_says_so(monkeypatch, tmp_path):
+    """The other half: written == accepted, so all three lists agree."""
+    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
+    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
+    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
+    rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
+               "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0}]
+    row = soak.record(
+        ["trend_donchian_sol", "trend_donchian_sol_prop"],
+        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
+        plan={"roster_state": "read", "rounds": rounds, "apply_rounds": rounds,
+              "apply_state": "dispatchable", "accounts_planned": 2,
+              "accounts_elected": 2,
+              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
+    )
+    assert row["applied"] is True
+    assert row["rounds_applied"] == row["rounds_written"] == rounds
+    assert row["apply_state"] == "dispatchable"
+
+
 def test_a_clean_tick_writes_no_row(monkeypatch, tmp_path):
     """Only a tick where the global scope actually costs someone is worth a row;
     otherwise the finding drowns in the ordinary case."""
