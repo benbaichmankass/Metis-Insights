@@ -1066,6 +1066,57 @@ recovered retroactively. Until then §4j's scoreboard is **Path A only**, and
 the one cell most likely to be re-read under Path B is **`btc_5m` tp0.75R**
 (+31.42 R IS, maxDD −18.81, rejected on OOS R alone).
 
+## 4n. ✅ ONE WALK-FORWARD SURVIVOR — `ict_scalp_xrp_15m` `tp1.25R`, and it NARROWS the target
+
+Run [`34684742080`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684742080),
+`cells=bracket_geometry`, `timeout_bars=100000`, `walkforward=true`.
+
+```
+tp1.25R  [bracket_geometry]  IS ΔR=+5.82 ΔDD=-2.53 (n198) | OOS ΔR=+5.93 ΔDD=-3.72 (n117)
+         -> CANDIDATE  [timeout IS 0% OOS 0%]
+yearly walk-forward: 3/4 usable folds (need 3) -> PASS
+         [2021:skip 2022:skip 2023:PASS 2024:- 2025:PASS 2026:PASS]
+WALK-FORWARD SURVIVORS (M20-gated, -> Tier-3 proposal): ['tp1.25R']
+```
+
+It **improves both metrics in both windows** — the only cell in this whole
+workstream to do so — and then **clears the yearly walk-forward**. `n_OOS=117`
+clears the skill's `MIN_OOS_TRADES = 25` floor with room. The
+`[timeout IS 0% OOS 0%]` stamp is §4d's fidelity readout confirming this ran at
+parity, so it is not a screening artifact.
+
+**And the direction is the opposite of the queue's premise.** MI-277's finding
+is that winners are being cut short and MI-278 is titled *hold winners longer*.
+The one lever that survives the full gate says **take profit SOONER** on this
+leg — 1.5R → 1.25R.
+
+### ⚠️ FIVE THINGS THAT MUST TRAVEL WITH IT, or it is over-read
+
+1. **It passes the walk-forward by exactly the minimum.** 3 of 4 usable folds
+   against a `need` of 3, with **2021 and 2022 SKIPPED** — those years are
+   empty on `m27_data`, which the workflow's own header records. So the
+   confirmation rests on **four** folds, one of which (**2024**) failed. One
+   fold moving flips this to a fail.
+2. **PATH A ONLY** (§4m). Its capital-efficiency evidence was not recorded when
+   this ran, and the full gate has two paths. A Path-A survivor is not a
+   full-gate survivor.
+3. **One leg of eight**, and the family's other six parity legs return nothing
+   in this direction — `btc_5m` at parity is **+31.42 R IS at 0.75R** but
+   **−10.71 OOS**, i.e. the same narrowing fails elsewhere. There is no
+   family-level claim here.
+4. **`tp_at_r` is a multiple of a STRUCTURAL risk** (§4k), so this is not "move
+   the target 0.25 R closer" in any fixed-distance sense — it rescales against
+   a per-trade sweep-anchored denominator.
+5. **A survivor is an INPUT to a Tier-3 proposal, not the proposal.** Under the
+   scope this unit works to, every parameter change is proposed and the
+   operator decides. Nothing here is enacted, and `config/strategies.yaml` is
+   untouched.
+
+**`ict_scalp_avax_5m`'s two candidates (`tp3R`, `tp4R`) are still walking
+forward.** If they also survive, the family has two confirmed levers pointing
+in **opposite** directions on different legs — which would be the strongest
+possible statement that there is no family-wide target fix, only per-leg ones.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
