@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/manager-registers-20260912-0600z",
-    "claimed_at": "2026-09-12T06:02:39Z",
-    "purpose": "register consolidation, PR #11871 (prior holder claude/manager-three-lane-workplan merged as #11860 — that claim is spent)"
+    "branch": "claude/manager-tick-20260912-0610z",
+    "claimed_at": "2026-09-12T06:09:16Z",
+    "purpose": "0610Z manager tick: lease heartbeat + OPEN-PRS reconciliation (prior holder claude/manager-registers-20260912-0600z merged as #11871 — spent)"
   },
   "active_sessions": [
     {

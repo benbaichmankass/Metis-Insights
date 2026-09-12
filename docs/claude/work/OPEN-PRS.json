@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-11T15:30:49Z",
+  "as_of": "2026-09-12T06:10Z",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -65,6 +65,177 @@
       "blocker": "ONE HUMAN MERGE CLICK. pr-landing R4 bars a Tier-2 diff from landing itself WHATEVER its approval state, so this cannot self-land and the manager must not merge it. ⚠️ THE APPROVAL IS ALREADY RECORDED AND MUST NOT BE RE-SOUGHT — what is outstanding is the click, not the decision.",
       "⚠️_its_head_keeps_moving_and_that_is_correct": "Observed at 1a0d95b78 (13:29Z) and 04d4d322f (14:40Z). Its author session merges main in to keep the PR clean. That is maintenance, not churn, and it changes nothing about the R4 hold.",
       "opened_at": "2026-09-10"
+    },
+    {
+      "pr": 11873,
+      "title": "U2 (detector half): say it when a pushed commit will never land (MI-280)",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "draft": false,
+      "tier": "1 (CI/tooling; .github + docs)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self on its own .github/pr-landing/ file. Lane MI-280 unit U2. Self-lands on green.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11872,
+      "title": "backlog: close the starved-account BLINDNESS critical on a live page; re-measure the starvation itself",
+      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
+      "checklist_item": "MI-279",
+      "draft": false,
+      "tier": "1 (backlog registers + docs)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self. Ops-lane backlog drain. Self-lands on green.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11870,
+      "title": "MI-281: the hedge-book flat read is repaired AND OBSERVED on the fleet",
+      "owner_session": "session_01ALe9gTsSEMVWYyR8X8TY79",
+      "checklist_item": "MI-281",
+      "draft": true,
+      "tier": "1 (docs/registers only; src/ config/ deploy/ verified untouched)",
+      "state": "hold_LIFTED_by_manager_awaiting_lane_to_rearm",
+      "landing": "hold -> self (manager ruling 2026-09-12T06:08Z)",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Draft at time of reading. The lane correctly refused to rule an operator instruction moot itself and routed it up; the manager lifted it.",
+      "operator_decision": {
+        "verdict": "not_required",
+        "scope": "Tier-1 docs-only; the standing Tier-1 delegation covers it",
+        "condition": "The hold's PREMISE does not hold and that is why it was lifted. The dispatch said 'route it to the manager for the operator's OK before it lands' because it expected this lane to write the ORDER-PATH fix; that fix was already landed and deployed (46e1efb1f / PR #11435) before the lane opened, so the PR is 6 files with src/ config/ deploy/ .github/workflows/ all untouched. Lifted as a MANAGER RULING under the standing Tier-1 delegation, NOT as an operator approval, and surfaced to the operator in the next update as a decision the manager took. ⚠️ SEPARATELY AND NOT LIFTED: OI-20260908-A-HEDGE-BOOK-FLAT-READ-... stays OPEN. It is loud + real money, the positive observation is n=2 on one symbol, clause (3) is met by its `or` branch only, and 9 pre-deploy false-close candidates are PERMANENTLY unadjudicable (0 of 993 rows carry position_idx / exchange_read_source) — one of them trade 5461 on real-money bybit_2, where 'unestablished' is NOT 'benign'. Removing that row is an operator call.",
+        "decided_on": "2026-09-12",
+        "text": "Manager ruling, not an operator utterance. Recorded verbatim on the PR at https://github.com/benbaichmankass/Metis-Insights/pull/11870#issuecomment-5644076346 so the reasoning survives this session."
+      }
+    },
+    {
+      "pr": 11867,
+      "title": "backlog: close the Bybit rows[0] critical, and ATTRIBUTE two false closes to the symbol-dedupe drop still firing at 100% of reads",
+      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
+      "checklist_item": "MI-279",
+      "draft": false,
+      "tier": "1 (backlog registers + docs)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self. Closes a CRITICAL health row on live evidence and attributes two false closes.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11866,
+      "title": "U3: one blank line stops silently erasing a session's declared scope (MI-280)",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "draft": false,
+      "tier": "1 (CI parser + tests)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self. Fixes the scope-overlap parser defect the manager confirmed prospectively (predicted 6/6, got 6/6, then 4/4, then 6/6).",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11864,
+      "title": "research(m20): U1 — the per-leg inventory of what can end a winning trade",
+      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+      "checklist_item": "MI-278",
+      "draft": false,
+      "tier": "1 (research docs + work object)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self. First unit of the M20 Active Trade Management lane — THE cycle priority.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11862,
+      "title": "U1: surface the PR that is green and cannot be merged by anyone (MI-280)",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "draft": false,
+      "tier": "1 (CI/tooling)",
+      "state": "open_ci_running",
+      "landing": "self",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Declared tier=1 landing=self.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "scope": null,
+        "condition": null,
+        "decided_on": null,
+        "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
+      }
+    },
+    {
+      "pr": 11861,
+      "title": "fix(ci): replay-pregate could never land its artifact — port to commit-to-main, and force-add in the shared action",
+      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
+      "checklist_item": "MI-279",
+      "draft": false,
+      "tier": "1 by surface (.github/** + docs/** only); HELD on R12 by PATH, not on tier",
+      "state": "green_or_running_but_BLOCKED_on_R12_human_read",
+      "landing": "hold (changes_landing_machinery)",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Opened ready-for-review rather than draft, and adds NO automerge request file, so a human CAN merge it. That is the lane doing R12 correctly.",
+      "operator_decision": {
+        "verdict": "pending",
+        "scope": "R12 human read of a change to .github/actions/commit-to-main/action.yml",
+        "condition": "NOT a tier objection — the lane states plainly that it is Tier-1 by surface and held on R12 by path. R12 forbids a PR from landing itself by the very route it edits, which is the invariant, not a bug. The behaviour to confirm before merging: the shared action now `git add -f`s the caller's explicit paths, MEASURED as a strict no-op for all 29 current callers (0 of their 44 distinct paths are gitignored), changing behaviour only for a caller that deliberately lands an ignored path.",
+        "decided_on": null,
+        "text": "No operator wording exists yet. This row records that the PR is WAITING on a human read, so a successor does not mistake the hold for a defect or re-ask the lane to fix it."
+      }
+    },
+    {
+      "pr": 11817,
+      "title": "R15: let an operator-approved Tier-2 PR land, without letting a branch approve itself",
+      "owner_session": "session_01SrUaz8LmKMcSwNZEr8JupC",
+      "checklist_item": "MI-273",
+      "draft": false,
+      "tier": "1 (CI guard + docs; no order path, no config, no runtime); HELD on R12 by PATH",
+      "state": "BLOCKED_on_R12_human_read",
+      "landing": "hold (changes_landing_machinery)",
+      "observed_at": "2026-09-12T06:10Z",
+      "observed": "Open since 2026-09-11T18:18:54Z. This is the PR that, once landed, would let an operator-approved Tier-2 PR self-land — i.e. it removes the very human-click step that #11738 is currently stuck behind.",
+      "operator_decision": {
+        "verdict": "pending",
+        "scope": "R12 human read of a change to scripts/ci/check_pr_landing.py + the new docs/claude/work/approvals/",
+        "condition": "⚠️ DO NOT LIFT THIS THE WAY #11870's HOLD WAS LIFTED — the two are not alike. #11870's hold rested on a premise that had evaporated (it expected an order-path diff that did not exist). This one's hold IS the invariant the PR defends: a change to the landing machinery must be read by a human before it can land itself, or the machinery could weaken its own gate. The PR says so in terms — 'the first exercise of the new rule is a human reading the rule itself'. The manager is not that human. Route to the operator.",
+        "decided_on": null,
+        "text": "No operator wording exists yet. Recorded as PENDING an operator read so a successor neither re-asks the lane nor lifts it on the #11870 precedent."
+      }
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2145,8 +2316,8 @@
       "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-11T16:23:37Z",
-  "last_reconciled_sha": "c0139b78da83b368326b0422d1498e004ce84e0b",
-  "updated_at": "2026-09-11T15:30:49Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj"
+  "last_reconciled_at": "2026-09-12T06:10Z",
+  "last_reconciled_sha": "267a362f2d9425bfd61067b6706d2ab42c717bf8",
+  "updated_at": "2026-09-12T06:10Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager)"
 }

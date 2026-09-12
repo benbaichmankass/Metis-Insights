@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager registers only: the lease heartbeat and the OPEN-PRS handoff record. No src/, no config/, no deploy/, no workflow, no order path."
+}
