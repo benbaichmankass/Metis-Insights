@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T00:00:00Z",
+  "updated_at": "2026-09-12T00:56:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4058,10 +4058,11 @@
       "owns_object": "WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE",
       "why": "MI-271 own recommendation: do NOT revert e35 until this exists, because n=23 with 70% unmeasured is the low-n reaction, and MI-164 telemetry (live 2026-09-07) can answer it directly for the first time. This is the measurement standing between the operator and the Tier-3 revert decision.",
       "manager_note": "Also sent to RESOLVE the e35 contradiction between the MI-271 memo and its summary. [!] AND TOLD THAT A REFUSAL IS AN ACCEPTABLE DELIVERABLE: telemetry only reached these legs 8 days AFTER the break, so the honest answer may be \"too few rows yet, here is the date and the n it will have\". MI-271 already refused the MFE join once on a 36% join rate; manufacturing a verdict at n=4 would be worse than the refusal.",
-      "state": "in_flight",
+      "state": "done",
       "manager_note_2026_09_11T2055Z": "PR #11826 OPEN, Tier-1 landing:self, armed. CI re-running on the 20:55:14Z push (3 checks in_progress). Lane session_01WKwvhBuaYYCKbdkk7fHrpf is RUNNING and connected at 515k/1M context, task_summary 'memo complete; verifying memo claims, writing index rows'. The memo's recommendation is DECLINE the e35 revert. NOT YET MERGED and not yet read by me -- it lands itself on green, and the recommendation is Tier-3 either way so the revert decision remains the operator's.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane RUNNING/connected at 696k/1M (515k an hour ago). PR #11826 open, guards + repo-inventory + pytest-collect GREEN, pytest-run in progress; no open-and-automerge run yet, so auto-merge may not be armed. PAST THE ~600k HANDOFF TRIGGER -- it should land #11826 and close out rather than open new work.",
-      "manager_note_2026_09_11T2253Z": "22:53Z: RUNNING at 770k/1M on a NEW close-out branch (claude/mi275-close-out), PR #11838 open. #11826 MERGED. WELL past the handoff trigger -- closing out, correctly. NOTE: #11826 is the PR whose merge reverted SESSIONS.json's top-level keys; #11838 touches the same file, so watch for a repeat."
+      "manager_note_2026_09_11T2253Z": "22:53Z: RUNNING at 770k/1M on a NEW close-out branch (claude/mi275-close-out), PR #11838 open. #11826 MERGED. WELL past the handoff trigger -- closing out, correctly. NOTE: #11826 is the PR whose merge reverted SESSIONS.json's top-level keys; #11838 touches the same file, so watch for a repeat.",
+      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, PRs #11826 + #11838 + #11840 MERGED. VERDICT: the e35 revert is NOT needed -- $5.61 of risk, and the risk-reward ratio is invariant to stop width (0.02%). It also traced and corrected a contradiction in MI-271's own memo and repaired OPEN-ITEMS splice damage that #11838 had caused. This CLOSES the e35 question the operator raised."
     },
     {
       "id": "MI-276",
@@ -4076,7 +4077,8 @@
       "state": "review_ready",
       "manager_note_2026_09_11T2055Z": "PR #11827 OPEN, Tier-2, landing:HOLD (hold_reason tier_2_3_needs_approval) -- THIS IS A NEW DECISION OWED TO THE OPERATOR, the fourth. Two new alert-only detectors (src/runtime/losing_streak_alert.py, src/runtime/starved_account_alert.py) called once per trader tick. NOTHING IS ARMED and nothing asks to be: both are cadence/threshold-knob only with no *_ENABLED gate, no env key set or proposed, no order path, no strategy config, no risk cap, no account mode. Tier-2 purely because the code executes inside the live trading process. 4/5 checks green at last read, pytest-run in progress. Lane is IDLE/disconnected at 541k/1M -- its deliverable is done and it is correctly parked waiting on the OK, not stalled.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 778k/1M, own check-in armed 22:42Z. PR #11827 4/4 GREEN, Tier-2 HOLD. PARKED ON THE OPERATOR'S OK, NOT STALLED -- there is nothing for the manager to unblock and nothing for the lane to do. This is the fourth decision owed to the operator.",
-      "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11827 green, Tier-2 HOLD, parked on the operator."
+      "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11827 green, Tier-2 HOLD, parked on the operator.",
+      "manager_note_2026_09_12T0053Z": "00:53Z unchanged: #11827 green and HOLDING on the operator's Tier-2 OK. Lane armed its own next check at 01:28Z. Nothing for the manager to unblock."
     },
     {
       "id": "MI-236b",
@@ -4088,14 +4090,15 @@
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
       "why": "MEASURED LIVE today: 5 of 7 in_flight objects owned by COMPLETED sessions, holding the ceiling at 7 of 8 and within one row of blocking the operator own chosen spawns. The long-queued MI-236 stopped being hypothetical.",
       "manager_note": "DETECT AND REPORT, do not auto-mutate lifecycle - rewriting a lifecycle from a heuristic is how a real in-flight object gets silently demoted. Three states never collapsed, and could_not_look is the load-bearing one because list_sessions is an mcp__* tool CI does not hold (the same wall queue_latency.py hit).",
-      "state": "review_ready",
+      "state": "done",
       "manager_note_2026_09_11T2055Z": "PR #11825 OPEN, Tier-1 landing:self, armed. guards + pytest-collect + repo-inventory GREEN, pytest-run in progress. Ratchet-safe by construction and measured (base=13 head=13 delta=+0). Lane session_014tHgKvnnLdpgAgGXbaHRUt is RUNNING at 562k/1M and has moved onto a THIRD branch, claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim, chasing an audit-bot false positive in manager scope-overlap. 562k is a session-handoff trigger: if mi236c does not close out inside this hour the lane should hand over rather than start a fourth thing.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 708k/1M, own check-in armed 22:03Z. #11825 MERGED; #11829 (a third branch, mi236c) green with guards + pytest-collect + repo-inventory passing. The manager handed it a measured finding on #11829 -- parse_identity cannot read a session id that is present but not on line 0 -- with an explicit instruction to FILE it and not widen #11829. Past the handoff trigger.",
-      "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11829 open and green."
+      "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11829 open and green.",
+      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, #11825 + #11829 MERGED. On the way out it flagged that claim_merge_slot.py has NO RELEASE MECHANISM -- a slot can be claimed and never handed back -- filed as BL-20260910. The next lane DISPLACES the claim rather than finding a free slot."
     }
   ],
-  "as_of": "2026-09-12T00:00:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 22:52Z tick)",
+  "as_of": "2026-09-12T00:56:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 00:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -4241,5 +4244,17 @@
     "zero_check_trap_third_variant": "OBSERVED 2026-09-11T23:01Z on #11839, and it is MY OWN ordering slip rather than a new defect. I pushed the content commit and the arming file in ONE push, so claude-pr-automerge opened the PR under GITHUB_TOKEN before I could open it by hand -- and a GITHUB_TOKEN-opened PR fires no pull_request event, so it was born with exactly ONE check run (open-and-automerge, green) and no CI. It also took the LAST COMMIT'S SUBJECT as its title ('use the status enum, and arm the route'), which describes the smallest commit in the branch rather than the tick. || THIS IS THE THIRD VARIANT SEEN TODAY and they have different causes: (a) the documented one, a PR OPENED by the relay under GITHUB_TOKEN; (b) a FORCE-PUSH to an already-open PR, which fired no pull_request event either (recorded at 22:04Z); (c) this one -- opening by hand is the fix, and it only works if the arming file goes in a SEPARATE, LATER push. CLAUDE.md documents the order but not the failure mode of getting it wrong, which is that the relay wins the race. || REMEDY IS THE SAME IN ALL THREE: push one ordinary commit carrying a real change. An empty commit is forbidden, and this note is the real change.",
     "THE_LEASE_LAPSED_BECAUSE_ITS_HEARTBEAT_WAS_STUCK_IN_AN_UNMERGED_PR": "MEASURED 2026-09-11T23:52Z. The lease read state=expired, 120 min since the last landed heartbeat -- yet this manager heartbeated at 22:53:00Z, 59 min earlier, and never stopped working. The 22:53 heartbeat was COMMITTED AND PUSHED, to the BRANCH of PR #11839, which did not merge (base stale, zero check runs). So main still carried 21:53:01Z. || THE GAP IS STRUCTURAL, not a slip: the lease's liveness is a function of a PR MERGING, and a register PR can be blocked by CI, a conflict, or the zero-check trap. A manager that is alive, working and heartbeating on schedule can therefore lose its lease to a stuck PR -- and the takeover message another session would read ('if that session is in fact still alive it will stand down') would be WRONG about the cause. The tick prompt names 'a heartbeat stamped but not landed' as the known failure mode; what it does not say is that a BRANCH PUSH looks exactly like a landed one from inside the session that pushed it. || RE-CLAIMED with --force and a recorded --reason rather than silently, per the lease contract, because the recorded holder IS this session and no other session had claimed. Filed as BL-20260911-THE-MANAGER-LEASE-CAN-EXPIRE-WHILE-THE-MANAGER-IS-ALIVE-BECAUSE-ITS-HEARTBEAT-RIDES-AN-UNMERGED-PR.",
     "backlog_refs_reads_COMMITTED_state_so_a_dirty_tree_answer_is_stale": "OBSERVED TWICE tonight, by me, on the same guard. check_backlog_refs.py --base origin/main diffs origin/main...HEAD -- COMMITTED state -- so running it over a working tree that already contains the fix still reports the OLD failure, and running it before committing a NEW citation reports a false pass. Both directions bit: at 22:5xZ I read a pass on an uncommitted fix and pushed a dangling ref anyway; at 23:5xZ I read a failure on a fix I had already made. || IT ALSO MEANS MY 23:56Z REPORT OF 'all four guards exit 0' WAS WRONG FOR THIS GUARD -- corrected in the operator channel rather than left standing. || THE HABIT THAT FIXES IT: commit first, then run the diff-scoped guards; never read a diff-scoped guard's verdict over a dirty tree. Not filed as a backlog row -- the guard is behaving exactly as designed and documented, and the defect is in how I was invoking it."
+  },
+  "manager_tick_2026_09_12T0053Z": {
+    "lease": "heartbeat 00:53:26Z, expires 02:23:26Z",
+    "landed_since_last_tick": [
+      "#11839 the 22:52Z tick (registry repair + lease re-claim)",
+      "#11838 + #11840 MI-275 close-out and the OPEN-ITEMS repair",
+      "#11829 MI-236c scope-overlap marker fix",
+      "#11843 + #11844 automation"
+    ],
+    "state": "ALL THREE LANES ARE DONE. Two graded completed this tick; MI-276 is parked on the operator. Open PRs: 4, of which THREE are operator-gated (#11827, #11817, #11738) and one is automation (#11842). There is no manager-actionable blocker anywhere.",
+    "the_operators_two_questions_are_now_CLOSED": "THE BLEED: MI-271 attributed it (began 2026-08-27, three days BEFORE e35; mechanism is winner-size collapse -- avg win $404 -> $112; two-thirds in ict_scalp legs carrying no bracket geometry; the lost capital is PAPER, real money is bybit_2 at -$20.36). MI-275 then answered the remaining question -- whether to revert e35 -- with NO: $5.61 of risk, and the risk-reward ratio is invariant to stop width. THE PROP: MI-274 attributed it (starved at dispatch, 8 elected / 8 starved / 0 routed; not the cushion). Both diagnoses are on main. What is NOT answered is the REMEDY for the winner-size collapse -- that is the natural next question and it is squarely the cycle priority.",
+    "merge_slot_cannot_be_released": "MI-236b's exit finding: claim_merge_slot.py has no release flag, so a claim is never handed back and the next lane must DISPLACE it. Filed BL-20260910. Recorded here because it makes every merge_slot conflict look like contention when it is actually an abandoned claim."
   }
 }
