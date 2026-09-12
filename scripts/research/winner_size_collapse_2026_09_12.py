@@ -447,12 +447,12 @@ def annexes(pop, pkgs, raw, account):
     # because the qualitative conclusion differs between them.
     def basic(rows):
         w = [r for r in rows if (_f(r.get("pnl")) or 0) > 0]
-        l = [r for r in rows if (_f(r.get("pnl")) or 0) <= 0]
+        losers = [r for r in rows if (_f(r.get("pnl")) or 0) <= 0]
         if not rows:
             return None
         p = len(w) / len(rows)
         aw = _mean([_f(r["pnl"]) for r in w])
-        al = _mean([_f(r["pnl"]) for r in l])
+        al = _mean([_f(r["pnl"]) for r in losers])
         return {
             "n": len(rows), "win_rate": round(p, 4),
             "avg_win": round(aw, 2) if aw else None,
@@ -783,10 +783,10 @@ def shift_share(acct: list[dict]) -> dict:
     common = sorted(set(pre_avg) & set(post_avg))
 
     def blend(shares, avgs, legs):
-        w = sum(shares.get(l, 0.0) for l in legs)
+        w = sum(shares.get(leg, 0.0) for leg in legs)
         if w <= 0:
             return None
-        return sum(shares.get(l, 0.0) * avgs[l] for l in legs) / w
+        return sum(shares.get(leg, 0.0) * avgs[leg] for leg in legs) / w
 
     return {
         "common_legs": len(common),

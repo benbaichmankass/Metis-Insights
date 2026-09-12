@@ -48,21 +48,21 @@ The pairs-included row reproduces MI-271 to within the window drift (it pulled i
 
 **What inverts:**
 
-| MI-271 §4.3 claim | on the pairs-EXCLUDED population |
+| MI-271 §4.3 claim | on the pairs-EXCLUDED population (`bybit_1`, n = 79 pre / 101 post) |
 |---|---|
-| *"Win rate fell only 4.9pp"* | fell **19.5pp** (53.2% → 33.7%), a 36.7% relative fall |
-| *"Average loss worsened 20%"* | **improved 35.9%** (−$901.57 → −$578.20) |
+| *"Win rate fell only 4.9pp"* | fell **19.5pp** — 42/79 = 53.2% → 34/101 = 33.7%, a 36.7% relative fall |
+| *"Average loss worsened 20%"* | **improved 35.9%** — −$901.57 over 37 losers → −$578.20 over 67 losers |
 | *"driven overwhelmingly by winners getting smaller, not by winning less often"* | **both terms are comparably large** (below) |
 
 Expectancy shift-share, each term substituted alone with the interaction residual named rather than distributed by convention:
 
-| term | pairs INCLUDED | pairs EXCLUDED |
+| term | pairs INCLUDED (n = 231 pre / 215 post) | pairs EXCLUDED (n = 79 pre / 101 post) |
 |---|--:|--:|
 | total Δexpectancy | −$176.14 | −$408.71 |
-| win-rate term | −$30.77 (**17.5%**) | −$374.88 (**91.7%**) |
-| avg-win term | −$133.05 (**75.5%**) | −$392.20 (**96.0%**) |
-| avg-loss term | −$23.59 (13.4%) | **+$151.45** (−37.1%) |
-| interaction residual | +$11.29 (−6.4%) | +$206.92 (−50.6%) |
+| win-rate term | −$30.77 = **17.5%** (n = 231 pre / 215 post) | −$374.88 = **91.7%** (n = 79 pre / 101 post) |
+| avg-win term | −$133.05 = **75.5%** (n = 231 / 215) | −$392.20 = **96.0%** (n = 79 / 101) |
+| avg-loss term | −$23.59 = 13.4% (n = 231 / 215) | **+$151.45** = −37.1% (n = 79 / 101) |
+| interaction residual | +$11.29 = −6.4% (n = 231 / 215) | +$206.92 = −50.6% (n = 79 / 101) |
 
 ⚠️ **The large interaction on the right is not noise to be explained away — it is the finding.** Sequential substitution cannot cleanly separate two terms that both moved a long way, and that is precisely what distinguishes the two populations: on the pairs-included view one term dominates, on the pairs-excluded view both do.
 
@@ -99,7 +99,7 @@ Winners standardised to the other era's provenance mix (a standardisation, not a
 | **actual** | | **$1,020.79 → $283.08 (−72.3%)** |
 | **post at the PRE provenance mix** | | **$190.05 → −81.4%** |
 
-Measured rows show **larger** wins than estimated rows in **both** eras, and the post era has proportionally more of them. So the coverage shift pushed the post average **up**. Correcting for it makes the collapse **worse**. The artifact hypothesis in its simple form — *"the −72% is manufactured by the coverage shift"* — is **refuted, with the direction stated.**
+Measured rows show **larger** wins than estimated rows in **both** eras (pre: $1,292.05 over 5 vs $984.14 over 37; post: $423.18 over 16 vs $158.54 over 18), and the post era has proportionally more of them — measured winners are 5 of 42 pre and 16 of 34 post. So the coverage shift pushed the post average **up**. Correcting for it makes the collapse **worse**. The artifact hypothesis in its simple form — *"the −72% is manufactured by the coverage shift"* — is **refuted, with the direction stated.**
 
 ### 2.2 ⚠️ But the MAGNITUDE is not established, and this is the honest limit
 
@@ -153,17 +153,17 @@ Split further by provenance, `reconciler_filled` reads **measured 4.824 (n=2) �
 | **= mean win** | **$1,020.79** | **$283.08** |
 | median R | 3.2627 | 1.3673 |
 
-| factor | Δ$ | share of the −$737.71 |
+| factor | Δ$ | share of the −$737.71 (over 42 pre / 34 post `bybit_1` winners) |
 |---|--:|--:|
-| **R effect** (`risk_pre × ΔR`) | **−718.38** | **97.4%** |
-| size effect (`Δrisk × R_pre`) | −144.84 | 19.6% |
-| interaction | +53.71 | −7.3% |
-| covariance | +71.79 | −9.7% |
+| **R effect** (`risk_pre × ΔR`) | **−718.38** | **97.4%** of −$737.71 |
+| size effect (`Δrisk × R_pre`) | −144.84 | 19.6% (n = 42 / 34 winners) |
+| interaction | +53.71 | −7.3% (n = 42 / 34 winners) |
+| covariance | +71.79 | −9.7% (n = 42 / 34 winners) |
 | residual | −0.00 | asserted zero |
 
 ### 3.2 ⚠️ SIZE DID NOT FALL — and a winners-only read says it did
 
-The 19.6% size effect above is computed **on winners**, and that is a selection of the trades that happened to win. Over the whole book:
+The 19.6% size effect above is computed **on winners only** — 42 pre and 34 post — and that is a selection of the trades that happened to win. Over the whole book:
 
 | | median risk_usd | mean risk_usd |
 |---|--:|--:|
@@ -180,7 +180,7 @@ So: **`conviction_sizing` (live `apply`/`reductive` on `bybit_1` since 2026-08-0
 
 `cap_r = TP_VENUE_CAP_PCT × entry / risk_distance`, `TP_VENUE_CAP_PCT = 0.099` imported from its one owner:
 
-| winners | median `cap_r` | median declared `tp_r` | median achieved R / `cap_r` | **within 10% of the cap** |
+| winners (n) | median `cap_r` | median declared `tp_r` | median achieved R / `cap_r` | **share reaching a tenth of the cap** |
 |---|--:|--:|--:|--:|
 | pre (42) | 66.00 | 8.10 | 0.1428 | **16.7%** |
 | post (34) | 66.00 | 5.17 | 0.0434 | **0.0%** |
