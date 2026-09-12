@@ -4630,5 +4630,31 @@
       "MY FIRST REGISTER ATTEMPT FOR MI-284 NAMED NO WORK OBJECT AT ALL and was refused for that. Correct refusal: a spawn with no parent is an orphan no successor can situate. Fixed with capture_idea.py, which is exactly the cheap capture path that refusal assumes exists.",
       "THE SPAWN GATE THEN REFUSED IT AS A CYCLE-PRIORITY DISPLACEMENT, ALSO CORRECTLY. A shortcut was available and NOT taken: the PRs this unblocks are MI-279's backlog drain and MI-278's M20 research, both squarely trading-truth, so filing the object under IN-20260903 would have passed the gate on its face. Intent describes what the work IS, not who benefits — re-labelling would have been the theatre capture_idea.py's own docstring warns about. Put to the operator instead; approved narrow."
     ]
+  },
+  "incident_2026_09_12T0800Z": {
+    "recorded_at": "2026-09-12T08:55Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "severity": "CRITICAL — REAL MONEY, UNPROTECTED, LIVE NOW",
+    "raised_by": "operator (not a monitor — the fourth time this pattern is recorded)",
+    "what": "bybit_2 (real money) holds an ETHUSDT SHORT 0.05 with NO stop and NO take-profit, open on the venue and invisible to every bot surface. Live and naked ~24h (journal closed it 2026-09-11T08:30:35Z; venue never did).",
+    "containment": {
+      "owner": "OPERATOR — a stop via +Add on the Bybit terminal, or flatten",
+      "why_not_the_bot": "the position is not in any bot read, so no automated protection can reach it; and placing a live order on a real-money account is Tier-2/3 and not the manager's to take",
+      "state": "AWAITING OPERATOR DECISION as of 08:55Z"
+    },
+    "cause": {
+      "verdict": "read-INCOMPLETENESS, upstream of the dedupe",
+      "evidence": "raw bybit_2 soak row: rows_seen 6, emitted 2, queries = settle_coin_page -> row_count 2 while the venue holds THREE, then symbol_scoped BTCUSDT + ADAUSDT only. The backfill runs only for symbols NOT already seen, so ETHUSDT (seen once, idx=1) is never re-queried and the idx=2 short is NEVER FETCHED.",
+      "not_the_cause": "the symbol dedupe. position_read_state_soak, 400 rows 06:38:14->08:07:44: bybit_2 drops a deduped book on 0 of 145 reads; bybit_1 on 148 of 148. MI-283's PR #11903 is correct for bybit_1 and would NOT have protected this position.",
+      "not_established": "WHY the settle-coin page returns 2 of 3 — Bybit behaviour, no evidence held, deliberately unasserted"
+    },
+    "filed": "BL-20260912-BYBIT2-SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED",
+    "manager_error_corrected": "I told the operator this WAS the dedupe defect before reading the soak, and corrected it within the same exchange once the soak refuted it. Recorded because the wrong attribution would have shipped MI-283's fix and closed the incident with the real-money position still naked. TWO of my probes in this investigation also returned false zeros from wrong field names / wrong key lookups; both were caught by a positive control that failed, and both were re-run. A negative from a probe that cannot find a positive is the failure this incident is made of, at three different levels.",
+    "next": [
+      "operator contains the position",
+      "MI-283 lands #11903 for bybit_1 ONLY, with its body stating it does not cover this path",
+      "the read-completeness defect gets its own unit — NOT MI-283, which is at 610k context and should hand off",
+      "establish how many other hedge books are currently unfetched — note the instrument that would answer it is the one that is blind"
+    ]
   }
 }
