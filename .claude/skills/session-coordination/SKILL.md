@@ -48,6 +48,14 @@ This skill owns **two** coordination surfaces, and both are mandatory:
   claim on the PR that carries it — see
   `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`; the authoritative claim
   is the board comment.
+  ⚠️ **Do not write the shared `merge_slot` field from a lane branch.** Since
+  2026-09-12 the durable claim has a per-branch home,
+  `.github/merge-slots/{slug}.json`, written by
+  `scripts/ops/claim_merge_slot.py --branch-claim`. The shared field is one line
+  every armed branch must overwrite, and `main` moved it in **39 of the last 40
+  commits that touched it** — so writing it is a near-certain merge conflict that
+  restarts your CI and buys no exclusion, because it never serialized anything.
+  See step 2 of the merge protocol below and `.github/merge-slots/README.md`.
 
 **One source of truth for the merge claim: the live board, not the JSON.**
 The 2026-07-20 lapse (BL-20260720-MERGE-PROTOCOL-LAPSE — 3 claim-less merges raced
@@ -195,10 +203,37 @@ first. Run all of these in order — this is the part that stops the retest chur
    session's PR ready-and-green while your board read shows no claim, believe the
    PR list and re-read the board.
 2. **Post your `🔒 MERGE SLOT CLAIM` comment on the board** (session id, branch, PR #).
-   This board comment is the live claim that reaches other sessions in time; also
-   mirror it into `session-board.json::merge_slot` (`{held_by, branch, pr,
-   claimed_at}`) as the durable record. If a live session already holds the claim,
-   do not merge — wait or coordinate.
+   This board comment is the live claim that reaches other sessions in time. If a
+   live session already holds the claim, do not merge — wait or coordinate.
+
+   **For the durable record, write the per-branch claim — NOT the shared field:**
+
+   ```
+   python3 scripts/ops/claim_merge_slot.py --branch-claim \
+     --branch claude/<your-branch> --held-by <session-id> --purpose "<what and which PR>"
+   ```
+
+   ⚠️ **`--branch-claim` IS NOT THE DEFAULT.** Omit the flag and the script
+   splices `session-board.json::merge_slot` — the shared field, which is the
+   conflicting route. It writes `.github/merge-slots/{slug}.json` instead, which
+   **no other branch can contend for**.
+
+   ⚠️ **This is also what `pr-landing-guard` R13 wants if you ARM auto-merge**
+   (the Tier-1 self-landing route). R13 tries the per-branch route **first** and
+   accepts **either**; the legacy shared field still passes byte-for-byte, so
+   `commit-to-main` and the 27 workflows behind it are unaffected.
+
+   **Why the shared field is the wrong one for a lane branch:** it is ONE field
+   in ONE file that every armed branch must overwrite. Measured over the last 40
+   commits to `main` touching `session-board.json` (2026-09-11T23:12Z →
+   2026-09-12T09:30Z), **39 of 40 moved `merge_slot.branch`** — median gap 11.5
+   minutes, 26 of 38 under 16 — and resolving the conflict pushes a new head that
+   **restarts CI**, so resolving faster does not help. Observed with a control:
+   all four ARMED PRs of one session went `dirty` together while the only two
+   that stayed CLEAN were the two declaring `landing: "hold"`, which write no
+   claim. Nothing is given up — R13 never serialized, so the shared field bought
+   a guaranteed conflict and no exclusion. Rationale:
+   `.github/merge-slots/README.md`.
 3. **Sync only when you need `main`'s content.** Since 2026-08-10 a `behind`
    branch merges fine, so a reflexive re-sync just buys another full CI cycle.
    Sync when your change depends on something newly on `main`, or when GitHub
@@ -207,9 +242,16 @@ first. Run all of these in order — this is the part that stops the retest chur
 4. **Merge on green.** Confirm all required checks pass on the *synced* head SHA
    (a Monitor poll on `commits/<sha>/check-runs` is the clean wait), then
    `merge_pull_request`. Squash unless the history matters.
-5. **Release the slot** — post a `🔓 MERGE SLOT RELEASE` comment on the board AND clear
-   `session-board.json::merge_slot` back to nulls immediately after the merge
-   resolves (merged OR aborted). A held-but-abandoned claim blocks everyone.
+5. **Release the slot** — post a `🔓 MERGE SLOT RELEASE` comment on the board
+   immediately after the merge resolves (merged OR aborted). A held-but-abandoned
+   claim blocks everyone.
+   ⚠️ **There is nothing to clear on the per-branch route, by construction** —
+   `.github/merge-slots/{slug}.json` is named for your branch, so it contends
+   with nobody and a stale one strands no one. Only the shared
+   `session-board.json::merge_slot` needs clearing back to nulls, and only if you
+   took that route. ⚠️ **And do not clear it BEFORE the merge if you armed
+   auto-merge** — R13 requires the claim to be present in the branch, so
+   releasing early reds your own PR.
 
 Mnemonic: **read board → 🔒 CLAIM → sync → merge on green → 🔓 RELEASE**, on every
 `merge_pull_request`.
