@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one header line in scripts/ci/run_guards.py plus its backlog row. CI harness observability only; no src/, no config/, no VM, no order path, no strategy or risk surface, and no change to any guard's verdict."
+}

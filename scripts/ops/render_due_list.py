@@ -1250,6 +1250,122 @@ def src_settled_disposition_owed(
                              f"({pop.get('settled', '?')} settled row(s))")
 
 
+_DECISION_ANSWERS_GUARD = Path("scripts/ci/check_decision_answers.py")
+_WORK_OBJECTS = Path("docs/claude/work/objects")
+
+
+def src_spent_decision_edges(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this source grades an edge's REFERENT, and the edge's own `since` already rides the row
+) -> SourceResult:
+    """An object `waiting` on an operator decision that was ALREADY answered.
+
+    ⚠️ **THE VERDICT IS `check_decision_answers.py::spent_edge_rows`, IMPORTED.**
+    That guard's R3 already owns this question and landed in #12035. This source
+    added NOTHING to the definition and must never re-derive it — a first draft
+    of this source shipped its own grader in `scripts/ops/spent_decision_edges.py`
+    before its author checked whether one existed, which is
+    `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` and is why `CLAUDE.md` prescribes
+    a one-line existence check. That file is deleted; this is the surface.
+
+    ⚠️ **WHAT THIS ADDS IS THE SURFACE, AND THE FILTER.** R3 prints on a guard
+    run, which a session reads only when a PR is red — never while PLANNING. And
+    it reports every spent edge, which is eleven today: a list that long trains a
+    reader to scroll past it. This carries the **actively parked** subset — spent
+    or unresolvable AND `lifecycle: waiting` — because a spent edge on a `done`
+    object is residue while one on a `waiting` object is work that is not
+    happening.
+
+    ⚠️ **`spent` AND `unresolvable` GET SEPARATE ROWS, NEVER A POOLED ONE.** A
+    spent edge is discharged by re-grading or re-pointing it; an unresolvable one
+    can never be discharged by anything that matches on ids, so the object is
+    parked with no way out. Opposite remedies.
+
+    ⚠️ **AND AN ANSWER IS NOT ALWAYS A CHOICE.** Measured 2026-09-12, every
+    actively-parked edge names a request the operator REJECTED as mis-framed, so
+    the question may still be open under a SUCCESSOR request. Told to delete the
+    spent edge a reader would erase a real blocker; the row says RE-POINT.
+
+    ⚠️ **IT PROPOSES NO EDIT.** Re-grading a `lifecycle` is the object owner's or
+    the manager's call — it changes what the WIP ceiling and the constraint
+    readout compute over.
+
+    ⚠️ **THE LINK IS BUILT FROM THE OBJECT KEY, WHICH IS THE FILE STEM.**
+    `load_objects` keys on `path.stem`, not on the YAML `id:` field, so a link
+    built from `id:` would 404 wherever the two differ. A control pins it.
+    """
+    guard = root / _DECISION_ANSWERS_GUARD
+    if not (root / _WORK_OBJECTS).is_dir():
+        return SourceResult("spent_decision_edges", "not_applicable",
+                            note=f"{_WORK_OBJECTS} absent — no work store here")
+    if not guard.exists():
+        return SourceResult("spent_decision_edges", "not_applicable",
+                            note=f"{_DECISION_ANSWERS_GUARD} absent — nothing in "
+                                 f"this tree grades a decision edge")
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_decision_answers_due", guard)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        objects, unparsed = mod.load_objects(root / _WORK_OBJECTS)
+        edges = mod.spent_edge_rows(objects)
+    except Exception as exc:  # noqa: BLE001 — any failure is `we could not look`
+        return SourceResult("spent_decision_edges", "could_not_read",
+                            note=f"{_DECISION_ANSWERS_GUARD}: "
+                                 f"{type(exc).__name__}: {exc}")
+
+    parked = [e for e in edges if e.get("lifecycle") == "waiting"]
+    rows: list[dict] = []
+    for e in sorted(parked, key=lambda x: str(x.get("object"))):
+        obj, ref = e.get("object"), e.get("ref")
+        link = f"{_WORK_OBJECTS}/{obj}.yaml"
+        if e.get("state") == mod.EDGE_UNRESOLVABLE:
+            rows.append(_row(
+                "spent_decision_edges", f"stranded-edge-{obj}",
+                f"{obj} is `waiting` on an UNRESOLVABLE edge",
+                (f"Its `blocked_on` ref is {str(ref)[:120]!r}, graded "
+                 f"{mod.EDGE_UNRESOLVABLE} — no decision request in the store "
+                 f"declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE "
+                 f"OPPOSITE: a spent edge is discharged by re-pointing or "
+                 f"re-grading it, while nothing matching on ids can ever "
+                 f"discharge this one, so the object is parked with no way out "
+                 f"and no consumer can say what it is waiting for. A typed edge "
+                 f"whose ref is prose is untyped. ⚠️ Fixing it is the object "
+                 f"owner's or the manager's call."),
+                loud=True, link=link))
+            continue
+        rows.append(_row(
+            "spent_decision_edges", f"spent-edge-{obj}",
+            f"{obj} is `waiting` on an answered decision",
+            (f"Its `blocked_on` names {ref}, which carries a readable answer "
+             f"({e.get('answered_at') or 'date not recorded'}) — the edge has "
+             f"not been a blocker since. " +
+             ("⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the "
+              "question may still be genuinely open under a SUCCESSOR request: "
+              "RE-POINT the edge, do not delete it. "
+              if not e.get("answer_is_a_choice") else "") +
+             "⚠️ Re-grading `lifecycle` or editing an edge is the object "
+             "owner's or the manager's call — it changes what the WIP ceiling "
+             "and the constraint readout compute over. This row reports the "
+             "disagreement; it does not propose the edit."),
+            loud=True, link=link))
+
+    if unparsed:
+        rows.append(_row(
+            "spent_decision_edges", "spent-edge-objects-unparseable",
+            f"{len(unparsed)} work object(s) did not parse",
+            (f"{'; '.join(unparsed)[:400]} — so every count below is over the "
+             f"PARSED set only. A loader silently skipping a file understates "
+             f"the spent set, which is the direction nobody re-checks."),
+            loud=True, link=str(_WORK_OBJECTS)))
+
+    spent_n = sum(1 for e in edges if e.get("state") == mod.EDGE_SPENT)
+    return SourceResult(
+        "spent_decision_edges", "read", rows,
+        note=(f"{len(objects)} object(s) read, {len(unparsed)} unparseable; "
+              f"{len(edges)} reported edge(s): {spent_n} spent, "
+              f"{len(edges) - spent_n} unresolvable; "
+              f"{len(parked)} on a `waiting` object"))
 def src_manager_queue_watch(
     root: Path,
     today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one grades against `now`, which carries the time of day `today` throws away
@@ -1343,7 +1459,8 @@ SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
     src_red_crons, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
-    src_settled_disposition_owed, src_manager_queue_watch,
+    src_settled_disposition_owed, src_spent_decision_edges,
+    src_manager_queue_watch,
 )
 
 
@@ -1893,7 +2010,154 @@ def _self_test() -> int:
     assert src_settled_disposition_owed in SOURCES, \
         "src_settled_disposition_owed is not registered in SOURCES"
 
-    print("due-list: self-test OK — 90 planted controls all fire")
+    # ── the spent-decision-edge source ─────────────────────────────────────
+    # ⚠️ Every control builds its OWN tree and copies the REAL guard into it, so
+    # the source is exercised through the import path it uses in production.
+    # Asserting against a local restatement of "is this edge spent?" would stay
+    # green after the two definitions diverged — which is the whole reason this
+    # source imports `check_decision_answers.py` instead of owning a grader.
+    _cda = Path(__file__).resolve().parents[1] / "ci" / "check_decision_answers.py"
+
+    _REPO_ROOT = Path(__file__).resolve().parents[2]
+
+    def _sde_tree(td: str, objects: dict, *, with_guard: str | None = "real"):
+        root = Path(td)
+        (root / "scripts/ci").mkdir(parents=True)
+        # SYMLINKED: the guard resolves REPO from its OWN path and imports
+        # `src.runtime.work_decisions` — the canonical normaliser it shares with
+        # R1 and R2. Without `src/` beside it the copy raises ModuleNotFoundError
+        # and every control below grades `could_not_read`, i.e. passes for the
+        # wrong reason. Same trap, same remedy as the research-tree fixture.
+        (root / "src").symlink_to(_REPO_ROOT / "src")
+        if with_guard == "real":
+            _shutil2.copy(_cda, root / _DECISION_ANSWERS_GUARD)
+        elif with_guard is not None:
+            (root / _DECISION_ANSWERS_GUARD).write_text(with_guard, encoding="utf-8")
+        (root / _WORK_OBJECTS).mkdir(parents=True)
+        for name, body in objects.items():
+            (root / _WORK_OBJECTS / name).write_text(body, encoding="utf-8")
+        return root
+
+    _WAITING_SPENT = """
+id: WO-TEST-PARKED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-ANSWERED, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-ANSWERED
+    answer: {chosen: option_a, answered_at: '2026-01-02', answered_by: operator}
+"""
+    _WAITING_LIVE = """
+id: WO-TEST-LIVE
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-OPEN, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-OPEN
+    question: 'still open?'
+"""
+    _WAITING_REJECTED = """
+id: WO-TEST-REJECTED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-REJ, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-REJ
+    answer: {chosen: null, free_text: 'REJECTED AS MALFORMED', answered_by: operator}
+"""
+    _DONE_SPENT = """
+id: WO-TEST-DONE
+lifecycle: done
+blocked_on:
+  - {kind: operator_decision, ref: DEC-20260101-ANSWERED2, since: '2026-01-01'}
+decision_requests:
+  - id: DEC-20260101-ANSWERED2
+    answer: {chosen: option_a, answered_at: '2026-01-02'}
+"""
+    _WAITING_PROSE = """
+id: WO-TEST-STRANDED
+lifecycle: waiting
+blocked_on:
+  - {kind: operator_decision, ref: 'originate a key, then a Tier-2 set-env', since: '2026-01-01'}
+"""
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}), today)
+        assert got.state == "read", got.state
+        assert {r["id"] for r in got.rows} == {"spent-edge-WO-TEST-PARKED"}, got.rows
+        assert got.rows[0]["loud"], "a parked object is loud, not a footnote"
+        assert got.rows[0]["link"] == f"{_WORK_OBJECTS}/WO-TEST-PARKED.yaml", \
+            "the link must point at the FILE — the guard keys objects by stem, " \
+            "not by the `id:` field, and a link built from `id:` would 404"
+        assert "does not propose the edit" in got.rows[0]["why_due"], \
+            "the row must refuse to propose a lifecycle edit — that is the " \
+            "manager's call and it moves the WIP ceiling"
+
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-LIVE.yaml": _WAITING_LIVE}), today)
+        assert got.state == "read" and got.rows == [], \
+            "a genuinely unanswered decision is a REAL blocker and earns no row"
+        assert "0 spent" in got.note, got.note
+
+    # A REJECTION IS AN ANSWER, AND THE ROW MUST SAY SO DIFFERENTLY — this is
+    # the state every actually-parked edge in the live store is in.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-REJECTED.yaml": _WAITING_REJECTED}), today)
+        assert got.rows, "a rejected question still spends the edge"
+        assert "RE-POINT the edge, do not delete it" in got.rows[0]["why_due"], \
+            "deleting an edge whose question was rejected erases a real blocker"
+    # …and a CHOSEN answer must NOT carry that advice, or it is decoration.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}), today)
+        assert "RE-POINT" not in got.rows[0]["why_due"], got.rows[0]["why_due"]
+
+    # A spent edge on a NON-waiting object is residue, not work not happening.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-DONE.yaml": _DONE_SPENT}), today)
+        assert got.state == "read" and got.rows == [], got.rows
+        assert "1 spent" in got.note and "0 on a `waiting` object" in got.note, got.note
+
+    # STRANDED IS NOT SPENT, AND POOLING THEM WOULD APPLY THE WRONG REMEDY.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-STRANDED.yaml": _WAITING_PROSE}), today)
+        ids = {r["id"] for r in got.rows}
+        assert ids == {"stranded-edge-WO-TEST-STRANDED"}, ids
+        assert got.rows[0]["loud"]
+        # ⚠️ THE GRADED STATE ITSELF, not a phrase the surrounding prose also
+        # supplies. An earlier version asserted `"NOT SPENT" in why_due` and a
+        # planted defect that relabelled the row `spent` stayed GREEN, because
+        # that phrase occurs in the caveat two sentences later. A control whose
+        # needle the rest of the string provides grades nothing.
+        why = got.rows[0]["why_due"]
+        assert "graded unresolvable" in why, why
+        assert "graded spent" not in why, \
+            "an unresolvable edge must not be labelled with the spent verdict"
+
+    # AN UNPARSEABLE OBJECT IS REPORTED, NEVER SKIPPED.
+    with tempfile.TemporaryDirectory() as td:
+        got = src_spent_decision_edges(
+            _sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT, "b.yaml": "\tnot: [yaml"}), today)
+        assert "spent-edge-objects-unparseable" in {r["id"] for r in got.rows}
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "scripts/ci").mkdir(parents=True)
+        _shutil2.copy(_cda, root / _DECISION_ANSWERS_GUARD)
+        assert src_spent_decision_edges(root, today).state == "not_applicable", \
+            "no work store is `not_applicable`, never a clean zero"
+    with tempfile.TemporaryDirectory() as td:
+        root = _sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}, with_guard=None)
+        assert src_spent_decision_edges(root, today).state == "not_applicable"
+    with tempfile.TemporaryDirectory() as td:
+        root = _sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}, with_guard="def (")
+        got = src_spent_decision_edges(root, today)
+        assert got.state == "could_not_read", got.state
+        assert "SyntaxError" in got.note, got.note
+
+    assert src_spent_decision_edges in SOURCES, \
+        "src_spent_decision_edges is not registered in SOURCES"
+
+    print("due-list: self-test OK — 112 planted controls all fire")
     return 0
 
 
