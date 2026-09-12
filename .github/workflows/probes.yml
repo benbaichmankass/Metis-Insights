@@ -133,6 +133,39 @@ jobs:
             echo "PROBEEOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Which automation branches never landed (receipt + transition)
+        # BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY: the probe
+        # was correct, `--self-test` had always passed, and it ran on NOBODY's
+        # schedule — so 184 stranded `automation/*` branches (measured
+        # 2026-09-12 on a full clone) were knowable and known by nobody.
+        #
+        # ⚠️ IT LIVES HERE FOR ONE SPECIFIC REASON: this is the scheduled
+        # workflow that already checks out with `fetch-depth: 0`. On a shallow
+        # clone containment is not computable and the probe manufactures a full
+        # population of false findings — measured on a shallow container,
+        # `stuck 184 · unknown 0` where the truth is unknowable. Do NOT move
+        # this step to a workflow with a default checkout, and do not "optimise"
+        # the fetch-depth above.
+        #
+        # ⚠️ It never pages on the STANDING count — only on a TRANSITION, a
+        # degraded read, or an unreadable baseline. 184 rows every morning is
+        # the desensitised alarm this repo has already paid for.
+        #
+        # continue-on-error because a stranded branch is not a broken RUNNER,
+        # and this workflow's contract is that it fails only when the runner is.
+        continue-on-error: true
+        run: |
+          # `set -e` is LOAD-BEARING, not boilerplate: it is what makes the
+          # self-test a GATE rather than a log line. This workflow's own
+          # contract two steps up is "a binary whose controls do not fire must
+          # never get as far as emitting a verdict" — without -e a broken probe
+          # would still write a confident receipt, and the due-list would grade
+          # it as evidence.
+          set -euo pipefail
+          python3 scripts/ops/stuck_automation_branches.py --selftest
+          python3 scripts/ops/stuck_automation_branches.py \
+            --receipt docs/claude/STUCK-BRANCHES.json
+
       - name: Refresh the due-list so a failed probe reaches the duty pass
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -145,7 +178,7 @@ jobs:
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: docs/claude/PROBES.json docs/claude/DUE.json docs/claude/DUE.md
+          paths: docs/claude/PROBES.json docs/claude/DUE.json docs/claude/DUE.md docs/claude/STUCK-BRANCHES.json
           message: "chore(ops): refresh probe results"
           pr-title: "chore(ops): refresh probe results (auto)"
           pr-body: "Automated probe run (W2). Results only — no row is cleared by this. Auto-merge."
