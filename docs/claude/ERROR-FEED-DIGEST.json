@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-11T18:44:08+00:00",
-  "covers_since": "2026-09-11T14:34:38.952358+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-11T14:34:38.952358+00:00",
+  "generated_at": "2026-09-12T00:35:34+00:00",
+  "covers_since": "2026-09-11T21:25:50.319834+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-11T21:25:50.319834+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 483,
+        "rows_returned": 501,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-04T12:31:29.545416+00:00",
-        "newest_ts": "2026-09-11T18:10:19.574900+00:00",
+        "newest_ts": "2026-09-11T23:44:10.258949+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-09-06T09:46:41.595317+00:00",
-        "newest_ts": "2026-09-11T17:06:11.452192+00:00",
+        "oldest_ts": "2026-09-06T15:05:01.668043+00:00",
+        "newest_ts": "2026-09-11T23:44:12.696183+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 483,
-      "rows_after_watermark": 32,
+      "rows_considered": 501,
+      "rows_after_watermark": 8,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-11T14:34:38.952358+00:00"
+      "watermark_applied": "2026-09-11T21:25:50.319834+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 430,
+      "rows_after_watermark": 14,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-11T14:34:38.952358+00:00"
+      "watermark_applied": "2026-09-11T21:25:50.319834+00:00"
     }
   },
   "account_roster": {
@@ -67,192 +67,16 @@
     ]
   },
   "counts": {
-    "groups": 120,
-    "new_groups": 27,
+    "groups": 121,
+    "new_groups": 0,
     "error_groups": 67,
-    "rows_grouped": 1483
+    "rows_grouped": 1501
   },
   "watermark": {
-    "next_since": "2026-09-11T18:10:19.574900+00:00",
-    "note": "advanced to the newest row read (2026-09-11T18:10:19.574900+00:00)"
+    "next_since": "2026-09-11T23:44:12.696183+00:00",
+    "note": "advanced to the newest row read (2026-09-11T23:44:12.696183+00:00)"
   },
   "groups": [
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:15.713409+00:00",
-      "last_seen": "2026-09-11T16:32:10.160877+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-036a36e5c15c4ffd\nStrategy: gdx_pullback_1d | Symbol: GDX\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "GDX"
-      ],
-      "strategies": [
-        "gdx_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:02.082744+00:00",
-      "last_seen": "2026-09-11T16:31:49.825634+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-a1416c2b99e84fc8\nStrategy: gld_pullback_1d | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:08.975421+00:00",
-      "last_seen": "2026-09-11T16:31:56.610689+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-6a8e3fb325464be3\nStrategy: gld_pullback_1h | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles_unavailable (for N ",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:19.103379+00:00",
-      "last_seen": "2026-09-11T16:32:13.521433+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-220959a322af488a\nStrategy: iaum_pullback_1d | Symbol: IAUM\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "IAUM"
-      ],
-      "strategies": [
-        "iaum_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:05.690313+00:00",
-      "last_seen": "2026-09-11T16:31:53.323690+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-5e636e3adddf4a83\nStrategy: ief_pullback_1d | Symbol: IEF\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "IEF"
-      ],
-      "strategies": [
-        "ief_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:12.384487+00:00",
-      "last_seen": "2026-09-11T16:32:06.714414+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-b3735d76ba534778\nStrategy: slv_pullback_1d | Symbol: SLV\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "SLV"
-      ],
-      "strategies": [
-        "slv_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:21:41.731909+00:00",
-      "last_seen": "2026-09-11T16:31:59.924116+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-3c1482fa19d74d86\nStrategy: spy_pullback_1h | Symbol: SPY\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "SPY"
-      ],
-      "strategies": [
-        "spy_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:19:41.351826+00:00",
-      "last_seen": "2026-09-11T16:32:03.240294+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-e0b8541892e341bd\nStrategy: tlt_pullback_1h | Symbol: TLT\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "TLT"
-      ],
-      "strategies": [
-        "tlt_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
     {
       "feed": "operator_alerts",
       "level": "error",
@@ -300,33 +124,11 @@
     {
       "feed": "operator_alerts",
       "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co",
-      "count": 42,
-      "is_new": false,
-      "first_seen": "2026-09-04T19:13:36.573273+00:00",
-      "last_seen": "2026-09-11T11:44:04.543858+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-146883bacb8743be\nStrategy: mhg_pullback_1d | Symbol: MHG\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "MHG"
-      ],
-      "strategies": [
-        "mhg_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
       "cause": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca",
-      "count": 42,
+      "count": 47,
       "is_new": false,
       "first_seen": "2026-09-08T19:46:55.876606+00:00",
-      "last_seen": "2026-09-11T18:10:19.574900+00:00",
+      "last_seen": "2026-09-11T23:15:47.459088+00:00",
       "sample": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: cancel_accepted_ineffective\nCANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these orders, it returned a SUCCESS code, and the orders are still resting with canceled_at null \u2014 not even moved to pending_cancel. Re-issuing the same cancel is exactly what has already failed, so no app-level retry and no cancel_orders=true liquidation will release these shares. This needs OPERATOR or VENUE action.\nStanding: carried in the diges",
       "symbols": [
         "GLD"
@@ -344,11 +146,33 @@
     {
       "feed": "operator_alerts",
       "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co",
+      "count": 44,
+      "is_new": false,
+      "first_seen": "2026-09-04T19:13:36.573273+00:00",
+      "last_seen": "2026-09-11T22:43:08.552816+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-146883bacb8743be\nStrategy: mhg_pullback_1d | Symbol: MHG\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "MHG"
+      ],
+      "strategies": [
+        "mhg_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N ",
-      "count": 36,
+      "count": 39,
       "is_new": false,
       "first_seen": "2026-09-04T21:55:38.042637+00:00",
-      "last_seen": "2026-09-11T11:08:33.851534+00:00",
+      "last_seen": "2026-09-11T23:44:10.258949+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-1d9598b29f38440c\nStrategy: mes_trend_long_1d | Symbol: MES\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MES"
@@ -364,10 +188,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_unavailable (for N c",
-      "count": 25,
+      "count": 29,
       "is_new": false,
       "first_seen": "2026-09-07T08:38:27.866004+00:00",
-      "last_seen": "2026-09-11T13:08:54.380900+00:00",
+      "last_seen": "2026-09-11T23:43:08.818599+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-f71c2a7b6cf2435a\nStrategy: ict_scalp_mgc_15m | Symbol: MGC\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MGC"
@@ -380,25 +204,6 @@
       "facets_found": [
         "strategies",
         "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
-      "count": 17,
-      "is_new": false,
-      "first_seen": "2026-09-06T10:15:10.011210+00:00",
-      "last_seen": "2026-09-10T10:27:04.850303+00:00",
-      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 15912.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 79227.0 across 1 leg(s) (498% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 79227.0, 498% of the position, 1 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 2 of Bybit's 20-leg COMBINED TP+SL cap are used (18 left; 1 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening fai",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
       ]
     },
     {
@@ -421,6 +226,25 @@
       "facets_found": [
         "strategies",
         "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg(s) (N% of the posit",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-06T16:15:12.188839+00:00",
+      "last_seen": "2026-09-10T10:27:04.850303+00:00",
+      "sample": "bybit_over_cover detected: bybit_1/ADAUSDT: position 15912.0. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 79227.0 across 1 leg(s) (498% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 79227.0, 498% of the position, 1 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 2 of Bybit's 20-leg COMBINED TP+SL cap are used (18 left; 1 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening fai",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
       ]
     },
     {
@@ -832,25 +656,6 @@
     {
       "feed": "bot_logs",
       "level": "error",
-      "cause": "bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-06T10:02:16.478945+00:00",
-      "last_seen": "2026-09-08T14:03:17.829561+00:00",
-      "sample": "bybit_over_cover detected: bybit_1/ETHUSDT: position 0.54. THIS position is NOT over-protected: legs that reduce it total 0.54 across 1 leg(s) (100% of the position). SEPARATELY, 1 leg(s) totalling 17.08 rest on the side that reduces the OPPOSITE book \u2014 they cannot protect this position at all. The venue reports a HEDGE book (positionIdx 1/2), so these MAY be a LIVE sibling position's protection \u2014 read /api/diag/bybit_open_orders and the journal before treating them as stranded. DO NOT cancel them on this page alone. (side-blind SL total across all books: 17.619999999999997, 3263% of the posit",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
       "cause": "ib_target_naked detected: ib_paper/MGC: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
       "count": 2,
       "is_new": false,
@@ -865,6 +670,182 @@
       "accounts_state": "matched",
       "facets_found": [
         "accounts"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:15.713409+00:00",
+      "last_seen": "2026-09-11T16:32:10.160877+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-036a36e5c15c4ffd\nStrategy: gdx_pullback_1d | Symbol: GDX\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "GDX"
+      ],
+      "strategies": [
+        "gdx_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:02.082744+00:00",
+      "last_seen": "2026-09-11T16:31:49.825634+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-a1416c2b99e84fc8\nStrategy: gld_pullback_1d | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:08.975421+00:00",
+      "last_seen": "2026-09-11T16:31:56.610689+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-6a8e3fb325464be3\nStrategy: gld_pullback_1h | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles_unavailable (for N ",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:19.103379+00:00",
+      "last_seen": "2026-09-11T16:32:13.521433+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-220959a322af488a\nStrategy: iaum_pullback_1d | Symbol: IAUM\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "IAUM"
+      ],
+      "strategies": [
+        "iaum_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:05.690313+00:00",
+      "last_seen": "2026-09-11T16:31:53.323690+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-5e636e3adddf4a83\nStrategy: ief_pullback_1d | Symbol: IEF\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "IEF"
+      ],
+      "strategies": [
+        "ief_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:12.384487+00:00",
+      "last_seen": "2026-09-11T16:32:06.714414+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-b3735d76ba534778\nStrategy: slv_pullback_1d | Symbol: SLV\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "SLV"
+      ],
+      "strategies": [
+        "slv_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:21:41.731909+00:00",
+      "last_seen": "2026-09-11T16:31:59.924116+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-3c1482fa19d74d86\nStrategy: spy_pullback_1h | Symbol: SPY\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "SPY"
+      ],
+      "strategies": [
+        "spy_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_unavailable (for N co",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:19:41.351826+00:00",
+      "last_seen": "2026-09-11T16:32:03.240294+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-e0b8541892e341bd\nStrategy: tlt_pullback_1h | Symbol: TLT\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "TLT"
+      ],
+      "strategies": [
+        "tlt_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
       ]
     },
     {
@@ -1162,6 +1143,25 @@
       "first_seen": "2026-09-11T13:56:22.447129+00:00",
       "last_seen": "2026-09-11T13:56:22.447129+00:00",
       "sample": "bybit_over_cover detected: bybit_1/ETHUSDT: position 1.87. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total 10.66 across 2 leg(s) (570% of the position) \u2014 stale same-side legs have piled up; a trip would over-close and strand the rest. (side-blind SL total across all books: 10.66, 570% of the position, 2 leg(s) \u2014 this is the figure that TRIPPED the check, not a claim about the graded book.) 4 of Bybit's 20-leg COMBINED TP+SL cap are used (16 left; 2 of them are stop legs); at the cap `set_trading_stop` refuses (ErrCode 110061) and a genuine protective tightening fails SILE",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "bybit_over_cover detected: bybit_N/ETHUSDT: position N. THIS position is NOT over-protected: legs that reduce it total N across N leg(s) (N% of the position). S",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-08T14:03:17.829561+00:00",
+      "last_seen": "2026-09-08T14:03:17.829561+00:00",
+      "sample": "bybit_over_cover detected: bybit_1/ETHUSDT: position 0.54. THIS position is NOT over-protected: legs that reduce it total 0.54 across 1 leg(s) (100% of the position). SEPARATELY, 1 leg(s) totalling 17.08 rest on the side that reduces the OPPOSITE book \u2014 they cannot protect this position at all. The venue reports a HEDGE book (positionIdx 1/2), so these MAY be a LIVE sibling position's protection \u2014 read /api/diag/bybit_open_orders and the journal before treating them as stranded. DO NOT cancel them on this page alone. (side-blind SL total across all books: 17.619999999999997, 3263% of the posit",
       "symbols": [],
       "strategies": [],
       "accounts": [
@@ -1508,408 +1508,11 @@
     {
       "feed": "bot_logs",
       "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: iwm_trend_long_Nd: no candle data returned for symbol=IWM timeframe=Nd. Check that the Alpaca con",
-      "count": 17,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:15:47.621324+00:00",
-      "last_seen": "2026-09-11T17:05:19.811889+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: iwm_trend_long_1d: no candle data returned for symbol=IWM timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "IWM"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: qld_trend_long_Nd: no candle data returned for symbol=QLD timeframe=Nd. Check that the Alpaca con",
-      "count": 17,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:16:08.279879+00:00",
-      "last_seen": "2026-09-11T17:06:11.452192+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: qld_trend_long_1d: no candle data returned for symbol=QLD timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "QLD"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: qqq_pullback_Nh: no candle data returned for symbol=QQQ timeframe=Nh. Check that the Alpaca conne",
-      "count": 17,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:15:46.497627+00:00",
-      "last_seen": "2026-09-11T17:01:48.312843+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: qqq_pullback_1h: no candle data returned for symbol=QQQ timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "QQQ"
-      ],
-      "strategies": [
-        "qqq_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: slv_trend_Nh: no candle data returned for symbol=SLV timeframe=Nh. Check that the Alpaca connecti",
-      "count": 17,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:15:54.813174+00:00",
-      "last_seen": "2026-09-11T17:05:38.340340+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: slv_trend_1h: no candle data returned for symbol=SLV timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SLV"
-      ],
-      "strategies": [
-        "slv_trend_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: uso_trend_Nh: no candle data returned for symbol=USO timeframe=Nh. Check that the Alpaca connecti",
-      "count": 17,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:15:59.272342+00:00",
-      "last_seen": "2026-09-11T17:05:49.514253+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: uso_trend_1h: no candle data returned for symbol=USO timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "USO"
-      ],
-      "strategies": [
-        "uso_trend_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: qqq_trend_long_Nd: no candle data returned for symbol=QQQ timeframe=Nd. Check that the Alpaca con",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:21:03.444765+00:00",
-      "last_seen": "2026-09-11T17:05:02.853206+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: qqq_trend_long_1d: no candle data returned for symbol=QQQ timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "QQQ"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: scha_trend_long_Nd: no candle data returned for symbol=SCHA timeframe=Nd. Check that the Alpaca c",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:16:17.261348+00:00",
-      "last_seen": "2026-09-11T17:02:47.764483+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: scha_trend_long_1d: no candle data returned for symbol=SCHA timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SCHA"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: splg_trend_long_Nd: no candle data returned for symbol=SPLG timeframe=Nd. Check that the Alpaca c",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:16:12.397795+00:00",
-      "last_seen": "2026-09-11T17:02:39.629311+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: splg_trend_long_1d: no candle data returned for symbol=SPLG timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SPLG"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: spy_pullback_Nh: no candle data returned for symbol=SPY timeframe=Nh. Check that the Alpaca conne",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:20:59.315282+00:00",
-      "last_seen": "2026-09-11T17:04:51.806817+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: spy_pullback_1h: no candle data returned for symbol=SPY timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SPY"
-      ],
-      "strategies": [
-        "spy_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: spy_trend_long_Nd: no candle data returned for symbol=SPY timeframe=Nd. Check that the Alpaca con",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:20:55.873743+00:00",
-      "last_seen": "2026-09-11T17:04:41.454944+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: spy_trend_long_1d: no candle data returned for symbol=SPY timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SPY"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nd: no candle data returned for symbol=TLT timeframe=Nd. Check that the Alpaca conne",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:15:48.608041+00:00",
-      "last_seen": "2026-09-11T17:01:56.738166+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_1d: no candle data returned for symbol=TLT timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "TLT"
-      ],
-      "strategies": [
-        "tlt_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: tqqq_trend_long_Nd: no candle data returned for symbol=TQQQ timeframe=Nd. Check that the Alpaca c",
-      "count": 16,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:16:04.289813+00:00",
-      "last_seen": "2026-09-11T17:02:31.412606+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: tqqq_trend_long_1d: no candle data returned for symbol=TQQQ timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "TQQQ"
-      ],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: gdx_pullback_Nd: no candle data returned for symbol=GDX timeframe=Nd. Check that the Alpaca conne",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:44.335378+00:00",
-      "last_seen": "2026-09-11T17:02:27.292661+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: gdx_pullback_1d: no candle data returned for symbol=GDX timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "GDX"
-      ],
-      "strategies": [
-        "gdx_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nd: no candle data returned for symbol=GLD timeframe=Nd. Check that the Alpaca conne",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:19.924896+00:00",
-      "last_seen": "2026-09-11T17:02:04.258127+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_1d: no candle data returned for symbol=GLD timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nh: no candle data returned for symbol=GLD timeframe=Nh. Check that the Alpaca conne",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:23.343840+00:00",
-      "last_seen": "2026-09-11T17:02:07.671772+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_1h: no candle data returned for symbol=GLD timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: iaum_pullback_Nd: no candle data returned for symbol=IAUM timeframe=Nd. Check that the Alpaca con",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:19:01.471018+00:00",
-      "last_seen": "2026-09-11T17:02:43.654255+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: iaum_pullback_1d: no candle data returned for symbol=IAUM timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "IAUM"
-      ],
-      "strategies": [
-        "iaum_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: ief_pullback_Nd: no candle data returned for symbol=IEF timeframe=Nd. Check that the Alpaca conne",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:27.346617+00:00",
-      "last_seen": "2026-09-11T17:02:11.656435+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: ief_pullback_1d: no candle data returned for symbol=IEF timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "IEF"
-      ],
-      "strategies": [
-        "ief_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: slv_pullback_Nd: no candle data returned for symbol=SLV timeframe=Nd. Check that the Alpaca conne",
-      "count": 15,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:18:36.178992+00:00",
-      "last_seen": "2026-09-11T17:02:19.222382+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: slv_pullback_1d: no candle data returned for symbol=SLV timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "SLV"
-      ],
-      "strategies": [
-        "slv_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nh: no candle data returned for symbol=TLT timeframe=Nh. Check that the Alpaca conne",
-      "count": 14,
-      "is_new": true,
-      "first_seen": "2026-09-11T16:21:18.753145+00:00",
-      "last_seen": "2026-09-11T17:02:00.153576+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_1h: no candle data returned for symbol=TLT timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
-      "symbols": [
-        "TLT"
-      ],
-      "strategies": [
-        "tlt_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 274,
+      "count": 267,
       "is_new": false,
-      "first_seen": "2026-09-06T09:46:41.595317+00:00",
-      "last_seen": "2026-09-11T16:37:10.299750+00:00",
+      "first_seen": "2026-09-06T15:17:43.974228+00:00",
+      "last_seen": "2026-09-11T23:44:09.639689+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1943,10 +1546,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 70,
+      "count": 72,
       "is_new": false,
-      "first_seen": "2026-09-06T13:18:11.159978+00:00",
-      "last_seen": "2026-09-11T13:10:01.155579+00:00",
+      "first_seen": "2026-09-06T15:05:01.668043+00:00",
+      "last_seen": "2026-09-11T23:44:10.731299+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1965,10 +1568,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 59,
+      "count": 62,
       "is_new": false,
-      "first_seen": "2026-09-06T13:18:10.809754+00:00",
-      "last_seen": "2026-09-11T16:26:51.884270+00:00",
+      "first_seen": "2026-09-07T00:29:00.452728+00:00",
+      "last_seen": "2026-09-11T23:44:10.323395+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1987,10 +1590,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 43,
+      "count": 45,
       "is_new": false,
-      "first_seen": "2026-09-06T13:18:08.975371+00:00",
-      "last_seen": "2026-09-11T11:44:08.046776+00:00",
+      "first_seen": "2026-09-07T00:28:58.566046+00:00",
+      "last_seen": "2026-09-11T23:44:07.708004+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MES"
@@ -2006,16 +1609,413 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
-      "count": 34,
+      "count": 36,
       "is_new": false,
-      "first_seen": "2026-09-06T13:18:12.526973+00:00",
-      "last_seen": "2026-09-11T11:44:11.869081+00:00",
+      "first_seen": "2026-09-06T15:05:03.043592+00:00",
+      "last_seen": "2026-09-11T23:44:12.696183+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MHG"
       ],
       "strategies": [
         "mhg_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: iwm_trend_long_Nd: no candle data returned for symbol=IWM timeframe=Nd. Check that the Alpaca con",
+      "count": 17,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:15:47.621324+00:00",
+      "last_seen": "2026-09-11T17:05:19.811889+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: iwm_trend_long_1d: no candle data returned for symbol=IWM timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "IWM"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: qld_trend_long_Nd: no candle data returned for symbol=QLD timeframe=Nd. Check that the Alpaca con",
+      "count": 17,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:16:08.279879+00:00",
+      "last_seen": "2026-09-11T17:06:11.452192+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: qld_trend_long_1d: no candle data returned for symbol=QLD timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "QLD"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: qqq_pullback_Nh: no candle data returned for symbol=QQQ timeframe=Nh. Check that the Alpaca conne",
+      "count": 17,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:15:46.497627+00:00",
+      "last_seen": "2026-09-11T17:01:48.312843+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: qqq_pullback_1h: no candle data returned for symbol=QQQ timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "QQQ"
+      ],
+      "strategies": [
+        "qqq_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: slv_trend_Nh: no candle data returned for symbol=SLV timeframe=Nh. Check that the Alpaca connecti",
+      "count": 17,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:15:54.813174+00:00",
+      "last_seen": "2026-09-11T17:05:38.340340+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: slv_trend_1h: no candle data returned for symbol=SLV timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SLV"
+      ],
+      "strategies": [
+        "slv_trend_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: uso_trend_Nh: no candle data returned for symbol=USO timeframe=Nh. Check that the Alpaca connecti",
+      "count": 17,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:15:59.272342+00:00",
+      "last_seen": "2026-09-11T17:05:49.514253+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: uso_trend_1h: no candle data returned for symbol=USO timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "USO"
+      ],
+      "strategies": [
+        "uso_trend_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: qqq_trend_long_Nd: no candle data returned for symbol=QQQ timeframe=Nd. Check that the Alpaca con",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:21:03.444765+00:00",
+      "last_seen": "2026-09-11T17:05:02.853206+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: qqq_trend_long_1d: no candle data returned for symbol=QQQ timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "QQQ"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: scha_trend_long_Nd: no candle data returned for symbol=SCHA timeframe=Nd. Check that the Alpaca c",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:16:17.261348+00:00",
+      "last_seen": "2026-09-11T17:02:47.764483+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: scha_trend_long_1d: no candle data returned for symbol=SCHA timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SCHA"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: splg_trend_long_Nd: no candle data returned for symbol=SPLG timeframe=Nd. Check that the Alpaca c",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:16:12.397795+00:00",
+      "last_seen": "2026-09-11T17:02:39.629311+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: splg_trend_long_1d: no candle data returned for symbol=SPLG timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SPLG"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: spy_pullback_Nh: no candle data returned for symbol=SPY timeframe=Nh. Check that the Alpaca conne",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:20:59.315282+00:00",
+      "last_seen": "2026-09-11T17:04:51.806817+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: spy_pullback_1h: no candle data returned for symbol=SPY timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SPY"
+      ],
+      "strategies": [
+        "spy_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: spy_trend_long_Nd: no candle data returned for symbol=SPY timeframe=Nd. Check that the Alpaca con",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:20:55.873743+00:00",
+      "last_seen": "2026-09-11T17:04:41.454944+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: spy_trend_long_1d: no candle data returned for symbol=SPY timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SPY"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nd: no candle data returned for symbol=TLT timeframe=Nd. Check that the Alpaca conne",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:15:48.608041+00:00",
+      "last_seen": "2026-09-11T17:01:56.738166+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_1d: no candle data returned for symbol=TLT timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "TLT"
+      ],
+      "strategies": [
+        "tlt_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: tqqq_trend_long_Nd: no candle data returned for symbol=TQQQ timeframe=Nd. Check that the Alpaca c",
+      "count": 16,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:16:04.289813+00:00",
+      "last_seen": "2026-09-11T17:02:31.412606+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: tqqq_trend_long_1d: no candle data returned for symbol=TQQQ timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "TQQQ"
+      ],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: gdx_pullback_Nd: no candle data returned for symbol=GDX timeframe=Nd. Check that the Alpaca conne",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:44.335378+00:00",
+      "last_seen": "2026-09-11T17:02:27.292661+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: gdx_pullback_1d: no candle data returned for symbol=GDX timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "GDX"
+      ],
+      "strategies": [
+        "gdx_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nd: no candle data returned for symbol=GLD timeframe=Nd. Check that the Alpaca conne",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:19.924896+00:00",
+      "last_seen": "2026-09-11T17:02:04.258127+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_1d: no candle data returned for symbol=GLD timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_Nh: no candle data returned for symbol=GLD timeframe=Nh. Check that the Alpaca conne",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:23.343840+00:00",
+      "last_seen": "2026-09-11T17:02:07.671772+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: gld_pullback_1h: no candle data returned for symbol=GLD timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: iaum_pullback_Nd: no candle data returned for symbol=IAUM timeframe=Nd. Check that the Alpaca con",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:19:01.471018+00:00",
+      "last_seen": "2026-09-11T17:02:43.654255+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: iaum_pullback_1d: no candle data returned for symbol=IAUM timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "IAUM"
+      ],
+      "strategies": [
+        "iaum_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: ief_pullback_Nd: no candle data returned for symbol=IEF timeframe=Nd. Check that the Alpaca conne",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:27.346617+00:00",
+      "last_seen": "2026-09-11T17:02:11.656435+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: ief_pullback_1d: no candle data returned for symbol=IEF timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "IEF"
+      ],
+      "strategies": [
+        "ief_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: slv_pullback_Nd: no candle data returned for symbol=SLV timeframe=Nd. Check that the Alpaca conne",
+      "count": 15,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:36.178992+00:00",
+      "last_seen": "2026-09-11T17:02:19.222382+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: slv_pullback_1d: no candle data returned for symbol=SLV timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "SLV"
+      ],
+      "strategies": [
+        "slv_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nh: no candle data returned for symbol=TLT timeframe=Nh. Check that the Alpaca conne",
+      "count": 14,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:21:18.753145+00:00",
+      "last_seen": "2026-09-11T17:02:00.153576+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_1h: no candle data returned for symbol=TLT timeframe=1h. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "TLT"
+      ],
+      "strategies": [
+        "tlt_pullback_1h"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -2115,17 +2115,18 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_eth_Nm | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
-      "count": 6,
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "count": 7,
       "is_new": false,
-      "first_seen": "2026-09-06T23:00:50.137794+00:00",
-      "last_seen": "2026-09-11T13:37:46.734208+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_eth_15m | Symbol: ETHUSDT\nPackage: pkg-603059843d6c4fca\nDB trade id: 5523\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-06T02:42:58.941564+00:00",
+      "last_seen": "2026-09-11T20:57:37.524740+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_sol_15m | Symbol: SOLUSDT\nPackage: pkg-11c0661b72ff45b7\nDB trade id: 5512\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "ETHUSDT"
+        "SOLUSDT"
       ],
       "strategies": [
-        "ict_scalp_eth_15m"
+        "ict_scalp_sol_15m",
+        "ict_scalp_sol_5m"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -2137,18 +2138,17 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_eth_Nm | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
       "count": 6,
       "is_new": false,
-      "first_seen": "2026-09-06T02:42:58.941564+00:00",
-      "last_seen": "2026-09-11T10:30:59.936370+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_sol_15m | Symbol: SOLUSDT\nPackage: pkg-11c0661b72ff45b7\nDB trade id: 5512\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-06T23:00:50.137794+00:00",
+      "last_seen": "2026-09-11T13:37:46.734208+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_eth_15m | Symbol: ETHUSDT\nPackage: pkg-603059843d6c4fca\nDB trade id: 5523\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "SOLUSDT"
+        "ETHUSDT"
       ],
       "strategies": [
-        "ict_scalp_sol_15m",
-        "ict_scalp_sol_5m"
+        "ict_scalp_eth_15m"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -2274,10 +2274,10 @@
       "feed": "operator_alerts",
       "level": "warn",
       "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ada_pullback_Nh | Symbol: ADAUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 2,
+      "count": 3,
       "is_new": false,
       "first_seen": "2026-09-04T22:10:16.827464+00:00",
-      "last_seen": "2026-09-11T12:01:15.717382+00:00",
+      "last_seen": "2026-09-11T20:10:41.499282+00:00",
       "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ada_pullback_2h | Symbol: ADAUSDT\nPackage: pkg-74ac657f0a69499a\nDB trade id: 5479\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
         "ADAUSDT"
@@ -2350,6 +2350,28 @@
       ],
       "strategies": [
         "uso_trend_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: xrp_pullback_Nh | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
+      "count": 2,
+      "is_new": false,
+      "first_seen": "2026-09-04T20:05:14.903049+00:00",
+      "last_seen": "2026-09-11T21:58:59.633358+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: xrp_pullback_2h | Symbol: XRPUSDT\nPackage: pkg-293021e2e84a48db\nDB trade id: 5474\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [
+        "xrp_pullback_2h"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -2438,6 +2460,28 @@
       ],
       "strategies": [
         "iaum_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_Nm | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timef",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-11T21:25:50.319834+00:00",
+      "last_seen": "2026-09-11T21:25:50.319834+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_5m | Symbol: BTCUSDT\nPackage: pkg-85265901ef3948ef\nDB trade id: 5705\nHeld for: 30 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "strategies": [
+        "ict_scalp_5m"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -2614,28 +2658,6 @@
       ],
       "strategies": [
         "trend_donchian_sol_4h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: xrp_pullback_Nh | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 1,
-      "is_new": false,
-      "first_seen": "2026-09-04T20:05:14.903049+00:00",
-      "last_seen": "2026-09-04T20:05:14.903049+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: xrp_pullback_2h | Symbol: XRPUSDT\nPackage: pkg-293021e2e84a48db\nDB trade id: 5474\nHeld for: 360 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "XRPUSDT"
-      ],
-      "strategies": [
-        "xrp_pullback_2h"
       ],
       "accounts": [],
       "accounts_state": "matched",

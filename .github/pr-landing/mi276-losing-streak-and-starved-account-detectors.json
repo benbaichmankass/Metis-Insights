@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds two alert-only detectors under src/runtime/** and two tick hooks in src/main.py. Tier-2 by path, and held for one operator OK routed by the manager. NOTHING IS ARMED and nothing is asked to be armed: both detectors are cadence/threshold-knob only with no *_ENABLED gate (Prime Directive), so they run as soon as the code deploys, and no env key is set, proposed, or added to a deploy file. No order path, no strategy config, no risk cap, no account mode, no live-VM mutation; the only writes are two runtime_logs latch files and two operator WARN pings.",
+  "why": "src/runtime/losing_streak_alert.py and src/runtime/starved_account_alert.py are new observability detectors called once per trader tick from src/main.py, so they execute inside the live trading process even though they place no order and read no broker. That is Tier-2 by the canonical doc's runtime/service rule, and the honest declaration is hold-for-approval rather than self-land. The remaining files are their read surfaces and records: two banner producers in src/web/api/routers/notifications.py, four /api/diag/log_file allowlist entries, two collapsed-state contracts, two test files (62 tests, 10 mutation checks), the CLAUDE.md env table, and the OPEN-ITEMS / backlog rows."
+}

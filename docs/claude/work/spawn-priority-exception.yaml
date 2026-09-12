@@ -54,6 +54,10 @@ covers:
   - WO-20260911-FIX-THE-FOUR-FINDINGS-THE-ADVERSARIAL-REVIEW
   # -- added 2026-09-11, the engineering lane (operator-directed; block at end of file) --
   - WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND
+  # -- added 2026-09-11 19:5xZ, MI-236 stale-in_flight decay (operator-directed lane model:
+  #    the engineering lane exists to stop us getting stuck on the same problems; this
+  #    one blocked the operator's OWN chosen spawns today) --
+  - WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three

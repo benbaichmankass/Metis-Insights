@@ -1,0 +1,1 @@
+MI-271 bleed attribution — Tier-1 self-land. Research memo + analysis script + 5 backlog rows + OPEN-ITEMS observation + doc-index row. No src/config/deploy/workflows.

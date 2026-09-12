@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research and registers only: a new docs/research/ memo, a new read-only analysis script under scripts/research/ (no runner, no import by any runtime path), five backlog rows appended via scripts/ops/backlog_append.py, one OPEN-ITEMS observation, and one DOCUMENT-INDEX row. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy params, no risk caps, no live-VM file. Every geometry/param change this analysis discusses is Tier-3 and rides as a written PROPOSAL in the memo's section 5, never as a diff. All production reads were GET via the diag surface. Tier-1 by the canonical doc's own examples."
+}

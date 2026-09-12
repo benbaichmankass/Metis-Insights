@@ -1,0 +1,30 @@
+id: WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Nothing alarmed on either failure: the sustained-losing-streak detector and the starved-accounts reader
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-11
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Both detectors exist with their false-positive count measured over history and stated: (a) a sustained-losing-streak detector, MI-271 proposes N>=4 consecutive losing days with a minimum-size gate, measured as firing exactly once per account with zero false positives; (b) a reader for arbitration_fanout_soak.starved_accounts, which recorded the prop stall correctly every single time and is read by nothing. Both are PROPOSED with their tier declared; neither is armed without the operator.
+
+why: >-
+  Two investigations on 2026-09-11 found the same shape: the operator noticed before any monitor did. 16 losing days and -$36,997 went unalarmed, and the prop account was starved for 12 days across four monitoring surfaces while the one instrument that got it right was read by nothing.
+
+source: >-
+  manager, from MI-271 phase 4 and MI-274, 2026-09-11
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py

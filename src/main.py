@@ -990,6 +990,47 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("silent_refusal_check tick failed")
 
+            # The gap BOTH checks above are blind to: an account that is
+            # reachable, placing orders, and simply LOSING every day. 2026-09-11:
+            # bybit_1 lost money on 16 consecutive days (-$36,997) and the
+            # OPERATOR found it, not a monitor — every per-day threshold stayed
+            # inside its cap, and a losing account refuses nothing so
+            # silent_refusal_alert grades it absent. Reads the journal the
+            # trader already wrote — NO broker round-trip, so the reachability
+            # sibling's invariant holds. WARN, never CRITICAL (the book is
+            # trading, not unprotected). Latched per account on the SHARED
+            # durable cooldown with severity = streak length, so a LENGTHENING
+            # streak pages and a persisting one does not; internally
+            # cadence-gated (LOSING_STREAK_CHECK_SECONDS, default hourly);
+            # best-effort.
+            try:
+                from src.runtime.losing_streak_alert import (
+                    run_losing_streak_check,
+                )
+                run_losing_streak_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("losing_streak_check tick failed")
+
+            # The gap that is invisible to every JOURNAL-keyed detector, because
+            # it produces no journal row at all: an account the per-symbol
+            # arbitration keeps electing and then discarding. 2026-09-11:
+            # breakout_1 (mode: live, prop) took no trade for TWELVE days while
+            # its legs signalled in lockstep with their bybit_1 siblings, and
+            # arbitration_fanout_soak recorded `starved_accounts` correctly on
+            # every single occurrence — read by NOTHING. This is that reader.
+            # Tails one local JSONL file: no socket, no SQLite, no order path.
+            # WARN, never CRITICAL (lost opportunity, not a lost position).
+            # Latched per account on the SHARED durable cooldown; internally
+            # cadence-gated (STARVED_ACCOUNT_CHECK_SECONDS, default hourly);
+            # best-effort.
+            try:
+                from src.runtime.starved_account_alert import (
+                    run_starved_account_check,
+                )
+                run_starved_account_check()
+            except Exception:  # noqa: BLE001
+                logger.exception("starved_account_check tick failed")
+
             # Exit-path leg coverage (2026-08-18,
             # BL-20260818-MONITOR-MANAGES-ONLY-THE-LINKED-LEG). order_monitor
             # drives exits per PACKAGE and resolves ONE trade from

@@ -67,6 +67,32 @@ needs no live tool: **the evidence was already in the repo.**
 Measured: 198 of 211 ``SESSIONS.json`` rows carry an observation timestamp, and
 all six stale owners carried one, 1–3 days old. Nothing read them.
 
+⚠️ **AND FOR ITS FIRST DAY, THIS MODULE DID NOT READ THEM EITHER — the
+argument above was right and the code did not implement it.** ``_support_for``
+mapped a recorded ``active`` straight to ``supported`` while the observation
+behind it was graded, discarded, and passed through as decoration. So the
+UNRELIABLE POSITIVE this docstring warns about was being banked as evidence,
+which is the one thing the design says it must never be.
+
+MEASURED 2026-09-11T20:1xZ against evidence this module cannot itself reach —
+population: all 27 rows it grades ``in_flight`` at ``886c93e``, re-graded
+against ``list_sessions(mine=true, limit=100)`` (``has_more: true``, so the
+roster is TRUNCATED and absence from it is *we could not look*, never
+terminality). **Six rows read ``supported`` and NOT ONE had a live-RUNNING
+owner** — ``MI-215``/``MI-217``/``MI-241``/``MI-254`` were IDLE/**COMPLETED**,
+``MI-183b``/``MI-196`` idle-but-wakeable — on observations 2166–4328 minutes
+old, i.e. **24x–48x the 90-minute ``stale_minutes`` this module declares
+itself**. The ten ``unsupported`` verdicts were all confirmed TRUE POSITIVES by
+the same read, so the NEGATIVE half of the design held exactly as argued; it
+was only the positive that was unsound.
+
+``_support_for`` now branches on observation freshness, and the asymmetry is
+documented there. Two consequences worth stating here: a fresh ``active``
+still grades ``supported``, so a live lane is unaffected; and the only
+transition the change can produce is ``supported`` -> ``could_not_establish``,
+never anything -> ``unsupported``, so it cannot manufacture a staleness claim
+about a row nobody observed.
+
 ⚠️ **THE COST OF THAT IS STATED RATHER THAN HIDDEN:** a row whose owner died
 with nobody recording it grades ``unknown_to_registry`` — *we could not look* —
 and this module does nothing about it. That is the MI-15 incompleteness, and it
@@ -101,6 +127,7 @@ from src.runtime.manager_status import (  # noqa: E402
     _declared_vocabulary,
     effective_state,
     OBS_NONE,
+    OBS_RECENT,
     OBS_UNKNOWN,
     observe_session,
 )
@@ -214,22 +241,78 @@ class OwnerGrade:
     #: Observation freshness of the REGISTRY ROW the verdict rests on, so a
     #: `dormant` recorded two minutes ago cannot read identically to one
     #: recorded three days ago.
-    # collapsed-state: unknown — this module PASSES observation freshness
-    # through verbatim from `observe_session` and branches on none of it; the
-    # only value it NAMES is the `unknown` default for the three early-return
-    # paths that never reach a registry row at all (no owner / registry unread
-    # / owner absent), where *nobody looked* is the literally correct reading.
-    # `recent` and `stale` arrive as DATA on `obs.state` and are rendered by
-    # the consumer beside the verdict, which is where the distinction is used.
+    # collapsed-state: recent — `_support_for` BRANCHES on this: an `active`
+    # owner supports the `in_flight` claim only while `recent`, and grades
+    # `could_not_establish` on `stale` or `unknown`. ⚠️ THIS COMMENT PREVIOUSLY
+    # READ that the module "PASSES observation freshness through verbatim and
+    # branches on none of it", which was an accurate description of a real
+    # defect: measured 2026-09-11 over all 27 in_flight rows, the six graded
+    # `supported` rested on observations 24x-48x past this module's own
+    # 90-minute `stale_minutes`, and a live `list_sessions` read showed FOUR of
+    # them IDLE/COMPLETED and none RUNNING. A state nothing branches on is
+    # already collapsed, and `manager_status.observation_state`'s own contract
+    # says the recent/stale split IS the mechanism. The three early-return
+    # paths (no owner / registry unread / owner absent) still never reach a
+    # registry row and keep the `unknown` default, where *nobody looked* is the
+    # literally correct reading.
     observation_state: str = OBS_UNKNOWN
     observation_basis: str = OBS_NONE
     observation_at: Optional[str] = None
     observation_age_minutes: Optional[float] = None
 
 
-def _support_for(activity: str) -> str:
+def _support_for(activity: str, observation_state: str = OBS_UNKNOWN) -> str:
+    """Map an owner's activity to whether it SUPPORTS the ``in_flight`` claim.
+
+    ⚠️ **THE MAPPING IS ASYMMETRIC IN OBSERVATION FRESHNESS, AND THE ASYMMETRY
+    IS THE WHOLE POINT** — it is this module's own docstring argument ("the
+    registry is a RELIABLE NEGATIVE and an UNRELIABLE POSITIVE, and only the
+    negative is needed") applied to the code, which until 2026-09-11 it was
+    not.
+
+    * A recorded **negative** (``dormant`` / ``terminal``) does not decay.
+      Somebody positively observed the owner not working, and a session does
+      not spontaneously un-archive, so an old negative is still a negative and
+      staleness is irrelevant to it. ``unsupported`` regardless of freshness.
+    * A recorded **positive** (``active``) decays by the minute — that IS the
+      MI-178 finding this module was built on. So it is evidence only while
+      the observation behind it is FRESH; stale or never-graded, we have not
+      established that anyone is working the row, which is
+      ``could_not_establish`` (*we could not look*) and emphatically not
+      ``supported``.
+
+    MEASURED 2026-09-11T20:1xZ, and this is why it is a fix rather than a
+    tidy-up. Population: all 27 rows this module grades ``in_flight`` (25
+    ``MANAGER-CHECKLIST.json`` + 2 ``objects/*.yaml``) at ``886c93e``, each
+    graded a second time against ``list_sessions(mine=true, limit=100)`` —
+    evidence this module cannot reach, which is exactly why the gap survived
+    its own review. **Six rows graded ``supported`` and NOT ONE had a
+    live-RUNNING owner**: four (``MI-215``, ``MI-217``, ``MI-241``,
+    ``MI-254``) were IDLE/**COMPLETED** on the platform, and two
+    (``MI-183b``, ``MI-196``) idle-but-wakeable. Their observations were
+    2166–4328 minutes old — **24x to 48x this module's own 90-minute
+    ``stale_minutes``** — and all six graded ``stale``. So ``supported`` had
+    **zero true positives** in that population while reading as a pass.
+
+    ⚠️ **``unsupported`` IS NOT REACHABLE FROM THIS CHANGE IN EITHER
+    DIRECTION**, deliberately: the only transition it can produce is
+    ``supported`` -> ``could_not_establish``, i.e. from a pass to *we did not
+    look*. That keeps `check_stale_in_flight.py`'s ratchet (which counts
+    ``unsupported``) untouched, so this cannot red a PR over pre-existing
+    debt, and it cannot manufacture a claim that a row is stale.
+
+    ⚠️ **A FRESH ``active`` STILL GRADES ``supported``** — a genuinely live
+    lane is unaffected. The default is ``OBS_UNKNOWN`` rather than
+    ``OBS_RECENT`` so that a caller which omits the argument fails toward *we
+    could not look*; the three early-return paths pass only ``activity`` and
+    never reach the ``ACTIVE`` branch at all.
+    """
     if activity == ACTIVE:
-        return SUPPORTED
+        # `stale` and `unknown` are DIFFERENT facts (an observation that aged
+        # out, versus one nobody ever recorded) and both are consumed here as
+        # "not established". They are kept apart on the OwnerGrade for the
+        # reader; neither may read as `supported`.
+        return SUPPORTED if observation_state == OBS_RECENT else COULD_NOT_ESTABLISH
     if activity in (DORMANT, TERMINAL):
         return UNSUPPORTED
     return COULD_NOT_ESTABLISH
@@ -277,7 +360,7 @@ def grade_owner_activity(
 
     obs = observe_session(row, now=now, stale_minutes=stale_minutes)
     return OwnerGrade(
-        activity, _support_for(activity),
+        activity, _support_for(activity, obs.state),
         session_id=session_id,
         registry_state=state or None,
         observation_state=obs.state,

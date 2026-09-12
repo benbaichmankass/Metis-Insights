@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backlog-row update only: appends a third live measurement to an existing open row in docs/claude/health-review-backlog.json. No src/, tests/, scripts/, config/, deploy/ or workflow change. Filing is the manager's act of NOT taking the item."
+}

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-11T18:44:14+00:00",
+  "generated_at": "2026-09-12T00:35:39+00:00",
   "verdict": "partial",
   "unreadable_sources": [
     "red_crons",
@@ -10,7 +10,7 @@
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 71,
+      "rows": 72,
       "note": ""
     },
     "soaks": {
@@ -31,7 +31,7 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=8.9h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=14.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "could_not_read",
@@ -46,7 +46,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-11T18:44:08+00:00, age 0.0h"
+      "note": "digest 2026-09-12T00:35:34+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -60,7 +60,7 @@
     }
   },
   "counts": {
-    "due": 99,
+    "due": 100,
     "loud": 73
   },
   "rows": [
@@ -69,7 +69,7 @@
       "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
       "title": "alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -78,7 +78,7 @@
       "id": "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
       "title": "⚠️ THIS ROW SAID '15 SHIPPABLE gate-passing cells across 10 live legs' AND THAT IS STALE — do not re-quote it. Re-measured 2026-08-31 against docs/research/exit-refinement-coverage.json (updated_at 20",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -87,7 +87,7 @@
       "id": "OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
       "title": "The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjoint windows. Switchin",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -96,7 +96,7 @@
       "id": "OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED",
       "title": "The research queue's GPU route and its spend-gate preflight have NEVER been exercised. Do not describe the GPU spend gates as verified.",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -105,7 +105,7 @@
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
       "title": "The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -113,8 +113,8 @@
       "source": "open_items",
       "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
       "title": "The research pipeline's MACHINERY is healthy and its READING is in debt. Measured 2026-08-31T21:0xZ via research_disposition.survey(): 370 units across 3 corpora — 103 dispositioned, 11 UNREAD (live),",
-      "why_due": "monitoring row 11d since last observation (cadence 7d)",
-      "age_days": 11,
+      "why_due": "monitoring row 12d since last observation (cadence 7d)",
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -123,7 +123,7 @@
       "id": "OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START",
       "title": "scope-overlap-audit works — its FIRST GENUINE catch landed 2026-08-31T17:26Z. But the same comment ALSO reported this session's own board START back at it, because the attributor compares the START's ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 11,
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -131,8 +131,8 @@
       "source": "open_items",
       "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
       "title": "session-brief-guard is diff-scoped now, so a brief that goes stale on the CLOCK can no longer fail a PR that did not touch the registers. The `inherited` verdict has NEVER been emitted by a real CI ru",
-      "why_due": "monitoring row 11d since last observation (cadence 7d)",
-      "age_days": 11,
+      "why_due": "monitoring row 12d since last observation (cadence 7d)",
+      "age_days": 12,
       "loud": true,
       "link": ""
     },
@@ -141,7 +141,7 @@
       "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
       "title": "Whether the half-built local LLM carries any weight is UNDECIDED — and it is undecided BY THE OPERATOR, not for want of evidence. ⚠️ THIS SUMMARY PREVIOUSLY ENDED '#10605 makes that arm dispatchable v",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 10,
+      "age_days": 11,
       "loud": true,
       "link": ""
     },
@@ -149,8 +149,8 @@
       "source": "open_items",
       "id": "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
       "title": "The dedicated Claude bot (@ict_cluade_bot) is CONFIGURED and its drain is FIXED and DEPLOYED, and pings still land in the TRADER chat. #10674 is merged (5c45ca52) and live on the VM (1bae542a); the br",
-      "why_due": "monitoring row 10d since last observation (cadence 1d)",
-      "age_days": 10,
+      "why_due": "monitoring row 11d since last observation (cadence 1d)",
+      "age_days": 11,
       "loud": true,
       "link": ""
     },
@@ -158,8 +158,8 @@
       "source": "open_items",
       "id": "OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW",
       "title": "The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THAT NOTHING ELSE POINTS",
-      "why_due": "monitoring row 10d since last observation (cadence 1d)",
-      "age_days": 10,
+      "why_due": "monitoring row 11d since last observation (cadence 1d)",
+      "age_days": 11,
       "loud": true,
       "link": ""
     },
@@ -168,7 +168,7 @@
       "id": "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE",
       "title": "MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 9,
+      "age_days": 10,
       "loud": true,
       "link": ""
     },
@@ -177,7 +177,7 @@
       "id": "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
       "title": "#10944 MERGED (squash 717f00eb, Tier-2, operator-approved 2026-09-03) makes the trader's monitor sweep heartbeat an empty-but-PRESENT close-wedge ledger, and stops the reader synthesising a clean flee",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 8,
+      "age_days": 9,
       "loud": true,
       "link": ""
     },
@@ -185,8 +185,8 @@
       "source": "open_items",
       "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
       "title": "⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator ",
-      "why_due": "monitoring row 8d since last observation (cadence 2d)",
-      "age_days": 8,
+      "why_due": "monitoring row 9d since last observation (cadence 2d)",
+      "age_days": 9,
       "loud": true,
       "link": ""
     },
@@ -195,7 +195,7 @@
       "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
       "title": "MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 6,
+      "age_days": 7,
       "loud": true,
       "link": ""
     },
@@ -204,7 +204,7 @@
       "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
       "title": "MI-128 / PR #11037 re-keys `_sweep_local_pnl_for_unpriced`'s scan window and ORDER BY from `created_at` (the OPEN) to `COALESCE(closed_at, created_at)` (the CLOSE). Keyed on the open, a position held ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 6,
+      "age_days": 7,
       "loud": true,
       "link": ""
     },
@@ -212,8 +212,8 @@
       "source": "open_items",
       "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
       "title": "Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPL",
-      "why_due": "monitoring row 5d since last observation (cadence 2d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 2d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -221,8 +221,8 @@
       "source": "open_items",
       "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
       "title": "E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/cla",
-      "why_due": "monitoring row 5d since last observation (cadence 3d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 3d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -230,8 +230,8 @@
       "source": "open_items",
       "id": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
       "title": "Operating-layer PHASE H (the control half) shipped the DECISION ROUND-TRIP as a draft PR (#10705 bot, ict-trader-dashboard#211 SPA): a work object may declare answerable `decision_requests[]`, `GET /a",
-      "why_due": "monitoring row 5d since last observation (cadence 3d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 3d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -240,7 +240,7 @@
       "id": "OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED",
       "title": "E3 shipped (Phase G): scripts/ops/sunset_pass.py grades retirement candidates weekly, docs/claude/SUNSET-DISPOSITIONS.json records answers, and check_sunset_dispositions.py escalates an unanswered one",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -249,7 +249,7 @@
       "id": "OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE",
       "title": "The per-endpoint API reference (156,448 B: the /api/bot/* route table, BotStats, Position, CORS, and the /api/diag/* table) was moved VERBATIM out of CLAUDE.md into docs/reference/bot-api-reference.md",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -257,8 +257,8 @@
       "source": "open_items",
       "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
       "title": "#10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then ",
-      "why_due": "monitoring row 5d since last observation (cadence 3d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 3d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -266,8 +266,8 @@
       "source": "open_items",
       "id": "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED",
       "title": "The decision push-back's REPO half is built and its DELIVERY half has never run once. asked_by records which session asked (measured before: of 584 objects, ZERO requests named their asker, so every c",
-      "why_due": "monitoring row 5d since last observation (cadence 2d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 2d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -276,7 +276,7 @@
       "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
       "title": "Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_decision_bot.py + deploy",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -284,8 +284,8 @@
       "source": "open_items",
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
       "title": "The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its",
-      "why_due": "monitoring row 5d since last observation (cadence 2d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 2d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -294,7 +294,7 @@
       "id": "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
       "title": "The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -303,7 +303,7 @@
       "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
       "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -312,7 +312,7 @@
       "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
       "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
       "why_due": "soak READY — ✅ READY — 19 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -320,8 +320,8 @@
       "source": "open_items",
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
       "title": "ML-2 was BUILT and REFUTED, and the refutation is the finding. Calibration PASSES on a real corpus (n=9,814 backtest trades, 3 trend_donchian 15m legs, MACE 0.0061); sharpness against the tp_r-equival",
-      "why_due": "monitoring row 5d since last observation (cadence 5d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 5d)",
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -330,7 +330,7 @@
       "id": "OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON",
       "title": "E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED IN RESPONSE, delibera",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 5,
+      "age_days": 6,
       "loud": true,
       "link": ""
     },
@@ -339,7 +339,7 @@
       "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
       "title": "MI-154, measured 2026-09-06 at main 957fc81d. The lane was opened on the premise that PR #11140 had SHIPPED the ict_scalp exit-head consumer and that only the artifact was missing. #11140 is OPEN and ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 4,
+      "age_days": 5,
       "loud": true,
       "link": ""
     },
@@ -347,8 +347,8 @@
       "source": "open_items",
       "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING",
       "title": "MI-163 measured 9 of the 44 enabled+live legs (the 8 ict_scalp_* legs + squeeze_breakout_4h) as structurally invisible: record_position_telemetry is called from INSIDE a unit's monitor(), and only tre",
-      "why_due": "monitoring row 4d since last observation (cadence 3d)",
-      "age_days": 4,
+      "why_due": "monitoring row 5d since last observation (cadence 3d)",
+      "age_days": 5,
       "loud": true,
       "link": ""
     },
@@ -356,8 +356,8 @@
       "source": "open_items",
       "id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
       "title": "ict_scalp_5m was demoted off the REAL-MONEY bybit_2 account (Tier-3, operator-approved 2026-09-06, scope bybit_2 only) by removing it from that account's `strategies:` list in config/accounts.yaml. PR",
-      "why_due": "monitoring row 3d since last observation (cadence 1d)",
-      "age_days": 3,
+      "why_due": "monitoring row 4d since last observation (cadence 1d)",
+      "age_days": 4,
       "loud": true,
       "link": ""
     },
@@ -365,8 +365,8 @@
       "source": "open_items",
       "id": "OI-20260908-CANCEL-ACCEPTED-INEFFECTIVE-MERGED-AND-NEVER-EMITTED-ON-THE-FLEET",
       "title": "PR #11433 merged 2026-09-08 as 2547a6a8 (squash), Tier-2, operator-approved 2026-09-08 with no conditions, and HAND-MERGED BY THE MANAGER rather than self-landed (the branch declared tier 2 / landing ",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 3,
+      "why_due": "monitoring row 4d since last observation (cadence 4d)",
+      "age_days": 4,
       "loud": true,
       "link": ""
     },
@@ -375,7 +375,7 @@
       "id": "OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN",
       "title": "THREE FACTS, and they are different — say WHICH you cleared. (1) EXAMINED, locally: MI-195 added a yfinance-direct last rung to e35_shard_plan.resolve_feed_source (planner matrix 41 -> 43 jobs, 0 remo",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 3,
+      "age_days": 4,
       "loud": true,
       "link": ""
     },
@@ -384,7 +384,7 @@
       "id": "OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS",
       "title": "TWO MEASUREMENT TRAPS ON THE REAL-MONEY TRADE SURFACE, both of which have ALREADY produced a wrong operator-facing conclusion (2026-09-08, MI-200). Read this BEFORE measuring real-money performance. (",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 3,
+      "age_days": 4,
       "loud": true,
       "link": ""
     },
@@ -392,8 +392,8 @@
       "source": "open_items",
       "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
       "title": "⚠️ ARMED ON ib_paper 2026-08-31 — THIS ROW'S ID AND ITS OLD SUMMARY BOTH SAY 'UNARMED' AND ARE STALE. The id is deliberately NOT renamed (ROADMAP.md and several backlog rows link it by name); read thi",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -401,8 +401,8 @@
       "source": "open_items",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the second is proof the c",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -410,8 +410,8 @@
       "source": "open_items",
       "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
       "title": "A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now inherits the cycle's ",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -419,8 +419,8 @@
       "source": "open_items",
       "id": "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED",
       "title": "⚠️ CORRECTED 2026-09-09 by session_01DUBXxiaZ3PMERcAfcJce7P — TWO OF THE THREE CLEARS-WHEN CLAUSES ARE NOW MET AND THE TEXT BELOW STILL SAYS THEY ARE NOT. Do not re-quote its (a) and (b) as outstandin",
-      "why_due": "monitoring row 2d since last observation (cadence 1d)",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 1d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -428,8 +428,8 @@
       "source": "open_items",
       "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
       "title": "#10746 (src/runtime/bybit_coverage_basis.py) is MERGED to main (af9af5e3) and its ARMING IS DELIBERATELY HELD, on an operator instruction given in-conversation 2026-09-02: 'hold it until the soak'. Th",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -437,8 +437,8 @@
       "source": "open_items",
       "id": "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY",
       "title": "replay-pregate-nightly's nightly red is NOT a network fault and NOT an OOM kill -- the trainer VM is out of memory and swap-thrashing, and the fleet run cannot finish. MEASURED on run #4390 (workflow_",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -446,8 +446,8 @@
       "source": "open_items",
       "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
       "title": "docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 landed the calibration",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -455,8 +455,8 @@
       "source": "open_items",
       "id": "OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT",
       "title": "TWO FACTS, and neither is the orphan the operator was alerted about. (1) ROOT CAUSE, UNFIXED AND LIVE: src/runtime/order_monitor.py:8821 does `pos = rows[0]` on a symbol-scoped get_positions with no z",
-      "why_due": "monitoring row 2d since last observation (cadence 2d)",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 2d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -464,8 +464,8 @@
       "source": "open_items",
       "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
       "title": "MI-227 (Tier-2, operator-approved 2026-09-09, WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG, chosen: resize_and_invariant) makes an intent-reduce resize the SHRUNK parent row's OWN track",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -473,8 +473,8 @@
       "source": "open_items",
       "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
       "title": "[!] CORRECTED 2026-09-09T22:52Z — CLAUSE (1) IS CLEARED AND THIS ROW'S OWN ID NOW OVERSTATES WHAT IS OPEN. The id is deliberately NOT renamed (the generated SESSION BRIEF, MI-214's work object and MI-",
-      "why_due": "monitoring row 2d since last observation (cadence 2d)",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 2d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -482,8 +482,8 @@
       "source": "open_items",
       "id": "OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
       "title": "The 2026-09-09 full-system audit (docs/audits/full-system-audit-2026-09-09.md, report RPT-20260909-171500-audit) filed 68 findings and 19 backlog rows and REMEDIATED NOTHING, correctly, per its work o",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": true,
       "link": ""
     },
@@ -492,7 +492,7 @@
       "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
       "title": "alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
+      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -501,7 +501,7 @@
       "id": "OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED",
       "title": "⚠️ CORRECTED 2026-09-10T11:46Z -- MERGED AND DEPLOYED ARE NOW BOTH TRUE AND THE TEXT BELOW STILL SAYS THEY ARE NOT. Do not re-quote its 'NOT MERGED, NOT DEPLOYED AND NOT OBSERVED' framing, and do not ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
+      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -510,7 +510,7 @@
       "id": "OI-20260910-EXIT-EVAL-NEAR-MISS-BAND-AND-RESTART-GAP-SHIPPED-AND-NEITHER-HAS-GRADED-A-LIVE-BOUNDARY",
       "title": "MI-230 built the two halves the operator chose on 2026-09-09 (WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED, chosen: near_miss_and_restart_gap; audit F-50). (a) exit_loop_health.requirement_stat",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
+      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -519,7 +519,7 @@
       "id": "OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO",
       "title": "Audit F-39 / MI-231 under WO-20260909-DECISION-PACKAGES-CLOSED-WHILE-HOLDING-OPEN-LEGS (operator answered 2026-09-09, chosen: detector_and_reattach, Tier-2). TWO HALVES AND THEY ARE DIFFERENT FACTS. (",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
+      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -528,7 +528,7 @@
       "id": "OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER",
       "title": "MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without ",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
+      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -537,7 +537,7 @@
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
       "title": "⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -546,7 +546,7 @@
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
       "title": "⚠️ ARMED ON bybit_1 AS OF 2026-08-31T07:47Z — this row's own ID still reads 'NOT-YET-ARMED' and that half is now STALE. The id is deliberately NOT renamed (CLAUDE.md and several backlog rows link it b",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -555,7 +555,106 @@
       "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
       "title": "Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run again",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
+      "title": "PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states, of which broker_canc",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
+      "title": "[!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
+      "title": "The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and eve",
+      "why_due": "monitoring row 1d since last observation (cadence 1d)",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED",
+      "title": "⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
+      "title": "SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the trainer's order-flow c",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+      "title": "⚠️ ORDERING CONSTRAINT ON REAL MONEY — READ THIS BEFORE PICKING UP MI-140. PR #11279 re-scoped IBClient.close's confirmation from the SYMBOL to the TRADE and is MERGED — squashed to 12b5b84 on 2026-09",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+      "title": "Two facts, and the SECOND is the urgent one. (1) SHIPPED, NOT PROVEN: AlpacaClient.protection_coverage plus the sweep's covered/partially_naked/coverage_ungradeable/coverage_read_failed counters and t",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
+      "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+      "title": "MI-235 shipped the NOTICER for a lane blocked on a manager action: a typed `blocked_on` edge on the SESSIONS.json row (`session_registry.py blocked-on`, which REFUSES a kind it cannot grade) plus `scr",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
+      "title": "A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight before; bybit_portfoli",
+      "why_due": "monitoring row 1d since last observation (cadence 1d)",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+      "title": "OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit_1 siblings -- 8/18/1",
+      "why_due": "monitoring row 1d since last observation (cadence 1d)",
+      "age_days": 1,
       "loud": true,
       "link": ""
     },
@@ -578,29 +677,11 @@
       "link": ""
     },
     {
-      "source": "open_items",
-      "id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
-      "title": "PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states, of which broker_canc",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
       "source": "probes",
       "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
       "title": "A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any ",
       "why_due": "probe FAILED — its declared observation did not hold",
       "age_days": null,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
-      "title": "[!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
       "loud": true,
       "link": ""
     },
@@ -615,24 +696,6 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
-      "title": "The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and eve",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED",
-      "title": "⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
       "id": "OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL",
       "title": "scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P",
       "why_due": "loud row — must be reported on every session",
@@ -642,73 +705,10 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
-      "title": "SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the trainer's order-flow c",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
-      "title": "⚠️ ORDERING CONSTRAINT ON REAL MONEY — READ THIS BEFORE PICKING UP MI-140. PR #11279 re-scoped IBClient.close's confirmation from the SYMBOL to the TRADE and is MERGED — squashed to 12b5b84 on 2026-09",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
-      "title": "Two facts, and the SECOND is the urgent one. (1) SHIPPED, NOT PROVEN: AlpacaClient.protection_coverage plus the sweep's covered/partially_naked/coverage_ungradeable/coverage_read_failed counters and t",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
-      "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
       "id": "OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED",
       "title": "MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-",
       "why_due": "monitoring row has NEVER been observed",
       "age_days": null,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
-      "title": "MI-235 shipped the NOTICER for a lane blocked on a manager action: a typed `blocked_on` edge on the SESSIONS.json row (`session_registry.py blocked-on`, which REFUSES a kind it cannot grade) plus `scr",
-      "why_due": "monitoring row has NEVER been observed",
-      "age_days": null,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
-      "title": "A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight before; bybit_portfoli",
-      "why_due": "monitoring row has NEVER been observed",
-      "age_days": null,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
-      "title": "OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit_1 siblings -- 8/18/1",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
       "loud": true,
       "link": ""
     },
@@ -726,7 +726,7 @@
       "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
       "title": "#10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then ",
       "why_due": "soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.",
-      "age_days": 9,
+      "age_days": 10,
       "loud": false,
       "link": ""
     },
@@ -734,8 +734,17 @@
       "source": "open_items",
       "id": "OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT",
       "title": "The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not one role pack knew it e",
-      "why_due": "monitoring row 9d since last observation (cadence 7d)",
-      "age_days": 9,
+      "why_due": "monitoring row 10d since last observation (cadence 7d)",
+      "age_days": 10,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-6da04340",
+      "title": "[error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-04T19:13:36 → 2026-09-08T14:16:09 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 8,
       "loud": false,
       "link": ""
     },
@@ -744,7 +753,43 @@
       "id": "ERRFEED-86505576",
       "title": "[error] x60 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: o",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 60 rows 2026-09-04T12:34:09 → 2026-09-08T17:52:08 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
-      "age_days": 7,
+      "age_days": 8,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-a46d2970",
+      "title": "[error] x44 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 44 rows 2026-09-04T19:13:36 → 2026-09-11T22:43:08 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 8,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-c8553cf1",
+      "title": "[error] x8 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the ",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-04T12:36:04 → 2026-09-11T13:55:56 — decide: fix now, or file to a backlog",
+      "age_days": 8,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-fa77ad80",
+      "title": "[error] x39 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 39 rows 2026-09-04T21:55:38 → 2026-09-11T23:44:10 · symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 8,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-b3c9b0e2",
+      "title": "[error] x16 bybit_over_cover detected: bybit_N/ADAUSDT: position N. SAME-BOOK LEG OVER-ACCUMULATION: legs that REDUCE THIS position total N across N leg",
+      "why_due": "error-level condition on `bot_logs`, STANDING (predates the last digest) — 16 rows 2026-09-06T16:15:12 → 2026-09-10T10:27:04 · accounts=bybit_1 — decide: fix now, or file to a backlog",
+      "age_days": 6,
       "loud": false,
       "link": ""
     },
@@ -752,8 +797,8 @@
       "source": "open_items",
       "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
       "title": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
-      "why_due": "monitoring row 5d since last observation (cadence 2d)",
-      "age_days": 5,
+      "why_due": "monitoring row 6d since last observation (cadence 2d)",
+      "age_days": 6,
       "loud": false,
       "link": ""
     },
@@ -762,7 +807,43 @@
       "id": "ERRFEED-02a919f1",
       "title": "[error] x56 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 56 rows 2026-09-07T08:06:36 → 2026-09-08T14:05:20 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "age_days": 5,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-9da85381",
+      "title": "[error] x29 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 29 rows 2026-09-07T08:38:27 → 2026-09-11T23:43:08 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "age_days": 5,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-72e2ad1e",
+      "title": "[error] x47 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 47 rows 2026-09-08T19:46:55 → 2026-09-11T23:15:47 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 4,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-f754bb5d",
+      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-08T19:22:45 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog",
+      "age_days": 4,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+      "title": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states",
+      "why_due": "monitoring row 3d since last observation (cadence 3d)",
+      "age_days": 3,
       "loud": false,
       "link": ""
     },
@@ -771,7 +852,7 @@
       "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
       "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
       "why_due": "soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: examined>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.",
-      "age_days": 2,
+      "age_days": 3,
       "loud": false,
       "link": ""
     },
@@ -780,87 +861,15 @@
       "id": "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
       "title": "MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer",
       "why_due": "soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: dropped_symbol_dedupe_count>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.",
-      "age_days": 2,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-0327c243",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: tlt_pullback_Nh | Symbol: TLT Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:19:41 → 2026-09-11T16:32:03 · symbols=TLT strategies=tlt_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-22e6d105",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:08 → 2026-09-11T16:31:56 · symbols=GLD strategies=gld_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-3b46290a",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ief_pullback_Nd | Symbol: IEF Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:05 → 2026-09-11T16:31:53 · symbols=IEF strategies=ief_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-55248fb9",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: slv_pullback_Nd | Symbol: SLV Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:12 → 2026-09-11T16:32:06 · symbols=SLV strategies=slv_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-725aa325",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: iaum_pullback_Nd | Symbol: IAUM Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:19 → 2026-09-11T16:32:13 · symbols=IAUM strategies=iaum_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-94d0d1ea",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: spy_pullback_Nh | Symbol: SPY Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:21:41 → 2026-09-11T16:31:59 · symbols=SPY strategies=spy_pullback_1h — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-bfaf3950",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:02 → 2026-09-11T16:31:49 · symbols=GLD strategies=gld_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-e145891c",
-      "title": "[error] NEW x2 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: gdx_pullback_Nd | Symbol: GDX Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-11T16:18:15 → 2026-09-11T16:32:10 · symbols=GDX strategies=gdx_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 0,
+      "age_days": 3,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "120 cause groups over 1483 rows (67 error-level, 53 warn-level, 27 new since the last digest)",
-      "why_due": "57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T14:34:38.952358+00:00`.",
+      "title": "121 cause groups over 1501 rows (67 error-level, 54 warn-level, 0 new since the last digest)",
+      "why_due": "57 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-11T21:25:50.319834+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
