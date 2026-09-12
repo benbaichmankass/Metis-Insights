@@ -391,3 +391,49 @@ class TestPathBIsRecordedNeverGraded:
                 "cannot tell a Path-A verdict from a full-gate one")
             assert "capital_delta" in c, tag
             assert set(c["capital_delta"]) == {"IS", "OOS"}, tag
+
+
+class TestSlBufferCells:
+    """The stop-buffer grid — the family's only stop-side knob."""
+
+    def test_the_leg_s_own_value_is_excluded(self):
+        """A cell equal to the baseline measures a guaranteed zero and reports
+        as a tested negative rather than as the no-op it is."""
+        tags = [t for t, _, _ in sw.sl_buffer_cells(0.20)]
+        assert "slbuf0.2" not in tags
+        # and if a leg ever declared one of the grid values, that one drops too
+        assert "slbuf0.3" not in [t for t, _, _ in sw.sl_buffer_cells(0.30)]
+        assert "slbuf0.3" in [t for t, _, _ in sw.sl_buffer_cells(0.20)]
+
+    def test_the_grid_brackets_the_live_value_on_BOTH_sides(self):
+        """A one-sided grid can only answer half of 'is the stop mistimed'."""
+        vals = [float(e[1]) for _, _, e in sw.sl_buffer_cells(0.20)]
+        assert any(v < 0.20 for v in vals), "no TIGHTER cell"
+        assert any(v > 0.20 for v in vals), "no WIDER cell"
+
+    def test_zero_is_NOT_in_the_grid(self):
+        """The harness REFUSES 0.0, so such a cell reports as an error and
+        reads as a failed sweep rather than as a value that cannot be run."""
+        assert 0.0 not in sw._SL_BUFFER_GRID
+        vals = [float(e[1]) for _, _, e in sw.sl_buffer_cells(0.20)]
+        assert all(v > 0 for v in vals)
+
+    def test_every_cell_names_the_stop_geometry_lever(self):
+        assert {lev for _, lev, _ in sw.sl_buffer_cells(0.20)} == {"stop_geometry"}
+
+    def test_the_family_reaches_the_PRODUCTION_assembly(self):
+        levers = {lev for _, lev, _ in sw.all_cells(1.5)}
+        assert "stop_geometry" in levers, (
+            "the family exists but the sweep never runs it")
+        assert {"bracket_geometry", "breakeven_ratchet", "exit_ladder"} <= levers
+
+    def test_cells_pass_the_flag_the_harness_actually_exposes(self):
+        """A cell naming a flag the harness does not have exits non-zero and
+        reads as a failed cell rather than as a broken sweep."""
+        import subprocess, sys
+        help_txt = subprocess.run(
+            [sys.executable, "scripts/backtest_ict_scalp.py", "--help"],
+            capture_output=True, text=True).stdout
+        for _, _, extra in sw.sl_buffer_cells(0.20):
+            assert extra[0].lstrip("-").replace("-", "-") and extra[0] in help_txt, (
+                f"{extra[0]} is not a flag the harness exposes")

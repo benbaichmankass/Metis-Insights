@@ -189,6 +189,43 @@ def timeout_share(window: dict) -> float | None:
     return by.get("timeout", 0) / n
 
 
+# M20 `stop_geometry` cells — the ONLY stop-side knob this family has
+# (MI-278 U3, 2026-09-12). The ict_scalp stop is STRUCTURAL — `sl =
+# sweep_extreme ± atr_sl_buffer_mult * ATR` — so `atr_stop_mult`, the e35
+# lever, does not exist here: all 8 live legs declare it None, which is also
+# why e35 never touched this family. Until `--atr-sl-buffer-mult` the buffer
+# was UNSWEEPABLE rather than unswept, the same shape as the target was.
+#
+# THE GRID BRACKETS THE LIVE 0.20 ON BOTH SIDES, and that is deliberate for the
+# same reason the target grid does: MI-278's question is whether exits are
+# mistimed, and a one-sided grid can only ever answer half of it. A TIGHTER
+# buffer takes the stop closer to the swept extreme (more stop-outs, smaller R
+# per trade, and R is the denominator here so it moves everything); a WIDER one
+# clears more noise at the cost of a larger loss when it is hit.
+#
+# 0.0 IS DELIBERATELY ABSENT AND IS NOT AN OVERSIGHT: at zero the stop sits
+# exactly ON the level the setup is defined by having swept, and the harness
+# REFUSES it (`resolve_sl_buffer_override`). A cell that cannot run is worse
+# than no cell — it reports as an error and reads as a failed sweep.
+_SL_BUFFER_GRID = (0.05, 0.10, 0.15, 0.30, 0.40, 0.60)
+_LIVE_SL_BUFFER = 0.20      # src/units/strategies/ict_scalp.py::_DEFAULTS
+
+
+def sl_buffer_cells(sl_buffer_mult: float = _LIVE_SL_BUFFER) -> list:
+    """(tag, matrix_lever, extra_args) for the stop-buffer grid.
+
+    Excludes the leg's OWN value, which IS the baseline — measuring a cell
+    against itself yields a guaranteed zero delta and reports as a tested
+    negative rather than as the no-op it is.
+    """
+    out = []
+    for m in _SL_BUFFER_GRID:
+        if abs(m - float(sl_buffer_mult)) < 1e-9:
+            continue
+        out.append((f"slbuf{m:g}", "stop_geometry", ["--atr-sl-buffer-mult", str(m)]))
+    return out
+
+
 def all_cells(tp_at_r: float) -> list:
     """THE assembly of every cell this sweep offers — one owner, not two.
 
@@ -199,7 +236,7 @@ def all_cells(tp_at_r: float) -> list:
     error message advertises and the sweep never runs.
     """
     return (list(CELLS) + ladder_cells(tp_at_r) + tp_cells(tp_at_r)
-            + breakeven_cells(tp_at_r))
+            + breakeven_cells(tp_at_r) + sl_buffer_cells())
 
 
 def declared_lever_flags(leg_cfg: dict) -> list:
