@@ -1,0 +1,6 @@
+{
+  "why": "Deliberate prune of a SETTLED OPEN-ITEMS row at review, which .github/register-removals/README.md names as the legitimate case for this directory. The row's own clears_when says so in terms, and it is the row's author who decided: 'ALREADY CLEARED -- see observation. Both clauses were met on 2026-09-07 ... THIS ROW IS RETAINED ONLY SO THE EVIDENCE IS NOT LOST BETWEEN SESSIONS; prune it at the next review.' (opened_by session_01SZCy1acPMrX3ANUkzhM5te, MI-164). This is that review. The evidence is NOT lost: it was transcribed into docs/research/banking-half-2026-09-07.md section 7 in this same commit, FIRST -- verified before pruning that `0.9508` appeared nowhere else in the tree, so pruning without preserving would have destroyed the only record of the first live measurement of the one-shot break-even mechanism. That addendum also CORRECTS section 6's first bullet, which still claimed the one-shot legs were unmeasured. The row is NOT reopened for the corpus question (n=30 pooled), which its own text forbids and which section 7 restates as still unmet.",
+  "removals": [
+    {"file": "docs/claude/OPEN-ITEMS.json", "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING", "keys": []}
+  ]
+}

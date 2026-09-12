@@ -143,11 +143,25 @@ def _rows_by_id(doc: Any, array: str, id_field: str) -> Optional[Dict[str, Dict[
 
 
 def compare(base_doc: Any, head_doc: Any, array: str, id_field: str,
-            path: str = "") -> Dict[str, Any]:
+            path: str = "", base_state: str = "merge_base") -> Dict[str, Any]:
     """PURE. Two parsed registers in, one graded verdict out.
 
     Nothing here reads the filesystem, so the policy is arguable in tests rather
     than against a live merge.
+
+    ``base_state`` changes only what the findings SAY, never which findings are
+    produced. ⚠️ It is here because the FIELD_LOSS message used to assert a
+    cause this code cannot establish — *"this is the write-back somebody else
+    made, reverted silently"* — which is this repo's UNPROVENANCED DIAGNOSTIC
+    OUTPUT sub-class A, and is wrong in two different ways. Under
+    ``ref_tip_fallback`` nobody reverted anything: a branch that is merely
+    BEHIND main shows every key main has gained since as "on the base and gone
+    here". And under ``merge_base`` a DELIBERATE removal by this branch produces
+    byte-identical evidence — which is precisely what
+    ``.github/register-removals/`` exists to declare, so the message was calling
+    the declared-removal path a silent revert. What the code measures is
+    presence at the base and absence here; who did it and why is not measured,
+    and is no longer claimed.
     """
     base_rows = _rows_by_id(base_doc, array, id_field)
     head_rows = _rows_by_id(head_doc, array, id_field)
@@ -172,7 +186,8 @@ def compare(base_doc: Any, head_doc: Any, array: str, id_field: str,
         if hrow is None:
             findings.append({
                 "kind": ROW_LOSS, "path": path, "id": rid, "key": None,
-                "why": f"row {rid!r} is on the base and GONE here."})
+                "why": (f"row {rid!r} is on the base and GONE here."
+                        + _BEHIND_BASE_CAVEAT.get(base_state, ""))})
             continue
         for key in brow:
             if key not in hrow:
@@ -180,8 +195,13 @@ def compare(base_doc: Any, head_doc: Any, array: str, id_field: str,
                     "kind": FIELD_LOSS, "path": path, "id": rid, "key": key,
                     "why": (f"row {rid!r} keeps its id but has LOST the key "
                             f"{key!r}, which is on the base. The id sets match, "
-                            f"so a union-by-id proof passes — this is the write-"
-                            f"back somebody else made, reverted silently.")})
+                            f"so a union-by-id proof passes. MEASURED: present "
+                            f"on the base, absent here. NOT MEASURED: who "
+                            f"removed it or why — a line-level merge reverting "
+                            f"somebody's write-back and a deliberate removal "
+                            f"leave identical evidence, and the second is what "
+                            f".github/register-removals/ is for."
+                            + _BEHIND_BASE_CAVEAT.get(base_state, ""))})
     return {"path": path, "state": COMPARED, "findings": findings,
             "why": (f"compared {len(base_rows)} base row(s) against "
                     f"{len(head_rows)} here; {len(findings)} loss(es).")}
@@ -190,6 +210,19 @@ def compare(base_doc: Any, head_doc: Any, array: str, id_field: str,
 IN_DIFF, INHERITED, UNSCOPED = "in_diff", "inherited", "unscoped"
 
 MERGE_BASE, REF_TIP = "merge_base", "ref_tip_fallback"
+
+#: What a finding must ALSO say when the merge-base could not be computed.
+#: ⚠️ The verdict SUMMARY already carries this caveat; a finding does not,
+#: and the findings are what a reader acts on — `render` prints one
+#: `::error::` line per finding, and a session reading a specific row id does
+#: not necessarily read the summary line above it. Keyed by base_state so the
+#: two can never disagree about when it applies.
+_BEHIND_BASE_CAVEAT = {
+    REF_TIP: (" ⚠️ NO MERGE-BASE COULD BE COMPUTED, so this is graded against "
+              "the ref TIP: a branch that is merely BEHIND main produces this "
+              "finding having removed nothing. Run `git merge origin/main` and "
+              "re-check before treating it as a loss."),
+}
 
 
 def resolve_base(base: Optional[str], root: Path = REPO_ROOT) -> Tuple[str, Optional[str]]:
@@ -414,7 +447,8 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
             results.append({"path": path, "state": SKIPPED, "findings": [],
                             "why": "unchanged by this diff."})
             continue
-        results.append(compare(base_doc, head_doc, array, id_field, path))
+        results.append(compare(base_doc, head_doc, array, id_field, path,
+                               base_state=base_state))
 
     scope_state, scoped = declaration_scope(base, root)
     all_decl = {f.name for f in (root / ".github" / "register-removals").glob("*.json")} \
@@ -481,6 +515,12 @@ def verdict_of(results: Sequence[Dict[str, Any]],
     }
 
 
+#: The first words of the FIX line when there is no merge-base. Module scope so
+#: the self-test asserts the string `render` actually emits rather than a copy
+#: of it — a control that asserts its own literal cannot catch a reworded fix.
+FIX_LEAD_BEHIND_BASE = "Fix: FIRST run `git merge origin/main`"
+
+
 def render(verdict: Dict[str, Any]) -> str:
     lines = [f"register-field-loss: {verdict['summary']}"]
     for r in verdict.get("unreadable", []):
@@ -500,6 +540,17 @@ def render(verdict: Dict[str, Any]) -> str:
     if verdict["ok"]:
         lines.append("register-field-loss: OK — no shared register lost a field, "
                      "a row or a top-level key that the base had.")
+    elif verdict.get("base_state") == REF_TIP:
+        # ⚠️ THE REMEDY IS DIFFERENT HERE AND LEADING WITH THE WRONG ONE COSTS
+        # A SESSION ITS SEARCH. Without a merge-base these findings are most
+        # often "you have not merged main yet", for which resolving a register
+        # conflict by field is not the fix and there may be no conflict at all.
+        lines.append(FIX_LEAD_BEHIND_BASE + " and re-check — no "
+                     "merge-base could be computed, so every row the base "
+                     "gained after this branch forked reads as a loss here. If "
+                     "a finding SURVIVES that merge it is real: resolve the "
+                     "register conflict BY FIELD, never by side, and a genuine "
+                     "removal goes in .github/register-removals/<slug>.json.")
     else:
         lines.append("Fix: resolve the register conflict BY FIELD, never by side "
                      "— take the base's version and re-apply only the keys this "
@@ -768,12 +819,82 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
                     live0.write_text(json.dumps(doc_fork | {array0: fork_rows},
                                                 indent=2), encoding="utf-8")
 
+            # ── THE LIVE WIRING. `check` must PASS base_state down to
+            #    `compare`, and a pure-function control cannot see that: a
+            #    planted removal of that argument left the whole self-test
+            #    green while no live run would ever carry the caveat.
+            #
+            #    An UNRELATED HISTORY is the realistic REF_TIP fixture — an
+            #    unresolvable ref makes every register read as absent on the
+            #    base, so it produces no findings to caveat. Here `merge-base`
+            #    genuinely fails while `git show <ref>:<path>` still works,
+            #    which is the shape a shallow clone also produces.
+            if isinstance(rows0, list):
+                _run_git(root, "checkout", "-q", "--orphan", "selftest-unrelated")
+                doc_u = {k: v for k, v in doc0.items()}
+                doc_u[array0] = list(rows0) + [{idfield0: "row-only-on-the-orphan"}]
+                live0.write_text(json.dumps(doc_u, indent=2), encoding="utf-8")
+                _commit_all(root, "unrelated history")
+                _run_git(root, "checkout", "-q", "-f", "selftest-fork")
+
+                st_u, _ = resolve_base("selftest-unrelated", root)
+                v_u = check("selftest-unrelated", root=root)
+                ok("an UNRELATED history has no merge-base, so the guard falls "
+                   "back to the ref tip", st_u == REF_TIP
+                   and v_u.get("base_state") == REF_TIP)
+                ok("…and `check` PASSES that down, so every LIVE finding "
+                   "carries the behind-base caveat rather than only the summary",
+                   bool(v_u["findings"])
+                   and all("NO MERGE-BASE" in f["why"] for f in v_u["findings"]))
+                ok("…and the rendered FIX line sends the reader to the merge, "
+                   "not to a by-field resolution of a conflict that may not exist",
+                   FIX_LEAD_BEHIND_BASE in render(v_u))
+                _run_git(root, "checkout", "-q", "-f", "selftest-fork")
+                live0.write_text(json.dumps(doc0, indent=2), encoding="utf-8")
+
             st_b, sha_b = resolve_base("no-such-ref-anywhere", root)
             ok("an unresolvable base falls back to the REF TIP and says so, "
                "rather than silently grading against nothing",
                st_b == REF_TIP and sha_b == "no-such-ref-anywhere")
             ok("…and the summary warns that a loss may not be this branch's",
                "NO MERGE-BASE" in verdict_of([], [], base_state=REF_TIP)["summary"])
+
+            # ── THE FINDING ITSELF CARRIES THE CAVEAT, NOT ONLY THE SUMMARY.
+            #    `render` prints one ::error:: per finding, and a session
+            #    reading the line that names ITS row id does not necessarily
+            #    read the summary above it. Both directions, so the caveat is
+            #    shown to be CONDITIONAL rather than always-on decoration.
+            _base_doc = {"items": [{"id": "X", "a": 1, "b": 2}, {"id": "Y", "a": 1}]}
+            _head_doc = {"items": [{"id": "X", "a": 1}]}
+            _tip = compare(_base_doc, _head_doc, "items", "id", "p",
+                           base_state=REF_TIP)
+            _mb = compare(_base_doc, _head_doc, "items", "id", "p",
+                          base_state=MERGE_BASE)
+            ok("a finding graded against the ref TIP says so in the finding",
+               all("NO MERGE-BASE" in f["why"] for f in _tip["findings"]))
+            ok("…and a merge-base finding does NOT carry that caveat",
+               not any("NO MERGE-BASE" in f["why"] for f in _mb["findings"]))
+            ok("base_state changes only the WORDING, never which findings fire",
+               [(f["kind"], f["id"], f["key"]) for f in _tip["findings"]]
+               == [(f["kind"], f["id"], f["key"]) for f in _mb["findings"]]
+               and len(_mb["findings"]) == 2)
+            ok("a FIELD_LOSS no longer ASSERTS a cause it did not measure",
+               all("reverted silently" not in f["why"] for f in _mb["findings"]))
+            ok("…and says what it DID measure, and what it did not",
+               any("NOT MEASURED" in f["why"] for f in _mb["findings"]))
+            # ⚠️ ASSERT THE FIX LINE, NOT THE STRING ANYWHERE IN THE OUTPUT.
+            #    A planted removal of the tip-fallback branch ESCAPED the first
+            #    version of these two, because the findings' own caveat text
+            #    also contains "git merge origin/main" — so `in render(...)`
+            #    was satisfied by the wrong source and the control was vacuous.
+            _FIXLEAD = FIX_LEAD_BEHIND_BASE
+            ok("the tip-fallback FIX line leads with `git merge origin/main`, "
+               "which is the remedy there — resolving by field is not",
+               _FIXLEAD in render(verdict_of([_tip], [], base_state=REF_TIP)))
+            ok("…and the merge-base FIX line does not send the reader to a "
+               "merge that would change nothing",
+               _FIXLEAD not in render(verdict_of([_mb], [], base_state=MERGE_BASE))
+               and "BY FIELD" in render(verdict_of([_mb], [], base_state=MERGE_BASE)))
 
             st, names = declaration_scope(None, root)
             ok("no base means UNSCOPED, never an empty set — 'we did not look' "
