@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
     "branch": "claude/mi280-landing-register-machinery",
-    "claimed_at": "2026-09-12T05:39:47Z",
+    "claimed_at": "2026-09-12T05:53:06Z",
     "purpose": "MI-280 U1: mergeability dimension for the PR-queue watcher (#11862)"
   },
   "active_sessions": [
