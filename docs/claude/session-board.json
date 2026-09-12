@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
-    "branch": "claude/mi279-regime-clause-and-exit-req",
-    "claimed_at": "2026-09-12T07:56:11Z",
-    "purpose": "PR #11876 — regime-break clause + 60s exit requirement re-measurement (Tier-1, docs only)"
+    "branch": "claude/mi279-starved-account-and-exit-req",
+    "claimed_at": "2026-09-12T08:02:30Z",
+    "purpose": "PR #11872 — starved-account blindness critical closed on a live page (Tier-1, docs only)"
   },
   "active_sessions": [
     {
