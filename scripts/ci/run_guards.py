@@ -194,6 +194,24 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A GREEN `pytest-run` reports `N skipped` and nothing about which N,
+        # so a whole test module going dark — every test under one
+        # module-level skipif on an absent tool — reads identically to routine
+        # conditional coverage. That is the "green that checked nothing" class,
+        # arriving through the one door nobody watches.
+        #
+        # This registers only the SELF-TEST. The summariser itself runs inside
+        # `pytest-run` (it needs that job's JUnit report, which does not exist
+        # here), so what CI can check at guard time is that the renderer still
+        # separates `fully_dark` from `partial` and still refuses to render an
+        # unreadable report as a clean sheet.
+        "name": "pytest-skip-attribution-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/summarize_pytest_skips.py", "--self-test"],
+        ],
+    },
+    {
         # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
         # stay demoted. UNGATED, like its sunset sibling: the failure is about a
         # budget ACCRUING over time, which no diff is relevant to — a demotion
@@ -359,6 +377,35 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_register_ids.py", "--self-test"],
             ["python3", "scripts/ci/check_register_ids.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
+        # RE-SERIALIZATION, which is neither of the two above. `register-id-guard`
+        # catches a SEMANTIC collision and `register-field-loss` catches a lost
+        # value; this catches a diff in which nothing was lost at all and the
+        # whole file was nonetheless rewritten — every row re-attributed to this
+        # PR, every sibling branch made to conflict, and the row-level history
+        # gone.
+        #
+        # ⚠️ IT EXISTS BECAUSE THE ONLY THING THAT NOTICED THE 2026-09-12
+        # INCIDENT WAS A CANARY IN AN UNRELATED TOOL THAT NAMED A DIFFERENT
+        # CONDITION: `manager_preflight.py --self-test` hardcodes "OPEN-ITEMS.json
+        # does not round-trip" as an expectation, so it fires on churn only as a
+        # side effect and reads as a broken self-test. A session could "fix" it
+        # by editing the expectation and destroy the only detector, and if that
+        # file ever becomes round-trippable the canary dies silently.
+        #
+        # `when: None` — every diff. The register set comes from `.gitattributes`
+        # (the driver's own binding) rather than a second hardcoded list, and the
+        # guard reports how many unmarked candidates it did NOT check, so a clean
+        # verdict is a scope result and cannot be read as full coverage.
+        "name": "register-reserialization-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_reserialization.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_register_reserialization.py",
              "--base", "origin/{base_ref}"],
         ],
     },
