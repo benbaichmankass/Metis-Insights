@@ -9,7 +9,7 @@
     "branch": "claude/mi278-u1-winner-close-mechanism-inventory",
     "pr": 11864,
     "claimed_at": "2026-09-12T06:39:08Z",
-    "purpose": "Tier-1 self-land; R13 requires the ARMING branch to hold this field in its own diff. Re-asserted over main after a conflict (main carried 'github-actions[bot] · error-feed-digest run 34678156811'). R13 does not serialize -- each branch carries its own copy."
+    "purpose": "Tier-1 self-land, PR #11864 (green 5/5, armed). Displaces the MI-279 claim main carried for PR #11887 -- VERIFIED RELEASED, not assumed: #11887 reads merged:true, merged_at 2026-09-12T06:43:54Z, so that claim is stale rather than live. R13 requires the ARMING branch to hold this field in its own diff, so each branch carries its own copy; this field does not by itself serialize anything."
   },
   "active_sessions": [
     {
