@@ -109,7 +109,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 - ⚠️ **And the stages that ARE populated were assigned from the source FILENAME in bulk** (23 of 179; only 153 were chosen per object), so the histogram is a census of which backlog a row came from — **not a reading of the work.**
 - **7 in flight** against a ceiling of 8 · 29 waiting · 0 stopped moving (≥14d, declared dates only).
 - **If you are about to write a real `blocked_on` edge, that is the single highest-value thing you can do to this store** — the diagnosis is refusing for want of assessed edges, not for want of machinery.
-- **111 other row(s) due** across the structured registers (§5, completeness `all_sources_read`).
+- **120 other row(s) due** across the structured registers (§5, completeness `all_sources_read`).
 
 **🗑️ SUNSET (E3, 2026-09-01): 10 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 1 packet date(s)) · machinery probe `measured`, 115 findings carried.
 - Candidates: `gdx_pullback_1d`, `gld_pullback_1d`, `iaum_pullback_1d`, `mes_trend_long_1d`, `scha_trend_long_1d`, `splg_trend_long_1d`, `spy_trend_long_1d`, `tqqq_trend_long_1d`, `trend_donchian_sol`, `turtle_soup`. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.

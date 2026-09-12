@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-12T09:29:26+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-12T12:48:23+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -18,11 +18,11 @@ _Generated 2026-09-12T09:29:26+00:00 by `scripts/ops/constraint_readout.py` · c
 
 ⚠️ `unstated` is an empty `blocked_on` whose basis says `NOT_ASSESSED` (or which carries no basis at all). It is **nobody having looked**, not a claim that nothing blocks the object. Reading the second as the first is how a false *ready* appears.
 
-Objects by stage: `QUESTION` 16 · `EVIDENCE` 31 · `DECISION` 17 · `DEPLOYMENT` 25 · `OBSERVATION` 7 · `CAPABILITY` 33 · `INTEGRITY` 42 · `(unstated)` 8
+Objects by stage: `QUESTION` 16 · `EVIDENCE` 31 · `DECISION` 17 · `DEPLOYMENT` 25 · `OBSERVATION` 7 · `CAPABILITY` 32 · `INTEGRITY` 42 · `(unstated)` 9
 
 ⚠️ **23 of 179 of those stages were assigned in BULK FROM THE SOURCE FILENAME, not by reading the row.** The Phase C migration maps `health-review-backlog.json` → `INTEGRITY` and `{ml,performance,research}-review-backlog.json` → `EVIDENCE`, with no per-row judgement, so `INTEGRITY 42` is a census of ONE filename. Only **153** stage(s) in the whole store were chosen per object — and choosing one is not a claim it is RIGHT, only that a filename did not decide it.
 
-Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 9, INTEGRITY 14 · `per_object` → (unstated) 5, CAPABILITY 33, DECISION 17, DEPLOYMENT 25, EVIDENCE 22, INTEGRITY 28, OBSERVATION 7, QUESTION 16 · `unstated` → (unstated) 3
+Stage by how the stage was arrived at: `bulk_by_source_file` → EVIDENCE 9, INTEGRITY 14 · `per_object` → (unstated) 6, CAPABILITY 32, DECISION 17, DEPLOYMENT 25, EVIDENCE 22, INTEGRITY 28, OBSERVATION 7, QUESTION 16 · `unstated` → (unstated) 3
 
 **The assessed subgraph — every object that declares an edge (27 of 179):**
 
@@ -156,24 +156,24 @@ The two sources are kept **separate rather than merged** — one says *this work
 
 > Ported here by operator decision 2026-09-08 (`consolidate_into_the_readout`) so that ONE surface answers *what is due right now*. ⚠️ **This did not improve the diagnosis in §1.** Folding registers in adds ROWS, not assessed `blocked_on` BASIS — §1 still refuses to name a stage, and refusing is still correct. A longer readout is not a better-evidenced one.
 
-**Completeness: `all_sources_read`** · **111 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
+**Completeness: `all_sources_read`** · **120 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
 
 | source | state | rows | note |
 |---|---|---|---|
-| `open_items` | `read` | 74 |  |
+| `open_items` | `read` | 71 |  |
 | `soaks` | `read` | 4 | 4 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=3 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=23.6h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
-| `red_crons` | `read` | 6 |  |
-| `unlanded_automation` | `read` | 3 |  |
-| `error_feed` | `read` | 11 | digest 2026-09-12T06:27:27+00:00, age 3.0h |
+| `probes` | `read` | 9 | freshness=fresh age=27.0h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
+| `red_crons` | `read` | 11 |  |
+| `unlanded_automation` | `read` | 9 |  |
+| `error_feed` | `read` | 12 | digest 2026-09-12T06:27:27+00:00, age 6.4h |
 | `sunset` | `read` | 0 |  |
 | `checklist_unrouted` | `read` | 1 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
 
-**`open_items` — 74 due**
+**`open_items` — 71 due**
 
 - 🔔 `OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING` · 3d — monitoring row 3d since last observation (cadence 3d)
   - docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 l…
@@ -183,8 +183,6 @@ The two sources are kept **separate rather than merged** — one says *this work
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends r…
 - 🔔 `OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW` · 11d — monitoring row 11d since last observation (cadence 1d)
   - The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THA…
-- `OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED` · 6d — monitoring row 6d since last observation (cadence 2d)
-  - The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.
 - `OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION` · 3d — monitoring row 3d since last observation (cadence 3d)
   - The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working…
 - 🔔 `OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED` · 0d — loud row — must be reported on every session
@@ -201,7 +199,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - ⚠️ THIS ROW SAID '15 SHIPPABLE gate-passing cells across 10 live legs' AND THAT IS STALE — do not re-quote it. Re-measured 2026-08-31 against docs/research/exit-refinement-coverag…
 - 🔔 `OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED` · 1d — loud row — must be reported on every session
   - ⚠️ ARMED ON bybit_1 AS OF 2026-08-31T07:47Z — this row's own ID still reads 'NOT-YET-ARMED' and that half is now STALE. The id is deliberately NOT renamed (CLAUDE.md and several b…
-- 🔔 `OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED` · 3d — monitoring row 3d since last observation (cadence 3d)
+- 🔔 `OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED` · 0d — loud row — must be reported on every session
   - PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the …
 - 🔔 `OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW` · 12d — loud row — must be reported on every session
   - The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjo…
@@ -225,7 +223,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now …
 - 🔔 `OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED` · 3d — monitoring row 3d since last observation (cadence 1d)
   - ⚠️ CORRECTED 2026-09-09 by session_01DUBXxiaZ3PMERcAfcJce7P — TWO OF THE THREE CLEARS-WHEN CLAUSES ARE NOW MET AND THE TEXT BELOW STILL SAYS THEY ARE NOT. Do not re-quote its (a) …
-- 🔔 `OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL` · 6d — monitoring row 6d since last observation (cadence 3d)
+- 🔔 `OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL` · 0d — loud row — must be reported on every session
   - E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-ite…
 - 🔔 `OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED` · 1d — loud row — must be reported on every session
   - PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states,…
@@ -243,9 +241,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_dec…
 - 🔔 `OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE` · 1d — loud row — must be reported on every session
   - [!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-A…
-- `OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT` · 10d — monitoring row 10d since last observation (cadence 7d)
-  - The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not on…
-- 🔔 `OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY` · 3d — monitoring row 3d since last observation (cadence 3d)
+- 🔔 `OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY` · 0d — loud row — must be reported on every session
   - replay-pregate-nightly's nightly red is NOT a network fault and NOT an OOM kill -- the trainer VM is out of memory and swap-thrashing, and the fleet run cannot finish. MEASURED on…
 - 🔔 `OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE` · 10d — loud row — must be reported on every session
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-…
@@ -255,8 +251,6 @@ The two sources are kept **separate rather than merged** — one says *this work
   - The per-endpoint API reference (156,448 B: the /api/bot/* route table, BotStats, Position, CORS, and the /api/diag/* table) was moved VERBATIM out of CLAUDE.md into docs/reference…
 - 🔔 `OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED` · 1d — loud row — must be reported on every session
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow…
-- 🔔 `OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED` · 1d — monitoring row 1d since last observation (cadence 1d)
-  - The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly…
 - 🔔 `OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK` · 6d — monitoring row 6d since last observation (cadence 2d)
   - The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * …
 - 🔔 `OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD` · 9d — monitoring row 9d since last observation (cadence 2d)
@@ -315,7 +309,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight b…
 - 🔔 `OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX` · 1d — monitoring row 1d since last observation (cadence 1d)
   - OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit…
-- 🔔 `OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET` — monitoring row has NEVER been observed
+- 🔔 `OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET` · 0d — loud row — must be reported on every session
   - MI-276 shipped TWO alert-only Tier-2 detectors for the shape found twice on 2026-09-11, where both investigations ended with the same sentence - the operator noticed before any mo…
 - 🔔 `OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED` · 0d — loud row — must be reported on every session
   - MI-277 (docs/research/winner-size-collapse-2026-09-12.md, WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE) decomposed MI-271's avg-win collapse on the identity mean(pnl|w…
@@ -365,23 +359,45 @@ The two sources are kept **separate rather than merged** — one says *this work
 - `OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED` — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 
-**`red_crons` — 6 due**
+**`red_crons` — 11 due**
 
-- 🔔 `broker-bracket-reconcile` — latest scheduled run concluded 'failure'
-  - broker-bracket-reconcile
-- 🔔 `constraint-readout` — latest scheduled run concluded 'failure'
+- 🔔 `constraint-readout` — latest scheduled run concluded 'cancelled'
   - constraint-readout
-- 🔔 `due-list` — latest scheduled run concluded 'failure'
-  - due-list
 - 🔔 `econ-calendar-produce` — latest scheduled run concluded 'failure'
   - econ-calendar-produce
+- 🔔 `error-feed-digest` — latest scheduled run concluded 'failure'
+  - error-feed-digest
+- 🔔 `macro-valuation-snapshot` — latest scheduled run concluded 'failure'
+  - macro-valuation-snapshot
 - 🔔 `pr-queue-watch` — latest scheduled run concluded 'failure'
   - pr-queue-watch
+- 🔔 `probes` — latest scheduled run concluded 'failure'
+  - probes
 - 🔔 `replay-pregate-nightly` — latest scheduled run concluded 'cancelled'
   - replay-pregate-nightly
+- 🔔 `session-reaper` — latest scheduled run concluded 'failure'
+  - session-reaper
+- 🔔 `strategy-review-packets` — latest scheduled run concluded 'failure'
+  - strategy-review-packets
+- 🔔 `trainer-capture-watch` — latest scheduled run concluded 'cancelled'
+  - trainer-capture-watch
+- 🔔 `work-digest` — latest scheduled run concluded 'cancelled'
+  - work-digest
 
-**`unlanded_automation` — 3 due**
+**`unlanded_automation` — 9 due**
 
+- 🔔 `#11956` · 0d — producer output opened a PR that has not landed
+  - chore(m28): valuation snapshots (auto)
+- 🔔 `#11953` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh the error-feed digest (auto)
+- 🔔 `#11952` · 0d — producer output opened a PR that has not landed
+  - chore(ops): PR-queue watcher receipt (auto)
+- 🔔 `#11950` · 0d — producer output opened a PR that has not landed
+  - chore(ops): trainer capture-watch receipt (auto)
+- 🔔 `#11943` · 0d — producer output opened a PR that has not landed
+  - chore(ops): queue the daily work digest (auto)
+- 🔔 `#11939` · 0d — producer output opened a PR that has not landed
+  - chore(ops): refresh the A1 constraint readout (auto)
 - 🔔 `#11919` · 0d — producer output opened a PR that has not landed
   - chore(ops): refresh probe results (auto)
 - 🔔 `#11916` · 0d — producer output opened a PR that has not landed
@@ -389,8 +405,10 @@ The two sources are kept **separate rather than merged** — one says *this work
 - 🔔 `#11912` · 0d — producer output opened a PR that has not landed
   - chore(m7): strategy review packets (auto)
 
-**`error_feed` — 11 due**
+**`error_feed` — 12 due**
 
+- 🔔 `ERROR-FEED-DIGEST-STALE` · 0d — EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition …
+  - error-feed digest is 6.4h old — expected hourly
 - `ERRFEED-0c821ed7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…
   - [error] NEW x2 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: BTCUSDT | Side: short Trade id: N Origin: reverse_reconciler_adopt R
 - `ERRFEED-dc1aa4a7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…

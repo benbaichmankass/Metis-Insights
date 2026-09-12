@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T09:29:26+00:00",
+  "generated_at": "2026-09-12T12:48:23+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -28,9 +28,9 @@
       "DECISION": 17,
       "DEPLOYMENT": 25,
       "OBSERVATION": 7,
-      "CAPABILITY": 33,
+      "CAPABILITY": 32,
       "INTEGRITY": 42,
-      "(unstated)": 8
+      "(unstated)": 9
     },
     "stage_basis_counts": {
       "per_object": 153,
@@ -44,13 +44,13 @@
       },
       "per_object": {
         "INTEGRITY": 28,
-        "CAPABILITY": 33,
+        "CAPABILITY": 32,
         "OBSERVATION": 7,
         "DECISION": 17,
         "EVIDENCE": 22,
         "DEPLOYMENT": 25,
         "QUESTION": 16,
-        "(unstated)": 5
+        "(unstated)": 6
       },
       "unstated": {
         "(unstated)": 3
@@ -784,9 +784,9 @@
         "source": "open_items",
         "state": "read",
         "note": "",
-        "row_count": 74,
+        "row_count": 71,
         "covered_elsewhere": null,
-        "rows_shown": 74,
+        "rows_shown": 71,
         "rows": [
           {
             "source": "open_items",
@@ -822,15 +822,6 @@
             "why_due": "monitoring row 11d since last observation (cadence 1d)",
             "age_days": 11,
             "loud": true,
-            "link": ""
-          },
-          {
-            "source": "open_items",
-            "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
-            "title": "The MHG disjoint-OCA over-cover was CLEARED by hand; the mechanism that should have caught and reported it is NOT yet proven.",
-            "why_due": "monitoring row 6d since last observation (cadence 2d)",
-            "age_days": 6,
-            "loud": false,
             "link": ""
           },
           {
@@ -909,8 +900,8 @@
             "source": "open_items",
             "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
             "title": "PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the second is proof the c",
-            "why_due": "monitoring row 3d since last observation (cadence 3d)",
-            "age_days": 3,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1017,8 +1008,8 @@
             "source": "open_items",
             "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
             "title": "E1/A1 shipped (operating-layer Phase D, PR #10680): scripts/ops/constraint_readout.py computes the constraint over the work store's typed blocked_on edges and renders the four-item readout to docs/cla",
-            "why_due": "monitoring row 6d since last observation (cadence 3d)",
-            "age_days": 6,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1096,19 +1087,10 @@
           },
           {
             "source": "open_items",
-            "id": "OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT",
-            "title": "The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not one role pack knew it e",
-            "why_due": "monitoring row 10d since last observation (cadence 7d)",
-            "age_days": 10,
-            "loud": false,
-            "link": ""
-          },
-          {
-            "source": "open_items",
             "id": "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY",
             "title": "replay-pregate-nightly's nightly red is NOT a network fault and NOT an OOM kill -- the trainer VM is out of memory and swap-thrashing, and the fleet run cannot finish. MEASURED on run #4390 (workflow_",
-            "why_due": "monitoring row 3d since last observation (cadence 3d)",
-            "age_days": 3,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1144,15 +1126,6 @@
             "id": "OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED",
             "title": "⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled",
             "why_due": "loud row — must be reported on every session",
-            "age_days": 1,
-            "loud": true,
-            "link": ""
-          },
-          {
-            "source": "open_items",
-            "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
-            "title": "The operator's digest was moved OFF GitHub cron and onto push:main (#10845, MI-80), because cron does not fire here: work-digest had FOUR runs in its entire life against an hourly declaration, and eve",
-            "why_due": "monitoring row 1d since last observation (cadence 1d)",
             "age_days": 1,
             "loud": true,
             "link": ""
@@ -1422,8 +1395,8 @@
             "source": "open_items",
             "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
             "title": "MI-276 shipped TWO alert-only Tier-2 detectors for the shape found twice on 2026-09-11, where both investigations ended with the same sentence - the operator noticed before any monitor did. src/runtim",
-            "why_due": "monitoring row has NEVER been observed",
-            "age_days": null,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1551,7 +1524,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=23.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=27.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 9,
@@ -1643,36 +1616,18 @@
         "source": "red_crons",
         "state": "read",
         "note": "",
-        "row_count": 6,
+        "row_count": 11,
         "covered_elsewhere": null,
-        "rows_shown": 6,
+        "rows_shown": 11,
         "rows": [
-          {
-            "source": "red_crons",
-            "id": "broker-bracket-reconcile",
-            "title": "broker-bracket-reconcile",
-            "why_due": "latest scheduled run concluded 'failure'",
-            "age_days": null,
-            "loud": true,
-            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34674336265"
-          },
           {
             "source": "red_crons",
             "id": "constraint-readout",
             "title": "constraint-readout",
-            "why_due": "latest scheduled run concluded 'failure'",
+            "why_due": "latest scheduled run concluded 'cancelled'",
             "age_days": null,
             "loud": true,
-            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34592532948"
-          },
-          {
-            "source": "red_crons",
-            "id": "due-list",
-            "title": "due-list",
-            "why_due": "latest scheduled run concluded 'failure'",
-            "age_days": null,
-            "loud": true,
-            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34587092798"
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34688895522"
           },
           {
             "source": "red_crons",
@@ -1685,12 +1640,39 @@
           },
           {
             "source": "red_crons",
+            "id": "error-feed-digest",
+            "title": "error-feed-digest",
+            "why_due": "latest scheduled run concluded 'failure'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34690463223"
+          },
+          {
+            "source": "red_crons",
+            "id": "macro-valuation-snapshot",
+            "title": "macro-valuation-snapshot",
+            "why_due": "latest scheduled run concluded 'failure'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34691618167"
+          },
+          {
+            "source": "red_crons",
             "id": "pr-queue-watch",
             "title": "pr-queue-watch",
             "why_due": "latest scheduled run concluded 'failure'",
             "age_days": null,
             "loud": true,
-            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34674454419"
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34690525619"
+          },
+          {
+            "source": "red_crons",
+            "id": "probes",
+            "title": "probes",
+            "why_due": "latest scheduled run concluded 'failure'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34685827696"
           },
           {
             "source": "red_crons",
@@ -1700,6 +1682,42 @@
             "age_days": null,
             "loud": true,
             "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34683288123"
+          },
+          {
+            "source": "red_crons",
+            "id": "session-reaper",
+            "title": "session-reaper",
+            "why_due": "latest scheduled run concluded 'failure'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34689237517"
+          },
+          {
+            "source": "red_crons",
+            "id": "strategy-review-packets",
+            "title": "strategy-review-packets",
+            "why_due": "latest scheduled run concluded 'failure'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684238651"
+          },
+          {
+            "source": "red_crons",
+            "id": "trainer-capture-watch",
+            "title": "trainer-capture-watch",
+            "why_due": "latest scheduled run concluded 'cancelled'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34689800742"
+          },
+          {
+            "source": "red_crons",
+            "id": "work-digest",
+            "title": "work-digest",
+            "why_due": "latest scheduled run concluded 'cancelled'",
+            "age_days": null,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34689384886"
           }
         ]
       },
@@ -1707,10 +1725,64 @@
         "source": "unlanded_automation",
         "state": "read",
         "note": "",
-        "row_count": 3,
+        "row_count": 9,
         "covered_elsewhere": null,
-        "rows_shown": 3,
+        "rows_shown": 9,
         "rows": [
+          {
+            "source": "unlanded_automation",
+            "id": "#11956",
+            "title": "chore(m28): valuation snapshots (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11956"
+          },
+          {
+            "source": "unlanded_automation",
+            "id": "#11953",
+            "title": "chore(ops): refresh the error-feed digest (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11953"
+          },
+          {
+            "source": "unlanded_automation",
+            "id": "#11952",
+            "title": "chore(ops): PR-queue watcher receipt (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11952"
+          },
+          {
+            "source": "unlanded_automation",
+            "id": "#11950",
+            "title": "chore(ops): trainer capture-watch receipt (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11950"
+          },
+          {
+            "source": "unlanded_automation",
+            "id": "#11943",
+            "title": "chore(ops): queue the daily work digest (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11943"
+          },
+          {
+            "source": "unlanded_automation",
+            "id": "#11939",
+            "title": "chore(ops): refresh the A1 constraint readout (auto)",
+            "why_due": "producer output opened a PR that has not landed",
+            "age_days": 0,
+            "loud": true,
+            "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11939"
+          },
           {
             "source": "unlanded_automation",
             "id": "#11919",
@@ -1743,11 +1815,20 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-12T06:27:27+00:00, age 3.0h",
-        "row_count": 11,
+        "note": "digest 2026-09-12T06:27:27+00:00, age 6.4h",
+        "row_count": 12,
         "covered_elsewhere": null,
-        "rows_shown": 11,
+        "rows_shown": 12,
         "rows": [
+          {
+            "source": "error_feed",
+            "id": "ERROR-FEED-DIGEST-STALE",
+            "title": "error-feed digest is 6.4h old — expected hourly",
+            "why_due": "EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
+            "age_days": 0,
+            "loud": true,
+            "link": ""
+          },
           {
             "source": "error_feed",
             "id": "ERRFEED-0c821ed7",
@@ -1879,7 +1960,7 @@
       }
     ],
     "unreadable_sources": [],
-    "due_count": 111,
+    "due_count": 120,
     "covered_elsewhere": {
       "operator_owed": "§4 · Decisions waiting on the operator"
     },
