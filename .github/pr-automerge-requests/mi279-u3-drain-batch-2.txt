@@ -1,0 +1,6 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12086. Closes BL-20260902-A-REBASE-ARMS-AUTOMERGE-BECAUSE-A-PUSH-DIFF-INCLUDES-EVERYTHING-MAIN-CHANGED
+(fixed 2026-09-02 by 2816698ac, never closed) and
+BL-20260909-SESSION-BOARD-SCHEMA-DOCUMENTS-A-PR-FIELD-THAT-THE-CLAIM-TOOL-REFUSES-AND-CI-REDS-ON
+(drift was two-way; schema corrected and pinned to build_claim by a new test).
+Tier-1 surface only: docs/**, tests/**, .github/**.

@@ -1,0 +1,4 @@
+MI-278 / U21 — a fan-out package's exit, declared once.
+PR #12103, opened by this session so CI fires on a real pull_request event.
+Tier-1: one new scripts/research/ module, one memo, two register rows,
+two docs/claude/ backlog edits. Nothing enacted.
