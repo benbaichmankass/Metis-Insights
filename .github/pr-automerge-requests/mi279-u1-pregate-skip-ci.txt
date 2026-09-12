@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11938.
+
+Removes [skip ci] from the two landing commit-message strings in
+.github/workflows/replay-pregate-nightly.yml, so the PR that
+commit-to-main opens can run its required checks. Plus the critical
+backlog row. Declaration: .github/pr-landing/mi279-u1-pregate-skip-ci.json

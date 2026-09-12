@@ -1,0 +1,6 @@
+{
+  "held_by": "session_013iSqp4LsU1eq8K326eUtgj",
+  "branch": "claude/mi279-u1-pregate-skip-ci",
+  "claimed_at": "2026-09-12T10:38:09Z",
+  "purpose": "PR #11938 — Tier-1 remove [skip ci] from the pregate landing commit; arming IS the merge (R13)."
+}
