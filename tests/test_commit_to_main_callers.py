@@ -22,6 +22,7 @@ ALL of its callers, rather than in eleven places that each looked fine.
 from __future__ import annotations
 
 import glob
+import re
 import os
 
 import yaml
@@ -266,6 +267,144 @@ def test_every_caller_checks_out_with_a_pat():
         "`commit-to-main` opens for them never receives the required checks and "
         "auto-merge waits forever: " + ", ".join(missing)
     )
+
+
+#: Which file each `scripts/ops/<tool>.py --write` invocation MUTATES.
+#: ⚠️ IT IS A DECLARED REGISTRY AND AN UNREGISTERED TOOL FAILS, never passes.
+#: A tool invoked with `--write` whose output nobody declared is exactly the
+#: case this test exists to catch — silence there would be "we did not look"
+#: wearing a green tick. Same shape as `check_collapsed_states.CONTRACTS`:
+#: registering a tool here is how its output becomes enforced.
+WRITE_OUTPUTS = {
+    "constraint_readout.py": ["docs/claude/CONSTRAINT.json", "docs/claude/READOUT.md"],
+    "checklist_routing_age.py": ["docs/claude/work/CHECKLIST-ROUTING-AGE.json"],
+    "render_session_brief.py": ["CLAUDE.md"],
+    "render_due_list.py": ["docs/claude/DUE.json", "docs/claude/DUE.md"],
+    "run_probes.py": ["docs/claude/PROBES.json"],
+    "document_index.py": ["docs/DOCUMENT-INDEX.md"],
+    "error_feed_digest.py": ["docs/claude/ERROR-FEED-DIGEST.json"],
+    "stuck_automation_branches.py": ["docs/claude/STUCK-BRANCHES.json"],
+    # A DIRECTORY, and `commit-to-main` takes it as one path. Declared as the
+    # directory rather than a file so the check asks the question the workflow
+    # actually answers; naming a file inside it would fail on a correct config.
+    "sunset_pass.py": ["comms/sunset"],
+}
+
+def audit_write_outputs(where: str, committed: set, tools, registry) -> tuple:
+    """PURE. `(missing, unregistered)` for one job's committed paths.
+
+    ⚠️ IT IS A SEPARATE FUNCTION BECAUSE A PLANTED DEFECT PROVED IT HAD TO BE.
+    While the rule was inlined in the test, deleting the line that records an
+    UNREGISTERED tool left the whole suite green — every tool in the repo is
+    registered today, so there was nothing unregistered for the deletion to
+    skip, and the branch had no control on it at all. Hoisting it lets a test
+    feed it a tool that is not in the registry and assert it refuses. The same
+    reasoning `verdict_of` carries in `check_register_field_loss`.
+    """
+    missing, unregistered = [], []
+    for tool in sorted(tools):
+        if tool not in registry:
+            unregistered.append(f"{where} runs {tool} --write")
+            continue
+        for out in registry[tool]:
+            if out not in committed:
+                missing.append(f"{where} writes {out} ({tool}) and does not commit it")
+    return missing, unregistered
+
+
+_WRITE_CALL = re.compile(r"scripts/ops/([A-Za-z0-9_]+\.py)\b[^\n]*--write")
+
+
+def _write_tools(job) -> set:
+    """Tool basenames this job invokes with `--write`."""
+    out = set()
+    for s in job.get("steps") or []:
+        run = s.get("run")
+        if isinstance(run, str):
+            out |= set(_WRITE_CALL.findall(run))
+    return out
+
+
+def test_every_written_register_is_in_the_paths_it_is_committed_with():
+    """⚠️ A WORKFLOW THAT WRITES A REGISTER AND DOES NOT COMMIT IT IS BROKEN IN
+    A WAY THAT LOOKS LIKE SOMETHING ELSE ENTIRELY.
+
+    `constraint-readout.yml` ran `checklist_routing_age.py --write`, rendered
+    the CLAUDE.md session brief FROM that mutated register, and committed the
+    brief WITHOUT the register. `session-brief-guard` then re-rendered from the
+    OLD register, got a different block, and graded `introduced_block_edited`
+    -> exit 1. Every scheduled run therefore opened a PR that could not merge,
+    waited 30 minutes and failed —
+    `BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED`,
+    whose own criterion demands the cause be REPRODUCED before it is fixed.
+
+    Reproduced on both surviving branches: as committed the guard exits 1, and
+    with the register present in the tree it exits 0. The register had also
+    been landed exactly ONCE in its life, by the PR that created it.
+
+    ⚠️ AN UNREGISTERED `--write` TOOL FAILS THIS TEST. A tool whose output is
+    undeclared cannot be checked, and reporting that as a pass is the
+    clean-negative this repo has a rule about.
+    """
+    missing, unregistered = [], []
+    for wf, job_name, job in _caller_jobs():
+        committed = set()
+        for s in job["steps"]:
+            if s.get("uses") != USES:
+                continue
+            committed |= set(str((s.get("with") or {}).get("paths", "")).split())
+        m, u = audit_write_outputs(f"{wf}:{job_name}", committed,
+                                   _write_tools(job), WRITE_OUTPUTS)
+        missing += m
+        unregistered += u
+    assert not unregistered, (
+        "a workflow invokes a --write tool whose output is not declared in "
+        "WRITE_OUTPUTS, so this test cannot check it. Declare it rather than "
+        "leaving the check silent: " + "; ".join(unregistered))
+    assert not missing, (
+        "these workflows MUTATE a register and throw the change away, so "
+        "anything rendered from it cannot be reproduced by a re-render: "
+        + "; ".join(missing))
+
+
+def test_an_unregistered_write_tool_is_refused_rather_than_skipped():
+    """THE CONTROL THE INLINE VERSION DID NOT HAVE. Deleting the `unregistered`
+    branch left the suite green, because nothing in the repo is unregistered
+    today — so the rule would have silently stopped checking any tool added
+    later. A tool whose output nobody declared cannot be checked, and reporting
+    that as a pass is the clean-negative this repo has a rule about."""
+    missing, unregistered = audit_write_outputs(
+        "wf.yml:job", {"docs/a.json"}, {"brand_new_tool.py"}, WRITE_OUTPUTS)
+    assert unregistered and "brand_new_tool.py" in unregistered[0]
+    assert not missing, "an unregistered tool must not also be reported as missing"
+
+
+def test_a_written_output_absent_from_paths_is_reported():
+    missing, unregistered = audit_write_outputs(
+        "wf.yml:job", {"docs/other.json"}, {"t.py"}, {"t.py": ["docs/a.json"]})
+    assert not unregistered
+    assert missing and "docs/a.json" in missing[0]
+
+
+def test_a_committed_output_is_silent():
+    """The negative control: the rule must not fire on a correct config."""
+    missing, unregistered = audit_write_outputs(
+        "wf.yml:job", {"docs/a.json"}, {"t.py"}, {"t.py": ["docs/a.json"]})
+    assert not missing and not unregistered
+
+
+def test_the_write_output_finder_is_not_vacuous():
+    """The positive control on the FINDER, not on the rule. If the regex stopped
+    matching, the test above would iterate an empty set on every workflow and
+    pass while checking nothing."""
+    seen = set()
+    for _wf, _job_name, job in _caller_jobs():
+        seen |= _write_tools(job)
+    assert len(seen) >= 3, (
+        f"only {len(seen)} --write tool(s) found across every commit-to-main "
+        f"caller; the finder is probably broken, not the repo suddenly clean")
+    assert "checklist_routing_age.py" in seen, (
+        "the finder does not see the invocation this test was written for")
 
 
 def test_the_caller_population_is_not_empty():
