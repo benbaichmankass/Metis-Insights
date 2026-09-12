@@ -1,6 +1,6 @@
 # `in_flight` goes false by time passing — what the two registers actually say
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 MI-236. Everything below was measured on `main` @ `4d8b30109`, **2026-09-11**,
 by `scripts/ops/owner_liveness.py` — the module this evidence justifies. Every
