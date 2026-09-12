@@ -1,0 +1,1 @@
+MI-286: OPEN-ITEMS row carrying the repaired-but-unexercised fan-out (PR #11992). Tier-1, self-landing.
