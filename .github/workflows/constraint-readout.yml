@@ -217,6 +217,20 @@ jobs:
           # the readout without the brief is what would make this file a
           # relocation of the bug rather than a fix for it.
           paths: docs/claude/CONSTRAINT.json docs/claude/READOUT.md CLAUDE.md
+          # ⚠️ WITHOUT THIS THE STALE-BRANCH REFRESH IS INERT FOR THIS CALLER,
+          # and that is why this workflow has concluded `success` ZERO times in
+          # its entire life. Its output is DERIVED FROM the registers it merges:
+          # generation takes ~31 minutes on a repo that merges several times an
+          # hour, so by the time the checks run the base has moved and
+          # `session-brief-guard` fails with `verdict=introduced_registers_
+          # changed` (run 34592532948 -> PR #11789). The refresh merged main in,
+          # minted a new sha, re-triggered the checks — and pushed the SAME
+          # stale brief, so the same guard failed one sha later. Re-running the
+          # checks is not the remedy; RE-DERIVING is. This is the same pair of
+          # commands the generation step above runs.
+          refresh-command: >-
+            python3 scripts/ops/constraint_readout.py --write &&
+            python3 scripts/ops/render_session_brief.py --write
           message: "chore(ops): refresh the A1 constraint readout"
           pr-title: "chore(ops): refresh the A1 constraint readout (auto)"
           pr-body: >-
