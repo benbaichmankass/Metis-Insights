@@ -7,7 +7,7 @@
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
     "branch": "claude/mi280-landing-register-machinery",
-    "claimed_at": "2026-09-12T06:31:45Z",
+    "claimed_at": "2026-09-12T06:35:40Z",
     "purpose": "MI-280 U1: green-and-unmergeable detector (#11862)"
   },
   "active_sessions": [
