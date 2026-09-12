@@ -215,6 +215,13 @@ jobs:
           #     the exact failure the relay was built to fix. Removing those references
           #     is a DOCS-ONLY diff, so without this it would merge on a green tick
           #     from a run that executed nothing, re-opening the gap silently.
+          #   docs/claude/work/SESSIONS.json               test_register_field_loss —
+          #     plants a FIELD revert into the REAL 231-row register and asserts the
+          #     guard goes red while the union-by-id proof still reads CLEAN. A fixture
+          #     cannot carry that premise. ⚠️ THIS ONE COSTS: every manager spawn edits
+          #     SESSIONS.json, so those PRs now run the full suite. Included anyway —
+          #     a register write-back IS the diff that can revert a field, so excluding
+          #     it would exempt exactly the change the guard exists for.
           #
           # THE COST IS REAL AND IS BEING PAID DELIBERATELY. ARCHITECTURE-
           # CANONICAL.md is edited by many docs-only PRs, and each now pays a
@@ -228,7 +235,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
