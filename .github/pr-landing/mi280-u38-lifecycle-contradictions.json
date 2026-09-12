@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/constraint_readout.py (a new pure grader, its wiring into the diagnosis dict, and a report block) plus one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Both touched paths are inside TIER1_SURFACE (scripts/ops/**, docs/**) and neither is in check_pr_landing.LANDING_MACHINERY -- verified against that list rather than assumed, so R12 does not apply. NO WORK OBJECT IS EDITED and no lifecycle is re-graded: that is the object owner's or the manager's call because it changes what the WIP ceiling and this readout compute over, which is why BL-20260911 is left OPEN rather than closed. The change is additive to a read-only reporting tool -- it reports a disagreement both halves of which the same file already computed."
+}
