@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11948.
+
+One backlog row amended with a live re-measurement of the 60s exit-eval
+requirement off read-only surfaces. The fix clause (1) names is Tier-2 by
+path and is NOT made here. Declaration:
+.github/pr-landing/mi279-u1-exit-eval-requirement.json
