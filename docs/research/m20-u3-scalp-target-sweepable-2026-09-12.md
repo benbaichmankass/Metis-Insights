@@ -858,15 +858,34 @@ risk = entry − sl
 The stop is anchored to the **sweep extreme** — a market-structure level — with
 a small ATR buffer placed outside it. Three consequences, each checkable:
 
-1. **`atr_stop_mult` is genuinely not a parameter of this family**, and its
-   absence is correct rather than an omission: measured against
-   `config/strategies.yaml`, **all 8 `ict_scalp_*` legs declare
-   `atr_stop_mult: None`**. So the **e35 geometry change (2.5 → 2.0) never
-   touched this family** — relevant because
-   `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30` is about that change,
-   and the `ict_scalp_*` win-rate fall it also reports (54.7% → 31.8%)
-   therefore **cannot** be attributed to e35. That is a control the attribution
-   question needs and it comes free here.
+1. **`atr_stop_mult` is genuinely not a parameter of this family**, and that
+   makes `ict_scalp_*` a **STRUCTURAL** non-e35 control rather than an
+   incidental one. Established three independent ways, not asserted:
+   - **the e35 commit itself.** `892c9a2c8` (2026-08-30) is the only
+     `config/strategies.yaml` commit in the window that ships e35. Attributing
+     each changed `atr_stop_mult`/`tp_r` line to its owning leg key gives
+     **8 legs — `ada_pullback_2h`, `avax_pullback_2h`,
+     `trend_donchian_{ada,avax,eth,sol,xrp}_4h`, `trend_donchian_eth_prop` —
+     and NO `ict_scalp_*`.** *(Positive control: the parser recovered 10 leg
+     keys and 22 changed-line attributions from that diff, so a null here is a
+     real null. An earlier run of this probe returned zero legs on a broken
+     indent regex and was NOT reported as evidence.)*
+   - **the config today.** All 8 `ict_scalp_*` legs declare
+     `atr_stop_mult: None`, so nothing added it afterwards either.
+   - **the unit, which is the strongest of the three.** The stop is
+     `sweep_extreme ± 0.20×ATR`; the family **has no `atr_stop_mult` to
+     change**. e35 could not have reached it *even in principle*.
+
+   ⚠️ **This matters to `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30`,
+   whose `clears_when` says in terms that *"'THE MARKET CHOPPED' IS NOT A
+   VERDICT WITHOUT THE NON-e35 CONTROL"*.** That row already states e35 never
+   touched `ict_scalp`; what is added here is that the claim is now
+   **verified, and structurally rather than incidentally** — and the control
+   moved nearly as far as the treatment (`ict_scalp_*` 54.7% → 31.8% against
+   `trend_donchian_*` 74.1% → 12.9%). ⚠️ **It does NOT clear that row**: its
+   `clears_when` demands per-leg stop-out rate and MFE-at-stop, e35 vs non-e35,
+   before vs after, and none of that is done here. This strengthens one
+   premise; the discriminating measurement is still owed.
 2. **`R` is defined per trade by market structure**, so `tp_at_r: 1.5` is a
    multiple of a quantity that varies trade to trade. The target grid of §4
    is therefore a grid over *structural* risk, which is the right shape — but
