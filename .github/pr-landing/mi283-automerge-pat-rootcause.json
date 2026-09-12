@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ONE EXISTING BACKLOG ROW, extended — no new row, no src/, no tests/, no config, no workflow. BL-20260908-CLAUDE-PR-AUTOMERGE-OPENS-A-PR-WITH-NO-CI-AND-ARMS-A-RACE-THAT-DROPS-COMMITS-FOUR-SESSIONS-IN-ONE-DAY is OPEN and Tier-1 and describes its defect (1) as the workflow opening the PR under GITHUB_TOKEN, as though that were the design. Observed in the job log 2026-09-12T20:13:59Z (run 34716438444, job 103614432215): it is a FALLBACK from a PAT client that fails to construct, because `@actions/github` is not resolvable from the github-script inline script. That relocates the fix from auth/permissions to module packaging, which is where a session reading the row as written would NOT look. Filed as an extension of the existing row rather than a new one, per CLAUDE.md's rule that a duplicate should be dropped and the existing row updated; backlog_search was run first and returned this row at 0.53 overlap. Also records that the documented workaround was verified working the same minute on PR #12073 (open the PR yourself, then push the arming file: the workflow adopts it, sees 5 attached check runs, and arms)."
+}
