@@ -65,6 +65,60 @@ path** (`src/units/accounts/`, `src/core/`, `src/runtime/orders.py`).
 a simplification, and it is stated with its control because a *negative* result
 about a clamp is exactly the kind that must not be taken on silence.
 
+## 2b. THE BIGGER FINDING — the harness force-closes at 24 bars and production never does
+
+Building the runner surfaced something larger than the runner, and it changes §4.
+
+**`scripts/backtest_ict_scalp.py` force-closes every trade at `timeout_bars`, default 24.
+No `ict_scalp` leg has ANY time-based exit in production.**
+
+Established from six directions, with a **positive control** — the same probe finds
+`time_decay` in `vwap.py`, `fvg_range_15m.py` and `fade_breakout_4h.py`, so the silence
+for scalp is a real absence and not a broken grep:
+
+1. none of the 8 legs declares a temporal **exit** key (23 config keys read per leg);
+2. the unit implements no timeout — 0 occurrences outside one comment, against a control
+   of **19** params it does read;
+3. `_base.py` — no time-based exit;
+4. `order_monitor.py` — no global max-hold, and it never reads `time_decay_minutes`
+   (which nothing in `src/` sets to a non-`None` value anyway);
+5. `session_filter_enabled` is an **ENTRY** gate — it raises inside `order_package()` to
+   refuse a *signal* — and it is `False` on all 8 legs regardless;
+6. `m20_fleet_exit_sweep`'s `scalp` branch passes **no** `--timeout-bars`, so every
+   fleet-sweep scalp cell inherits the 24.
+
+### What it costs
+
+⚠️ **POPULATION: ONE leg (SOLUSDT 5m), ONE quarter (2025-07-01 → 2025-09-30, 26,496
+Binance-vision bars), n = 56–73, NO IS/OOS, NO walk-forward. A SMOKE, not a swept
+verdict — do not quote it as one.**
+
+| `timeout_bars` | `tp_at_r` | n | win% | net R | mean bars held | outcomes |
+|---:|---:|---:|---:|---:|---:|---|
+| 24 (harness default) | **1.5 (LIVE)** | 73 | 56.2 | **+5.356** | 17.2 | sl 22 · **timeout 28** · tp 23 |
+| 100000 (parity) | **1.5 (LIVE)** | 65 | 47.7 | **+2.033** | 53.9 | sl 34 · tp 31 · timeout 0 |
+| 24 | 3.0 | 73 | 53.4 | +5.274 | 20.5 | sl 23 · **timeout 45** · tp 5 |
+| 100000 | 3.0 | 56 | 28.6 | **−0.962** | 125.4 | sl 40 · tp 16 |
+
+At the **live** parameter the artificial timer ends **28 of 73 trades (38.4%)** and
+supplies roughly **62% of the reported net R**. **The error is FLATTERING**, which is the
+direction that gets acted on — the same shape as
+`BL-20260820-HARNESS-DOES-NOT-MODEL-QUANTIZATION-REFUSAL`.
+
+### Why this is filed separately rather than as a duplicate
+
+It is the `ict_scalp` instance of
+`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`,
+and **that row's own `resolution_criteria` clause (b) asks for exactly this
+enumeration**. It also *strengthens* the parent: that row could only call the divergence
+*"close to inert"* at its default of **200** and honestly marked that **inherited, not
+established**. Scalp's default is **24**, and at 24 it binds hard and is now measured.
+
+Filed as
+`BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL`.
+**Nothing is enacted** — the default was deliberately NOT changed here, because changing
+it silently re-grades every existing scalp verdict.
+
 ## 3. What was built
 
 ### `--tp-at-r` (default `None` = byte-for-byte the old behaviour)
@@ -134,6 +188,16 @@ Stated here so the grid cannot be chosen after seeing results.
 - **Costs:** the harness's own venue-aware model, on. `--tp-cap-pct` is **not**
   applied, per §2 — and that is a *derived* omission, not a default accepted
   silently.
+- **⚠️ TIMEOUT — the axis §2b forces, and the grid is INVALID without it.**
+  Every arm runs at BOTH `--timeout-bars 24` (the harness default, i.e. what
+  every existing scalp cell was measured at) **and** a parity value large enough
+  never to bind. Reporting only the default would reproduce the confound; reporting
+  only parity would make the new numbers incomparable with every cell already in
+  the matrix. The **parity arm is the one a Tier-3 proposal may cite**; the default
+  arm exists solely to quantify the gap. ⚠️ The timer's grip TIGHTENS with the
+  target (28 of 73 at 1.5, 45 of 73 at 3.0), so at the default the harness is
+  **biased against exactly the direction this unit is testing** — a one-armed
+  target sweep would have produced a confidently wrong answer.
 - **Refusals declared in advance:** a cell whose `bank_rung_state` is
   `provable_no_op` or `unknown` is **not** counted as a tested arm. A leg under
   the OOS floor reports `underpowered`, which is **not** a negative result.
