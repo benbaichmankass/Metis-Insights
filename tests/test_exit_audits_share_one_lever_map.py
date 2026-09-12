@@ -101,8 +101,8 @@ def test_exit_path_coverage_keeps_no_second_copy_of_the_lever_vocabulary(audits)
     rather than merely absent today."""
     epc, _emc = audits
     src = (OPS / "exit_path_coverage.py").read_text()
-    assert not [l for l in src.splitlines()
-                if l.startswith("_SHARED_VERDICTS")], (
+    assert not [line for line in src.splitlines()
+                if line.startswith("_SHARED_VERDICTS")], (
         "exit_path_coverage defines its own lever table again; it must read the "
         "one in exit_mechanism_coverage or the two are free to diverge"
     )
