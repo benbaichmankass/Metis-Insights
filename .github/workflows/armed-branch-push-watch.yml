@@ -1,0 +1,118 @@
+name: armed-branch-push-watch
+
+# DID THE COMMIT YOU JUST PUSHED ACTUALLY LAND?
+#
+# `claude-pr-automerge` arms native auto-merge, and from that moment the branch
+# is CLOSED TO NEW CONTENT -- but nothing says so, and `git push` reports success
+# either way. Five commits have been silently dropped this way
+# (BL-20260908-CLAUDE-PR-AUTOMERGE-OPENS-A-PR-WITH-NO-CI-AND-ARMS-A-RACE-THAT-DROPS-COMMITS-FOUR-SESSIONS-IN-ONE-DAY).
+# The worst of them, #11846 on 2026-09-12, carried the `SESSIONS.json` row for a
+# sub-session that was ALREADY RUNNING, so a live lane existed on the fleet with
+# no record on `main` for nine minutes -- and the author's status update told the
+# operator "the checklist is pushed", which was true of the branch and false of
+# `main`.
+#
+# ⚠️ THIS PREVENTS NOTHING, AND THAT IS STATED RATHER THAN IMPLIED. It fires
+# AFTER the push. Its value is that #11846 went NINE MINUTES undetected and was
+# then found by hand; this turns that into a failing run within seconds, on the
+# channel `claude-run-failure-alert.yml` already watches.
+#
+# THE PREVENTION HALF IS A DIFFERENT PR, DELIBERATELY. Opening the PR under a PAT
+# so CI attaches on the first head, and arming only after a check exists, both
+# live in `claude-pr-automerge.yml` -- which `check_pr_landing.py::R12` refuses
+# to let a branch self-land, correctly, because the change and its own approval
+# would be the same act. This detector is NOT in LANDING_MACHINERY and is not a
+# landing route: it can neither open, arm, nor merge a pull request.
+#
+# WHY NOT ANOTHER LINE IN CLAUDE.md. The trap is documented for three workflows
+# already and recurred anyway -- seven times by the recurrence row's own count.
+# The #11846 author had read both CLAUDE.md's `TREAT THE BRANCH AS CLOSED TO NEW
+# CONTENT` and the backlog row's workaround, and pushed regardless, because a
+# DIFFERENT standing duty (the manager's checklist is pushed BEFORE the answer)
+# required it. The two rules are in direct conflict on an armed branch and the
+# arming state is invisible at `git push` time. A sixth restatement changes
+# nothing; making the state visible at the moment it matters is the fix.
+#
+# BLAST RADIUS. One `gh api` read of the branch's own pull request. It writes
+# nothing, merges nothing, comments on nothing and touches no VM. Tier-1.
+
+on:
+  push:
+    branches: ["claude/**"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # Per-branch, NEVER cancel-in-progress. A cancelled watch is indistinguishable
+  # from a watch that found nothing -- the exact collapse this file is built to
+  # refuse -- and two pushes in quick succession is precisely the pattern that
+  # produces a drop, so the earlier one must not be discarded.
+  group: armed-branch-push-watch-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Only this script is needed; the grading is pure and reads no history.
+          fetch-depth: 1
+
+      - name: Self-test the grading policy before trusting a live run
+        # A watcher whose grading is broken must fail loudly, not report a
+        # confident "nothing was lost".
+        run: python3 scripts/ci/check_armed_branch_push.py --self-test
+
+      - name: Read this branch's pull request
+        # ⚠️ ON FAILURE THIS WRITES NOTHING and the next step grades `unknown`.
+        # It deliberately does NOT fall back to an empty list: "we could not
+        # look" and "this branch has no PR" are opposite facts, and the
+        # `curl ... || echo '{}'` idiom that fuses them is a named failure class
+        # in this repo.
+        #
+        # ⚠️ `state=all`, NOT `state=open`. The whole #11846 case is a push to a
+        # branch whose PR has ALREADY MERGED, and an open-only query returns
+        # nothing for it -- which would grade `no_pr`, i.e. "pushing is safe",
+        # on the one state that is definitely not safe.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          branch="${GITHUB_REF#refs/heads/}"
+          if gh api "repos/${GITHUB_REPOSITORY}/pulls?state=all&head=${GITHUB_REPOSITORY%%/*}:${branch}&per_page=10" \
+               > /tmp/branch-prs.json 2>/tmp/pr-err.txt; then
+            # Newest first is what GitHub returns; a branch that was re-cut can
+            # carry several. The newest is the one this push belongs to.
+            n=$(jq 'length' /tmp/branch-prs.json)
+            echo "read ${n} pull request(s) for ${branch}"
+            if [ "$n" = "0" ]; then
+              # A SUCCESSFUL read that found nothing — a real observation, and
+              # different from a failed read. `none` says so explicitly.
+              echo "PR_JSON=none" >> "$GITHUB_ENV"
+            else
+              jq '.[0]' /tmp/branch-prs.json > /tmp/branch-pr.json
+              echo "PR_JSON=/tmp/branch-pr.json" >> "$GITHUB_ENV"
+            fi
+          else
+            echo "::warning::could not read this branch's pull requests — the "\
+          "watch will grade 'unknown', which is NOT 'nothing was lost'. $(tail -1 /tmp/pr-err.txt)"
+          fi
+
+      - name: Grade the push
+        # ⚠️ NOT PIPED. `$?` after a pipeline is the LAST command's status, and
+        # that defect shipped once in this repo and made an escalation channel
+        # dead on arrival (see pr-queue-watch.yml's own note). The script's exit
+        # code IS the verdict: non-zero only for `dropped`.
+        #
+        # ⚠️ PR_JSON UNSET means the read FAILED, and the script's default for an
+        # absent --pr-json is `unknown`. That is the intended wiring: the failure
+        # path must not be able to produce a quiet pass.
+        run: |
+          python3 scripts/ci/check_armed_branch_push.py \
+            --pushed-sha "${GITHUB_SHA}" \
+            --branch "${GITHUB_REF#refs/heads/}" \
+            ${PR_JSON:+--pr-json "$PR_JSON"}
