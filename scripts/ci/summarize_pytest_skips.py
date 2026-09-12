@@ -203,7 +203,14 @@ def _real_report(tmp: str, sources: Dict[str, str]) -> Optional[str]:
         [sys.executable, "-m", "pytest", d, "-q", "-p", "no:cacheprovider",
          f"--junitxml={out}"], capture_output=True, text=True, cwd=tmp)
     import os.path
-    return out if os.path.exists(out) else None
+    if os.path.exists(out):
+        return out
+    # No report means pytest could not run at all — a precondition failure, not
+    # a finding about the code. Say which, or the caller reports a self-test
+    # failure for an environment reason (the mistake #11911 made this morning).
+    print(f"::warning::could not produce a real JUnit report (pytest exit "
+          f"{proc.returncode}): {(proc.stderr or proc.stdout or '').strip()[:300]}")
+    return None
 
 
 def self_test(quiet: bool = False) -> int:
