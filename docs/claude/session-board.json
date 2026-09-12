@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
     "branch": "claude/mi280-register-field-revert",
-    "claimed_at": "2026-09-12T06:14:34Z",
-    "purpose": "MI-280 U4: register field-loss guard (#11878)"
+    "claimed_at": "2026-09-12T06:33:46Z",
+    "purpose": "MI-280 U4: shared-register field-loss guard (#11878)"
   },
   "active_sessions": [
     {
