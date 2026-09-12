@@ -200,11 +200,54 @@ def _load(path: pathlib.Path) -> list[dict[str, Any]]:
     return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
 
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ci"))
+import _git_base  # noqa: E402  -- path shim above; ONE owner for base resolution
+
+
 def _load_at_ref(ref: str, rel: str) -> list[dict[str, Any]]:
-    """The file's rows as of *ref*. A file absent at the base is simply new."""
+    """The file's rows as of the FORK POINT with *ref*. Absent at base = new.
+
+    ⚠️ **THE FORK POINT, NOT THE TIP, AND THE DISTINCTION IS NOT COSMETIC.**
+    Both checks that use this ask *"did THIS DIFF do X?"*, which is only the
+    diff's doing when the comparison is against the branch's ANCESTOR. Read at
+    the base TIP it also differs when the BASE moved ahead -- the normal state
+    of every working branch -- and then:
+
+      * `_check_new_rows` grandfathers by id (`if rid in before: continue`), so
+        a larger `before` UNDER-enforces: a row this diff really did add is
+        skipped because main added one with the same id meanwhile.
+      * `_check_kept_open_transitions` FALSE-BLAMES: if main moved a row OUT of
+        `kept_open` after the fork, the base reads `resolved` while this
+        untouched branch still reads `kept_open`, so the branch is reported as
+        moving a row INTO `kept_open` that it never touched.
+
+    Two opposite failure directions from one wrong reference, which is why this
+    was worth fixing rather than tolerating.
+
+    ⚠️ **AND NOT EVERY GUARD THAT READS THE TIP IS WRONG — the audit matters
+    more than the count.** Measured 2026-09-12: 10 scripts read file content at
+    `--base`; 7 read the tip. Auditing those 7 INDIVIDUALLY rather than treating
+    the shape as a defect:
+
+      * WRONG (false blame): `check_backlog_unresolve.py`,
+        `render_session_brief.py`, and this file's kept-open half.
+      * WRONG but UNDER-enforcing: `check_claim_basis.py`, and this file's
+        new-rows half.
+      * **RIGHT BY DESIGN, DO NOT "FIX" THESE:** `check_register_ids.py` asks
+        *"does my id collide with what main HAS?"* -- the tip is exactly right,
+        and the fork point would MISS a collision with a row main gained after
+        the branch was cut, which is the likeliest collision there is.
+        `work_digest.py` and `work_phase_ping.py` take BOTH `--base` and
+        `--head` and compare two arbitrary refs over a WINDOW; they are not
+        diff-scopers and a merge base would be meaningless to them.
+
+    ⚠️ The fallback is to the ref AS GIVEN when no merge base can be computed --
+    i.e. today's behaviour -- so this can only ever remove a false failure.
+    """
+    base_ref, _state = _git_base.resolve_base(ref)
     try:
         out = subprocess.run(
-            ["git", "show", f"{ref}:{rel}"],
+            ["git", "show", f"{base_ref}:{rel}"],
             capture_output=True, text=True, check=False,
         )
         if out.returncode != 0:
