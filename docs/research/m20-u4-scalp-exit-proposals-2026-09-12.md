@@ -92,6 +92,31 @@ parity rather than under the harness's 24-bar force-close.
    +5.93 R OOS improvement on that base is large in relative terms and small in
    absolute ones.
 
+### I tried to cross-check it against the LIVE journal and could not — for a reason this workstream itself established
+
+Worth stating, because *"the backtest says so"* invites the question and the
+answer is not *"I didn't look"*.
+
+`ict_scalp_xrp_15m` has **10 closed rows with a pnl** in the 1000-row journal
+tail (ids 4720–5719, all `bybit_1`). Two things make them unusable as a check:
+
+1. **n = 10.** The backtest verdict rests on n=198 IS / 117 OOS. Ten rows
+   cannot confirm or refute it, and the naive read
+   (3/10 reached ≥1.25R vs 2/10 reached ≥1.5R) is directionally consistent
+   with the proposal and means nothing at that size.
+2. **THREE OF THE TEN ARE CONTAMINATED BY U2b's OWN FINDING.** Rows 4941,
+   5112 and 5141 sit at `risk/entry == 0.00150000` **exactly** — the
+   break-even ratchet's `be_offset_bps: 15` signature. Their `stop_loss` is a
+   *ratcheted* stop, not the entry risk, so an achieved-R computed from it is
+   not achieved-R: row 5112 reads **+11.79 R** and 5141 **+4.82 R** against a
+   1.5R target, which is the arithmetic of a shrunken denominator rather than a
+   trade that ran 8× its target.
+
+So the live journal **cannot** validate a target verdict without U2b's
+entry-risk recovery applied first, and even then not at n=10. **A future
+cross-check is a real unit** — it needs U2b's recovery over a wider window —
+and it is named here rather than left as an implied "someone should".
+
 ### If ACCEPTED
 
 Tier-3 path: a PR touching only that one field, `landing: hold`, merged by a
