@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-12T06:20Z",
+  "as_of": "2026-09-12T14:1xZ",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -203,6 +203,26 @@
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
       },
       "opened_at": "2026-09-12"
+    },
+    {
+      "pr": 11903,
+      "title": "MI-283 (TIER-2): dedupe Bybit positions by (symbol, position_idx) so a second live hedge book is not dropped",
+      "owner_session": "session_01YEdjrYi5Kpp9dLw3yQNyNm",
+      "checklist_item": "MI-283",
+      "tier": 2,
+      "draft": false,
+      "landing": "hold",
+      "state": "approved_awaiting_clean_and_green",
+      "opened_at": "2026-09-12",
+      "observed": "Re-conflicting as main moves; MI-283 resolved it at 13:51:33Z and it was conflicted again by 14:0xZ. Measured CONFLICTED against origin/main at 14:1xZ.",
+      "observed_at": "2026-09-12T14:1xZ",
+      "operator_decision": {
+        "verdict": "approved_with_conditions",
+        "scope": "Merging #11903 (the (symbol, position_idx) dedupe) into main. Does NOT extend to any env change, any allowlist widening, or any other order-path PR.",
+        "condition": "Land it ONLY when the PR is mergeable-clean AND CI is green. The approval is to take it at that point without re-asking; it is NOT approval to merge it conflicted or red, and NOT approval to hand-resolve its conflicts into a merge.",
+        "decided_on": "2026-09-12",
+        "text": "Operator answered the manager's decision popup on 2026-09-12, selecting 'Approve - land it when clean and green'. The popup stated that bybit_2 is hedge-armed on 4 symbols and is REAL MONEY, that the blindness is latent right now because ETHUSDT idx 2 is flat, and that the PR is currently re-conflicting as main moves. No further condition was attached."
+      }
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",

@@ -5231,5 +5231,25 @@
       "take MI-286's PR when it opens — HOLD it, Tier-2, do not land without the operator",
       "when MI-278 closes, do NOT respawn — that returns the lane count to the operator's three"
     ]
+  },
+  "operator_decisions_2026_09_12T1420Z": {
+    "asked_as": "manager decision popup, at the operator's request ('Give me the decisions as popups')",
+    "1_fanout_projection_fix": {
+      "answer": "Land it now",
+      "enacted": "#11970 MERGED as 1baff7a1f019efc10f8df9f26e24f8ee0f0157d5",
+      "next": "watch ict-git-sync deploy, then read the first contested tick: fanout_schema:3 + apply_state:dispatchable + rounds_applied carrying side/entry/sl/tp, AND a bybit_1 journal row. apply_state 'refused_by_dispatcher' would mean the fix is wrong."
+    },
+    "2_breakout_1_arming": {
+      "answer": "Come back to me with the evidence — NOT pre-authorised",
+      "binding": "The manager may NOT arm breakout_1 until it has OBSERVED bybit_1 dispatching and the operator has approved a second time. A merge is not a deploy; a deploy is not an observation.",
+      "recorded_at": "WO-20260912-THE-ARBITRATION-FAN-OUT-APPLY-PATH-HAS :: DEC-20260912-BREAKOUT-1-ARMING-STAYS-GATED"
+    },
+    "3_hedge_book_dedupe": {
+      "answer": "Approve — land when clean and green",
+      "condition": "ONLY when mergeable-clean AND CI green. NOT approval to merge it conflicted or red.",
+      "state_at_decision": "#11903 was CONFLICTED; MI-283 is resolving it on its own treadmill",
+      "recorded_at": "docs/claude/work/OPEN-PRS.json :: pr 11903, typed operator_decision"
+    },
+    "manager_note": "All three recorded with their CONDITIONS, not just their verdicts — a row recording a verdict without its condition reads as complete and is worse than a missing row."
   }
 }
