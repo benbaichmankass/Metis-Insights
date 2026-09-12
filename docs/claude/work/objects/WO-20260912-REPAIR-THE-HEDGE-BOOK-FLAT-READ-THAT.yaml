@@ -3,19 +3,21 @@ type: question
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Repair the hedge-book flat read that closes live Bybit positions and books invented PnL
-stage: CAPABILITY
+stage: OBSERVATION
 lifecycle: in_flight
 owner: session_01ALe9gTsSEMVWYyR8X8TY79
 opened_at: 2026-09-12
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  If a netting_attribution_soak row on a hedge-armed symbol is ever seen again carrying
+  exchange_qty 0.0 with exchange_read_source 'no_rows', or a netting_attributed close is
+  followed within 1h by a same-size adopted_orphan on the same account/symbol/direction,
+  this is NOT repaired and the row must be reopened as a defect.
 done_condition: >-
   _bybit_position_protection SELECTS the book instead of taking rows[0], and its two collapses are separated: 'not rows' on a symbol-scoped call returns None (we could not look) rather than _flat, and more than one LIVE book returns None rather than picking one. THEN observed on the fleet: a netting_attribution_soak row on a hedge-armed symbol carrying a non-zero exchange_qty where the venue holds a position, and no further netting_attributed -> same-size-adopt pair. A passing unit test clears NEITHER -- a fixture cannot reproduce which row Bybit lists first, which is the whole mechanism.
 
 why: >-
-  LIVE defect on real money. src/runtime/order_monitor.py takes pos = rows[0] on a symbol-scoped get_positions with no zero-size skip and no hedge-book selection; since BYBIT_HEDGE_MODE_SYMBOLS was armed a zero-size sibling listed first makes the symbol read _flat, and _reconcile_netting_partial_closes then closes a live position with an ESTIMATED pnl. Three provable false closes, +15.86 manufactured, 7 of 49 netting_attributed closes on real-money bybit_2. It also caps how precisely the bleed magnitude can be stated, because its population is 100% ESTIMATED.
+  LIVE defect on real money. src/runtime/order_monitor.py takes pos = rows[0] on a symbol-scoped get_positions with no zero-size skip and no hedge-book selection; since BYBIT_HEDGE_MODE_SYMBOLS was armed a zero-size sibling listed first makes the symbol read _flat, and _reconcile_netting_partial_closes then closes a live position with an ESTIMATED pnl. Three provable false closes, +$115.8575 manufactured (CORRECTED 2026-09-12 by MI-281 -- this field read '+15.86', a transcription of the measured +$115.8575; the figure is the sum over trades 5515, 5554 and 5568), 7 of 49 netting_attributed closes on real-money bybit_2. It also caps how precisely the bleed magnitude can be stated, because its population is 100% ESTIMATED.
 
 source: >-
   operator 2026-09-12, answering a direct decision prompt: dispatch a dedicated lane now
@@ -33,3 +35,44 @@ blocked_on_basis: >-
   and an anticipated one is a false one until the work arrives at it.
 
 captured_by: scripts/ops/capture_idea.py
+
+outcome: >-
+  ANSWERED, and the answer was not the one the dispatch expected. THE CODE HALF WAS ALREADY
+  LANDED AND DEPLOYED when this lane opened -- 46e1efb1f (PR #11435, 2026-09-08T18:53Z), with
+  /api/diag/version read 2026-09-12T05:47:40Z giving git_sha == git_sha_on_disk == c5a0ba993 and
+  restart_pending false, containing it by merge-base --is-ancestor. So `stage` is corrected from
+  CAPABILITY to OBSERVATION: the capability existed and what was missing was the fleet evidence.
+  NO order-path change was made; git status --porcelain over src/, config/ and deploy/ is empty.
+  || ALL THREE clears_when clauses now carry evidence, reported separately. (1) Both collapses are
+  separated in src/runtime/bybit_position_book.py (five never-collapsed states; no_rows and
+  ambiguous_multi_book each return None so the caller SKIPs). The 41 existing tests were green and
+  had NEVER been shown to go red, so both load-bearing predicates were MUTATION CHECKED: the
+  original rows[0]-no-zero-size-skip defect -> 13 fail; no_rows graded flat -> 5 fail; two live
+  books picks the first -> 4 fail; netting_attributed dropped from the flap allowlist -> 1 fail;
+  baseline green either side and the tree left clean. (2a) TWO post-deploy netting_attribution_soak
+  rows on a HEDGE-ARMED symbol carry a NON-ZERO exchange_qty with position_idx 1 -- bybit_1 ETHUSDT
+  trade 5663 (0.29) and 5687 (2.92) -- against an internal control of ADAUSDT/AVAXUSDT reading
+  position_idx 0 in the same window. (2b) ZERO netting_attributed -> same-size-adopt pairs
+  post-deploy, reported ONLY with a positive control in which the same probe finds 2 pairs
+  pre-deploy, and leaned on LESS than (2a) because a quiet week can mean the condition never arose.
+  (3) Pre-deploy 12 of 22 applied rows read exchange_qty 0.0 with 0 gradeable; post-deploy 2 of 7,
+  BOTH gradeable. POPULATIONS: the soak figures are a 1000-line TAIL of a 3,879,840-byte file (a
+  tail, NOT the lifetime), 2026-08-29 -> 2026-09-11; the journal figures are the newest 1000 trades
+  rows, ids 4716-5715.
+  || NOT ESTABLISHED, and it must not be read as cleared: the NINE unestablished pre-deploy flat
+  reads are PERMANENTLY unadjudicable -- 0 of 993 pre-deploy rows carry position_idx or
+  exchange_read_source, so their venue state at attribution was never recorded. Clause (3) is met by
+  its `or` branch ONLY. One of the nine is trade 5461 on REAL-MONEY bybit_2. Also not established:
+  the Bybit row ORDERING on the two observed reads, because no repo surface exposes the raw
+  get_positions payload.
+  || The OI row is deliberately NOT removed -- it is loud, real money, and (2a) is n=2 on one
+  symbol -- so removal is routed to the manager/operator as a decision. Evidence:
+  docs/claude/work/HEDGE-BOOK-FLAT-READ-OBSERVED-2026-09-12.md; PR #11870 (Tier-1 docs, held).
+  || FOUND AND NOT THIS UNIT'S: two post-deploy adopts (5715, 5712) follow NO netting_attributed
+  close -- each follows a pairs_stop close ~105s earlier of the OPPOSITE direction and an unrelated
+  size -- so the flap guard is not implicated; the shape resembles the adopt-ATTRIBUTION defect and
+  wants its own lane. And U5's pick,
+  BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW, is the SAME defect class in
+  a different reader and was VERIFIED still live: account_open_positions still does `if sym in seen:
+  return`, now instrumented but still dropping the second hedge book, and still emits no
+  position_idx.
