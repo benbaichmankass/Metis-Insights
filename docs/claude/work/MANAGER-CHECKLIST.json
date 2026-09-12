@@ -5055,5 +5055,103 @@
       "Committed a stray worktree directory (v11936_wt) into my own branch while inspecting a PR head. Caught on the next `git ls-files`, removed, verified 0 tracked paths remain. Cost: one junk commit on my own branch, nothing on main.",
       "Started a background poll loop against api.github.com — which this repo's own CLAUDE.md documents as 403 at the sandbox proxy, so it would have spun to timeout reporting nothing. Killed it and polled through the MCP, which is the documented path. I had the rule and reached past it."
     ]
+  },
+  "manager_tick_2026_09_12T1253Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease_heartbeat_at": "2026-09-12T12:53:36Z",
+    "lease_expires_at": "2026-09-12T14:23:36Z",
+    "heartbeat_landed": "cf0ea254c — committed AND pushed before duty 3 was started",
+    "headline": "The relay fix LANDED, and with it the three PRs MI-280 was blocked on. The lane count is at the operator's target of three.",
+    "merged_this_tick": [
+      {
+        "pr": 11936,
+        "sha": "f91db007085773e4cbadd5655e8844bd63bb448b",
+        "what": "the arming-relay crash fix (`Cannot find module '@actions/github'`)",
+        "landing": "hold / R12 — human read done: I read the diff in full at 11:1xZ and ran `check_automerge_trigger.py --self-test` on its own head (10 of 10 planted defects caught, clean-tree control green), including the C6 plant its own change would otherwise have let escape",
+        "verified": "6 of 6 green on head 5cfa4c220; clean against origin/main at merge time"
+      },
+      {
+        "pr": 11882,
+        "sha": "c66e78abee05bdf37febc27a4310c0a33b4594e4",
+        "what": "MI-282 — the arbitration fan-out has never dispatched, so the allowlist is not the lever",
+        "verified": "6 of 6 green; re-tested CLEAN against main AFTER #11936 landed, not before — serialised rather than assumed",
+        "promise_kept": "I told that lane `I will merge this on green and clean — no need to chase me for it`. Both became true and it is merged."
+      },
+      {
+        "pr": 11930,
+        "sha": "2fe1b8700610d8ce3d18c74e706ecfb305582151",
+        "what": "commit-to-main RE-DERIVES on the stale-branch refresh instead of only re-merging",
+        "landing": "hold / R12 — human read done",
+        "why_it_matters": "constraint-readout has concluded `success` ZERO times in its life: generation takes ~31 min on a repo that merges several times an hour, so the base moves and session-brief-guard fails; the old refresh minted a new sha and pushed the SAME stale brief. Re-running the checks was never the remedy.",
+        "caution_recorded": "`refresh-command` lets a caller run arbitrary commands inside the composite action — a new capability. It is opt-in and exactly one caller uses it today. Worth watching if that spreads."
+      }
+    ],
+    "measured_queue_state_1255Z": {
+      "population": "every open PR at 2026-09-12T12:55Z, n=36, test-merged locally against origin/main=22b9278aa",
+      "clean": 26,
+      "conflicted": 10,
+      "series": [
+        {
+          "at": "09:55Z",
+          "open": 31,
+          "clean": 5
+        },
+        {
+          "at": "10:56Z",
+          "open": 35,
+          "clean": 22
+        },
+        {
+          "at": "11:56Z",
+          "open": 41,
+          "clean": 36
+        },
+        {
+          "at": "12:55Z",
+          "open": 36,
+          "clean": 26
+        }
+      ],
+      "the_finding": "ALL TEN conflicted PRs are cron AUTOMATION (chore/auto). Every lane PR is clean. The conflict burden has moved off the lanes and onto the automation that re-asserts the shared board every few minutes — which is exactly what #11958 proposes to fix by having commit-to-main take the per-branch slot.",
+      "do_not_read_as": "Open count fell 41 -> 36 because four PRs LANDED, not because fewer are being opened. Mergeability and throughput remain different facts."
+    },
+    "lane_count": {
+      "keepers": [
+        "MI-278",
+        "MI-279",
+        "MI-280"
+      ],
+      "idle_blocked": [
+        "MI-283"
+      ],
+      "archived_this_tick": [
+        "MI-282"
+      ],
+      "archived_last_tick": [
+        "MI-285"
+      ],
+      "at_target": "YES — three working lanes, which is the operator's instruction. MI-283 is idle and blocked, not working.",
+      "no_spawns": "None. The standing rule holds: the manager does not spawn a replacement when a lane finishes."
+    },
+    "lane_states_observed_1257Z": {
+      "MI-282": {
+        "state": "ARCHIVED",
+        "context": 638462,
+        "why": "deliverable merged (#11882); past the hand-off threshold"
+      },
+      "MI-283": {
+        "state": "IDLE, deliberately NOT archived",
+        "context": 583145,
+        "context_note": "DOWN from 740,064 at 10:40Z — it COMPACTED, so the hand-off warning I recorded last tick is STALE. The tick prompt warns about exactly this and it was right.",
+        "judgement": "#11903 is green, clean and blocked on an operator Tier-2 decision. If that answer carries a condition or a question, the lane that took the measurement answers it far better than a fresh session, and an idle session consumes nothing. Flagged for the operator to overrule."
+      }
+    },
+    "still_the_operator_s": {
+      "naked_eth_short": "bybit_2 ETHUSDT — unchanged and NOT re-read this tick; the 11:12Z reading stands (2 positions, 4 orders, all reduce-only, zero Buy-side ETH legs). Whether the short is still open cannot be established from here.",
+      "pr_11903": "MI-283's Tier-2 approval is PENDING, not refused, and must not be re-sought."
+    },
+    "manager_errors_this_tick": [
+      "None found this tick. The 11:00Z tick's three stand as recorded."
+    ]
   }
 }
