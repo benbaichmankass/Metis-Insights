@@ -362,6 +362,36 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE SIBLING OF register-id-guard, AND NOT A DUPLICATE OF IT.
+        #
+        # That guard asks whether two branches gave one ID two meanings. This
+        # asks whether a row KEPT its id and LOST a field — which is the case a
+        # union-by-id proof, the remedy everyone reaches for, cannot see, because
+        # the id sets match exactly. Observed live 2026-09-11/12 on MI-277's
+        # branch, where resolving only the marked conflicts would have reverted
+        # two manager observation write-backs through lines git merges without
+        # complaint.
+        #
+        # ⚠️ `merge_json_register.py` ALREADY REFUSES this case, and is not what
+        # this duplicates: it is a CLIENT-SIDE merge driver that git runs only
+        # after `install_merge_driver.sh` has registered it in that clone, and
+        # GitHub's servers never run it. Measured in a fresh sub-session
+        # container: `git config --get merge.jsonregister.driver` returns
+        # nothing. So this validates the ARTIFACT, which catches a driver-less
+        # clone, a hand-resolved conflict and a scripted rewrite alike.
+        #
+        # ⚠️ `when: None` — it runs on EVERY diff. The comparison is per-register
+        # and skips the ones a diff does not touch, so scoping the GUARD would
+        # only add a way for it not to run.
+        "name": "register-field-loss-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_register_field_loss.py", "--self-test"],
+            ["python3", "scripts/ci/check_register_field_loss.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # `when: None` — it runs on EVERY diff, for the same reason the
         # wip-ceiling guard below does. A stale `in_flight` row is written by
         # whoever is last to touch either register, and a check that only fires
