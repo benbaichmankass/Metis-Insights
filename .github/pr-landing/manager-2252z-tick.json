@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register push only: MANAGER-LEASE.json (22:53:00Z heartbeat), SESSIONS.json (four rows corrected working->completed against get_session, a re-applied supersede, and the lost-update record), MANAGER-CHECKLIST.json (five lane rows + the tick record), one health-review-backlog row filed through backlog_append.py::append_row, and this branch's own landing/arming/merge-slot files. No src/, config/, scripts/, deploy/, .github/workflows/ or tests. R12 checked as a list, not inferred: nothing on LANDING_MACHINERY is touched except this branch's OWN declaration, which R12 excludes by construction. R6 positive duty: SESSIONS.json's top-level updated_at is bumped to 22:53:00Z in the SAME commit as the heartbeat -- verified by running check_manager_scope.py, not asserted, after the previous tick's body claimed this without checking the field the guard reads. Tier-1 by the canonical doc's own examples (docs + registers); filing a backlog row is explicitly a manager act and uncapped."
+}
