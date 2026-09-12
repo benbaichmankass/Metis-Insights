@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T01:55:00Z",
+  "updated_at": "2026-09-12T02:56:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4107,16 +4107,17 @@
       "why": "MI-271 answered WHEN the bleed started (2026-08-27, three days before e35) and WHAT it looks like (average win $404 -> $112, -72%, the dominant term; win rate only 46.0 -> 41.1%). WHY the average win fell is unanswered, and it is the cycle priority.",
       "manager_note": "PHASE 1 IS THE POINT AND IT COMES FIRST: establish whether the collapse is MEASURED or an artifact of the exit-booking path. Measured PnL coverage was 42.9% at last reading, and OI-20260908 is a LIVE unfixed defect booking fabricated pnl on false closes on the venue carrying most of these rows (+$115.86 across three provable false closes, a LOWER BOUND -- nine soak rows are ungradeable). If a material share of the wins in either window is ESTIMATED or FABRICATED, the -72% may be an instrument artifact, and SAYING SO IS THE FINDING, not a failed investigation.",
       "scope": "Measurement only, Tier-1. Memo to docs/research/** plus backlog rows. Proposes NO parameter change -- every one is Tier-3 and returns to the operator through the manager.",
-      "state": "review_ready",
+      "state": "done",
       "dispatched": "2026-09-12T01:03:16Z",
       "dispatch_basis": "The manager told the operator at the 00:52Z tick: 'say the word and it goes out, or I'll dispatch it at the next tick if I don't hear otherwise.' No direction came. Dispatched at 01:03Z rather than 01:52Z because all three prior lanes had gone terminal and the cycle-priority question had NO lane on it -- a manager holding zero live lanes against the named priority is itself the constraint. The commitment was a floor on when, not a promise to idle.",
       "register_recovery_2026_09_12T0112Z": "This item and its SESSIONS.json row were LOST for ~9 minutes. They were committed (49653310e) onto a branch whose PR had already armed auto-merge; #11846 squashed at the previous head and the commit never reached main. Re-applied here on a FRESH branch -- a merged PR is finished and cannot carry follow-up work. Filed as a backlog row: the hazard is documented in CLAUDE.md and was still walked into, which makes it a recurrence rather than a first offence.",
       "manager_note_2026_09_12T0152Z": "DELIVERED. PR #11848 (Tier-1, self-landing, armed): guards + pytest-collect + repo-inventory GREEN, pytest-run finishing. VERDICT: the winner-size collapse is an R COLLAPSE and every in-system mechanism tests NEGATIVE -- size REFUTED (median risk over the full book ROSE $303.60 -> $438.10; the winners-only halving is a selection effect the lane says it first misread), venue clamp REFUTED (cap_r unmoved, winners near the cap 16.7% -> 0.0%), exit levers REFUTED for this account/window, composition REFUTED (all 7 common legs fell, exact p=0.0156). Regime SUPPORTED on PRICE-FREE evidence: winner hold 5.17h -> 1.90h while LOSER hold rose, losers unchanged at ~1R, volatility +29%. !! MAGNITUDE NOT ESTABLISHED and the lane says so: -72.3% all-provenance vs -38.5% on broker-measured rows vs -81.4% standardised, n=15 pre-era measured winners, and the largest single share is netting_attributed which is 100% ESTIMATED over 39 rows -- OI-20260908's own population. It did NOT adjudicate those rows and did not advance that row's verified_at.",
-      "owner_observed": "get_session 01:52Z: IDLE / review_ready, context 547623/1000000"
+      "owner_observed": "get_session 01:52Z: IDLE / review_ready, context 547623/1000000",
+      "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-12T01:55:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 01:52Z tick)",
+  "as_of": "2026-09-12T02:56:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 02:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -4290,5 +4291,16 @@
     "context_warning": "MI-276 is at 777199/1000000 (78%), past the ~600k close-out threshold. It has nothing left to do -- #11827 is green and parked on the operator -- but any follow-through after that ruling must go to a FRESH lane.",
     "carried": "The scope-overlap parser A/B finding (a blank line between a bold header and its bullets is the entire difference between a declaration that parses and one that declares nothing) is NOT folded into BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES yet: #11848 is mid-flight on health-review-backlog.json and sequencing the two writes costs nothing. It is recorded on the board at comment 5642429107 so it cannot be lost.",
     "cycle_priority_state": "The operator's bleed question now has a MECHANISM (regime, on price-free evidence) and an explicit NOT-ESTABLISHED (the magnitude, blocked on OI-20260908's venue-side read). The natural next question is whether the R collapse is tradeable-through or a reason to stand legs down -- that is Tier-3 and is the OPERATOR's, not a lane's."
+  },
+  "manager_tick_2026_09_12T0252Z": {
+    "lease": "heartbeat 02:53:11Z, expires 04:23:11Z",
+    "lanes": "Derived (2 non-terminal rows spawned by me), then get_session on each. MI-277 -> COMPLETED, #11848 merged. MI-276 -> review_ready and STILL WORKING (#11827 head c6c4d7a, 4th merge round, 02:38Z).",
+    "corrections_to_the_0152Z_tick": [
+      "MI-276 context 777199 -> 298206: it COMPACTED. The '78%, hand follow-through to a fresh lane' note is no longer true. Reported to the operator as a correction rather than left standing.",
+      "MI-276's status cites PR #4821, which returns 404. Its real PR is #11827 and the reported STATE (blocked) is correct -- a compaction garbled the identifier, not the semantics."
+    ],
+    "merge_queue": "#11827 (Tier-2 HOLD, operator-gated): 4 of 5 green, pytest-run in progress on c6c4d7a. #11842 automation. #11817, #11738 operator-gated and unchanged. Nothing rebasing (R8 ok). No merge_slot conflict this tick -- everything of mine landed.",
+    "what_is_NOT_dispatched": "MI-277's entry-side implication. It is Tier-3 and the operator's call; spawning a lane against it would pre-empt a decision that is not the manager's to make.",
+    "unreachable_lane_note": "ListAgents re-verified this tick: no reachable agents. CLAUDE.md's claim that a manager cannot message a running cloud sub-session HOLDS -- checked, not inherited."
   }
 }
