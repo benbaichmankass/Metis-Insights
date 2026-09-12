@@ -112,8 +112,8 @@ was dropped 241×, and the pairs **long** closing exposed the short.
 
 ⚠️ **This is not a separate adopt-attribution defect, and filing it as one would have sent
 a lane chasing a mechanism that is not there.** It also explains why the defect *looked*
-intermittent: the drop is continuous (100% of reads), but it only becomes *visible* when
-the other book flattens.
+intermittent: the drop is continuous (376 of 376 `bybit_1` reads, the population in § 2),
+but it only becomes *visible* when the other book flattens.
 
 **The fix severs the chain at step 2**, so steps 3–5 cannot arise.
 
