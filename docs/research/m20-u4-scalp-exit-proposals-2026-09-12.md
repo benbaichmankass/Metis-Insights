@@ -63,7 +63,12 @@ yearly walk-forward: 3/4 usable folds (need 3) -> PASS
 
 It is **the only cell in the entire workstream** to improve both net_R and
 maxDD in both windows, and it then cleared the yearly walk-forward.
-`n_OOS = 117` clears the skill's `MIN_OOS_TRADES = 25` floor with room. The
+`n_OOS = 117` clears the skill's `MIN_OOS_TRADES = 25` floor with room —
+⚠️ **though checked by hand, not by the sweep: the M27 sweep does NOT implement
+that floor** (only `m20_fleet_exit_sweep.py` does). Measured over the 77
+cell-OOS observations in this workstream the minimum is **95**, so the missing
+floor **binds on nothing here** — but it is a latent gap that would pass a thin
+leg silently, and it is recorded rather than left implied. The
 `[timeout IS 0% OOS 0%]` stamp is the fidelity readout confirming it ran at
 parity rather than under the harness's 24-bar force-close.
 

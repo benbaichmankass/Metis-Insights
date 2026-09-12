@@ -1117,6 +1117,28 @@ forward.** If they also survive, the family has two confirmed levers pointing
 in **opposite** directions on different legs — which would be the strongest
 possible statement that there is no family-wide target fix, only per-leg ones.
 
+## 4o. A SECOND UNENFORCED CLAUSE — the OOS-trade floor, harmless here
+
+While verifying U4's numbers against the raw logs I checked one more claim I
+had made by eye: that `n_OOS = 117` clears the skill's `MIN_OOS_TRADES = 25`.
+
+**It does, and the sweep did not check it.** `MIN_OOS_TRADES = 25` (operator
+decision, 2026-08-11) lives in `m20_fleet_exit_sweep.py`;
+`m27/ict_scalp_exit_sweep.py` has no such constant and applies no floor. So a
+thin leg would be graded and reported like any other.
+
+**Measured before calling it a problem**: over the **77 cell-OOS observations**
+across every parity and walk-forward log in this workstream, the minimum OOS
+trade count is **95** and the maximum 356 — **zero cells below 25**. The
+missing floor therefore **binds on nothing in this population**, and no verdict
+in this document is affected.
+
+It is recorded because *unenforced-and-currently-harmless* is a different state
+from *enforced*, and the difference is invisible from the output. Together with
+§4m this makes two clauses of the binding gate that this sweep does not
+implement — the capital-efficiency path, which changes what qualifies, and this
+floor, which currently changes nothing.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
