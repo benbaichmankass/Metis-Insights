@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling, an evidence document, the research index, and backlog rows. scripts/research/ + docs/ only — no src/, no config/, no order path, and no workflow change. The census script writes nothing and re-grades nothing."
+}

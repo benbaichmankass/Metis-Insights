@@ -307,6 +307,25 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
     # rather than its replacement, and nothing supersedes it. It shipped
     # carrying `unknown` only because it was written minutes before this index
     # landed, so no rule had yet been able to see it.
+    # Written 2026-09-12 by MI-279, the same session that took every measurement
+    # in it, so the status is ESTABLISHED rather than inferred: each figure was
+    # read this session against a stated population, with a positive control on
+    # every negative (the date probe returns 39/348/65/312 on four other days
+    # and only 2026-08-16 is zero; the `log_file` route returns content for a
+    # real name and NOTHING for a bogus one). No other rung can see it -- rule 1
+    # does not import it, rule 2's ACTIVE_DOCS does not enforce it, it is not a
+    # skill, not `history`, and declares itself neither dead nor superseded --
+    # so without this entry it reads `unknown`, which is the one thing it is NOT.
+    # ⚠️ It goes `historical` if the corpus stamp it points at ever lands: from
+    # that moment its central claim (a corpus row records no dispatched sha) is
+    # a statement about the past, and leaving it `live` would make it a trap for
+    # exactly the reader it was written for.
+    "docs/research/corpus-schema-degradation-2026-09-12.md": (
+        "live",
+        "read:MI-279-authored-and-measured-it-2026-09-12",
+        "evidence closing BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR; "
+        "goes historical once the dispatched-sha stamp lands",
+    ),
     "docs/claude/TASK-PRIORITY-2026-09-07.md": (
         "live",
         "read:MI-162-opened-it-anchored-to-the-current-cycle-priority",
