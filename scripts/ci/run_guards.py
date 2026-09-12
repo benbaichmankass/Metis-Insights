@@ -464,6 +464,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The map from an exit-relevant HARNESS FLAG to a matrix LEVER COLUMN.
+        # BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED asks that every such
+        # flag map to a column OR carry a recorded n/a with a reason; that
+        # answer was re-derived by hand three times and the three answers
+        # disagree, because each used a different harness population without
+        # saying so. This grades the recorded map for COMPLETENESS.
+        #
+        # `when` is scoped, unlike the unresolve guard's `when: None`: a new
+        # flag can only appear by editing a harness, the map, or the matrix, so
+        # there is nothing a broader scope would catch.
+        #
+        # ⚠️ It deliberately does NOT fail on `needs_column`. The criterion asks
+        # that every flag have a RECORDED verdict, and "this needs a column" is
+        # one. Failing on it would pressure the next session into re-labelling a
+        # real gap as an n/a to get green — the guard-cheaper-to-lie-to-than-to-
+        # satisfy shape this repo already paid for with `new-table-wiring-guard`.
+        "name": "exit-lever-map-guard",
+        "when": {"globs": ["scripts/backtest_*.py",
+                           "docs/research/exit-lever-map.json",
+                           "docs/research/exit-refinement-coverage.json",
+                           "scripts/ops/exit_lever_map.py"]},
+        "steps": [
+            ["python3", "scripts/ops/exit_lever_map.py", "--self-test"],
+            ["python3", "scripts/ops/exit_lever_map.py"],
+        ],
+    },
+    {
         "name": "register-field-loss-guard",
         "when": None,
         "steps": [

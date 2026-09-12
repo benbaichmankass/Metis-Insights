@@ -1,0 +1,146 @@
+{
+  "_doc": "THE RECORDED MAP from exit-relevant harness FLAG to M20 coverage-matrix LEVER COLUMN. It exists to satisfy BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED's first criterion -- 'every exit-relevant harness flag maps to a matrix column OR a recorded n/a with a reason' -- and it is checked, not merely written: scripts/ops/exit_lever_map.py re-enumerates the harnesses and FAILS on any candidate flag this file does not cover, so it cannot silently go stale as flags are added. ⚠️ THREE STATES, NEVER COLLAPSED. `mapped_to_column` is a lever the matrix already grades. `recorded_na` is a flag that is NOT an exit lever, with the reason stated -- the criterion's own escape hatch. `needs_column` is the finding: an exit lever the matrix CANNOT express, which is neither of the other two and must not be filed as either. Collapsing needs_column into recorded_na would make the gap disappear by wording.",
+  "updated_at": "2026-09-12",
+  "population": {
+    "harnesses": {
+      "donchian": "scripts/backtest_trend.py",
+      "pullback": "scripts/backtest_pullback.py",
+      "squeeze": "scripts/backtest_squeeze.py",
+      "fvg": "scripts/backtest_fvg_range.py",
+      "scalp": "scripts/backtest_ict_scalp.py"
+    },
+    "how_the_harness_set_was_chosen": "NOT by hand. It is the set the matrix's own 52 rows route to, resolved by scripts/research/m20_fleet_exit_sweep.py::classify over each row's `strategy`: donchian 23, pullback 19, scalp 8, squeeze 1, fvg 1. ⚠️ THIS IS WHY THE COUNT MOVED. The 2026-09-02 analysis on the backlog row enumerated backtest_trend.py and backtest_pullback.py only -- 42 of the 52 legs -- and so could not see any gap arising from the scalp (8), squeeze (1) or fvg (1) legs. Its answer of 3 gaps is correct FOR ITS POPULATION and understates the matrix's own.",
+    "distinct_flags_across_those_harnesses": 75,
+    "candidate_exit_relevant": 26,
+    "candidate_rule": "A flag is a CANDIDATE when its name contains any of the stated exit vocabulary (see scripts/ops/exit_lever_map.py::EXIT_VOCAB). ⚠️ This is a token rule and it is the WEAK link: it is used only to decide what must be looked at, never what the answer is. Every verdict below is a curated decision with its evidence. A flag the rule misses is invisible to the checker -- so the checker also reports the non-candidate remainder as a COUNT, which is `we did not look`, never a clean bill."
+  },
+  "matrix": "docs/research/exit-refinement-coverage.json",
+  "lever_columns": [
+    "trail_geometry",
+    "stale_stop",
+    "giveback_stop",
+    "exit_ladder",
+    "exit_head_ml",
+    "trail_decay",
+    "regime_flip_exit",
+    "vol_trail",
+    "bracket_geometry"
+  ],
+  "flags": {
+    "--trail-mult": {
+      "state": "mapped_to_column",
+      "column": "trail_geometry"
+    },
+    "--atr-stop-mult": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "the matrix's own legend_bracket_geometry defines the column as the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult ...), so this flag IS one of its three terms."
+    },
+    "--tp-r": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "the declared tp_r sentinel; per its help it is consulted only when --tp-cap-pct > 0, and the cap normally binds."
+    },
+    "--tp-cap-pct": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "LIVE-PARITY take-profit -- min(entry*(1+pct), entry + tp_r*risk). Production uses 0.099."
+    },
+    "--stale-exit-bars": {
+      "state": "mapped_to_column",
+      "column": "stale_stop"
+    },
+    "--stale-exit-below-r": {
+      "state": "mapped_to_column",
+      "column": "stale_stop"
+    },
+    "--giveback-r": {
+      "state": "mapped_to_column",
+      "column": "giveback_stop"
+    },
+    "--giveback-min-mfe-r": {
+      "state": "mapped_to_column",
+      "column": "giveback_stop"
+    },
+    "--trail-decay-arm-r": {
+      "state": "mapped_to_column",
+      "column": "trail_decay"
+    },
+    "--trail-decay-stall-bars": {
+      "state": "mapped_to_column",
+      "column": "trail_decay"
+    },
+    "--trail-decay-tight-mult": {
+      "state": "mapped_to_column",
+      "column": "trail_decay"
+    },
+    "--trail-vol-above-pctl": {
+      "state": "mapped_to_column",
+      "column": "vol_trail"
+    },
+    "--trail-vol-below-pctl": {
+      "state": "mapped_to_column",
+      "column": "vol_trail"
+    },
+    "--trail-vol-tight-mult": {
+      "state": "mapped_to_column",
+      "column": "vol_trail"
+    },
+    "--bank-at-r": {
+      "state": "mapped_to_column",
+      "column": "exit_ladder"
+    },
+    "--bank-frac": {
+      "state": "mapped_to_column",
+      "column": "exit_ladder"
+    },
+    "--flip-exit-bars": {
+      "state": "mapped_to_column",
+      "column": "regime_flip_exit"
+    },
+    "--exit-style": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "fvg_range's expression of WHERE the target sits (mid | far | tp1r). Mapped here on the matrix's OWN evidence, not on inference: its vol_trail caveat for this leg reads 'scripts/backtest_fvg_range.py has NO --trail-mult at all -- this leg exits on exit_style/tp_r, not a trailing stop'."
+    },
+    "--atr-stop-buffer": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "fvg_range's stop leg -- 'Stop placed buffer x ATR beyond the gap / range boundary', i.e. this family's atr_stop_mult."
+    },
+    "--atr-period": {
+      "state": "recorded_na",
+      "reason": "An INDICATOR period feeding the ATR that the bracket and trail levers consume -- a measurement input, not an exit rule. ARGUABLE AND RECORDED AS SUCH: changing it does move every ATR-derived exit distance, so someone could reasonably call it a lever. It is n/a here because the matrix's bracket_geometry column is defined as the TRIPLE (tp_at_r x atr_stop_mult x ...) and a period change re-scales the unit those terms are expressed in rather than choosing a different rule. If a sweep ever varies it, this entry is the thing to revisit."
+    },
+    "--exit-grain": {
+      "state": "recorded_na",
+      "reason": "A measurement-FIDELITY knob, not a lever: it chooses the bar grain the exit levers are evaluated on (leg-bar vs sub-bar close) to isolate a harness artefact. It changes what the HARNESS can see, never what production does."
+    },
+    "--timeout-bars": {
+      "state": "recorded_na",
+      "reason": "NO LIVE CONSUMER -- and this is the matrix's own recorded position, not a new judgement. 33 of its 52 rows carry a caveat of the form 'a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop'. So it is a harness CONFOUND that the matrix already corrects for, and giving it a lever column would invite sweeping a rule production cannot express -- the matrix's own `blocked:no_lever_consumer_in_unit` state. ⚠️ This is NOT a claim that a time stop is unwanted: building the LIVE side is BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES, and if that ships, this entry flips to needs_column."
+    },
+    "--rr-floor": {
+      "state": "needs_column",
+      "reason": "GRADED AND SWEPT, AND INVISIBLE. It is the proximity-to-target lever BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED was filed believing did not exist; its help text is the operator's near-TP-reversal case verbatim. Swept on the fleet's own machinery (docs/research/e35-rr-floor-walkforward-2026-08-20.md, 19 legs x 3 cells = 57 leg-cell rows), and `scripts/ci/check_lever_wiring.py` confirms its cells. With no column, those 57 measured rows are invisible to anyone reading the matrix. ⚠️ A column would have to say BACKTEST-ONLY (BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED)."
+    },
+    "--be-floor-r": {
+      "state": "needs_column",
+      "reason": "MI-165 break-even FLOOR, present on donchian + pullback + squeeze: once the trade has SEEN this many R, the trailing stop may never again sit below entry. It is max()-ed against the chandelier candidate, so it is a one-directional RATCHET distinct from trail_geometry rather than a setting of it. The string `be_floor` appears ZERO times anywhere in the matrix."
+    },
+    "--sim-breakeven": {
+      "state": "needs_column",
+      "reason": "ict_scalp only, and it SIMULATES A LIVE MECHANISM -- 'the LIVE monitor's break-even trail (monitor_breakeven_sl: once a bar closes >= 1R in favour, SL moves to entry +/- be_offset_bps from YAML)'. So unlike --timeout-bars it has a live consumer, which is what makes its absence a gap rather than an n/a. The string `sim_breakeven` appears ZERO times in the matrix, while 8 of the matrix's 52 legs are scalp legs."
+    },
+    "--be-arm-on-touch": {
+      "state": "needs_column",
+      "reason": "ict_scalp only. Its own help says it is 'only meaningful with --sim-breakeven', so it is arguably a SUB-KNOB of that lever rather than a column of its own -- recorded here as needs_column so the decision is made explicitly rather than by omission. Whoever adds the breakeven column should decide whether the arming rule is a second cell or a parameter of the first."
+    }
+  },
+  "summary_2026_09_12": {
+    "mapped_to_column": 19,
+    "recorded_na": 3,
+    "needs_column": 4,
+    "note": "The four needs_column entries are the finding and are NOT fixed here: adding a column is a schema change to a 765 KB artifact that `matrix-corpus-agreement` and `matrix-config-agreement` both read, and it is one decision for the manager rather than four edits by a drain session. What this file removes is the ambiguity about WHICH four and WHY."
+  }
+}

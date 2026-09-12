@@ -1,0 +1,4 @@
+MI-279 OPS lane — U1 batch 1, four backlog-row dispositions.
+Tier-1: docs/claude/health-review-backlog.json only. Opt-in marker for
+claude-pr-automerge.yml; its PATH is the signal. PR #12113 was opened by the
+session itself, so CI fired on a real pull_request event.
