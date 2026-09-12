@@ -1,0 +1,59 @@
+id: WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  M20 Active Trade Management: what actually ends a winning trade, which mechanism fired,
+  and would an alternative have held winners longer
+stage: EVIDENCE
+lifecycle: in_flight
+owner: session_01Wv1BdfEUnmCBZrhvUjeBzb
+opened_at: 2026-09-12
+review_trigger: >-
+  At each unit boundary (U1..U5) the owning session reports to the manager. If the session
+  dies, the next owner resumes at the first unit with no merged memo -- the units are
+  deliberately independently landable so a death costs one unit, not the queue.
+done_condition: >-
+  FIVE units, each with its population stated. U1: a per-leg inventory of every mechanism
+  that can end a WINNING trade, with the config/env that ARMS each -- done when a reader can
+  say, for any live leg, what could have cut its winner short. U2: over the post-2026-08-27
+  population, each winning close ATTRIBUTED to the mechanism that ended it, provenance-graded
+  per src/runtime/provenance.py; a mechanism that cannot be attributed from the journal is
+  named as a gap, and the gap IS a finding. U3: for the mechanism(s) U2 implicates, a
+  counterfactual on the config-exact harness, IS/OOS with a yearly walk-forward, at the
+  exit-refinement skill's gate (Path A or Path B), not at a correlation bar. U4: one Tier-3
+  PROPOSAL per lever that cleared U3, evidence attached, routed to the manager -- a memo is
+  not the deliverable. U5: the MFE/MAE-in-ATR-units instrument
+  (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
+
+why: >-
+  MI-277 (docs/research/winner-size-collapse-2026-09-12.md, merged #11848) established that
+  the expectancy flip is an R COLLAPSE on the winner side: winner hold fell 5.17h -> 1.90h
+  while LOSER hold rose, losses stayed pinned at ~1R (-0.891 -> -0.939, the control that
+  isolates the winner side), and the R term is 97.4% of the winner-size fall. It refuted
+  size, the venue clamp, exit levers and composition -- but its lever refutation is
+  explicitly scoped to bybit_1 in that window and is NOT a general claim, and its own
+  section 5 names the unanswered question: nothing has enumerated what CAN end a winner per
+  leg, so "no lever fired here" cannot yet be distinguished from "we did not look at the
+  right lever". M20 is named Active Trade Management (operator directive 2026-08-20) and
+  holding winners longer is its subject.
+
+source: >-
+  manager dispatch 2026-09-12, on MI-277's section 5 open questions; cycle priority
+  CY-20260906-TRADING-TRUTH
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by session_01Wv1BdfEUnmCBZrhvUjeBzb, and the empty list is a real
+  claim about U1 rather than the migration default. U1 needs only source inspection and the
+  live journal, both readable this session (direct HTTPS diag answers from this container).
+  U3 has a REAL candidate blocker that is deliberately NOT written as an edge yet, because
+  writing an unverified one is worse than a missing one (this store's README, 2026-09-01):
+  the config-exact harness needs 3-5y of native-TF candles reachable for the implicated
+  family, and whether that holds is a P0 question U1/U2 answer rather than assume. If it
+  fails, the edge gets written THEN, with the measurement behind it.
+  ⚠️ A doubt this unit INHERITS and does not re-derive: the netting_attributed path carries
+  the largest single share of the collapse, is 100% ESTIMATED, and is OI-20260908's own
+  population -- a live unfixed defect. That is a caveat on U2's attribution, not a blocker
+  on U1, and it is stated on every number it touches.
+
+captured_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
