@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
-    "branch": "claude/mi279-specs-flat-prop",
-    "claimed_at": "2026-09-12T06:39:05Z",
-    "purpose": "PR #11887 — un-carried spec count + two critical re-verifications (Tier-1, docs only)"
+    "branch": "claude/mi279-exit-path-audit-rerun",
+    "claimed_at": "2026-09-12T06:49:43Z",
+    "purpose": "PR #11890 — exit-path audit re-run, completes U1 (Tier-1, docs only)"
   },
   "active_sessions": [
     {
