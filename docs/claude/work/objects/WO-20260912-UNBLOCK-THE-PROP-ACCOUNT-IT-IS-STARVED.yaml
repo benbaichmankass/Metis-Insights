@@ -91,8 +91,13 @@ findings: >-
   snapshot. So "send a fresh bal or it will not trade" would be FALSE. A fresh
   bal is still wanted (the snapshot is 298.3h old against a 24h limit) and is
   NOT on the critical path.
-  NEW, PREVIOUSLY UNRECORDED: nothing in the ORDER PATH enforces the prop
-  drawdown floor. `distance_to_dd_floor_usd` has display-only consumers
+  A SECOND BLIND SPOT BESIDE AN ALREADY-FILED ONE — and this was first written as 'NEW,
+  PREVIOUSLY UNRECORDED', which was FALSE and is withdrawn:
+  BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT
+  already records that ticket sizing does not consult distance_to_dd_floor_usd. The duplicate
+  probe missed it because backlog_search is TOKEN OVERLAP ONLY and the two rows are phrased
+  differently; reading the 54 open prop rows by hand caught it. What is additive is the SECOND
+  mechanism: nothing in the ORDER PATH enforces the prop drawdown floor. `distance_to_dd_floor_usd` has display-only consumers
   (routers/prop.py, telegram_report_handler.py) — no branch reads the cushion —
   and the generic RiskManager cannot see prop outcomes at all, since
   daily_risk_state is rebuilt by SELECT ... FROM trades (3 sites in risk.py)

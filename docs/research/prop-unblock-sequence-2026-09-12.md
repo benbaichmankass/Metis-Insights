@@ -152,9 +152,25 @@ only when the account is present in `live_balances` with a `None` value **and**
 **not** established here; what is established is that on 2026-09-05 it did not, because a
 ticket was emitted.
 
-## 🆕 Nothing in the order path enforces the prop drawdown floor
+## Nothing in the order path enforces the prop drawdown floor — a SECOND blind spot beside an already-filed one
 
-Measured, and not previously recorded anywhere:
+⚠️ **SELF-CORRECTION.** This section was first written under the heading *"🆕 … not previously recorded
+anywhere"*. **That was false and is withdrawn.**
+`BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT`
+already says, in terms: *"THE RULE-DISTANCE PANEL COMPUTES THIS CORRECTLY AND NOTHING ACTS ON IT.
+distance_to_dd_floor_usd is right there in the payload; the ticket sizing does not consult it."* That is
+half of what follows, filed a day earlier, and `BL-20260827-PROP-CUSHION-IGNORES-COMMITTED-OPEN-RISK`
+covers a third related defect in the same cushion.
+
+**Why the duplicate check missed it, recorded because it is the instructive part:**
+`scripts/ops/backlog_search.py` returned 8 overlapping rows for my query and none was that one — the probe
+is **token overlap only**, and I searched *"drawdown floor not enforced order path risk manager"* against a
+row phrased *"75 dollars against 87 dollars"*. Its own docstring warns *"silence here is not proof of
+novelty"*; this is that warning coming true. What caught it was reading the 54 open prop rows by hand at
+the end of the unit, not the tool.
+
+**What is genuinely additive — and the only reason this section survives — is a SECOND, INDEPENDENT
+mechanism that neither prior row names:**
 
 * `distance_to_dd_floor_usd` / `rule_distance` have **display-only consumers** —
   `src/web/api/routers/prop.py` and `src/prop/telegram_report_handler.py`. **No branch
@@ -176,6 +192,11 @@ must not stop trading, that ruling is recorded, and it is not re-litigated. It i
 so the decision is made **knowingly**, and because sizing off a `$5,000` nominal is
 **4.4% above the account's actual equity** — which makes the cushion smaller than the
 sizer believes.
+
+The prior rows establish that the **cushion** is not consulted; this establishes that the **generic
+caps are inert too**, so there is no second line of defence behind the one they describe. The two
+should be resolved together — fixing one and leaving the other would close one of two independent
+blind spots and read as done.
 
 ## The gate sequence — U1, as asked
 
