@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling: scripts/ops/sunset_pass.py gains a published population counter and a pure three-state route-premise check, plus its self-test controls, and one row's status + updates in docs/claude/health-review-backlog.json. src/web/api/routers/performance.py is READ by a self-test and is NOT modified. No runtime, no order path, no strategy config, no risk caps, no live-VM file. The pass proposes Tier-3 retirements and still only proposes them; nothing here changes a verdict, only what the packet reports about its own reachability."
+}
