@@ -5282,5 +5282,32 @@
       "watch for the first v3 soak row; if apply_state reads refused_by_dispatcher the fix is wrong and that is the more valuable finding",
       "confirm #11958 actually removed the automation conflict class once an automation PR runs through the changed action"
     ]
+  },
+  "manager_tick_2026_09_12T1555Z": {
+    "headline": "THE FAN-OUT FIX IS PROVEN AT THE DISPATCHER AND HAS STILL NOT PRODUCED AN ORDER. Two halves, only one met.",
+    "criterion_1_MET": {
+      "first_v3_row": "2026-09-12T15:36:18.225612Z, ETHUSDT",
+      "apply_state": "dispatchable — NOT refused_by_dispatcher",
+      "rounds_applied_keyset": "('accounts','confidence','entry','side','sl','strategy','tp') — the FULL 7-key geometry, where every pre-fix row carried only ('accounts','strategy')",
+      "verdict": "the projection is fixed and the dispatcher accepts the round. This is the thing #11970 set out to do and it works."
+    },
+    "criterion_2_NOT_MET": {
+      "claim": "no order has flowed through the fan-out",
+      "evidence": "ZERO trades created since 15:30Z (journal tail, 200 rows; newest trade is id 5727 at 12:01:21Z). The ETHUSDT pipeline_result at 15:39:30Z reads status=skipped, reason=no_intents_emitted.",
+      "reading": "the round was PLANNED and marked dispatchable, and the intent did not survive to dispatch. Confidence on that round was 0.0099. That is upstream of the projection fix and is NOT a fan-out defect — but it is also NOT the observation the operator gated on.",
+      "consequence": "NOT going back to the operator on decision 2 this tick. The gate was 'bybit_1 OBSERVED routing through the fan-out cleanly'; the dispatcher half holds, the order half does not."
+    },
+    "breakout_1": "still starved, still apply_scope not_allowlisted — correct and expected; that is the gated second step.",
+    "11903": {
+      "state": "CONFLICTED again at 15:5xZ (head 9e1ed595b, 15:31:28Z). Operator condition is clean AND green; not clean, so HOLDING.",
+      "the_only_real_conflict_is_CLAUDE_md": "DOCUMENT-INDEX.md, OPEN-ITEMS.json and health-review-backlog.json all AUTO-MERGE. CLAUDE.md is the single content conflict.",
+      "manager_cannot_resolve_it": "CLAUDE.md prose outside the generated SESSION-BRIEF block is a worker path; a manager commit there is exactly what check_manager_scope R2 grades. Left with MI-283.",
+      "cost_being_watched": "MI-283 is on a resolve->main-moves->reconflict treadmill and is at 627k context. This is the same non-convergence mechanism #11958 just fixed for automation PRs, on a different file."
+    },
+    "next": [
+      "keep watching for a v3 round that actually produces a journal row — that is the only thing that evidences an order",
+      "merge #11903 the moment it is clean AND green; do not hand-resolve it",
+      "if #11903 cannot converge, the manager action is to SERIALIZE (pause taking other PRs), not to resolve it"
+    ]
   }
 }
