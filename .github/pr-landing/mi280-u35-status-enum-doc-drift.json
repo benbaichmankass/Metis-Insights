@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/CLAUDE-RULES-CANONICAL.md prose, two CI guards (scripts/ci/check_canonical_doc_coherence.py, scripts/check_claim_basis.py), one ops reporting tool (scripts/ops/work_digest.py), a new test, and two rows in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. None of the touched files is in check_pr_landing.LANDING_MACHINERY, so R12 does not apply -- verified against that list rather than assumed. CI scripts and doc fixes are Tier-1 by the canonical doc's own examples."
+}
