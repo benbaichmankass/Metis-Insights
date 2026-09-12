@@ -36920,7 +36920,7 @@
         "git being unable to answer yields `unknown` rather than a fabricated or empty sha -- *we could not look* is a distinct value.",
         "!! NOT a criterion: that CI turns green. CI always runs on a stable, freshly-checked-out tree, so it could never have exhibited this and its greenness says nothing either way. The failure mode is a LOCAL or BACKGROUND run, and the evidence for the fix is the two controls above."
       ],
-      "is_not": "NOT a claim that any guard VERDICT was ever wrong on a stable tree -- they were not, and CI is unaffected. NOT the same as BL-20260909-A-GREEN-ARMED-AUTOMATION-PR-STALLS-FOREVER-..., which is about a PR going stale against a moved main; this is about a local harness run reading a worktree that changes beneath it. NOT an argument for serialising guard runs: running them in the background is fine, and the fix is that the output now says which tree it read."
+      "is_not": "NOT a claim that any guard VERDICT was ever wrong on a stable tree -- they were not, and CI is unaffected. NOT the same as BL-20260909-A-GREEN-ARMED-AUTOMATION-PR-STALLS-FOREVER-WHEN-MAIN-MOVES-BECAUSE-AUTO-MERGE-DOES-NOT-RESOLVE-CONFLICTS, which is about a PR going stale against a moved main; this is about a local harness run reading a worktree that changes beneath it. NOT an argument for serialising guard runs: running them in the background is fine, and the fix is that the output now says which tree it read."
     }
   ]
 }
