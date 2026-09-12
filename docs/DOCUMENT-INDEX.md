@@ -479,6 +479,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/proposals/tier2-sweep-candle-anchoring-2026-07-30.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/reference/bot-api-reference.md` | lookup | live | — | 2026-09-07 | `dir:reference-is-lookup / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/reports/system-report-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/e35-break-attribution-2026-09-12.md` | evidence | live | 2026-09-12 | 2026-09-12 | `BL-20260911-A-DATED-REGIME-BREAK-ON-2026-08-30-COLLAPSED-THE-DIRECTIONAL-LEGS-WIN-RATE-AND-NOBODY-NOTICED-FOR-TWO-WEEKS` | the family-matched control does not degrade, which points at e35 without establishing it; re-runnable via scripts/research/e35_break_attribution.py |
 | `docs/research/A-multisymbol-ETH-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/A-vol-gating-AB-evidence-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

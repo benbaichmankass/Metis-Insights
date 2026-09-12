@@ -96,6 +96,12 @@ jobs:
           # broken grader here would silently restore the blindness this step
           # exists to end.
           python3 scripts/ops/pr_mergeability.py --self-test
+          # The CI-SKIP-DIRECTIVE half. ⚠️ THIS ONE CANNOT BE A CI GUARD AND THAT
+          # IS WHY IT IS HERE: when a head commit carries the directive GitHub
+          # runs NO workflow for that push, so no `pull_request`- or `push`-
+          # triggered check ever executes on the one commit it exists to catch.
+          # A SCHEDULED reader is the only surface that can see it.
+          python3 scripts/ops/ci_skip_directive.py --self-test
           python3 scripts/ci/check_pr_queue_watch.py --self-test
           # The manager-state half and the Routine's liveness guard, same rule:
           # a watcher whose grading is broken must fail loudly, not write a
