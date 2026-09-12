@@ -78,6 +78,34 @@ against the journal rather than by reading the code.
 landing on the *same package as the row just closed* is direct evidence the venue never
 closed it.
 
+### ⚠️ ADDED 2026-09-12 — the BTC case is a TRIPLE, and the third row is STILL OPEN
+
+Raised by **MI-279** on #11903 and **verified independently** here against ids 4719–5718 (it
+was the max id in this session's own pull and had not been examined — recorded as a miss, not
+inherited). All three share `pkg-85265901ef3948ef`, `bybit_1` BTCUSDT short **0.56**:
+
+| id | `setup_type` | status | entry |
+|---|---|---|---|
+| 5705 | `ict_scalp_5m` | closed `reconciler_filled`, **−55.608** | 77214.3 |
+| 5712 | `adopted_orphan` | closed `stuck_strategy_watchdog` | 77242.35802469 |
+| 5718 | `adopted_orphan` | **STILL OPEN** (06:04:09Z) | 77242.35802469 |
+
+**Why it matters to the decision:** a single pair is consistent with one bad read; a position
+returning across 9+ hours through **two different closers** (the reconciler, then the stuck
+watchdog) is a *cycling behaviour*. And it is live — the ask is about a position that exists.
+
+⚠️ **THE MANUFACTURED-LOSS TOTAL DOES NOT GROW WITH THE CHAIN.** Only 5705 booked PnL; 5712
+and 5718 carry `pnl: None`. It stays **−$762.496** across the two packages. A longer chain
+must not be allowed to inflate the figure.
+
+⚠️ **AND A RECONCILIATION, so two correct measurements are not read as contradicting.** MI-279
+reports SOLUSDT dropped on **285 of 378 reads (75.4%)** — a PER-SYMBOL rate. § 2 above reports
+**376 of 376 (100.0%)** — reads dropping **any** non-zero book. Per symbol over that window it
+is SOL **291** and BTC **241**, which sum past the read count because one read can drop both.
+The 100% figure is the BROADER claim, not the stronger one; the per-symbol rate is what shows
+the drop is **nondeterministic per symbol**, which is what permits a repeating cycle rather
+than a single bad read.
+
 ## 4. U2 — RESOLVED, and it does NOT need its own lane
 
 MI-281 declined to absorb a finding: both post-deploy adopts (5715, 5712) follow **no**
