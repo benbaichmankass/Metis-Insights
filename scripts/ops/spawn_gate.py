@@ -107,6 +107,35 @@ EXCEPTION_PATH = WORK_DIR / "spawn-priority-exception.yaml"
 
 PERMITTED, REFUSED, UNKNOWN = "permitted", "refused", "unknown"
 
+# ---------------------------------------------------------------------------
+# IS THE PARENT VISIBLE TO THE SESSION BEING SPAWNED?
+# ---------------------------------------------------------------------------
+# `BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED`. The
+# existence half of that row is ALREADY ENFORCED above — `object_doc is None`
+# refuses, observed 2026-09-12 through the real `cmd_register` (rc=3, nothing
+# written). What it reads is the LOCAL filesystem, and the row's measured defect
+# is narrower than "does not exist": MI-156's object "DID NOT EXIST on
+# origin/main 383a4f7".
+#
+# ⚠️ THOSE ARE DIFFERENT FACTS AND THE DIFFERENCE IS THE WHOLE DEFECT. A manager
+# that authors the object in its own branch and spawns from that checkout passes
+# the local check — while the session it spawns reads `main` and finds nothing,
+# and must transcribe its done_condition from the prompt. That is exactly the
+# failure the durable carrier exists to prevent, and it is invisible to a local
+# `exists()`.
+#
+# ⚠️ AND IT WARNS RATHER THAN REFUSING, deliberately. Authoring the object in the
+# same branch you spawn from is LEGITIMATE and common — MI-148's own note reads
+# "this branch creates it" — so refusing would break the correct flow to catch
+# the incorrect one. The row's criterion allows either ("REFUSES (or loudly
+# warns on)"). What must not happen is silence.
+#
+# Four states, never collapsed:
+ON_BASE = "on_base"                 #: readable on the base ref; a cold successor can see it
+BRANCH_ONLY = "branch_only"         #: here but not on the base ref — the finding
+BASE_UNREADABLE = "base_unreadable"  #: *we could not look* — never folded into on_base
+NOT_CHECKED = "not_checked"         #: no object named, or the object does not exist at all
+
 
 def _v(state: str, reason: str, **extra: Any) -> Dict[str, Any]:
     return dict(state=state, reason=reason, **extra)
@@ -167,10 +196,44 @@ def exception_covers(exc: Optional[Any], object_id: str
                   f"naming `{object_id}`")
 
 
+def _base_visibility(object_id: Optional[str], object_doc: Optional[Any],
+                     object_on_base: Optional[bool],
+                     base_ref: str = "origin/main") -> Tuple[str, Optional[str]]:
+    """``(state, advisory)`` — see the four states above. Never changes a verdict."""
+    if not object_id or object_doc is None:
+        return NOT_CHECKED, None
+    if object_on_base is True:
+        return ON_BASE, None
+    if object_on_base is False:
+        return BRANCH_ONLY, (
+            f"`{object_id}` exists HERE but not on `{base_ref}`. The spawned session "
+            f"reads the base ref, so until this branch merges it CANNOT read the "
+            f"done_condition and will transcribe it from the prompt — the failure the "
+            f"durable carrier exists to prevent "
+            f"(BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED, at "
+            f"least twice in one workstream in two days). Land the object first, or "
+            f"tell the child the branch it is on.")
+    return BASE_UNREADABLE, (
+        f"could not establish whether `{object_id}` is on `{base_ref}`. This is "
+        f"*we did not look*, NOT a pass — if it is branch-only the child cannot "
+        f"read it.")
+
+
 def grade(object_id: Optional[str], object_doc: Optional[Any], object_readable: bool,
           intent_ids: Optional[set], priority_doc: Optional[Any],
-          priority_readable: bool, exc: Optional[Any]) -> Dict[str, Any]:
-    """PURE, so the policy is arguable in tests rather than against a live spawn."""
+          priority_readable: bool, exc: Optional[Any],
+          object_on_base: Optional[bool] = None) -> Dict[str, Any]:
+    """PURE, so the policy is arguable in tests rather than against a live spawn.
+
+    ``object_on_base`` is ADVISORY ONLY and can never change the verdict — it
+    attaches ``base_visibility`` + ``advisory`` so a branch-only parent is LOUD
+    without blocking the legitimate author-it-in-this-branch flow.
+    """
+    _vis, _adv = _base_visibility(object_id, object_doc, object_on_base)
+
+    def _v(state: str, reason: str, **extra: Any) -> Dict[str, Any]:   # noqa: F811
+        return dict(state=state, reason=reason, base_visibility=_vis,
+                    advisory=_adv, **extra)
     # 1 · the orphan-task rule
     if not object_id:
         return _v(REFUSED,
@@ -258,6 +321,31 @@ def known_intent_ids() -> Optional[set]:
         return None
 
 
+def object_on_base(object_id: Optional[str], base_ref: str = "origin/main",
+                   runner=None) -> Optional[bool]:
+    """Is the object readable on *base_ref*? ``None`` means we could not look.
+
+    ⚠️ A FAILED `cat-file` IS NOT PROOF OF ABSENCE ON ITS OWN — it also fails
+    when the base ref does not exist (a fresh clone, a detached CI checkout), so
+    the ref is verified readable before its silence is read as a fact. That
+    distinction is what keeps `base_unreadable` out of `branch_only`.
+    """
+    if not object_id:
+        return None
+    rel = f"docs/claude/work/objects/{object_id}.yaml"
+    if runner is None:
+        def runner(args):
+            import subprocess
+            return subprocess.run(["git", "-C", str(REPO_ROOT), *args],
+                                  capture_output=True, text=True).returncode
+    try:
+        if runner(["rev-parse", "--verify", "--quiet", base_ref]) != 0:
+            return None
+        return runner(["cat-file", "-e", f"{base_ref}:{rel}"]) == 0
+    except Exception:  # noqa: BLE001 - a broken git must never block a spawn
+        return None
+
+
 def grade_spawn(object_id: Optional[str]) -> Dict[str, Any]:
     """Read every input from disk and grade. The I/O half, kept out of `grade`."""
     obj_doc, obj_ok = (None, True)
@@ -265,7 +353,8 @@ def grade_spawn(object_id: Optional[str]) -> Dict[str, Any]:
         obj_doc, obj_ok = _read_yaml(OBJECTS_DIR / f"{object_id}.yaml")
     prio, prio_ok = sr.read_json(PRIORITY_PATH)
     exc, _ = _read_yaml(EXCEPTION_PATH)
-    return grade(object_id, obj_doc, obj_ok, known_intent_ids(), prio, prio_ok, exc)
+    return grade(object_id, obj_doc, obj_ok, known_intent_ids(), prio, prio_ok, exc,
+                 object_on_base=object_on_base(object_id))
 
 
 _EXIT = {PERMITTED: 0, REFUSED: 3, UNKNOWN: 0}
@@ -291,6 +380,31 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     # ⚠️ THE NEGATIVE CONTROL IN BOTH DIRECTIONS. One without the other proves
     # nothing: a gate that refuses everything and a gate that permits everything
     # are both "consistent".
+    # --- base visibility: advisory only, four states, never collapsed --------
+    def _vis(on_base, doc=in_cycle, oid="WO-X"):
+        return grade(oid, doc, True, INT, PRIO, True, None, object_on_base=on_base)
+
+    check("on the base ref -> on_base, no advisory",
+          (_vis(True)["base_visibility"], _vis(True)["advisory"]), (ON_BASE, None))
+    check("PLANTED: branch-only parent -> branch_only AND an advisory",
+          (_vis(False)["base_visibility"], bool(_vis(False)["advisory"])),
+          (BRANCH_ONLY, True))
+    check("an unreadable base ref -> base_unreadable, NEVER on_base",
+          _vis(None)["base_visibility"], BASE_UNREADABLE)
+    check("no object named -> not_checked (there is nothing to see)",
+          grade(None, None, True, INT, PRIO, True, None,
+                object_on_base=False)["base_visibility"], NOT_CHECKED)
+    check("⚠️ VISIBILITY NEVER CHANGES THE VERDICT — branch-only still PERMITS",
+          _vis(False)["state"], PERMITTED)
+    check("...and it does not rescue an out-of-priority spawn either",
+          grade("WO-X", off_cycle, True, INT, PRIO, True, None,
+                object_on_base=True)["state"], REFUSED)
+    check("object_on_base returns None when the base ref is unreadable",
+          object_on_base("WO-X", runner=lambda a: 1), None)
+    check("...and False when the ref reads but the file does not",
+          object_on_base("WO-X", runner=lambda a: 0 if a[0] == "rev-parse" else 1), False)
+    check("...and True when both read", object_on_base("WO-X", runner=lambda a: 0), True)
+
     check("AN IN-PRIORITY SPAWN STILL SUCCEEDS (the gate is not a wall)",
           grade("WO-X", in_cycle, True, INT, PRIO, True, None)["state"], PERMITTED)
     check("AN OUT-OF-PRIORITY SPAWN WITH NO EXCEPTION REFUSES",
