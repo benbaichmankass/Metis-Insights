@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T13:53:03Z",
+  "updated_at": "2026-09-12T14:54:12Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4895,9 +4895,9 @@
         "claude/mi278-u3-scalp-target-sweepable"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:53:03Z",
+        "at": "2026-09-12T14:54:12Z",
         "via": "get_session",
-        "note": "RUNNING. context 769500/1000000 (77%) — PAST the ~600k hand-off threshold; should close out, not start new work. task_summary \"debugging 2nd failure (artifact-caveat-guard)\"."
+        "note": "RUNNING. context 769500/1000000 (77%) — UNCHANGED from 13:53, still past the hand-off threshold. Resolving a conflict on #11933. Will NOT be given new work and will NOT be respawned when it closes."
       }
     },
     {
@@ -4914,12 +4914,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi279-u1-pregate-timeout"
+        "claude/mi279-loud-flag-triage-proposal"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:53:03Z",
+        "at": "2026-09-12T14:54:12Z",
         "via": "get_session",
-        "note": "RUNNING. context 351343/1000000 (35%) — healthy. Self-landed 6 PRs; register critical 20->18."
+        "note": "RUNNING. context 351343 (35%) — unchanged, healthy. Debugging a duplicate-key JSON trap in the monitoring ledger."
       }
     },
     {
@@ -4936,12 +4936,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi280-digest-liveness-loop"
+        "claude/mi280-queue-verdict-always"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:53:03Z",
+        "at": "2026-09-12T14:54:12Z",
         "via": "get_session",
-        "note": "RUNNING. context 397543/1000000 (40%) — healthy, despite its own task_summary claiming \"context exhausted\" (the CLAIM is stale, the NUMBER is the observation). Its needs_action \"merge #11936 and #11930\" is STALE: both verified on main (f91db0070, 2fe1b8700)."
+        "note": "RUNNING. context 277133 (28%) — DROPPED from 397543 at 13:53, i.e. it compacted; the earlier reading is stale, exactly as the tick warns. Its \"1 blocked on human merge\" was #11958 — R12-held landing machinery; manager did the R12 read and MERGED it (d466ebb5d)."
       }
     },
     {
@@ -4992,14 +4992,14 @@
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-281 completed and handed on U5: account_open_positions still dedupes Bybit positions by symbol (if sym in seen), so a hedge book is DROPPED and the order-status reconciler closes a live row. PR #11867 measured it at 378/378 = 100.0% of bybit_1 reads and attributed two false closes totalling -$762.496. bybit_2 (real money) shows 0 ONLY because its books were flat — an empty population, not safety; the dedupe consults no account. REPLACES session_01WnQ1wp2awqbo4xRoiEZfit, which the manager spawned WITHOUT source_url and which blocked immediately with no repo (manager error; that session is ARCHIVED). | OBSERVED 2026-09-12T12:57Z: IDLE/review_ready, 583,145 ctx — DOWN from 740,064 at 10:40Z, i.e. it COMPACTED and the earlier hand-off warning is stale. #11903 is green and clean and BLOCKED on an operator Tier-2 decision. DELIBERATELY NOT ARCHIVED: a real-money order-path change may draw a follow-up question or a condition, and the lane that took the measurement answers it far better than a fresh session. An idle session consumes nothing. Overrule if you disagree.",
-      "state": "working",
+      "state": "idle",
       "branches": [
         "claude/mi283-bybit-hedge-book-dedupe"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:53:03Z",
+        "at": "2026-09-12T14:54:12Z",
         "via": "get_session",
-        "note": "RUNNING. context 606550/1000000 (61%). Resolved #11903 own conflict during this tick — re-measured CLEAN at 13:55:07Z against 4cd107c04. Still blocked on the operator Tier-2 approval, NOT on anything I hold."
+        "note": "IDLE / review_ready at 14:44:54Z. Parked on \"#11903 green, waiting on Tier-2 decision; next check 15:30Z\". The decision IS now given (approved, conditional on clean AND green). #11903 measured CLEAN at 14:55Z with 5 of 6 checks green; pytest-run still in_progress, so the condition is NOT yet met and the manager is holding."
       }
     },
     {
@@ -5030,7 +5030,7 @@
     {
       "session_id": "session_015K3oTDNwh2X6C33P6jh6CR",
       "registry_key": "pending-20260912T133131Z",
-      "state": "working",
+      "state": "completed",
       "title": "ORDER-PATH LANE MI-286 — the arbitration fan-out apply path has NEVER dispatched: apply_rounds drops the geometry its own reader validates",
       "owns_object": "WO-20260912-THE-ARBITRATION-FAN-OUT-APPLY-PATH-HAS",
       "spawned_at": "2026-09-12T13:31:31Z",
@@ -5043,9 +5043,9 @@
         "claude/mi286-fanout-apply-projection"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:53:03Z",
+        "at": "2026-09-12T14:54:12Z",
         "via": "get_session",
-        "note": "RUNNING. task_summary \"fix mutation-tested; running full suite and docstring updates\"."
+        "note": "IDLE / review_ready at 14:48:37Z. DELIVERED: #11970 merged (1baff7a1f) and DEPLOYED — /api/diag/version git_sha reads 1baff7a1f. Work complete; archiving. NOT respawned, per the operator lane-rollback directive."
       }
     }
   ],

@@ -5251,5 +5251,36 @@
       "recorded_at": "docs/claude/work/OPEN-PRS.json :: pr 11903, typed operator_decision"
     },
     "manager_note": "All three recorded with their CONDITIONS, not just their verdicts — a row recording a verdict without its condition reads as complete and is worse than a missing row."
+  },
+  "manager_tick_2026_09_12T1455Z": {
+    "headline": "THE FAN-OUT FIX IS DEPLOYED AND NOT YET EXERCISED — say which, they are different facts.",
+    "deploy": {
+      "api_diag_version": "git_sha 1baff7a1f = the #11970 merge commit. DEPLOYED and RUNNING.",
+      "exercised": false,
+      "evidence": "arbitration_fanout_soak tail (100 rows, 567007 bytes, 2026-09-09T11:02 -> 2026-09-12T14:05:04) is fanout_schema 2 on 100 of 100. ZERO v3 rows.",
+      "why_zero_is_NOT_a_failure": "the newest soak row (14:05:04Z) PREDATES the merge, and the soak only writes on a CONTESTED tick. The trader has restarted 5 times in 59 min (processes started 13:54:03, 14:05:12, 14:26:35, 14:32:02, 14:48:09 — from exit_interval_soak), so the running process is 7 min old. No contested tick has occurred since. This is 'not yet observed', NOT 'the fix did not work'.",
+      "operator_owes": "decision 2 (arming breakout_1) is gated on OBSERVING a dispatch. The evidence does not exist yet, so the manager is NOT going back to the operator this tick."
+    },
+    "merged_this_tick": {
+      "#11958": "U16 per-branch merge slot for commit-to-main. R12-held landing machinery; manager did the human read against the three checks its hold_text named, all three verified in the diff. d466ebb5d. This is the root-cause fix for the 9-PR automation conflict class — NOT yet confirmed to have removed it (no automation PR has run through the changed action; 27 workflows call it)."
+    },
+    "queue": {
+      "at": "14:55:52Z vs 24d62fe5d",
+      "open": 23,
+      "clean": 10,
+      "dirty": 13,
+      "note": "#11875 (this manager branch) is itself dirty now; #11903 is CLEAN and 5-of-6 green."
+    },
+    "operator_decision_status": {
+      "fanout_fix": "DONE — merged and deployed",
+      "breakout_1_arming": "GATED — evidence not yet available, nothing to bring back",
+      "#11903": "APPROVED, condition NOT yet met (pytest-run in_progress). HOLDING. Will merge the moment it is green."
+    },
+    "lane_count": "4 working (MI-278/279/280/283) + MI-286 COMPLETED and archived. Not respawning MI-286 — that returns the count toward the operator's three.",
+    "next": [
+      "merge #11903 when pytest-run goes green",
+      "watch for the first v3 soak row; if apply_state reads refused_by_dispatcher the fix is wrong and that is the more valuable finding",
+      "confirm #11958 actually removed the automation conflict class once an automation PR runs through the changed action"
+    ]
   }
 }
