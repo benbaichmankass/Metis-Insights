@@ -1,0 +1,5 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12079. Records docs/research/exit-lever-map.json (19 mapped / 3 recorded n/a
+/ 4 needs_column) and registers exit-lever-map-guard to keep it complete,
+advancing BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED.
+Tier-1 surface only: docs/**, scripts/ops/**, scripts/ci/**, .github/**.

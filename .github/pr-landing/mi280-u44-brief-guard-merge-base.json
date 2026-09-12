@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One script in scripts/ops/ (render_session_brief.py -- the session-brief guard's renderer) plus one filed row in docs/claude/health-review-backlog.json. Resolves the guard's --base through `git merge-base` so it compares against the branch's fork point rather than the base tip, and adds an end-to-end planted-defect control. render_session_brief.py is NOT in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list rather than by reading prose -- so R12 does not apply. No src/, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps, no live-VM file. CI behaviour is unchanged by construction: GitHub evaluates the merge ref, where merge-base(HEAD, base) == base."
+}
