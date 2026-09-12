@@ -1,14 +1,15 @@
 {
   "_doc": "RECEIPT of the PR-queue watcher (scripts/ops/pr_queue_latency.py, fired by .github/workflows/pr-queue-watch.yml). ⚠️ READ `generated_at`, NEVER THE CRON EXPRESSION -- a merged, enabled, syntactically correct scheduled workflow in this repo is NOT evidence that it fires (probes.yml's first scheduled run was ~4h50m late and fired once instead of daily). `scripts/ci/check_pr_queue_watch.py` grades this file's age in run_guards.py on every PR, so a dead watcher announces itself in everybody's CI instead of going quiet. ⚠️ An ABSENT file means the watcher has NEVER run, which is a different fact from STALE and needs a different fix.",
   "schema_version": 1,
-  "generated_at": "2026-09-11T21:17:40Z",
+  "generated_at": "2026-09-12T05:00:37Z",
   "read_state": "measured",
-  "population": "ALL 7 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
-  "waiting": 0,
-  "worst_hours": 3.9,
+  "population": "ALL 4 open, unmerged PR(s) on this repo, graded on hours since the last commit to the head branch. Drafts INCLUDED -- the convention here is 'DRAFT PR, the manager merges', so a draft is the normal hand-back shape. 0 row(s) were undateable and are excluded from the worst-wait figure.",
+  "waiting": 2,
+  "worst_hours": 11.7,
   "threshold_hours": 6.0,
   "by_state": {
-    "active": 7
+    "active": 2,
+    "waiting": 2
   },
   "rows": [
     {
@@ -16,9 +17,9 @@
       "title": "Arm R2 — the per-pass IB circuit breaker (MI-240, Tier-2, operator-approved)",
       "head_ref": "claude/mi240-arm-ib-per-pass-breaker",
       "draft": false,
-      "quiet_hours": 3.9,
-      "state": "active",
-      "why": "a push landed 3.9h ago -- being worked, not queued.",
+      "quiet_hours": 11.7,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 11.7h (threshold 6.0h).",
       "last_push_utc": "2026-09-11T17:20:47Z"
     },
     {
@@ -26,70 +27,33 @@
       "title": "R15: let an operator-approved Tier-2 PR land, without letting a branch approve itself",
       "head_ref": "claude/mi-tier2-approved-self-land",
       "draft": false,
-      "quiet_hours": 2.5,
-      "state": "active",
-      "why": "a push landed 2.5h ago -- being worked, not queued.",
+      "quiet_hours": 10.2,
+      "state": "waiting",
+      "why": "open and unmerged with no push for 10.2h (threshold 6.0h).",
       "last_push_utc": "2026-09-11T18:49:43Z"
-    },
-    {
-      "pr": 11826,
-      "title": "research(MI-275): the e35 stop-width counterfactual — do not revert, with the measurement MI-271 asked for",
-      "head_ref": "claude/mi275-stop-width-counterfactual",
-      "draft": false,
-      "quiet_hours": 0.0,
-      "state": "active",
-      "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-11T21:16:14Z"
     },
     {
       "pr": 11827,
       "title": "Alarm on a sustained losing streak and on a starved account (MI-276, Tier-2, HOLD for approval)",
       "head_ref": "claude/mi276-losing-streak-and-starved-account-detectors",
       "draft": false,
-      "quiet_hours": 0.1,
+      "quiet_hours": 0.9,
       "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-11T21:13:34Z"
+      "why": "a push landed 0.9h ago -- being worked, not queued.",
+      "last_push_utc": "2026-09-12T04:04:26Z"
     },
     {
-      "pr": 11829,
-      "title": "scope-overlap: a PATH may not supply a declaration MARKER",
-      "head_ref": "claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim",
-      "draft": false,
-      "quiet_hours": 0.2,
-      "state": "active",
-      "why": "a push landed 0.2h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-11T21:02:49Z"
-    },
-    {
-      "pr": 11831,
-      "title": "chore(ops): trainer capture-watch receipt (auto)",
-      "head_ref": "automation/data-commit-34647461560-1",
-      "draft": false,
-      "quiet_hours": 0.1,
-      "state": "active",
-      "why": "a push landed 0.1h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-11T21:14:30Z"
-    },
-    {
-      "pr": 11833,
-      "title": "backlog: R13 makes the merge slot a guaranteed conflict, measured",
-      "head_ref": "claude/r13-merge-slot-conflict",
+      "pr": 11857,
+      "title": "manager 04:52Z tick: quiet — one lane, clean queue, #11842 landed",
+      "head_ref": "claude/manager-0452z-tick",
       "draft": false,
       "quiet_hours": 0.0,
       "state": "active",
       "why": "a push landed 0.0h ago -- being worked, not queued.",
-      "last_push_utc": "2026-09-11T21:15:56Z"
+      "last_push_utc": "2026-09-12T04:58:43Z"
     }
   ],
   "runs": [
-    {
-      "at": "2026-09-04T16:35:36Z",
-      "read_state": "measured",
-      "waiting": 6,
-      "worst_hours": 156.8,
-      "escalated": false
-    },
     {
       "at": "2026-09-04T21:02:03Z",
       "read_state": "measured",
@@ -222,9 +186,16 @@
       "waiting": 0,
       "worst_hours": 3.9,
       "escalated": false
+    },
+    {
+      "at": "2026-09-12T05:00:37Z",
+      "read_state": "measured",
+      "waiting": 2,
+      "worst_hours": 11.7,
+      "escalated": true
     }
   ],
-  "last_paged_at": "2026-09-10T21:11:28Z",
-  "last_band": 1920,
-  "last_page_reason": "the condition has stood 15.9h since the last page (floor 12.0h)."
+  "last_paged_at": "2026-09-12T05:00:37Z",
+  "last_band": 480,
+  "last_page_reason": "the condition has stood 31.8h since the last page (floor 12.0h)."
 }
