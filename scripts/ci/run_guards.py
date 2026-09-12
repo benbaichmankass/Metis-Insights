@@ -194,6 +194,24 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A GREEN `pytest-run` reports `N skipped` and nothing about which N,
+        # so a whole test module going dark — every test under one
+        # module-level skipif on an absent tool — reads identically to routine
+        # conditional coverage. That is the "green that checked nothing" class,
+        # arriving through the one door nobody watches.
+        #
+        # This registers only the SELF-TEST. The summariser itself runs inside
+        # `pytest-run` (it needs that job's JUnit report, which does not exist
+        # here), so what CI can check at guard time is that the renderer still
+        # separates `fully_dark` from `partial` and still refuses to render an
+        # unreadable report as a clean sheet.
+        "name": "pytest-skip-attribution-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/summarize_pytest_skips.py", "--self-test"],
+        ],
+    },
+    {
         # (c) of the demote-and-tune design: at budget expiry a demotion CANNOT
         # stay demoted. UNGATED, like its sunset sibling: the failure is about a
         # budget ACCRUING over time, which no diff is relevant to — a demotion
