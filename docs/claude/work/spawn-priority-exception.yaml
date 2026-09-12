@@ -58,6 +58,8 @@ covers:
   #    the engineering lane exists to stop us getting stuck on the same problems; this
   #    one blocked the operator's OWN chosen spawns today) --
   - WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS
+  # -- added 2026-09-12, the THREE-LANE continuous workplan (operator-directed, verbatim) --
+  - WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
 
 reason: >-
   Asked DIRECTLY of the operator on 2026-09-03 as a decision pop-up, with three
@@ -715,3 +717,35 @@ reason_20260911_11767_fix_round: >-
 # SCOPE: this exception covers ONE object. The other operating-layer items queued
 # behind it (MI-236, MI-237, MI-244, MI-239) are NOT covered and must not be read
 # as covered.
+
+# ---------------------------------------------------------------------------
+# 2026-09-12 — THE THREE-LANE CONTINUOUS WORKPLAN (operator-directed)
+# ---------------------------------------------------------------------------
+# decision: approved
+# approved_by: operator (ben.baichmankass) — in conversation, directly, 2026-09-12
+# covers: WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER
+#
+# WHAT THE OPERATOR SAID, kept close to verbatim because the paraphrase is what
+# usually rots: "we already said at the very beginning that we have to have the
+# three lanes with the work plans that we can keep working through. If nothing's
+# going on, that's already a problem... I am absolutely positive without even
+# thinking about the roadmap that there are engineering caps we could take... we
+# need a work plan for you to keep working for several days without stopping."
+#
+# WHY THIS DISPLACES NOTHING, and the argument is not a formality:
+#   * The RESEARCH lane (MI-278) IS the cycle priority — M20 Active Trade
+#     Management, pointed at MI-277's measured finding. It needs no exception.
+#   * The OPS lane (MI-279) is the health register under the same trading-health
+#     intent. It needs no exception.
+#   * Only the ENGINEERING lane sits under IN-20260901-OPERATING-LAYER, and it is
+#     the machinery that LOSES the other two lanes' work. Measured this session,
+#     not theorised: a commit carrying a live lane's registry row was dropped by
+#     the auto-merge race and that lane ran unrecorded for nine minutes; a green
+#     automation PR sat unmergeable for 3.5h because four green checks read as
+#     ready. A lane whose output the machinery can silently discard is not cheaper
+#     to run — it is more expensive, because the loss is invisible.
+#
+# ⚠️ SCOPE OF THIS EXCEPTION: the engineering OBJECT only. It does not raise the
+#    WIP ceiling, does not cover future engineering work, and does not license a
+#    fourth lane. A blanket exception naming nothing is the thing this file exists
+#    to refuse.

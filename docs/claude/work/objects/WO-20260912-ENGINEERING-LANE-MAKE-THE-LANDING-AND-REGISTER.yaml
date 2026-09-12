@@ -7,6 +7,11 @@ stage: BUILD
 lifecycle: in_flight
 owner: session_01BjTp5RYwedmpFfkEtkQo1j
 opened_at: 2026-09-12
+closed_at: null
+captured_by: scripts/ops/capture_idea.py
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
 checklist_item: MI-280
 
 done_condition: >-
@@ -43,14 +48,32 @@ source: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  ASSESSED 2026-09-12 by session_01BjTp5RYwedmpFfkEtkQo1j. The empty list is a real
-  claim, not the migration default: every input each unit needs is readable from this
-  container -- scripts/ci/**, scripts/ops/**, .github/workflows/**, the GitHub MCP for
-  PR/check state, and the board. Nothing here waits on an operator decision, a soak, or
-  a VM read. ONE NOTED NON-BLOCKER, recorded so a successor does not read it as one: a
-  change to the landing machinery itself cannot self-land (check_pr_landing.py R12), so
-  those PRs declare landing: hold and route to the manager. That is a LANDING route, not
-  a blocker on doing the work.
+  TWO ASSESSMENTS, BOTH KEPT, because they are different observations and neither
+  substitutes for the other. ⚠️ This field is itself an instance of U4, the failure this
+  object exists to catch: `main` and this branch each wrote a full `blocked_on_basis`,
+  the merge was an add/add, and taking either side wholesale would have SILENTLY
+  REVERTED the other's assessment while the file still parsed and still read ASSESSED.
+  Resolved by union rather than by choosing.
+  (1) ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t), landed on
+  `main`: the empty list is a POSITIVE finding, not the NOT-ASSESSED default it replaces
+  — nothing blocks this object today, because MI-280 is RUNNING it right now
+  (session_01BjTp5RYwedmpFfkEtkQo1j) and was OBSERVED WORKING, read off `list_sessions`
+  rather than inferred from the registry row. That is an observation the lane cannot make
+  about itself, which is why it is kept verbatim. It is a statement about TODAY and about
+  THIS object only, and is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT BINDS, never
+  pre-emptively — a false blocker is worse than a missing one, and an anticipated one is a
+  false one until the work arrives at it.
+  (2) ASSESSED 2026-09-12 by session_01BjTp5RYwedmpFfkEtkQo1j, the lane itself: every
+  input each unit needs is readable from this container — scripts/ci/**, scripts/ops/**,
+  .github/workflows/**, the GitHub MCP for PR/check state, and the board. Nothing here
+  waits on an operator decision, a soak, or a VM read. ONE NOTED NON-BLOCKER, recorded so
+  a successor does not read it as one: a change to the landing machinery itself cannot
+  self-land (check_pr_landing.py R12), so those PRs declare `landing: hold` and route to
+  the manager. That is a LANDING route, not a blocker on doing the work. ⚠️ CORRECTED
+  2026-09-12: this lane published a wrong reading of that list — `scripts/ops/claim_merge_slot.py`
+  IS landing machinery (11 entries; import the module, do not grep it), and U5 (#11881) is
+  a `hold` in consequence.
 
 scope_limits: >-
   scripts/ci/**, scripts/ops/**, .github/workflows/**, tests/**, docs/**. Tier-1 tooling
