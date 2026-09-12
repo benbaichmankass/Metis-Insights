@@ -25,7 +25,7 @@ U1 established what *can* end a winner per leg. This asks what *did*.
 | **Base population** | MI-277's `population()`, restated identically: `closed` · NOT `is_backtest` · `pnl IS NOT NULL` · pairs sleeve excluded |
 | **Date cut** | `created_at >= 2026-08-27` — MI-271's bleed-start date, per this unit's brief (**not** MI-277's 2026-08-30T08:53Z split; where §4 compares against MI-277 it uses MI-277's split, and says so) |
 | **n** | **183 closes · 49 winners** across `bybit_1` 40 · `alpaca_portfolio` 3 · `alpaca_paper` 2 · `bybit_portfolio` 2 · `bybit_2` 2 |
-| **Risk basis** | `order_packages.entry`/`.sl` — **entry-frozen**. `trades.stop_loss` is the TRAILED stop and must never be a denominator (MI-277 §1.2) |
+| **Risk basis** | `order_packages.entry`/`.sl`. ⚠️ **THIS IS NOT ENTRY-FROZEN AND THIS ROW SAID IT WAS** — see [`m20-u2b-risk-denominator-ratchet-2026-09-12.md`](m20-u2b-risk-denominator-ratchet-2026-09-12.md), written after this section: the break-even ratchet amends `order_packages.sl` in place on trades that reach 1R, so R off it is **inflated on winners and correct on losers**. `trades.stop_loss` is worse still (the trailed stop, MI-277 §1.2). **The ATTRIBUTION in §3 does not depend on the denominator at all** — it is a classification of exit labels — but the `tp_r` ratios in §4 and §5 do, and they are superseded by U2b §3. |
 | **Positive control** | `provenance.classify_pnl` over the 183 returns `{measured: 99, estimated: 84}` — the probe demonstrably finds more than one bucket, so a quiet cell below is a real negative |
 
 ---
@@ -142,6 +142,10 @@ Its §2.2 restricts to *measured winners that reached a declared target* (`tp`/`
 The only mechanism with enough attributed mass to test is the **take-profit**: 18 of 49 winners ended exactly at their declared `tp_r`, and the stop family banked another 6 at 12–13% of target. So the U3 counterfactual is on **target geometry and the trailing stop that precedes it** — on the config-exact harness, IS/OOS with a yearly walk-forward, at the `exit-refinement` gate (Path A or Path B), not at a correlation bar.
 
 ⚠️ **And it must be run knowing that 43% of this window's winners are unattributable or contaminated**, so a live-population estimate of any lever's firing rate is a **lower bound** by construction.
+
+## 7b. ⚠️ Superseded by U2b
+
+§4's *achieved / declared `tp_r`* ratios and §5's R levels are computed off `order_packages.sl`, which [U2b](m20-u2b-risk-denominator-ratchet-2026-09-12.md) then established is **amended by the break-even ratchet on winners only**. The **attribution** (§3) is unaffected — it classifies exit labels, not magnitudes — and so is the *reached / fell short* **count** in §4, which compares the fill against the frozen `tp` and never divides by the stop. What is superseded is every figure in R. U2b re-runs them and reports MI-277's collapse at **−49%** rather than −63% on its own population; it does **not** overturn it.
 
 ## 8. Rows filed
 
