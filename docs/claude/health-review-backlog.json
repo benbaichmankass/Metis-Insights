@@ -36252,6 +36252,28 @@
       "evidence": "manager_lease.py status at 23:52Z reading state=expired / heartbeat_at 2026-09-11T21:53:01Z; PR #11839 open with base 37b70063 against main 2f260543 and total_count 0 check runs; the 22:53:00Z heartbeat present in that branch's MANAGER-LEASE.json and absent from main.",
       "owner": null,
       "source": "manager session_01HoFquGdTrD3TTGbMMRc43t, 23:52Z tick — found because the lease refused its own holder"
+    },
+    {
+      "id": "BL-20260912-RISK-PER-TRADE-COMPUTED-FROM-TRADES-STOP-LOSS-USES-THE-TRAILED-STOP-AND-PUTS-IT-IN-A-DENOMINATOR",
+      "title": "RECURRENCE: a second session computed an R basis from trades.stop_loss (the TRAILED stop) -- here it sits in a denominator and moved a mean R from 7.3 to 102.6",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-277 (docs/research/winner-size-collapse-2026-09-12.md)",
+      "detail": "RECURRENCE of the trap that WITHDREW BL-20260908-SL-CROSS-LABELS-NINE-CLOSES-THAT-EXITED-IN-PROFIT ('my R basis was wrong'), and adjacent to BL-20260909-TRADES-STOP-LOSS-CAN-UNDERSTATE-THE-LEVEL-RESTING-AT-THE-VENUE. trades.stop_loss is the FINAL, TRAILED stop -- levers amend it in place -- so |entry_price - stop_loss| is not the risk the position was sized against. MI-275 section 3.4 named the same field distinction for exit ADJUDICATION; the consequence is worse when the quantity is a DENOMINATOR. MEASURED 2026-09-12 on /api/diag/journal trades+order_packages limit=1000 (ids 4709-5708), bybit_1, 180 rows, 100% package join: trade 5027 (ict_scalp_sol_15m) reads |entry - stop_loss| = 0.000885 giving risk /bin/bash.88 and R = 3672 on a ,225 win, and that ONE row moves the pre-era mean R over 42 winners from 7.32 to 102.56. 15.8% of winners have a trailed/frozen stop-distance ratio below 0.9. The correct basis is order_packages.sl / .entry (entry-frozen; MI-275 section 3.3 proved it lands on each leg's declared ATR multiplier to 3dp). THE POINT IS THAT THIS IS THE SECOND TIME: the field is the obvious one to reach for, nothing in the schema or in any docstring warns that it mutates, and the first session's withdrawal is recorded only in a backlog row nobody reads mid-task.",
+      "resolution_criteria": "Either trades.stop_loss carries an in-schema or in-docstring warning that it is mutated by trailing (so the next reader is warned at the point of use rather than in a 1400-row backlog), or an entry-frozen risk field is exposed on the row. A third session computing an R basis off trades.stop_loss is the failure this row exists to detect."
+    },
+    {
+      "id": "BL-20260912-A-STOP-DISTANCE-FLOOR-OF-0-0015-BINDS-ON-A-QUARTER-OF-SCALP-ROWS-AND-ITS-SOURCE-IS-NOT-IN-SRC",
+      "title": "A stop distance of exactly 0.00150000 of entry binds 48 of 180 bybit_1 rows (ict_scalp only) and I could not find the code that sets it",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-277 (docs/research/winner-size-collapse-2026-09-12.md)",
+      "detail": "MEASURED 2026-09-12 on /api/diag/journal order_packages limit=1000 joined to trades (ids 4709-5708), account bybit_1, n=180 rows: 48 rows (26.7%) carry |entry - sl| / entry = 0.00150000 to EIGHT decimal places -- an 8.6x mode over the next most common value (3 rows). All 48 are ict_scalp_* legs, across ETHUSDT/AVAXUSDT/XRPUSDT/SOLUSDT. Split by era: 27 of 79 pre (34.2%), 21 of 101 post (20.8%). UNESTABLISHED: where the value comes from. I searched src/ for the literal 0.0015, for min_stop*, *_bps, and clamp/floor/min-distance names; the only hit is hf_vwap_revert.py's unrelated min_stop_pct = 0.003. So the clamp is MEASURED and its origin is NOT. INFERRED that it is a FLOOR rather than a cap, from two measurements in the same memo: a cap binds MORE as volatility rises and a floor binds LESS; the stop-distance proxy for vol rose 29% (61.9 -> 79.6 bp pooled) while the share at the value FELL 34.2% -> 20.8%. WHY IT MATTERS: for a quarter of the scalp book the risk denominator is not ATR-derived, so R is not comparable across those rows and the sizer sizes them differently than the declared geometry implies. It does NOT change MI-277's verdict and moves it the safe way -- excluding the clamped rows the winner-R collapse is LARGER (median R 2.573 -> 0.536).",
+      "resolution_criteria": "The code path setting 0.0015 is NAMED (file and line), and it is recorded whether the clamp is deliberate. If it is deliberate, its rationale is written at the call site; if no such code exists, that is a different and more serious finding about where package sl values come from."
     }
   ]
 }
