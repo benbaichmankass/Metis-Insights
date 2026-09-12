@@ -40,6 +40,29 @@ on:
         description: "Matrix lever to sweep (e.g. exit_ladder). Empty = all cells."
         required: false
         default: 'exit_ladder'
+      walkforward:
+        description: >-
+          Run the yearly walk-forward. DEFAULT true = today's behaviour exactly.
+          Set false only for a cheap SCREENING pass: a screen is NOT a verdict
+          and cannot clear the exit-refinement gate, which requires the
+          walk-forward. Screening exists because a full 8-arm grid over
+          m27_data's ~124k-row files sits at roughly the 150-minute job
+          timeout, so a blind full run risks spending the budget and
+          delivering nothing.
+        required: false
+        type: boolean
+        default: true
+      timeout_bars:
+        description: >-
+          LIVE-PARITY axis, not a tuning knob. Empty = pass nothing = the
+          harness default of 24, which is what every M27 scalp cell in the
+          coverage matrix was measured at. Production has NO time-based exit on
+          any ict_scalp leg (MI-278 U3), so a large value (e.g. 100000) is the
+          PARITY arm — and only the parity arm may be cited by a proposal about
+          how long a winner is held. Both arms are run so the gap is quantified
+          rather than swapped in silently.
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -109,16 +132,50 @@ jobs:
           SYM: ${{ matrix.leg.sym }}
           TF: ${{ matrix.leg.tf }}
           CELLS: ${{ inputs.cells || 'exit_ladder' }}
+          # Defaults keep the PUSH trigger byte-for-byte what it was: `inputs.*`
+          # is empty on a push, so WF stays on and no timeout flag is passed.
+          WF: ${{ (github.event_name != 'workflow_dispatch' || inputs.walkforward) && '1' || '' }}
+          TIMEOUT_BARS: ${{ inputs.timeout_bars || '' }}
         run: |
           set -o pipefail
           python3 scripts/research/m27/ict_scalp_exit_sweep.py \
             --leg "${LEG}" \
             --data "data/${SYM}_${TF}.csv" \
             ${CELLS:+--cells "${CELLS}"} \
-            --split 2025-07-01 --walkforward \
+            ${WF:+--walkforward} \
+            ${TIMEOUT_BARS:+--timeout-bars "${TIMEOUT_BARS}"} \
+            --split 2025-07-01 \
             --out "out/${SYM}_${TF}" 2>&1 | tee sweep.out
           echo "---VERDICTS_JSON---"
           cat "out/${SYM}_${TF}/verdicts.json" >> verdicts_raw.json || true
+
+      # MI-278 U6, 2026-09-12. THE VERDICT COMMENT WAS THE ONLY DURABLE RECORD,
+      # AND IT IS NOT RELIABLE. Run 34684742080 computed all seven legs and its
+      # post step failed with "no open PR found for commit 84a3dab8", so six
+      # verdicts had to be hand-transcribed out of job logs — weaker provenance
+      # than a posted comment, and job logs expire. Every M27 ict_scalp cell in
+      # `docs/research/exit-refinement-coverage.json` rests on this path, and
+      # `verdicts.json` was written to a runner-local `out/` and thrown away.
+      #
+      # `if: always()` deliberately, and for the same reason as the post step:
+      # a run that dies after computing some cells still holds the only copy of
+      # them. `retention-days: 90` is the plan default made EXPLICIT, so the
+      # window is a stated fact rather than whatever the org setting happens to
+      # be — 90 days is NOT permanent, and the standing fix is for these
+      # verdicts to reach `docs/research/m20-sweep-corpus.jsonl`, which today
+      # holds ZERO ict_scalp rows (measured: 1376 rows across 5 levers, none of
+      # them this family). Filed as
+      # `BL-20260912-EVERY-M27-ICT-SCALP-VERDICT-IS-CARRIED-BY-A-PR-COMMENT-THAT-HAS-ALREADY-FAILED-TO-POST-ONCE`.
+      - name: Upload the sweep verdicts as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-sweep-${{ matrix.leg.name }}
+          path: |
+            out/**/verdicts.json
+            sweep.out
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Post verdict comment on PR
         if: always()
