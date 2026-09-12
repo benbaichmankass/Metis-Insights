@@ -374,29 +374,37 @@ config-exact base. Population per leg is the `m27_data` file the workflow
 pulls, split at **2025-07-01**; every cell is the 7-value grid of §4 with the
 leg's own `tp_at_r: 1.5` excluded as the baseline.
 
-| leg | BASE IS (n, R, maxDD) | BASE OOS (n, R, maxDD) | Σ IS ΔR | Σ OOS ΔR | cells passing |
-|---|---|---|--:|--:|--:|
-| `ict_scalp_eth_15m` | 257 · 44.36 · 8.19 | 130 · 15.73 · 11.69 | **−42.12** | **+4.71** | 0/7 |
-| `ict_scalp_sol_15m` | 280 · 23.65 · 17.82 | 142 · 20.46 · 9.23 | **+75.10** | **−20.15** | 0/7 |
-| `ict_scalp_xrp_15m` | 227 · 20.87 · 10.75 | 134 · 15.71 · 9.26 | **−44.49** | **+21.75** | 0/7 |
-| `ict_scalp_sol_5m` \* | 41 · 15.84 · 4.03 | 32 · −2.16 · 9.21 | **−20.04** | **+23.71** | 0/7 |
+| leg | BASE IS R | BASE OOS R | Σ IS ΔR | Σ OOS ΔR | IS/OOS sign | cells passing |
+|---|--:|--:|--:|--:|:--:|--:|
+| `ict_scalp_eth_15m` | 44.36 | 15.73 | −42.12 | +4.71 | **flips** | 0/7 |
+| `ict_scalp_sol_15m` | 23.65 | 20.46 | +75.10 | −20.15 | **flips** | 0/7 |
+| `ict_scalp_xrp_15m` | 20.87 | 15.71 | −44.49 | +21.75 | **flips** | 0/7 |
+| `ict_scalp_sol_5m` | 81.33 | 51.27 | +19.20 | −27.19 | **flips** | 0/7 |
+| `ict_scalp_xrp_5m` | 106.01 | 24.10 | −39.91 | +19.97 | **flips** | 0/7 |
+| `ict_scalp_avax_5m` | 147.04 | 43.14 | +9.77 | +9.48 | same (both +) | 0/7 |
+| `ict_scalp_5m` (BTC) | 88.70 | 40.18 | −10.98 | −39.47 | same (both −) | 0/7 |
 
-\* local smoke run, same config-exact base and the same 24-bar timeout.
+⚠️ **UPDATED 2026-09-12T09:0xZ from 4 legs to the COMPLETE 7, and the headline
+claim moved with it.** This section first read *"on 4 of 4 legs the dominant
+direction REVERSES"*. Over all seven it is **5 of 7**, and the two exceptions
+matter: `avax_5m` agrees POSITIVE in both windows and `btc_5m` agrees NEGATIVE
+in both. `avax_5m` is exactly the leg that goes on to produce the only widening
+candidates at parity (§4h), so the exception is not noise — do not re-quote the
+4-of-4 figure.
 
 **0 of 28 cells cleared the IS+OOS gate. Every one is `honest_negative`.**
 
 ### The sign structure is the actual finding
 
-On **4 of 4 legs the dominant direction of the target effect REVERSES between
-IS and OOS.** `sol_15m` says wider is emphatically better in-sample — ΔR rising
+On **5 of 7 legs the dominant direction of the target effect REVERSES between
+IS and OOS** (4 of 4 when this was first written; see the note above). `sol_15m` says wider is emphatically better in-sample — ΔR rising
 monotonically to **+21.45R at 4R against a 23.65R book, a near-doubling** — and
 uniformly worse out-of-sample, on all seven cells. `xrp_15m`, `eth_15m` and
 `sol_5m` say the opposite, also on 6–7 of 7.
 
-⚠️ **The cell-level agreement rate is 5/28 = 17.9%, and it must NOT be quoted
-as a statistic.** The seven cells within a leg are nested variations over the
-*same* trades, so they are nowhere near independent and the effective n is
-about **4, not 28**. What survives is the leg-level statement above: four legs,
+⚠️ **A cell-level agreement rate must NOT be quoted as a statistic.** The seven
+cells within a leg are nested variations over the *same* trades, so they are
+nowhere near independent and the effective n is the LEG count (**7**), not 49. What survives is the leg-level statement above: four legs,
 four reversals, no consistent direction.
 
 That is the signature of period character rather than of a lever. A target that
