@@ -4879,6 +4879,48 @@
       "observed_2026_09_12T0252Z": "get_session: IDLE / status_bucket COMPLETED, branch back on main, context 634692. PR #11848 MERGED. Its closing summary carries a claim NOT in the PR body and it is the useful part: 'Losers-as-control show sizer & stops intact' and 'ENTRY-SIDE CHANGE REQUIRED, outside this unit's scope'. That is a handoff signal, not a conclusion this lane was scoped to act on -- any entry-side parameter change is Tier-3 and is the operator's."
     },
     {
+      "session_id": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+      "registry_key": "pending-20260912T051723Z",
+      "state": "working",
+      "title": "RESEARCH LANE MI-278 — M20 Active Trade Management: why winners stopped running, and what holds them",
+      "owns_object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
+      "checklist_item": "MI-278",
+      "spawned_at": "2026-09-12T05:17:23Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-277 measured winner hold collapsing 5.17h -> 1.90h while LOSER hold ROSE and losses stayed at exactly 1R. The sizer and stops are intact. M20 is named Active Trade Management and this is its subject. Multi-unit queue, not a single memo.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-12T05:19:48Z"
+    },
+    {
+      "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
+      "registry_key": "pending-20260912T051723Z-2",
+      "state": "working",
+      "title": "OPS LANE MI-279 — drive the health backlog down by class, critical first",
+      "owns_object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
+      "checklist_item": "MI-279",
+      "spawned_at": "2026-09-12T05:17:23Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "702 open rows, 20 critical, 274 high. Reviews fill this register and nothing has been emptying it. Class-first drain with a burn-down that makes growth visible.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-12T05:19:48Z"
+    },
+    {
+      "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "registry_key": "pending-20260912T051805Z",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-280 — stop the landing and register machinery losing work",
+      "owns_object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
+      "checklist_item": "MI-280",
+      "spawned_at": "2026-09-12T05:18:05Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Four failure modes measured 2026-09-11/12, all unowned: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-12T05:19:48Z"
+    },
+    {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
       "title": "ORDER-PATH LANE MI-281 — repair the hedge-book flat read closing live Bybit positions",
       "owns_object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",

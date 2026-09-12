@@ -4319,5 +4319,62 @@
     "cron_slot_churn_observed": "main's merge_slot is already automation/data-commit-34673805464-1 -- a claim newer than #11842's, minted within minutes. That is BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET behaving exactly as documented, and is why a green automation PR goes dirty on its own.",
     "standing_with_operator": "#11827 (one OK, merge only, nothing armed) and OI-20260908 (MI-277's one routed recommendation -- the measurement fix; a lane is scoped and NOT dispatched, awaiting a word).",
     "dangling_ref_corrected": "The first push of this tick cited the 2026-09-11 R13 merge-slot id TRUNCATED at `...-GUARANTEED-CONFLICT` (the full id continues `-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES`). It resolves to NOTHING and failed artifact-validity-guard. THREE things are worth keeping, and only the first is a typo. (1) The truncated form was copied VERBATIM out of the manager-tick Routine prompt, which carries it that way -- so the trap re-arms every hour and being more careful is not a fix. The Routine prompt is corrected in the same breath. (2) Expanding it to its full id would have been WORSE than the failure: that row is `superseded`, so a reader would be sent to a row explicitly no longer live. The row cited now is the open one that matches what was actually observed -- automation PRs re-writing the slot so main is never quiet. (3) THE FIRST REPAIR ALSO FAILED, and the reason is the useful part: the explanatory note QUOTED the dangling id, so writing about it re-created it. A reference extractor cannot tell a citation from a post-mortem, which means a dangling id can only ever be DESCRIBED, never quoted -- as it is here."
+  },
+  "lane_queues_2026_09_12": {
+    "_why_here": "The manager's lane dispatch register lives in the CHECKLIST, not in a separate document. It was drafted as docs/claude/work/LANE-QUEUES-2026-09-12.md and that file is deleted: as a standalone .md it collided with one-live-workplan (a second live plan) and then with document-index (DOCUMENT-INDEX.md is off the manager surface, so the manager cannot register its own doc). Neither objection was about the CONTENT. The checklist is on the manager surface, is the operator's live Workflow page, and is where a successor already looks -- so this is where it belongs.",
+    "not_a_plan_of_record": "The ONE live plan is docs/claude/WORKPLAN-2026-08-29.md and it STAYS live. This staffs its Lane B and adds lanes; it replaces none of them.",
+    "lane_map": {
+      "Lane B — M20 Active Trade Management": "MI-278. Already 'the operator's stated priority' on 2026-08-29 — read that lane first, it is MI-278's prior art, not a parallel thread.",
+      "Lane C — order-path correctness": "partly MI-279 (where health rows exist) and MI-281 (the hedge-book flat read).",
+      "Lane R — prop account": "MI-282.",
+      "Lane A — Alpaca real-money go-live": "UNSTAFFED. Blocked on a T+1 settlement decision.",
+      "Lane P — promotion pipeline": "UNSTAFFED. Gates every real-money graduation.",
+      "Lanes D / S / T / E": "UNSTAFFED, carried forward unchanged.",
+      "(new) the machinery that loses lanes' work": "MI-280."
+    },
+    "unstaffed_means": "No lane is working it, NOT that it stopped mattering. Two are real-money-adjacent and are first in line when a lane frees up. Named at every handoff so they do not fall off the edge.",
+    "standing_rule": "A lane that finishes a unit takes the NEXT unit; it does not go idle and does not wait for the manager. THE MANAGER DISPATCHES A REPLACEMENT THE MOMENT A LANE GOES TERMINAL — at that moment, not at the next tick. An hourly cadence is for reporting, never for deciding whether work should exist.",
+    "asking_is_not_waiting": "Asking the operator a question NEVER means waiting for the answer. State the assumption, keep working, put the question in the next update. A manager that blocks becomes an extra decision gate in front of the operator, which is the measured constraint reproduced by the person meant to relieve it.",
+    "queues": {
+      "MI-278 research": [
+        "U1 per-leg inventory of every mechanism that can END a winning trade, and which are ARMED",
+        "U2 attribute each post-2026-08-27 winning close to the mechanism that ended it, provenance-graded",
+        "U3 counterfactual on the implicated levers: config-exact harness, IS/OOS, yearly walk-forward",
+        "U4 a Tier-3 PROPOSAL per cleared lever — a memo is not the deliverable",
+        "U5 the MFE/MAE-in-ATR instrument (filed, unowned)",
+        "U6 next open high performance row bearing on trade management"
+      ],
+      "MI-279 ops": [
+        "U1 all 20 open CRITICAL rows dispositioned with evidence — a row left UNREAD is the failure, not a row left open",
+        "U2 an opened-vs-closed burn-down so the pile cannot grow silently",
+        "U3 class-first on the 274 high rows — one fix that closes nine beats nine fixes",
+        "U4 a triage proposal for `loud:` — 69 of 82 rows carry it, and a flag on 84% selects nothing",
+        "U5 the DUE monitoring rows, OBSERVED (a green test is not an observation)",
+        "U6 the duty pass over docs/claude/DUE.md"
+      ],
+      "MI-280 engineering": [
+        "U1 a detector for green-but-dirty PRs",
+        "U2 the post-arming commit-drop race",
+        "U3 the scope-overlap declaration parser",
+        "U4 shared-register merge safety (a union-by-id proof is blind to a dropped FIELD)",
+        "U5 claim_merge_slot.py has no release mechanism",
+        "U6 the stale-automation class"
+      ],
+      "MI-281 order-path": [
+        "U1 the root cause: select the book, separate the two collapses",
+        "U2 containment: the flap guard's exit_reason allowlist omits netting_attributed",
+        "U3 make the nine ungradeable soak rows gradeable (source + position_idx)",
+        "U4 the fleet OBSERVATION — a unit test clears neither half",
+        "U5 next open critical touching the Bybit order path"
+      ],
+      "MI-282 prop": [
+        "U1 the sequence, written down: every gate between an elected signal and an emitted ticket",
+        "U2 the blockers that are NOT the allowlist (static DD floor, stale-balance refusal, reticket check)",
+        "U3 the Tier-2/3 proposal with what each step changes for the OTHER accounts",
+        "U4 breakout_1 OBSERVED routing, against a window where its legs signalled",
+        "U5 the open prop rows in the health backlog"
+      ]
+    },
+    "engineering_lane_note": "MI-280 sits under IN-20260901-OPERATING-LAYER, not the cycle priority, so its spawn required a priority exception — filed at docs/claude/work/spawn-priority-exception.yaml, operator-approved directly, scoped to that ONE object. The argument that earns its slot: this machinery LOSES the other lanes' work, measured, not theorised."
   }
 }
