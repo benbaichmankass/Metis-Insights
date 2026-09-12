@@ -24,6 +24,7 @@ survived out of everything swept, and it goes the other way.
 | `bracket_geometry` @ 24-bar timeout | 49 cells / 7 legs | 0 | — | §4d |
 | `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3, on 2 legs, **opposite directions** | **1 of 3** — `avax_5m`'s two candidates FAILED the walk-forward | §4l, §4n, §4p |
 | `breakeven_ratchet` @ live parity | 7 cells / 7 legs | **0** | — | §4j |
+| `breakeven_ratchet` **× target** @ live parity | 28 cells / 7 legs | **0** | — | §4r |
 | `stop_geometry` (the stop buffer) @ **live parity** | 42 cells / 7 legs | 4, on 3 legs | **1 of 4** — `avax_5m` and BOTH `sol_5m` candidates FAILED the walk-forward | §4k, §4q |
 
 **TWO survivors out of 98 cells, and they are on the SAME LEG —
@@ -1440,6 +1441,91 @@ them declare `atr_stop_mult`**; the other **36 declare `atr_stop_mult`** and 0
 declare the scalp key. So those 36 are **`n/a`** — they *do* have a stop-width
 parameter and it is `atr_stop_mult`, already `bracket_geometry`'s dimension. A
 column naming a parameter a leg does not have is `n/a`, not a negative.
+
+## 4r. ⛔ THE RATCHET × TARGET CROSS — 0 of 28, and the screen's own mechanism is REFUTED
+
+Run [`34693266894`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34693266894),
+`cells=breakeven_ratchet`, `timeout_bars=100000`, `walkforward=true`, all 7 legs,
+**4 cells each**: the one-axis `be_off` plus three that DISARM the ratchet *at a
+different target* — `be_off@tp0.75R_ctl`, `be_off@tp2R`, `be_off@tp3R`.
+
+**Why the cross exists.** `BL-20260912-THE-BREAK-EVEN-RATCHET-COSTS-2-7R-AT-THE-LIVE-SCALP-TARGET-AND-HAS-NEVER-BEEN-SWEPT`
+says in terms that §4j's one-axis cell does not close it. The ratchet arms at
+1R, so part of what "a narrower target" buys is simply putting the target BELOW
+the arming threshold — a one-axis sweep of either lever attributes the other's
+effect to it. The row asked for the screened 2×2 generalised. This is it. The
+ARMED arm was already measured (§4l swept the whole `_TP_GRID` with the ratchet
+on), so only the DISARMED row was needed.
+
+**28 cells, 7 legs, ZERO candidates. Nothing clears the gate.**
+
+### ✅ The positive control is EXACT on 7 of 7 legs
+
+The ratchet cannot arm below 1R, so `be_off@tp0.75R_ctl` MUST reproduce the
+ARMED `tp0.75R` cell exactly. It does, on **all six figures** — both ΔR, both
+ΔDD, and both trade counts — for **every leg**, across two independently
+dispatched runs a day apart:
+
+| leg | armed `tp0.75R` IS ΔR / ΔDD / n | disarmed `_ctl` IS ΔR / ΔDD / n |
+|---|--:|--:|
+| `xrp_15m` | −16.78 / +1.73 / 212 | −16.78 / +1.73 / 212 |
+| `sol_15m` | −2.36 / +0.18 / 267 | −2.36 / +0.18 / 267 |
+| `eth_15m` | −8.97 / −0.47 / 259 | −8.97 / −0.47 / 259 |
+| `xrp_5m` | −37.04 / +4.48 / 473 | −37.04 / +4.48 / 473 |
+| `sol_5m` | +1.54 / −2.03 / 623 | +1.54 / −2.03 / 623 |
+| `avax_5m` | −4.01 / −2.97 / 740 | −4.01 / −2.97 / 740 |
+| `btc_5m` | +31.42 / −18.81 / 493 | +31.42 / −18.81 / 493 |
+
+**This is the cell that makes every other cell in the family readable.** Without
+it, a `--no-sim-breakeven` that silently failed to strip the flag would make all
+28 cells read as confident zeros. ⚠️ **`eth_15m` is the load-bearing case**: it
+is the only leg carrying a `declared_base`
+(`--stale-exit-bars 12 --stale-exit-below-r 0.0`), so its match proves the
+`--no-` subtraction removes **exactly** `--sim-breakeven` and leaves the leg's
+declared flags intact. Had it over-reached, that cell would have diverged.
+
+A second control came free: `be_off` reproduces §4j's run-`34684327271` figures
+exactly on every leg.
+
+### ⛔ THE SCREEN'S MECHANISM IS REFUTED — the effect goes the OPPOSITE way
+
+The screen's causal story was that `be_stop` share rises monotonically with the
+target (0.0 / 0.0 / 18.5 / 28.1 / 40.0% at tp 0.75→3.0) **because a wider target
+keeps the trade above 1R longer**, so disarming should help MORE at wider
+targets. Measured — `disarm_effect(tp) = ΔR(be_off@tpXR) − ΔR(armed tpXR)`,
+both against the same base:
+
+| leg | tp0.75 (control) | **tp1.5 LIVE** | tp2.0 | tp3.0 | shape over the binding range |
+|---|--:|--:|--:|--:|---|
+| `xrp_15m` | **0.00** | −2.78 | −3.37 | +7.95 | neither |
+| `sol_15m` | **0.00** | +5.89 | +1.53 | −9.21 | falls |
+| `eth_15m` | **0.00** | −1.06 | −5.15 | −8.08 | falls |
+| `xrp_5m` | **0.00** | −10.29 | −10.37 | +19.59 | neither |
+| `sol_5m` | **0.00** | −11.46 | −13.31 | −4.48 | neither |
+| `avax_5m` | **0.00** | −24.76 | −29.99 | −44.27 | falls |
+| `btc_5m` | **0.00** | +3.67 | −17.08 | −47.57 | falls |
+
+**0 of 7 legs RISE. 4 FALL, 3 are non-monotone.** Not one leg reproduces the
+predicted direction. And at the LIVE target, disarming **helps on only 2 of 7**.
+
+**So the answer to the row's question is: KEEP THE RATCHET.** The screen's
+−2.729 R at the live target was one leg, one quarter, n=60–72, no IS/OOS and no
+walk-forward — the row said so itself and called it a SCREEN. At fleet scale on
+the `m27_data` corpora it does not generalise, and the mechanism it proposed
+runs backwards.
+
+⚠️ **WHAT THIS DOES NOT SAY.** It does not say the ratchet is *optimal* — the
+grid tested is `{0.75, 2.0, 3.0}` around the live 1.5, and `be_offset_bps`
+itself (15) was never varied. It does not touch the row's OTHER observation,
+that the two levers are entangled in the live config; that is now **measured and
+true in a weaker form** — the effect is target-dependent, it just is not
+monotone in the direction claimed. And it is PATH A only, like everything else
+here.
+
+⚠️ **`tp_at_r == 1.0` WAS DELIBERATELY NOT CROSSED.** The ratchet arms AT 1R, so
+a target at 1R is a tie whose resolution depends on the harness's within-bar
+evaluation order. A number that means an implementation detail is worse than no
+number, so the grid refuses it.
 
 ## 5. Landing
 

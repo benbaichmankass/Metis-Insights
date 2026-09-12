@@ -275,6 +275,33 @@ it sounds, not stronger.
 
 ---
 
+## NOT PROPOSED — the break-even ratchet, now refuted TWICE
+
+`BL-20260912-THE-BREAK-EVEN-RATCHET-COSTS-2-7R-AT-THE-LIVE-SCALP-TARGET-AND-HAS-NEVER-BEEN-SWEPT`
+opened on a screen showing that disarming the ratchet was worth **+2.729 R** at
+the live target on one leg-quarter. **Do not act on that number.** It has now
+been swept properly, twice:
+
+| sweep | population | candidates |
+|---|--:|--:|
+| one-axis `be_off` @ parity (§4j) | 7 cells / 7 legs | **0** |
+| **× target cross** @ parity (§4r) | 28 cells / 7 legs | **0** |
+
+**And the screen's own causal mechanism is refuted.** It predicted the disarm
+effect GROWS with the target, because `be_stop` share rises 0 / 0 / 18.5 / 28.1
+/ 40.0%. Measured across 7 legs: **0 rise, 4 fall, 3 non-monotone**, and at the
+live target disarming helps on only **2 of 7**. The effect is target-dependent —
+so the row was right that the levers are entangled — but it runs the *opposite*
+way to the claim.
+
+**Recommendation: KEEP THE RATCHET, and no Tier-3 change is proposed for it.**
+
+⚠️ **This does not say the ratchet is OPTIMAL.** The cross tested targets
+`{0.75, 2.0, 3.0}` around the live 1.5, and **`be_offset_bps` (15) was never
+varied** — that is a different sweep nobody has run.
+
+---
+
 ## NOT PROPOSED, and why
 
 - **The break-even ratchet.** 0 of 7 legs at parity. Disarming it costs R
