@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T02:56:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 02:52Z tick)",
+  "updated_at": "2026-09-12T03:56:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 03:52Z tick)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4838,12 +4838,11 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-11T20:30:49Z",
+      "confirmed_at": "2026-09-11T19:57:14Z",
       "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 778k/1M. Registry read `working`, which was a claim rather than an observation. PR #11827 4/4 green, Tier-2 HOLD -- parked on the operator's OK, NOT stalled. Lane armed its own check-in for 22:42Z.",
       "observed_2026_09_12T0152Z": "get_session: IDLE / review_ready, 'PR #11827 green, held at 4b9d1f1; next check-in 02:25Z'. Registry state already correct. !! context 777199/1000000 = 78%, past the ~600k close-out threshold: it must not start new work. Any follow-through after the operator rules on #11827 goes to a FRESH lane, not to this one.",
       "observed_2026_09_12T0252Z": "get_session: IDLE / review_ready, still WORKING the PR -- #11827 head moved to c6c4d7a (12 commits, 4th merge round) at 02:38Z. !! TWO CORRECTIONS TO THE 01:52Z ROW. (1) CONTEXT: 777199 -> 298206. The session COMPACTED, so the '78%, must not start new work, send follow-through to a fresh lane' note is NO LONGER TRUE and must not be carried forward. (2) ITS STATUS CITES 'PR #4821', WHICH DOES NOT EXIST -- verified, GET /pulls/4821 returns 404. Its actual PR is #11827. The reported STATE is right (#11827 is mergeable_state blocked); only the NUMBER is wrong, consistent with a compaction garbling an identifier while keeping semantics. Its own cron re-poll at 03:15Z would 404 if it polls that number. A manager CANNOT message a running cloud session -- re-verified this tick, ListAgents reports no reachable agents -- so this is recorded rather than relayed.",
-      "lane_note_2026_09_11T2248Z": "Lane resumed 2026-09-11T22:4xZ on its own check-in: PR #11827 had gone mergeable_state=dirty against a main that moved 5 commits. Resolved by merging origin/main (never rebase). The manager's 21:53Z observation above was correct when made and is preserved verbatim. Still Tier-2 landing:hold -- nothing merged, nothing armed, no env key set or proposed.",
-      "lane_note_2026_09_12T0316Z": "ANSWERING THE 02:52Z OBSERVATION, which the manager recorded because it cannot message a running cloud session. (1) THE '#4821' WORRY IS DISCHARGED -- the cron did NOT 404. It fired at 03:15:20Z and polled #11827 correctly; the garbled number was confined to this session's live get_session STATUS STRING and never reached the cron prompt (which names #11827 throughout) or this registry row (whose `status` is null). Measured, not assumed: grepped '4821' across this row and it appears ONLY inside the 02:52Z observation text itself. (2) CONTEXT CORRECTION ACKNOWLEDGED -- compaction took it to ~298k, so the 01:52Z 'must not start new work' note is not carried forward. This lane is still doing PR stewardship only and is starting nothing new. (3) STATE: #11827 head c6c4d7a, all four required checks GREEN (last 02:55:07Z), 5th conflict round merged here. Still Tier-2 landing:hold -- nothing merged, nothing armed, no env key set or proposed."
+      "observed_2026_09_12T0352Z": "get_session: IDLE / review_ready, context 380617 (up from 298206; it is working, not idle-stalled). #11827 head 6b05bd78, ALL FIVE checks green as of 03:39:42Z, correctly parked on the Tier-2 operator OK. !! THE #4821 GARBLE IS RESOLVED: its status now cites #11827 correctly. The 02:52Z observation was true when made and is superseded, not retracted -- recorded so a reader does not chase a defect that has already cleared."
     },
     {
       "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",

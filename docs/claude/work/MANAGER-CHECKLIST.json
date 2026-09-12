@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T02:56:00Z",
+  "updated_at": "2026-09-12T03:56:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-12T02:56:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 02:52Z tick)",
+  "as_of": "2026-09-12T03:56:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 03:52Z tick)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -4302,5 +4302,12 @@
     "merge_queue": "#11827 (Tier-2 HOLD, operator-gated): 4 of 5 green, pytest-run in progress on c6c4d7a. #11842 automation. #11817, #11738 operator-gated and unchanged. Nothing rebasing (R8 ok). No merge_slot conflict this tick -- everything of mine landed.",
     "what_is_NOT_dispatched": "MI-277's entry-side implication. It is Tier-3 and the operator's call; spawning a lane against it would pre-empt a decision that is not the manager's to make.",
     "unreachable_lane_note": "ListAgents re-verified this tick: no reachable agents. CLAUDE.md's claim that a manager cannot message a running cloud sub-session HOLDS -- checked, not inherited."
+  },
+  "manager_tick_2026_09_12T0352Z": {
+    "lease": "heartbeat 03:53:35Z, expires 05:23:35Z",
+    "lanes": "ONE non-terminal lane: MI-276, observed IDLE / review_ready, context 380617, #11827 five-of-five green and parked on the operator. MI-277 is terminal and closed itself out.",
+    "correction_cleared": "The 02:52Z tick recorded MI-276 citing a non-existent PR #4821. That has CLEARED -- it now cites #11827 correctly. Recorded as superseded rather than retracted: the observation was true when made.",
+    "merge_queue_finding": "#11842 (econ-calendar automation) is GREEN 4-of-4 since 01:02:28Z and has NOT landed in ~3h. Root cause established rather than assumed: mergeable_state is DIRTY -- a merge_slot conflict on docs/claude/session-board.json -- so its green checks are STALE, run at 00:42Z against base 2f84fe3c which main has long passed. Its own slot text reads 'Re-asserted over main after a merge-slot conflict', so the cron fought this once already and lost the second round. It also shows NO open-and-automerge check run, unlike every manager PR, so the arming workflow appears never to have fired for it. Being resolved by the manager as merge-queue duty.",
+    "stale_automation_class": "This is the class MI-212-LANE-4-STALE-AUTOMATION-LANDING and LANE4-RECOVERY-11519-STALE-AUTOMATION-SWEEPER track, both still in_flight under sessions from a previous manager. The instance is being cleared; the CLASS is not, and a green-but-dirty PR whose staleness is invisible behind four green checks is the part worth a detector."
   }
 }
