@@ -25,11 +25,20 @@ reporting this repo wants) and rules out another line in CLAUDE.md.
 a guard that passed, and in CI an absent runner means the image is broken. The
 change is only that it can no longer be mistaken for a finding about the diff.
 
-⚠️ THIS CONTAINER HAS pytest 9.1.1, import-linter AND ruff, so the condition
-cannot be reached by being in it — every control below CONSTRUCTS it, by
-hiding a binary from `PATH` or by pointing the probe at an interpreter that
-does not have the module. A green run here is not evidence and is not treated
-as any.
+⚠️ EVERY CONTROL BELOW **CONSTRUCTS** THE CONDITION — by hiding a binary from
+`PATH`, or by pointing the probe at an interpreter that does not have the
+module — rather than relying on being in an environment that has it. A green
+run here is not evidence and is not treated as any.
+
+⚠️ AND NO CONTROL MAY ASSUME A PARTICULAR RUNNER IS INSTALLED. An earlier
+version of this file asserted `ruff` was present, which is true in the
+`guards` job and **false in the `pytest-run` job**, so two controls failed for
+an environment reason and said nothing about the code. That is this unit's own
+subject arriving in its own tests: a control that asserts an environment fact
+it never established. The controls now DERIVE what is present — `_present_bin`
+and `_guard_with_present_runners` — and skip rather than fail if the
+environment cannot supply it, because a control that cannot construct its
+precondition has not tested anything and must not claim to.
 
 Run: ``python3 -m pytest tests/ci/test_run_guards_runner_absent.py``
 """
@@ -67,14 +76,62 @@ def _fresh():
     return m
 
 
+def _present_bin():
+    """A binary this environment REALLY has, or ``None``.
+
+    Deliberately not a hardcoded name: the point of the negative control is
+    that the probe CAN answer `present`, and hardcoding a tool the job may not
+    install tests the job instead of the probe.
+    """
+    import shutil
+    for name in ("git", "bash", "sh"):
+        if shutil.which(name):
+            return name
+    return None
+
+
+def _guard_with_present_runners(m):
+    """A registered guard whose every step's runner is genuinely available.
+
+    Derived, for the same reason as above — `ruff-lint` was hardcoded here and
+    the `pytest-run` job has no ruff, so the positive control failed on the
+    environment rather than on the code.
+    """
+    for g in m.GUARDS:
+        steps = g.get("steps") or []
+        if not steps:
+            continue
+        argvs = [st["argv"] if isinstance(st, dict) else st for st in steps]
+        if any(not a for a in argvs):
+            continue
+        if any("{pr_diff}" in tok for a in argvs for tok in a):
+            continue
+        if all(m.missing_runner(a) is None for a in argvs):
+            return g["name"]
+    return None
+
+
 # ── THE DETECTION ───────────────────────────────────────────────────────────
 
 def test_a_present_binary_is_not_reported_missing():
     """Negative control FIRST: a probe that says everything is absent would
-    make every assertion below vacuously true."""
+    make every assertion below vacuously true.
+
+    It ESTABLISHES what is present instead of asserting it. Asserting `ruff`
+    here is what broke this control in the `pytest-run` job, which has no ruff
+    — the probe was right and the control was wrong.
+    """
     m = _fresh()
-    assert m.missing_runner(["ruff", "check", "."]) is None
-    assert m.missing_runner(["python3", "-m", "pytest", "-q"]) is None
+    binary = _present_bin()
+    if binary is None:
+        import pytest
+        pytest.skip("no known-present binary to probe with — precondition "
+                    "unmet, so this control would assert nothing")
+    assert m.missing_runner([binary, "--version"]) is None
+
+    # The `python3 -m <module>` shape, with a module EVERY python3 has, so the
+    # branch is exercised without depending on an installed package.
+    assert m.missing_runner(["python3", "-m", "json.tool"]) is None
 
 
 def test_an_absent_binary_is_named(monkeypatch):
@@ -177,7 +234,13 @@ def test_hiding_ruff_yields_COULD_NOT_RUN_the_remedy_and_a_NONZERO_exit(tmp_path
 def test_with_every_runner_present_nothing_is_graded_could_not_run():
     """The positive control for the end-to-end path. Without it, a probe that
     always reported `absent` would pass the test above and break every run."""
-    out = _run_guards({}, "--only", "ruff-lint", "--all")
+    m = _fresh()
+    name = _guard_with_present_runners(m)
+    if name is None:
+        import pytest
+        pytest.skip("no registered guard has all its runners here — the "
+                    "precondition for this control cannot be constructed")
+    out = _run_guards({}, "--only", name, "--all")
     blob = out.stdout + out.stderr
     assert "COULD-NOT-RUN 0" in blob, blob[-2000:]
     assert "COULD NOT RUN" not in blob.split("=" * 72)[-1]
