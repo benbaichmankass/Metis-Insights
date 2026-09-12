@@ -1,0 +1,1 @@
+U30 — the sunset pass reports whether its retirement branch is reachable at all.
