@@ -4434,5 +4434,101 @@
     "MI-281": "order-path — OI-20260908, a LIVE real-money defect (Tier-2 fix, routed not self-landed)",
     "MI-282": "prop — unblock breakout_1, starved at dispatch (Tier-2/3 proposal, routed)",
     "still_unstaffed": "Lane A (Alpaca real-money go-live) and Lane P (promotion pipeline) from the 08-29 plan. Named every handoff so they do not fall off the edge."
+  },
+  "manager_tick_2026_09_12T0652Z": {
+    "recorded_at": "2026-09-12T06:30Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T06:06:36Z",
+      "expires": "2026-09-12T07:36:36Z",
+      "r6": "SESSIONS.json 46min old at heartbeat, inside the 90min ttl"
+    },
+    "checklist": {
+      "lanes_running": 6,
+      "lanes": [
+        {
+          "item": "MI-278",
+          "lane": "research",
+          "object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session/list_sessions at 06:25Z — U3 counterfactual queued; U1 #11864 and U2 #11874 open"
+        },
+        {
+          "item": "MI-279",
+          "lane": "ops",
+          "object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — #11861 MERGED, #11880 MERGED; #11867 #11872 #11876 open"
+        },
+        {
+          "item": "MI-280",
+          "lane": "engineering",
+          "object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — six guard units wired; #11862 #11866 #11873 #11878 open. #11862 is GREEN AND DIRTY, told on the PR."
+        },
+        {
+          "item": "MI-281",
+          "lane": "order-path",
+          "object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",
+          "session": "session_01ALe9gTsSEMVWYyR8X8TY79",
+          "state": "in_flight",
+          "observed": "IDLE review_ready at 06:22Z with a 07:00Z self-check-in. Its PR #11870 was merged by the manager at 06:29Z so it wakes into the next unit rather than the landing."
+        },
+        {
+          "item": "MI-282",
+          "lane": "prop",
+          "object": "WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "in_flight",
+          "observed": "RUNNING at 06:25Z — verifying detector definitions, posting U1/U2 to the board"
+        },
+        {
+          "item": "MI-273",
+          "lane": "engineering",
+          "object": "WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND",
+          "session": "session_01SrUaz8LmKMcSwNZEr8JupC",
+          "state": "in_flight",
+          "observed": "RUNNING. Its PR #11817 is operator-APPROVED (R12 read given 2026-09-12) and awaits only a pytest-run that has been in_progress ~35min against a 16-19min sibling baseline. Merges on green."
+        }
+      ],
+      "wip": "7 of 8 in_flight work objects, matching the six live lanes plus two carried rows",
+      "unstaffed": [
+        "lane A (alpaca go-live)",
+        "lane P (promotion pipeline)"
+      ]
+    },
+    "recently_done": [
+      "#11738 MERGED + DEPLOYED + ARMED. Tier-2 under the recorded DEC-20260910-EXIT-EVAL-60S-REMEDY (r2_only). Condition VERIFIED against the diff before merging: _apply_per_account_leverage precedes _start_exit_loop on both refs (697->738 base, 883->924 head) and neither symbol appears on a code line. Post-state: live git_sha == git_sha_on_disk == 380e16ba7, restart_pending false, ancestry-confirmed to contain c5fe9c35b. EXIT_LOOP_IB_BREAKER_DISABLED read off /proc = (unset) on BOTH sides, which for that key IS the armed state. It had been green and approved for 33 hours waiting on a click.",
+      "#11861 MERGED under the operator's R12 read (replay-pregate could never land its artifact).",
+      "#11870 MERGED — manager lifted its landing:hold. The hold's premise was an order-path diff that did not exist; six files, src/ config/ deploy/ untouched. Recorded as a MANAGER RULING under the standing Tier-1 delegation, NOT as an operator approval.",
+      "#11860 and #11871 MERGED — three lanes' registry rows on main, and the work store corrected from 2 in_flight to 7.",
+      "#11859 and #11865 CLOSED as superseded by #11871 rather than resolved — three manager PRs appending to the same three registers is three conflicts for a disjoint key union."
+    ],
+    "operator_decisions_2026_09_12T0620Z": [
+      {
+        "question": "the two R12-held PRs",
+        "answer": "merge BOTH #11817 and #11861",
+        "status": "#11861 merged; #11817 merges on green"
+      },
+      {
+        "question": "OI-20260908 disposition",
+        "answer": "keep it open",
+        "status": "honoured — #11870 landed WITHOUT clearing the row, and MI-281 told not to clear it on its 07:00Z wake"
+      }
+    ],
+    "next": [
+      "merge #11817 the moment its pytest-run finishes",
+      "lane PRs self-land; the manager only unblocks conflicts and holds",
+      "staff lanes A and P when a lane frees"
+    ],
+    "manager_errors_this_tick": [
+      "Ran FOUR guards locally against CI's ~95. register-id-guard caught what four could not: the nine new OPEN-PRS rows had no creation date, so a reused PR number could not be told from a different item. scripts/ci/run_guards.py --base main is the runner that matches CI.",
+      "Caused the EIGHTH instance of the claude-pr-automerge ordering trap by combining the two pushes — while supervising MI-280, the lane fixing it, forty minutes after using the correct order twice. That rules out the documentation remedy specifically; appended to the existing BL-20260910 row rather than filed fresh.",
+      "Used 'branch gone from the remote' as the test for a spent merge_slot claim. It does NOT hold: claude/mi279-exit-coverage-trio survives on the remote while its PR #11880 is merged. The PR's state is the test, not the branch's existence."
+    ]
   }
 }
