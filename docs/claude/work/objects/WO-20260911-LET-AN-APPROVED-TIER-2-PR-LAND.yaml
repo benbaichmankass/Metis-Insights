@@ -3,14 +3,16 @@ type: question
 parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Let an approved Tier-2 PR land without a human click, without making approval and landing the same act
-stage: CAPABILITY
-lifecycle: dormant
-owner: null
+stage: BUILD
+lifecycle: waiting
+owner: session_01SrUaz8LmKMcSwNZEr8JupC
 opened_at: 2026-09-11
 closed_at: null
 review_trigger: >-
-  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
-  work only when it is given an owner and moved out of `dormant`.
+  When the first Tier-2 approval record is written for a real PR. Until one
+  exists the mechanism is DEPLOYED AND UNEXERCISED, which reads identically to a
+  mechanism that does not work. ⚠️ Do NOT re-open the DESIGN question — it is
+  built and written up; what is owed is the two OBSERVATIONS below.
 done_condition: >-
   An approved Tier-2 PR is OBSERVED landing on main with no human merge click, where the approval was RECORDED BEFORE and INDEPENDENTLY OF the landing, and a Tier-2 PR carrying no such recorded approval is OBSERVED still being refused (the negative control). A green test suite clears neither half.
 
@@ -22,9 +24,106 @@ source: >-
 
 blocked_on: []
 blocked_on_basis: >-
-  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
-  object — nobody has looked. Write a TRUE edge before moving it out of
-  `dormant`; an invented edge is read by the constraint computation as a real
-  blocker, and a false blocker is worse than a missing one.
+  ⚠️ RE-ASSESSED AGAIN 2026-09-12T07:0xZ, AND THE EDGE THIS FIELD JUSTIFIED IS NOW
+  REMOVED BECAUSE IT BECAME FALSE — read this paragraph before the two below it, which
+  are preserved as the record and must not be acted on. THE EDGE READ: `kind:
+  external_event, ref: PR #11817 needs its R12 human read and merge, since:
+  2026-09-11`. IT WAS DISCHARGED: #11817 MERGED at 2026-09-12T06:55:51Z as squash
+  `2cd829991`, `merged_by: benbaichmankass`, head `d29e31913` — read from
+  pull_request_read (`merged: true`, `closed_at 06:55:52Z`) and corroborated on main
+  by `git log -1 2cd829991`, not inferred from a check going green. So the list is
+  `[]` and that is a MEASURED EMPTY, not a NOT_ASSESSED one. ⚠️ THE EMPTY LIST IS
+  NOT THE CLAIM THAT THIS OBJECT IS DONE — `lifecycle` stays `waiting` and
+  `lifecycle_basis` says why. What the done_condition still owes is the two
+  OBSERVATIONS (an ADMITTED landing and a REFUSAL), and those remain deliberately
+  UNEDGED for the reason the 2026-09-11 text gives and the 2026-09-12 text repeats:
+  the first real approval record is an operator/manager act that NOBODY HAS BEEN
+  ASKED FOR, and an invented edge is read by the constraint computation as a real
+  blocker — a false blocker is worse than a missing one. Leaving the discharged
+  edge in place would have been exactly that false blocker, which is why it is
+  removed in the same act that records the merge.
+blocked_on_basis_2026_09_12_pre_merge: >-
+  ⚠️ RE-ASSESSED 2026-09-12 AND THE 2026-09-11 READING BELOW IS SUPERSEDED, NOT
+  DELETED — the earlier text is preserved verbatim under
+  blocked_on_basis_2026_09_11 because it was CORRECT WHEN WRITTEN and a reader
+  who sees only the new edge would not know an empty list was once the honest
+  answer. WHAT CHANGED IS THE BUILD FINISHING, NOT THE ASSESSMENT: the guard,
+  its 34 tests and its 27 planted defects are pushed, so the edge that was
+  unwritable on 2026-09-11 (nobody had been asked for anything yet) is now TRUE
+  and DATED — this object waits on a human reading PR #11817 under R12. Kind is
+  `external_event` and NOT `operator_decision` DELIBERATELY: what is owed is an
+  ACT (a read, then a merge), not a choice between options, and an
+  `operator_decision` edge with no matching decision_requests entry is surfaced
+  as an unanswerableOperatorEdge — which would misreport this as a question
+  nobody wrote down, when the question is written down at length in the PR body
+  itself. ⚠️ THE OTHER HALF OF THE DONE-CONDITION IS NOT THIS EDGE: the first
+  real approval record is still an operator/manager act, still unasked, and
+  still deliberately NOT an edge for the same reason it was not one yesterday.
+blocked_on_basis_2026_09_11: >-
+  ASSESSED 2026-09-11 by the building lane, from the guard source and the live
+  records rather than from the dispatch brief. Nothing blocks the BUILD — the
+  guard is a self-contained CI script, and its own PR holding under R12 is the
+  invariant being defended, not an obstacle. What the OBSERVED half waits on is
+  the writing of the first real approval record, which is an operator/manager
+  act and not this lane's to perform. ⚠️ That is deliberately NOT written as a
+  typed edge: nobody has been asked for it yet, and an invented edge is read by
+  the constraint computation as a real blocker.
+lifecycle_basis: >-
+  ⚠️ `waiting`, NOT `in_flight`, AND NOT `done`. It read `in_flight` until
+  2026-09-12 and that became false the moment the lane finished; stale-in-flight-guard
+  caught it on PR #11817 (ratchet base=13 head=14, delta +1) once the guard
+  reached main, and the guard was RIGHT. The registry independently records the
+  same fact in prose — this lane's SESSIONS.json row is `state: completed` with
+  the manager's own 22:53Z observation `the SESSION is terminal, the PR is not`.
+  ⚠️ THIS IS NOT THE AUTO-CLOSE THE GUARD WARNS AGAINST: `done` means MERGED AND
+  OBSERVED and neither holds — the PR is open and zero approval records exist, so
+  R15 has admitted nothing and refused nothing. `waiting` is the fourth of the six
+  never-collapsed lifecycle states and is precisely `waiting on the operator`.
 
 captured_by: scripts/ops/capture_idea.py
+worked_by: session_01SrUaz8LmKMcSwNZEr8JupC (PR #11817)
+evidence: docs/claude/work/TIER2-SELF-LAND-APPROVAL-RECORD-2026-09-11.md
+
+corrections_this_object_makes:
+- >-
+    THE LANE'S OWN EARLIER FINDING ABOUT THIS OBJECT IS SUPERSEDED AND MUST NOT BE
+    RE-QUOTED. It reported that this object did not exist and that
+    spawn-priority-exception.yaml named it zero times. That was TRUE WHEN MEASURED
+    (origin/main @ 2901ccf44, ~2026-09-11T17:50Z, where the spawn gate duly refused)
+    and became FALSE about twenty minutes later: the manager landed both in
+    e5eeb42d2 at 18:01:45Z. Recorded as a dated observation that expired, not as a
+    standing finding — carrying it forward would have had a successor hunting for a
+    gap that is closed.
+- >-
+    WHAT DOES SURVIVE from that pass is the SESSION REGISTRY half, which is a
+    different fact: the dispatched key `pending-20260911T174755Z` appears zero times
+    in SESSIONS.json and `confirm` refused it. The lane registered itself instead.
+    MI-15's failure class, recurring.
+- >-
+    R4's REASON WAS NEVER WRONG AND IS NOT WEAKENED. A change and its own approval
+    must not be the same act. What R4 got wrong was the PROXY — it used 'a human
+    clicks Merge' to stand for that separation. R15 replaces the proxy with the
+    property itself. A successor reading this as 'R4 was relaxed' would be reading
+    it backwards.
+
+not_established:
+- >-
+    Whether the approvals we already have are sufficient to land on. PR #11738's
+    approval carries a scope in PROSE ('R2 ONLY -- the per-pass IB circuit breaker')
+    and no machine-comparable path list, and worse, the scope is NOT PATH-EXPRESSIBLE
+    at all: the operator excluded R1, and R1 and R2 both live in src/main.py. Graded
+    by this lane as the gap being in the RECORDING, not in the gate. The check was
+    NOT loosened to fit.
+- >-
+    Whether an approval record can be made operator-ORIGINATED rather than merely
+    branch-SEPARATED. Measured 2026-09-11 over the 15 most recent commits on
+    origin/main: every squash carries the same author and committer identity, so
+    commit metadata CANNOT discriminate a session-written record from an
+    operator-written one. That is why the separation is branch-based and why R12 is
+    what stands behind the claim.
+- >-
+    Whether the decision round-trip can write an approval record directly, which
+    would make the path zero-click. It lands through commit-to-main, which self-lands
+    as Tier-1 automation, and APPROVAL_DIR being in LANDING_MACHINERY blocks that
+    under R12 -- by construction and correctly, since a self-landing route that could
+    mint a credential defeats the whole design. Its own decision, not attempted here.

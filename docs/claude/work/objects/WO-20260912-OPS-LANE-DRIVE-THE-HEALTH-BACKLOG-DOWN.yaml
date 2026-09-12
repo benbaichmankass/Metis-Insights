@@ -33,3 +33,32 @@ blocked_on_basis: >-
   and an anticipated one is a false one until the work arrives at it.
 
 captured_by: scripts/ops/capture_idea.py
+outcome_so_far: >-
+  MI-279 (session_013iSqp4LsU1eq8K326eUtgj) first pass, 2026-09-12. THE OBJECT STAYS in_flight:
+  U1/U2/U4 are done and U3 is opened and handed forward, so the lane continues.
+  BURN-DOWN: 3 CLOSED / 0 FILED / net -3. Open criticals 20 -> 17 once the in-flight PRs land.
+  !! REPORTED AS LANDED, NOT AS INTENDED: `main` read 19 open criticals at the time of writing
+  because two of the three closures were still in CI. Do not quote 17 until they merge.
+  CLOSED, each on a live observation and none on a passing test:
+  BL-20260902-TWO-OPEN-PRS-ARE-ARMED-TO-MERGE-WHILE-THEIR-OWN-BODIES-SAY-DO-NOT-MERGE (both PRs
+  had merged - the harm happened, recorded loudly per the criterion's own second branch, mechanism
+  verified fixed, residual nil);
+  BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED
+  (5 soak rows carrying a named position_idx with non-zero exchange_qty; 0 adopt-pairs post-fix
+  against a denominator of 4, with the same probe finding 2 pre-fix);
+  BL-20260911-A-DECLARED-LIVE-ACCOUNT-CAN-BE-STARVED-FOR-TWELVE-DAYS-AND-EVERY-DETECTOR-READS-HEALTHY
+  (observed firing live on /api/bot/notifications with its denominator independently established).
+  THE OTHER 17 CRITICALS WERE READ and each now states what would close it; three came back
+  `could_not_look` (IB gateway down) and are recorded as read failures, never as clean results.
+  THE FINDING WORTH MORE THAN THE CLOSURES: two FALSE CLOSES attributed on bybit_1 by shared
+  order_package_id - -762.496 USD of ESTIMATED pnl on positions the venue never closed - against a
+  symbol-dedupe drop firing on 378 of 378 reads. Tier-2, routed to the manager, NOT taken. See
+  BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW.
+  HONEST CONTEXT: backlog_burndown() has September at opened 186 / closed 34 across all three
+  backlogs. Three closures do not change that, and the done_condition's burn-down clause is
+  satisfied by SAYING so rather than by the number improving.
+  !! NO ROW WAS FLIPPED TO `kept_open`. It is in the enum, but moving rows out of `open` shrinks
+  the count without closing anything, and burn-down is what this lane is measured on.
+  HANDOFF: docs/claude/high-severity-class-map-2026-09-12.md is the U3 starting point - 7 candidate
+  classes over the 274 open high rows, with its own precision measured at ~67% on n=6 hand-checked
+  rows, so its counts are a place to look and not findings.

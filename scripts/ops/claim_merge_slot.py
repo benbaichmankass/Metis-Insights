@@ -50,6 +50,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# ONE OWNER for "is the incumbent claim a ghost?" — imported rather than
+# re-derived, so the claimant's report and any other reader cannot drift.
+import merge_slot_state as mss  # noqa: E402
+
 
 class SpliceError(RuntimeError):
     """The claim could not be written safely, so nothing was written."""
@@ -189,6 +195,42 @@ def build_claim(branch: str, held_by: str, purpose: str,
     }
 
 
+def branch_slot_rel(branch: str, base_dir: str = ".github/merge-slots") -> str:
+    """One file per branch, named for the branch.
+
+    ⚠️ THE PATH IS NOT THE CLAIM. A file copied from another branch would sit at
+    the wrong path but could equally be renamed, so the branch is ALSO written
+    inside and `check_pr_landing.py` requires the two to agree. The filename is
+    what keeps two claims off the same lines; the field is what makes the claim
+    attributable.
+    """
+    import re as _re
+    slug = _re.sub(r"[^A-Za-z0-9._-]", "-", branch.removeprefix("claude/"))
+    return f"{base_dir}/{slug}.json"
+
+
+def _write_branch_claim(a) -> int:
+    """The conflict-free R13 route.
+
+    Written whole rather than spliced: there is no surrounding document to
+    preserve, which is the entire point — `splice()` exists only because the
+    shared board is a file other people also edit.
+    """
+    rel = Path(branch_slot_rel(a.branch, a.branch_claim_dir))
+    claim = build_claim(a.branch, a.held_by, a.purpose, a.claimed_at)
+    try:
+        rel.parent.mkdir(parents=True, exist_ok=True)
+        rel.write_text(json.dumps(claim, indent=2, ensure_ascii=False) + "\n",
+                       encoding="utf-8")
+    except OSError as exc:
+        print(f"claim-merge-slot: cannot write {rel}: {exc}", file=sys.stderr)
+        return 2
+    print(f"claim-merge-slot: {rel} -> {a.branch} (per-branch route; the shared "
+          f"merge_slot field is deliberately NOT touched, so this cannot conflict "
+          f"with another branch's claim)")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--board", default="docs/claude/session-board.json")
@@ -198,6 +240,25 @@ def main(argv=None) -> int:
     ap.add_argument("--claimed-at", default=None,
                     help="override the timestamp (tests only)")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--no-incumbent-check", action="store_true",
+                    help="Skip grading the claim being overwritten. It costs one "
+                         "`git ls-remote`; this exists for offline tests, not as "
+                         "a way to stop looking.")
+    ap.add_argument("--incumbent-pr-json", default=None,
+                    help="Optional pull-request payload for the INCUMBENT "
+                         "claim's branch. Authoritative when given; without it a "
+                         "still-present branch grades `undecidable`, never "
+                         "`live`.")
+    ap.add_argument("--branch-claim", action="store_true",
+                    help="write the CONFLICT-FREE per-branch claim at "
+                         ".github/merge-slots/<slug>.json instead of splicing the "
+                         "one shared merge_slot field. R13 accepts either. Prefer "
+                         "this on a lane branch: the shared field is a single line "
+                         "every armed branch must overwrite, and `main` moved it 39 "
+                         "times in the last 40 commits that touched it, so an armed "
+                         "branch conflicts faster than its own CI can finish.")
+    ap.add_argument("--branch-claim-dir", default=".github/merge-slots",
+                    help="tests only")
     a = ap.parse_args(argv)
 
     if a.self_test:
@@ -205,12 +266,59 @@ def main(argv=None) -> int:
     if not a.branch or not a.held_by:
         ap.error("--branch and --held-by are required (or pass --self-test)")
 
+    if a.branch_claim:
+        # ⚠️ THIS RETURNS BEFORE THE INCUMBENT REPORT BELOW, AND THAT IS THE
+        # POINT RATHER THAN AN OVERSIGHT. The report answers "what am I
+        # DISPLACING?" — and the per-branch route displaces nothing: it writes a
+        # file named for this branch and leaves the shared `merge_slot` field
+        # untouched. Grading the incumbent here would print a verdict about a
+        # claim this invocation is not overwriting, which is a statement with no
+        # bearing on the act being performed. The ghost question belongs to the
+        # shared-field route, where a real displacement happens.
+        return _write_branch_claim(a)
+
     path = Path(a.board)
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         print(f"claim-merge-slot: cannot read {path}: {exc}", file=sys.stderr)
         return 2
+    # ── WHAT AM I DISPLACING? ────────────────────────────────────────────────
+    # The release half of this protocol has NO mechanism and never has: measured
+    # over the last 25 commits touching this file, ZERO wrote a cleared slot. So
+    # the incumbent claim is almost always a ghost, and every claimant has had to
+    # make that call alone — waiting forever on a merged PR, or displacing blind.
+    # Both happened live on 2026-09-09.
+    #
+    # ⚠️ IT IS PRINTED BEFORE THE WRITE AND NEVER BLOCKS IT. R13's own docstring
+    # says a committed claim reaches no other session until the branch merges, so
+    # this field serializes nothing and refusing to overwrite it would invent a
+    # lock the protocol does not have — and would deadlock every armed branch
+    # behind whichever ghost happened to be last. The answer is information at
+    # the moment the judgement is made, which is the cost the backlog rows name.
+    if not a.no_incumbent_check:
+        try:
+            incumbent, readable = mss.read_claim(path)
+            if readable:
+                pr = None
+                if a.incumbent_pr_json:
+                    try:
+                        raw = json.loads(
+                            Path(a.incumbent_pr_json).read_text(encoding="utf-8"))
+                        pr = raw[0] if isinstance(raw, list) and raw else raw
+                    except (OSError, json.JSONDecodeError, TypeError):
+                        pr = None
+                branch = str((incumbent or {}).get("branch") or "")
+                print(mss.render(mss.grade(
+                    incumbent, mss.branch_on_origin(branch, path.parent.parent.parent)
+                    if branch else None, pr)))
+        except Exception as exc:                      # noqa: BLE001
+            # ⚠️ A REPORT MUST NEVER TAKE DOWN THE WRITE IT ANNOTATES. R13 fails
+            # an armed branch that does not hold the slot, so a crash here would
+            # red a PR over a courtesy read.
+            print(f"claim-merge-slot: could not grade the incumbent claim "
+                  f"({exc}) — WE DID NOT LOOK. Proceeding with the claim.")
+
     try:
         new_text = splice(text, build_claim(a.branch, a.held_by, a.purpose,
                                             a.claimed_at))

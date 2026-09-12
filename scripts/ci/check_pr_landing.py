@@ -95,6 +95,64 @@ So nothing here is satisfied by a field merely being present.
   * ``why`` / ``hold_text`` must carry real text (R3/R7). A one-word `"why": "x"`
     is refused.
 
+AND A TIER-2 PR LANDS ON A RECORDED APPROVAL (R15, 2026-09-11)
+--------------------------------------------------------------
+Operator directive, 2026-09-11: *"the operator does not click things."*
+
+R4 used to bar a Tier-2 diff from `landing: "self"` **whatever its approval
+state**. Measured cost: PR #11738 green, mergeable and operator-approved since
+2026-09-10T07:52Z — the operator chose `r2_only` on
+`DEC-20260910-EXIT-EVAL-60S-REMEDY` from a four-option popup — and unlanded ever
+since, waiting on a click that will not come. The decision was recorded; only
+the click was missing.
+
+⚠️ **R4'S REASON IS NOT WEAKENED AND MUST NOT BE.** The rule it protects is that
+**a change and its own approval must not be the same act** — otherwise a session
+declares itself approved and the gate is theatre. What R4 got wrong is the
+PROXY: it used *"a human clicks Merge"* to stand for that separation. R15
+replaces the proxy with the property itself — **an approval this branch
+demonstrably could not have written** — and refuses wherever that cannot be
+established.
+
+The record lives at ``docs/claude/work/approvals/<slug>.json`` and must clear
+all of:
+
+  (a) the declaration NAMES it (`approved_by`);
+  (b) it lives under ``APPROVAL_DIR`` — **the path is the mechanism**, see below;
+  (c) it EXISTS at the branch's merge-base with `main`;
+  (d) it is BYTE-IDENTICAL at HEAD, and is PARSED FROM THE MERGE-BASE BLOB —
+      never from the worktree, so the guard is not one `sed` from a different
+      answer;
+  (e) NO path under ``APPROVAL_DIR`` appears in the diff at all;
+  (f) it names THIS branch — an approval binds to the change it was given for;
+  (g) `tier: 2` only. **TIER-3 NEVER SELF-LANDS**, and a `scope_paths` entry
+      naming a Tier-3 path does not buy one;
+  (h) typed, non-empty `verdict` / `channel` / `decision_id` / `work_object`
+      (which must EXIST) / `decided_on` / `decided_by` / `text`;
+  (i) `scope_paths` — a **non-empty glob list, checked against the diff** the
+      way R5 checks tier. This is the field that makes a recorded scope
+      MECHANICAL. A scope in prose grants everything, which is how an `r2_only`
+      approval lands an `r1` change.
+
+⚠️ **WHY THE DIRECTORY IS IN `LANDING_MACHINERY`, AND WHY THAT IS THE DESIGN.**
+An approval is now a landing CREDENTIAL, so writing one IS changing the landing
+route: R12 holds any PR that writes a record for a human read. **Creating a
+credential costs one read; using it costs nothing.** That asymmetry is what
+closes the TWO-PR CHAIN — a session could otherwise self-land PR A (Tier-1,
+docs-only) writing an approval for its own PR B, approving itself in two acts
+instead of one.
+
+⚠️ **WHAT R15 DOES *NOT* ESTABLISH, SAID PLAINLY.** It proves an approval was
+SEPARATE from the branch it lands — **not that the operator originated it**.
+Measured 2026-09-11: every squash-merge on `main` carries the same author
+(`Ben`) and committer (`GitHub`) identity, so commit metadata cannot distinguish
+a session-written record from an operator-written one. `channel` records a
+CLAIM about provenance and is checked only for being in the vocabulary. The
+thing that actually stands behind the claim is R12: a human read the PR that
+created the record. This sentence travels with the grant, in the note R15 prints
+on every admission, so a reader of a landed Tier-2 PR meets it rather than
+having to find it here.
+
 AND THE ROUTE MAY NOT LAND A CHANGE TO ITSELF (R12)
 ---------------------------------------------------
 A PR that edits the landing machinery is Tier-1 by the canonical doc's own list
@@ -209,6 +267,11 @@ GUARD_REL = "scripts/ci/check_pr_landing.py"
 # `.github/pr-automerge-requests/**` note guards against.
 SESSION_BOARD = "docs/claude/session-board.json"
 
+# R13's SECOND, CONFLICT-FREE ROUTE (2026-09-12, MI-280). One file per branch,
+# named for the branch, so two armed branches can never contend for the same
+# lines. See `slot_claim_state` for the measurement that forced it.
+BRANCH_SLOT_DIR = ".github/merge-slots"
+
 # The Tier-1 EXAMPLES from docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers.
 # An allowlist: a path not matched here cannot self-land. See the module
 # docstring for why this polarity rather than a denylist.
@@ -251,6 +314,75 @@ TIER2_PATHS = [
     "deploy/**",
     "ml/**",
 ]
+
+# R15. Where a Tier-2 landing CREDENTIAL lives. One file per approved branch.
+#
+# ⚠️ THE DIRECTORY IS NOT A CONVENIENCE — ITS PATH IS THE MECHANISM. It is
+# listed in LANDING_MACHINERY below, which is what makes an approval cost one
+# human read to CREATE and nothing to USE. Moving these records under an
+# ordinary `docs/**` path would silently re-open the two-PR forgery chain.
+APPROVAL_DIR = "docs/claude/work/approvals"
+
+# A closed vocabulary, the `operator_decision` discipline in
+# docs/claude/work/OPEN-PRS.json. `pending` / `none_recorded` are deliberately
+# ABSENT: this file is a credential, and a credential that can say "pending" is
+# one a reader will misread as a grant.
+APPROVAL_VERDICTS = ("approved", "approved_with_conditions")
+
+# HOW the operator answered. Closed, because "how do we know the operator said
+# this" is exactly the question a reader of a landed Tier-2 PR needs answered,
+# and free text lets it be answered with a shrug.
+#
+# ⚠️ NEITHER VALUE IS CHECKED AGAINST ANYTHING, AND THAT IS STATED RATHER THAN
+# HIDDEN. See `_APPROVAL_RESIDUAL` — the repo cannot distinguish an
+# operator-originated record from a session-written one by content, so this
+# field records a CLAIM about provenance. What the guard enforces is the
+# SEPARATION (clauses c/d/e), not the origin.
+APPROVAL_CHANNELS = {
+    "decision_round_trip":
+        "answered through POST /api/bot/work/decision and committed by "
+        "work-decision-commit.yml",
+    "operator_conversational_relayed":
+        "answered to the operator directly and TRANSCRIBED by a manager "
+        "session; `text` must carry the operator's wording verbatim",
+    "operator_wrote_it":
+        "the operator edited this file themselves",
+}
+
+# ⚠️ AN AMBIGUITY IN THE CANONICAL DOC THAT R15 DOES NOT RESOLVE, AND MUST NOT
+# RESOLVE SILENTLY IN THE PERMISSIVE DIRECTION.
+#
+# docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers says the enumerated
+# order-path files are "hard-blocked from a self-merge" AND adds "**any unit file
+# the live VM consumes on the trading path**", with the merge classified Tier-3
+# "set by the merge gate, not the prep". `TIER3_PATHS` enumerates the named
+# files; that trailing phrase is BROADER than any list here, and covers files
+# like `src/main.py` and `src/runtime/order_monitor.py` that this guard grades
+# Tier-2.
+#
+# Deciding which files are "on the trading path" from a path glob is exactly the
+# unvouchable judgement `TIER1_SURFACE`'s allowlist polarity exists to refuse, so
+# this guard does NOT invent that list and does NOT claim to have settled the
+# question. It is printed on every admission instead, so the person writing the
+# record meets it rather than having to find it — and a record whose scope
+# reaches the trading path is one whose author has to make that call explicitly.
+_TRADING_PATH_CAVEAT = (
+    "⚠️ R15 grades Tier-3 by TIER3_PATHS. docs/CLAUDE-RULES-CANONICAL.md "
+    "§ Permission Tiers ALSO Tier-3s the merge of 'any unit file the live VM "
+    "consumes on the trading path', which is broader than that list and is NOT "
+    "resolved here. If this diff touches the live trading path, the approval "
+    "record's author owns that judgement — the guard has not made it for them."
+)
+
+# Stated here so it is read at the point of use and cannot be lost to a PR body.
+_APPROVAL_RESIDUAL = (
+    "R15 establishes that an approval was SEPARATE from the branch it lands, "
+    "NOT that the operator originated it. Measured 2026-09-11: every "
+    "squash-merge on `main` carries the same author and committer identity, so "
+    "commit metadata cannot tell a session-written record from an "
+    "operator-written one. What closes the gap is that writing a record is "
+    "itself a held, human-read PR (R12 via LANDING_MACHINERY)."
+)
 
 # For R8 and R12. The branch's OWN declaration file is excluded by the caller —
 # every branch writes one, and an excuse every branch satisfies excuses nothing.
@@ -295,6 +427,23 @@ LANDING_MACHINERY = [
     # TO the sweeper and not on every branch the sweeper touches.
     ".github/workflows/stale-automation-sweep.yml",
     "scripts/ops/sweep_stale_automation_prs.py",
+    # ⚠️ ADDED 2026-09-11 (WO-20260911-LET-AN-APPROVED-TIER-2-PR-LAND). A Tier-2
+    # approval record is now a landing CREDENTIAL: R15 lets a Tier-2 PR
+    # self-land against one. So writing one IS changing the landing route, and
+    # a PR that writes an approval must not be merged by the route that
+    # approval unlocks.
+    #
+    # ⚠️ THIS IS THE CLAUSE THAT CLOSES THE TWO-PR CHAIN, and it is the whole
+    # reason the directory is not simply left under `docs/**`. Without it, a
+    # session could self-land PR A (Tier-1, docs-only) writing an approval for
+    # its own PR B, then self-land B against it — approving itself in two acts
+    # instead of one. With it, PR A holds and a human reads it.
+    #
+    # ⚠️ Safe to list, and NOT the `SESSION_BOARD` trap above: an ordinary
+    # branch never MODIFIES an approval record — R15 forbids it outright
+    # (clause d) — so R12 fires on a PR that WRITES an approval and on nothing
+    # else. It cannot make every branch un-landable.
+    f"{APPROVAL_DIR}/**",
 ]
 
 HOLD_REASONS = {
@@ -434,20 +583,97 @@ def _added_or_modified(root: Path, base: str, rel: str) -> bool:
     return head_sha != base_sha
 
 
+def _branch_slot_rel(branch: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]", "-", branch.removeprefix("claude/"))
+    return f"{BRANCH_SLOT_DIR}/{slug}.json"
+
+
+def _branch_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
+    """The per-branch route. Same proof, a file that cannot collide."""
+    rel = _branch_slot_rel(branch)
+    path = root / rel
+    if not path.exists():
+        return (False, f"{rel} is absent")
+    if not _added_or_modified(root, base, rel):
+        return (False, f"{rel} is unchanged from `{base}` — inherited, not claimed")
+    try:
+        claim = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return (False, f"{rel} is unreadable/invalid JSON: {exc}")
+    if not isinstance(claim, dict):
+        return (False, f"{rel} is not a JSON object")
+    if claim.get("branch") != branch:
+        return (False, f"{rel} names branch {claim.get('branch')!r}, not {branch!r}. "
+                       f"The FILENAME is not the claim — a file copied from another "
+                       f"branch would pass on its path alone, so the branch is named "
+                       f"inside it and both must agree")
+    for field in ("held_by", "claimed_at"):
+        if not str(claim.get(field) or "").strip():
+            return (False, f"{rel} `{field}` is empty — a claim nobody can attribute "
+                           f"or time out is not a claim")
+    return (True, f"held by this branch via {rel}")
+
+
 def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
     """Does THIS branch hold the merge slot, and did it claim it in THIS diff?
 
-    Added-or-modified is load-bearing, for exactly the reason
-    `claude-pr-automerge.yml`'s REQUEST GATE gives: a branch that merely merged
-    `main` while somebody else's claim sat on it has asked for nothing, and by
-    presence alone its diff is indistinguishable from a real claim.
+    TWO ROUTES, either sufficient. Both prove the same thing — an ATTRIBUTABLE,
+    TIMESTAMPED claim made by THIS branch in THIS diff — and the difference is
+    only whether making it forces a merge conflict.
+
+    ⚠️ THE SHARED FIELD MAKES ARMING AND LANDING MUTUALLY EXCLUSIVE WHEN `main`
+    MOVES FASTER THAN CI, AND THAT IS MEASURED, NOT FEARED. `merge_slot` is ONE
+    field in ONE file that every armed branch must overwrite, so every armed
+    branch conflicts with `main` the moment anything else claims it. Population:
+    the last 40 commits to `main` touching `session-board.json` (2026-09-11T23:12Z
+    -> 2026-09-12T09:30Z); **39 of 40 MOVED `merge_slot.branch`**, with
+    inter-move gaps of min 3.3m / median 11.5m / max 61.8m and **26 of 38 under
+    16 minutes**. Resolving the conflict pushes a new head and restarts CI, so
+    resolving FASTER does not help — the clock restarts each time.
+    Observed the same morning on one session's six PRs: **all four ARMED ones
+    went `dirty` together, and the only two that stayed CLEAN were the two
+    declaring `landing: "hold"`, which write no claim.** Two controls, and the
+    claim is the one difference between them.
+
+    ⚠️ AND THIS REPO HAS ALREADY FIXED THIS EXACT CLASS ONCE, ONE LAYER OVER.
+    `.github/pr-automerge-request` was a single shared file every requesting PR
+    had to modify; it collided by construction, hit live on 2026-08-21 (#10083
+    merged, #10086 came back `dirty` with that file as the ONLY conflicted path),
+    and was split into `.github/pr-automerge-requests/<slug>.txt`. The claim is
+    the same defect in the same route, and takes the same remedy.
+
+    ⚠️ WHAT IS *NOT* BEING GIVEN UP: nothing, because R13 never serialized. Its
+    own docstring says so — a committed claim reaches no other session until the
+    branch merges, so two branches can each arm, each write a valid claim, and
+    never see one another. The shared field therefore bought CONFLICT and no
+    exclusion. Attribution and timestamping — the things R13 actually buys — are
+    preserved exactly, and strengthened: the claim now names its branch in the
+    PATH as well as in the body, and both must agree.
+
+    The legacy route is UNCHANGED and still passes, so `commit-to-main` and the
+    27 workflows behind it keep working byte-for-byte; this only ADDS a way to
+    satisfy R13. Added-or-modified stays load-bearing on both, for exactly the
+    reason `claude-pr-automerge.yml`'s REQUEST GATE gives: a branch that merely
+    merged `main` while somebody else's claim sat on it has asked for nothing,
+    and by presence alone its diff is indistinguishable from a real claim.
     """
+    ok, detail = _branch_claim_state(root, base, branch)
+    if ok:
+        return (True, detail)
+    branch_detail = detail
+
     path = root / SESSION_BOARD
     if not path.exists():
         return (False, f"{SESSION_BOARD} does not exist")
     if not _added_or_modified(root, base, SESSION_BOARD):
-        return (False, f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
-                       f"claimed nothing; it is carrying whatever `main` already had")
+        return (False, f"neither route was taken: {branch_detail}, and "
+                       f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
+                       f"claimed nothing; it is carrying whatever `main` already "
+                       f"had. PREFER the per-branch route: "
+                       f"`python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                       f"--branch {branch} --held-by <session>` writes "
+                       f"{_branch_slot_rel(branch)}, which cannot conflict with "
+                       f"another branch's claim")
     try:
         slot = json.loads(path.read_text(encoding="utf-8")).get("merge_slot")
     except (OSError, json.JSONDecodeError) as exc:
@@ -456,14 +682,367 @@ def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
         return (False, f"{SESSION_BOARD} carries no `merge_slot` object")
     if slot.get("branch") != branch:
         return (False, f"`merge_slot.branch` is {slot.get('branch')!r}, not "
-                       f"{branch!r} — the slot is held by someone else. That is "
-                       f"the serialization working, not a technicality to route "
-                       f"around; wait for the release")
+                       f"{branch!r}, and the per-branch route was not taken "
+                       f"either ({branch_detail}). ⚠️ DO NOT WAIT FOR A RELEASE: "
+                       f"R13 does not serialize (see its docstring — a committed "
+                       f"claim reaches no other session until this branch "
+                       f"merges), and `main` moved this field 39 times in the "
+                       f"last 40 commits that touched it, so waiting for it to "
+                       f"name you is waiting for something that does not happen. "
+                       f"Write {_branch_slot_rel(branch)} instead: "
+                       f"`python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                       f"--branch {branch} --held-by <session>`")
     for field in ("held_by", "claimed_at"):
         if not str(slot.get(field) or "").strip():
             return (False, f"`merge_slot.{field}` is empty — a claim nobody can "
                            f"attribute or time out is not a claim")
     return (True, "held by this branch")
+
+
+def _merge_base(root: Path, base: str) -> Optional[str]:
+    rc, mb = _git(root, "merge-base", base, "HEAD")
+    return mb if rc == 0 and mb else None
+
+
+def _blob_sha(root: Path, rev: str, rel: str) -> Optional[str]:
+    rc, out = _git(root, "rev-parse", f"{rev}:{rel}")
+    return out if rc == 0 and out else None
+
+
+def _blob_text(root: Path, rev: str, rel: str) -> Optional[str]:
+    p = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{rel}"],
+                       capture_output=True, text=True)
+    return p.stdout if p.returncode == 0 else None
+
+
+# THE TWO LOAD-BEARING PREDICATES OF R15, extracted so each can be MUTATED in
+# isolation and the suite proved to notice (tests/test_pr_landing_tier2_approval.py).
+# A negative control that would still pass with the property removed is not
+# testing the property — it is testing whatever else happened to refuse.
+SEPARATION_STATES = (
+    "separate",              # on `main` before this branch, untouched by it
+    "touched_by_branch",     # the branch wrote/edited/added SOMETHING here
+    "absent_at_merge_base",  # not on `main` — a claim, not an approval
+    "merge_base_unreadable", # *we did not look* — never a grant
+)
+
+
+def approval_separation(root: Path, base: str, branch: str, norm: str,
+                        changed: list[str]) -> tuple[str, str]:
+    """Could THIS branch have written the approval it cites? Never collapsed.
+
+    ⚠️ `merge_base_unreadable` is *we did not look*, and is deliberately its own
+    state rather than folded into `absent_at_merge_base`. Both refuse — the
+    refusal is the safe direction for a grant — but a reader must be able to
+    tell "there is no approval" from "we could not establish whether there is".
+    """
+    mb = _merge_base(root, base)
+    if mb is None:
+        return ("merge_base_unreadable", f"no merge-base with `{base}`")
+    touched = sorted(p for p in changed if _match(p, [f"{APPROVAL_DIR}/**"]))
+    if touched:
+        return ("touched_by_branch", ", ".join(touched[:5]))
+    sha_mb = _blob_sha(root, mb, norm)
+    if sha_mb is None:
+        return ("absent_at_merge_base", mb)
+    if _blob_sha(root, "HEAD", norm) != sha_mb:
+        return ("touched_by_branch", norm)
+    return ("separate", mb)
+
+
+_SESSION_TRAILER = re.compile(r"^Claude-Session:\s*(\S+)\s*$", re.M)
+
+
+def _commit_sessions(root: Path, commit: str) -> set[str]:
+    """The `Claude-Session:` trailers on ONE commit."""
+    rc, out = _git(root, "log", "-1", "--format=%B", commit)
+    return {m.group(1) for m in _SESSION_TRAILER.finditer(out)} if rc == 0 else set()
+
+
+def _sessions_in(root: Path, rev_range: str) -> set[str]:
+    """`Claude-Session:` trailers over a commit range — WHO wrote these commits.
+
+    ⚠️ MEASURED COVERAGE, 2026-09-11: 10 of the 15 most recent commits on `main`
+    carry the trailer (66.7%) — automation commits carry none. So this CANNOT be
+    a requirement without refusing legitimate records, and clause (j) is
+    therefore built to ADD a refusal on a KNOWN collision and to stay silent on
+    the unknown case. It can only ever tighten, never block. Same polarity as
+    `CAUSE_MIN_ROWS` in `silent_refusal_alert`, and for the same reason: a check
+    that must guess should not be able to deny.
+
+    ⚠️ AND IT IS NOT AN IDENTITY PROOF. A trailer is free text a session writes
+    about itself. It is corroboration on top of R12 and R15(c)-(e), not a
+    substitute — `check_manager_scope.py` already leans on the same trailer at
+    the same level of trust.
+    """
+    rc, out = _git(root, "log", "--format=%B%x00", rev_range)
+    if rc != 0:
+        return set()
+    return {m.group(1) for m in _SESSION_TRAILER.finditer(out)}
+
+
+def paths_outside_scope(paths: list[str], scope: list[str]) -> list[str]:
+    """Which changed paths the approval does NOT cover. R15(i)'s whole content."""
+    return [p for p in paths if not _match(p, scope)]
+
+
+def approval_state(root: Path, base: str, branch: str, decl: dict,
+                   changed: list[str], decl_rel: str,
+                   arm_rel: str) -> tuple[list[str], list[str]]:
+    """R15 — may this Tier-2 branch land itself? Returns (failures, notes).
+
+    THE PROPERTY THIS IS BUILT ON
+    -----------------------------
+    R4's reason is sound and is NOT relaxed here: **the change and its own
+    approval must not be the same act.** What R4 got wrong is the proxy it used
+    for that — it assumed the only way to separate them is a human clicking
+    Merge, so it barred every Tier-2 diff from self-landing *whatever its
+    approval state*. The live cost, measured 2026-09-11: PR #11738 green,
+    mergeable and operator-approved since 2026-09-10T07:52Z, unlanded, waiting
+    on a click the operator has said will not come.
+
+    So the test is not "is a human in the loop" but **"could this branch have
+    written its own approval?"** — and that is answerable from git alone:
+
+      (c) the record EXISTS at the branch's merge-base with `main`, so it was on
+          `main` before this branch contributed anything; and
+      (d) it is BYTE-IDENTICAL at HEAD, so the branch did not edit it; and
+      (e) NO path under the approvals directory appears in the diff at all, so
+          the branch did not add a sibling record either.
+
+    A branch that carries its own approval has not been approved — it has
+    ASSERTED approval — and all three clauses refuse exactly that.
+
+    ⚠️ THE RECORD IS PARSED FROM THE MERGE-BASE BLOB, NEVER FROM THE WORKTREE.
+    Clause (d) already forbids a diff, but reading the worktree would make the
+    verdict depend on a file the branch physically controls, and a guard should
+    not be one `sed` away from a different answer. `git show <merge-base>:<path>`
+    is the only read.
+
+    ⚠️ AND THE TWO-PR CHAIN IS CLOSED ELSEWHERE, NOT HERE. A session could
+    otherwise land PR A (Tier-1, docs-only, self-landing) writing an approval
+    for its own PR B. What stops it is that ``APPROVAL_DIR`` is in
+    ``LANDING_MACHINERY``, so R12 holds PR A for a human. Creating a credential
+    costs one read; using it costs nothing. That asymmetry is the whole design.
+
+    ⚠️ WHAT IT DOES NOT ESTABLISH is stated in `_APPROVAL_RESIDUAL` and repeated
+    in the failure text, because a guard that overstates its own reach is how a
+    reviewer stops reading the thing it does not cover.
+    """
+    fails: list[str] = []
+    notes: list[str] = []
+
+    # (a) the declaration must POINT at a record.
+    ref = str(decl.get("approved_by") or "").strip()
+    if not ref:
+        fails.append(
+            f"R15(a) {decl_rel} declares tier 2 with `landing: \"self\"` but names "
+            f"no approval record. Tier-2 work does not land on a session's own "
+            f"judgement — add `\"approved_by\": \"{APPROVAL_DIR}/<slug>.json\"` "
+            f"pointing at a record ALREADY ON `main`, or set `landing: \"hold\"` "
+            f"with `hold_reason: \"tier_2_3_needs_approval\"`. "
+            f"See {LANDING_DIR}/README.md.")
+        return fails, notes
+
+    # (b) it must live in the protected directory — that path IS the mechanism.
+    norm = ref.lstrip("./")
+    if not norm.startswith(APPROVAL_DIR + "/") or "/.." in norm or norm.endswith("/"):
+        fails.append(
+            f"R15(b) `approved_by` is {ref!r}, which is not a file under "
+            f"{APPROVAL_DIR}/. That directory is not a convention — it is listed "
+            f"in LANDING_MACHINERY, which is what makes WRITING an approval a "
+            f"held, human-read PR while USING one is free. A record anywhere "
+            f"else could be self-landed by its own author as an ordinary docs "
+            f"change, which is the forgery this rule exists to refuse.")
+        return fails, notes
+
+    # (c)/(d)/(e) THE MECHANICAL SEPARATION — the heart of the rule.
+    sep, detail = approval_separation(root, base, branch, norm, changed)
+    if sep == "merge_base_unreadable":
+        fails.append(
+            f"R15(c) the merge-base with `{base}` could not be read ({detail}), "
+            f"so whether {norm} predates this branch is UNKNOWN — *we did not "
+            f"look*, which is not the same as approved. Self-landing is refused "
+            f"on the unreadable case rather than granted by default; "
+            f"`landing: \"hold\"` still works.")
+        return fails, notes
+    if sep == "touched_by_branch":
+        fails.append(
+            f"R15(e) this branch's diff touches the approvals directory — "
+            f"{detail}. A branch may not write, edit or add ANY approval record "
+            f"in the same PR it asks to land: that is a branch approving itself, "
+            f"and whether the file it wrote is the one it cites is beside the "
+            f"point. Land the record in its own PR first — it will hold under "
+            f"R12 for a human read, which is what makes a credential cost "
+            f"something to CREATE and nothing to USE — then cite it from a "
+            f"clean branch.")
+        return fails, notes
+    if sep == "absent_at_merge_base":
+        fails.append(
+            f"R15(c) `approved_by` names {norm}, which does NOT exist at this "
+            f"branch's merge-base with `{base}` ({detail[:9]}). An approval that "
+            f"is not already on `main` is not an approval this branch can rely "
+            f"on — it is a claim the branch is making about itself. Land the "
+            f"record first, then merge `main` in and cite it.")
+        return fails, notes
+    mb = detail
+
+    rc_commit, intro = _git(root, "log", "-1", "--format=%H", mb, "--", norm)
+    if rc_commit == 0 and intro:
+        notes.append(f"R15 approval read from `main` at {norm} "
+                     f"(last touched on main by {intro[:9]}, merge-base {mb[:9]})")
+
+    raw = _blob_text(root, mb, norm)
+    if raw is None:
+        fails.append(f"R15 {norm} exists at {mb[:9]} but could not be read.")
+        return fails, notes
+    try:
+        rec = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        fails.append(f"R15 {norm} is not valid JSON at the merge-base: {exc}")
+        return fails, notes
+    if not isinstance(rec, dict):
+        fails.append(f"R15 {norm} must be a JSON object.")
+        return fails, notes
+
+    # ---- the record must name THIS branch -----------------------------------
+    named = str(rec.get("branch") or "").strip()
+    if named != branch:
+        fails.append(
+            f"R15(f) {norm} approves branch {named!r}, not {branch!r}. An "
+            f"approval binds to the change it was given for. A record that "
+            f"landed for one branch must not be re-pointed at another by a "
+            f"second branch citing it — that is the same act as writing a new "
+            f"approval, and it must cost the same human read.")
+
+    # ---- tier: 2 only, and never 3 -----------------------------------------
+    rtier = rec.get("tier")
+    if rtier == 3:
+        fails.append(
+            f"R15(g) {norm} declares `tier: 3`. TIER-3 IS OUT OF SCOPE FOR "
+            f"SELF-LANDING ENTIRELY — strategy logic, risk caps, sizing, "
+            f"account-mode flips and live promotion stay human-gated "
+            f"(docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers). There is no "
+            f"record that unlocks them and this rule must never be widened to "
+            f"create one.")
+    elif rtier != 2:
+        fails.append(
+            f"R15(g) {norm} declares `tier: {rtier!r}`; a landing credential is "
+            f"for Tier-2 work only. Tier-1 self-lands under R5 and needs no "
+            f"record; Tier-3 never self-lands.")
+
+    verdict = str(rec.get("verdict") or "").strip()
+    if verdict not in APPROVAL_VERDICTS:
+        fails.append(
+            f"R15(h) {norm} `verdict` is {verdict!r}; must be one of "
+            + ", ".join(APPROVAL_VERDICTS)
+            + ". `pending` and `none_recorded` are deliberately absent from the "
+              "vocabulary: this file is a credential, and one that can say "
+              "\"pending\" is one a reader will misread as a grant.")
+
+    channel = str(rec.get("channel") or "").strip()
+    if channel not in APPROVAL_CHANNELS:
+        fails.append(
+            f"R15(h) {norm} `channel` is {channel!r}; must be one of "
+            + ", ".join(sorted(APPROVAL_CHANNELS))
+            + ". It records HOW the operator answered, which is the question a "
+              "reader of a landed Tier-2 PR needs answered.")
+
+    for field in ("decision_id", "work_object", "decided_on", "decided_by"):
+        if not str(rec.get(field) or "").strip():
+            fails.append(f"R15(h) {norm} `{field}` is empty — an approval nobody "
+                         f"can trace back to a decision is not auditable.")
+
+    text = str(rec.get("text") or "").strip()
+    if len(text) < MIN_TEXT:
+        fails.append(
+            f"R15(h) {norm} `text` is {len(text)} chars; needs at least "
+            f"{MIN_TEXT}. It carries the operator's own wording, which is the "
+            f"only thing the typed `verdict` stays checkable against — the "
+            f"`operator_decision` discipline in docs/claude/work/OPEN-PRS.json.")
+
+    wo = str(rec.get("work_object") or "").strip()
+    if wo and not _blob_sha(root, mb, f"docs/claude/work/objects/{wo}.yaml"):
+        fails.append(
+            f"R15(h) {norm} names `work_object: {wo}`, which is not a file under "
+            f"docs/claude/work/objects/ at the merge-base. A parent that does "
+            f"not exist is not a parent — the same refusal "
+            f"scripts/ops/session_registry.py makes on a spawn.")
+
+    # ---- (j) WHO wrote the approval, where that is knowable -----------------
+    # The commit that last touched the RECORD on `main` — not the merge-base
+    # commit, which is merely where this branch happens to be anchored. A
+    # root-commit merge-base has no `~1`, so the range form is avoided entirely.
+    rc_a, approver_commit = _git(root, "log", "-1", "--format=%H", mb, "--", norm)
+    approving = (_commit_sessions(root, approver_commit)
+                 if rc_a == 0 and approver_commit else set())
+    landing_sessions = _sessions_in(root, f"{mb}..HEAD")
+    shared = approving & landing_sessions
+    if shared:
+        fails.append(
+            f"R15(j) the session that landed {norm} is also a session that "
+            f"committed on this branch — " + ", ".join(sorted(shared))
+            + ". One session cannot both grant and spend a credential, even "
+              "across two PRs. (This clause only ever ADDS a refusal: trailers "
+              "cover 10 of the 15 most recent commits on `main`, so their "
+              "ABSENCE is *we did not look* and is never treated as a pass — "
+              "the separation that does the work is R15(c)-(e) plus R12.)")
+    elif approving:
+        notes.append("R15(j) approval landed by session(s) "
+                     + ", ".join(sorted(approving))
+                     + "; none of them committed on this branch")
+    else:
+        notes.append("R15(j) the commit that landed the approval carries no "
+                     "`Claude-Session:` trailer — *we did not look*, not a pass. "
+                     "The separation that does the work is R15(c)-(e) plus R12.")
+
+    # ---- SCOPE, checked against the diff ------------------------------------
+    scope = rec.get("scope_paths")
+    if not isinstance(scope, list) or not scope or not all(
+            isinstance(s, str) and s.strip() for s in scope):
+        fails.append(
+            f"R15(i) {norm} `scope_paths` must be a non-empty list of path "
+            f"globs. A scope recorded only in prose cannot be compared to a "
+            f"diff, so it grants everything — which is how an `r2_only` "
+            f"approval would land an `r1` change. This is the field that makes "
+            f"the recorded scope MECHANICAL.")
+        return fails, notes
+
+    # The three files a branch MUST write to land at all are not 'scope'; they
+    # are the landing paperwork R6/R11/R13 demand. Requiring an approval to
+    # enumerate them would make every record carry the same three lines and
+    # would tempt an author to write a wildcard that swallows the real diff.
+    paperwork = {decl_rel, arm_rel, SESSION_BOARD}
+    substantive = [p for p in changed if p not in paperwork]
+    out_of_scope = paths_outside_scope(substantive, scope)
+    if out_of_scope:
+        fails.append(
+            f"R15(i) {norm} approves "
+            + ", ".join(sorted(scope)[:5])
+            + f" but the diff changes {len(out_of_scope)} path(s) outside that "
+              f"scope — "
+            + ", ".join(sorted(out_of_scope)[:5])
+            + ". The approval is for a change, not for a branch. Narrow the PR "
+              "to what was approved, or obtain a record whose scope covers it.")
+
+    # Tier-3 paths are barred ABSOLUTELY — a scope_paths entry cannot buy one.
+    barred3 = [p for p in substantive if _match(p, TIER3_PATHS)]
+    if barred3:
+        fails.append(
+            f"R15(g) the diff touches {len(barred3)} Tier-3 path(s) — "
+            + ", ".join(sorted(barred3)[:5])
+            + f". No approval record admits these, and {norm} listing them in "
+              f"`scope_paths` does not change that: Tier-3 is out of scope for "
+              f"self-landing entirely, whatever a record says.")
+
+    if not fails:
+        notes.append(
+            f"R15 OK — tier-2 self-land admitted by {norm} "
+            f"(decision {rec.get('decision_id')}, verdict {verdict}, channel "
+            f"{channel}, {len(substantive)} substantive path(s) inside scope). "
+            + _APPROVAL_RESIDUAL)
+        notes.append(_TRADING_PATH_CAVEAT)
+    return fails, notes
 
 
 def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str], list[str]]:
@@ -555,15 +1134,41 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                      + ", ".join(sorted(barred2)[:5]))
 
     if landing == "self":
-        # R4
-        if tier != 1:
+        # R4 — TIER-3 NEVER SELF-LANDS. Unchanged in force and unchanged in
+        # reason: strategy logic, risk caps, sizing, account-mode flips and live
+        # promotion are human-gated by docs/CLAUDE-RULES-CANONICAL.md
+        # § Permission Tiers, and no record unlocks them.
+        #
+        # ⚠️ WHAT CHANGED ON 2026-09-11 IS TIER-2 ONLY, AND R4'S REASON IS NOT
+        # WEAKENED. R4 held that a change and its own approval must not be the
+        # same act — right — but used "a human clicks Merge" as the proxy for
+        # that, so it barred Tier-2 self-landing WHATEVER the approval state.
+        # Measured cost: PR #11738 green, mergeable and operator-approved since
+        # 2026-09-10T07:52Z, unlanded, waiting on a click the operator has said
+        # will not come ("the operator does not click things", 2026-09-11).
+        # R15 replaces the proxy with the property itself — an approval record
+        # this branch DEMONSTRABLY COULD NOT HAVE WRITTEN — and refuses in every
+        # case where that cannot be established.
+        if tier == 3:
             fails.append(
-                f"R4 {decl_rel} declares tier {tier} with `landing: \"self\"`. "
-                f"Only Tier-1 lands without a human — Tier-2 needs an operator OK "
-                f"and Tier-3 explicit approval (docs/CLAUDE-RULES-CANONICAL.md "
-                f"§ Permission Tiers). Set `landing: \"hold\"`.")
-        # R5
-        if barred3 or barred2 or unvouched:
+                f"R4 {decl_rel} declares tier 3 with `landing: \"self\"`. "
+                f"TIER-3 NEVER SELF-LANDS — strategy logic, risk caps, sizing, "
+                f"account-mode flips and live promotion need explicit operator "
+                f"approval at the merge itself (docs/CLAUDE-RULES-CANONICAL.md "
+                f"§ Permission Tiers). There is no approval record that admits "
+                f"a Tier-3 diff and R15 must never be widened to create one. "
+                f"Set `landing: \"hold\"`.")
+        elif tier == 2:
+            afails, anotes = approval_state(
+                root, base, branch, decl, changed, decl_rel, arm_rel)
+            fails.extend(afails)
+            notes.extend(anotes)
+        # R5 — the Tier-1 surface allowlist. Scoped to tier 1 deliberately: a
+        # Tier-2 PR is by definition outside it, and its allowlist is the
+        # approval record's own `scope_paths`, which R15 checks against the diff
+        # the same way this checks against TIER1_SURFACE. Running both would
+        # make every Tier-2 approval unsatisfiable.
+        if tier == 1 and (barred3 or barred2 or unvouched):
             bits = []
             if barred3:
                 bits.append("Tier-3 by name: " + ", ".join(sorted(barred3)[:5]))
@@ -765,12 +1370,137 @@ def _claim_slot(root: Path, branch: str = "claude/demo") -> None:
         encoding="utf-8")
 
 
+def _branch_claim(root: Path, branch: str = "claude/demo",
+                  named: str | None = "__same__") -> None:
+    """Write the per-branch claim. `named` overrides the branch NAMED INSIDE,
+    so the self-test can plant the copied-from-another-branch case."""
+    rel = root / _branch_slot_rel(branch)
+    rel.parent.mkdir(parents=True, exist_ok=True)
+    inside = branch if named == "__same__" else named
+    body = {"held_by": "session_selftest", "claimed_at": "2026-09-12T00:00:00Z",
+            "purpose": "self-test"}
+    if inside is not None:
+        body["branch"] = inside
+    rel.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+
+
+def _inherit_branch_claim(root: Path, branch: str = "claude/demo") -> None:
+    """Put the per-branch claim on `main` and MERGE it in, so the branch carries
+    it byte-identically without having claimed anything.
+
+    ⚠️ THIS PLANT EXISTS BECAUSE ITS ABSENCE LET A REAL MUTATION ESCAPE. On the
+    first mutation run of the per-branch route, deleting the
+    `_added_or_modified` check entirely left the self-test reporting OK: every
+    other plant writes a file that is ABSENT on base, so `added-or-modified` is
+    trivially true and the check was never reached. A control that cannot reach
+    the branch it targets proves nothing about it — the same shape that let the
+    scope-overlap parser sit broken behind a passing suite.
+
+    It reproduces the real case rather than simulating it: a branch that merged
+    `main` while somebody else's claim sat on it has asked for nothing, and by
+    presence alone its diff is indistinguishable from a real claim.
+    """
+    rel = _branch_slot_rel(branch)
+    def g(*a):
+        return subprocess.run(["git", "-C", str(root), *a], check=True,
+                              capture_output=True)
+    g("checkout", "-q", "main")
+    (root / rel).parent.mkdir(parents=True, exist_ok=True)
+    (root / rel).write_text(json.dumps({
+        "held_by": "session_someone_else", "branch": branch,
+        "claimed_at": "2026-09-12T00:00:00Z", "purpose": "landed on main"},
+        indent=2) + "\n", encoding="utf-8")
+    g("add", "--", rel)
+    g("commit", "-qm", "somebody's claim lands on main")
+    g("checkout", "-q", branch)
+    g("merge", "-q", "--no-edit", "main")
+
+
 def _commit(root: Path) -> None:
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "work"], check=True)
 
 
 _GOOD_WHY = "documentation-only change to the landing route contract"
+
+# --- R15 fixtures ----------------------------------------------------------
+_APPROVAL_OK = {
+    "decision_id": "DEC-20260911-SELFTEST",
+    "work_object": "WO-20260911-SELFTEST",
+    "branch": "claude/demo",
+    "tier": 2,
+    "verdict": "approved",
+    "channel": "operator_conversational_relayed",
+    "scope_paths": ["src/runtime/**"],
+    "decided_on": "2026-09-11",
+    "decided_by": "operator",
+    "text": "the operator chose this remedy from a four-option popup, verbatim",
+}
+_T2_WHY = "runtime exit-loop change, Tier-2 by path, landing on a recorded approval"
+
+
+def _write_approval(root: Path, rec: dict, name: str = "demo") -> None:
+    d = root / APPROVAL_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{name}.json").write_text(json.dumps(rec, indent=2) + "\n", encoding="utf-8")
+
+
+def _t2_sandbox(tmp: Path, *, approval: Optional[dict] = _APPROVAL_OK,
+                approval_on_branch: bool = False,
+                branch_files: Optional[dict] = None) -> Path:
+    """A Tier-2 sandbox: the approval lands on `main` BEFORE the branch is cut.
+
+    `approval_on_branch=True` is the FORGERY case — the identical record, added
+    by the branch itself instead of found on `main`. That one difference is the
+    whole property R15 tests, so the two paths share every other byte.
+    """
+    root = tmp / "repo"
+    root.mkdir(parents=True)
+    subprocess.run(["git", "-C", str(root), "init", "-q", "-b", "main"], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "user.email", "t@t"], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "user.name", "t"], check=True)
+
+    (root / "docs").mkdir()
+    (root / "docs/seed.md").write_text("seed\n", encoding="utf-8")
+    (root / SESSION_BOARD).parent.mkdir(parents=True, exist_ok=True)
+    (root / SESSION_BOARD).write_text(json.dumps({"merge_slot": {
+        "held_by": None, "branch": None, "pr": None, "claimed_at": None}},
+        indent=2) + "\n", encoding="utf-8")
+    (root / "scripts/ci").mkdir(parents=True)
+    (root / GUARD_REL).write_text("# the guard\n", encoding="utf-8")
+    # The parent work object R15(h) insists on, present on `main`.
+    objs = root / "docs/claude/work/objects"
+    objs.mkdir(parents=True, exist_ok=True)
+    (objs / "WO-20260911-SELFTEST.yaml").write_text("id: WO-20260911-SELFTEST\n",
+                                                    encoding="utf-8")
+    if approval is not None and not approval_on_branch:
+        _write_approval(root, approval)
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "base"], check=True)
+
+    subprocess.run(["git", "-C", str(root), "checkout", "-qb", "claude/demo"], check=True)
+    for rel, body in (branch_files or {"src/runtime/exit_loop.py": "x = 1\n"}).items():
+        fp = root / rel
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        fp.write_text(body, encoding="utf-8")
+    if approval is not None and approval_on_branch:
+        _write_approval(root, approval)
+    (root / LANDING_DIR).mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _t2_declare(root: Path, **over) -> None:
+    fields = dict(tier=2, landing="self", why=_T2_WHY,
+                  approved_by=f"{APPROVAL_DIR}/demo.json")
+    fields.update(over)
+    _declare(root, **fields)
+
+
+def _t2_full(root: Path, **over) -> None:
+    """Declaration + arming + slot claim — everything R6/R13 also demand."""
+    _t2_declare(root, **over)
+    _arm(root)
+    _claim_slot(root)
 
 
 def self_test() -> int:
@@ -779,6 +1509,14 @@ def self_test() -> int:
         "tier-1 armed self-land on a docs-only diff": (
             lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
                        _claim_slot(r)),
+            True, "declared_self_land"),
+        # R13's SECOND ROUTE. If this ever stops passing, every lane branch is
+        # forced back onto the one shared field that `main` rewrites every ~11
+        # minutes, and arming becomes a race against CI that resolving faster
+        # cannot win.
+        "armed self-land holding the PER-BRANCH claim and NOT the shared field": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r)),
             True, "declared_self_land"),
         "tier-3 diff held with a typed reason": (
             lambda r: _declare(r, tier=3, landing="hold",
@@ -901,6 +1639,42 @@ def self_test() -> int:
         "R13 armed self-land riding another branch's slot claim": (
             lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
                        _claim_slot(r, branch="claude/somebody-else")), True),
+        # The per-branch route must not be weaker than the shared one. The
+        # filename alone cannot be the proof — a claim copied from another
+        # branch and renamed would sit at the right path — so the branch is
+        # named INSIDE and the two must agree.
+        "R13 per-branch claim naming somebody else's branch inside": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r, named="claude/somebody-else")), True),
+        "R13 per-branch claim with no `branch` field at all": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r, named=None)), True),
+        "R13 per-branch claim that is not attributable": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           json.dumps({"branch": "claude/demo", "held_by": "  ",
+                                       "claimed_at": "2026-09-12T00:00:00Z"},
+                                      indent=2) + "\n", encoding="utf-8")), True),
+        "R13 per-branch claim merely INHERITED from main, never claimed": (
+            lambda r: (_inherit_branch_claim(r),
+                       _declare(r, tier=1, landing="self", why=_GOOD_WHY),
+                       _arm(r)), True),
+        # ⚠️ VALID JSON that is not an OBJECT. Distinct from the case below and
+        # not covered by it: `{not json` fails at `json.loads` and never reaches
+        # the `isinstance(claim, dict)` branch, so without this plant that branch
+        # had no control at all — the second escape the mutation run found, and
+        # the same shape as the inherited-claim one above.
+        "R13 per-branch claim that is valid JSON but not an object": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           "[1, 2, 3]\n", encoding="utf-8")), True),
+        "R13 per-branch claim that is not valid JSON": (
+            lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _branch_claim(r),
+                       (r / _branch_slot_rel("claude/demo")).write_text(
+                           "{not json", encoding="utf-8")), True),
         "R11 no declaration on a branch that could have known": (
             lambda r: None, True),
         "R1 a tier outside 1-3": (
@@ -923,10 +1697,96 @@ def self_test() -> int:
             else:
                 print(f"self-test: '{name}' correctly caught")
 
+    # ---- R15: the Tier-2 approved-self-land path ---------------------------
+    # The POSITIVE control first, because a rule that only ever refuses is
+    # indistinguishable from a rule that is broken.
+    with tempfile.TemporaryDirectory() as td:
+        root = _t2_sandbox(Path(td))
+        _t2_full(root)
+        _commit(root)
+        state, fails, _ = check(root, "main", "claude/demo")
+        if fails or state != "declared_self_land":
+            print(f"::error::self-test FAILED — R15 positive control: a Tier-2 PR "
+                  f"whose approval is ON `main`, names this branch, and covers "
+                  f"the diff should self-land (state={state}, fails={fails}). "
+                  f"A gate that never admits anything has not fixed the click.")
+            bad += 1
+        else:
+            print("self-test: R15 positive control — an approved Tier-2 PR "
+                  "self-lands (state=declared_self_land)")
+
+    # ---- R15 negative controls. THESE ARE THE DELIVERABLE -------------------
+    # Anything can be made to pass; what matters is that the gate still REFUSES.
+    r15_plants = {
+        # (1) no approval at all.
+        "R15(a) tier-2 self-land with NO approval record": (
+            lambda r: (_t2_declare(r, approved_by=None), _arm(r), _claim_slot(r)),
+            {}),
+        # (2) THE FORGERY CASE — the identical record, written by the branch
+        #     that benefits from it. Byte-for-byte the record that PASSES
+        #     above; the only difference is which commit carries it.
+        "R15 the approval lives ON THE PR'S OWN BRANCH (the forgery case)": (
+            lambda r: (_t2_full(r),), {"approval_on_branch": True}),
+        # (3) an approval for somebody else's change.
+        "R15(f) the approval names a DIFFERENT branch": (
+            lambda r: (_t2_full(r),),
+            {"approval": {**_APPROVAL_OK, "branch": "claude/somebody-else"}}),
+        # (4) scope is checked against the diff, the way R5 checks tier.
+        "R15(i) the diff EXCEEDS the approved scope": (
+            lambda r: (_t2_full(r),),
+            {"branch_files": {"src/runtime/exit_loop.py": "x = 1\n",
+                              "src/units/accounts/ib_client.py": "y = 2\n"}}),
+        # (5) Tier-3 is out of scope for self-landing ENTIRELY.
+        "R4 a tier-3 declaration self-landing on a valid tier-2 approval": (
+            lambda r: (_t2_full(r, tier=3),), {}),
+        "R15(g) a tier-2 declaration whose diff touches a Tier-3 path": (
+            lambda r: (_t2_full(r),),
+            {"approval": {**_APPROVAL_OK,
+                          "scope_paths": ["src/runtime/**", "config/**"]},
+             "branch_files": {"src/runtime/exit_loop.py": "x = 1\n",
+                              "config/strategies.yaml": "a: 1\n"}}),
+        # --- and the ways a record could be hollowed out --------------------
+        "R15(b) approved_by pointing outside the protected directory": (
+            lambda r: ((r / "docs").mkdir(parents=True, exist_ok=True),
+                       (r / "docs/my-own-approval.json").write_text(
+                           json.dumps(_APPROVAL_OK), encoding="utf-8"),
+                       _t2_full(r, approved_by="docs/my-own-approval.json")), {}),
+        "R15(e) the branch EDITS the approval it cites": (
+            lambda r: (_write_approval(r, {**_APPROVAL_OK,
+                                           "scope_paths": ["**"]}),
+                       _t2_full(r)), {}),
+        "R15(i) scope recorded only in prose, no scope_paths": (
+            lambda r: (_t2_full(r),),
+            {"approval": {k: v for k, v in _APPROVAL_OK.items()
+                          if k != "scope_paths"}}),
+        "R15(h) verdict `pending` read as a grant": (
+            lambda r: (_t2_full(r),),
+            {"approval": {**_APPROVAL_OK, "verdict": "pending"}}),
+        "R15(h) an approval naming a work object that does not exist": (
+            lambda r: (_t2_full(r),),
+            {"approval": {**_APPROVAL_OK, "work_object": "WO-NOPE"}}),
+        "R15(g) a record declaring tier 3": (
+            lambda r: (_t2_full(r),),
+            {"approval": {**_APPROVAL_OK, "tier": 3}}),
+    }
+    for name, (plant, kw) in r15_plants.items():
+        with tempfile.TemporaryDirectory() as td:
+            root = _t2_sandbox(Path(td), **kw)
+            plant(root)
+            _commit(root)
+            _, fails, _ = check(root, "main", "claude/demo")
+            if not fails:
+                print(f"::error::self-test FAILED — planted '{name}' and the "
+                      f"guard still ADMITTED a Tier-2 self-land. R15's whole "
+                      f"value is what it refuses.")
+                bad += 1
+            else:
+                print(f"self-test: '{name}' correctly refused")
+
     if bad:
         return 1
-    print(f"self-test OK — {len(positives) + 2} positive controls hold and all "
-          f"{len(plants)} planted defects fail the guard")
+    print(f"self-test OK — {len(positives) + 3} positive controls hold and all "
+          f"{len(plants) + len(r15_plants)} planted defects fail the guard")
     return 0
 
 
