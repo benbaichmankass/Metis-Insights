@@ -1,0 +1,134 @@
+id: WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Unblock the prop account — it is starved at dispatch, and the remedy everyone
+  was waiting on has never once dispatched
+stage: CAPABILITY
+lifecycle: in_flight
+owner: session_01QF6kgTnqd4yg32y2UYe9FQ
+opened_at: 2026-09-12
+blocked_on: []
+blocked_on_basis: ASSESSED
+review_trigger: >-
+  Re-read when the Tier-2 projection fix (step 1) is merged AND deployed, which
+  is the first point at which the allowlist widening stops being inert.
+done_condition: >-
+  `breakout_1` OBSERVED routing: a `prop_tickets` row with status `emitted`
+  whose `order_package_id` traces to a fan-out round, against a STATED window in
+  which the leg was signalling. ⚠️ THE POSITIVE CONTROL IS NOT OPTIONAL — silence
+  in a window where the legs were not signalling proves nothing, and this account
+  signals roughly twice a week, so the window must be chosen and stated rather
+  than assumed. ⚠️ AND `rounds_applied` ALONE IS NO LONGER SUFFICIENT EVIDENCE,
+  which is this unit's own finding turned on its own done-condition: 317 live
+  soak rows carried `applied: true` with a non-empty `rounds_applied` while
+  NOTHING dispatched, because the plan the soak records is not the plan the
+  pipeline can read. A routing row is a claim about the PLAN; the ticket is the
+  claim about the DISPATCH. Record both. ⚠️ NOT SUFFICIENT: widening
+  ARBITRATION_FANOUT_ACCOUNTS and observing `apply_scope: allowlisted` — on the
+  current code that flips every observability surface to "routed" while the
+  account stays starved, which is strictly worse than the state it replaces.
+  ⚠️ IF THE OPERATOR DECIDES the prop roster should not be entry-clones of
+  `bybit_1` legs — which is what creates the symbol contest at all — this object
+  does NOT complete, it CHANGES: that is a legitimate Tier-3 roster decision and
+  must be RECORDED as one rather than left looking like an allowlist widening
+  about to happen.
+
+why: >-
+  OPERATOR-DIRECTED 2026-09-12, answering a decision prompt that raised the
+  concurrency cap specifically to staff a real-money lane. MI-274 established
+  (docs/research/prop-account-silence-2026-09-11.md) that `breakout_1` is starved
+  at dispatch rather than quiet, and refuted the low cushion as the cause. This
+  unit was dispatched to turn that attribution into a sequenced unblock, and was
+  warned that adding `breakout_1` to the allowlist is the obvious move and
+  exactly what must not be done on reflex. That warning turned out to be far more
+  load-bearing than anyone knew.
+
+findings: >-
+  THE FAN-OUT HAS NEVER DISPATCHED, ON ANY ACCOUNT, SINCE IT WAS BUILT — so the
+  Tier-2 allowlist widening the whole sequence was queued behind is INERT.
+  `_attach_fanout_plan` (intent_multiplexer.py:1019-1026) writes `apply_rounds`
+  as a two-key projection {strategy, accounts}, dropping the side/entry/sl/tp
+  that `plan["rounds"]` carries; `_fanout_apply_rounds` (pipeline.py:58-89)
+  validates exactly those keys and returns [] fail-closed; pipeline.py:1077 then
+  takes the `else:` branch and dispatches the GLOBAL winner's package.
+  VERIFIED FOUR WAYS, none by reading: (1) ran the REAL source text of both
+  functions, ast-extracted not retyped, against the real planner — apply_rounds
+  written, `applied: true`, reader returns []; (2) LIVE production data,
+  POPULATION 400 soak rows (tail of a 555,838-byte file,
+  2026-09-02T15:42:52Z -> 2026-09-12T01:27:39Z): 317 rows carry `applied: true`
+  with a non-empty `rounds_applied`, and ALL 317 entries have exactly the
+  key-set ('accounts','strategy') — ONE distinct key-set, zero carrying `side`;
+  (3) congenital not drift — writer projection, reader validation and round
+  geometry all landed in the SAME commit, PR #10544 / 12e4a9eb4 / 2026-08-31;
+  (4) the deployed code IS the analysed code — /api/diag/version git_sha ==
+  git_sha_on_disk == c5a0ba993, restart_pending false.
+  WHY IT WENT UNSEEN: the seam test that claims to prove it
+  (test_a_plan_written_by_the_multiplexer_is_readable_by_the_pipeline, docstring
+  "End-to-end on the real structures, not a hand-made dict") NEVER CALLS
+  `_attach_fanout_plan`. It calls the planner then hand-writes
+  `plan["apply_rounds"] = plan["rounds"]  # what apply mode attaches`, which is
+  precisely what apply mode does not attach. Its sibling asserts only that the
+  STRING "apply_rounds" occurs in the source. A test that constructs the
+  producer's output cannot see a producer that builds it differently.
+  TWO CORRECTIONS TO MI-274, whose core verdict SURVIVES BOTH INTACT.
+  (1) HOP 4B IS FALSE: "apply_rounds REPLACES the global dispatch, so a partial
+  arming closed both doors" — apply_rounds never survives validation, so the
+  global dispatch ran unchanged and the prop twin's BL-20260827 route was never
+  removed. breakout_1 IS starved, by the ORIGINAL global one-winner-per-symbol
+  election, not by the allowlist.
+  BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE
+  is filed on a false premise and is corrected in place.
+  (2) THE STALE BALANCE DOES NOT BIND, and MI-274's own hop-5 table disproves its
+  hop 6: two trend_donchian_eth_prop tickets reached `emit_prop_ticket` on
+  2026-09-05 (16:34:52Z, 17:01:01Z), each carrying an order_package_id, with the
+  snapshot ALREADY ~141h stale — so sizing returned a positive qty.
+  PropRiskManager.position_size substitutes the NOMINAL equity when the live
+  balance is unavailable (operator design 2026-06-19, its own docstring).
+  Corroborated by the ticket data: risk_usd census over 163 rows (163 < the 200
+  limit, so not a truncated page) reads 48 at $75.00 and 6 at $25.00, NONE at
+  $71.81 — and $75.00 = 0.015 x $5,000 nominal, not 0.015 x the $4,787.34
+  snapshot. So "send a fresh bal or it will not trade" would be FALSE. A fresh
+  bal is still wanted (the snapshot is 298.3h old against a 24h limit) and is
+  NOT on the critical path.
+  NEW, PREVIOUSLY UNRECORDED: nothing in the ORDER PATH enforces the prop
+  drawdown floor. `distance_to_dd_floor_usd` has display-only consumers
+  (routers/prop.py, telegram_report_handler.py) — no branch reads the cushion —
+  and the generic RiskManager cannot see prop outcomes at all, since
+  daily_risk_state is rebuilt by SELECT ... FROM trades (3 sites in risk.py)
+  while the prop executor writes only to prop_tickets/prop_fills and risk.py
+  never reads a prop table (grep empty; POSITIVE CONTROL: the same pattern hits
+  in breakout_executor.py). So max_dd_pct 0.06 / daily_usd 150 on breakout_1 can
+  never trip from prop activity. Live cushion $87.34 against a nominal-sized risk
+  of $75.00. ⚠️ THIS IS NOT A PROPOSAL TO STOP TRADING — the operator has ruled a
+  low cushion must not stop trading and that ruling is not re-litigated — it is
+  raised so the decision is made KNOWINGLY, and because sizing off a $5,000
+  nominal is 4.4% ABOVE the account's actual equity.
+
+not_established: >-
+  CENTRALIZED_ALLOCATOR's live value. It defaults false and is provisioned
+  nowhere in deploy/ or any .env template (grep clean; POSITIVE CONTROL: it hits
+  in ROADMAP.md and docs), but it has NO READ SURFACE — absent from
+  get_env.py::ALLOWED_KEYS — and the journal window pulled was 5.5 minutes with
+  NO dispatch in it, so that probe had no denominator. Recorded as *we could not
+  look*, never as a clean negative. If it were ON the fan-out would be bypassed
+  entirely and would STILL never dispatch, so the finding holds either way — but
+  it changes WHICH fix is right and should be settled before step 1 lands.
+  ALSO NOT ESTABLISHED: daily_risk_state's contents (not in
+  diag.py::_JOURNAL_TABLES, and /api/bot/db/table/... returns invalid_session
+  from this container — a first read returned "0 rows" and the POSITIVE CONTROL
+  caught it as a BROKEN PROBE, not an empty table; the prop-isolation conclusion
+  rests on the code, which is authoritative). AND whether breakout_1 appears in
+  `live_balances` on a given tick. AND the 17-day bybit_1 losing streak, which is
+  reported because the detector surfaced it and corroborates MI-271 at +1 day —
+  NOT re-derived here.
+
+must_not: >-
+  Do NOT widen ARBITRATION_FANOUT_ACCOUNTS before the projection fix is deployed
+  and observed. On the current code that flips `apply_scope` to `allowlisted` and
+  puts breakout_1 in `rounds_applied` while `_fanout_apply_rounds` still returns
+  [] — a Tier-2 change on a REAL-MONEY prop account that MANUFACTURES THE
+  APPEARANCE OF A FIX across every observability surface. Do NOT emit a prop
+  ticket by hand. Do NOT edit config/accounts.yaml, the allowlist, or
+  config/prop_rulesets/** from a session. Do NOT propose a cushion-based stop —
+  the operator has ruled.
