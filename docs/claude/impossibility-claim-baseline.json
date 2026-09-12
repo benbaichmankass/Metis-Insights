@@ -1,8 +1,7 @@
 {
   "_comment": "Standing per-file count of unsubstantiated impossibility claims. The diff-scoped guard cannot police lines nobody edits, so this ratchet is what keeps already-committed rows visible. Counts may only go DOWN: regenerate with `python3 scripts/check_impossibility_claims.py --all --update-baseline`.",
   "per_file": {
-    "docs/claude/health-review-backlog.json": 8,
-    "docs/claude/ml-review-backlog.json": 5,
+    "docs/claude/ml-review-backlog.json": 4,
     "docs/claude/performance-review-backlog.json": 1,
     "docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md": 1,
     "docs/research/AUTONOMOUS-WORKPLAN-2026-07-30.md": 2,
