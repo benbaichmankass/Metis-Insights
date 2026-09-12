@@ -139,7 +139,7 @@ def added_paths(base: str, root: pathlib.Path) -> List[str] | None:
             cwd=root, capture_output=True, text=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError):
         return None
-    return [l.strip() for l in out.splitlines() if l.strip()]
+    return [line.strip() for line in out.splitlines() if line.strip()]
 
 
 def census(root: pathlib.Path) -> Dict[str, object]:
