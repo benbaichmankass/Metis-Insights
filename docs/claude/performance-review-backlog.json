@@ -4643,6 +4643,28 @@
       "updates": []
     },
     {
+      "id": "BL-20260912-MI-271-S-HEADLINE-DECOMPOSITION-TABLE-INCLUDES-THE-PAIRS-SLEEVE-EVERY-OTHER-SECTION-EXCLUDES",
+      "title": "MI-271's avg-win decomposition is computed WITH the pairs sleeve while the rest of the memo excludes it, and the win-rate conclusion inverts on that filter",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-277 (docs/research/winner-size-collapse-2026-09-12.md)",
+      "detail": "docs/research/bleed-attribution-2026-09-11.md section 4.3 is the table the whole 'winner-size collapse' framing rests on, and it is the ONLY table in that memo computed on the pairs-INCLUDED population; section 1 defines the decision population as pairs-EXCLUDED and every other section uses it. MEASURED 2026-09-12 on /api/diag/journal trades limit=1000 (ids 4709-5708, pulled 01:0xZ), account bybit_1, split on created_at at 2026-08-30T08:53:19Z, reproducible via scripts/research/winner_size_collapse_2026_09_12.py annex A1: PAIRS-INCLUDED n=231/215 gives win rate 0.455 -> 0.409 (-4.6pp), avg win 411.92 -> 119.20, avg loss -268.29 -> -311.54 (worse 16%). PAIRS-EXCLUDED n=79/101 gives win rate 0.532 -> 0.337 (-19.5pp, a 36.7% relative fall) and avg loss -901.57 -> -578.20 (BETTER 36%). The pairs sleeve is 266 of the 446 rows and carries -28.91 of PnL, so it dilutes both eras and both statistics. CONSEQUENCE: the memo's conclusion 'Win rate fell only 4.9pp ... driven overwhelmingly by winners getting smaller, not by winning less often' does NOT hold on its own declared population -- on it, an expectancy shift-share gives the win-rate term 91.7% and the avg-win term 96.0% of the fall (large interaction, both terms moved far), against 17.5%/75.5% with pairs in. The -72% RATIO is robust (0.289 vs 0.277) and is not disputed; the LEVELS and the win-rate/avg-loss statements are not. This is the 'a headline that changes on a filter choice must state the filter' class from CLAUDE-RULES-CANONICAL. NOT a criticism of the memo's overall verdict, which MI-275 independently corroborated.",
+      "resolution_criteria": "Either section 4.3 of bleed-attribution-2026-09-11.md states which population it uses and reports both, or a successor memo supersedes the table; AND no later artifact quotes the 4.9pp win-rate figure or the 04->12 levels without naming the pairs-included filter."
+    },
+    {
+      "id": "BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED",
+      "title": "netting_attributed carries the single largest share of the measured winner-size collapse and is 100% ESTIMATED in both eras -- the path OI-20260908 says can close a live position",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-277 (docs/research/winner-size-collapse-2026-09-12.md)",
+      "detail": "MEASURED 2026-09-12 on /api/diag/journal trades limit=1000 (ids 4709-5708), account bybit_1, decision population closed / non-backtest / pnl NOT NULL / pairs excluded (n=79 pre, 101 post), split on created_at at 2026-08-30T08:53:19Z, annex A6 of scripts/research/winner_size_collapse_2026_09_12.py: exit_reason='netting_attributed' is 39 rows (22 pre, 17 post), and src.runtime.provenance.classify_pnl returns ESTIMATED for 39 of 39 -- there is not one measured row in it. On winners its median R falls 3.143 (n=11) -> 0.656 (n=6), the largest single contribution to the fall; the sibling label reconciler_filled falls 3.872 -> 0.417 on its ESTIMATED rows but only 4.824 -> 3.353 on its MEASURED ones. Total PnL on the label goes -914.61 -> -4,769.54. THIS IS THE POPULATION OF OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT, which establishes that a zero-size hedge-book sibling makes _bybit_position_protection return _flat for a symbol that is not flat, after which _reconcile_netting_partial_closes closes a live position with an ESTIMATED pnl. !! I DID NOT ESTABLISH THAT ANY OF THESE 39 ROWS IS A FALSE CLOSE -- that needs the venue-side read OI-20260908 specifies, which a journal query cannot do, and this row must not be read as having done it. What IS established is that the path carrying the largest share of the collapse is the path that row says cannot be trusted, so any expectancy or winner-size verdict computed off this population inherits that doubt.",
+      "resolution_criteria": "Either OI-20260908's root cause lands (book selection in _bybit_position_protection) and a re-measure over a post-fix window shows the netting_attributed winner-R fall persisting or vanishing, or the 39 rows are individually adjudicated against venue truth. Until one of those, no winner-size magnitude computed over a population containing netting_attributed rows should be quoted without this caveat."
+    },
+    {
       "id": "BL-20260911-MI271-SECTION-6-SAYS-N4-HAS-ZERO-FALSE-POSITIVES-AND-THE-NOISE-BOOK-STILL-FIRES-AT-N4",
       "title": "MI-271 section 6 concludes a >=4-consecutive-losing-day rule fires 'on the real event, with zero false positives' -- re-measured, bybit_2's longest losing run is 10 days totalling -$56.15, so it fires at N>=4, N>=5 and N>=6, and only an absolute size gate removes it",
       "area": "observability",

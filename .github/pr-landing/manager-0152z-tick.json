@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager 01:52Z tick: lease heartbeat, observed-state write-back for two lanes, and the tick record. Registers only; no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}
