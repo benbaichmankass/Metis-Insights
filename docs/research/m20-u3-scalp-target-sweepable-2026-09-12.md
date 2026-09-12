@@ -445,7 +445,7 @@ exact IS ties is **0/7 on every leg**, against 5/7 here. It is a small-sample
 artifact of a 26k-bar run, **not** a gate defect, and `tp2R` is not a
 candidate — its grading is simply uninformative at this timeout.
 
-### ⚠️ AND THIS ARM CANNOT SETTLE THE QUESTION, IN THE ONE DIRECTION THAT MATTERS
+### ⚠️ AND THIS ARM CANNOT SETTLE THE QUESTION — ⛔ BUT NOT FOR THE REASON GIVEN BELOW; SEE §4e
 
 Every figure above was produced with the **24-bar force-close of §2b**, which
 production does not have on any `ict_scalp` leg. That defect is **not neutral
@@ -471,6 +471,65 @@ so the gap is quantified rather than swapped in silently.
 ⚠️ **Nor does a negative on the TARGET rescue the ratchet hypothesis of §4c** —
 these are different levers, and this run tested only one of them. §4c's
 break-even cell family (`be_off`, now in the sweep) is untested at parity too.
+
+## 4e. ⛔ CORRECTION — THE TIMEOUT BIAS RUNS THE OTHER WAY, AND §4d GOT IT BACKWARDS
+
+**§4d and §2b assert that the 24-bar force-close penalises wider targets. The
+parity arm refutes that. It FLATTERS them.** The error ran in the direction of
+my own forming hypothesis — that the target might yet be a lever once parity
+was applied — which is exactly the direction a self-check is for. It is
+corrected here rather than quietly amended, because a reader acting on §4d
+would discount a negative that is in fact stronger than it looks.
+
+Population: run
+[`34683160559`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34683160559),
+`timeout_bars=100000`, **2 of 7 legs so far** — same corpora, same split, same
+config-exact base as the screening arm. **Only the timeout differs**, so the
+two arms are directly comparable in absolute `total_R`.
+
+**The baseline is the control**, and it is a good one: at the live 1.5R target
+removing the timeout moves IS by **−0.31 R** (eth) and **+0.45 R** (sol). So
+any large shift on a *cell* is about that cell, not about parity in general.
+
+| IS window | baseline (1.5R) shift | **4R cell** shift |
+|---|--:|--:|
+| `ict_scalp_eth_15m` | −0.31 | **−13.86** |
+| `ict_scalp_sol_15m` | +0.45 | **−23.17** |
+
+And on `eth_15m` the whole grid orders itself by target: narrow cells **gain**
+at parity (+1.34, +2.33, +2.03 at 0.75/1/1.25R), wide cells **lose** (−3.81,
+−2.69, −5.42, −13.86 at 2/2.5/3/4R), crossing over right around the live value.
+
+**The mechanism, and why my §4d reasoning was incomplete.** I argued a wider
+target needs more bars, so a clock truncates the trades it would have won.
+True — and it ignores the trades it would have *lost*. At 4R, **58.5% of trades
+never reach the target** (§4d's own table). With a 24-bar clock every one of
+those exits at bar 24 at whatever intermediate P/L it holds; without it, most
+run on to the stop and pay a full 1R. The clock is a **free partial exit**, and
+the wide cells collect it most because they are the cells with the most
+unresolved trades. §4d counted the truncated winners and not the rescued
+losers.
+
+**What this does to the conclusion: it strengthens it.** The screening arm was
+biased **in favour** of widening and still returned **0 of 35**. At parity the
+wide cells get materially worse, and the parity arm returns **0 of 14** on the
+two legs read so far — with `eth_15m` no longer even flipping sign (Σ IS
+**−60.03**, Σ OOS **−23.04**, both negative). On the evidence so far,
+**widening the `ict_scalp` take-profit does not help, and the harness's own
+defect was making it look better than it is.**
+
+⚠️ **A SEPARATE FINDING, and it is the one §2b was reaching for.** The
+timeout's effect on the *baseline* varies in SIGN by leg and window, and on one
+of them it is enormous: `sol_15m` **OOS** goes **+20.46 R → +0.20 R** at parity
+— the harness's clock accounts for **99%** of that leg-window's entire reported
+profit at the live target. `eth_15m` OOS goes the other way (+15.73 → +19.13).
+So §2b's *"~62% of reported net R"* must not be read as a fleet constant; it is
+leg-and-window specific and can reach ~100%. **A backtest number for an
+`ict_scalp` leg is not comparable to live until it is produced at parity.**
+
+⚠️ **n = 2 legs.** Five parity legs are still running, and both readings above
+could move. What is already settled is the DIRECTION of the bias, because the
+baseline control pins it.
 
 ## 5. Landing
 
