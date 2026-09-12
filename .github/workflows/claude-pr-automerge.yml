@@ -238,13 +238,58 @@ jobs:
             // caller opened themselves already carries its own checks, which is
             // why adopting is the documented workaround).
             const patToken = process.env.PR_OPEN_PAT || '';
-            // `@actions/github` is bundled with actions/github-script; getOctokit
-            // gives a client authenticated as the PAT's owner rather than as
-            // github-actions[bot], which is the whole point — the event fires for
-            // a human/PAT actor and does not for the bot.
-            const opener = patToken
-              ? require('@actions/github').getOctokit(patToken)
-              : github;
+            // A PAT-authenticated client opens the PR as the PAT's owner rather
+            // than as github-actions[bot], which is the whole point — the
+            // `pull_request` event fires for a human/PAT actor and does not for
+            // the bot, so a bot-opened PR carries no checks.
+            //
+            // ⚠️ `require('@actions/github')` THREW HERE AND CRASHED THE WHOLE
+            // JOB, repo-wide, from 2026-09-12T09:56:31Z. The comment this
+            // replaces asserted "@actions/github is bundled with
+            // actions/github-script"; on v7 it is not resolvable from the user
+            // script, and `Cannot find module '@actions/github'` surfaced as an
+            // UNHANDLED ERROR. MEASURED over the last 15 runs: 9 failed, across
+            // four different lanes (mi278/mi279/mi280/mi285). The survivors were
+            // branches that had not yet merged `main` and so still ran their own
+            // older copy — so it spread as people synced.
+            //
+            // ⚠️ AND THE CHANGE THAT INTRODUCED IT WAS NEVER RUN BY THIS
+            // WORKFLOW: #11889's merge commit carries guards, pytest-run,
+            // pytest-collect, repo-inventory, gate, sync and reconcile, and NO
+            // `open-and-automerge` run at all.
+            //
+            // THREE THINGS, IN ORDER, AND THE ORDER IS THE POINT:
+            //   1. `__original_require__` — github-script's own documented
+            //      escape for reaching its bundled modules.
+            //   2. a bare `require`, for a runtime where that hatch is absent.
+            //   3. FALL BACK TO `github` RATHER THAN THROW. That is not a
+            //      silent swallow: it is precisely the degraded path this step's
+            //      own `PR_OPEN_PAT` comment already documents — the PR is
+            //      opened under GITHUB_TOKEN, the checks do not attach, and the
+            //      gate in step 3 REFUSES to arm. A loud refusal beats an
+            //      unhandled error that takes the job down and tells four lanes
+            //      nothing about why.
+            function _patClient(token) {
+              const tries = [
+                () => __original_require__('@actions/github').getOctokit(token),
+                () => require('@actions/github').getOctokit(token),
+              ];
+              for (const t of tries) {
+                try { return t(); } catch (e) { /* try the next */ }
+              }
+              core.warning(
+                'could not construct a PAT-authenticated client: ' +
+                "`@actions/github` is not resolvable from this script. Falling " +
+                'back to GITHUB_TOKEN, which means the PR is opened as ' +
+                'github-actions[bot], the `pull_request` checks do NOT attach, ' +
+                'and step 3 will REFUSE to arm auto-merge. That refusal is ' +
+                'correct and is the documented degraded path — but it means ' +
+                'nothing will self-land until this is repaired, so fix it ' +
+                'rather than living with it.');
+              return null;
+            }
+            const patClient = patToken ? _patClient(patToken) : null;
+            const opener = patClient || github;
 
             let pr = (await github.rest.pulls.list({
               owner, repo, head: `${owner}:${head}`, state: 'open',
@@ -252,7 +297,14 @@ jobs:
             let created = false;
             let openerKind = 'adopted';
             if (!pr) {
-              openerKind = patToken ? 'pat' : 'github_token';
+              // ⚠️ `patClient`, NOT `patToken`. A token we HOLD and a client we
+              // could BUILD are different facts, and only the second means the
+              // PR was opened as a PAT actor with its checks attached. Keying
+              // this on the token would report `pat` after the fallback above
+              // and tell step 3 the checks are there when they are not — which
+              // is worse than the crash, because it arms a head nothing is
+              // measuring. That is the exact defect #11889 exists to prevent.
+              openerKind = patClient ? 'pat' : 'github_token';
               if (!patToken) {
                 core.warning(
                   'BRANCH_PROTECTION_TOKEN is NOT set, so this PR is being opened ' +
