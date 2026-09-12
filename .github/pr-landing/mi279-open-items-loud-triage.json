@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — one new proposal doc under docs/design/ plus its DOCUMENT-INDEX.md row. No src/, config/, deploy/, workflow or order path. It PROPOSES a triage and changes no row's loud value, no renderer and no threshold."
+}
