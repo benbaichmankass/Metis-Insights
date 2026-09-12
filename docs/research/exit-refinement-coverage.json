@@ -2644,8 +2644,9 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "honest_negative",
+    "ref": "SWEPT AND REFUTED. 7 target cells (0.75/1/1.25/2/2.5/3/4 R, the leg's own 1.5 excluded as baseline); 5 honest_negative on IS/OOS, and `tp3R`+`tp4R` cleared IS/OOS and then FAILED the yearly walk-forward — 1/4 and 2/4 usable folds against a need of 3 (2021/2022 skip = empty on m27_data, so the denominator is 4). ⚠️ THE CANDIDATES' PASS RESTED ON IN-SAMPLE DRAWDOWN: tp3R IS ΔR +4.51 / ΔDD −51.00 (n660), tp4R IS ΔR +9.80 / ΔDD −63.09 (n640); the folds do not carry those gains (tp4R passes 2023 and 2026, fails 2024 and 2025), which is the n=1-in-EPISODES signature the unit pre-registered before running the walk-forward. ⚠️ DO NOT RESURRECT tp4R FROM ITS OOS LINE ALONE (ΔR +13.75, the largest single OOS improvement in MI-278) — it did not survive. MEASURED 2026-09-12 (MI-278 U3b), run 34684742080, `m27_data/AVAXUSDT_5m.csv` (373,489 bars), split 2025-07-01 → IS 262,656 / OOS 110,833 bars, base IS 689 trades / OOS 337, config-exact base (`--sim-breakeven` + the leg's declared levers). ⚠️ RUN AT LIVE PARITY (`timeout_bars=100000`); every cell reported `[timeout IS 0% OOS 0%]`, so no verdict here is a 24-bar force-close artifact. ⚠️ PATH A ONLY — Path B (`net_r_per_capital_day`) is RECORDED (`capital_delta`) and deliberately NOT graded repo-wide, its thresholds being operator-reserved; `gate_paths_graded: [\"A\"]`. ⚠️ MIN_OOS_TRADES is unenforced in the M27 sweep and binds on nothing here (min OOS n=310). Evidence: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4p; withdrawal recorded in docs/research/m20-u4-scalp-exit-proposals-2026-09-12.md § PROPOSAL 2.",
+    "basis": "live_lever"
    }
   },
   {

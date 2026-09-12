@@ -132,18 +132,51 @@ Nothing is owed. The evidence stays in U3's memo and the coverage cell records
 
 ---
 
-## PROPOSAL 2 — `ict_scalp_avax_5m`: pending its walk-forward
+## PROPOSAL 2 — `ict_scalp_avax_5m`: **WITHDRAWN. The walk-forward refuted it.**
 
-`tp3R` and `tp4R` cleared IS/OOS at parity and are **still walking forward** at
-the time of writing. They are **widenings** — the opposite direction to
-Proposal 1 — and their IS/OOS pass rests substantially on a max-drawdown
-improvement (~83 R → ~25 R) that is **n=1 in EPISODES**: four wide cells
-improving by ~60 R each are four views of the same drawdown episode, not four
-observations. The walk-forward is precisely the test for that.
+**There is no Proposal 2.** `tp3R` and `tp4R` cleared IS/OOS at parity and then
+**failed the yearly walk-forward**, so no Tier-3 change is proposed on this leg.
 
-**No proposal is made here until that verdict lands.** If it survives, the
-family has two confirmed levers pointing in opposite directions on different
-legs — which is a finding about the family, not a fix for it.
+Verdict landed 2026-09-12T10:45Z on #11933 from run
+[`34684742080`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684742080).
+Population: `m27_data/AVAXUSDT_5m.csv`, 373,489 bars, split 2025-07-01 →
+IS 262,656 / OOS 110,833 bars; base IS 689 trades (total_R 133.76, maxDD 87.99),
+base OOS 337 trades (total_R 38.31, maxDD 44.55). **Live parity**
+(`timeout_bars=100000`); every cell reported `[timeout IS 0% OOS 0%]`.
+
+| cell | IS ΔR / ΔDD | OOS ΔR / ΔDD | IS/OOS | walk-forward |
+|---|---|---|---|---|
+| `tp3R` | +4.51 / **−51.00** (n660) | +2.43 / −3.55 (n318) | CANDIDATE | **1/4 usable folds** (need 3) — `2023:- 2024:- 2025:- 2026:PASS` |
+| `tp4R` | +9.80 / **−63.09** (n640) | +13.75 / −3.54 (n310) | CANDIDATE | **2/4 usable folds** (need 3) — `2023:PASS 2024:- 2025:- 2026:PASS` |
+
+2021 and 2022 are `skip` — empty on `m27_data`, so the denominator is 4 folds,
+not 6.
+
+**The pre-registered concern is what killed them, and it is worth recording that
+it was stated before the result.** This section previously read: *their IS/OOS
+pass "rests substantially on a max-drawdown improvement (~83 R → ~25 R) that is
+**n=1 in EPISODES** — four wide cells improving by ~60 R each are four views of
+the same drawdown episode, not four observations. The walk-forward is precisely
+the test for that."* It was. The signature is visible in the table above: the
+in-sample drawdown gains are enormous (−51 R and −63 R) and the folds do not
+carry them — `tp4R` passes 2026 and 2023 and fails 2024 and 2025. **A single
+avoided episode inside the IS window, not a property of the leg.**
+
+⚠️ **This is a refutation, not an absence of evidence, and the two must not be
+conflated.** The cells were measured, they cleared the first gate, and the
+second gate rejected them. Recorded in `exit-refinement-coverage.json` as
+`honest_negative` with the fold counts, so a later session cannot re-read
+"pending" and re-run it.
+
+⚠️ **`tp4R`'s OOS ΔR of +13.75 is the number most likely to be quoted out of
+context** — it is the largest single OOS improvement anywhere in this unit. It
+did not survive, and the walk-forward is why. Do not resurrect it from the
+IS/OOS line alone.
+
+**What this settles about the family.** The earlier framing — *"if it survives,
+the family has two confirmed levers pointing in opposite directions on different
+legs"* — does not arise. There is exactly **one** surviving lever across all
+seven legs, and it NARROWS the target. Nothing tested widens one and survives.
 
 ---
 

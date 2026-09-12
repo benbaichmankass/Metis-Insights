@@ -22,7 +22,7 @@ survived out of everything swept, and it goes the other way.
 | lever | population | cleared IS/OOS | cleared walk-forward | where |
 |---|--:|--:|--:|---|
 | `bracket_geometry` @ 24-bar timeout | 49 cells / 7 legs | 0 | — | §4d |
-| `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3, on 2 legs, **opposite directions** | **1** (`avax_5m` still running) | §4l, §4n, §4p |
+| `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3, on 2 legs, **opposite directions** | **1 of 3** — `avax_5m`'s two candidates FAILED the walk-forward | §4l, §4n, §4p |
 | `breakeven_ratchet` @ live parity | 7 cells / 7 legs | **0** | — | §4j |
 | `stop_geometry` (the stop buffer) | **built, UNRUN** | — | — | §4k, §4p |
 
@@ -1193,7 +1193,7 @@ from *enforced*, and the difference is invisible from the output. Together with
 implement — the capital-efficiency path, which changes what qualifies, and this
 floor, which currently changes nothing.
 
-## 4p. WALK-FORWARD, 6 of 7 — and an unplanned determinism control
+## 4p. WALK-FORWARD, 7 of 7 — COMPLETE, and an unplanned determinism control
 
 Run [`34684742080`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684742080)
 re-ran the whole parity IS/OOS pass before walking any candidate forward, so it
@@ -1207,11 +1207,21 @@ is an independent repeat of §4l on the same inputs.
 | `ict_scalp_sol_5m` | none | ✅ | — |
 | `ict_scalp_5m` (BTC) | none | ✅ | — |
 | `ict_scalp_xrp_15m` | **tp1.25R** | ✅ | **PASS** 3/4 folds (§4n) |
-| `ict_scalp_avax_5m` | tp3R, tp4R | — | **still running** at 10:35Z — 86 min against the workflow's 150-min cap; two full yearly walk-forwards on a 124k corpus |
+| `ict_scalp_avax_5m` | tp3R, tp4R | ✅ | **FAILED** — tp3R 1/4 and tp4R 2/4 usable folds against a need of 3. **No survivor.** |
 
-**All six legs read so far reproduced their §4l verdict exactly.** That was not
-the point of the run, but it is a real control: the sweep is deterministic on
-fixed inputs, so the §4l table is not a one-draw artifact.
+**All SEVEN legs reproduced their §4l verdict exactly.** That was not the point
+of the run, but it is a real control: the sweep is deterministic on fixed
+inputs, so the §4l table is not a one-draw artifact.
+
+**The run is COMPLETE and the walk-forward answer is one survivor out of seven
+legs.** `avax_5m` landed 2026-09-12T10:45Z (it ran 96 min against the workflow's
+150-min cap) and **refuted its own two candidates**: `tp3R` 1/4 usable folds and
+`tp4R` 2/4, against a need of 3, with 2021/2022 `skip` so the denominator is 4.
+Their IS/OOS pass rested on in-sample drawdown gains of −51.00 R and −63.09 R
+that the folds do not carry — the **n=1-in-EPISODES** hazard §4h pre-registered,
+landing exactly where it was predicted to. Full numbers and the withdrawal:
+[`m20-u4-scalp-exit-proposals-2026-09-12.md`](m20-u4-scalp-exit-proposals-2026-09-12.md)
+§ "PROPOSAL 2".
 
 ⚠️ **THE `stop_geometry` RUN WAS CANCELLED AND PRODUCED NO VERDICTS.** Run
 `34687008676` was dispatched at 09:53 on the correct sha and **I cancelled it
