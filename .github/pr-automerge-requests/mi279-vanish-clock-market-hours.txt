@@ -1,0 +1,5 @@
+Arm auto-merge: close-wedge vanish clock — dated prediction discharged, and the
+wall-clock-vs-market-hours variant filed (MI-279 OPS lane, U3).
+
+Tier-1: docs/claude/health-review-backlog.json only.
+GitHub still merges only on green required checks.

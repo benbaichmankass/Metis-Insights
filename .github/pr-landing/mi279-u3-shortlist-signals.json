@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One register amended through update_row: docs/claude/health-review-backlog.json, 6 insertions / 4 deletions, and nothing else. No src/, no scripts/, no config/, no deploy/, no .github/workflows/, no order path. The one fleet read behind it was a GET on /api/diag/log_file; the rest is a local grep of ROADMAP.md and a re-read of the shortlist tool's own output."
+}

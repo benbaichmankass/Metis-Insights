@@ -1,0 +1,4 @@
+Arm auto-merge: the digest names its ledger path in every state, and open-items-guard
+can see a duplicate key (MI-279 OPS lane, U5).
+
+GitHub still merges only on green required checks.

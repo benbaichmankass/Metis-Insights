@@ -1,0 +1,6 @@
+{
+  "held_by": "session_013iSqp4LsU1eq8K326eUtgj",
+  "branch": "claude/mi279-register-row-merge",
+  "claimed_at": "2026-09-12T15:18:06Z",
+  "purpose": "backlog_union_merge: reconcile both-side appends losslessly (MI-279 OPS lane)"
+}

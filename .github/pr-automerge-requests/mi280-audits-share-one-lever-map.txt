@@ -1,0 +1,12 @@
+MI-280 U21 — arm the landing route for claude/mi280-audits-share-one-lever-map.
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. exit_path_coverage stops keeping a second copy of the
+lever vocabulary and reads exit_mechanism_coverage's, so the two audits can no
+longer disagree. Measured before: they DID, on trend_donchian (real money) and
+ict_scalp, both graded not_implemented for a lever they run.
+
+PR #11994 was opened BY THIS SESSION before this file was pushed, so it
+carries a real pull_request event and CI fired normally.
+
+⚠️ NOTHING ELSE GOES ON THIS BRANCH AFTER THIS PUSH.

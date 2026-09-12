@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's status + updates in docs/claude/health-review-backlog.json: the measured resolution of BL-20260908-ERROR-FEED-DIGEST-GENERATOR-STRIPS-THE-DOC-STATUS-HEADER-SO-EVERY-DIGEST-PR-IS-RED No code, no workflow, no runtime, no order path, no strategy config, no risk caps, no live-VM file. Tier-1 by the canonical doc's own examples (recording a finding into a review backlog)."
+}

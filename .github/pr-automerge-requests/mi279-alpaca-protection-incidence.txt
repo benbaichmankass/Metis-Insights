@@ -1,0 +1,4 @@
+Arm auto-merge: Alpaca protective-attribution incidence measured (MI-279 OPS lane, U3).
+
+Tier-1: docs/claude/health-review-backlog.json only.
+GitHub still merges only on green required checks.

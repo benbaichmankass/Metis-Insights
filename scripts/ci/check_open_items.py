@@ -103,10 +103,47 @@ def check(path: Path, today: date | None = None) -> list[str]:
         return [f"{path} is MISSING. It is named in CLAUDE.md § 'Every session' "
                 f"as the first thing a session reads; a session that cannot "
                 f"find it has no follow-up surface at all."]
+    # ⚠️ DUPLICATE KEYS FIRST, AND BEFORE ANY ORDINARY PARSE, BECAUSE AN
+    # ORDINARY PARSE CANNOT SEE THEM. `json.loads` keeps the LAST value for a
+    # repeated key and discards the earlier ones silently, so a row carrying
+    # `"observation": "<1746 chars a session measured>"` followed by
+    # `"observation": ""` reads as NEVER OBSERVED to this guard, to the session
+    # brief, and to every human — while the work was done and written down.
+    #
+    # MEASURED 2026-09-12 on OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-
+    # DOES-NOT-EXIST: exactly that, 1746 characters opening "MEASURED BY
+    # CREATING AND FIRING IT, after five sessions asserted without testing",
+    # invisible behind a trailing empty duplicate.
+    #
+    # This file does NOT round-trip (manager_preflight.py records that a naive
+    # dump rewrites essentially the whole file), so every edit to it is a
+    # SPLICE — and a splice that adds a key beside an existing one produces a
+    # file that PARSES and changes NOTHING. That is why this is a guard and not
+    # a note: the failure is invisible at exactly the moment it happens.
+    dup_problems: list[str] = []
+
+    def _dup_hook(pairs: list[tuple[str, object]]) -> dict:
+        obj = dict(pairs)
+        counts: dict[str, int] = {}
+        for k, _v in pairs:
+            counts[k] = counts.get(k, 0) + 1
+        repeated = sorted(k for k, n in counts.items() if n > 1)
+        if repeated:
+            who = str(obj.get("id") or "<an object with no id>")
+            dup_problems.append(
+                f"{who}: DUPLICATE KEY(S) {repeated} — JSON keeps the LAST "
+                f"value and silently discards the earlier one(s), so whatever "
+                f"was written first is invisible to every reader. Fill the "
+                f"existing field; never add a second one."
+            )
+        return obj
+
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"),
+                          object_pairs_hook=_dup_hook)
     except (json.JSONDecodeError, OSError) as exc:
         return [f"{path} did not parse: {exc}"]
+    problems.extend(dup_problems)
 
     items = data.get("items")
     if not isinstance(items, list):
@@ -223,6 +260,26 @@ def _self_test() -> int:
             p.write_text(json.dumps({**base, "items": items}))
             return check(p, today=date.fromisoformat(today))
 
+        # ⚠️ THE DUPLICATE-KEY CASE MUST BE WRITTEN AS RAW TEXT, and that is not
+        # a shortcut — `json.dumps` CANNOT emit a repeated key, so a fixture
+        # built the normal way could never exercise the rule. A test that only
+        # uses `run()` here would pass forever while the guard did nothing.
+        def run_raw(text, today="2026-08-26"):
+            p = Path(d) / "raw.json"
+            p.write_text(text, encoding="utf-8")
+            return check(p, today=date.fromisoformat(today))
+
+        _dup_row = (
+            '{"schema_version": 1, "items": [{'
+            '"id": "OI-DUP", "opened": "2026-08-26", '
+            '"kind": "background_awareness", "summary": "s", '
+            '"clears_when": "a named observable thing happens", '
+            '"observation": "a real measurement somebody took", '
+            '"observation": ""'
+            '}]}'
+        )
+        _single_row = _dup_row.replace(', "observation": ""', "")
+
         cases = [
             ("clean register passes", run([good]), False),
             ("there is NO cap — many rows is fine",
@@ -246,6 +303,16 @@ def _self_test() -> int:
             ("an undateable row is a finding, not a pass",
              run([{**good, "opened": "whenever"}]), True),
             ("a duplicate id is a finding", run([good, good]), True),
+            # The planted positive for the rule this guard gained on
+            # 2026-09-12. It is the ONLY case in this suite whose fixture is
+            # raw text, for the reason given at run_raw.
+            ("a DUPLICATE KEY is a finding — json.loads keeps the last value "
+             "and silently discards the first, so a real observation can be "
+             "invisible behind an empty one",
+             run_raw(_dup_row), True),
+            ("...and the same row with ONE observation passes, so the rule is "
+             "not simply refusing everything",
+             run_raw(_single_row), False),
             ("a missing register is a finding",
              check(Path(d) / "nope.json"), True),
         ]

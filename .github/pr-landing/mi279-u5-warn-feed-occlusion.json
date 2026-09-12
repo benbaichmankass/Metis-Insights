@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "register annotations only (two backlogs + OPEN-ITEMS) plus the generated SESSION-BRIEF re-render; no src/, no config/, no VM, no order path"
+}

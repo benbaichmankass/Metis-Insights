@@ -1,0 +1,1 @@
+arm auto-merge for claude/mi280-citation-detector-refuted (PR #11977)

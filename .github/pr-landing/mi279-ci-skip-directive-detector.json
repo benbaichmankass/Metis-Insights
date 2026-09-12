@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one new pure module under scripts/ops/, one scheduled watcher extended, one self-test step added to a scheduled workflow, plus register rows. No src/, no config/, no VM, no order path, no strategy or risk surface. The transient automation/pr-requests/ scaffolding that opened this PR is removed in this same diff, so the landed change touches only TIER1_SURFACE paths."
+}

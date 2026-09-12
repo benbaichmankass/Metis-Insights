@@ -373,7 +373,39 @@ _SESSION_RE = re.compile(r"\bsession_[A-Za-z0-9]{6,}")
 #: "branch `x`", "Branch: `x`", "**Branch:** `x`", "(branch `x`", "on branch `x`".
 _BRANCH_AFTER_RE = re.compile(r"\bbranch\b\W{0,6}`([^`\s]+)`", re.I)
 _BRANCH_LABEL_RE = re.compile(r"^[\s>#*\-•·]*\**\s*branch\**\s*:", re.I)
-_IDENTITY_LABEL_RE = re.compile(r"^[\s>#*\-•·]*\**\s*(?:session|branch)\**\s*:", re.I)
+#: ⚠️ THE COLON IS OPTIONAL, AND REQUIRING IT COST 13.2% OF RECENT STARTs.
+#: MEASURED 2026-09-12 over the most recent 488 board comments: 76 look like a
+#: START and **10 parse to no identity at all**, across THREE different sessions.
+#: Six of the ten name their session AND branch on the line right under the
+#: header, in forms this regex refused purely for want of a colon:
+#:
+#:     - Session `session_01B…`, branch `claude/mi280-guard-runner-absent`
+#:     **session** `session_01F…` · **branch** `claude/oi-position-read-state…`
+#:     - session `session_015…`
+#:     - branch `claude/ci-unbreak-phantom-register-removal` · PR **#11954**
+#:
+#: Those declarers did everything the protocol asks and were reported as
+#: "an unattributed START" anyway — on every PR that touched a path they named.
+#: The audit resolves an unattributable declaration toward REPORTING rather than
+#: silence, correctly, so the cost is not a missed overlap: it is a permanent
+#: false line on every affected PR, which is the desensitised-alarm class this
+#: repo treats as a P1 in its own right.
+#:
+#: ⚠️ AND THE #10729 CONTROL IS UNTOUCHED, which is why this widens the LABEL
+#: rather than the harvest. The line must still BEGIN with `session`/`branch`
+#: after bullet/bold noise; what follows must be a backticked value. A PR body
+#: naming a sibling in prose (`- Session coordination is required`, or any
+#: mention mid-sentence) still matches nothing, so a sibling's START can still
+#: not be mistaken for our own.
+#:
+#: ⚠️ NOT WIDENED, deliberately: a line that OPENS with a bare backticked id and
+#: carries no label at all (``` `session_01H…` · holds the manager lease ```).
+#: That is 2 of the 10 and they stay unattributable. Accepting it would mean
+#: treating any line starting with a backticked session id as self-reference,
+#: and `` `session_X` is also touching this file `` is exactly the sentence
+#: #10729's control exists to refuse. Reported as a residual, not fixed.
+_IDENTITY_LABEL_RE = re.compile(
+    r"^[\s>#*\-•·]*\**\s*(?:session|branch)\**\s*(?::|(?=\s*`))", re.I)
 
 #: A PR states its own session identity in the MANDATED attribution footer, as a
 #: `claude.ai/code/session_...` URL. That structured form is the whole point: a
@@ -423,6 +455,14 @@ def _identity_lines(body: str) -> list[str]:
     lines = (body or "").splitlines()
     out: list[str] = []
     for i, line in enumerate(lines):
+        # ⚠️ `.match`, NOT `.search`, AND THE PATTERN ALSO CARRIES `^`. That is
+        #    not redundancy to tidy away: it is the #10729 control, and it is
+        #    DOUBLY enforced on purpose. Either anchor alone holds, so removing
+        #    one is a silent no-op — which means a planted-defect test that
+        #    removes only one does NOT plant the defect and reports a working
+        #    guard as broken. Remove both and a prose line like
+        #    `- We agreed with session \`session_X\`` becomes an identity line
+        #    and a sibling's id is harvested as our own.
         if i == 0 or (i < 4 and _START_RE.search(line)) or _IDENTITY_LABEL_RE.match(line):
             out.append(line)
     return out
@@ -979,6 +1019,55 @@ def _self_test() -> int:
     ok("claude/trading-system-workflow-design-1ln10f" in _MANAGER_START,
        "positive control: the mis-attributed branch really IS present in the body, "
        "so the empty result above is discrimination and not a failed parse")
+
+    # ── THE LABEL WITHOUT A COLON. Measured 2026-09-12 over the most recent
+    #    488 board comments: 76 STARTs, 10 parsing to NO identity, across three
+    #    sessions. Six named session AND branch right under the header and were
+    #    refused for want of a `:`; the change takes that 10 to 2.
+    for _lbl, _body, _want_s, _want_b in (
+        ("bullet label",
+         "### \u25b6\ufe0f START\n- Session `session_01BjTp5RYwedmpFfkEtkQo1j`, "
+         "branch `claude/mi280-guard-runner-absent`\n",
+         "session_01BjTp5RYwedmpFfkEtkQo1j", "claude/mi280-guard-runner-absent"),
+        ("bold label, middot separator",
+         "START\n\n**session** `session_01FyYyybxWC7VD1Rq1doEEdf` \u00b7 "
+         "**branch** `claude/oi-position-read-state-soak-first-read`\n",
+         "session_01FyYyybxWC7VD1Rq1doEEdf",
+         "claude/oi-position-read-state-soak-first-read"),
+        ("lowercase label, below the header",
+         "\u25b6\ufe0f **START**\n\n- session `session_015iy2R6BP11eiVHbNeUnT6a`\n"
+         "- branch `claude/mi235-blocked-lane-watch`\n",
+         "session_015iy2R6BP11eiVHbNeUnT6a", "claude/mi235-blocked-lane-watch"),
+    ):
+        _id = parse_identity(_body)
+        ok(_id["sessions"] == [_want_s] and _id["branches"] == [_want_b],
+           f"a START that labels itself WITHOUT a colon ({_lbl}) is still "
+           f"self-identifying — refusing it reported a compliant declarer as "
+           f"`an unattributed START` on every PR touching a path it named")
+    ok(parse_identity("### START\n- branch `claude/ci-unbreak-phantom-register-"
+                      "removal` \u00b7 PR **#11954**\n")["branches"]
+       == ["claude/ci-unbreak-phantom-register-removal"],
+       "…and a branch-only label works too, since a START need not name a session")
+
+    # THE #10729 CONTROL, RE-ASSERTED AGAINST THE WIDENING. If any of these
+    # starts harvesting, the widening has become the bug it was built beside.
+    ok(parse_identity("### START\n- Session coordination is required before "
+                      "`session_01CCCCCCCCCCCC` proceeds\n")["sessions"] == [],
+       "a line OPENING with the word `Session` in PROSE still yields nothing — "
+       "the label must be followed by a backticked value, not by more prose")
+    ok(parse_identity("### START\n- We agreed with session "
+                      "`session_01DDDDDDDDDDDD` that branch `claude/theirs` is "
+                      "theirs\n")["sessions"] == [],
+       "and a MID-SENTENCE mention yields nothing, because the line must BEGIN "
+       "with the label — this is the #10729 control and the widening must not "
+       "touch it")
+    ok(parse_identity("## START\n\n`session_01HoFquGdTrD3TTGbMMRc43t` \u00b7 "
+                      "holds the manager lease\n")["sessions"] == [],
+       "A BARE BACKTICKED ID WITH NO LABEL IS DELIBERATELY STILL REFUSED, and "
+       "is the declared residual: 2 of the 10 above. Accepting it would treat "
+       "any line opening with a backticked id as self-reference, and "
+       "`` `session_X` is also touching this file `` is exactly the sentence "
+       "#10729's control exists to refuse")
 
     # ── THE DEFINITIVE REGRESSION CASE (live PR #10729, 2026-09-02T03:18:04Z) ──
     ok(attribution({"body": _MANAGER_START}, my_branch=_PR10729_BRANCH,

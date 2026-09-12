@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "two backlog rows amended with a read-only measurement taken through /api/diag/journal. Registers only — no src/, no config/, no VM mutation, no order path. The Tier-2 fix the rows describe is NOT attempted here; only its incidence and its remediation ORDER are recorded."
+}
