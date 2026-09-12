@@ -315,7 +315,8 @@ def _selftest() -> int:
     # A REAL repository with a REAL squash merge. Asserting the rule instead is
     # what let `landed` sit unreachable: the rule was never the thing in doubt,
     # the repo's merge STYLE was.
-    import shutil, tempfile
+    import shutil
+    import tempfile
     cwd = os.getcwd()
     tmp = tempfile.mkdtemp(prefix="stuckbranch-selftest-")
     try:
@@ -323,18 +324,22 @@ def _selftest() -> int:
             return subprocess.run(["git", *a], cwd=tmp, capture_output=True,
                                   text=True)
         g("init", "-q", "-b", "main")
-        g("config", "user.email", "t@t"); g("config", "user.name", "t")
+        g("config", "user.email", "t@t")
+        g("config", "user.name", "t")
         pathlib.Path(tmp, "f.txt").write_text("base\n")
-        g("add", "-A"); g("commit", "-qm", "base")
+        g("add", "-A")
+        g("commit", "-qm", "base")
 
         g("checkout", "-qb", "landed-branch")
         pathlib.Path(tmp, "payload.json").write_text("the payload\n")
-        g("add", "-A"); g("commit", "-qm", "payload")
+        g("add", "-A")
+        g("commit", "-qm", "payload")
         landed_sha = g("rev-parse", "HEAD").stdout.strip()
 
         g("checkout", "-qb", "stranded-branch", "main")
         pathlib.Path(tmp, "other.json").write_text("never landed\n")
-        g("add", "-A"); g("commit", "-qm", "stranded")
+        g("add", "-A")
+        g("commit", "-qm", "stranded")
         stranded_sha = g("rev-parse", "HEAD").stdout.strip()
 
         g("checkout", "-q", "main")
