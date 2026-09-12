@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# wiring: manual — re-run by a session working
+# wiring: manual-only — a one-shot attribution over a FIXED window, re-run by a
+# session working
 # BL-20260911-A-DATED-REGIME-BREAK-ON-2026-08-30-COLLAPSED-THE-DIRECTIONAL-LEGS-WIN-RATE-AND-NOBODY-NOTICED-FOR-TWO-WEEKS
 """Discriminate the 2026-08-30 break: is it the e35 bracket geometry, or the market?
 
@@ -76,7 +77,12 @@ DEPLOY = dt.datetime(2026, 8, 30, 8, 53, 19, tzinfo=dt.timezone.utc)
 def _parse(value):
     try:
         x = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except Exception:  # noqa: BLE001 — an unparseable stamp is DROPPED, never bucketed
+    except (ValueError, TypeError):
+        # NARROWED rather than overridden: fromisoformat raises ValueError on a
+        # malformed stamp and TypeError on a non-string, and those are the only
+        # two failures this parse can have. Returning None here is NOT a silent
+        # drop — every caller buckets it as `created_at_unparseable` in the
+        # census, so a shrinking population is counted by name rather than lost.
         return None
     return x if x.tzinfo else x.replace(tzinfo=dt.timezone.utc)
 
@@ -95,19 +101,26 @@ def population(rows: list[dict]) -> tuple[list[dict], dict]:
     for r in rows:
         name = str(r.get("strategy_name") or "")
         if r.get("status") != "closed":
-            census["not_closed"] += 1; continue
+            census["not_closed"] += 1
+            continue
         if r.get("is_backtest"):
-            census["backtest"] += 1; continue
+            census["backtest"] += 1
+            continue
         if r.get("pnl") is None:
-            census["pnl_null"] += 1; continue
+            census["pnl_null"] += 1
+            continue
         if not str(r.get("account_id") or "").startswith("bybit"):
-            census["off_venue"] += 1; continue
+            census["off_venue"] += 1
+            continue
         if name.startswith("pairs_"):
-            census["pairs_sleeve_exonerated"] += 1; continue
+            census["pairs_sleeve_exonerated"] += 1
+            continue
         if r.get("exit_reason") == "netting_attributed":
-            census["fabricated_close"] += 1; continue
+            census["fabricated_close"] += 1
+            continue
         if _parse(r.get("created_at")) is None:
-            census["created_at_unparseable"] += 1; continue
+            census["created_at_unparseable"] += 1
+            continue
         keep.append(r)
     return keep, dict(census)
 
@@ -165,7 +178,8 @@ def render(v: dict) -> str:
              f"  excluded: {v['excluded']}", ""]
     lines.append(f"  {'arm':24} {'n_pre':>5} {'win_pre':>8} | {'n_post':>6} {'win_post':>9} | {'delta':>8}")
     for k, a in v["arms"].items():
-        f = lambda x: f"{x:.1f}%" if x is not None else "  n/a"
+        def f(x):
+            return f"{x:.1f}%" if x is not None else "  n/a"
         d = f"{a['delta_pp']:+.1f}pp" if a["delta_pp"] is not None else "n/a"
         lines.append(f"  {k:24} {a['n_pre']:>5} {f(a['win_rate_pre']):>8} | "
                      f"{a['n_post']:>6} {f(a['win_rate_post']):>9} | {d:>8}")
@@ -183,13 +197,15 @@ def render(v: dict) -> str:
 def _self_test() -> int:
     fails = []
     def ok(c, label):
-        if not c: fails.append(label)
+        if not c:
+            fails.append(label)
         print(f"  {'ok ' if c else 'FAIL'} {label}")
 
     def row(leg, when, pnl, **kw):
         d = {"strategy_name": leg, "created_at": when, "pnl": pnl, "status": "closed",
              "is_backtest": 0, "account_id": "bybit_1"}
-        d.update(kw); return d
+        d.update(kw)
+        return d
     PRE, POST = "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z"
 
     v = grade([row("trend_donchian", PRE, 1.0), row("trend_donchian", POST, -1.0)])
