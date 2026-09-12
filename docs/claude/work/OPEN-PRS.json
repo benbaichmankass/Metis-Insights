@@ -61,7 +61,8 @@
         "condition": null,
         "decided_on": "2026-09-12",
         "text": "Operator answered the manager's decision popup on 2026-09-12, selecting BOTH R12-held PRs (#11817 and #11861) for merge. The popup stated in full that R12 holds these because a change to the landing machinery must be read by a human before it can land itself, and that the manager explicitly could NOT lift them the way #11870's hold was lifted. No condition was attached."
-      }
+      },
+      "opened_at": "2026-09-11"
     },
     {
       "pr": 11862,
@@ -80,7 +81,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11864,
@@ -99,7 +101,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11866,
@@ -118,7 +121,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11867,
@@ -137,7 +141,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11870,
@@ -156,7 +161,8 @@
         "condition": "The hold's PREMISE does not hold and that is why it was lifted. The dispatch said 'route it to the manager for the operator's OK before it lands' because it expected this lane to write the ORDER-PATH fix; that fix was already landed and deployed (46e1efb1f / PR #11435) before the lane opened, so the PR is 6 files with src/ config/ deploy/ .github/workflows/ all untouched. Lifted as a MANAGER RULING under the standing Tier-1 delegation, NOT as an operator approval, and surfaced to the operator in the next update as a decision the manager took. ⚠️ SEPARATELY AND NOT LIFTED: OI-20260908-A-HEDGE-BOOK-FLAT-READ-... stays OPEN. It is loud + real money, the positive observation is n=2 on one symbol, clause (3) is met by its `or` branch only, and 9 pre-deploy false-close candidates are PERMANENTLY unadjudicable (0 of 993 rows carry position_idx / exchange_read_source) — one of them trade 5461 on real-money bybit_2, where 'unestablished' is NOT 'benign'. Removing that row is an operator call.",
         "decided_on": "2026-09-12",
         "text": "Manager ruling, not an operator utterance. Recorded verbatim on the PR at https://github.com/benbaichmankass/Metis-Insights/pull/11870#issuecomment-5644076346 so the reasoning survives this session."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11872,
@@ -175,7 +181,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     },
     {
       "pr": 11873,
@@ -194,7 +201,8 @@
         "condition": null,
         "decided_on": null,
         "text": "No operator decision has been sought or given. Tier-1 work landing under the standing delegation in docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers; the manager did not route it to the operator and the operator has not spoken about it."
-      }
+      },
+      "opened_at": "2026-09-12"
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2319,7 +2327,9 @@
       },
       "terminal": "merged",
       "merge_sha": "9e4fc3cc61d69388ef73c4208553f4a31e90f338",
-      "settled_by": "manager session_01HoFquGdTrD3TTGbMMRc43t (merged under the operator's R12 read)"
+      "settled_by": "manager session_01HoFquGdTrD3TTGbMMRc43t (merged under the operator's R12 read)",
+      "opened_at": "2026-09-12",
+      "settled_at": "2026-09-12"
     }
   ],
   "last_reconciled_at": "2026-09-12T06:13:27Z",
