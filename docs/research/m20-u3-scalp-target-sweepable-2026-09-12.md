@@ -449,17 +449,33 @@ candidate — its grading is simply uninformative at this timeout.
 
 Every figure above was produced with the **24-bar force-close of §2b**, which
 production does not have on any `ict_scalp` leg. That defect is **not neutral
-across this grid — it is biased against exactly the cells being tested.** A
-wider target needs more bars to reach, so a 24-bar guillotine truncates
-preferentially the trades a wider target would have won. §2b measured the
-truncation at roughly **62% of reported net R at the live target**, and
-**tightening as the target widens**.
+across this grid** — §4d's own table shows it catching 21.4% of trades at
+0.75R and 58.5% at 4R.
+
+⛔ **THE PARAGRAPH THAT STOOD HERE INFERRED THE WRONG DIRECTION FROM THAT, AND
+IT IS REPLACED RATHER THAN SOFTENED.** It read: *"a wider target needs more
+bars to reach, so a 24-bar guillotine truncates preferentially the trades a
+wider target would have won … its own defect penalises the wider cells. A
+negative here is expected whether or not the lever is real."* **The premise is
+true and the conclusion is backwards.** The clock does bind harder at wider
+targets — that is what the rising share means — but binding harder *helps*
+those cells, because at 4R most of the trades it catches are ones that would
+otherwise have run on to the stop. **I conflated "the mechanism binds harder"
+with "the mechanism hurts more."** §4e measures it, §4f reproduces it on a
+third leg.
+
+⚠️ **AND §2b IS NOT AT FAULT — do not read this as a correction to it.** §2b
+says in terms that *"the error is FLATTERING"*, and its own table already
+carries the answer: at `tp 3.0` the harness reports **+5.274 R** at a 24-bar
+timeout and **−0.962 R** at parity. The misreading was introduced here, in
+§4d, by attributing to §2b a cross-target claim it never made.
 
 So the honest reading is:
 
-- **at 24-bar timeout, no target change clears the gate on any of 4 legs** — and
-- **this arm is incapable of clearing one, because its own defect penalises the
-  wider cells.** A negative here is *expected* whether or not the lever is real.
+- **at 24-bar timeout, no target change clears the gate on any of 4 legs**; and
+- **that arm was tilted IN FAVOUR of widening**, so the negative is stronger
+  than it looks, not weaker. The parity arm is still the one a proposal must
+  cite — not to rescue the negative, but because parity is what live does.
 
 Reporting "the target sweep came back negative" from this run alone would be
 the unprovenanced-diagnostic failure this repo has a guard for: a true number
