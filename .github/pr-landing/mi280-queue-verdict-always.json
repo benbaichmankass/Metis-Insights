@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI tooling: one workflow step gains `if: always()` plus an empty-code case arm, a new pytest file, and one backlog row filed through scripts/ops/backlog_append.py. No src/, no config/, no deploy/, no order path, no strategy config, no risk caps. NOT landing machinery: .github/workflows/pr-queue-watch.yml is not one of check_pr_landing.LANDING_MACHINERY's twelve entries (verified by importing the module), so R12 does not apply. The change cannot arm or disarm anything on the fleet -- it only stops a REPORTING step from being skipped by an unrelated earlier failure, which is the state 5 of 38 scheduled runs were measured in."
+}
