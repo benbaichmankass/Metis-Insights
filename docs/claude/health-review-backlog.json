@@ -18090,6 +18090,12 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: ict_scalp_5m is LIVE on BTCUSDT (14 real-money closes in 30d, +$4.00) and cannot be measured at its own timeframe. A live real-money leg with no measurement path."
+        },
+        {
+          "at": "2026-09-12T09:08:25+00:00",
+          "by": "MI-278 U3b (session_01Wv1BdfEUnmCBZrhvUjeBzb)",
+          "disposition": "kept_open",
+          "note": "MEASURED 2026-09-12 by MI-278 U3b (session_01Wv1BdfEUnmCBZrhvUjeBzb) — THE PREMISE STILL HOLDS AND THE CONCLUSION NO LONGER DOES; they are different claims and only the second has changed. PREMISE, re-verified: there is still no data/BTCUSDT_5m.csv in the repo, on this branch or on origin/main (git cat-file -e returns non-zero), so any harness that reads the repo's data/ directory still cannot measure this leg at 5m. CONCLUSION, now false: the row's title says a LIVE leg 'cannot be measured at its own timeframe', and it has now been measured twice at 5m. .github/workflows/ict-scalp-exit-sweep.yml scp's each leg's CSV from the TRAINER's /home/ubuntu/m27_data at run time rather than reading the repo, and run 34681993688 read BTCUSDT 5m at 374,051 rows and produced a full 7-cell bracket_geometry IS/OOS verdict (BASE IS trades=499 total_R=88.6962 maxDD=50.0217; OOS trades=198 total_R=40.1785 maxDD=15.6269; 0 candidates). A parity re-run is in flight. ⚠️ SO THE REMEDY THIS ROW IMPLIES HAS CHANGED: it is not 'obtain a canonical 5m CSV' — one exists on the trainer and is already the M27 population of record — it is 'point the repo-reading fleet sweeps at the same source the M27 workflow already uses', or state per harness which source it reads. ⚠️ AND DO NOT CONFLATE THE TWO CORPORA: the workflow's own header records that /home/ubuntu/m27_data is NOT the same data as the trainer's ~/ict-trading-bot/data (different start date, row count and md5, different walk-forward fold set), so a verdict measured on one is not comparable to a verdict measured on the other. Reopening this as 'no data exists' would be wrong; closing it as 'solved' would also be wrong while every repo-reading harness still cannot see the file."
         }
       ]
     },
