@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager 03:52Z tick: lease heartbeat, observed-state write-back for the one live lane, and the tick record including the #11842 stale-automation root cause. Registers only."
+}
