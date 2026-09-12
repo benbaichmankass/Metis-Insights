@@ -324,12 +324,105 @@ def test_path_EXTRACTION_is_unaffected_so_nothing_stops_being_declared():
 
 def test_the_negation_line_still_yields_no_false_DECLARED_paths():
     """End to end on the real line: none of the five disclaimed paths may come
-    back as declared. ⚠️ They are not asserted as EXCLUDED either — `do not
-    touch` is absent from `_NEGATION_MARKERS`, so the line classifies None and
-    inherits, which kills the false positive without claiming a negation the
-    parser did not actually detect. That residue is filed, not papered over:
-    BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES.
+    back as declared.
+
+    ⚠️ THIS DOCSTRING USED TO SAY THE FIVE ARE *"not asserted as EXCLUDED
+    either — `do not touch` is absent from `_NEGATION_MARKERS`, so the line
+    classifies None and inherits"*. **That is no longer true and the test now
+    asserts the stronger property.** The infinitive negation was added when
+    `BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES`
+    was fixed; the line classifies `exclude` outright, so the five are recorded
+    as EXPLICITLY excluded rather than merely failing to be declared. The old
+    assertion still passed under the new behaviour, which is exactly why the
+    prose had to be checked against the field rather than left to rot.
     """
-    declared, _, _ = G.parse_declared_paths(_MANAGER_NEGATION_LINE + "\n")
+    declared, excluded, _ = G.parse_declared_paths(_MANAGER_NEGATION_LINE + "\n")
     for p in ("src/", "config/", "scripts/", ".github/workflows/", "deploy/"):
         assert p not in declared, p
+        assert p in excluded, f"{p} should now be an EXPLICIT exclusion"
+
+
+# ---------------------------------------------------------------------------
+# THE 14 REAL DECLARATION/NEGATION LINES, transcribed VERBATIM from board
+# #11336. This is the population the backlog row's `resolution_criteria` names,
+# and it is kept here rather than in the module so a future vocabulary change
+# has to face real sentences rather than invented ones.
+# ---------------------------------------------------------------------------
+_REAL_LINES = [
+    ("declare", "- **Scope: MEASUREMENT ONLY.** Measuring what the **trailing** "
+                "and **banking** exit paths actually did on closed trades"),
+    ("declare", "- **Writes:** a new research doc under `docs/research/` + backlog "
+                "rows only. **No `src/`, `config/`, `deploy/`, or workflow changes.**"),
+    ("exclude", "- **Explicitly NOT doing:** no exit-matrix cell re-grade "
+                "(Tier-3, DECIDED), no `TP_VENUE_CAP_PCT` change"),
+    ("declare", "- **Files I am touching:** `scripts/ci/check_pr_landing.py`, "
+                "`scripts/ci/check_manager_scope.py`, plus my own `.github/pr-landing/`"),
+    ("exclude", "- **NOT doing:** no override marker, no `manager-scope-exception.yaml` "
+                "entry, no weakening of R2/R3/R13, no `--no-verify`, no force-push."),
+    ("declare", "**Scope I am about to touch:**"),
+    ("exclude", "**I will NOT touch:** `src/`, `config/`, `.github/workflows/`, `deploy/`."),
+    ("declare", "**Files I will touch — all append-only registers + one research doc:**"),
+    ("exclude", "**I will NOT touch:** `scripts/ci/**` (MI-191 owns the two live guard "
+                "deadlocks), any live trading state, `config/**`, `src/**`."),
+    ("declare", "**Files I will touch:**"),
+    ("exclude", "**I will NOT touch:** `src/**`, `config/**` (**including "
+                "`config/strategy_changelog.json` itself**), `deploy/**`, "
+                "`.github/workflows/**`."),
+    ("exclude", "**I do NOT touch** `src/`, `config/`, `scripts/`, `.github/workflows/`, "
+                "`deploy/`, or any order path — `check_manager_scope.py` enforces that "
+                "and I want it enforced."),
+    ("declare", "**Files I write, and only these three:**"),
+    ("exclude", "I am **managing, not building**. I do not edit backlogs, "
+                "`docs/claude/OPEN-ITEMS.json`, `config/`, `src/`, or any other path "
+                "under `docs/claude/work/`."),
+]
+
+
+@pytest.mark.parametrize("want,line", _REAL_LINES,
+                         ids=[f"{w}-{i}" for i, (w, _) in enumerate(_REAL_LINES)])
+def test_every_real_board_declaration_line_is_graded_correctly(want, line):
+    """14 of 14. The row measured 5 of 14 misgraded — 1 inversion (fixed
+    earlier) and 4 missed infinitive headers (fixed here)."""
+    assert G._classify(line) == want
+
+
+def test_a_blank_line_after_a_header_no_longer_changes_the_answer():
+    """The A/B that the backlog row measured on two live audit runs: one blank
+    line was the entire difference between 4 declared paths and 0, and the
+    failing shape is what ordinary markdown produces."""
+    tight = "**Files I will touch:**\n- `scripts/ci/a.py`\n- `scripts/ops/b.py`\n"
+    loose = "**Files I will touch:**\n\n- `scripts/ci/a.py`\n- `scripts/ops/b.py`\n"
+    assert G.parse_declared_paths(tight)[0] == {"scripts/ci/a.py", "scripts/ops/b.py"}
+    assert G.parse_declared_paths(loose)[0] == G.parse_declared_paths(tight)[0]
+
+
+def test_prose_after_the_list_is_still_not_a_claim():
+    """The protection the old unconditional blank-line rule provided is kept."""
+    body = "**Files I will touch:**\n\n- `a/x.py`\n\nThe fix is in `b/y.py`.\n"
+    declared, _, _ = G.parse_declared_paths(body)
+    assert "a/x.py" in declared
+    assert "b/y.py" not in declared
+
+
+def test_a_following_header_does_not_inherit_the_open_section():
+    """Without this, stickiness would publish a session's READS as its WRITES.
+
+    The opening section is deliberately NOT sticky (it ends in a full stop), so
+    this exercises the header rule rather than the list-end rule — a mutation
+    run established that a sticky opener makes the two indistinguishable.
+    """
+    body = ("Touching `a/x.py` in this unit.\n"
+            "**Reads:**\n"
+            "- `src/runtime/order_monitor.py`\n")
+    declared, excluded, _ = G.parse_declared_paths(body)
+    assert "a/x.py" in declared
+    assert "src/runtime/order_monitor.py" not in declared
+    assert "src/runtime/order_monitor.py" not in excluded
+
+
+def test_credit_does_not_open_a_declaration_section():
+    """`edit` is a substring of `credit`; the stems are prefix-anchored so it
+    cannot match there. A bare-substring vocabulary would have classified this
+    sentence as a declaration."""
+    assert G._classify("We extended a line of credit to the venue.") is None
+    assert G._classify("I will edit `scripts/ci/a.py`.") == "declare"

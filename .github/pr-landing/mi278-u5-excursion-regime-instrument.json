@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement only. One new script under scripts/research/, a memo under docs/research/, two index rows, and an observation appended to an existing backlog row. No src/, no config/, no deploy/, no .github/workflows/, no order path, no unit file. NO CADENCE IS SHIPPED -- the carrier decision is routed to the operator rather than taken, precisely because MI-276's losing-streak detector is already merged and the backlog row warns that two cadences in one window is how they come to disagree."
+}

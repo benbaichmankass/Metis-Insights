@@ -88,3 +88,74 @@ were not read, and some certainly belong to a class the patterns miss.
 - ⚠️ **Not a claim that 65% of the `high` backlog is classifiable.** the 179-of-274 figure is the
   share the *patterns matched*; at the ~67% precision measured on 6 hand-checked
   rows it is an overestimate of the share genuinely in a class.
+
+---
+
+## 6. HAND-VERIFICATION RESULT (added 2026-09-12, same session): these are SYMPTOM classes, and a symptom class does not yield a shared fix
+
+§4 told the next session to *"start with D and E"* and to *"hand-verify ≥2 members before
+proposing any structural fix"* — the `backlog-drain` skill's own bar of *">=2 verified
+members and a structural fix"*. **That was done. The bar is met on membership and FAILS on
+the structural fix, and that is the finding.**
+
+### What was verified
+
+**Class D** — *artifact computed, then lost at the landing step*. Two members read in full:
+
+| row | true positive? | root cause |
+|---|---|---|
+| `BL-20260911-SUNSET-PASS-PUSHES-STRAIGHT-AT-PROTECTED-MAIN-SO-ITS-ONLY-SCHEDULED-RUN-COULD-NOT-LAND-AND-IT-WILL-FAIL-IDENTICALLY-EVERY-MONDAY` | ✅ | a push at a branch-protected `main` (GH006) |
+| `BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR` | ✅ | a shared per-USER GraphQL rate limit at `gh pr create` |
+
+**Class E** — *a detector or guard exists but is inert / unexercised*. Two members read in full:
+
+| row | true positive? | root cause |
+|---|---|---|
+| `BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED` | ✅ | the coverage predicate is a BOOLEAN over resting legs, so it cannot see that the VENUE has stopped evaluating the leg — nothing models order **liveness** |
+| `BL-20260823-ALPACA-LIVE-IS-EXEMPT-FROM-BOTH-DETECTORS-THAT-WATCH-IT` | ✅ | the detectors work; the account is on **both** skip-lists, and its latch is frozen |
+
+**4 of 4 are true positives for the SYMPTOM. 0 of 4 pairs share a ROOT CAUSE.**
+
+### Why that matters more than the precision number
+
+`BL-20260911-SUNSET-PASS-PUSHES-STRAIGHT-AT-PROTECTED-MAIN-SO-ITS-ONLY-SCHEDULED-RUN-COULD-NOT-LAND-AND-IT-WILL-FAIL-IDENTICALLY-EVERY-MONDAY` says it in terms about its own sibling: *"filed separately
+rather than folded in, **because fixing one does not fix the other** and a single row would
+hide the second."* The row author had already reached this conclusion; the clustering in §2
+re-merged what they had deliberately separated.
+
+**So the classes above are groupings by what the failure LOOKS LIKE, not by what causes it.**
+A drain that picks a symptom class and looks for one fix will not find one — and the risk is
+worse than wasted effort: it invites a fix that *appears* to retire the class while leaving
+most members untouched.
+
+### What DID work, and it is the pattern to repeat
+
+The one structural fix this exercise produced came from going **one level below** class D, to
+a root-cause sub-class: *a workflow that pushes at a protected branch*. That sub-class has
+**eight** historical members (`session-reaper`, `research-queue-dispatch`, `gpu-burst-train`,
+`reconcile-open-prs`, `m20-exit-lever-sweep`, `trainer-offload-train`,
+`replay-pregate-nightly`, `sunset-pass`), **seven already fixed one at a time**, and it is
+mechanically checkable — so it earned a guard (`scripts/ci/check_workflow_push_target.py`)
+rather than a ninth careful fix.
+
+⚠️ **And the fix it earned is a GUARD, not a mass edit.** The class was already nearly
+drained; what was missing was anything stopping the ninth instance. **That is the realistic
+shape of a class-first win here** — not *"one fix closes nine rows"*, but *"one guard stops
+the class recurring after the rows are closed one at a time anyway."*
+
+### Instruction to the next session, replacing §4 step 2
+
+1. **Do NOT pick a symptom class and hunt for its single fix.** Verified 4/4 above that they
+   do not have one.
+2. **Sub-classify by ROOT CAUSE first**, then ask whether the sub-class is *mechanically
+   checkable*. If it is, the deliverable is a guard. If it is not, the rows are individual
+   work and should be drained oldest-first.
+3. **A root-cause sub-class with a long fixed-one-at-a-time history is the strongest
+   candidate**, because the recurrence is already evidenced and the fix is already known —
+   only the enforcement is missing. That is `CLAUDE.md`'s own *"a recurrence is machinery,
+   not another reminder."*
+
+⚠️ **Also do not re-quote §2's counts.** Re-deriving them the same day from this document's
+own prose, with independently written patterns, gave **D 16 (not 26)** and **E 43 (not 24)**.
+The counts are not reproducible from the class descriptions, which is a stronger reason to
+distrust them than the ~67% precision §3 already records.
