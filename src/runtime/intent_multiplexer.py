@@ -988,8 +988,26 @@ def _attach_fanout_plan(
     routed before widening the allowlist (the correction
     ``NETTING_ATTRIBUTION_ACCOUNTS`` needed on 2026-08-09, where narrowing the
     set at the top of the pass made the account being staged toward invisible).
+
+    ⚠️ **A SCOPED ROUND CARRIES THE WHOLE PLANNED ROUND, NOT A HAND-PICKED PAIR
+    OF KEYS.** From 2026-08-31 to 2026-09-12 this built ``apply_rounds`` as a
+    NEW dict holding only ``strategy`` and ``accounts``, discarding the
+    ``side``/``entry``/``sl``/``tp`` the planner had put there — and
+    ``pipeline._fanout_apply_rounds`` refuses a round missing any of them. The
+    reader is fail-closed, so it returned ``[]`` on **every** tick: the fan-out
+    dispatched nothing, on any account, for twelve days, while this function
+    stamped ``applied: true`` on every row. The scoping now goes through
+    ``arbitration_fanout.scope_round_to_accounts``, which copies the round and
+    replaces ``accounts`` alone, so a field the planner adds later cannot be
+    dropped by anyone forgetting to widen a list here.
     """
-    from src.runtime.arbitration_fanout import plan_per_account_election
+    from src.runtime.arbitration_fanout import (
+        ROUND_DISPATCH_FIELDS,
+        accepted_rounds,
+        apply_state_for,
+        plan_per_account_election,
+        scope_round_to_accounts,
+    )
     from src.runtime.arbitration_fanout_soak import (
         allowlisted_accounts,
         apply_scope_for,
@@ -1017,14 +1035,45 @@ def _attach_fanout_plan(
     rounds = plan.get("rounds") or []
     if mode == "apply" and allow:
         scoped = [
-            {"strategy": r["strategy"],
-             "accounts": [a for a in r["accounts"] if a in allow]}
-            for r in rounds
+            s for s in (scope_round_to_accounts(r, allow) for r in rounds)
+            if s is not None
         ]
-        scoped = [r for r in scoped if r["accounts"]]
         if scoped:
             plan["apply_rounds"] = scoped
-    plan["applied"] = bool(plan.get("apply_rounds"))
+
+    # ── `applied` IS WHAT THE DISPATCHER ACCEPTS, NEVER WHAT WE WROTE ────────
+    # It used to read `bool(plan.get("apply_rounds"))`, which is a statement
+    # about this function's own output and cannot fail. For twelve days it
+    # therefore said `true` on every armed tick while `pipeline`'s fail-closed
+    # reader threw every round away for missing geometry — 93 of 93 soak rows,
+    # zero dispatches. That is this repo's "unprovenanced diagnostic output"
+    # sub-class A: the label named an effect no code path tested.
+    #
+    # The remedy is the one CLAUDE.md prescribes for that class — branch on the
+    # actual condition rather than reword the label — so the claim is now run
+    # through `accepted_rounds`, the SAME validator the dispatcher uses. It
+    # cannot report an acceptance the reader will refuse.
+    #
+    # ⚠️ IT STILL DOES NOT SAY A DISPATCH HAPPENED, and must not be read as
+    # doing so. This runs BEFORE the pipeline, so the strongest honest claim
+    # available here is *the dispatcher will accept these*. The order itself is
+    # evidenced only by a journal row — the soak's own docstring says so.
+    written = plan.get("apply_rounds") or []
+    accepted = accepted_rounds(written)
+    plan["apply_state"] = apply_state_for(mode, allow, written, accepted)
+    plan["applied"] = bool(accepted)
+    if written and not accepted:
+        # LOUD, because the failure is otherwise invisible: the dispatcher
+        # falls back to the global path and everything downstream looks normal.
+        logger.error(
+            "arbitration_fanout: wrote %d round(s) the dispatcher REFUSES "
+            "(apply_state=refused_by_dispatcher, strategies=%s) — the fan-out "
+            "is silently degrading to the global dispatch. A round must carry "
+            "%s.",
+            len(written),
+            [r.get("strategy") for r in written if isinstance(r, dict)],
+            list(ROUND_DISPATCH_FIELDS),
+        )
 
     meta = signal.setdefault("meta", {})
     if isinstance(meta, dict):

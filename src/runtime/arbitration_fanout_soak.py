@@ -52,9 +52,24 @@ WHAT A REVIEW SESSION SHOULD LOOK FOR HERE, now that it does exist:
   * ``plan_state``: ``planned`` (the per-account election ran) vs ``absent``
     (**we did not look** -- the caller passed no plan; NOT "it elected
     nothing").
-  * ``applied`` + ``rounds_applied``: the EFFECT. ``applied: false`` with a
-    non-empty ``rounds_planned`` is the staged state -- the fan-out decided and
-    was held back by the allowlist, which is what ``apply_scope`` explains.
+  * ``applied`` + ``rounds_applied``: the EFFECT -- what the DISPATCHER will
+    act on, graded through the same ``accepted_rounds`` validator the pipeline
+    uses. ``applied: false`` with a non-empty ``rounds_planned`` and an EMPTY
+    ``rounds_written`` is the staged state: the fan-out decided and was held
+    back by the allowlist, which is what ``apply_scope`` explains.
+  * ``rounds_written`` + ``apply_state``: NEW IN v3 (2026-09-12), and the pair
+    that makes the twelve-day failure sayable. ``rounds_written`` non-empty
+    with ``rounds_applied`` EMPTY and ``apply_state:
+    refused_by_dispatcher`` means the writer produced rounds the dispatcher
+    throws away -- the fan-out is degrading silently to the global dispatch.
+    ⚠️ **ON A v2 ROW (``fanout_schema: 2``) ``applied`` AND ``rounds_applied``
+    ARE COSMETIC AND MUST NOT BE POOLED WITH v3.** ``applied`` was
+    ``bool(apply_rounds)``, set from what the writer produced rather than from
+    what the dispatcher accepted, so it read ``true`` on every armed tick while
+    nothing dispatched -- MEASURED on the live log
+    (``/api/diag/log_file?name=arbitration_fanout_soak``, read 2026-09-12):
+    **93 of 93** ``rounds_applied`` entries carried exactly
+    ``('accounts', 'strategy')``.
   * ``starved_count`` should FALL toward zero on symbols whose accounts are
     allowlisted, while ``no_winner_count`` is unaffected (a different
     population -- see the warning above and never pool them).
@@ -178,6 +193,10 @@ def record(
         # dropped by the quiet-tick gate, and the one durable record that the
         # mechanism ran would be silently incomplete — exactly the shape of
         # under-reporting this module already carries two warnings about.
+        # ⚠️ KEYED ON WHAT WAS *WRITTEN*, NOT ON WHAT WAS ACCEPTED. A plan the
+        # dispatcher REFUSES is the single most notable thing this soak can
+        # see; gating the row on acceptance would make the refusal defect
+        # write no row at all — silence exactly where the evidence is needed.
         notable = (
             bool((plan or {}).get("apply_rounds"))
             or verdict["starved_accounts"]
@@ -187,12 +206,22 @@ def record(
         if not notable and verdict["roster_state"] == "read":
             return None
         # WHAT THE FAN-OUT ACTUALLY DID, never inferred from the mode.
-        # `applied` is the EFFECT (rounds reached the dispatcher); `global_mode`
-        # is the REQUEST; `apply_scope` says why they differ. A held-back row
-        # can therefore never read as an applied one — the distinction
-        # NETTING_ATTRIBUTION_MODE had to be corrected into existence on
-        # 2026-08-09.
-        rounds = list((plan or {}).get("apply_rounds") or [])
+        # `applied` is the EFFECT (rounds the dispatcher accepts); `global_mode`
+        # is the REQUEST; `apply_scope` and `apply_state` say why they differ. A
+        # held-back row can therefore never read as an applied one — the
+        # distinction NETTING_ATTRIBUTION_MODE had to be corrected into
+        # existence on 2026-08-09.
+        #
+        # ⚠️ AND THE EFFECT IS WHAT THE DISPATCHER WILL ACT ON, not what the
+        # writer produced — these
+        # are two different facts and conflating them is precisely what made
+        # this row assert `applied: true` on 93 consecutive ticks that
+        # dispatched nothing. `accepted_rounds` is the SAME validator
+        # `pipeline._fanout_apply_rounds` uses, so this row cannot claim an
+        # acceptance the dispatcher refuses.
+        from src.runtime.arbitration_fanout import accepted_rounds
+        written = list((plan or {}).get("apply_rounds") or [])
+        rounds = accepted_rounds(written)
         applied = bool(rounds)
         row = {
             "logged_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -210,8 +239,23 @@ def record(
             # "the fan-out elected nothing"; `planned` means it ran.
             "plan_state": "planned" if plan else "absent",
             "applied": applied,
+            # ⚠️ THREE ROUND LISTS, NEVER COLLAPSED, because each answers a
+            # different question and the v2 row answered only one of them while
+            # being read as all three:
+            #   * `rounds_planned`  — what the per-account election DECIDED.
+            #   * `rounds_written`  — what the writer put in `apply_rounds`
+            #                         after allowlist scoping. NEW in v3.
+            #   * `rounds_applied`  — what the DISPATCHER accepts, i.e. what
+            #                         actually gets routed.
+            # `written` non-empty with `applied` empty is the refusal defect
+            # itself, visible in one row instead of inferable from none.
             "rounds_applied": rounds,
+            "rounds_written": written,
             "rounds_planned": list((plan or {}).get("rounds") or []),
+            # Why applied and written differ. One of `APPLY_STATES`; `None` on
+            # a row whose caller passed no plan (*we did not look*), which is
+            # deliberately NOT `not_requested`.
+            "apply_state": (plan or {}).get("apply_state"),
             # STATE THE DENOMINATOR: how many accounts the planner considered
             # at all, beside how many came out with something to place.
             "accounts_planned": (plan or {}).get("accounts_planned"),
