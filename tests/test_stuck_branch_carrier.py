@@ -82,6 +82,25 @@ def test_the_carrier_checks_out_a_full_clone(steps):
         "containment is not computable and every branch is reported stuck")
 
 
+def test_a_broken_probe_never_emits_a_receipt(steps):
+    """The self-test must GATE the receipt, not merely precede it.
+
+    `probes.yml`'s own contract, two steps above this one, is that "a binary
+    whose controls do not fire must never get as far as emitting a verdict".
+    Without `set -e` the step runs `--selftest`, ignores its exit code, and
+    writes a confident receipt anyway — which the due-list then grades as
+    evidence. The ordering alone is not the property; the abort is.
+    """
+    step = next(s for s in steps if isinstance(s.get("run"), str)
+                and "stuck_automation_branches.py" in s["run"])
+    body = step["run"]
+    assert "--selftest" in body, "the carrier runs the probe without self-testing it"
+    assert body.index("--selftest") < body.index("--receipt")
+    assert "set -euo pipefail" in body, (
+        "the step does not `set -e`, so a FAILING self-test does not stop it "
+        "writing a receipt — the self-test is decoration, not a gate")
+
+
 def test_the_receipt_actually_lands(steps):
     """A receipt computed and not committed is the SAME defect, one level up."""
     commits = [s for s in steps
