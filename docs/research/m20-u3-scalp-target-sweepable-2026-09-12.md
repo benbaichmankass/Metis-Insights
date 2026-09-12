@@ -781,6 +781,63 @@ the per-package one. **An earlier draft of this section named it as at-risk on
 the strength of the screen alone; that would have been an accusation against a
 correct surface, and it is recorded rather than silently dropped.**
 
+## 4j. ⛔ THE BREAK-EVEN RATCHET IS REFUTED TOO — 0 of 7 at parity
+
+§4c called the ratchet *"probably the lever, not the target"*. **It is not the
+lever either.** Run
+[`34684327271`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684327271),
+`cells=breakeven_ratchet`, **`timeout_bars=100000` (live parity)**,
+`walkforward=true`, all **7** legs, one `be_off` cell each — the cell that
+REMOVES `--sim-breakeven` from the config-exact base.
+
+| leg | IS ΔR | IS ΔDD | OOS ΔR | OOS ΔDD |
+|---|--:|--:|--:|--:|
+| `ict_scalp_eth_15m` | −1.06 | +0.23 | +3.23 | −0.90 |
+| `ict_scalp_sol_15m` | +5.89 | +1.05 | +7.96 | +1.13 |
+| `ict_scalp_xrp_15m` | −2.78 | +1.94 | +14.02 | −2.22 |
+| `ict_scalp_sol_5m` | −11.46 | +7.44 | −6.34 | +3.72 |
+| `ict_scalp_xrp_5m` | −10.29 | +2.33 | +14.22 | −11.38 |
+| `ict_scalp_avax_5m` | **−24.76** | +16.64 | −0.81 | +2.73 |
+| `ict_scalp_5m` (BTC) | +3.67 | −6.27 | −0.71 | +0.64 |
+
+**0 of 7 cells clear the gate.** No walk-forward ran, correctly — nothing
+reached it.
+
+Three things the numbers say beyond the zero:
+
+1. **Disarming it COSTS R in-sample and GAINS out-of-sample** — Σ IS **−40.79**,
+   Σ OOS **+31.57**, helping on 2 of 7 legs IS and 4 of 7 OOS. The same
+   IS/OOS sign disagreement the target grid showed. Two levers, same shape:
+   period character, not structure.
+2. **Disarming RAISES in-sample max-drawdown on 6 of 7 legs.** The ratchet is
+   doing what a break-even stop is supposed to do — buying drawdown protection.
+   §4c's 2×2 read it as costing R; at parity and at fleet scale it is *paying*
+   for that R.
+3. **The biggest single effect is on `avax_5m` (IS ΔR −24.76)** — the same leg
+   that produced the only widening candidates. Its exits are the most
+   ratchet-sensitive in the family, in the direction of *keep the ratchet*.
+
+⚠️ **AND THIS OVERTURNS MY OWN SMOKE RESULT, which pointed the other way.** The
+local 26k-bar probe (§4c) had `be_off` gaining in **both** windows (+1.62 IS,
++1.14 OOS) on n=35/30. At fleet scale on 124k-row corpora it loses in-sample on
+5 of 7 legs, once by −24.76 R. **A 65-trade corpus said "disarm it" and a
+3,000-trade one says the opposite.** Recorded because that smoke number is in
+this document and would otherwise be read as supporting evidence.
+
+### Where that leaves MI-278's lever search
+
+| lever | population | candidates |
+|---|---|--:|
+| `bracket_geometry` @ 24-bar | 7 legs × 7 cells = **49** | **0** |
+| `bracket_geometry` @ parity | 7 legs × 7 cells (6 read) | **3**, on 2 legs, opposite directions |
+| `breakeven_ratchet` @ parity | 7 legs × 1 cell = **7** | **0** |
+
+**U1 enumerated the mechanisms, U2 found no lever ends winners, and U3 now
+finds no lever changes the outcome either — except three per-leg cells that
+disagree with each other and have not been walk-forwarded.** That is a
+negative result about the whole M20 "hold winners longer" framing for this
+family, and it is the deliverable, not a failure to find one.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
