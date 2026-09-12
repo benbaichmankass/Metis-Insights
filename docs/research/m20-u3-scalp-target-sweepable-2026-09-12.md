@@ -1146,6 +1146,35 @@ from *enforced*, and the difference is invisible from the output. Together with
 implement — the capital-efficiency path, which changes what qualifies, and this
 floor, which currently changes nothing.
 
+## 4p. WALK-FORWARD, 6 of 7 — and an unplanned determinism control
+
+Run [`34684742080`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34684742080)
+re-ran the whole parity IS/OOS pass before walking any candidate forward, so it
+is an independent repeat of §4l on the same inputs.
+
+| leg | IS/OOS candidates | reproduces §4l? | walk-forward |
+|---|---|:--:|---|
+| `ict_scalp_eth_15m` | none | ✅ | — |
+| `ict_scalp_sol_15m` | none | ✅ | — |
+| `ict_scalp_xrp_5m` | none | ✅ | — |
+| `ict_scalp_sol_5m` | none | ✅ | — |
+| `ict_scalp_5m` (BTC) | none | ✅ | — |
+| `ict_scalp_xrp_15m` | **tp1.25R** | ✅ | **PASS** 3/4 folds (§4n) |
+| `ict_scalp_avax_5m` | tp3R, tp4R | — | **still running** (60 min; two full yearly walk-forwards on a 124k corpus) |
+
+**All six legs read so far reproduced their §4l verdict exactly.** That was not
+the point of the run, but it is a real control: the sweep is deterministic on
+fixed inputs, so the §4l table is not a one-draw artifact.
+
+⚠️ **THE `stop_geometry` RUN WAS CANCELLED AND PRODUCED NO VERDICTS.** Run
+`34687008676` was dispatched at 09:53 on the correct sha and **I cancelled it
+at 10:06** — the repo's CI queue was **78 runs deep against 15 runners**, and I
+had just asked another lane to reduce concurrency, so removing my own
+lowest-value 7 jobs was the consistent thing to do. Its jobs therefore read
+`completed` in the API while having measured **nothing**; that is a cancellation,
+not a result, and it must not be read as one. **The stop buffer remains BUILT
+AND UNRUN** (§4k), and re-dispatching it waits until #11886 lands.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
