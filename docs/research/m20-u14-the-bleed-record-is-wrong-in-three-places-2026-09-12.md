@@ -1,6 +1,6 @@
 # MI-278 U14 — the bleed record was wrong in three places, and the repo already held the right answer in a fourth
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-12` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `research` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 >
 > **Unit:** MI-278 U14 · object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER` · cycle `CY-20260906-TRADING-TRUTH`
 > **Discharges** `BL-20260911-THE-BLEED-PREDATES-E35-BY-THREE-DAYS-AND-THE-BRIEFED-08-30-ONSET-IS-WRONG`, `BL-20260911-THE-PROFITABLE-FORTNIGHT-BASELINE-RESTS-ON-A-WEEK-WITH-ZERO-MEASURED-ROWS` (clause (b)) and `BL-20260912-MI-271-S-HEADLINE-DECOMPOSITION-TABLE-INCLUDES-THE-PAIRS-SLEEVE-EVERY-OTHER-SECTION-EXCLUDES`.

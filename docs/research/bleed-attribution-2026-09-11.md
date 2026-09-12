@@ -1,6 +1,6 @@
 # Why is the book bleeding? — attributing the 2026-08-30 directional-leg break
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `research` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 **Unit:** MI-271 · `WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE`
 **Row:** `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED`
