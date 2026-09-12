@@ -4916,7 +4916,31 @@
       "pr_11903_tier2": "MI-283's fix is Tier-2 and awaits an operator OK. It is PENDING, not refused, and must not be re-sought."
     },
     "manager_errors_this_tick": [
-      "None found yet this tick. The 09:52Z tick's errors stand as recorded."
-    ]
+      "Told MI-279 to expect a red `guards` on the deletion PR and offered a hand-merge. WRONG — I reasoned from the blocker's behaviour instead of testing the fix. Measured the fix, found it goes green, and corrected it on #11942 before they acted.",
+      "⚠️ NEAR MISS, recorded because it was luck and not judgement: I resolved my own health-review-backlog conflict by UNION-BY-ID, which is exactly the method `register-field-loss` exists to catch — it passes while silently reverting a field-level write-back to a row whose id matches. I checked rather than assumed and it came back `0 loss(es)`, but only because the rows I replayed were genuinely new. The correct method is BY FIELD, and `scripts/ops/install_merge_driver.sh` does it — it is NOT installed in a fresh clone."
+    ],
+    "SECOND_BLOCKER_FOUND_1105Z": {
+      "headline": "A SECOND repo-wide CI blocker, independent of the relay crash, landed at 10:54:46Z. `guards` now fails on EVERY PR, including PRs whose diff contains no register at all.",
+      "what": "`register-field-loss` grades `.github/register-removals/mi279-u5-clear-digest-carrier.json` a PHANTOM declaration.",
+      "why_it_is_now_false": "The file is a one-shot statement about ONE diff. #11915 merged it at c050b1f9c, so its removal moved INTO THE BASE and is no longer in any diff. The declaration is SPENT, and a spent declaration is byte-indistinguishable from a fabricated one. The mechanism's own README says it 'stops being true the moment the diff changes'.",
+      "measured_not_inferred": "Simulated CI's merge ref for #11936 — a PR touching ZERO registers — and ran the guard against origin/main: `0 register(s) compared, 6 untouched, 0 unreadable; 0 loss(es), 0 declared, 1 phantom declaration(s)`, exit non-zero. Zero registers compared and it still fails.",
+      "the_guard_is_not_wrong": "It is enforcing precisely its stated contract. The defect is the MISSING PRUNE. Relaxing the guard to let phantoms pass would destroy it — that is the `new-table-wiring-guard` presence-only failure the README itself cites.",
+      "fix_routed_not_taken": "Delete the one file. ROUTED to MI-279 (session_013iSqp4LsU1eq8K326eUtgj) — it authored the file and owns #11915, and it is a keeper lane. I did not take it: one deletion is exactly the size of item that tempts a manager into executing instead of managing.",
+      "verified_truthful_before_routing": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED is genuinely absent from the 83 rows of docs/claude/OPEN-ITEMS.json on main, checked with a positive control that a known-present id reads present. The removal really happened; only the declaration is stale, so deleting it asserts nothing false.",
+      "design_half_filed": "BL-20260912-A-SPENT-REGISTER-REMOVAL-DECLARATION-BECOMES-A-PERMANENT-REPO-WIDE-CI-FAILURE-BECAUSE-NOTHING-PRUNES-IT-AFTER-ITS-PR-LANDS — deleting the one stale file clears the OUTAGE and does NOT clear that row, because the next deliberate removal re-arms it identically.",
+      "first_use": "This is the FIRST register-removals file ever written. The mechanism shipped armed-and-unexercised and failed on first use — which is why nothing caught it in review."
+    },
+    "deadlock_considered_and_refuted": {
+      "worry": "#11936 (the relay fix) is blocked by the phantom, and I told MI-279 to expect the deletion PR to be red too — which would have meant a hand-merge through a red required check.",
+      "test": "Checked out origin/main, deleted the declaration file, ran the guard: `0 phantom declaration(s)` and OK.",
+      "verdict": "NO DEADLOCK. The guard reads declarations from the HEAD tree, so the deletion clears the phantom within its own PR. It goes green normally.",
+      "my_error": "I asserted the deletion PR would be red from how the BLOCKER behaves rather than testing the FIX — the one case that actually needed testing. Corrected to MI-279 on #11942 in the same exchange, before they acted on it."
+    },
+    "merge_posture_now": {
+      "holding": "Everything, behind two infrastructure fixes, in this order: (1) MI-279's deletion of the spent declaration -> restores `guards` repo-wide; (2) #11936 -> restores `open-and-automerge` repo-wide. Feature PRs land after, not before.",
+      "why": "Landing feature work through a broken gate is how a jam becomes permanent, and a red `guards` that means 'the manager's blocker' teaches every lane to stop reading `guards`. That is the desensitised-alarm failure, and it would cost more than the delay.",
+      "note_on_11936": "Its `guards` job started 11:06:23Z, AFTER #11915 merged, so that run will fail on the phantom through no fault of its own. It needs a re-run once the deletion lands — not a re-push.",
+      "verified_locally_already": "#11936's `automerge-trigger-guard --self-test` passes on its own head: all 10 planted defects caught, clean-tree positive control green, including the REPAIRED C6 plant its change would otherwise have let escape."
+    }
   }
 }
