@@ -5203,5 +5203,33 @@
       "take MI-286's PR when it opens; hold it, do not land without the operator",
       "#11903 needs a base merge — it is degrading while it waits on approval"
     ]
+  },
+  "manager_tick_2026_09_12T1355Z": {
+    "trigger": "hourly manager-tick routine (13:52:18Z), 3 min after the operator-asked status tick",
+    "duty_1_lease": "heartbeat 13:49:46Z, COMMITTED AND PUSHED as aefa458c4. Expires 15:19:46Z.",
+    "duty_2_lanes": {
+      "method": "derived from SESSIONS.json spawned_by==me AND state not terminal (5 rows), then get_session on each — not trusting the registry claim",
+      "all_five_RUNNING": true,
+      "MI-278": "77% context — past hand-off. Cannot be messaged; will NOT be given new work, and will not be replaced when it closes.",
+      "MI-279": "35% — healthy",
+      "MI-280": "40% — healthy",
+      "MI-283": "61% — resolved its own #11903 conflict this tick",
+      "MI-286": "running, fix mutation-tested",
+      "stale_claim_corrected": "MI-280 reported 'merge #11936 and #11930'; BOTH verified already on main (f91db0070, 2fe1b8700). A merged item must not be reported as waiting — corrected in the registry rather than relayed."
+    },
+    "duty_3_queue": {
+      "at": "13:55:07Z against origin/main 4cd107c04",
+      "open": 27,
+      "clean": 16,
+      "conflicted": "9 automation/* cron + #11928 (MI-279, went dirty when main moved) + #11925 (ops-probe)",
+      "not_hand_resolving": "#11958 is the root-cause fix for the automation class, clean with auto-merge armed; CI started 13:46Z and had not landed by 13:55Z. Serializing behind it rather than earning the same conflict twice.",
+      "self_draining": "12 PRs landed on main since the previous tick — the lanes are self-landing their Tier-1 work, so the queue needs supervision, not intervention."
+    },
+    "nothing_manufactured": "No new work spawned this tick. MI-286 was spawned in the 13:35Z tick for the operator-raised prop starvation.",
+    "next": [
+      "let #11958 land; re-measure the automation conflict count after it does",
+      "take MI-286's PR when it opens — HOLD it, Tier-2, do not land without the operator",
+      "when MI-278 closes, do NOT respawn — that returns the lane count to the operator's three"
+    ]
   }
 }

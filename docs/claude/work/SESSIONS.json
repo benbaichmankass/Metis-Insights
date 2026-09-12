@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T13:49:36Z",
+  "updated_at": "2026-09-12T13:53:03Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4890,7 +4890,15 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-277 measured winner hold collapsing 5.17h -> 1.90h while LOSER hold ROSE and losses stayed at exactly 1R. The sizer and stops are intact. M20 is named Active Trade Management and this is its subject. Multi-unit queue, not a single memo.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-12T05:19:48Z"
+      "confirmed_at": "2026-09-12T05:19:48Z",
+      "branches": [
+        "claude/mi278-u3-scalp-target-sweepable"
+      ],
+      "last_observed": {
+        "at": "2026-09-12T13:53:03Z",
+        "via": "get_session",
+        "note": "RUNNING. context 769500/1000000 (77%) — PAST the ~600k hand-off threshold; should close out, not start new work. task_summary \"debugging 2nd failure (artifact-caveat-guard)\"."
+      }
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4904,7 +4912,15 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "702 open rows, 20 critical, 274 high. Reviews fill this register and nothing has been emptying it. Class-first drain with a burn-down that makes growth visible.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-12T05:19:48Z"
+      "confirmed_at": "2026-09-12T05:19:48Z",
+      "branches": [
+        "claude/mi279-u1-pregate-timeout"
+      ],
+      "last_observed": {
+        "at": "2026-09-12T13:53:03Z",
+        "via": "get_session",
+        "note": "RUNNING. context 351343/1000000 (35%) — healthy. Self-landed 6 PRs; register critical 20->18."
+      }
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
@@ -4918,7 +4934,15 @@
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "Four failure modes measured 2026-09-11/12, all unowned: green-but-dirty PRs, the post-arming commit-drop race, the scope-overlap declaration parser, and a shared-register merge that silently reverts a field.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
-      "confirmed_at": "2026-09-12T05:19:48Z"
+      "confirmed_at": "2026-09-12T05:19:48Z",
+      "branches": [
+        "claude/mi280-digest-liveness-loop"
+      ],
+      "last_observed": {
+        "at": "2026-09-12T13:53:03Z",
+        "via": "get_session",
+        "note": "RUNNING. context 397543/1000000 (40%) — healthy, despite its own task_summary claiming \"context exhausted\" (the CLAIM is stale, the NUMBER is the observation). Its needs_action \"merge #11936 and #11930\" is STALE: both verified on main (f91db0070, 2fe1b8700)."
+      }
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
@@ -4968,7 +4992,15 @@
       "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "why": "MI-281 completed and handed on U5: account_open_positions still dedupes Bybit positions by symbol (if sym in seen), so a hedge book is DROPPED and the order-status reconciler closes a live row. PR #11867 measured it at 378/378 = 100.0% of bybit_1 reads and attributed two false closes totalling -$762.496. bybit_2 (real money) shows 0 ONLY because its books were flat — an empty population, not safety; the dedupe consults no account. REPLACES session_01WnQ1wp2awqbo4xRoiEZfit, which the manager spawned WITHOUT source_url and which blocked immediately with no repo (manager error; that session is ARCHIVED). | OBSERVED 2026-09-12T12:57Z: IDLE/review_ready, 583,145 ctx — DOWN from 740,064 at 10:40Z, i.e. it COMPACTED and the earlier hand-off warning is stale. #11903 is green and clean and BLOCKED on an operator Tier-2 decision. DELIBERATELY NOT ARCHIVED: a real-money order-path change may draw a follow-up question or a condition, and the lane that took the measurement answers it far better than a fresh session. An idle session consumes nothing. Overrule if you disagree.",
-      "state": "working"
+      "state": "working",
+      "branches": [
+        "claude/mi283-bybit-hedge-book-dedupe"
+      ],
+      "last_observed": {
+        "at": "2026-09-12T13:53:03Z",
+        "via": "get_session",
+        "note": "RUNNING. context 606550/1000000 (61%). Resolved #11903 own conflict during this tick — re-measured CLEAN at 13:55:07Z against 4cd107c04. Still blocked on the operator Tier-2 approval, NOT on anything I hold."
+      }
     },
     {
       "session_id": "session_013njtHZThET6vgiGMdHZPiz",
@@ -5011,9 +5043,9 @@
         "claude/mi286-fanout-apply-projection"
       ],
       "last_observed": {
-        "at": "2026-09-12T13:49:36Z",
+        "at": "2026-09-12T13:53:03Z",
         "via": "get_session",
-        "note": "RUNNING; task_summary \"fix mutation-tested; running full suite and docstring updates\""
+        "note": "RUNNING. task_summary \"fix mutation-tested; running full suite and docstring updates\"."
       }
     }
   ],
