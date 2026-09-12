@@ -83,4 +83,93 @@ note: >-
   BEFORE a Tier-3 proposal. Two of four units are merged; U1 and U3 both
   declare landing: hold and need a human merge click.
 
+decision_requests:
+  - id: DEC-20260912-ICT-SCALP-XRP-15M-TARGET
+    question: >-
+      MI-278 swept every exit lever the ict_scalp family arms. ONE cell survived the full M20 gate:
+      ict_scalp_xrp_15m tp_at_r 1.5 -> 1.25 (take profit SOONER). Ship it, or record a reject?
+    urgency: normal
+    asked_on: '2026-09-12'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      TIER-3, one field on one leg, nothing else changes. EVIDENCE: run 34684742080, m27_data
+      XRPUSDT 15m, split 2025-07-01, config-exact base, timeout_bars=100000 (LIVE PARITY).
+      IS dR +5.82 dDD -2.53 (n198), OOS dR +5.93 dDD -3.72 (n117) -- the ONLY cell in the whole
+      workstream to improve net_R AND maxDD in BOTH windows -- then yearly walk-forward 3/4 usable
+      folds (need 3) -> PASS. n_OOS 117 clears the MIN_OOS_TRADES=25 floor.
+      [!] THE DIRECTION IS OPPOSITE TO THE QUESTION THAT STARTED THIS WORK. MI-277 measured winner
+      hold collapsing 5.17h -> 1.90h and this object is titled "hold winners longer". Nothing tested
+      makes winners run longer and survives; the one survivor takes profit sooner.
+      [!] FOUR THINGS THAT MUST TRAVEL WITH ANY YES. (1) It passes by EXACTLY the minimum -- 3 of 4
+      usable folds, and 2021/2022 are SKIPPED because those years are empty on m27_data, so one fold
+      moving flips it to a fail. (2) PATH A ONLY: the gate has two qualifying paths and the sweep
+      graded one; Path B's capital-efficiency evidence was not recorded when this ran. (3) The same
+      narrowing FAILS on other legs (btc_5m at parity: +31.42R IS, -10.71R OOS), so there is no
+      family-level claim. (4) xrp_15m is a modest book -- base OOS total_R 6.48 over 116 trades --
+      so +5.93R OOS is large relatively and small absolutely.
+      [!] WHAT IS NOT PROPOSED AND WHY: the break-even ratchet is REFUTED (0 of 7 legs at parity;
+      disarming costs R in-sample and RAISES in-sample maxDD on 6 of 7, i.e. it is buying the
+      protection it is meant to buy); widening family-wide is refused (5 of 7 parity legs negative in
+      BOTH windows); the stop buffer is BUILT and UNRUN, so no claim; avax_5m's two widening
+      candidates are HELD pending their walk-forward because their pass rests on a maxDD gain that is
+      n=1 in EPISODES. Full evidence: docs/research/m20-u4-scalp-exit-proposals-2026-09-12.md and
+      docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md.
+    options:
+      - key: ship_xrp_15m_tp125
+        label: Ship it — xrp_15m tp_at_r 1.5 -> 1.25
+        implication: >-
+          A one-field Tier-3 PR, landing hold, merged by a human, then /api/bot/config read back to
+          confirm ict-git-sync carried it to the running trader (a merge is not a deploy), then an
+          OPEN-ITEMS row requiring a closed xrp_15m trade that actually reached the new 1.25R target
+          against broker truth -- deployed is not observed.
+      - key: reject_single_leg
+        label: Reject — one leg on a minimum-margin walk-forward is not enough
+        implication: >-
+          Nothing is owed. The coverage cell records passed_unshipped, which is the honest state:
+          measured, cleared the gate, not shipped. The evidence stays in U3's memo.
+      - key: wait_for_path_b
+        label: Wait — re-run with Path B recorded, then decide
+        implication: >-
+          Costs one sweep (~40 min). The gate has two qualifying paths and this verdict used one, so
+          a Path B re-run could either confirm it or surface cells this arm discarded. It cannot
+          overturn the Path A pass, only add to it.
+  - id: DEC-20260912-ICT-SCALP-PARITY-STAMP
+    question: >-
+      May an ict_scalp backtest number be quoted without stating whether it was produced at LIVE
+      PARITY? Measured: the harness's 24-bar force-close is worth up to 99% of a leg-window's entire
+      reported profit, and it CHANGES verdicts.
+    urgency: normal
+    asked_on: '2026-09-12'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      Rated ABOVE any single leg's target by the unit that measured it. Production has NO time-based
+      exit on any ict_scalp leg; the harness force-closes at 24 bars. MEASURED: on sol_15m OOS the
+      baseline goes +20.46R -> +0.20R at parity (99% of the reported profit is the clock), while
+      eth_15m OOS goes the other way (+15.73 -> +19.13), so the effect varies in SIGN by leg and
+      window and is not a fleet constant. It is not cosmetic: removing the clock FLIPPED
+      xrp_15m tp1.25R from non-candidate to the walk-forward survivor above, and moved individual
+      cells by up to 23.17R. [!] AND THE COVERAGE MATRIX IS BLIND TO IT: 160 of 320 tested verdicts
+      address the VENUE-CAP parity axis and only 3 of 320 address the TIME-EXIT axis -- 0 of 24 on
+      ict_scalp. The matrix already has a working discipline for declaring one parity axis (193 cells
+      literally say LIVE PARITY); it was simply never applied to this one, so the remedy is applying
+      an existing mechanism rather than building one.
+    options:
+      - key: require_parity_stamp
+        label: Require a parity stamp on every ict_scalp verdict
+        implication: >-
+          Every new cell already emits one (the [timeout IS x% OOS y%] readout shipped in this unit).
+          The cost is re-stating the ~24 existing ict_scalp cells as measured-at-24-bar, or re-running
+          them. Makes a screening verdict impossible to mistake for a parity one.
+      - key: reprice_existing_only
+        label: Re-run the existing ict_scalp cells at parity, no standing rule
+        implication: >-
+          Fixes the current matrix without adding a standing obligation. The next harness with a
+          parity gap reproduces the problem.
+      - key: accept_as_is
+        label: Accept the gap and record the decision
+        implication: >-
+          Legitimate, and must be RECORDED as a decision rather than left looking like work about to
+          start. Consequence stated: ict_scalp backtest numbers stay non-comparable to live, and a
+          reader cannot tell which verdicts that affects.
+
 captured_by: scripts/ops/capture_idea.py
