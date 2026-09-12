@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "MI-280 session_01BjTp5RYwedmpFfkEtkQo1j",
-    "branch": "claude/mi280-guard-runner-absent",
-    "claimed_at": "2026-09-12T08:55:05Z",
-    "purpose": "PR #11911 — guard runner could_not_run (Tier-1, tooling)"
+    "held_by": "MI-279 session_013iSqp4LsU1eq8K326eUtgj",
+    "branch": "claude/mi279-u5-observe-due-rows",
+    "claimed_at": "2026-09-12T09:13:40Z",
+    "purpose": "PR #11905 — U5 observations on two DUE monitoring rows (Tier-1, registers only)"
   },
   "active_sessions": [
     {
