@@ -64,6 +64,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -80,6 +81,48 @@ MAX_RUNS = 20
 MAX_LOG_BYTES = 4_000_000
 
 
+class _StripCredOnCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+    """Drop `Authorization` when a redirect leaves the host we authenticated to.
+
+    ⚠️ THIS IS NOT HARDENING FOR ITS OWN SAKE — IT IS THE SUSPECTED CAUSE OF
+    THIS PROBE HAVING NEVER ONCE PRODUCED A VERDICT.
+    `/repos/{repo}/actions/jobs/{id}/logs` does not serve the log: it answers
+    **302** with a `Location` on GitHub's blob storage, and that storage
+    authenticates by the signed URL. Python's stock `HTTPRedirectHandler`
+    rebuilds the follow-up request from `req.headers`, so the GitHub bearer is
+    carried to a host that refuses a request carrying BOTH a signature and an
+    `Authorization` header — answering 400, which `_job_log` correctly reports
+    as unreadable. Every job, every run, forever.
+
+    MEASURED LOCALLY 2026-09-12 (no network needed, and `api.github.com` is 403
+    from a Claude Code on the web sandbox so the live call could not be made):
+    a fake A→B redirect across two loopback ports showed B receiving the
+    `Authorization` header and answering 400. That establishes the MECHANISM
+    in Python, not that it is what the live API did — see the self-test's
+    end-to-end control, and `PROBES.json` after the next scheduled run, which
+    now carries the per-job REASON and can say so either way.
+
+    ⚠️ AND IT IS CORRECT REGARDLESS OF THE CAUSE: forwarding a repository
+    bearer to a third-party storage host is a credential leak whether or not
+    that host happens to reject it.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is None:
+            return None
+        same_host = (urllib.parse.urlsplit(req.full_url).netloc
+                     == urllib.parse.urlsplit(newurl).netloc)
+        if not same_host:
+            # `Request.headers` capitalises; `remove_header` matches that form.
+            new.remove_header("Authorization")
+            new.unredirected_hdrs.pop("Authorization", None)
+        return new
+
+
+_OPENER = urllib.request.build_opener(_StripCredOnCrossHostRedirect)
+
+
 def _api(path: str, token: str) -> tuple[object | None, str]:
     req = urllib.request.Request(
         f"{API_BASE}{path}",
@@ -88,7 +131,7 @@ def _api(path: str, token: str) -> tuple[object | None, str]:
                  "User-Agent": "metis-probe-actions-log"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:  # noqa: S310
+        with _OPENER.open(req, timeout=TIMEOUT_S) as r:  # noqa: S310
             return json.loads(r.read().decode("utf-8", "replace")), ""
     except urllib.error.HTTPError as exc:
         # The host ANSWERED and refused. Never an empty result.
@@ -105,7 +148,7 @@ def _job_log(repo: str, job_id: int, token: str) -> tuple[str | None, str]:
                  "User-Agent": "metis-probe-actions-log"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:  # noqa: S310
+        with _OPENER.open(req, timeout=TIMEOUT_S) as r:  # noqa: S310
             return r.read(MAX_LOG_BYTES).decode("utf-8", "replace"), ""
     except urllib.error.HTTPError as exc:
         # 410 = the log has EXPIRED (GitHub retains ~90 days). That is an
@@ -116,6 +159,18 @@ def _job_log(repo: str, job_id: int, token: str) -> tuple[str | None, str]:
             "not the same as the line being absent)" if exc.code == 410 else "")
     except (urllib.error.URLError, OSError) as exc:
         return None, f"job {job_id} -> {exc}"
+
+
+# How many DISTINCT unread reasons a note may carry. A note is read by a human
+# triaging a probe; twenty lines of the same 403 is not twenty facts.
+MAX_REASONS = 4
+
+
+def _why(reasons: list[str]) -> str:
+    """Render the deduped reasons, or say plainly that none was captured."""
+    if not reasons:
+        return " No per-job reason was captured."
+    return " Reason(s): " + "; ".join(reasons) + "."
 
 
 def scan(repo: str, workflow: str, token: str, runs_wanted: int,
@@ -137,6 +192,24 @@ def scan(repo: str, workflow: str, token: str, runs_wanted: int,
 
     rows: list[dict] = []
     unread = 0
+    # ⚠️ THE REASON A LOG COULD NOT BE READ IS EVIDENCE AND WAS BEING DISCARDED.
+    # `jerr` was bound and never used, so an unread population reported only its
+    # SIZE — and this probe's whole polarity rests on `could_not_look` being
+    # actionable. Measured 2026-09-12 off the committed PROBES.json, this row
+    # read `20 run(s) listed but NONE had readable logs (20 unread)` with no
+    # way to tell a revoked token (403) from an expired log (410) from a
+    # redirect the client mishandled (400) — three different faults with three
+    # different fixes, collapsed into one number. That is `CLAUDE.md`
+    # § "Diagnostic provenance" sub-class C: an unasserted denominator reading
+    # as a clean answer. The reasons are DEDUPED (20 identical 403s are one
+    # fact, and pasting twenty of them into a note is the desensitised alarm),
+    # and CAPPED so a pathological run cannot turn a probe note into a page.
+    reasons: list[str] = []
+
+    def _note_reason(msg: str) -> None:
+        if msg and msg not in reasons and len(reasons) < MAX_REASONS:
+            reasons.append(msg)
+
     for run in data["workflow_runs"][:min(runs_wanted, MAX_RUNS)]:
         rid = run.get("id")
         jobs, err = _api(f"/repos/{repo}/actions/runs/{rid}/jobs?per_page=50", token)
@@ -144,11 +217,13 @@ def scan(repo: str, workflow: str, token: str, runs_wanted: int,
         run_unread = False
         if jobs is None or not isinstance(jobs, dict):
             run_unread = True
+            _note_reason(err or f"run {rid}: jobs listing was not the expected envelope")
         else:
             for job in jobs.get("jobs") or []:
                 txt, jerr = _job_log(repo, job.get("id"), token)
                 if txt is None:
                     run_unread = True
+                    _note_reason(jerr)
                     continue
                 text_parts.append(txt)
         if run_unread and not text_parts:
@@ -168,10 +243,10 @@ def scan(repo: str, workflow: str, token: str, runs_wanted: int,
     if not rows:
         return None, (f"{workflow}: {len(data['workflow_runs'])} run(s) listed but "
                       f"NONE had readable logs ({unread} unread). That is an unread "
-                      f"population, not an absent line.")
+                      f"population, not an absent line." + _why(reasons))
     return rows, (f"read logs for {len(rows)} run(s) of {workflow}"
                   + (f" ({unread} run(s) UNREAD and excluded — the population is "
-                     f"partial)" if unread else ""))
+                     f"partial)" + _why(reasons) if unread else ""))
 
 
 def _contains(literal: str):
@@ -288,7 +363,29 @@ def _self_test() -> int:
         assert cond, f"control FAILED: {label}"
         fired += 1
 
-    state = {"job_status": 200, "job_body": "hello\nsession-brief: verdict=inherited\nbye"}
+    state = {"job_status": 200, "job_body": "hello\nsession-brief: verdict=inherited\nbye",
+             "redirect_to": ""}
+
+    # A SECOND, DIFFERENT-HOST origin standing in for GitHub's blob storage: it
+    # serves the log ONLY to a request that does NOT carry `Authorization`,
+    # which is how the real storage behaves and is the whole point of the
+    # stripping handler. Without this control the handler is decorative.
+    class Blob(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            if "Authorization" in self.headers:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"Only one auth mechanism allowed")
+                return
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(state["job_body"].encode())
+
+        def log_message(self, *a):
+            pass
+
+    blob = http.server.HTTPServer(("127.0.0.1", 0), Blob)
+    threading.Thread(target=blob.serve_forever, daemon=True).start()
 
     class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
@@ -307,6 +404,11 @@ def _self_test() -> int:
             elif p.endswith("/jobs"):
                 code, body = 200, json.dumps({"jobs": [{"id": 11, "name": "guards"}]})
             elif p.endswith("/logs"):
+                if state["redirect_to"]:
+                    self.send_response(302)
+                    self.send_header("Location", state["redirect_to"])
+                    self.end_headers()
+                    return
                 code, body = state["job_status"], state["job_body"]
             elif p.endswith("/empty/runs"):
                 code, body = 200, json.dumps({"workflow_runs": []})
@@ -383,6 +485,27 @@ def _self_test() -> int:
         ok(main(["--repo", "o/r", "--workflow", "ci.yml", "--contains", "verdict=x",
                  "--positive-control", "no-such-marker-anywhere"]) == 2,
            "a control that cannot fire turns the negative into a declared unread")
+
+        # --- the two 2026-09-12 controls ---------------------------------
+        state["job_status"], state["job_body"] = 403, "no"
+        rows, note = scan("o/r", "ci.yml", "tok", 5, None)
+        ok(rows is None and "Reason(s):" in note and "HTTP 403" in note,
+           "an unread population CARRIES THE REASON — `20 unread` with no cause "
+           "cannot tell a revoked token from an expired log from a redirect the "
+           "client mishandled, and those have three different fixes")
+        state["job_status"], state["job_body"] = 200, "hello\nsession-brief: verdict=inherited\nbye"
+        ok("No per-job reason was captured." in _why([]),
+           "and a note with NO captured reason SAYS SO rather than reading as if "
+           "the cause were known — *we did not look* one level down")
+
+        state["redirect_to"] = f"http://127.0.0.1:{blob.server_port}/blob"
+        rows, note = scan("o/r", "ci.yml", "tok", 5, None)
+        ok(rows is not None and len(rows) == 1
+           and "verdict=inherited" in rows[0]["log"],
+           "a job log served by a 302 to a DIFFERENT host is READ — the bearer is "
+           "dropped on the cross-host hop, so the storage does not refuse it. "
+           "Stock urllib forwards it and this control fails without the handler")
+        state["redirect_to"] = ""
 
         os.environ.pop("GITHUB_TOKEN", None)
         os.environ.pop("GH_TOKEN", None)
