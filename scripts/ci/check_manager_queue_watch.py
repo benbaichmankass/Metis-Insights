@@ -43,10 +43,12 @@ queue depth is REPORTED here and ESCALATED by the watcher's own run.
 watcher RAN. Whether its digest reached the operator is a separate question this
 guard cannot see, and it says so rather than implying coverage it does not have.
 
-FOUR STATES, NEVER COLLAPSED
+FIVE STATES, NEVER COLLAPSED
 ----------------------------
 ``fresh``       a run was recorded inside the window.                     PASS
-``never_ran``   no receipt exists at all. ⚠️ **NOT A FAILURE TODAY, AND THAT IS
+``never_ran``   no receipt exists at all AND the watcher was armed less than
+                `NEVER_RAN_GRACE_HOURS` ago (or the arming date could not be
+                parsed — *we did not look*). ⚠️ **NOT A FAILURE, AND THAT IS
                 CORRECT rather than lenient** — it is the accurate reading until
                 the Routine first runs with `--write-receipt`, and failing on it
                 would red every PR in the repo the day this merges, which is how
@@ -54,6 +56,19 @@ FOUR STATES, NEVER COLLAPSED
                 and `check_drain_liveness.py` both take this position. The guard
                 ARMS ITSELF on the first receipt: once one exists, `stale`
                 becomes reachable and there is no flag to unset.            PASS
+``never_ran_overdue``
+                no receipt exists and the watcher has been armed FAR longer than
+                one could take. ⚠️ **THIS IS NOT A WIDENING OF `never_ran`, IT IS
+                ITS OPPOSITE** — "has not fired yet" and "has fired on the order
+                of 240 times and written nothing" are different facts, and until
+                2026-09-12 they were one value, which is exactly how ten days of
+                a SUCCEEDED-reporting watchdog writing nothing went unremarked.
+                ⚠️ It PASSES, deliberately: only the Routine can clear it (a
+                Routine-fired session holds no `mcp__*` tools), and a
+                hand-written receipt would arm the freshness grading against a
+                file nobody maintains — a healthy-looking watch forever. It is
+                escalated where a session will MEET it, as a LOUD row from
+                `render_due_list.py::src_manager_queue_watch`.               PASS
 ``stale``       the receipt exists and its newest run is older than the window.
                 The Routine HAS run and has STOPPED — the failure this exists
                 for.                                                       FAIL
@@ -64,7 +79,9 @@ FOUR STATES, NEVER COLLAPSED
 
 ⚠️ `never_ran` and `stale` are distinct even though both mean "no recent run":
 collapsing them would report *"it was never wired up"* as *"it broke"*, sending
-a reader to investigate a regression that never happened.
+a reader to investigate a regression that never happened. And `never_ran_overdue`
+is distinct from BOTH: it is not "it broke" (it never worked) and not "give it
+time" (the time was given and nothing came).
 
 WHY A RECEIPT AND NOT `list_triggers`
 --------------------------------------
@@ -94,6 +111,19 @@ RECEIPT = REPO_ROOT / "docs" / "claude" / "work" / "MANAGER-QUEUE-WATCH.json"
 
 FRESH, STALE, NEVER_RAN, UNREADABLE = "fresh", "stale", "never_ran", "unreadable"
 
+#: A FIFTH state, added 2026-09-12. The row is
+#: BL-20260912-THE-MANAGER-QUEUE-WATCH-ROUTINE-HAS-FIRED-HOURLY-FOR-TEN-DAYS-REPORTING-SUCCEEDED-AND-HAS-NEVER-WRITTEN-THE-RECEIPT-THAT-IS-ITS-OWN-STATED-POINT
+#: — kept on ONE line deliberately: a tracking id wrapped across lines does not
+#: resolve, and `check_backlog_refs.py` then reads it as a reference to a row
+#: nobody filed. ``never_ran`` was UNCONDITIONALLY
+#: benign, and that reading is correct on day one and FALSE on day ten: measured
+#: 2026-09-12 against the live Routine list, `trig_01TWdAvrwFLe6T9XFoNopTeo` has
+#: `last_run.status SUCCEEDED` at `last_fired_at 2026-09-12T16:56:08Z` and the
+#: receipt has NEVER been committed once, by anybody. "has not fired yet" and
+#: "has fired on the order of 240 times and written nothing" are opposite facts
+#: and were one value.
+NEVER_RAN_OVERDUE = "never_ran_overdue"
+
 #: The Routine's declared cadence — cron `56 * * * *`, i.e. hourly.
 #: ⚠️ RECORDED SO THE WINDOW BELOW HAS A BASIS, NOT SO IT CAN BE TRUSTED. The
 #: cron is what was ASKED for; `generated_at` is what HAPPENED, and only the
@@ -110,6 +140,30 @@ ROUTINE_CADENCE_HOURS = 1.0
 #: ⚠️ If the Routine's cadence is ever slowed, this must be raised with it — the
 #: self-test asserts the ordering so the pair cannot silently invert.
 DEFAULT_WINDOW_HOURS = 6.0
+
+#: WHEN THE RECEIPT FIRST BECAME OWED — the Routine's own `created_at`, MEASURED
+#: 2026-09-12 via `list_triggers(recurring=true, limit=100)` (`has_more: false`,
+#: so that was the COMPLETE set of recurring Routines on the account).
+#:
+#: ⚠️ IT IS A DECLARED CONSTANT AND DELIBERATELY NOT DERIVED FROM GIT. The
+#: obvious alternative — the commit date of this file or of `queue_latency.py` —
+#: RESETS every time anyone edits either, so the grace period would silently
+#: re-arm on an unrelated typo fix and this guard would quietly disarm itself
+#: forever while looking armed. A wrong constant is visible in a diff; a
+#: self-resetting clock is not.
+#:
+#: ⚠️ AND IT IS THE ROUTINE'S ARMING DATE, NEVER "when we last looked". If the
+#: Routine is ever retired and replaced, this must move with it — the self-test
+#: asserts only that it PARSES, because no repo-side fact can confirm it.
+RECEIPT_EXPECTED_SINCE = "2026-09-02T13:56:18Z"
+
+#: How long after arming an ABSENT receipt still reads as "it has not fired
+#: yet". CHOSEN as 24 firings at the declared cadence — generous by the same
+#: argument as DEFAULT_WINDOW_HOURS (a scheduled thing here is not punctual),
+#: and short enough that ten days cannot hide inside it. The self-test asserts
+#: it stays wider than the cadence and wider than the freshness window, so the
+#: three cannot silently invert.
+NEVER_RAN_GRACE_HOURS = 24.0
 
 
 def _parse_ts(value: Any) -> Optional[datetime]:
@@ -139,7 +193,9 @@ def read_receipt(path: Path = RECEIPT) -> Tuple[Optional[Dict[str, Any]], str]:
 
 
 def grade(receipt: Optional[Dict[str, Any]], read_state: str, now: datetime,
-          window_hours: float = DEFAULT_WINDOW_HOURS) -> Dict[str, Any]:
+          window_hours: float = DEFAULT_WINDOW_HOURS,
+          expected_since: Optional[str] = RECEIPT_EXPECTED_SINCE,
+          grace_hours: float = NEVER_RAN_GRACE_HOURS) -> Dict[str, Any]:
     """PURE, so the policy is arguable in tests rather than against a live Routine."""
     if read_state == "unreadable":
         return {"state": UNREADABLE, "age_hours": None, "ok": False,
@@ -148,13 +204,55 @@ def grade(receipt: Optional[Dict[str, Any]], read_state: str, now: datetime,
                         "watchdog receipt is itself a defect, so it fails loudly "
                         "rather than passing quietly.")}
     if read_state == "absent" or receipt is None:
-        return {"state": NEVER_RAN, "age_hours": None, "ok": True,
-                "why": ("no receipt exists, so the Manager Queue Watch Routine has "
-                        "never run with --write-receipt. This is the accurate "
-                        "reading until it next fires and is deliberately NOT a "
-                        "failure -- failing here would red every PR in the repo on "
-                        "the day this merges. The guard arms itself on the first "
-                        "receipt.")}
+        armed = _parse_ts(expected_since)
+        if armed is None:
+            # WE COULD NOT LOOK at how long it has been owed. Deliberately NOT
+            # folded into either side: reading it as `never_ran` would assert the
+            # Routine is new, and as `never_ran_overdue` would assert it is late.
+            # Neither was measured.
+            return {"state": NEVER_RAN, "age_hours": None,
+                    "owed_hours": None, "expected_firings": None, "ok": True,
+                    "why": ("no receipt exists, so the Manager Queue Watch Routine "
+                            "has never run with --write-receipt -- AND the arming "
+                            "date could not be parsed, so HOW LONG it has been "
+                            "owed is unknown. That is `we did not look`, not "
+                            "evidence the Routine is new. Fix RECEIPT_EXPECTED_"
+                            "SINCE so absence can be dated.")}
+        owed = (now - armed).total_seconds() / 3600.0
+        if owed < grace_hours:
+            return {"state": NEVER_RAN, "age_hours": None,
+                    "owed_hours": round(owed, 1), "expected_firings": None,
+                    "ok": True,
+                    "why": (f"no receipt exists and the watcher has only been armed "
+                            f"{owed:.1f}h (grace {grace_hours}h). This is the "
+                            f"accurate reading until it first fires and is "
+                            f"deliberately NOT a failure -- failing here would red "
+                            f"every PR in the repo on the day this merges.")}
+        # ⚠️ STILL `ok: True`, AND THAT IS A DECISION WITH A REASON, NOT LENIENCY.
+        # The remedy is UNREACHABLE from here: only the Routine can write this
+        # receipt, a Routine-fired session holds no `mcp__*` tools, and a
+        # hand-written receipt would ARM the freshness grading against a file no
+        # Routine maintains -- reporting a healthy watch forever, which is worse
+        # than the silence. A guard whose only available response is "disable
+        # me" is how a guard gets disabled instead of fixed. The escalation is
+        # carried where a session will MEET it -- `render_due_list.py`'s
+        # `src_manager_queue_watch` raises a LOUD due-list row off this same
+        # verdict -- rather than as a red no contributor can clear.
+        firings = int(owed / ROUTINE_CADENCE_HOURS) if ROUTINE_CADENCE_HOURS else None
+        return {"state": NEVER_RAN_OVERDUE, "age_hours": None,
+                "owed_hours": round(owed, 1), "expected_firings": firings,
+                "ok": True,
+                "why": (f"NO receipt has EVER been written, and the watcher has "
+                        f"been armed {owed:.1f}h -- on the order of {firings} "
+                        f"firings at the declared {ROUTINE_CADENCE_HOURS}h cadence "
+                        f"(DERIVED from the cadence, not counted from a run "
+                        f"history this guard cannot read). So this is NOT `it has "
+                        f"not fired yet`: the watchdog built because `nothing "
+                        f"catches a manager doing nothing` is itself doing "
+                        f"nothing, uncaught. It does not FAIL here because only "
+                        f"the Routine can clear it and a hand-written receipt "
+                        f"would arm the freshness grading against a file nobody "
+                        f"maintains; it is raised as a LOUD due-list row instead.")}
     ts = _parse_ts(receipt.get("generated_at"))
     if ts is None:
         return {"state": UNREADABLE, "age_hours": None, "ok": False,
@@ -180,6 +278,15 @@ def grade(receipt: Optional[Dict[str, Any]], read_state: str, now: datetime,
 
 def render(verdict: Dict[str, Any], receipt: Optional[Dict[str, Any]]) -> str:
     lines = [f"manager-queue-watch: {verdict['state'].upper()} -- {verdict['why']}"]
+    if verdict.get("state") == NEVER_RAN_OVERDUE:
+        # Printed on every PR, but NOT as a failure. See `grade`: the remedy is
+        # unreachable from CI, so the row that a session acts on is the due-list
+        # one — named here so a reader is not left looking for a fix they cannot
+        # apply from a PR.
+        lines.append(
+            f"  armed {verdict.get('owed_hours')}h ago, ~{verdict.get('expected_firings')} "
+            f"expected firings, ZERO receipts -- carried as a loud due-list row "
+            f"(render_due_list.py::src_manager_queue_watch), not as a red here.")
     if receipt:
         # ⚠️ REPORTED, NEVER FAILED ON. See the module docstring: a contributor's
         # PR must not go red because the manager has a queue.
@@ -224,6 +331,70 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("never_ran PASSES -- it cannot red every PR on merge day", v["ok"])
     check("never_ran reports NO age rather than a fabricated zero",
           v["age_hours"] is None)
+
+    # --- never_ran vs never_ran_overdue: opposite facts, not one value --------
+    # ⚠️ `now` here is 2026-09-03T12:00Z and the shipped RECEIPT_EXPECTED_SINCE
+    # is 2026-09-02T13:56Z, i.e. 22.1h -- INSIDE the 24h grace. That is why the
+    # controls below pass an explicit `expected_since` instead of relying on the
+    # default: a control whose verdict depends on how far the wall clock has
+    # drifted from a constant is a control that changes answer over time.
+    v = grade(None, "absent", now, expected_since="2026-09-03T10:00:00Z")
+    check("an absent receipt INSIDE the grace grades never_ran",
+          v["state"] == NEVER_RAN and v["ok"])
+    check("...and reports how long it has been owed, so the reading is dateable",
+          v["owed_hours"] == 2.0)
+    check("...and claims NO firing count, because none is derivable yet",
+          v["expected_firings"] is None)
+
+    v = grade(None, "absent", now, expected_since="2026-08-24T12:00:00Z")
+    check("an absent receipt LONG past the grace grades never_ran_overdue",
+          v["state"] == NEVER_RAN_OVERDUE)
+    check("...and is NOT reported as never_ran -- the two are opposite facts, "
+          "and collapsing them is what let ten days of a SUCCEEDED-reporting "
+          "watchdog writing nothing go unremarked",
+          v["state"] != NEVER_RAN)
+    check("...and states the expected firing count derived from the cadence",
+          v["expected_firings"] == 240)
+    check("...and says that count is DERIVED, not read off a run history",
+          "DERIVED from the cadence" in v["why"])
+    check("overdue PASSES the guard -- only the Routine can clear it, so a red "
+          "here would be an unclearable red on every PR in the repo",
+          v["ok"])
+    check("...and it names the surface that DOES carry it, so a reader is not "
+          "left hunting for a fix they cannot apply from a PR",
+          "due-list row" in v["why"])
+    txt = render(v, None)
+    check("...and the rendered line carries the arithmetic, not just a label",
+          "expected firings, ZERO receipts" in txt)
+
+    v = grade(None, "absent", now, expected_since="not-a-date")
+    check("an UNPARSEABLE arming date grades never_ran, never overdue -- "
+          "`we did not look` must not be reported as `it is late`",
+          v["state"] == NEVER_RAN)
+    check("...and reports NO owed age rather than a fabricated zero",
+          v["owed_hours"] is None)
+    check("...and says plainly that absence could not be DATED",
+          "could not be parsed" in v["why"])
+
+    # A receipt that EXISTS is graded on its own age; the arming date is
+    # irrelevant there and must not leak into the freshness verdict.
+    check("an existing FRESH receipt is never re-graded as overdue, whatever "
+          "the arming date says",
+          grade(stamped(1), "read", now,
+                expected_since="2020-01-01T00:00:00Z")["state"] == FRESH)
+    check("...and an existing STALE receipt still grades stale, not overdue",
+          grade(stamped(9), "read", now,
+                expected_since="2020-01-01T00:00:00Z")["state"] == STALE)
+
+    # The three time constants must not silently invert.
+    check("the never-ran grace is wider than the Routine's cadence",
+          NEVER_RAN_GRACE_HOURS > ROUTINE_CADENCE_HOURS)
+    check("...and wider than the freshness window, so a receipt that exists is "
+          "graded stale long before absence is called overdue",
+          NEVER_RAN_GRACE_HOURS > DEFAULT_WINDOW_HOURS)
+    check("the shipped arming constant PARSES -- a typo there would silently "
+          "send every reading back to the undateable branch",
+          _parse_ts(RECEIPT_EXPECTED_SINCE) is not None)
 
     v = grade(None, "unreadable", now)
     check("a corrupt receipt grades unreadable, NOT never_ran",
