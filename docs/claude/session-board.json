@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/manager-mi277-register-recovery",
-    "claimed_at": "2026-09-12T01:07:09Z",
-    "purpose": "recover the MI-277 register rows dropped by the #11846 auto-merge race"
+    "branch": "claude/manager-0152z-tick",
+    "claimed_at": "2026-09-12T01:55:18Z",
+    "purpose": "manager 01:52Z tick register push"
   },
   "active_sessions": [
     {
