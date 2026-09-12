@@ -37,6 +37,21 @@ from pathlib import Path
 import pandas as pd
 
 _REPO = Path(__file__).resolve().parents[3]
+
+# THE CAPITAL-EFFICIENCY COMPARISON HAS ONE OWNER AND IS IMPORTED, NOT COPIED.
+# exit-refinement/SKILL.md: "single-homed in scripts/capital_efficiency.py --
+# never re-derived per harness, or a cross-harness comparison means nothing."
+# `capital_delta` is the cell-vs-base reporter built on it; importing keeps this
+# sweep's Path B rows comparable with the fleet sweep's. The module guards its
+# own main(), so the import has no side effects (verified: 0.03s, no argparse).
+def _capital_delta(cell: dict, base: dict) -> dict:
+    import importlib.util
+    src = _REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py"
+    spec = importlib.util.spec_from_file_location("_m20_fleet", src)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.capital_delta(cell, base)
+
 _HARNESS = _REPO / "scripts" / "backtest_ict_scalp.py"
 
 # (cell_tag, matrix_lever, extra harness args) — mirrors
@@ -287,6 +302,23 @@ def metrics(summary: dict) -> dict:
         "trades": summary.get("total_trades", 0),
         "total_r": summary.get("total_r", 0.0),
         "max_dd_r": summary.get("max_drawdown_r", 0.0),
+        # PATH B INPUTS — RECORDED, NEVER GRADED HERE. The exit-refinement gate
+        # has two qualifying paths and this sweep grades only Path A (net_R AND
+        # maxDD). Path B's two thresholds — how much `net_r_per_capital_day`
+        # must improve, and how much net_R may fall — are DELIBERATELY UNSET
+        # repo-wide: `m20_fleet_exit_sweep.capital_delta` says the operator sets
+        # them "from a measured distribution, not from a number a session
+        # invented", and even that sweep's `path_b_wf_pass` verdict explicitly
+        # "IS NOT A PROMOTION". So carrying the raw fields is the whole of what
+        # is owed; a pass/fail computed here would be a session inventing an
+        # operator-reserved threshold. Fee basis differs from Path A on purpose:
+        # `total_r` is fee-free (the established M20 lever-gate basis) and these
+        # are fee-NET, which is what `net_r_per_capital_day` is defined on.
+        "net_total_r": summary.get("net_total_r"),
+        "net_r_per_capital_day": summary.get("net_r_per_capital_day"),
+        "net_r_per_position_day": summary.get("net_r_per_position_day"),
+        "capital_days": summary.get("capital_days"),
+        "mean_bars_held": summary.get("mean_bars_held"),
         "expectancy_r": summary.get("expectancy_r", 0.0),
         "win_rate_pct": summary.get("win_rate_pct", 0.0),
         "by_outcome": summary.get("by_outcome", {}),
@@ -489,7 +521,17 @@ def main(argv: list[str]) -> int:
         results["cells"][tag] = {"lever": lever, "extra": extra,
                                  "IS": cell["IS"], "OOS": cell["OOS"],
                                  "is_beat": is_beat, "oos_beat": oos_beat,
-                                 "verdict": verdict}
+                                 "verdict": verdict,
+                                 # Path B evidence, REPORTED beside the Path A
+                                 # verdict and never folded into it. `verdict`
+                                 # stays a Path A word; a reader wanting Path B
+                                 # reads these and applies the operator's
+                                 # thresholds, which this file does not hold.
+                                 "capital_delta": {
+                                     "IS": _capital_delta(cell["IS"], base["IS"]),
+                                     "OOS": _capital_delta(cell["OOS"], base["OOS"]),
+                                 },
+                                 "gate_paths_graded": ["A"]}
         print(f"  {tag:18s} [{lever}]  "
               f"IS ΔR={cell['IS']['total_r'] - base['IS']['total_r']:+.2f} "
               f"ΔDD={cell['IS']['max_dd_r'] - base['IS']['max_dd_r']:+.2f} "

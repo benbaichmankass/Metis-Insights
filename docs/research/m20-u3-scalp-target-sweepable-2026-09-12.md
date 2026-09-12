@@ -955,7 +955,7 @@ parity its IS grid runs **+31.42 at 0.75R monotonically down to −33.39 at 4R**
 a 65 R spread across the grid, and its OOS runs the other way. Under the 24-bar
 clock that structure was invisible (Σ IS −10.98).
 
-## 4m. ⚠️ EVERY VERDICT ABOVE IS PATH-A ONLY — the sweep implements HALF the binding gate
+## 4m. ⚠️ EVERY VERDICT ABOVE IS PATH-A ONLY — and the fix is to RECORD, not to grade
 
 Found by auditing my own instrument against the skill that governs it, after
 the results were in. **`exit-refinement/SKILL.md` states the gate as two
@@ -994,18 +994,48 @@ just today's. It is fixed here rather than filed onward, per Generation
 Discipline Rule 2: an audited non-compliant precedent that touches what I ship
 gets fixed in the same PR.
 
-**The fix is small because both owners already exist and must be IMPORTED, not
-re-derived** (the skill: *"single-homed in `scripts/capital_efficiency.py` —
-never re-derived per harness, or a cross-harness comparison means nothing"*):
-`scripts/capital_efficiency.py` owns the metric, and
-`m20_fleet_exit_sweep.py::drawdown_exchange_rate` owns the derived tolerance
-and its `dN/N_b ≤ 1.0` grant cap. The harness already emits everything needed
-(`net_r_per_capital_day`, `capital_days`, `net_total_r`), and it correctly
-reports `capital_days == position_days` — the unweighted case the skill says
-must be reported rather than fabricated.
+### ⛔ AND MY FIRST READING OF THE REMEDY WAS WRONG — recorded because I nearly shipped it
 
-**The Path-B verdicts require a RE-RUN**, since the metric was never stored.
-Until that run lands, the scoreboard in §4j must be read as *Path A only*.
+This section first said the sweep *"implements HALF the binding gate"* and
+implied a Path B **pass/fail** was owed. I was one step from writing that
+grader. **Reading the owners stopped it, and they are emphatic:**
+
+- `m20_fleet_exit_sweep.capital_delta` is documented **"REPORTED, never
+  graded"**, because *"Path B's two thresholds … are deliberately unset: the
+  operator sets them from a measured distribution, not from a number a session
+  invented."*
+- Even that sweep's `path_b_wf_pass` verdict carries *"IS NOT A PROMOTION.
+  Both Path B thresholds remain unset"* — and it records that **6 of 18**
+  `path_b_wf_pass` rows failed the rate gate at fleet scale.
+- The derived drawdown tolerance is **"Reported, not enforced — a criterion
+  that promoted on its own would be the same Tier-3 short-circuit the sweep
+  exists to avoid."**
+
+**So Path B is ungraded EVERYWHERE, on purpose, and a grader written here would
+have invented an operator-reserved threshold** — the exact Tier-3
+short-circuit the repo's own machinery refuses. The real defect is narrower and
+is now fixed: the M27 sweep did not even **record** the evidence the fleet
+sweep reports.
+
+**What shipped instead.** Every cell record now carries a `capital_delta`
+block for both windows and an explicit **`gate_paths_graded: ["A"]`**, so a
+reader cannot mistake a Path-A verdict for a full-gate one. The comparison is
+**imported from its single owner** (`m20_fleet_exit_sweep.capital_delta`, built
+on `scripts/capital_efficiency.py`), never re-derived — the skill's own reason:
+*"or a cross-harness comparison means nothing."* Unmeasurable rates stay
+`None`, never `0.0`. Mutation-checked 5/5, including a mutant that claims
+`["A","B"]` and one that re-derives the metric locally.
+
+**Verified on live data**, and it is informative rather than decorative: on the
+smoke leg, disarming the ratchet raises `capital_days` **6.34 → 7.92** and
+lowers `net_r_per_capital_day` **1.225 → 1.182**, so the capital evidence
+points the same way as Path A rather than rescuing the cell.
+
+⚠️ **The recorded block still requires a RE-RUN to exist for the verdicts in
+this document** — the field was absent when they ran, and it cannot be
+recovered retroactively. Until then §4j's scoreboard is **Path A only**, and
+the one cell most likely to be re-read under Path B is **`btc_5m` tp0.75R**
+(+31.42 R IS, maxDD −18.81, rejected on OOS R alone).
 
 ## 5. Landing
 

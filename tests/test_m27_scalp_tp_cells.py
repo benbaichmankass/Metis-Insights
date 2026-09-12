@@ -299,3 +299,95 @@ class TestFidelityIsWiredToTheVerdictLine:
             f"tell this from a parity run:\n{out}")
         # and it must show the DIFFERENCE, not one constant for every cell
         assert "IS 60%" in out and "IS 20%" in out, out
+
+
+class TestPathBIsRecordedNeverGraded:
+    """The exit-refinement gate has TWO qualifying paths; this sweep grades one.
+
+    Path B's thresholds (how much net_r_per_capital_day must improve, how much
+    net_R may fall) are deliberately UNSET repo-wide — m20_fleet_exit_sweep's
+    `capital_delta` says the operator sets them "from a measured distribution,
+    not from a number a session invented", and its own `path_b_wf_pass` verdict
+    "IS NOT A PROMOTION". So the obligation here is to RECORD the evidence and
+    to SAY that only Path A was graded. A pass/fail computed here would invent
+    an operator-reserved threshold.
+    """
+
+    def test_metrics_carry_the_path_b_inputs(self):
+        m = sw.metrics({"total_r": 1.0, "max_drawdown_r": 2.0,
+                        "net_total_r": 0.9, "net_r_per_capital_day": 0.5,
+                        "net_r_per_position_day": 0.5, "capital_days": 1.8,
+                        "mean_bars_held": 12.0, "trades": 3}) \
+            if hasattr(sw, "metrics") else None
+        if m is None:
+            import inspect
+            src = inspect.getsource(sw)
+            for k in ("net_r_per_capital_day", "capital_days", "net_total_r"):
+                assert f'"{k}": summary.get("{k}")' in src, (
+                    f"{k} is not recorded — Path B cannot be evaluated later, "
+                    "and it cannot be recovered retroactively either")
+            return
+        for k in ("net_r_per_capital_day", "capital_days", "net_total_r"):
+            assert k in m, k
+
+    def test_the_capital_comparison_is_IMPORTED_not_reimplemented(self):
+        """A second copy makes a cross-harness comparison meaningless."""
+        import inspect
+        src = inspect.getsource(sw._capital_delta)
+        assert "m20_fleet_exit_sweep" in src, (
+            "the capital comparison must delegate to its single owner")
+        assert "capital_delta" in src
+        # and it must not compute the ratio itself
+        assert "/" not in src.split("return")[-1], (
+            "looks like a local re-derivation rather than a delegation")
+
+    def test_delegation_actually_reaches_the_owner(self, tmp_path):
+        cell = {"net_total_r": 2.0, "net_r_per_capital_day": 0.4,
+                "net_r_per_position_day": 0.4, "capital_days": 5.0,
+                "mean_bars_held": 10.0}
+        base = {"net_total_r": 1.0, "net_r_per_capital_day": 0.2,
+                "net_r_per_position_day": 0.2, "capital_days": 5.0,
+                "mean_bars_held": 10.0}
+        out = sw._capital_delta(cell, base)
+        assert out["d_net_r_per_capital_day"] == 0.2
+        assert out["d_net_total_r"] == 1.0
+        assert out["net_r_retained_frac"] == 2.0
+
+    def test_unmeasurable_rate_is_None_not_zero(self):
+        """Collapsing 'could not measure' into 0.0 is what the owner refuses."""
+        out = sw._capital_delta({"net_total_r": 1.0}, {"net_total_r": 1.0})
+        assert out["d_net_r_per_capital_day"] is None
+        assert out["cell_net_r_per_capital_day"] is None
+
+    def test_the_sweep_DECLARES_that_it_graded_only_path_A(self, tmp_path, monkeypatch, capsys):
+        """Silence about which paths were graded reads as 'the gate was applied'."""
+        import pandas as pd
+        n = 40
+        ts = pd.date_range("2025-01-01", periods=n, freq="h", tz="UTC")
+        data = tmp_path / "d.csv"
+        pd.DataFrame({"timestamp": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      "open": 1.0, "high": 1.1, "low": 0.9,
+                      "close": 1.0, "volume": 1.0}).to_csv(data, index=False)
+
+        def fake(data_csv, extra, out_json):
+            return {"total_trades": 50, "total_r": 5.0, "max_drawdown_r": 2.0,
+                    "expectancy_r": 0.1, "win_rate_pct": 50.0,
+                    "net_total_r": 4.0, "net_r_per_capital_day": 0.3,
+                    "net_r_per_position_day": 0.3, "capital_days": 13.0,
+                    "mean_bars_held": 9.0,
+                    "by_outcome": {"tp_hit": 25, "sl_hit": 25}}
+
+        monkeypatch.setattr(sw, "run_cell", fake)
+        import json as _json
+        out = tmp_path / "o"
+        rc = sw.main(["prog", "--data", str(data), "--symbol", "SOLUSDT",
+                      "--timeframe", "5m", "--split", "2025-01-01T20:00:00Z",
+                      "--cells", "bracket_geometry", "--out", str(out)])
+        assert rc == 0, capsys.readouterr().out
+        v = _json.loads((out / "verdicts.json").read_text())
+        for tag, c in v["cells"].items():
+            assert c["gate_paths_graded"] == ["A"], (
+                f"{tag} does not declare which gate paths it graded — a reader "
+                "cannot tell a Path-A verdict from a full-gate one")
+            assert "capital_delta" in c, tag
+            assert set(c["capital_delta"]) == {"IS", "OOS"}, tag
