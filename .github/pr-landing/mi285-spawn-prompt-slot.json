@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "The diff edits scripts/ops/session_registry.py, which check_pr_landing.py lists in LANDING_MACHINERY (line 402). R12 bars a PR that changes the landing route from landing itself by that route, so this one needs a merge click from the manager. That is R12 working, not a defect: the change is Tier-1 docs-in-a-template with no executable effect, but the file it lives in renders the spawn prompt every future lane reads, which is exactly the authority R12 protects.",
+  "why": "Tier-1 by content — the only change is prose inside the SPAWN_PROMPT template string, telling lanes to take R13's per-branch merge-slot claim (--branch-claim) instead of the shared session-board.json::merge_slot field. No behaviour, no arguments, no callers. Held only because of the file it sits in."
+}
