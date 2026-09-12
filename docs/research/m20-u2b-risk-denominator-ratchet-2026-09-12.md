@@ -1,6 +1,6 @@
 # U2b — the risk denominator is amended by the break-even ratchet, and MI-277's unattributed clamp is that ratchet
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-12` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Unit:** MI-278 U2b · `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER`
 **Cycle priority:** `CY-20260906-TRADING-TRUTH` — *repair the measurement before acting on what it says.* This unit is that, literally.
