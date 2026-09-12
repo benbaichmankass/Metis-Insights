@@ -11,7 +11,6 @@
   "regime_flip_exit",
   "vol_trail",
   "bracket_geometry",
-  "breakeven_ratchet",
   "stop_geometry"
  ],
  "legend": {
@@ -86,11 +85,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -156,11 +150,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. 1 cell(s) DID clear the gate on this run but every one carries a timeout axis and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES), so the verdict stands for the shippable surface. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -228,11 +217,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -299,11 +283,6 @@
     "denominator_unstated": true
    },
    "execution_note": "DEMOTED live -> shadow 2026-08-23 (Tier-3, operator-approved) on a four-axis tune-before-demote discharge: tp_r, atr_stop_mult, adx_min and trail_mult each swept over 13,212 BTCUSDT 2h bars and NO value on ANY axis both beat the baseline and stayed train/OOS-consistent; baseline OOS net_R -13.933. This row leaves the M20 LIVE denominator -- the milestone's done-condition is 'every live leg is processed', so a demoted leg is out of scope, NOT an unprocessed cell.",
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -373,11 +352,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp2_sm3.5_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -449,11 +423,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:no_dispersion_band` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity"
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -523,11 +492,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -599,11 +563,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -665,11 +624,6 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 4/6, d_net_r +1.0084, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -742,11 +696,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp4_sm3_to48 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm3.5 (wf 4/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -813,11 +762,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -882,11 +826,6 @@
     "status": "shipped",
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +27.7150, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity"
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -953,11 +892,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1022,11 +956,6 @@
     "ref": "SHIPPED 2026-08-30 (Tier-3, operator-approved in conversation) as cell `sm2` — path_b_wf_pass, wf_wins_effective 5/6, d_net_r +11.2514, sweep run 33277532648, corpus `docs/research/e35-bracket-corpus.jsonl` (8,289 keys); re-check write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. SELECTION RULE stated in advance and identical to B4: highest `wf_wins_effective`, tie-break `d_net_r`, over this leg's SHIPPABLE gate-passing cells (a cell carrying a `to<N>` axis is excluded — no live unit implements a bar-count exit, BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES). ⚠️ The prior verdict on this leg was a NEGATIVE measured on a harness that force-closed at `timeout_bars` while live has no time stop; this cell is the same leg re-measured against production's real geometry. ⚠️ It rests on a run whose CLEAN-leg control FAILED as specified, with the fold-level substitute ACCEPTED by the operator on 2026-08-29 — see `docs/research/e35-matrix-recheck-2026-08-29.md` § 1. `matrix-bracket-values` now enforces this cell's named axes against config/strategies.yaml.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1094,11 +1023,6 @@
     "tp_geometry": "live_parity",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1154,11 +1078,6 @@
     "status": "blocked:dispersion_refused",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `blocked:dispersion_refused` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1210,11 +1129,6 @@
    "bracket_geometry": {
     "status": "pending",
     "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1275,11 +1189,6 @@
     "ref": "BLOCKED 2026-08-29: EVERY cell that passed this leg's gate prescribes a bar-count timeout (best `tp1_sm2_to24`), and NO live unit implements one — `timeout_bars` is read only by `fvg_range_15m.py` and `fade_breakout_4h.py`, each from its own `_DEFAULTS`, with no generic reader. So no `config/strategies.yaml` change can deliver this verdict; it is not awaiting approval. Giving live a bar-count exit is a Tier-3 order-path change (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`). || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1_sm2_to24** (path B) passed: d_net_R 1.0387, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1350,11 +1259,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1423,11 +1327,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1485,11 +1384,6 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp2_sm1.5` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp2_sm1.5** (path B) passed: d_net_R 8.1565, walk-forward 5/6 effective wins (0 inert). 1 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1549,11 +1443,6 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp3_sm2` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp3_sm2** (path B) passed: d_net_R 6.1948, walk-forward 5/6 effective wins (0 inert). 2 of 2 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1618,11 +1507,6 @@
     "status": "blocked:no_free_lane_candle_feed",
     "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1678,11 +1562,6 @@
    "bracket_geometry": {
     "status": "blocked:no_free_lane_candle_feed",
     "ref": "blocked: no candle substrate on the FREE lane. The 2026-08-20 fetch pass sourced `data.binance.vision` (crypto only); this leg is an equity/ETF/futures instrument, so a bracket sweep here needs a paid or IBKR feed, not a rerun. NOT a negative and NOT pending — nothing was measured."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1744,11 +1623,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -1805,11 +1679,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1869,11 +1738,6 @@
     "ref": "SHIPPED 2026-08-29 as cell `tp1.5_sm3` — M20 B4, PR #10419 (merged `91de68b9`), Tier-3 operator-approved; the declared `tp_r`/`atr_stop_mult` carry the cell id inline in `config/strategies.yaml`. || run 2026-08-26 (`e35-bracket-sweep.yml` run 32975514836, `scripts/research/e35_bracket_geometry_sweep.py`, per-leg artifacts `e35-bracket-<leg>`; rows in `docs/research/e35-bracket-corpus.jsonl`). GRID tp_r x atr_stop_mult x timeout_bars = 199 surface cells/leg (22 legs, 4,378 cells), of which 7/leg (per-axis + joint argmax) were carried into the EXISTING m20 IS/OOS + yearly-walk-forward gate. NET OF FEES, tp_cap_pct live parity. wf counts quoted are `wins_effective` (inert folds excluded, BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). **tp1.5_sm3** (path A) passed: d_net_R 3.9995, walk-forward 4/6 effective wins (0 inert). 1 of 1 gate-passing cell(s) on this leg survive the inert-fold check.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -1938,11 +1802,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2015,11 +1874,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN, so the verdict itself is sound — it is the CELL that is undeliverable, not the measurement that is wrong."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2083,11 +1937,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2159,11 +2008,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2228,11 +2072,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2295,11 +2134,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2366,11 +2200,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **tp6_sm1.5_to24** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +46.4640. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated.",
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp6_sm1.5_to24 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm1.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2443,11 +2272,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CONTAMINATED — the harness's 200-bar force-close BOUND on 17 of 39 graded geometry pairs, so this verdict was measured under an exit production does not have. Its best cell `sm1.5_to400` ties the deliverable `sm1.5` at wf 5/6 (d_net_r 29.96 vs 29.87), so the cell is shippable; the CONFOUND is in the grading."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2517,11 +2341,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2593,11 +2412,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2665,11 +2479,6 @@
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
    "execution_note": "live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session). PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77; the kill gate had been MET across two consecutive reviews with no decision. The leg still evaluates and logs order packages (shadow, not disabled) so the exit-refinement denominator keeps accruing data on it, but it places no live order. Recorded here because the coverage matrix's execution column IS the denominator and must not disagree with config/strategies.yaml.",
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2736,11 +2545,6 @@
     "denominator_unstated": true,
     "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): leg CLEAN — the harness's 200-bar force-close is provably inert here, so the base arm IS live-parity on the timeout axis, and the shipped cell carries no timeout component."
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2789,11 +2593,6 @@
    "bracket_geometry": {
     "status": "pending",
     "ref": "PARTIALLY MEASURED — this row is an AGGREGATE over several legs, not one leg. `trend_donchian_1h` inside it WAS swept 2026-08-20 (docs/research/e35-bracket-geometry-sweep-2026-08-20.md); the rest were not, so the row stays `pending` for the majority. ⚠️ A count of measured ROWS therefore UNDER-reports measured LEGS by one — 18 rows vs 19 legs. Do not derive a leg-count from this column's row statuses without reading this ref (BL-20260820-COVERAGE-MATRIX-CONFLATES-ROWS-AND-LEGS)."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2852,11 +2651,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
    },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
-   },
    "stop_geometry": {
     "status": "n/a",
     "basis": "no_runtime",
@@ -2912,11 +2706,6 @@
     "status": "honest_negative",
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-26, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement. ⚠️ THIS ROW IS NOT IN THAT MEASURED POPULATION: it is not enabled+live in config/strategies.yaml, so the 8-vs-36 partition above was not evaluated for it. The cell is assigned by the same structural rule and is a STATEMENT ABOUT THE UNIT, not a measurement of this row."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -2976,11 +2765,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: `slbuf0.05` AND `slbuf0.1` were both CANDIDATES and **BOTH FAILED the walk-forward at 2/4**. ⚠️ Same non-informative ΔDD signature as avax_5m — all 6 cells −35 to −59 against a 90.17 base (§4q)."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3035,11 +2819,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: all 6 cells honest_negative, no candidates. base IS 118.7914/15.0217, OOS 18.7784/53.0377."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3094,11 +2873,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: `slbuf0.1` was a CANDIDATE (IS ΔR +2.59 ΔDD −61.76 | OOS +4.42 −0.96) and **FAILED the walk-forward, 2/4 usable folds against a need of 3**. ⚠️ Its IS ΔDD is not informative: all 6 cells on this leg run −17 to −62 against an 87.99 base, the signature of a maxDD set by ONE episode — see §4q."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3149,11 +2923,6 @@
     "status": "blocked:no_free_lane_candle_feed",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: NOT in the sweep population: MGC is an IBKR COMEX future the free lane cannot serve candles for, the same reason its `bracket_geometry` cell is blocked."
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_free_lane_candle_feed",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. NOT in the sweep population — MGC candles are unavailable on the free lane."
    }
   },
   {
@@ -3207,11 +2976,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: all 6 cells honest_negative, no candidates. base IS 54.8322/68.6771, OOS 35.7129/20.1546."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3266,11 +3030,6 @@
     "status": "passed_unshipped",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: **`slbuf0.1` (0.20 → 0.10) CLEARED**: IS ΔR +7.13 ΔDD −1.02 (n199) | OOS ΔR +3.75 ΔDD −0.15 (n117), yearly walk-forward **3/4 usable folds [2021:skip 2022:skip 2023:PASS 2024:- 2025:PASS 2026:PASS]**. ⚠️ NOT SHIPPED — Tier-3, proposed only. ⚠️ AND NOT ADDITIVE WITH THIS LEG'S `bracket_geometry` SURVIVOR (`tp1.25R`): the stop distance IS the R unit, so narrowing the buffer rescales R and `tp_at_r` is denominated in R — applying both gives a geometry neither cell tested. They also fail the SAME fold (2024)."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3325,11 +3084,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: all 6 cells honest_negative, no candidates. base IS 24.1065/20.6613, OOS 0.201/17.4497."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3383,11 +3137,6 @@
     "status": "honest_negative",
     "basis": "live_lever",
     "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34689877269, `cells=stop_geometry`, **timeout_bars=100000 (LIVE PARITY, measured — every cell stamps `[timeout IS 0%]`)**, walkforward=true, 7 legs × 6 `atr_sl_buffer_mult` cells bracketing the live 0.20 (0.05/0.10/0.15, 0.30/0.40/0.60). 42 cells, 4 candidates on 3 legs, ONE walk-forward survivor. ⚠️ PATH A ONLY; MIN_OOS_TRADES unenforced. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4q. THIS LEG: all 6 cells honest_negative, no candidates. base IS 44.0527/8.36, OOS 19.129/11.0914."
-   },
-   "breakeven_ratchet": {
-    "status": "honest_negative",
-    "basis": "live_lever",
-    "ref": "MI-278 U3 (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12. Run 34684327271, `cells=breakeven_ratchet`, **timeout_bars=100000 (LIVE PARITY)**, walkforward=true, 7 legs, one `be_off` cell each — the cell that REMOVES `--sim-breakeven` from the config-exact base, i.e. the OPPOSITE polarity to every other cell here (read a positive delta as 'the shipped baseline costs this much', not 'an override helps'). **0 of 7 cleared the gate**, so no walk-forward ran. Per-leg IS ΔR: eth_15m −1.06, sol_15m +5.89, xrp_15m −2.78, sol_5m −11.46, xrp_5m −10.29, avax_5m −24.76, btc_5m +3.67. Σ IS −40.79 / Σ OOS +31.57, and disarming RAISES in-sample maxDD on 6 of 7 legs — the ratchet is buying drawdown protection. ⚠️ PATH A ONLY; Path B recorded, never graded (thresholds are operator-reserved repo-wide). ⚠️ MIN_OOS_TRADES is UNENFORCED by this runner. Detail: docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md §4j. THIS LEG's `be_off` cell did not clear."
    }
   },
   {
@@ -3441,11 +3190,6 @@
     "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. **Verdict `honest_negative` CONFIRMED** against the newer measurement — the prior ref cited 2026-08-20, three generations back. No cell cleared the m20 gate on this run. ⚠️ CONFIRMED IS NOT UNCHANGED: the re-sweep re-measured this leg against production's real (absent) bar-count exit, so this is a fresh negative rather than a carried-forward one. Prior ref retained in git history.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",
@@ -3503,11 +3247,6 @@
     "ref": "RE-CHECKED run 2026-08-29 and a shippable winner EXISTS — cell `sm1.5` (path_b_wf_pass, wf 5/6, d_net_r +13.4198) — but it is **DELIBERATELY NOT SHIPPED**, and this is a REFUSAL on evidence, not a gap. Write-up `docs/research/e35-matrix-recheck-2026-08-29.md`; the block was found on 2026-08-30 while shipping the approved set, by a test that was RIGHT (`test_unit_c_prop_exit_variants`). THREE reasons, any one sufficient: (1) this leg is a CONFIG-ONLY EXIT VARIANT whose design premise (Unit C Phase 0, `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` § 5) is that its ENTRIES are identical to `trend_donchian_eth` and only `trail_mult`/`tp_r` differ — `atr_stop_mult` is classified an ENTRY param there, deliberately. (2) It was graduated to `execution: live` on a PROP EV/SURVIVAL gate measured on that entry-identical construction (trainer relay #8975, `run_ev_montecarlo` under `config/prop_rulesets/breakout.yaml`: ETH ev_net_usd +$883 @ P(net>0)=0.8477 over 1,110 trades). Changing the stop changes the R denominator, the position size and the BREACH probability, so that gate would no longer describe what runs. (3) `breakout_1` is the one account that can be PERMANENTLY DISABLED by a drawdown breach, and the mandatory per-account compatibility rule requires a prop-ruleset EV/survival evaluation — which the e35 sweep does not provide (it prices `execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP`, not the prop ruleset). ⚠️ The base leg `trend_donchian_eth` has ZERO shippable cells of its own, so shipping the variant alone would have de-coupled the pair rather than moving both. UNBLOCKS WHEN: `run_ev_montecarlo` is re-run under `breakout.yaml` on the sm1.5 geometry and clears, with operator approval on that evidence.",
     "tp_geometry": "live_parity",
     "denominator_unstated": true
-   },
-   "breakeven_ratchet": {
-    "status": "blocked:no_lever_consumer_in_unit",
-    "basis": "no_runtime",
-    "ref": "MEASURED 2026-09-12 (MI-278 U6) over all 44 enabled+live legs, resolved with `src.runtime.pipeline.monitor_unit_for`: exactly 8 legs declare `be_offset_bps`, all 8 on the `ict_scalp` unit. The only mention of `monitor_breakeven_sl` in any other live monitor unit (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`) is a DOCSTRING cross-reference in trend_donchian, not a call site — so this leg has no runtime consumer and nothing to ship into. NOT `honest_negative`, which would assert a measurement."
    },
    "stop_geometry": {
     "status": "n/a",

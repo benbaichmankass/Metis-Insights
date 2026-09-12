@@ -1367,55 +1367,79 @@ same shape as the three §4d corrections, and the reason §4p's completion note
 insists on reading a run only when it is 7 of 7.
 
 
-### The coverage matrix gains TWO columns — and my own prediction about the effect was wrong
+### The coverage matrix gains ONE column, not two — and the guard is why
 
 ⚠️ **`lever_columns` had 9 entries and neither `breakeven_ratchet` nor
 `stop_geometry` was one of them.** Measured before changing anything: all 8
 `ict_scalp` rows read `None` for both keys against a fully populated
-`bracket_geometry`. So §4j's breakeven verdict — 7 cells, 7 legs, run on
-2026-09-12 — **was recorded nowhere in the matrix**, and §4q's cells had nowhere
-to go. That is a gap in this workstream's own bookkeeping, not someone else's.
+`bracket_geometry`. So §4j's breakeven verdict — 7 cells, 7 legs — **was
+recorded nowhere in the matrix**, and §4q's cells had nowhere to go. That is a
+gap in this workstream's own bookkeeping.
 
-Both columns are now added, and every one of the 52 rows carries a cell. The
-partition behind the non-scalp cells is **measured over all 44 enabled+live
-legs, and it is exact — no overlap, no leg in neither camp**:
+**I tried to add both and `matrix-corpus-agreement` refused, correctly.** Its
+rule: a lever column with ZERO rows in `m20-sweep-corpus.jsonl` must either
+point its sweep at the corpus or be declared in `CORPUS_EXEMPT_LEVERS` with the
+reason the corpus cannot speak to it — because otherwise *"every disposition in
+such a column is unverifiable here, so counting it as checked would overstate
+coverage by exactly its size."* Both new columns have zero corpus rows.
 
-- **8 legs** declare `be_offset_bps` **and** `atr_sl_buffer_mult`, all 8 on the
-  `ict_scalp` monitor unit (resolved with `pipeline.monitor_unit_for`, which
-  independently reproduces U1's 8-of-44), and **0 of them declare
-  `atr_stop_mult`**.
-- **36 legs** declare `atr_stop_mult` and **0 of them** declare either scalp key.
+**The two columns are NOT in the same position, and the split is structural:**
 
-So the honest non-scalp cells are `blocked:no_lever_consumer_in_unit` for the
-ratchet — the only mention of `monitor_breakeven_sl` in any other live monitor
-unit is a **docstring cross-reference** in `trend_donchian`, not a call site —
-and **`n/a`** for stop geometry, because those legs *do* have a stop-width
+- **`stop_geometry` is exempt IN PRINCIPLE**, on the identical reasoning
+  `bracket_geometry` already holds. This corpus stores *(leg, LEVER)* rows — one
+  per **post-entry override applied to a bracket held fixed** — and
+  `atr_sl_buffer_mult` varies **the bracket itself**, so there is no lever to key
+  a row on. ⚠️ That is not my judgement call: the repo already ruled on it.
+  `scripts/research/e35_corpus_extract.py` states in its own header that
+  `m20-sweep-corpus.jsonl` *"holds only M20 **lever** cells"* and writes
+  bracket-geometry evidence to *"A SEPARATE FILE, DELIBERATELY."* This column is
+  the same category as the file that decision created. **Added, with the
+  exemption and with where its evidence actually lives.**
+- **`breakeven_ratchet` is NOT exempt and its column is WITHHELD.** It *is* a
+  post-entry override applied to a fixed bracket — exactly the shape the corpus
+  is built for — so the in-principle argument does not apply to it. Its rows
+  belong in the corpus, the sanctioned route exists
+  (`scripts/research/m20_corpus_extract.py --in out/ --corpus …`), and it needs
+  the sweep's `out/` directory, **which run `34684327271` did not retain** —
+  the artifact upload only shipped today. So the honest state is: the verdict is
+  in §4j, the column waits for its rows.
+
+⚠️ **Exempting `breakeven_ratchet` to make the guard pass was available and I did
+not take it.** `BL-20260912-EVERY-M27-ICT-SCALP-VERDICT-IS-CARRIED-BY-A-PR-COMMENT-THAT-HAS-ALREADY-FAILED-TO-POST-ONCE`
+says in terms that an exemption is honest only when it names a durable,
+checkable location, and that declaring one to satisfy a guard would be the
+cheaper-to-lie-to-than-to-satisfy failure `new-table-wiring-guard` already cost
+this repo. Being caught by my own rule is the rule working.
+
+⚠️ **AND `stop_geometry`'s exemption is WEAKER than `bracket_geometry`'s, which
+is recorded in the exemption itself rather than glossed.** That one points at
+committed `report.json` files; this one points at PR comments and §4q. Run
+`34684742080` has already demonstrated that this workflow's comment path can
+FAIL — six verdicts had to be recovered from job logs.
+
+⚠️ **CORRECTION — I predicted on the board and on #11933 that adding columns
+would drop fleet coverage from ~100% to ~82%. It does not.** Measured with
+`m20_coverage_rollup.rollup()` before and after:
+
+| | live legs | lever columns | total cells | headline | **headline %** | **cells_to_done** | unclassified |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| before | 44 | 9 | 396 | 393 | **99.2** | 50 | 28 |
+| after | 44 | 10 | 440 | 437 | **99.3** | 51 | 29 |
+
+Coverage went **UP** by 0.1pp. **I had the wrong model of the headline:** I
+assumed it counts *swept* cells, so new unswept ones would dilute it. It counts
+*dispositioned* cells, and `n/a` / `blocked:*` are dispositions rather than
+gaps. ⚠️ The 82% figure was also computed for **two** columns; even at 11 the
+measured value was 99.4, so the error was the model, not the column count.
+
+The non-scalp `stop_geometry` cells rest on a partition **measured over all 44
+enabled+live legs, exact, with no overlap and no leg in neither camp**: 8 legs
+declare `atr_sl_buffer_mult` (all on the `ict_scalp` unit, resolved with
+`pipeline.monitor_unit_for`, independently reproducing U1's 8-of-44) and **0 of
+them declare `atr_stop_mult`**; the other **36 declare `atr_stop_mult`** and 0
+declare the scalp key. So those 36 are **`n/a`** — they *do* have a stop-width
 parameter and it is `atr_stop_mult`, already `bracket_geometry`'s dimension. A
 column naming a parameter a leg does not have is `n/a`, not a negative.
-
-⚠️ **CORRECTION — I predicted this would drop fleet coverage from ~100% to ~82%
-and said so on the board and on #11933. It does not.** Measured with
-`m20_coverage_rollup.rollup()` on the committed matrix before and after:
-
-| | live legs | lever columns | total cells | headline | **headline %** | **cells_to_done** |
-|---|--:|--:|--:|--:|--:|--:|
-| before | 44 | 9 | 396 | 393 | **99.2** | **50** |
-| after | 44 | 11 | 484 | 481 | **99.4** | **88** |
-
-Coverage went **UP**, by 0.2pp. **I had the wrong model of the headline:** I
-assumed it counts *swept* cells, so 88 mostly-unswept ones would dilute it. It
-counts *dispositioned* cells, and `n/a` / `blocked:*` are dispositions rather
-than gaps — all 88 carry one, so the ratio barely moves.
-
-**The number that actually moved is `cells_to_done`: 50 → 88, +38**, and that is
-the honest measure of what the new columns opened. Those 38 are the
-`blocked:no_lever_consumer_in_unit` ratchet cells, which
-`gate_partition` files under **`unclassified`** — a bucket that already held 28
-(18 `exit_head_ml`, 9 `bracket_geometry`, 1 `giveback_stop`), so this uses an
-established status exactly as the matrix already uses it rather than inventing
-one. ⚠️ It does mean `unclassified` more than doubles, 28 → 66, and a bucket
-named *"the partition has no gate kind for this"* growing that fast is worth
-someone's attention even though every individual cell in it is correctly graded.
 
 ## 5. Landing
 
