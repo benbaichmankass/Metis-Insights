@@ -70,6 +70,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 import bleed_attribution_2026_09_11 as BA           # noqa: E402
 import stop_width_counterfactual_2026_09_11 as CF   # noqa: E402
+import fanout_exit_unit as FX                       # noqa: E402
 
 # MI-275's tolerance, restated with its source named. A stop within this many ATR
 # of the declared level counts as unmoved: a broker tick and a float round-trip
@@ -161,12 +162,23 @@ def build(trades: list[dict], pkgs: dict[str, dict], group: str, tol: float) -> 
         rows_s = sorted(rows, key=lambda r: str(r.get("closed_at") or ""))
         final_stop = CF._f(rows_s[0].get("stop_loss"))
         state, moved = classify_stop_integrity(declared_stop, final_stop, atr, direction)
+        # MI-278 U22: the package's exit under the ONE DECLARED RULE
+        # (fanout_exit_unit), stated BESIDE `adjudicated` and never instead of
+        # it. `adjudicated` keeps grading rows_s[0] so every number this file
+        # has published stays byte-identical; `package_verdict` is what a reader
+        # needs in order to see that the sort above is a CHOICE. A package whose
+        # siblings contradict each other reads `disagreement` here while
+        # `adjudicated` still shows whichever exit the earliest row happened to
+        # have -- and that gap is the finding, not a defect to reconcile.
+        pkg_verdict, pkg_exit, _fx = FX.package_exit_verdict(rows_s, tol)
         out[era].append({
             "package": pid, "leg": str(rows[0].get("strategy_name") or ""),
             "symbol": rows[0].get("symbol"), "era": era, "direction": direction,
             "atr": atr, "declared_stop": declared_stop, "final_stop": final_stop,
             "stop_integrity": state, "stop_moved_atr_vs_declared": moved,
             "adjudicated": BA.adjudicate_exit(rows_s[0], tol),
+            "package_verdict": pkg_verdict,
+            "package_exit": pkg_exit,
             "trade_ids": [r.get("id") for r in rows_s],
             "n_rows": len(rows_s),
         })
@@ -177,6 +189,12 @@ def census(units: list[dict]) -> dict:
     """Split the ADJUDICATED STOP-OUTS by what the stop actually was."""
     stops = [u for u in units if u["adjudicated"] == "reached_stop"]
     c = collections.Counter(u["stop_integrity"] for u in stops)
+    # MI-278 U22, ADDITIVE: the same cell under the declared package rule, so a
+    # reader can see how much of `rate_all_stop_outs` rests on the row-selection
+    # sort. `pkg_disagreement` packages are counted and NEVER arbitrated.
+    pv = collections.Counter(u.get("package_verdict") for u in units)
+    pkg_stop = sum(1 for u in units if u.get("package_exit") == "reached_stop")
+    pkg_denom = pv.get("unanimous", 0) + pv.get("disagreement", 0)
     declared = c.get("stop_is_entry_declared", 0)
     ungrade = sum(c.get(k, 0) for k in UNGRADEABLE)
     return {
@@ -191,6 +209,15 @@ def census(units: list[dict]) -> dict:
         "rate_all_stop_outs": round(len(stops) / len(units), 4) if units else None,
         "rate_declared_only": round(declared / len(units), 4) if units else None,
         "rate_is_none_because": None if units else "empty_cell_no_rate_exists",
+        # --- MI-278 U22 additions: nothing above this line changed ---
+        "package_verdicts": {k: v for k, v in sorted(pv.items()) if k},
+        "pkg_disagreement": pv.get("disagreement", 0),
+        # A BAND, because a disagreement is reported and never arbitrated. `low`
+        # counts every contradicting package as NOT a stop-out, `high` as one.
+        "pkg_stop_rate_low": round(pkg_stop / pkg_denom, 4) if pkg_denom else None,
+        "pkg_stop_rate_high": (round((pkg_stop + pv.get("disagreement", 0)) / pkg_denom, 4)
+                               if pkg_denom else None),
+        "pkg_rate_is_none_because": None if pkg_denom else "no_gradeable_package_in_this_cell",
     }
 
 
