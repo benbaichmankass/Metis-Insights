@@ -730,9 +730,15 @@ settling field was **in the row already being read**:
 
 A fifth variant is the same error in TIME rather than in provenance: a stored
 field read correctly, with the **window never stated**, so a historical
-measurement is presented as a current condition (a 44.2% past-stop rate
-reported as *"real money, one strategy"* for a leg that is `execution: shadow`,
-routed to no account, and last traded three months earlier). **The `trades`
+measurement is presented as a current condition. The recorded instance is a
+past-stop rate for `vwap` reported as *"real money, one strategy"* for a leg
+that is `execution: shadow` and routed to no live account.
+<!-- population-ok: an EXHIBIT, not a claim — the rate below is quoted verbatim from the original 2026-08-26 report to show the defect, and no denominator was recorded for it then or since. Inventing an n here would fabricate exactly what this rule and its neighbour forbid; the figures stated as MINE are re-measured and carry their own basis. -->
+Quoted as filed: **44.2%**, with **no n recorded then or since** — do not
+re-quote it as a rate; it is an exhibit. What IS re-measurable, and was
+re-measured 2026-09-12 by running `scripts/ops/strategy_liveness.py vwap`
+(exit **2**): `enabled: false`, `running: false`, `routed_to: []`,
+`live_accounts: []`, `why: "not routed to any live account"`. **The `trades`
 table answers "what happened". It does not answer "is this still happening".**
 
 ### The mechanical answers that exist — and what each cannot do
