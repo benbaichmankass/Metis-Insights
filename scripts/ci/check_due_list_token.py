@@ -100,11 +100,8 @@ def collecting_steps(doc: dict):
             # Strip the exempt invocations; if nothing is left, the step is
             # self-test-only. Done by REMOVAL rather than by "does it contain
             # --self-test", so a step that self-tests AND writes is still caught.
-            remainder = _INVOKES_RE.sub(
-                lambda m: "", _EXEMPT_RE.sub("", run))
-            if RENDERER not in run:
-                continue
-            if not _EXEMPT_RE.sub("", run).count(RENDERER):
+            remainder = _EXEMPT_RE.sub("", run)
+            if RENDERER not in remainder:
                 continue
             yield job_name, i, step, job.get("env")
 
