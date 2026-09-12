@@ -1,0 +1,12 @@
+MI-278 U19 — the e35 dose result re-derived per ORDER PACKAGE.
+
+Tier-1, every path inside TIER1_SURFACE (scripts/research/**, docs/**).
+Read-only re-derivation plus an ADDITIVE change to an existing research
+instrument, proven key-by-key to move no published figure. No src/**, no
+config/**, the three live dashboard routes untouched, nothing enacted.
+
+The named cell's Fisher p goes ~0 (rows) -> 0.021 (packages): the conclusion
+survives and its strength does not. The dose inversion survives. And the unit
+corrects its own author — U18's headline goes p 0.0486 -> 0.1984 while its
+sign-survival criterion flips to PASS by +0.0044, which is filed as its own row
+rather than resolved by picking the flattering number.
