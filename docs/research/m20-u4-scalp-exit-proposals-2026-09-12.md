@@ -16,19 +16,25 @@ and by every PR in MI-278. Each proposal is Tier-3 and the operator decides.
 
 ## The short version
 
-**One lever survived the full M20 gate out of everything MI-278 swept, and it
-points the opposite way to the question that started the queue.**
+**TWO levers survived the full M20 gate out of everything MI-278 swept, they are
+on the SAME LEG, and both point the opposite way to the question that started
+the queue.**
 
 | lever | population swept | cleared IS/OOS | cleared walk-forward |
 |---|--:|--:|--:|
 | `bracket_geometry` @ 24-bar timeout | 49 cells / 7 legs | 0 | — |
-| `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3 (2 legs) | **see below** |
+| `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3 (2 legs) | **1** (Proposal 1) |
 | `breakeven_ratchet` @ live parity | 7 cells / 7 legs | **0** | — |
-| `stop_geometry` (the buffer) | **built, NOT RUN** | — | — |
+| `stop_geometry` @ **live parity** | 42 cells / 7 legs | 4 (3 legs) | **1** (Proposal 3) |
 
 MI-277 measured winner hold collapsing 5.17h → 1.90h and MI-278 is titled
-*hold winners longer*. **No lever tested makes winners run longer and survives.**
-The one that survives takes profit **sooner**, on one leg.
+*hold winners longer*. **Nothing tested makes winners run longer and survives.**
+Both survivors NARROW their geometry — take profit sooner, stop tighter — and
+both are on `ict_scalp_xrp_15m`.
+
+⚠️ **THEY ARE NOT ADDITIVE. DO NOT ACCEPT BOTH.** Read
+§"⛔ Proposals 1 and 3 are mutually exclusive on this evidence" before deciding
+either one.
 
 ---
 
@@ -177,6 +183,95 @@ IS/OOS line alone.
 the family has two confirmed levers pointing in opposite directions on different
 legs"* — does not arise. There is exactly **one** surviving lever across all
 seven legs, and it NARROWS the target. Nothing tested widens one and survives.
+
+---
+
+## PROPOSAL 3 — `ict_scalp_xrp_15m`: `atr_sl_buffer_mult` 0.20 → 0.10
+
+**Tier-3. Recommendation: ACCEPT *or* Proposal 1, NOT BOTH — and if only one,
+I marginally prefer this one, for the reason in the comparison below. I would
+not object to a REJECT of both.**
+
+### The exact change
+
+```yaml
+# config/strategies.yaml
+ict_scalp_xrp_15m:
+  atr_sl_buffer_mult: 0.10   # was 0.20
+```
+
+One field, one leg. No other leg changes. No code changes.
+
+### The evidence
+
+Run [`34689877269`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34689877269),
+`m27_data/XRPUSDT_15m.csv`, split `2025-07-01`, config-exact base,
+**`timeout_bars=100000` (live parity)**.
+
+```
+slbuf0.1  IS ΔR=+7.13 ΔDD=-1.02 (n199) | OOS ΔR=+3.75 ΔDD=-0.15 (n117)
+          -> CANDIDATE  [timeout IS 0% OOS 0%]
+yearly walk-forward: 3/4 usable folds (need 3) -> PASS
+          [2021:skip 2022:skip 2023:PASS 2024:- 2025:PASS 2026:PASS]
+```
+
+Base IS 196 trades / 32.2835 R / 10.513 maxDD; base OOS 116 / 6.4845 / 12.1186.
+It improves **both** metrics in **both** windows, and `n_OOS=117` clears the
+skill's `MIN_OOS_TRADES = 25` floor with room.
+
+### What must travel with it
+
+1. **It passes by exactly the minimum, on the same fold pattern as Proposal 1** —
+   3 of 4 usable, 2021/2022 empty on `m27_data`, and **2024 is the fold that
+   fails**. One fold moving flips it.
+2. **PATH A ONLY.** Path B's thresholds are operator-reserved and ungraded
+   repo-wide, so this is a partial gate.
+3. **This narrows the STOP, which is the R denominator itself.** Every R figure
+   this leg reports afterwards is denominated differently. That is not a reason
+   to reject it — it is a reason not to compare post-change R to pre-change R
+   without saying so.
+4. **1 of 7 legs.** The other six return nothing in this direction, and on two
+   of them (`avax_5m`, `sol_5m`) the candidates that *did* appear failed the
+   walk-forward on a drawdown term shown to be uninformative (memo §4q).
+5. **A survivor is an INPUT to a proposal, not the proposal.** Nothing is
+   enacted; `config/strategies.yaml` is untouched by this workstream.
+
+---
+
+## ⛔ Proposals 1 and 3 are mutually exclusive on this evidence
+
+Each was measured **independently, against a base holding the other at its LIVE
+value**. **Neither run measured the pair**, and they interact **by
+construction, not by coincidence**:
+
+`atr_sl_buffer_mult` sets the stop distance, and on this family **the stop
+distance IS the R unit** (`sl = sweep_extreme ± atr_sl_buffer_mult × ATR`).
+Narrowing it 0.20 → 0.10 **shrinks R**. `tp_at_r` is denominated in R. So a
+"1.25R" target measured against the OLD stop is a materially different absolute
+move from a "1.25R" target against the NEW one. **Applying both produces a
+geometry neither cell tested**, and its combined effect is not the sum of the
+two ΔRs — it is unmeasured.
+
+If both are wanted, that is a **third sweep** (a joint cell), not an addition.
+
+| | Proposal 1 (`tp_at_r` 1.25) | Proposal 3 (`slbuf` 0.10) |
+|---|--:|--:|
+| IS ΔR / ΔDD | +5.82 / −2.53 (n198) | **+7.13** / −1.02 (n199) |
+| OOS ΔR / ΔDD | **+5.93** / **−3.72** (n117) | +3.75 / −0.15 (n117) |
+| walk-forward | 3/4, fails 2024 | 3/4, fails 2024 |
+
+**Why I marginally prefer Proposal 3, stated as a preference and not a result:**
+its in-sample gain is larger and its drawdown effect is negative in both
+windows, and it does not change what "R" means for the *target*, which stays at
+its declared 1.5. **⚠️ Proposal 1 has the better OOS on both metrics**, which is
+the window that should carry more weight, so this preference is genuinely
+marginal and an operator who weights OOS over IS should pick Proposal 1. I am
+not going to manufacture a stronger reason than the evidence supports.
+
+⚠️ **AND BOTH FAIL THE SAME FOLD.** 2024 carries neither. That is a
+common-mode weakness in the evidence for both, not two independent
+confirmations — so "two survivors on one leg" is **weaker** corroboration than
+it sounds, not stronger.
 
 ---
 

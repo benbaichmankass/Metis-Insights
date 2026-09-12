@@ -24,14 +24,34 @@ survived out of everything swept, and it goes the other way.
 | `bracket_geometry` @ 24-bar timeout | 49 cells / 7 legs | 0 | — | §4d |
 | `bracket_geometry` @ **live parity** | 49 cells / 7 legs | 3, on 2 legs, **opposite directions** | **1 of 3** — `avax_5m`'s two candidates FAILED the walk-forward | §4l, §4n, §4p |
 | `breakeven_ratchet` @ live parity | 7 cells / 7 legs | **0** | — | §4j |
-| `stop_geometry` (the stop buffer) | **built, UNRUN** | — | — | §4k, §4p |
+| `stop_geometry` (the stop buffer) @ **live parity** | 42 cells / 7 legs | 4, on 3 legs | **1 of 4** — `avax_5m` and BOTH `sol_5m` candidates FAILED the walk-forward | §4k, §4q |
 
-**The survivor: `ict_scalp_xrp_15m` `tp_at_r` 1.5 → 1.25** — IS ΔR +5.82 /
-ΔDD −2.53 (n198), OOS +5.93 / −3.72 (n117), walk-forward 3/4 usable folds. It
-**narrows** the target: take profit *sooner*. MI-277 measured winner hold
-collapsing 5.17h → 1.90h and this object is titled *hold winners longer*; the
-only lever that clears the gate says the opposite, on one leg. The Tier-3
-proposal is **not** here — it is
+**TWO survivors out of 98 cells, and they are on the SAME LEG —
+`ict_scalp_xrp_15m`:**
+
+| lever | change | IS ΔR / ΔDD | OOS ΔR / ΔDD | walk-forward |
+|---|---|---|---|---|
+| `tp_at_r` | 1.5 → **1.25** | +5.82 / −2.53 (n198) | +5.93 / −3.72 (n117) | 3/4 `[2023:P 2024:- 2025:P 2026:P]` |
+| `atr_sl_buffer_mult` | 0.20 → **0.10** | +7.13 / −1.02 (n199) | +3.75 / −0.15 (n117) | 3/4 `[2023:P 2024:- 2025:P 2026:P]` |
+
+⚠️ **THEY ARE NOT ADDITIVE AND MUST NOT BE SHIPPED TOGETHER ON THIS EVIDENCE.**
+Each was measured **independently, against a base holding the other at its live
+value**; neither run measured the pair. They interact **by construction**: the
+stop distance IS the R unit, so narrowing `atr_sl_buffer_mult` **shrinks R**, and
+`tp_at_r` is denominated in R — a "1.25R" target after the stop change is a
+materially different absolute move from the 1.25R that was measured. Applying
+both produces a geometry **neither cell tested**. That is a THIRD sweep (a joint
+cell), not the sum of two verdicts.
+
+⚠️ **AND THEY FAIL THE SAME FOLD.** Both pass by the minimum — 3 of 4 usable, with
+2021/2022 empty on `m27_data` — and it is the *same year*, **2024**, that carries
+neither. That is a common-mode weakness in the evidence for both, not two
+independent confirmations.
+
+Both **narrow** their geometry: take profit *sooner*, stop *tighter*. MI-277
+measured winner hold collapsing 5.17h → 1.90h and this object is titled *hold
+winners longer*; **nothing that widens anything survives the gate on any leg.**
+The Tier-3 proposals are **not** here — they are
 [`m20-u4-scalp-exit-proposals-2026-09-12.md`](m20-u4-scalp-exit-proposals-2026-09-12.md).
 
 **The finding worth more than the target question (§2b, §4e, §4l).** The
@@ -45,9 +65,13 @@ tested `ict_scalp` cells in the coverage matrix declare that axis while 160 of
 ⚠️ **What this document is NOT.** Every verdict is **Path A only** (§4m) —
 the gate has two qualifying paths and Path B is deliberately ungraded
 repo-wide because its thresholds are operator-reserved. The `MIN_OOS_TRADES`
-floor is unenforced here, and binds on nothing (§4o). One of three armed
-mechanisms is still unrun (§4k). **Reading the scoreboard as "every
-`ict_scalp` exit lever has been tested" would over-read it.**
+floor is unenforced here, and binds on nothing (§4o). **All three armed
+mechanisms are now run** (§4k closed the last one), so the earlier caveat
+*"one of three is still unrun"* no longer applies — but the Path-A and
+`MIN_OOS_TRADES` limits above are unchanged, so **reading the scoreboard as
+"every `ict_scalp` exit lever has passed a FULL gate" would still over-read
+it.** What is now true is the narrower claim: every lever the family arms has
+been swept at live parity, and 2 of 98 cells survive a yearly walk-forward.
 
 ⚠️ **Five of my own conclusions were corrected in place rather than amended
 away**, and they are worth reading before trusting any single section: the
@@ -952,14 +976,26 @@ and return nothing that survives the gate, and the third's only tunable cannot
 currently be swept at all.* Anyone reading §4j's scoreboard as "every
 `ict_scalp` exit lever has been tested" would be over-reading it.
 
-### ✅ BUILT — the buffer is sweepable now (updated 2026-09-36Z)
+### ✅ BUILT **AND RUN** — the buffer is swept, 7 of 7 (updated 2026-09-12)
+
+⚠️ **THIS SECTION SAID "BUILT, UNRUN" AND THAT IS NO LONGER TRUE.** The sweep
+ran as `34689877269` and **§4q carries the verdicts** — 42 cells, 4 candidates
+on 3 legs, one walk-forward survivor (`ict_scalp_xrp_15m` `slbuf0.1`, 0.20 →
+0.10). The `sl_cross` mechanism this section opened by calling *untested* is
+tested. What follows is the BUILD record, kept because the design decisions in
+it (why `0.0` is refused, why the leg's own value is excluded, why the rungs sit
+either side of 0.20) are what make §4q's cells readable — and because the
+paragraph below saying *"no fourth sweep is dispatched here"* was true when
+written and is the kind of sentence that silently becomes a lie.
 
 This section first said the flag was *"not built here"* because three sweeps
 were in flight. That reasoning applied to **dispatching** a fourth arm, not to
 **building** one, and the distinction was worth acting on: `--atr-sl-buffer-mult`
 now exists on the same `cfg_overrides` path `--tp-at-r` uses, with a
 `stop_geometry` cell family behind it. **No fourth sweep is dispatched here** —
-the original caution stands for that.
+the original caution stands for that. *(Superseded: it was dispatched later the
+same day as `34689877269`, once the three in-flight runs had finished and the
+runner contention that motivated the caution was gone. See §4q.)*
 
 - **Default `None` is byte-for-byte the old behaviour**, and the value lands on
   `cfg_overrides` so the LIVE `order_package()` still computes the bracket;
@@ -1260,6 +1296,126 @@ which is a hand transcription, not the workflow's own delivery. They are recorde
 here as such. That is a weaker provenance than a posted comment and is stated
 rather than smoothed — it is the same distinction as the cancellation caveat
 above, where an API `completed` described a job that measured nothing.
+
+## 4q. ✅ `stop_geometry` COMPLETE, 7 of 7 — one survivor, and a correction to my own reading
+
+Run [`34689877269`](https://github.com/benbaichmankass/Metis-Insights/actions/runs/34689877269),
+`cells=stop_geometry`, `timeout_bars=100000`, `walkforward=true`. Six cells per
+leg bracketing the live `atr_sl_buffer_mult` 0.20 on both sides
+(0.05/0.10/0.15, 0.30/0.40/0.60) — the leg's own value excluded as a provable
+no-op and `0.0` excluded because the harness refuses it (§4k). Same `m27_data`
+corpora and same 2025-07-01 split as every other cell in this memo. **Every
+cell reports `[timeout IS 0% OOS 0%]`** except the two `sol_15m`/`sol_5m`-family
+rows at `OOS 1%`, so the parity arm is MEASURED, not requested.
+
+| leg | base IS R / maxDD | base OOS R / maxDD | candidates | walk-forward |
+|---|--:|--:|---|---|
+| `ict_scalp_sol_15m` | 24.1065 / 20.6613 | 0.201 / 17.4497 | none | — |
+| **`ict_scalp_xrp_15m`** | 32.2835 / 10.513 | 6.4845 / 12.1186 | `slbuf0.1` | **PASS 3/4** `[2023:P 2024:- 2025:P 2026:P]` |
+| `ict_scalp_eth_15m` | 44.0527 / 8.36 | 19.129 / 11.0914 | none | — |
+| `ict_scalp_xrp_5m` | 118.7914 / 15.0217 | 18.7784 / 53.0377 | none | — |
+| `ict_scalp_5m` (BTC) | 54.8322 / 68.6771 | 35.7129 / 20.1546 | none | — |
+| `ict_scalp_avax_5m` | 133.7552 / 87.9863 | 38.3089 / 44.554 | `slbuf0.1` | FAIL 2/4 |
+| `ict_scalp_sol_5m` | 89.4618 / 90.1731 | 59.34 / 22.9012 | `slbuf0.05`, `slbuf0.1` | FAIL 2/4, FAIL 2/4 |
+
+**42 cells, 4 candidates on 3 legs, ONE walk-forward survivor** — and it is on
+the same leg as the target survivor, which §0 now records together with the
+non-additivity warning that must travel with them.
+`ict_scalp_mgc_15m` is not in the population and stays
+`blocked:no_free_lane_candle_feed`, unchanged.
+
+### ⛔ CORRECTION — I called `avax_5m` the ONLY leg with a collapsing drawdown term, on 4 of 7 legs. It is TWO.
+
+Reported on #11933 mid-run: *"`avax_5m` is the outlier and the other legs are
+the control — it is the **only** leg on which an arbitrary perturbation reliably
+cuts the drawdown."* **`sol_5m` reported last and does the same thing**, so the
+exclusivity claim is false and must not be re-quoted. The six `slbuf` IS ΔDD per
+leg:
+
+| leg | base IS maxDD | six IS ΔDD | shape |
+|---|--:|---|---|
+| **`avax_5m`** | 87.99 | −58.34 · −61.76 · −60.52 · −31.73 · −17.50 · −55.49 | **6 of 6 negative** |
+| **`sol_5m`** | 90.17 | −58.68 · −35.80 · −57.18 · −57.21 · −56.10 · −49.64 | **6 of 6 negative** |
+| `ict_scalp_5m` (BTC) | 68.68 | −16.53 · +22.06 · +2.01 · +28.87 · +9.56 · +15.49 | 5 of 6 POSITIVE |
+| `xrp_5m` | 15.02 | +4.61 · +2.74 · +0.60 · +3.91 · +3.54 · +4.68 | 6 of 6 positive, small |
+| `sol_15m` | 20.66 | +2.16 · +2.65 · +0.08 · +1.28 · +2.26 · +6.89 | small |
+| `eth_15m` | 8.36 | +0.86 · +0.66 · +0.18 · −0.40 · +40.36 · +2.82 | small except one |
+| `xrp_15m` | 10.51 | +2.17 · −1.02 · −1.06 · +1.12 · +2.56 · +2.96 | small |
+
+**The corrected finding is stronger than the one I got wrong.** It is a
+**two-leg** pattern — both the 5m legs with a ~90 R base drawdown — and both
+produced candidates that then **failed the walk-forward** (`avax` `slbuf0.1`
+2/4; `sol_5m` `slbuf0.05` 2/4 and `slbuf0.1` 2/4). `avax_5m`'s
+`bracket_geometry` column carries the same signature (§4l: −59.72 · −58.61 ·
+−51.00 · −63.09 on four of seven cells), so on that leg it now shows on **two
+independent levers**.
+
+⚠️ **AND IT IS STILL NOT "large base ⇒ large ΔDD".** BTC sits at 68.68, the
+third-largest base, and runs 5 of 6 **positive**. So the discriminator is not
+base size and **I do not know what it is.** What the two legs support is the
+narrower claim: a maxDD that almost any perturbation halves is not a maxDD that
+carries information, and a cell proposed off one is proposing off noise. That is
+the `n=1-in-EPISODES` hazard §4h pre-registered — and on both legs the
+walk-forward then failed, exactly as that hazard predicts.
+
+⚠️ **The episode itself is NOT isolated here.** This is a claim about the
+*distribution* of the ΔDD term across a grid, not a claim about which trade.
+
+**How I got it wrong:** I generalised from an incomplete run. The 4-of-7 read
+was accurate about the data I had and wrong about the population I implied — the
+same shape as the three §4d corrections, and the reason §4p's completion note
+insists on reading a run only when it is 7 of 7.
+
+
+### The coverage matrix gains TWO columns — and my own prediction about the effect was wrong
+
+⚠️ **`lever_columns` had 9 entries and neither `breakeven_ratchet` nor
+`stop_geometry` was one of them.** Measured before changing anything: all 8
+`ict_scalp` rows read `None` for both keys against a fully populated
+`bracket_geometry`. So §4j's breakeven verdict — 7 cells, 7 legs, run on
+2026-09-12 — **was recorded nowhere in the matrix**, and §4q's cells had nowhere
+to go. That is a gap in this workstream's own bookkeeping, not someone else's.
+
+Both columns are now added, and every one of the 52 rows carries a cell. The
+partition behind the non-scalp cells is **measured over all 44 enabled+live
+legs, and it is exact — no overlap, no leg in neither camp**:
+
+- **8 legs** declare `be_offset_bps` **and** `atr_sl_buffer_mult`, all 8 on the
+  `ict_scalp` monitor unit (resolved with `pipeline.monitor_unit_for`, which
+  independently reproduces U1's 8-of-44), and **0 of them declare
+  `atr_stop_mult`**.
+- **36 legs** declare `atr_stop_mult` and **0 of them** declare either scalp key.
+
+So the honest non-scalp cells are `blocked:no_lever_consumer_in_unit` for the
+ratchet — the only mention of `monitor_breakeven_sl` in any other live monitor
+unit is a **docstring cross-reference** in `trend_donchian`, not a call site —
+and **`n/a`** for stop geometry, because those legs *do* have a stop-width
+parameter and it is `atr_stop_mult`, already `bracket_geometry`'s dimension. A
+column naming a parameter a leg does not have is `n/a`, not a negative.
+
+⚠️ **CORRECTION — I predicted this would drop fleet coverage from ~100% to ~82%
+and said so on the board and on #11933. It does not.** Measured with
+`m20_coverage_rollup.rollup()` on the committed matrix before and after:
+
+| | live legs | lever columns | total cells | headline | **headline %** | **cells_to_done** |
+|---|--:|--:|--:|--:|--:|--:|
+| before | 44 | 9 | 396 | 393 | **99.2** | **50** |
+| after | 44 | 11 | 484 | 481 | **99.4** | **88** |
+
+Coverage went **UP**, by 0.2pp. **I had the wrong model of the headline:** I
+assumed it counts *swept* cells, so 88 mostly-unswept ones would dilute it. It
+counts *dispositioned* cells, and `n/a` / `blocked:*` are dispositions rather
+than gaps — all 88 carry one, so the ratio barely moves.
+
+**The number that actually moved is `cells_to_done`: 50 → 88, +38**, and that is
+the honest measure of what the new columns opened. Those 38 are the
+`blocked:no_lever_consumer_in_unit` ratchet cells, which
+`gate_partition` files under **`unclassified`** — a bucket that already held 28
+(18 `exit_head_ml`, 9 `bracket_geometry`, 1 `giveback_stop`), so this uses an
+established status exactly as the matrix already uses it rather than inventing
+one. ⚠️ It does mean `unclassified` more than doubles, 28 → 66, and a bucket
+named *"the partition has no gate kind for this"* growing that fast is worth
+someone's attention even though every individual cell in it is correctly graded.
 
 ## 5. Landing
 
