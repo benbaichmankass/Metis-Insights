@@ -275,6 +275,22 @@ jobs:
             --ignore=tests/test_main_loop.py \
             --junitxml=pytest-report.xml
 
+      - name: Summarize SKIPPED tests in the job summary
+        # `if: always()`, deliberately — the whole point is that a GREEN run
+        # reports `N skipped` and says nothing about which N, so a guard's
+        # entire test module can go dark and read identically to routine
+        # conditional coverage. Runs on success as well as failure.
+        #
+        # Reads the SAME pytest-report.xml the failure summary below already
+        # parses, so it costs no extra runtime and adds no dependency. Never
+        # fails the job: this is observability, and a reporting bug must not
+        # turn a green suite red.
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 scripts/ci/summarize_pytest_skips.py \
+            --report pytest-report.xml >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Summarize failing tests in the job summary
         if: failure()
         run: |
