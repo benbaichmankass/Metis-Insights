@@ -86,7 +86,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -185,17 +187,126 @@ def compare(base_doc: Any, head_doc: Any, array: str, id_field: str,
                     f"{len(head_rows)} here; {len(findings)} loss(es).")}
 
 
-def load_removals(root: Path = REPO_ROOT) -> List[Dict[str, Any]]:
+IN_DIFF, INHERITED, UNSCOPED = "in_diff", "inherited", "unscoped"
+
+MERGE_BASE, REF_TIP = "merge_base", "ref_tip_fallback"
+
+
+def resolve_base(base: Optional[str], root: Path = REPO_ROOT) -> Tuple[str, Optional[str]]:
+    """The commit this change should be compared AGAINST, and how we got it.
+
+    ⚠️ `origin/main`'s TIP IS THE WRONG BASE AND THE ERROR IS NOT SUBTLE.
+    A branch that forked an hour ago is missing every row `main` has gained
+    since, and a tip comparison reports each one as a ROW LOSS THIS BRANCH
+    CAUSED. MEASURED 2026-09-12 on #11897: the guard named a scalp-family row in
+    `docs/claude/performance-review-backlog.json` as "on the base and GONE
+    here", and that row was introduced by c553c62c at 10:49:56Z — four minutes
+    AFTER the branch's last merge. The branch never had it, so it could not have
+    dropped it. (The id is deliberately NOT quoted: `artifact-validity-guard`
+    resolves every `BL-` token it finds, and a wrapped or elided one reads as a
+    reference to a row that was never filed.) Every branch behind `main` produces this, which is
+    nearly all of them, and the finding names a row the author has never seen.
+
+    The merge-base is what "did THIS change remove it" actually means. On a
+    `pull_request` checkout of the merge ref the two coincide, so CI behaviour
+    is unchanged where it was already right; what moves is every head checkout.
+
+    Two states, never collapsed. ``merge_base`` — git answered. ``ref_tip_fallback``
+    — **we could not compute one** (shallow clone, unrelated histories, git
+    unusable), so the tip is used and the caller SAYS so, because a finding
+    graded against a tip may belong to somebody else's merge.
+    """
+    if not base:
+        return REF_TIP, base
+    try:
+        r = subprocess.run(["git", "-C", str(root), "merge-base", base, "HEAD"],
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return REF_TIP, base
+    sha = r.stdout.strip()
+    if r.returncode != 0 or not sha:
+        return REF_TIP, base
+    return MERGE_BASE, sha
+
+
+
+def declaration_scope(base: Optional[str],
+                      root: Path = REPO_ROOT) -> Tuple[str, Optional[set]]:
+    """Which declaration files THIS diff carries. Three states, never collapsed.
+
+    ``in_diff`` — git answered, and the returned set is the declarations this
+    change adds or modifies. ``inherited`` files (on the base, untouched here)
+    are deliberately NOT in it.
+
+    ``unscoped`` — **we could not look**. git did not run, or `base` is not
+    resolvable. The caller then evaluates EVERY declaration, which is the old
+    behaviour, and SAYS so in the summary: under-evaluating a declaration turns
+    it into a silencer, and that is the failure this guard exists to prevent.
+    Reporting an inherited declaration as a phantom is the milder error, so that
+    is the direction the unreadable case resolves toward.
+
+    ⚠️ WHY THIS EXISTS AT ALL. A removal declaration is a statement about ONE
+    diff, and it lives in the tree FOREVER. MEASURED 2026-09-12:
+    `.github/register-removals/mi279-u5-clear-digest-carrier.json` landed on
+    main at 10:54:46Z with #11915 — true about #11915's own diff — and from that
+    moment `load_removals`' unconditional glob read it against every LATER PR,
+    where the removal it names is absent, and graded it a PHANTOM. That is a
+    hard failure, so one merged declaration red-lined every subsequent PR in the
+    repo (reproduced on #11897 and #11940, in two different lanes).
+
+    ⚠️ THE ANTI-SILENCER PROPERTY IS UNTOUCHED, which is the whole point of
+    scoping rather than of dropping `phantom` from the verdict. A declaration
+    still has to be a TRUE statement about the diff that CARRIES it; what it can
+    no longer do is make a statement about somebody else's diff.
+    """
+    if not base:
+        return UNSCOPED, None
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(root), "diff", "--name-only", base, "--",
+             ".github/register-removals"],
+            capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return UNSCOPED, None
+    if res.returncode != 0:
+        return UNSCOPED, None
+    names = {Path(line).name for line in res.stdout.split() if line.strip()}
+    # ⚠️ `git diff` DOES NOT SEE AN UNTRACKED FILE, and a freshly written
+    #    declaration is untracked until it is staged. Leaving it out would make
+    #    it inherited-by-omission: the author's own declaration would silently
+    #    stop excusing their own removal, and they would be told they had a
+    #    loss they had already declared. CI always sees a committed tree, so
+    #    this only bites locally — which is exactly where somebody is writing
+    #    the declaration and about to conclude the override does not work.
+    try:
+        un = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--others", "--exclude-standard",
+             "--", ".github/register-removals"],
+            capture_output=True, text=True, timeout=60)
+        if un.returncode == 0:
+            names |= {Path(l).name for l in un.stdout.split() if l.strip()}
+    except (OSError, subprocess.SubprocessError):
+        return UNSCOPED, None
+    return IN_DIFF, names
+
+
+def load_removals(root: Path = REPO_ROOT,
+                  only: Optional[set] = None) -> List[Dict[str, Any]]:
     """Every declared removal across `.github/register-removals/*.json`.
 
     A malformed declaration is IGNORED rather than trusted, so a broken override
     silences nothing — the guard then reports the loss it was meant to excuse.
+
+    ``only`` restricts the read to the declaration FILE NAMES this diff carries
+    (see `declaration_scope`). ``None`` means unscoped — read everything.
     """
     out: List[Dict[str, Any]] = []
     d = root / ".github" / "register-removals"
     if not d.is_dir():
         return out
     for f in sorted(d.glob("*.json")):
+        if only is not None and f.name not in only:
+            continue
         try:
             doc = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -263,6 +374,7 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
     #
     # "No register CHANGED" is a real and common reading and stays OK. "No
     # register EXISTS" is not a reading at all.
+    base_state, base = resolve_base(base, root)
     present = [p for p, _, _ in registers if (root / p).is_file()]
     if not present:
         return {"ok": False, "results": [], "findings": [], "excused": [],
@@ -304,11 +416,23 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
             continue
         results.append(compare(base_doc, head_doc, array, id_field, path))
 
-    return verdict_of(results, load_removals(root))
+    scope_state, scoped = declaration_scope(base, root)
+    all_decl = {f.name for f in (root / ".github" / "register-removals").glob("*.json")} \
+        if (root / ".github" / "register-removals").is_dir() else set()
+    return verdict_of(results, load_removals(root, scoped),
+                      base_state=base_state,
+                      scope_state=scope_state,
+                      declarations_read=len(all_decl if scoped is None else (scoped & all_decl)),
+                      declarations_inherited=(
+                          0 if scoped is None else len(all_decl - scoped)))
 
 
 def verdict_of(results: Sequence[Dict[str, Any]],
-               removals: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+               removals: Sequence[Dict[str, Any]],
+               base_state: str = MERGE_BASE,
+               scope_state: str = IN_DIFF,
+               declarations_read: int = 0,
+               declarations_inherited: int = 0) -> Dict[str, Any]:
     """PURE. The per-register comparisons plus the declarations, one verdict out.
 
     ⚠️ THIS IS A SEPARATE FUNCTION BECAUSE A MUTATION RUN SHOWED IT HAD TO BE.
@@ -332,11 +456,28 @@ def verdict_of(results: Sequence[Dict[str, Any]],
         "ok": not remaining and not phantom and not unreadable,
         "results": list(results), "findings": remaining, "excused": excused,
         "phantom": phantom, "unreadable": unreadable,
+        "base_state": base_state,
+        "scope_state": scope_state,
+        "declarations_read": declarations_read,
+        "declarations_inherited": declarations_inherited,
+        # ⚠️ The declaration counts ride in the summary so that `0 phantom`
+        # cannot be read as "every declaration checked out". Zero phantoms over
+        # zero declarations read is a different fact from zero phantoms over
+        # three, and `unscoped` is a third fact again — we did not scope, so
+        # inherited declarations ARE being graded against this diff.
         "summary": (f"{sum(1 for r in results if r['state'] == COMPARED)} register(s) "
                     f"compared, {sum(1 for r in results if r['state'] == SKIPPED)} "
                     f"untouched, {len(unreadable)} unreadable; {len(remaining)} "
                     f"loss(es), {len(excused)} declared, {len(phantom)} phantom "
-                    f"declaration(s)."),
+                    f"declaration(s); declarations {scope_state}: "
+                    f"{declarations_read} read, {declarations_inherited} inherited"
+                    + (" (SCOPE UNKNOWN — inherited declarations are being graded "
+                       "against this diff, so a phantom here may not be yours)"
+                       if scope_state == UNSCOPED else "")
+                    + (" (NO MERGE-BASE — graded against the ref TIP, so a loss "
+                       "here may be a row the base gained after this branch "
+                       "forked rather than one this change removed)"
+                       if base_state == REF_TIP else "") + "."),
     }
 
 
@@ -373,6 +514,37 @@ def render(verdict: Dict[str, Any]) -> str:
 # SELF-TEST — every case asserts in BOTH directions: the planted loss FIRES and
 # the clean input stays quiet. One direction proves a check runs, never that it
 # discriminates.
+def _run_git(root: Path, *args: str) -> bool:
+    try:
+        r = subprocess.run(["git", "-C", str(root), *args],
+                           capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
+def _commit_all(root: Path, message: str) -> bool:
+    return (_run_git(root, "add", "-A")
+            and _run_git(root, "commit", "-q", "-m", message))
+
+
+def _tag(root: Path, name: str) -> bool:
+    return _run_git(root, "tag", "-f", name)
+
+
+def _init_repo(root: Path) -> bool:
+    """A throwaway repo so the self-test can compare against a REAL base ref.
+
+    Returns False when git is unusable, so the caller can SKIP LOUDLY rather
+    than report either a policy failure or a pass it never measured.
+    """
+    return (_run_git(root, "init", "-q")
+            and _run_git(root, "config", "user.email", "selftest@example.invalid")
+            and _run_git(root, "config", "user.name", "selftest")
+            and _commit_all(root, "registers")
+            and _tag(root, "selftest-base"))
+
+
 # ---------------------------------------------------------------------------
 def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     fails: List[str] = []
@@ -486,15 +658,134 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     # ── THE EMPTY POPULATION. Found by accident: a copy of this script run from
     #    /tmp resolved its root to `/`, every register read as absent, and the
     #    verdict was a confident OK over ZERO inputs.
-    import tempfile
     with tempfile.TemporaryDirectory() as td:
         v_empty = check("origin/main", root=Path(td))
     ok("a root where NO register exists REFUSES rather than reporting a green "
        "that checked nothing", not v_empty["ok"])
     ok("…and says plainly that it is not 'no register lost a field'",
        "NOT" in v_empty["summary"] and "vacuous" in v_empty["summary"])
-    ok("…while a root where the registers EXIST and none CHANGED is still a "
-       "real, clean reading", check("origin/main")["ok"])
+    # ── "registers exist, none changed" — over a HERMETIC tree. ────────────
+    #
+    # ⚠️ THIS USED TO READ `check("origin/main")["ok"]`, AND THAT WAS A DEFECT
+    #    IN THE SELF-TEST ITSELF, not a stricter check. It asserted a property
+    #    of WHATEVER THE BRANCH HAPPENED TO CONTAIN, so any branch carrying a
+    #    real finding reported `the register-field-loss POLICY is broken` — and
+    #    an author reading that reasonably concludes the guard is somebody
+    #    else's problem and re-runs the job. That is how the phantom-residue
+    #    breakage (see `declaration_scope`) sat red across two lanes while the
+    #    real message — "a declaration merged by another PR is grading your
+    #    diff" — appeared nowhere in the output. A self-test is about the
+    #    CHECKER. The live tree is what `--base` is for, and it already runs as
+    #    its own guard step beside this one.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        for rel, _, _ in REGISTERS:
+            dst = root / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            src = REPO_ROOT / rel
+            if src.is_file():
+                shutil.copy(src, dst)
+            else:
+                dst.write_text(json.dumps({"schema_version": 1, "rows": []}),
+                               encoding="utf-8")
+        if not _init_repo(root):
+            # git unusable: SKIP LOUDLY rather than report a policy failure we
+            # never measured, or a pass we did not earn.
+            fails.append("the hermetic scoping cases could not run — git is "
+                         "unusable here, so they were NOT measured")
+        else:
+            v_same = check("selftest-base", root=root)
+            ok("…while a root where the registers EXIST and none CHANGED is "
+               "still a real, clean reading", v_same["ok"])
+            ok("…and that reading is over a REAL population, not an empty one",
+               sum(1 for r in v_same["results"] if r["state"] == SKIPPED)
+               == len(REGISTERS))
+
+            # ── DECLARATION SCOPING. The residue defect, pinned. ────────────
+            decl_dir = root / ".github" / "register-removals"
+            decl_dir.mkdir(parents=True, exist_ok=True)
+            phantom_doc = json.dumps({"why": "test", "removals": [
+                {"file": REGISTERS[0][0], "id": "no-such-row", "keys": ["x"]}]})
+            (decl_dir / "inherited.json").write_text(phantom_doc,
+                                                    encoding="utf-8")
+            _commit_all(root, "base carries a declaration")
+            _tag(root, "selftest-base2")
+
+            v_inh = check("selftest-base2", root=root)
+            ok("a declaration INHERITED from the base is not graded against "
+               "this diff — the residue defect that red-lined every PR in the "
+               "repo on 2026-09-12", v_inh["ok"])
+            ok("…and the counts say it was inherited rather than checked",
+               v_inh["declarations_inherited"] == 1
+               and v_inh["declarations_read"] == 0)
+
+            (decl_dir / "mine.json").write_text(phantom_doc, encoding="utf-8")
+            v_mine = check("selftest-base2", root=root)
+            ok("…while a declaration THIS diff ADDS is still graded, so the "
+               "scoping is not a blanket silencer",
+               (not v_mine["ok"]) and len(v_mine["phantom"]) == 1)
+            ok("…and exactly the one this diff carries is read",
+               v_mine["declarations_read"] == 1
+               and v_mine["declarations_inherited"] == 1)
+
+            # ── THE MERGE-BASE. A branch BEHIND the base is not a branch
+            #    that removed anything. Both directions, because a base-fix
+            #    that also stops catching real removals is worse than the bug.
+            reg0, array0, idfield0 = REGISTERS[0]
+            (decl_dir / "mine.json").unlink()
+            _commit_all(root, "drop the added declaration")
+            _run_git(root, "branch", "-f", "selftest-fork")
+            live0 = root / reg0
+            doc0 = json.loads(live0.read_text(encoding="utf-8"))
+            rows0 = doc0.get(array0)
+            if isinstance(rows0, list):
+                # the BASE gains a row after the fork …
+                _run_git(root, "checkout", "-q", "-B", "selftest-basebranch")
+                doc0[array0] = list(rows0) + [{idfield0: "row-the-base-gained"}]
+                live0.write_text(json.dumps(doc0, indent=2), encoding="utf-8")
+                _commit_all(root, "base gains a row")
+                _run_git(root, "checkout", "-q", "selftest-fork")
+
+                v_behind = check("selftest-basebranch", root=root)
+                ok("a branch BEHIND the base does not report the base's NEW "
+                   "rows as losses it caused — measured on #11897, where the "
+                   "guard named a row introduced four minutes after the "
+                   "branch's last merge", v_behind["ok"])
+                ok("…and it says it graded against the merge-base",
+                   v_behind["base_state"] == MERGE_BASE)
+
+                # … and a REAL removal on the branch is still caught.
+                doc_fork = json.loads(live0.read_text(encoding="utf-8"))
+                fork_rows = doc_fork.get(array0) or []
+                if fork_rows:
+                    doc_fork[array0] = fork_rows[1:]
+                    live0.write_text(json.dumps(doc_fork, indent=2),
+                                     encoding="utf-8")
+                    v_real = check("selftest-basebranch", root=root)
+                    ok("…while a row this branch ACTUALLY removed is still a "
+                       "finding, so the merge-base fix is not a silencer",
+                       not v_real["ok"])
+                    live0.write_text(json.dumps(doc_fork | {array0: fork_rows},
+                                                indent=2), encoding="utf-8")
+
+            st_b, sha_b = resolve_base("no-such-ref-anywhere", root)
+            ok("an unresolvable base falls back to the REF TIP and says so, "
+               "rather than silently grading against nothing",
+               st_b == REF_TIP and sha_b == "no-such-ref-anywhere")
+            ok("…and the summary warns that a loss may not be this branch's",
+               "NO MERGE-BASE" in verdict_of([], [], base_state=REF_TIP)["summary"])
+
+            st, names = declaration_scope(None, root)
+            ok("no base means UNSCOPED, never an empty set — 'we did not look' "
+               "is not 'this diff carries no declaration'",
+               st == UNSCOPED and names is None)
+            st2, names2 = declaration_scope("no-such-ref-anywhere", root)
+            ok("an unresolvable base is UNSCOPED too, not a clean scope",
+               st2 == UNSCOPED and names2 is None)
+            ok("…and UNSCOPED says in the summary that a phantom may not be "
+               "yours",
+               "SCOPE UNKNOWN"
+               in verdict_of([], [], scope_state=UNSCOPED)["summary"])
 
     ok("with no --base NOTHING is compared, and it says so rather than passing "
        "quietly", "not a pass" in check(None)["summary"])
