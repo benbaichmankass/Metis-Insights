@@ -1,0 +1,11 @@
+MI-280 — arm the landing route for claude/mi280-clauses-2-3-7.
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. Records clauses (2) and (7) of the MI-280 OPEN-ITEMS
+row as OBSERVED met, and clause (3) as REFUTED AS WRITTEN with its
+population measured. The row stays open on (4), (5) and (6).
+
+PR #11989 was opened BY THIS SESSION before this file was pushed, so it
+carries a real pull_request event and CI fired normally.
+
+⚠️ NOTHING ELSE GOES ON THIS BRANCH AFTER THIS PUSH.
