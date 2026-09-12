@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One row appended to docs/claude/OPEN-ITEMS.json, plus this declaration and the arming file. No src/, no tests, no config, no workflow, no risk cap, no live-VM file, no order path. It is the session-end duty CLAUDE.md states in terms — 'add one for anything you shipped that is not yet proven on the fleet' — for PR #11970, which is merged and deployed and has never dispatched. Tier-1 by the canonical doc's own examples (docs + registers)."
+}
