@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Five critical-row dispositions in docs/claude/health-review-backlog.json. Live diag reads and code reads, each with a positive control and a stated population. No src/, no ml/, no config, no scripts, no workflows, no order path. Every fix named is Tier-2 by path and is explicitly routed to the manager rather than taken; one disposition corrects an earlier entry of my own on the same row."
+}
