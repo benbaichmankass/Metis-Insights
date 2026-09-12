@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T00:56:00Z",
+  "updated_at": "2026-09-12T01:05:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4097,8 +4097,8 @@
       "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, #11825 + #11829 MERGED. On the way out it flagged that claim_merge_slot.py has NO RELEASE MECHANISM -- a slot can be claimed and never handed back -- filed as BL-20260910. The next lane DISPLACES the claim rather than finding a free slot."
     }
   ],
-  "as_of": "2026-09-12T00:56:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 00:52Z tick)",
+  "as_of": "2026-09-12T01:05:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, parser-finding disposition)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -4256,5 +4256,12 @@
     "state": "ALL THREE LANES ARE DONE. Two graded completed this tick; MI-276 is parked on the operator. Open PRs: 4, of which THREE are operator-gated (#11827, #11817, #11738) and one is automation (#11842). There is no manager-actionable blocker anywhere.",
     "the_operators_two_questions_are_now_CLOSED": "THE BLEED: MI-271 attributed it (began 2026-08-27, three days BEFORE e35; mechanism is winner-size collapse -- avg win $404 -> $112; two-thirds in ict_scalp legs carrying no bracket geometry; the lost capital is PAPER, real money is bybit_2 at -$20.36). MI-275 then answered the remaining question -- whether to revert e35 -- with NO: $5.61 of risk, and the risk-reward ratio is invariant to stop width. THE PROP: MI-274 attributed it (starved at dispatch, 8 elected / 8 starved / 0 routed; not the cushion). Both diagnoses are on main. What is NOT answered is the REMEDY for the winner-size collapse -- that is the natural next question and it is squarely the cycle priority.",
     "merge_slot_cannot_be_released": "MI-236b's exit finding: claim_merge_slot.py has no release flag, so a claim is never handed back and the next lane must DISPLACE it. Filed BL-20260910. Recorded here because it makes every merge_slot conflict look like contention when it is actually an abandoned claim."
+  },
+  "manager_disposition_2026_09_12T0105Z": {
+    "what": "MI-236b's exit finding about check_scope_overlap.py was disposed of by APPENDING a third measured instance to the existing open row BL-20260911-THE-SCOPE-OVERLAP-PARSER-MISSES-FOUR-OF-FIVE-REAL-DECLARATION-SHAPES, not by filing a new row.",
+    "measurement": "On PR #11845 the board START was re-posted in a self-identifying form and IDENTITY then parsed correctly, while parse_declared_paths still extracted only the branch glob from line 0 and none of the bullet-listed registers -- so the audit's `0 matched your OWN declaration` survived the fix that was supposed to cure it. Identity and extraction are INDEPENDENT halves; fixing identity alone changes the audit's output not at all.",
+    "why_an_append": "A duplicate row was filed once already this session. backlog_append's refusal probe is TOKEN OVERLAP, and two ids describing one defect share almost no tokens, so it does not fire -- silence from that probe is not proof of novelty. Row count unchanged at 1485, verified rather than asserted.",
+    "not_taken": "The FIX is a worker item (scripts/ci/**) and is not the manager's to build. It stays on the row with its resolution_criteria, which already forbids satisfying it by relaxing the #10729 control.",
+    "pr": "#11846"
   }
 }
