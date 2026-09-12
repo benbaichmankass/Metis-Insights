@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T09:51:15.785788+00:00",
+  "generated_at": "2026-09-12T09:27:05.151995+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 57,
+  "monitoring_rows": 64,
   "rows_with_a_probe": 15,
-  "rows_without_a_probe": 42,
+  "rows_without_a_probe": 49,
   "counts": {
     "pass": 6,
     "fail": 4,
     "source_empty": 0,
-    "could_not_run": 47
+    "could_not_run": 54
   },
   "results": [
     {
@@ -129,11 +129,11 @@
         "--positive-control",
         "pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h"
       ],
-      "matched": 4,
+      "matched": 5,
       "scanned": 200,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=4 scanned=200\nprobe: PASS — 4 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 43)"
+      "detail": "probe-counts: matched=5 scanned=200\nprobe: PASS — 5 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 44)"
     },
     {
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 360,
-      "scanned": 476,
+      "matched": 401,
+      "scanned": 520,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=360 scanned=476\nprobe: PASS — 360 of 476 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 476 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=401 scanned=520\nprobe: PASS — 401 of 520 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 520 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.6h ago, inside the 30.0h window.\n  queue at last run: 0 PR(s) waiting on a merge decision, worst 0.9h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.4h ago, inside the 30.0h window.\n  queue at last run: 2 PR(s) waiting on a merge decision, worst 11.7h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED",
@@ -504,11 +504,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 19,
+      "matched": 25,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=19 scanned=1000\nprobe: PASS — 19 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=25 scanned=1000\nprobe: PASS — 25 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -542,11 +542,11 @@
         "--positive-control",
         "peak_state~measured,unanchored,thin_window,no_risk"
       ],
-      "matched": 24,
-      "scanned": 229,
+      "matched": 31,
+      "scanned": 246,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=24 scanned=229\nprobe: PASS — 24 of 229 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 229 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 229)"
+      "detail": "probe-counts: matched=31 scanned=246\nprobe: PASS — 31 of 246 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 246 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 246)"
     },
     {
       "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
@@ -569,14 +569,6 @@
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "NO PROBE EXISTS AND THE HALF THAT MATTERS CANNOT HAVE ONE, which is a property of the condition rather than of the effort available. Clause (a) asks whether a GitHub Actions run of e35-bracket-sweep.yml SCHEDULED both legs and its fetch step returned real rows — that lives in a run log and in `actions_list`, and CI holds no mcp__github__* tool, so a probe running IN CI cannot read it. ⚠️ AND THE O",
-      "checks": null,
-      "is_not": null
-    },
-    {
-      "id": "OI-20260908-CANCEL-ACCEPTED-INEFFECTIVE-MERGED-AND-NEVER-EMITTED-ON-THE-FLEET",
-      "state": "could_not_run",
-      "reason": "no_probe_declared",
-      "detail": "A PROBE IS POSSIBLE FOR THE DENOMINATOR AND CANNOT SETTLE THE CLAIM, and the gap is a property of the condition rather than of the effort available. Grepping the give-up log / operator_alerts ring for the `cancel_accepted_ineffective` token WOULD establish whether the state has ever been emitted, and that is worth doing. What it cannot do is read a SILENCE. The exercising condition is two specific",
       "checks": null,
       "is_not": null
     },
@@ -665,6 +657,70 @@
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "NO PROBE IS POSSIBLE YET AND THE REASON IS DATED, NOT PERMANENT. The gate emits a logger.warning on refusal and writes no soak file, so there is no allowlisted diag surface to read: a probe written today would grade could_not_read forever while LOOKING like a quiet negative. A soak was deliberately NOT added because the refusal is expected to be rare, and a soak that is empty by design cannot be t",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE IS POSSIBLE AND IS NOT WIRED YET, and the reason is dated rather than permanent: the condition is a field read (`newly_stalled` non-empty, minus the seed) on a committed JSON register, which probe_file could express. It is deliberately not wired today because the register has been written exactly ONCE, and a probe over a single observation would grade a cadence nobody has seen. Wire it onc",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO OFFLINE PROBE CAN OBSERVE THIS ROW'S CRITERION, and saying so is the point. The criterion is that a LIVE blocked lane is woken and acts on it; establishing that needs list_sessions/get_session -- mcp__* tools CI does not hold -- so a probe would report `unknown` permanently, which scripts/ops/queue_latency.py already does for the same reason and says is not yet a guard. !! WHAT *IS* PROBED IS T",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No offline probe can observe this row's criterion. Attribution requires a per-leg stop-out and MFE-at-stop comparison against a chosen 2026-08-30 split, which is an ANALYSIS a session performs and records, not a condition a cadence can read. ⚠️ WHAT COULD BE PROBED AND DELIBERATELY IS NOT: 'is the book still losing' — because a return to profit does NOT clear this row (its clears_when says so expl",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE EXISTS AND ITS ABSENCE IS HALF THE FINDING. arbitration_fanout_soak ALREADY records starved_accounts: ['breakout_1'] on every occurrence -- the data is correct, durable and complete, and NOTHING READS IT. Building that reader is itself filed as BL-20260911-A-DECLARED-LIVE-ACCOUNT-CAN-BE-STARVED-FOR-TWELVE-DAYS-AND-EVERY-DETECTOR-READS-HEALTHY. Until it exists this row is carried by re-obs",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE EXISTS FOR HALF OF THIS AND IS NAMED RATHER THAN BUILT ANEW: each detector writes runtime_logs/<name>_observed_state.json with a __last_check__ stamp, allowlisted on /api/diag/log_file as losing_streak_observed_state and starved_account_observed_state, so 'did the tick hook run at all' is mechanically readable. What is NOT mechanical is the half this row exists for - whether the PING reach",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE WOULD BE PREMATURE AND IS DELIBERATELY NOT BUILT. Clause (1) needs a fleet observation of someone else's fix; clause (2) needs a population that may never exist. Automating a re-run of the decomposition would produce a number on every schedule and answer neither — and MI-271's own script header records why this class of one-off attribution must NOT be scheduled: it would re-answer a dated ",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260911-TIER-2-APPROVED-SELF-LANDING-IS-BUILT-AND-NO-PR-HAS-LANDED-OR-BEEN-REFUSED-BY-IT",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No offline probe can observe either criterion. (1) needs a PR's merge event joined to an approval record, and (2) needs a REFUSAL on a PR nobody wrote on purpose -- neither is a condition a cadence can read, and a probe that reported 'the guard is registered' would be measuring the deploy, which is the substitution this row exists to refuse. ⚠️ WHAT COULD BE PROBED AND DELIBERATELY IS NOT: 'does d",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "NO PROBE IS DECLARED, AND THE REASON IS THAT EVERY AVAILABLE PREDICATE WOULD LIE IN THE REASSURING DIRECTION. The breaker writes no soak file of its own -- deliberately: a trip is rare by construction, so a dedicated log would be EMPTY for long stretches and 'empty by design' cannot be told from 'the writer is dead', which is the exact collapse a soak alarm exists to prevent. The verdict is instea",
       "checks": null,
       "is_not": null
     }
