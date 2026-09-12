@@ -473,6 +473,28 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The STATUS half of the sibling above. `check_register_field_loss.py`
+        # grades a field DISAPPEARING; this grades a field's VALUE regressing —
+        # a row whose `status` moves from terminal back to live, or whose
+        # populated `resolved_at` is emptied. Neither is a field loss, so the
+        # sibling is structurally blind to both, and the incident that motivated
+        # this one (six hand-resolved rows silently reverted by a merge,
+        # BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION)
+        # went unnoticed precisely because the row COUNT was unchanged.
+        #
+        # `when: None` for the sibling's reason: a regression is written by
+        # whoever last touches a backlog file, and the whole run costs ~1.0s
+        # (measured 2026-09-12: 749ms self-test + 268ms base run), so there is
+        # nothing to buy by scoping it.
+        "name": "backlog-unresolve-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_backlog_unresolve.py", "--self-test"],
+            ["python3", "scripts/ci/check_backlog_unresolve.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
         # `when: None` — it runs on EVERY diff, for the same reason the
         # wip-ceiling guard below does. A stale `in_flight` row is written by
         # whoever is last to touch either register, and a check that only fires
