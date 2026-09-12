@@ -370,6 +370,72 @@ def _git_show(ref: str, path: str) -> str | None:
     return out.stdout if out.returncode == 0 else None
 
 
+BASE_MERGE_BASE = "merge_base"
+BASE_TIP_UNRESOLVABLE = "tip_unresolvable"
+
+
+def resolve_base(ref: str, *, head: str = "HEAD") -> tuple[str, str]:
+    """Resolve *ref* to the FORK POINT, never to wherever the base is right now.
+
+    Returns `(ref_to_read, state)` with two states that are never collapsed:
+    `merge_base` (we found the fork point) and `tip_unresolvable` (**we could
+    not look** -- unrelated histories, a shallow clone, no `HEAD`), which falls
+    back to the tip.
+
+    ⚠️ **THE FALLBACK IS TO THE TIP, NOT TO SKIPPING THE CHECK**, and the
+    direction is deliberate: the tip is the pre-2026-09-12 behaviour, so an
+    unresolvable base can only produce the FALSE FAILURE described below --
+    never a false pass on a register change that really was unrendered. A
+    recoverable red beats a silent green.
+
+    === WHY THIS EXISTS (measured 2026-09-12, MI-280 U44) ===
+
+    `check_verdict` asks "did THIS DIFF change the registers?" and answers it as
+    `want_head != want_base`. That is only the diff's doing if `want_base` is
+    the branch's ANCESTOR. Read at the base TIP it also differs when the base
+    moved AHEAD -- which is the normal state of every working branch -- so the
+    guard blamed the diff for a register the diff never touched.
+
+    Reproduced against `origin/main` with two controls:
+
+      * a branch at an older commit with a **ZERO-FILE diff** -> `::error:: ...
+        THIS DIFF introduced it -- this diff changes the registers`, exit 1.
+        There is no diff at all, so the stated cause cannot be true.
+      * the same branch plus one unrelated test file, no register touched ->
+        the identical error.
+
+    ⚠️ **AND FOLLOWING THE PRINTED REMEDY MADE IT WORSE, WHICH IS WHY THIS IS A
+    FIX AND NOT A REWORDING.** The message says to run `--write`. Measured, as
+    CI sees it (the merge ref, i.e. the branch merged with main):
+
+      * IGNORE the advice -> `verdict=inherited`, **exit 0, the PR passes**.
+      * FOLLOW the advice -> `--write` bakes a brief rendered from the BRANCH's
+        older registers; merging main then **CONFLICTS in `CLAUDE.md`**, and the
+        guard grades `introduced_block_edited`, **exit 1**.
+
+    So the guard talked an author out of a green PR and into a conflicted red
+    one. That verdict is also what the constraint-readout cron dies on, per
+    `BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED`.
+
+    ⚠️ **THIS CHANGES NOTHING IN CI, BY CONSTRUCTION** -- do not read it as a
+    loosening. GitHub runs `pull_request` checks on the MERGE REF, where `HEAD`
+    already contains the base, so `merge-base(HEAD, base) == base` and both
+    readings are the same ref. What it fixes is the LOCAL run, which is where a
+    session meets this message and acts on it.
+    """
+    if not ref:
+        return ref, BASE_TIP_UNRESOLVABLE
+    try:
+        out = subprocess.run(["git", "merge-base", head, ref],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ref, BASE_TIP_UNRESOLVABLE
+    sha = out.stdout.strip()
+    if out.returncode != 0 or not sha:
+        return ref, BASE_TIP_UNRESOLVABLE
+    return sha, BASE_MERGE_BASE
+
+
 def check_verdict(*, want_head: str, have_head: str | None,
                   base_readable: bool,
                   want_base: str | None = None,
@@ -438,10 +504,16 @@ def main(argv=None) -> int:
         want = render(today)
         want_base = have_base = None
         base_readable = False
+        base_ref, base_state = resolve_base(a.base)
         if a.base:
-            oi_b = _git_show(a.base, str(_OPEN_ITEMS))
-            rl_b = _git_show(a.base, str(_RECURRENCE))
-            md_b = _git_show(a.base, str(_CLAUDE_MD))
+            if base_state == BASE_TIP_UNRESOLVABLE:
+                print("::notice::session-brief: could not resolve a merge-base for "
+                      f"{a.base}; comparing against its TIP instead. That is *we could "
+                      "not look*, not *they share no history* -- and it can mis-blame "
+                      "this diff for a register the BASE moved. See resolve_base().")
+            oi_b = _git_show(base_ref, str(_OPEN_ITEMS))
+            rl_b = _git_show(base_ref, str(_RECURRENCE))
+            md_b = _git_show(base_ref, str(_CLAUDE_MD))
             # ⚠️ The priority register MUST be read at the base too. If it fell
             # through to reading HEAD from disk, the priority term would be
             # identical on both sides and CANCEL — so changing the cycle priority
@@ -451,11 +523,11 @@ def main(argv=None) -> int:
             # A base that predates this file reads as `{}` (absent, not
             # unreadable): the register did not exist there, which is a fact we
             # CAN establish, unlike a git failure.
-            cp_b_raw = _git_show(a.base, str(_CYCLE_PRIORITY))
+            cp_b_raw = _git_show(base_ref, str(_CYCLE_PRIORITY))
             # Same argument for the routing register (MI-246): it IS rendered
             # into the brief, so it has to be diffed as well or a changed
             # reading would cancel on both sides and pass unrendered.
-            rt_b_raw = _git_show(a.base, str(_ROUTING))
+            rt_b_raw = _git_show(base_ref, str(_ROUTING))
             if oi_b is not None and rl_b is not None and md_b is not None:
                 try:
                     want_base = render(today, open_items=json.loads(oi_b),
@@ -659,8 +731,285 @@ def _self_test() -> int:
         ok &= good
         print(f"  self-test (verdict: {label}): {'PASS' if good else f'FAIL got={got}'}")
 
+    ok &= _self_test_resolve_base()
+    ok &= _self_test_check_uses_merge_base()
+
     print("session-brief self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _self_test_resolve_base() -> bool:
+    """Does the base resolve to the FORK POINT, or to wherever the base is now?
+
+    ⚠️ **THIS NEEDS A REAL REPOSITORY AND THAT IS THE WHOLE POINT.** The six
+    `check_verdict` cases above are pure-function cases, and the defect this
+    guards was invisible to every one of them: `check_verdict` was always
+    correct GIVEN its inputs, and the caller fed it the base TIP. A pure test
+    cannot see a plumbing bug, so this one builds a throwaway repo where the
+    base MOVES -- the condition under which the wrong ref gives the wrong answer.
+
+    The planted defect is the old behaviour itself: the test asserts that
+    reading at the tip and reading at the fork point give DIFFERENT content, so
+    a revert to `a.base` cannot leave this green.
+    """
+    import os
+    import pathlib
+    import shutil
+    import tempfile
+
+    if shutil.which("git") is None:
+        # *We could not look*, never a pass. Distinguished from PASS on purpose:
+        # a control that reports success when it could not run is how a guard
+        # rots into decoration.
+        print("  self-test (resolve_base): COULD-NOT-RUN -- no git on PATH")
+        return False
+
+    def run(*args, cwd):
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, timeout=30)
+
+    tmp = tempfile.mkdtemp(prefix="sbt-")
+    try:
+        run("init", "-q", "-b", "main", cwd=tmp)
+        run("config", "user.email", "t@t", cwd=tmp)
+        run("config", "user.name", "t", cwd=tmp)
+        reg = pathlib.Path(tmp, "register.json")
+        reg.write_text("R1\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "base: register R1", cwd=tmp)
+        fork = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+
+        run("checkout", "-q", "-b", "feature", cwd=tmp)
+        pathlib.Path(tmp, "unrelated.txt").write_text("nothing to do with registers\n",
+                                                      encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "feature: touches NO register", cwd=tmp)
+        head = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+
+        # The base moves AHEAD, changing the register. The branch did not.
+        run("checkout", "-q", "main", cwd=tmp)
+        reg.write_text("R2\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "base: register advanced to R2", cwd=tmp)
+        tip = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+        run("checkout", "-q", "feature", cwd=tmp)
+
+        cwd0 = os.getcwd()
+        try:
+            os.chdir(tmp)
+            got_ref, got_state = resolve_base("main")
+        finally:
+            os.chdir(cwd0)
+
+        checks = []
+        checks.append(("state is merge_base", got_state == BASE_MERGE_BASE, got_state))
+        checks.append(("resolves to the FORK POINT, not the tip",
+                       got_ref == fork, f"{got_ref[:8]} (fork={fork[:8]} tip={tip[:8]})"))
+        checks.append(("and the tip is genuinely a DIFFERENT commit -- "
+                       "otherwise this control proves nothing",
+                       fork != tip and head != tip, f"fork={fork[:8]} tip={tip[:8]}"))
+
+        # THE PLANTED DEFECT: the old behaviour, asserted to give the WRONG
+        # register content. If someone routes the reads back at `a.base`, the
+        # branch's register reads R2 -- a change it never made -- and the guard
+        # blames the diff. Pinning both readings here is what makes that revert
+        # impossible to land quietly.
+        at_fork = _git_show_in(tmp, got_ref, "register.json")
+        at_tip = _git_show_in(tmp, "main", "register.json")
+        checks.append(("reading at the fork point gives the branch's OWN register",
+                       at_fork == "R1\n", repr(at_fork)))
+        checks.append(("reading at the tip gives a register the branch never touched "
+                       "(the defect, pinned)", at_tip == "R2\n", repr(at_tip)))
+
+        # THE UNRESOLVABLE PATH, which the happy path above can never reach.
+        # Without this, mislabelling `tip_unresolvable` as `merge_base` is a
+        # one-word edit that no control sees -- measured: it escaped the first
+        # draft of this battery.
+        cwd1 = os.getcwd()
+        try:
+            os.chdir(tmp)
+            bogus_ref, bogus_state = resolve_base("no-such-ref-anywhere")
+            empty_ref, empty_state = resolve_base("")
+        finally:
+            os.chdir(cwd1)
+        checks.append(("an unresolvable ref is tip_unresolvable, NOT merge_base",
+                       bogus_state == BASE_TIP_UNRESOLVABLE, bogus_state))
+        checks.append(("...and falls back to the ref itself, never to skipping",
+                       bogus_ref == "no-such-ref-anywhere", bogus_ref))
+        checks.append(("an empty base is tip_unresolvable too",
+                       empty_state == BASE_TIP_UNRESOLVABLE, empty_state))
+
+        # THE EXCEPT BRANCH. No git-based control can reach it -- it needs
+        # subprocess itself to raise -- so it is driven directly. Without this,
+        # mislabelling it `merge_base` is a one-word edit nothing sees, and the
+        # case it covers (no git on PATH -> FileNotFoundError) is precisely when
+        # a wrong label is most harmful.
+        real_run = subprocess.run
+        try:
+            def _boom(*_a, **_k):
+                raise OSError("planted: git could not be executed")
+            subprocess.run = _boom
+            raised_ref, raised_state = resolve_base("main")
+        finally:
+            subprocess.run = real_run
+        checks.append(("a subprocess failure is tip_unresolvable, NOT merge_base",
+                       raised_state == BASE_TIP_UNRESOLVABLE, raised_state))
+        checks.append(("...and returns the ref unchanged", raised_ref == "main", raised_ref))
+
+        good = True
+        for label, passed, detail in checks:
+            good &= passed
+            print(f"  self-test (resolve_base: {label}): "
+                  f"{'PASS' if passed else f'FAIL got={detail}'}")
+        return good
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _self_test_check_uses_merge_base() -> bool:
+    """END-TO-END: does `--check` actually READ at the fork point?
+
+    ⚠️ **THIS EXISTS BECAUSE A PLANT ESCAPED.** The `resolve_base` control above
+    tests the resolver in isolation, and routing `main()`'s five `_git_show`
+    calls back at the base TIP -- which is the entire defect -- left that
+    control GREEN. A resolver nothing is proven to USE is decoration, so this
+    drives the real `main(["--check", "--base", "main"])` in a repo where the
+    base moves, and the two readings give OPPOSITE exit codes.
+
+    The repo is built so that `inherited` is the only correct answer: the base
+    is ALREADY stale before the branch forks, so the branch inherits that
+    staleness and changes no register of its own.
+    """
+    import os
+    import pathlib
+    import shutil
+    import tempfile
+
+    if shutil.which("git") is None:
+        print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- no git on PATH")
+        return False
+
+    def run(*args, cwd):
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, timeout=30)
+
+    def write_regs(root, oi, rl, cp, rt):
+        pathlib.Path(root, "docs/claude/work").mkdir(parents=True, exist_ok=True)
+        pathlib.Path(root, _OPEN_ITEMS).write_text(json.dumps(oi), encoding="utf-8")
+        pathlib.Path(root, _RECURRENCE).write_text(json.dumps(rl), encoding="utf-8")
+        pathlib.Path(root, _CYCLE_PRIORITY).write_text(json.dumps(cp), encoding="utf-8")
+        pathlib.Path(root, _ROUTING).write_text(json.dumps(rt), encoding="utf-8")
+
+    oi = json.loads(_OPEN_ITEMS.read_text(encoding="utf-8"))
+    rl = json.loads(_RECURRENCE.read_text(encoding="utf-8"))
+    cp = json.loads(_CYCLE_PRIORITY.read_text(encoding="utf-8")) if _CYCLE_PRIORITY.exists() else {}
+    rt = json.loads(_ROUTING.read_text(encoding="utf-8")) if _ROUTING.exists() else {}
+    items = oi["items"] if isinstance(oi, dict) and "items" in oi else oi
+
+    # Pick a row the RENDERER actually reads. ⚠️ Not any row: an earlier draft
+    # of this control mutated `title`, which reaches the brief for NO row, so
+    # the needle was invisible and the control graded a fix that did not exist.
+    today = date.today()
+    base_block = render(today, open_items=oi, recurrence=rl, priority=cp, routing=rt)
+    needle = None
+    for it in items:
+        if not isinstance(it, dict) or not isinstance(it.get("summary"), str):
+            continue
+        keep, it["summary"] = it["summary"], "NEEDLE-render-visible"
+        if render(today, open_items=oi, recurrence=rl, priority=cp, routing=rt) != base_block:
+            needle = it
+            it["summary"] = keep
+            break
+        it["summary"] = keep
+    if needle is None:
+        print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- no register row "
+              "reaches the rendered brief, so no needle this control could plant")
+        return False
+
+    tmp = tempfile.mkdtemp(prefix="sbe2e-")
+    cwd0 = os.getcwd()
+    try:
+        run("init", "-q", "-b", "main", cwd=tmp)
+        run("config", "user.email", "t@t", cwd=tmp)
+        run("config", "user.name", "t", cwd=tmp)
+
+        # 1. base: registers R1, brief rendered from R1 -> consistent.
+        write_regs(tmp, oi, rl, cp, rt)
+        pathlib.Path(tmp, _CLAUDE_MD).write_text(
+            f"# x\n\n{BEGIN}\n{base_block}\n{END}\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R1 + brief", cwd=tmp)
+
+        # 2. base goes stale ON ITS OWN: register -> R2, brief NOT re-rendered.
+        needle["summary"] = "NEEDLE-R2-inherited-staleness"
+        write_regs(tmp, oi, rl, cp, rt)
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R2, brief NOT re-rendered", cwd=tmp)
+
+        # 3. the branch forks HERE and touches no register at all.
+        run("checkout", "-q", "-b", "feature", cwd=tmp)
+        pathlib.Path(tmp, "unrelated.txt").write_text("no register here\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "unrelated", cwd=tmp)
+
+        # 4. the base moves AHEAD again, changing the register once more.
+        run("checkout", "-q", "main", cwd=tmp)
+        needle["summary"] = "NEEDLE-R3-base-moved-after-the-fork"
+        write_regs(tmp, oi, rl, cp, rt)
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R3", cwd=tmp)
+        run("checkout", "-q", "feature", cwd=tmp)
+
+        # ⚠️ POSITIVE CONTROL FIRST: the repo must actually DISCRIMINATE. If the
+        # needle does not move the rendered brief, `inherited` is the answer for
+        # every reading and an rc of 0 would grade a fix that is not there --
+        # measured: accepting an invisible needle escaped the first battery.
+        fork_sha = run("merge-base", "HEAD", "main", cwd=tmp).stdout.strip()
+        at_fork = _git_show_in(tmp, fork_sha, str(_OPEN_ITEMS))
+        at_tip = _git_show_in(tmp, "main", str(_OPEN_ITEMS))
+        if at_fork is None or at_tip is None:
+            print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- could not read "
+                  "the register at the fork point and/or the tip")
+            return False
+        # ⚠️ DISCRIMINATE ON THE RENDERED BRIEF, NOT ON THE RAW REGISTER BYTES.
+        # Comparing the JSON was the first attempt and it did NOT catch a plant
+        # that accepted an invisible needle: the bytes differ whenever any field
+        # is edited, while the guard only ever compares what `render()` EMITS.
+        # A control must discriminate on the same quantity the code under test
+        # reads, or it grades a condition nobody is in.
+        try:
+            brief_fork = render(today, open_items=json.loads(at_fork),
+                                recurrence=rl, priority=cp, routing=rt)
+            brief_tip = render(today, open_items=json.loads(at_tip),
+                               recurrence=rl, priority=cp, routing=rt)
+        except (ValueError, TypeError) as exc:
+            print(f"  self-test (check-uses-merge-base): COULD-NOT-RUN -- {exc}")
+            return False
+        if brief_fork == brief_tip:
+            print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- the fork point "
+                  "and the base tip RENDER THE SAME BRIEF, so this control cannot tell "
+                  "the two readings apart and would pass for the wrong reason")
+            return False
+
+        os.chdir(tmp)
+        rc = main(["--check", "--base", "main"])
+        passed = rc == 0
+        print("  self-test (check-uses-merge-base: a branch that touched NO register is "
+              f"`inherited`, not blamed): {'PASS' if passed else f'FAIL rc={rc}'}")
+        return passed
+    finally:
+        os.chdir(cwd0)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _git_show_in(cwd: str, ref: str, path: str) -> str | None:
+    """`git show ref:path` inside *cwd*. None is *we could not look*."""
+    try:
+        out = subprocess.run(["git", "show", f"{ref}:{path}"], cwd=cwd,
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
 
 
 if __name__ == "__main__":

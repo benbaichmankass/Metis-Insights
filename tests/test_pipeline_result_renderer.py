@@ -16,9 +16,16 @@ from unittest.mock import MagicMock
 
 
 # Stub heavy deps before pipeline import.
+# ⚠️ `numpy` IS DELIBERATELY ABSENT FROM THIS TUPLE. A MagicMock in
+# `sys.modules["numpy"]` makes `np.bool_` a MagicMock — not a type — so
+# `_pytest.python_api.is_bool`'s `isinstance(val, np.bool_)` raises TypeError and
+# breaks `pytest.approx` for the WHOLE session, surfacing four frames down as an
+# ordinary assertion failure on a value that is in fact correct. tests/conftest.py
+# pre-imports the real numpy so it wins this slot, but that remedy is a documented
+# no-op where numpy is ABSENT — which is exactly the lean `guards` CI job.
+# BL-20260902-FIVE-TEST-MODULES-STUB-NUMPY-AND-BREAK-PYTEST-APPROX-WHERE-NUMPY-IS-ABSENT
 for _mod in (
     "pandas",
-    "numpy",
     "src.runtime.signal_notifications",
     "src.runtime.signal_writer",
     "src.runtime.notify",

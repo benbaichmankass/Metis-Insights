@@ -637,6 +637,52 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A SPEC THIS DIFF ADDS THAT NOTHING CARRIES FAILS THE PR.
+        #
+        # Closes clause (2) of OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING:
+        # "A MECHANISM makes an un-carried spec visible WITHOUT a session
+        # thinking of it ... and it has been run over the EXISTING tree, not
+        # only armed for new artifacts." Clause (1), the count, was delivered by
+        # MI-152 -- scripts/ops/uncarried_specs.py, its report, and the
+        # per-artifact baseline. NOTHING RAN IT: measured before building, it
+        # appeared in no guard list and no workflow, which
+        # docs/claude/work/RETIRED-MIRRORS-2026-09-11.md had independently
+        # recorded. An instrument nobody runs measures nothing.
+        #
+        # ⚠️ THE CENSUS IS REPORTED AND NEVER GATES. 103 of 124 specs are
+        # un-carried today; a guard that failed on that would red every PR on
+        # day one, and this repo has written down what happens next. What fails
+        # is narrow: a file this diff ADDS that classifies as a spec and that
+        # nothing carries -- the one moment the author can cheaply fix it.
+        #
+        # ⚠️ AND IT DOES NOT DIFF AGAINST THE COMMITTED BASELINE, deliberately.
+        # That file is a snapshot at 817a5a5f and says so in its own `_doc`;
+        # differencing a live census against it blames whichever PR runs the
+        # guard for six days of tree drift. The first draft did exactly that and
+        # reported dozens of untouched docs/research/* files as this diff's
+        # doing -- the same stale-reference blame MI-280 U44 had just fixed in
+        # session-brief-guard, written twice in one session.
+        # ⚠️ COST, STATED RATHER THAN DISCOVERED LATER: these three steps take
+        # ~37s (measured), because the census walks 402 artifacts and reads 1068
+        # register surfaces, and it runs twice -- once as the instrument's own
+        # control and once for the live gate. That is ~17% on top of a ~3.5min
+        # guards job. The duplicate census is the price of the probe being SHOWN
+        # to discriminate rather than assumed to; if that trade is ever revisited
+        # it should be revisited deliberately, not by quietly deleting the
+        # instrument's self-test step.
+        "name": "uncarried-spec-guard",
+        "when": None,
+        "steps": [
+            # The INSTRUMENT's own controls first, then this guard's, then the
+            # live gate. A guard whose probe is never shown to discriminate is
+            # indistinguishable from one that always passes.
+            ["python3", "scripts/ops/uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py",
+             "--base", "origin/main"],
+        ],
+    },
+    {
         "name": "session-brief-guard",
         "when": None,
         "steps": [
