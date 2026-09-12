@@ -874,6 +874,43 @@ _LOG_FILES: dict[str, Path] = {
     # on the one surface a relay-bound session can reach.
     "partial_stop_coverage_alert_state":
         runtime_logs_dir() / "partial_stop_coverage_alert_state.json",
+    # MI-276. ⚠️ THE FIRST PUSH REGISTERED ONLY THE TWO COOLDOWN FILES WHILE
+    # THIS COMMENT ALREADY CLAIMED ALL FOUR, AND THE TWO IT OMITTED WERE THE
+    # ONES THAT MATTER: `OI-20260911-THE-TWO-DETECTORS-...`'s clears_when
+    # clause (1) names `losing_streak_observed_state` and
+    # `starved_account_observed_state` explicitly, so the row it filed would
+    # have been UNCLEARABLE BY ITS OWN CRITERION — the detector's own
+    # "a signal nobody can read" defect, reproduced in its read surface.
+    # Caught by `test_every_allowlisted_log_file_is_documented` in CI, not
+    # locally: `run_guards.py` does not run the pytest suite, and the author
+    # ran only the two test files they had written. Field beats comment —
+    # the comment was the thing that was wrong.
+    #
+    # `losing_streak_alert` and `starved_account_alert` each keep TWO files and
+    # the pair is not redundant:
+    #   * `<kind>_alert_state.json` — the SHARED durable cooldown
+    #     (`alert_cooldown.state_path`), i.e. "may this key page now?". Both
+    #     fail LOUD when unreadable, so a permanently-unwritable latch
+    #     reproduces exactly the spam it exists to stop and is
+    #     indistinguishable from a healthy one without reading it.
+    #   * `<name>_alert_state.json` written by the detector itself — the last
+    #     OBSERVED verdict per account plus `__last_check__`, i.e. "what did we
+    #     see, and when did we last look?". Without it a detector that has
+    #     never fired reads identically to one that cannot run, which is the
+    #     defect BOTH of these modules were built in response to.
+    #
+    # ⚠️ `starved_account_alert` is itself the reader for a signal that was
+    # written correctly for twelve days and consumed by nothing
+    # (`arbitration_fanout_soak.starved_accounts`, MI-274). Shipping it without
+    # a read surface of its own would reproduce that defect one level up.
+    "losing_streak_alert_state":
+        runtime_logs_dir() / "losing_streak_alert_state.json",
+    "losing_streak_observed_state":
+        runtime_logs_dir() / "losing_streak_observed_state.json",
+    "starved_account_alert_state":
+        runtime_logs_dir() / "starved_account_alert_state.json",
+    "starved_account_observed_state":
+        runtime_logs_dir() / "starved_account_observed_state.json",
     # Same commit, same reason. This one gates the STRATEGY-BUILDER exception
     # page, whose repeat is downgraded ERROR -> WARN; without a read surface,
     # "the latch is holding" and "the latch is broken and everything is WARN"
