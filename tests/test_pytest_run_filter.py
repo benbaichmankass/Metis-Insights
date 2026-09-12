@@ -108,6 +108,13 @@ COVERED = {
         "the LIVE doc has no drift — and the only other check of that property is "
         "the WEEKLY doc-audit-weekly.yml, so without this a docs-only PR can break "
         "it and merge green. Costly (this doc is edited often) and included anyway",
+    "docs/claude/work/SESSIONS.json":
+        "test_register_field_loss plants a FIELD revert into the REAL 231-row "
+        "register and asserts the guard goes red WHILE the union-by-id proof still "
+        "reads CLEAN — a fixture cannot carry that premise. Costly (every manager "
+        "spawn edits this file) and included anyway: a register write-back IS the "
+        "diff that can revert a field, so excluding it would exempt exactly the "
+        "change the guard exists for",
     "docs/claude/SUNSET-DISPOSITIONS.json":
         "test_phase_g_sunset_and_pull::test_the_live_register_and_the_live_pass_agree "
         "runs check_sunset_dispositions.audit over the REAL register. A row claiming "
