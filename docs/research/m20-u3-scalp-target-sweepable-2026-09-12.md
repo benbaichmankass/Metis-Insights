@@ -180,6 +180,34 @@ next. The run therefore stamps the condition. `tp_at_r_effective` and
   source*, which broke the moment the refusal was extracted — brittle, and not
   behaviour.
 
+### Wired into the sweep, and PROVEN end to end
+
+A flag with no caller is a dead feature, so `--tp-at-r` is wired into
+`scripts/research/m27/ict_scalp_exit_sweep.py` — the script
+`ict-scalp-exit-sweep.yml` runs, and the producer of every M27 scalp cell in the
+matrix. It gains `tp_cells()` (the `bracket_geometry` grid) and a `--timeout-bars`
+**live-parity axis** whose default passes nothing, i.e. byte-for-byte what every
+existing cell was measured at.
+
+Exercised on real data rather than asserted — one run, `SOLUSDT 5m`, 26,496
+Binance-vision bars, split `2025-08-15`:
+
+```
+tp_at_r=1.5  timeout_bars=24 (harness default — NOT live parity; production has no time exit)
+cells (7): ['tp0.75R','tp1R','tp1.25R','tp2R','tp2.5R','tp3R','tp4R']
+IS 12960 / OOS 13536 bars · BASE IS 41 trades +15.841R · BASE OOS 32 trades −2.155R
+→ all 7 graded honest_negative; CANDIDATES: NONE
+```
+
+Three things this establishes and one it does not. It establishes that the cells
+**generate**, that the leg's own `1.5` is **excluded** (7 cells from an 8-point
+grid), and that the banner **names the timeout as non-parity** rather than
+letting it pass silently. It establishes **nothing about the target**: n = 41/32,
+one leg, one quarter, and on the wrong corpus (`m27_data` is what the matrix
+uses). Every cell reads IS-negative / OOS-positive, which at n ≈ 35 is the
+signature of an unstable split — and the gate correctly refused all seven rather
+than reporting the OOS half as a win.
+
 ## 4. PRE-REGISTERED grid — recorded BEFORE any run
 
 Stated here so the grid cannot be chosen after seeing results.
