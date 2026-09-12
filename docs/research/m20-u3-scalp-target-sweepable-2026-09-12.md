@@ -576,6 +576,50 @@ about that failure class. It is a scratch probe and is not committed, so no
 guard would have caught it; the numbers above are read off the per-cell table,
 not off that summary line.
 
+## 4g. A PRE-REGISTERED PREDICTION, recorded BEFORE the result
+
+Written at **2026-09-12T08:56Z**, while `ict_scalp_avax_5m`'s parity job is
+still running. Recorded first so the correction of §4e cannot be
+rationalised after the fact either way.
+
+**The screening arm has exactly one leg that looks like a win**, and it is the
+one the correction says should not survive parity. Over the 6 screening legs
+read so far (42 cells): **0 pass both halves of the gate**, and **6 improve
+net_R in BOTH windows while failing on max-drawdown** — of which **4 are
+`avax_5m` at WIDE targets**, rising monotonically to `tp4R` at **IS ΔR +28.59 /
+OOS ΔR +13.52**. That is by far the strongest-looking cell anywhere in the
+screening arm.
+
+| leg | cell | IS ΔR | OOS ΔR | rejected on |
+|---|---|--:|--:|---|
+| `avax_5m` | tp4R | **+28.59** | **+13.52** | IS ΔDD +2.79 |
+| `avax_5m` | tp3R | +16.52 | +7.01 | IS ΔDD +6.56 |
+| `avax_5m` | tp2.5R | +12.20 | +9.30 | IS ΔDD +4.27 |
+| `avax_5m` | tp2R | +1.43 | +1.61 | IS/OOS ΔDD +6.55/+3.06 |
+| `sol_5m` | tp2R | +5.21 | +1.94 | IS ΔDD +4.03 |
+| `xrp_5m` | tp2R | +3.43 | +2.00 | IS ΔDD +5.43 |
+
+**THE PREDICTION.** §4e says the 24-bar clock *flatters* wide targets, and
+§4d measured the timeout share rising to ~58% at 4R. If that is right, then at
+parity `avax_5m`'s wide cells must **collapse** — the +28.59 R at 4R should
+fall sharply, because most of those trades never reached 4R and were being
+banked at bar 24 instead of running on to the stop.
+
+**What each outcome means, stated now:**
+
+- **They collapse** → the correction holds on the hardest case, and the
+  target lever is dead across the family. This is what I expect.
+- **They survive** → **the correction is wrong or incomplete, and `avax_5m` is a
+  real candidate leg** that must go to a walk-forward. I would then owe an
+  explanation of why this leg differs, and §4e would need its own correction.
+- **They collapse but stay net-positive in both windows** → the cell is real
+  but smaller than screening implied, and the maxDD half still governs.
+
+⚠️ **Either way `avax_5m` alone would not carry a Tier-3 proposal**: one leg out
+of eight, on a Path A gate that §4f shows omits the capital term, with no
+walk-forward yet run on the target grid at parity. The prediction is about the
+INSTRUMENT, not about shipping anything.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
