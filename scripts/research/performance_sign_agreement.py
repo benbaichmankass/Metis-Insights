@@ -90,10 +90,29 @@ def grade(payload: dict) -> dict:
 
     rp = payload.get("rProvenance") or {}
     n = payload.get("totalTrades")
-    contaminated = rp.get("contaminated")
-    share = None
-    if isinstance(contaminated, (int, float)) and isinstance(n, (int, float)) and n:
-        share = round(float(contaminated) / float(n), 4)
+    # ⚠️ ALL FOUR r_provenance states, never just `contaminated`. An earlier
+    # draft read `contaminated` alone and let `confirmed_initial`,
+    # `unverified` and `no_basis` fall together — which collapsed-state-guard
+    # correctly flagged, because `unverified` is "we could not establish the R
+    # basis" and is the LARGEST bucket on the live 30d window (22 of 41), not a
+    # variety of "fine". Reporting only the contaminated share would have said
+    # 26.8% contaminated and left 53.7% unverified invisible.
+    states = {k: rp.get(k) for k in
+              ("contaminated", "confirmedInitial", "unverified", "noBasis")}
+    contaminated = states["contaminated"]
+
+    def _share(v: Any) -> float | None:
+        if isinstance(v, (int, float)) and isinstance(n, (int, float)) and n:
+            return round(float(v) / float(n), 4)
+        return None
+
+    share = _share(contaminated)
+    # The complement of `confirmed_initial`: everything whose R basis is NOT
+    # confirmed. A sign verdict rests on this, not on contamination alone.
+    unconfirmed = None
+    vals = [states["contaminated"], states["unverified"], states["noBasis"]]
+    if all(isinstance(v, (int, float)) for v in vals):
+        unconfirmed = _share(sum(vals))
 
     return {
         "window": payload.get("window"),
@@ -108,6 +127,13 @@ def grade(payload: dict) -> dict:
         "contaminated": contaminated,
         # THE load-bearing term: the flip tracks this, not the raw count.
         "contaminated_share": share,
+        # Every state, so none of them falls silently into "not contaminated".
+        "r_provenance_states": states,
+        "confirmed_initial_share": _share(states["confirmedInitial"]),
+        "unverified_share": _share(states["unverified"]),
+        # contaminated + unverified + no_basis: the share whose R basis is NOT
+        # confirmed. `None` when any term is missing — never a partial sum.
+        "unconfirmed_r_share": unconfirmed,
         # ⚠️ Not a pass. See the module docstring.
         "agreement_is_not_evidence_of_a_fix": True,
     }
@@ -188,6 +214,22 @@ def self_test() -> int:
     ck("10 the contaminated SHARE is computed", g["contaminated_share"], round(11 / 41, 4))
     ck("11 a zero denominator yields None, never a 0.0 share",
        grade(_p(pnl=-1.0, er=1.0, n=0, contaminated=3))["contaminated_share"], None)
+    # collapsed-state-guard caught the first draft reading `contaminated` alone
+    # and letting the other three r_provenance states fall together.
+    full = {"window": "30d", "totalPnl": -14.5552, "expectancyR": 0.1113,
+            "profitFactor": 0.8251, "totalTrades": 41,
+            "rProvenance": {"contaminated": 11, "confirmedInitial": 8,
+                            "unverified": 22, "noBasis": 0}}
+    gf = grade(full)
+    ck("11b ALL FOUR r_provenance states are reported, not just contaminated",
+       sorted(gf["r_provenance_states"]),
+       sorted(["contaminated", "confirmedInitial", "unverified", "noBasis"]))
+    ck("11c CONTROL: `unverified` is the LARGEST bucket and would have been invisible",
+       (gf["unverified_share"] > gf["contaminated_share"]), True)
+    ck("11d the unconfirmed-R share sums contaminated + unverified + no_basis",
+       gf["unconfirmed_r_share"], round(33 / 41, 4))
+    ck("11e a missing state yields None, never a partial sum",
+       grade(_p(pnl=-1.0, er=1.0, n=41, contaminated=11))["unconfirmed_r_share"], None)
     ck("12 the verdict ships with the terms it used", g["totalPnl"], -14.5)
     ck("13 agreement is explicitly flagged as not-a-pass",
        grade(_p(pnl=-1.0, er=-1.0))["agreement_is_not_evidence_of_a_fix"], True)
