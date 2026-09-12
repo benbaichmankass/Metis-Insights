@@ -1770,6 +1770,22 @@
  {
     "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
     "kind": "monitoring",
+    "probe": {
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_soak.py",
+        "--path",
+        "/api/diag/log_file?name=arbitration_fanout_soak&lines=1000",
+        "--require",
+        "fanout_schema=3",
+        "--require",
+        "apply_state=dispatchable",
+        "--positive-control",
+        "fanout_schema~2,3"
+      ],
+      "checks": "A v3 arbitration_fanout_soak row exists in which the repaired writer produced rounds the dispatcher ACCEPTS -- fanout_schema 3 (so the row was written by the post-#11970 code at all) AND apply_state `dispatchable` (so accepted_rounds returned every round that was written). That is exactly clause (1) of clears_when. The positive control accepts either schema, so a run that matches nothing over a populated log is a real negative rather than a fetch that quietly returned an empty page -- which matters unusually much here, because `nothing matched` is the state this row is ALREADY in and would otherwise be indistinguishable from the expected one.",
+      "is_not": "A PASS CLEARS CLAUSE (1) ONLY AND MUST NOT BE READ AS CLEARING THE ROW. Clause (2) asks for a JOURNAL ROW on bybit_1 carrying meta.arbitration_fanout_round whose entry/sl/tp match that round -- an ORDER, which this probe cannot see because it reads the soak, and the soak is the fan-out's own account of its PLAN. Treating a soak row as evidence of dispatch is precisely the conflation #11970 repaired (93 of 93 v2 rows read `applied: true` while nothing dispatched), so a probe pass standing in for clause (2) would re-make that error one level up, in the instrument instead of the code. A FAIL (exit 1) is ALSO NOT A FINDING TODAY: it is the accurate reading until the first contested tick occurs, and the soak deliberately writes only on a NOTABLE tick, so silence can mean no contest rather than no dispatch. Exit 3 (source_empty) WOULD be a finding -- the soak has stopped writing entirely. And an apply_state of `refused_by_dispatcher` fails this predicate correctly while being the MORE valuable outcome: the projection is still wrong and the trader journal will carry an ERROR naming the missing fields."
+    },
     "loud": true,
     "opened": "2026-09-12",
     "opened_at": "2026-09-12",
