@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "a read-only survey plus one memo, entirely inside TIER1_SURFACE (scripts/research/**, docs/**). It CHANGES NO DENOMINATOR anywhere: the three live dashboard routes it names are under src/web/, i.e. Tier-2, and altering a number the operator reads is a decision rather than a side effect of a survey -- so it is reported and explicitly not proposed. No config, no src/ write, no deploy/, no unit file, no order path. The instrument makes no network call of its own."
+}
