@@ -60,6 +60,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ⚠️ MUST be the PAT, not GITHUB_TOKEN. The landing step below calls
+          # `.github/actions/commit-to-main`, which pushes its branch with
+          # whatever credential the checkout configured, and a PR opened by
+          # GITHUB_TOKEN does NOT trigger the `on: pull_request` required
+          # checks — so it would stall auto-merge forever. The action's own
+          # docstring states this as a REQUIREMENT of calling it.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -93,22 +101,51 @@ jobs:
             python3 scripts/ops/sunset_pass.py --write
           fi
 
-      - name: Commit the artifact
-        run: |
-          set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add comms/sunset/
-          if git diff --cached --quiet; then
-            echo "no change to commit"
-            exit 0
-          fi
-          git commit -m "sunset-pass: E3 candidates for $(date -u +%F)"
-          for i in 1 2 3 4; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
-            sleep $((2 ** i))
-          done
-          echo "::error::could not push the sunset artifact"; exit 1
+      # ⚠️ THIS STEP WAS A DIRECT `git push origin "HEAD:${GITHUB_REF_NAME}"`,
+      # AND ON THIS WORKFLOW THAT COULD NEVER SUCCEED — not "usually failed".
+      # `on:` here is `schedule` + `workflow_dispatch` ONLY, and BOTH of those
+      # run on the default branch, so `GITHUB_REF_NAME` is ALWAYS `main`, which
+      # is branch-protected. MEASURED over the workflow's complete run history:
+      # exactly one scheduled run has ever fired (34110131942, 2026-09-07),
+      # and it failed at this step with
+      # `! [remote rejected] HEAD -> main (protected branch hook declined)`,
+      # twice, then `could not push the sunset artifact`.
+      #
+      # The retry loop could not help and made it look considered: a protected
+      # branch declines the push on every attempt, so four tries produced four
+      # identical refusals. `git pull --rebase` rebases fine and changes nothing
+      # about who may push.
+      #
+      # ⚠️ THE CONSEQUENCE WAS ON AN OPERATOR SURFACE, WHICH IS WHY THIS IS NOT
+      # COSMETIC: the CLAUDE.md SESSION BRIEF renders `comms/sunset/`, so it has
+      # been advertising "10 retirement candidate(s) over 52 strategy legs" from
+      # a pass whose only scheduled run could not land its artifact. Retiring a
+      # leg is Tier-3, so no strategy was harmed — the defect is that the brief
+      # read as if a live weekly cadence stood behind the list.
+      #
+      # There is no non-`main` path to preserve here (unlike
+      # replay-pregate-nightly.yml, which takes a `ref:`), so this is an
+      # unconditional swap rather than a two-branch split.
+      - name: Land the sunset artifact on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/sunset
+          message: "sunset-pass: E3 candidates"
+          pr-title: "chore(sunset): E3 retirement candidates (auto)"
+          pr-body: >-
+            Automated E3 sunset pass. PROPOSES retirement candidates and enacts
+            nothing — retiring a strategy leg is Tier-3 and is dispositioned by
+            hand in `docs/claude/SUNSET-DISPOSITIONS.json`.
+          branch-prefix: automation/sunset-pass
+          # ⚠️ LOAD-BEARING. Without it the step exits 0 the moment the PR
+          # OPENS, so a green run would mean "a PR exists" and never "the
+          # candidates are on main" — and the backlog row's criterion asks for
+          # the artifact to be ON origin/main carrying that run's stamp. The
+          # whole defect being fixed here is that a run reported success while
+          # its output landed nowhere; a landing step that verifies nothing
+          # would reproduce it one level up.
+          verify-merged: "true"
 
       - name: Report
         run: |

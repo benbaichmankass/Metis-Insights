@@ -1406,6 +1406,40 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "workflow-push-target-guard",
+        # WHY THIS IS A GUARD AND NOT A NINTH CAREFUL FIX. `main` is
+        # branch-protected, so a workflow's `git push origin HEAD:main` is
+        # declined (GH006) and the run's entire artifact is discarded while the
+        # job can still read green. This repo has fixed that ONE WORKFLOW AT A
+        # TIME eight times — session-reaper, research-queue-dispatch,
+        # gpu-burst-train, reconcile-open-prs, m20-exit-lever-sweep,
+        # trainer-offload-train, replay-pregate-nightly, and sunset-pass in the
+        # change that adds this guard.
+        #
+        # ⚠️ AND TWO HAND-WRITTEN CENSUSES OF THE CLASS WERE ALREADY WRONG,
+        # which is the real argument: session-reaper.yml's own comment calls
+        # itself "the ONLY workflow in the repo pushing straight to main"
+        # (2026-09-02) while replay-pregate was doing it for ten more days, and
+        # BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+        # classifies training-rerun-5m as one that LANDS, on a predicate that
+        # matches the PRESENCE of a push idiom. A census re-measured every PR
+        # cannot go stale between being written and being quoted.
+        #
+        # UNGATED WHOLE-TREE, the api-tier-policy-guard / diagnostic-provenance
+        # pattern — and it could only be ungated because the class was drained
+        # to ZERO first (sunset-pass fixed in the same commit). An ungated guard
+        # landed over a live finding fails every PR on day one and gets switched
+        # off, which is what the diagnostic-provenance entry above records.
+        # The `conditional_default` rows are REPORTED and never fail: the relay
+        # workflows' ordinary path is a feature branch where the push is
+        # correct, and failing correct code is how a guard loses its reviewers.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_push_target.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_push_target.py"],
+        ],
+    },
+    {
         "name": "diagnostic-provenance-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan itself is skipped — because a guard whose failure path is
