@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two backlog-row dispositions recording code reads with positive controls, one in the health backlog and one in the ml backlog. docs/claude/*.json only — no src/, no ml/, no config, no scripts, no order path. Both rows' fixes are explicitly left as proposals, and one of the notes exists specifically to warn that its own fix cannot self-land."
+}
