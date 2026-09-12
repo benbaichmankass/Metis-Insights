@@ -1543,7 +1543,25 @@ below are the contract.
     event and CI fires normally; there is no zero-check window and no second
     commit to invent. The two-push order is: (1) push the content and open the
     PR yourself, (2) push `.github/pr-automerge-requests/<slug>.txt` plus the
-    `merge_slot` claim R13 wants. ⚠️ `pr-landing-guard` R6/R13 are satisfied by
+    merge-slot claim R13 wants. ⚠️ **R13 TAKES EITHER OF TWO CLAIMS, AND ON A
+    LANE BRANCH YOU WANT THE SECOND ONE.** The original is the single
+    `docs/claude/session-board.json::merge_slot` field, which still works and
+    which `commit-to-main` and its 27 workflows still write. But it is ONE field
+    every armed branch must overwrite, so every armed branch conflicts with
+    `main` the moment anything else claims it: measured over the last 40 commits
+    touching that file, **39 of 40 moved `merge_slot.branch`**, median gap 11.5
+    minutes and 26 of 38 gaps under 16, and resolving the conflict pushes a new
+    head that RESTARTS CI — so resolving faster does not help. Observed with a
+    control the same morning: all four ARMED PRs of one session went `dirty`
+    together while the only two that stayed CLEAN were the two declaring
+    `landing: "hold"`, which write no claim at all. Use the per-branch claim
+    instead — `python3 scripts/ops/claim_merge_slot.py --branch-claim --branch
+    <branch> --held-by <session>` writes `.github/merge-slots/<slug>.json`,
+    which no other branch can contend for. Nothing is given up: R13's own
+    docstring says the claim does NOT serialize, so the shared field bought a
+    guaranteed conflict and no exclusion, and attribution is preserved (the
+    branch is named in the path AND in the body, and both must agree). See
+    `.github/merge-slots/README.md`. ⚠️ `pr-landing-guard` R6/R13 are satisfied by
     the SECOND push, so do not expect the guard to pass on the first — that is
     the expected intermediate state, not a failure. This is worth the extra
     step: the trap hit **six times on 2026-09-08 alone** (#11356, #11392,
