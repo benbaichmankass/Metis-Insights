@@ -548,9 +548,38 @@ pages the moment your blocker clears. Contract:
     YOURSELF. Declare `{{"tier": 1, "landing": "self", "why": "..."}}`, open the PR
     **not** as a draft (`"draft": false` in your `pr-requests` JSON, or
     `create_pull_request` directly), and add `.github/pr-automerge-requests/<slug>.txt`
-    (any contents — its PATH is the signal). `claude-pr-automerge` then enables
-    native auto-merge and GitHub merges **when the required checks pass**. No
-    manager, and CI is never bypassed.
+    (any contents — its PATH is the signal), and take the R13 merge-slot claim:
+
+        python3 scripts/ops/claim_merge_slot.py --branch-claim \
+          --branch <your-branch> --held-by <your-session-id> --purpose "<what + PR #>"
+
+    `claude-pr-automerge` then enables native auto-merge and GitHub merges
+    **when the required checks pass**. No manager, and CI is never bypassed.
+    ⚠️ ARMING IS NOT A REQUEST TO MERGE — IT *IS* THE MERGE, which is why R13
+    makes you claim the slot. A branch that arms without a claim FAILS
+    `pr-landing-guard`, a required check, and holds itself out of `main`.
+    ⚠️ **`--branch-claim` IS A FLAG, NOT THE DEFAULT, AND YOU WANT IT.** Omit it
+    and the script splices `docs/claude/session-board.json::merge_slot` — ONE
+    field in ONE file that every armed branch must overwrite. R13 accepts
+    either, and tries the per-branch file FIRST. MEASURED over the last 40
+    commits to `main` touching that file (2026-09-11T23:12Z -> 2026-09-12T09:30Z):
+    **39 of 40 MOVED `merge_slot.branch`**, median gap 11.5 min, 26 of 38 under
+    16 — and resolving the conflict pushes a new head that RESTARTS CI, so
+    resolving faster does not help. Observed with a control the same morning:
+    all four ARMED PRs of one session went `dirty` together, while the only two
+    that stayed CLEAN were the two declaring `landing: "hold"` — which write no
+    claim at all. `--branch-claim` writes `.github/merge-slots/<slug>.json`,
+    which NO other branch can contend for.
+    ⚠️ NOTHING IS GIVEN UP: R13 never serialized (its own docstring says so — a
+    committed claim reaches no other session until the branch merges), so the
+    shared field bought a guaranteed conflict and no exclusion. Attribution is
+    preserved and strengthened — the branch is named in the PATH *and* in the
+    body, and R13 requires the two to agree. Rationale:
+    `.github/merge-slots/README.md`.
+    ⚠️ THE CLAIM IS THE *SECOND* PUSH. Open the PR yourself first (see below),
+    then push the arming file + claim together; `pr-landing-guard` is satisfied
+    by that second push, so a red guard on the first is the expected
+    intermediate state, not a failure.
     ⚠️ BOTH HALVES ARE REQUIRED AND NEITHER IS SUFFICIENT. `draft:false` alone
     gives a ready green PR that waits for a human click — that IS the failure.
     The request file alone against a DRAFT PR is REFUSED by `claude-pr-automerge`,
