@@ -1207,7 +1207,7 @@ is an independent repeat of §4l on the same inputs.
 | `ict_scalp_sol_5m` | none | ✅ | — |
 | `ict_scalp_5m` (BTC) | none | ✅ | — |
 | `ict_scalp_xrp_15m` | **tp1.25R** | ✅ | **PASS** 3/4 folds (§4n) |
-| `ict_scalp_avax_5m` | tp3R, tp4R | — | **still running** (60 min; two full yearly walk-forwards on a 124k corpus) |
+| `ict_scalp_avax_5m` | tp3R, tp4R | — | **still running** at 10:35Z — 86 min against the workflow's 150-min cap; two full yearly walk-forwards on a 124k corpus |
 
 **All six legs read so far reproduced their §4l verdict exactly.** That was not
 the point of the run, but it is a real control: the sweep is deterministic on
@@ -1221,6 +1221,35 @@ lowest-value 7 jobs was the consistent thing to do. Its jobs therefore read
 `completed` in the API while having measured **nothing**; that is a cancellation,
 not a result, and it must not be read as one. **The stop buffer remains BUILT
 AND UNRUN** (§4k), and re-dispatching it waits until #11886 lands.
+
+### ⚠️ THE RUN READS `failure` ON ALL SEVEN LEGS AND EVERY SWEEP SUCCEEDED
+
+**State the population before reading the colour.** Run `34684742080` shows
+`conclusion: failure` on each finished job, and **none of those failures is a
+sweep**. In every case step 6 (`Run config-exact exit-lever sweep`) completed
+**`success`** and step 7 (`Post verdict comment on PR`) failed with:
+
+> `Verdict for <leg> could NOT be posted: no open PR found for commit 84a3dab8 or branch claude/mi278-u3-scalp-target-sweepable. The result is in this job's log and must be collected manually.`
+
+**That is the workflow behaving exactly as designed, and the design is right.**
+Its own comment says why it fails rather than warns: *"a sweep that computed a
+verdict and could not deliver it is a lost result, and a green job that produced
+nothing is exactly the 'green is not evidence' shape."* On 2026-08-10 all seven
+legs silently dropped their verdicts and the run still read as a clean success —
+this failure is the countermeasure to that, working.
+
+**The cause was mine and is now fixed: no PR existed to post into.** This branch
+was held unpushed-and-unopened pending #11886 (§5), so the sweep had nowhere to
+deliver. #11933 was opened at 10:20Z, the run re-associated to it
+(`pull_requests: [11933]`), and `avax_5m` — the only leg still running — will
+post its verdict there rather than into a log.
+
+⚠️ **Two readings to refuse.** A red run here is **not** evidence a sweep failed;
+and the six recovered verdicts in the table above were read out of **job logs**,
+which is a hand transcription, not the workflow's own delivery. They are recorded
+here as such. That is a weaker provenance than a posted comment and is stated
+rather than smoothed — it is the same distinction as the cancellation caveat
+above, where an API `completed` described a job that measured nothing.
 
 ## 5. Landing
 
