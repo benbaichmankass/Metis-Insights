@@ -120,6 +120,77 @@ def _findings_for(obj_id: str, data: Any) -> list[str]:
     return out
 
 
+def _spent_edges(objects: dict) -> tuple[list[str], list[str]]:
+    """R3 — a `blocked_on` edge naming a decision that has ALREADY been answered.
+
+    ⚠️ REPORTED, NEVER FAILED, and the reason is measured rather than cautious:
+    on 2026-09-12 ELEVEN of the twelve `operator_decision` edges in the store
+    were already spent and ZERO were live. A rule that FAILED on this would red
+    every PR in the repo the day it merged, which is how a guard gets switched
+    off — the lesson `workflow-push-target-guard` records beside its own
+    `conditional_default` rows.
+
+    WHY IT BELONGS HERE rather than in a new file. This guard already owns the
+    question *"is a written answer readable?"*; R3 is the next question in the
+    same chain — *"and did anything ACT on it?"*. Answering and unblocking are
+    two separate writes, and on that measurement only the first had any
+    machinery: the answer lands in the object's YAML and the edge it releases is
+    left standing. `CLAUDE.md`: *a false blocker is worse than a missing one*,
+    and a SPENT edge is that defect arrived at by decay instead of invention.
+
+    ⚠️ "ANSWERED" IS `normalise_answer`, NOT A DATE FIELD. A first pass at this
+    keyed on `answered_at` and reported five genuinely-answered requests as
+    unanswered stubs, because the schema also uses `answered_on`. Reusing the
+    canonical normaliser — the same one R1 and R2 use — makes the question
+    *"would the grader read this as an answer?"*, which is the only definition
+    that can agree with the rest of the system.
+
+    Returns (spent, unresolvable) — two lists, never pooled: a spent edge names
+    a request that exists and is answered; an unresolvable one names something
+    that is not a request id at all, which is a different defect with a
+    different fix.
+    """
+    answered: dict[str, str] = {}
+    declared: set[str] = set()
+    for obj_id, data in objects.items():
+        if not isinstance(data, dict):
+            continue
+        for raw in (data.get("decision_requests") or []):
+            if not isinstance(raw, dict):
+                continue
+            rid = raw.get("id")
+            if not rid:
+                continue
+            declared.add(rid)
+            if normalise_answer(raw.get("answer")) is not None:
+                answered[rid] = obj_id
+
+    spent: list[str] = []
+    unresolvable: list[str] = []
+    for obj_id, data in sorted(objects.items()):
+        if not isinstance(data, dict):
+            continue
+        for edge in (data.get("blocked_on") or []):
+            if not isinstance(edge, dict) or edge.get("kind") != "operator_decision":
+                continue
+            ref = edge.get("ref")
+            lifecycle = data.get("lifecycle")
+            if ref in answered:
+                where = answered[ref]
+                spent.append(
+                    f"{obj_id} (lifecycle: {lifecycle}) is blocked_on {ref}, which carries a "
+                    f"READABLE answer on {where}. The decision was taken; the edge was not "
+                    f"released."
+                )
+            elif ref not in declared:
+                unresolvable.append(
+                    f"{obj_id} (lifecycle: {lifecycle}) is blocked_on a ref that is not any "
+                    f"declared request id: {ref!r}. A typed edge whose ref is prose is untyped "
+                    f"-- nothing matching on ids can ever discharge it."
+                )
+    return spent, unresolvable
+
+
 def _self_test() -> int:
     """Exercise BOTH branches, so the teeth are known to work on a clean tree.
 
@@ -184,11 +255,55 @@ def _self_test() -> int:
     if _findings_for("SELFTEST-HISTORICAL", historical):
         failures.append("R2 fired on an open request beside an answered, nested one")
 
+    # R3 — the spent-edge report. Exercised here because on a clean tree it is
+    # only ever observed printing a count, and a count nobody plants a control
+    # for is a count nobody can trust.
+    spent, unresolvable = _spent_edges({
+        "OBJ-SPENT": {
+            "lifecycle": "waiting",
+            "blocked_on": [{"kind": "operator_decision", "ref": "DEC-ANSWERED"}],
+            "decision_requests": [{"id": "DEC-ANSWERED", "answer": {"chosen": "opt_a"}}],
+        },
+        "OBJ-LIVE": {
+            "lifecycle": "waiting",
+            "blocked_on": [{"kind": "operator_decision", "ref": "DEC-OPEN"}],
+            "decision_requests": [{"id": "DEC-OPEN", "question": "q"}],
+        },
+        "OBJ-PROSE": {
+            "lifecycle": "waiting",
+            "blocked_on": [{"kind": "operator_decision", "ref": "go and do the thing"}],
+        },
+        "OBJ-OTHERKIND": {
+            "lifecycle": "waiting",
+            "blocked_on": [{"kind": "capability", "ref": "DEC-ANSWERED"}],
+        },
+    })
+    if len(spent) != 1:
+        failures.append(f"R3 should report exactly one spent edge, got {len(spent)}")
+    if len(unresolvable) != 1:
+        failures.append(f"R3 should report exactly one unresolvable ref, got {len(unresolvable)}")
+    if any("DEC-OPEN" in s for s in spent):
+        failures.append("R3 reported a genuinely unanswered decision as spent")
+    if any("OBJ-OTHERKIND" in s for s in spent + unresolvable):
+        failures.append("R3 graded a non-operator_decision edge")
+
+    # An answer the GRADER CANNOT READ must not count as answered — otherwise R3
+    # would call an edge spent on the strength of the very block R1 exists to
+    # reject, and the two rules would contradict each other.
+    spent2, _ = _spent_edges({
+        "OBJ-UNREADABLE": {
+            "blocked_on": [{"kind": "operator_decision", "ref": "DEC-U"}],
+            "decision_requests": [{"id": "DEC-U", "answer": {"verdict": "refused", "chosen": None}}],
+        },
+    })
+    if spent2:
+        failures.append("R3 called an edge spent on an answer R1 grades unreadable")
+
     if failures:
         for f in failures:
             print(f"decision-answers SELF-TEST FAILED: {f}", file=sys.stderr)
         return 1
-    print("decision-answers: self-test OK (7 cases)")
+    print("decision-answers: self-test OK (12 cases)")
     return 0
 
 
@@ -206,6 +321,7 @@ def main() -> int:
 
     paths = sorted(OBJECTS.glob("*.yaml"))
     findings: list[str] = []
+    objects: dict = {}
     unparsed = 0
     for path in paths:
         try:
@@ -214,7 +330,21 @@ def main() -> int:
             unparsed += 1
             findings.append(f"{path.name} — could not parse: {exc}")
             continue
+        objects[path.stem] = data
         findings.extend(_findings_for(path.stem, data))
+
+    # R3 is REPORTED, never failed — see _spent_edges. It is printed BEFORE the
+    # pass/fail verdict so it is visible on a green run, which is the only run
+    # it will ever appear on until somebody releases the edges.
+    spent, unresolvable = _spent_edges(objects)
+    print(
+        f"decision-answers: {len(spent)} spent operator_decision edge(s), "
+        f"{len(unresolvable)} unresolvable ref(s) — REPORTED, not failed"
+    )
+    for line in spent:
+        print(f"  ~ SPENT        {line}")
+    for line in unresolvable:
+        print(f"  ~ UNRESOLVABLE {line}")
 
     # State the population, always — a clean result over zero files is not a pass.
     print(f"decision-answers: read {len(paths)} object file(s), {unparsed} unparseable")

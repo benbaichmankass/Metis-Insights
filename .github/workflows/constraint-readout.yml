@@ -216,7 +216,19 @@ jobs:
           # CLAUDE.md rides with them deliberately — see the header. Committing
           # the readout without the brief is what would make this file a
           # relocation of the bug rather than a fix for it.
-          paths: docs/claude/CONSTRAINT.json docs/claude/READOUT.md CLAUDE.md
+          # ⚠️ CHECKLIST-ROUTING-AGE.json IS LOAD-BEARING HERE AND WAS ABSENT
+          # UNTIL 2026-09-12, WHICH IS WHY EVERY SCHEDULED RUN OF THIS
+          # WORKFLOW FAILED. This job runs `checklist_routing_age.py --write`
+          # above, and that register is STATEFUL — it records which rows it
+          # has already reported, so a row is paged ONCE when it crosses 24h.
+          # The session brief is then rendered FROM the mutated register. With
+          # the register left out of this list, the commit carried a brief
+          # derived from state that was thrown away, so `session-brief-guard`
+          # re-rendered from the OLD register, got a different block, and
+          # graded `introduced_block_edited` -> exit 1. Reproduced on the two
+          # surviving branches: as committed the guard exits 1, and with the
+          # register present in the tree it exits 0.
+          paths: docs/claude/CONSTRAINT.json docs/claude/READOUT.md CLAUDE.md docs/claude/work/CHECKLIST-ROUTING-AGE.json
           # ⚠️ WITHOUT THIS THE STALE-BRANCH REFRESH IS INERT FOR THIS CALLER,
           # and that is why this workflow has concluded `success` ZERO times in
           # its entire life. Its output is DERIVED FROM the registers it merges:

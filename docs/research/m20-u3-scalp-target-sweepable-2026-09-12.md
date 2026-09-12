@@ -1,6 +1,6 @@
 # M20 · U3 — the `ict_scalp` exit levers, made sweepable and then swept
 
-> **Doc status:** `live` · category `research` · 2026-09-12 · MI-278 unit U3a ·
+> **Doc status:** `unknown` · category `research` · 2026-09-12 · MI-278 unit U3a ·
 > object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER` ·
 > cycle `CY-20260906-TRADING-TRUTH`
 >

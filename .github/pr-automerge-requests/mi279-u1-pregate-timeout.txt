@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11937.
+
+One .github/workflows/ job budget raised 45 -> 80 to a derived value
+(38m poll + 30m commit-to-main verify + ~1m setup), plus the critical
+backlog row recording the measurement. Declaration:
+.github/pr-landing/mi279-u1-pregate-timeout.json

@@ -1,6 +1,6 @@
 # Why is the book bleeding? — attributing the 2026-08-30 directional-leg break
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-11` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `research` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
 
 **Unit:** MI-271 · `WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE`
 **Row:** `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED`
@@ -172,18 +172,48 @@ Top contributors by absolute loss, all post-deploy opens — note the top seven 
 | `bybit_portfolio` | xrp_pullback_2h | −2,818 | 3 | **RECONSTRUCTED (0 measured)** |
 | `bybit_1` | trend_donchian_avax_4h | −1,944 | 5 | **RECONSTRUCTED (0 measured)** |
 
-### 4.3 The decomposition — it is NOT a win-rate collapse
+### 4.3 The decomposition — the winner-size collapse holds; ⚠️ "NOT a win-rate collapse" DOES NOT
 
-`bybit_1`, all closed rows, pre vs post open:
+> ⚠️ **CORRECTED 2026-09-12 (MI-278 U14, `session_01Wv1BdfEUnmCBZrhvUjeBzb`). THIS SECTION'S HEADING READ "it is NOT a win-rate collapse" AND ITS TABLE WAS COMPUTED ON A DIFFERENT POPULATION FROM EVERY OTHER SECTION OF THIS MEMO. Do not re-quote the 4.9pp figure without the filter beside it.**
+> **The positive claim SURVIVES and is the load-bearing one — average win fell ~71–74% on every population and every split instant tested, so the winner-size diagnosis, PROPOSAL A, and everything in §5 stand unchanged.** What inverts is the NEGATIVE claim. Full working: [`m20-u14-the-bleed-record-is-wrong-in-three-places-2026-09-12.md`](m20-u14-the-bleed-record-is-wrong-in-three-places-2026-09-12.md); row `BL-20260912-MI-271-S-HEADLINE-DECOMPOSITION-TABLE-INCLUDES-THE-PAIRS-SLEEVE-EVERY-OTHER-SECTION-EXCLUDES`.
+
+**The population, which the original table did not state.** "All closed rows" means the **pairs sleeve INCLUDED**. §1 above declares the decision population as pairs-**excluded**, and `scripts/research/bleed_attribution_2026_09_11.py::population` — this memo's own reproducer — enforces that exclusion in code (`exit_reason NOT LIKE 'pairs_%'` OR a `pairs_*` `strategy_name`). This table is the one place the exclusion is not applied. It is not a rounding difference: **the pairs sleeve is 264 of the 441 reachable rows in this window, 59.9%** — so the table is a majority read of the order path §4 had already exonerated, and only a minority read of the legs under investigation.
+
+**Both populations, so the reader can see what turns on the filter.**
+
+*(a) Pairs INCLUDED — what the original table computes. Re-measured 2026-09-12 over ids 4701–5700 ∩ today's tail = **441 of the memo's 442 rows**, split on `created_at` at `2026-08-30`:*
 
 | | n | win rate | **avg win** | avg loss | expectancy | total |
 |---|---|---|---|---|---|---|
-| **PRE** | 235 | 0.460 | **$404** | −$269 | **+$40** | +$9,486 |
-| **POST** | 207 | 0.411 | **$112** | −$322 | **−$144** | −$29,798 |
+| **PRE** | 219 | 0.447 | **$430** | −$276 | **+$40** | +$8,666 |
+| **POST** | 222 | 0.414 | **$126** | −$304 | **−$126** | −$27,970 |
 
-**Win rate fell only 4.9pp. Average win fell 72%.** Average loss worsened 20%. The expectancy flip from +$40 to −$144 is driven overwhelmingly by winners getting smaller, not by winning less often.
+→ win rate **−3.3pp**, avg win **−71%**.
 
-That matters because it points at a completely different remedy than "the stops are too tight". It is the signature of a market in which **moves stop extending** — entries still get their initial push (win rate holds) but nothing runs. Consistent with it: the control's stop rate held flat while its win rate fell.
+*(b) Pairs EXCLUDED — §1's declared decision population. This row is NOT a re-derivation: it is the output of this memo's own reproducer, re-run unmodified on a 2026-09-12 pull, at its own declared split instant `2026-08-30T08:53:19Z`, read from `accounts.bybit_1`:*
+
+| | n | win rate | **avg win** | avg loss | expectancy | total |
+|---|---|---|---|---|---|---|
+| **PRE** | 76 | 0.540 | **$1,045** | −$943 | **+$130** | +$9,843 |
+| **POST** | 107 | 0.327 | **$275** | −$574 | **−$296** | −$31,689 |
+
+→ win rate **−21.2pp**, avg win **−74%**, avg loss **39% BETTER** (not 20% worse).
+
+**Independently corroborated the same day, by a session that was not looking for it.** [`winner-size-collapse-2026-09-12.md`](winner-size-collapse-2026-09-12.md) (MI-279) set out to decompose the winner-size fall, imported this memo's `population()` rather than restating it, and hit the same wall from the other side: it reports the pairs sleeve as **266 of 446 rows** and the pairs-excluded win-rate fall as **19.5pp (53.2% → 33.7%)**, with average loss **improving 36%** rather than worsening 20%. So three measurements — that memo's, the reproducer's, and a hand computation over the raw tail — agree on both the sign and the rough size, from three different pulls and two different split conventions:
+
+| reading | source | pull | split | pairs share | win-rate fall | avg win |
+|---|---|---|---|---|---|---|
+| **−19.5pp** | MI-279 memo | 2026-09-12 ~00:5xZ | deploy instant | 266/446 | 53.2% → 33.7% | −72% |
+| **−21.2pp** | this memo's own reproducer, re-run | 2026-09-12 16:1xZ | deploy instant | 279/— | 54.0% → 32.7% | −74% |
+| **−19.0pp** | hand computation over the raw tail | 2026-09-12 16:1xZ | date `2026-08-30` | 264/441 | 53.3% → 34.3% | −71% |
+
+The spread (19.0–21.2pp) is the drift between pulls and split conventions, not disagreement about the finding. **Every one of them is 4–6× the −4.9pp this section originally reported.**
+
+**So: −3.3pp on the pairs-included read, −21.2pp on the memo's own declared one.** A ~21-point fall in win rate is a win-rate collapse by any reading, and it arrives alongside the winner-size collapse rather than instead of it. Two independent implementations agree on it — a hand computation over the raw tail and the reproducer — and they agree on the winner-size result too, which is why the positive claim is reported as robust rather than merely unrefuted.
+
+⚠️ **The original cell values could not be reproduced exactly on any tested split, and the honest reading is "approximate", not "wrong".** Three sufficient causes, none of which needs an error: 27 of the memo's 1000 rows have aged out of the tail; `pnl` and `exit_price` are rewritten in place by the reconcilers, so a row's value today need not be its value on 09-11; and **§4.3 is not covered by the reproducer at all** — that script computes no `avg_win` and no per-account decomposition, so the one table this memo's headline conclusion rested on is the one table nobody could re-run. The n=235/207 split is recovered only by `created_at < 2026-08-31`, which puts the whole of deploy day in PRE and disagrees with §2.1's stated `2026-08-30T08:53:19Z`; the totals are recovered only by the date split. No combination gives both.
+
+That the winner-size half matters is unchanged, and it still points at a different remedy than "the stops are too tight": it is the signature of a market in which **moves stop extending**. What can no longer be said is that entries "still get their initial push" — on the legs under investigation, they do not.
 
 Concentration: **top 14 losers = 50% of gross loss, across 119 losing trades.** Broad-based, mildly concentrated — not a handful of blow-ups.
 

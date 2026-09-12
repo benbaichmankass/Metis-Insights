@@ -87,7 +87,47 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'replay-pregate-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # DERIVED, NOT CHOSEN: this job commits two hard budgets and 45 could not
+    # hold both, so the job was structurally unable to finish.
+    #
+    #   poll deadline            38 min  (`DEADLINE=$(( SECONDS + 38*60 ))` below)
+    #   commit-to-main verify    30 min  (`verify-timeout-minutes` default)
+    #   checkout + ssh setup    ~1 min   (measured 08:26:50 -> 08:27:16, 26s)
+    #   ------------------------------
+    #   committed                69 min  against a 45-minute job
+    #
+    # MEASURED on scheduled run 34683288123 (2026-09-12T08:26:46Z), the FIRST
+    # run to carry #11861's port to `commit-to-main`. Every step through
+    # "Write report + markdown summary" SUCCEEDED -- the pre-gate ran to
+    # completion and the report was written -- and then "Land the report on
+    # main (auto-merge PR)" was CANCELLED at 09:12:02Z, 6m35s in, because the
+    # 45-minute job budget expired. The evidence was produced and then thrown
+    # away at the last step.
+    #
+    # ⚠️ THE PORT IS NOT AT FAULT AND MUST NOT BE REVERTED. Before it, the run
+    # died pushing straight at protected `main` (GH006) and the evidence was
+    # lost earlier. #11861 moved the loss from the push to the clock; this
+    # removes the clock. That sequence is exactly what
+    # BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT
+    # warns about -- "porting onto it blind trades one loss for another" -- and
+    # is the first observation of that trade actually happening.
+    #
+    # ⚠️ AND `.github/actions/commit-to-main/action.yml` ALREADY SAYS TO DO
+    # THIS: "set the caller's `timeout-minutes` above this or the job dies
+    # mid-wait". It was above 30; what it was not above is 38 + 30. The
+    # instruction was followed to the letter and still under-budgeted, because
+    # the caller's OWN internal deadline is the term nobody added.
+    #
+    # ⚠️ LOWERING `verify-timeout-minutes` INSTEAD WOULD BE THE WRONG FIX: the
+    # action's docstring records the wait taking 15m45s of an 18m budget
+    # (87.5%) before 30 was chosen, so trimming it re-opens the failure the
+    # raise closed. Raise the job budget, not the wait.
+    #
+    # 80 = 69 committed + 11 slack (16%). Measured across all 26 landing jobs
+    # in this repo on 2026-09-12, every one already clears the 30-minute wait;
+    # this job was the only one whose own declared deadline pushed the total
+    # past its budget, which is why this is a value change and not a guard.
+    timeout-minutes: 80
     steps:
       - name: Resolve run parameters
         id: params

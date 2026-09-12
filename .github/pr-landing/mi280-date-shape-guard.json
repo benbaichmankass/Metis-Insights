@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling: one clause added to scripts/ops/check_backlog_criteria.py's `_verdict`, plus its self-test fixtures and four new self-test cases. No src/, no config/, no deploy/, no workflow, no order path. NOT landing machinery: check_backlog_criteria.py is not among check_pr_landing.LANDING_MACHINERY's twelve entries (verified by importing the module), so R12 does not apply. It is GRANDFATHERED by the guard's existing id-scoping -- only NEW rows are held to the clause -- and measured to cost current practice nothing: of the 249 rows added to the health backlog since origin/main~600, ZERO would fail it."
+}

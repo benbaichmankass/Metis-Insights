@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register record only: one surgical text edit to a single OPEN-ITEMS row's `observation`, recording a clause that was OBSERVED met, plus its landing/arming files. No code, no runtime, no order path, no workflow, no strategy config. Edited as TEXT rather than round-tripped, because manager_preflight.py records that a naive json round-trip of OPEN-ITEMS.json rewrites 100% of the file; the diff is 1 line changed and exactly 1 row differs from HEAD, verified by comparing every row against `git show HEAD:` rather than by reading the diffstat."
+}

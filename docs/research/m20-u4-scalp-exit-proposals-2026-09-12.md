@@ -1,6 +1,6 @@
 # MI-278 U4 — Tier-3 proposals from the `ict_scalp` exit sweep
 
-> **Doc status:** `live` · category `plan` · 2026-09-12 · MI-278 U4 ·
+> **Doc status:** `unknown` · category `plan` · 2026-09-12 · MI-278 U4 ·
 > object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER`
 
 **This document exists to be accepted or rejected, not read.** The queue's
