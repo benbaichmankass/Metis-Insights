@@ -1,6 +1,6 @@
 # MI-278 U21 — a fan-out package's exit, declared once: the DiD is a band of +3.8 to +29.6pp, and 10 of the 12 self-contradicting packages are in the control arm
 
-> **Doc status:** `unknown` · category `research` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **Unit:** MI-278 U21 · object `WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER` · cycle `CY-20260906-TRADING-TRUTH`
 > **Advances, and deliberately does NOT close,** `BL-20260912-WHICH-FANOUT-ROW-IS-ROWS-0-MOVES-THE-STOP-OUT-ADJUDICATION-AND-SWINGS-THE-HEADLINE-DID-BY-10-POINTS`.
