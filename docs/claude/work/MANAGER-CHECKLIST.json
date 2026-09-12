@@ -4530,5 +4530,94 @@
       "Caused the EIGHTH instance of the claude-pr-automerge ordering trap by combining the two pushes — while supervising MI-280, the lane fixing it, forty minutes after using the correct order twice. That rules out the documentation remedy specifically; appended to the existing BL-20260910 row rather than filed fresh.",
       "Used 'branch gone from the remote' as the test for a spent merge_slot claim. It does NOT hold: claude/mi279-exit-coverage-trio survives on the remote while its PR #11880 is merged. The PR's state is the test, not the branch's existence."
     ]
+  },
+  "manager_tick_2026_09_12T0730Z": {
+    "recorded_at": "2026-09-12T07:30Z",
+    "manager": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "lease": {
+      "heartbeat_at": "2026-09-12T07:00:48Z",
+      "expires": "2026-09-12T08:30:48Z",
+      "r6": "SESSIONS.json written at 07:00:38Z, 10s before the heartbeat — inside the 90min ttl"
+    },
+    "checklist": {
+      "headline": "THE QUEUE WAS JAMMED BY ONE JSON FIELD, AND IT IS MEASURED RATHER THAN SUSPECTED.",
+      "jam": {
+        "measured_at": "2026-09-12T07:0xZ",
+        "method": "git merge-tree --write-tree against origin/main, every open PR (n=18)",
+        "result": "14 conflicted, 4 clean",
+        "cause": "13 of the 14 conflicts are docs/claude/session-board.json ALONE — the single shared merge_slot object. R13 requires a branch to claim it to arm auto-merge, every armed branch overwrites the SAME field, so the queue jams BY CONSTRUCTION at n>1.",
+        "positive_control": "the 4 clean PRs — so the finding is not an artefact of a probe that conflicts on everything. Two of the clean ones declare landing: hold and therefore write no claim at all, which is the discriminating difference.",
+        "fix": "#11891 (per-branch claims at .github/merge-slots/<slug>.json). It ADDS a second way to satisfy R13 and removes none.",
+        "correcting_my_own_earlier_call": "AT 06:25Z I RAISED THIS HYPOTHESIS AND THEN REFUTED IT, AND THE REFUTATION WAS INVALID. I tested 'did guards pass on #11864' (it did) and concluded there was no jam. Guards passing says NOTHING about mergeability — I tested the wrong quantity and reported a clean bill of health from a probe that could not see the condition. The hypothesis was right. Recorded because the failure mode (a negative from a probe that cannot reach its target) is the one RULE ONE names, and I committed it while holding the lease."
+      },
+      "lanes_running": 6,
+      "lanes": [
+        {
+          "item": "MI-278",
+          "lane": "research",
+          "session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:29Z — review_ready; U2b/U5 validated, U3 blocked on a harness gap. PRs #11864 #11874 #11886 open."
+        },
+        {
+          "item": "MI-279",
+          "lane": "ops",
+          "session": "session_013iSqp4LsU1eq8K326eUtgj",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:33Z — '5 PRs resolved & pushed; waiting on merge'. #11890 MERGED 06:54:37Z. #11867 #11872 #11876 #11885 #11888 open."
+        },
+        {
+          "item": "MI-280",
+          "lane": "engineering",
+          "session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+          "state": "in_flight",
+          "observed": "RUNNING via get_session 07:00Z, updated 06:56:22Z. Pushed #11891 again at 07:22:56Z. Owns the unjammer."
+        },
+        {
+          "item": "MI-281",
+          "lane": "order-path",
+          "session": "session_01ALe9gTsSEMVWYyR8X8TY79",
+          "state": "TERMINAL",
+          "observed": "IDLE / disconnected / status_category completed, updated 06:28:06Z. Its object is ANSWERED and well-closed. It explicitly handed U5 on. REPLACED by MI-283 — see below."
+        },
+        {
+          "item": "MI-282",
+          "lane": "prop",
+          "session": "session_01QF6kgTnqd4yg32y2UYe9FQ",
+          "state": "in_flight",
+          "observed": "IDLE but review_ready with its own 07:31Z self-wake, updated 06:38:12Z. NOT terminal. #11882 green/clean and waiting on me — it is conflicted on CLAUDE.md, not on merge_slot."
+        },
+        {
+          "item": "MI-283",
+          "lane": "order-path",
+          "session": "session_01WnQ1wp2awqbo4xRoiEZfit",
+          "state": "dispatched",
+          "observed": "Created 07:00:20Z, registered 07:00:38Z. Takes MI-281's handoff: account_open_positions still dedupes Bybit positions by symbol, so a hedge book is DROPPED and the order-status reconciler closes a live row. REAL MONEY. MI-281 VERIFIED it still live."
+        }
+      ],
+      "unstaffed": [
+        "Lane A (Alpaca go-live)",
+        "Lane P (promotion pipeline)"
+      ]
+    },
+    "recently_done": [
+      "MERGED #11817 (2cd829991) — R15, operator-approved. R12 held it correctly and was DISCHARGED by the operator's read, not bypassed. Verified head, mergeable_state clean and all 5 checks green ON THAT HEAD before merging; open-and-automerge had correctly REFUSED to arm it.",
+      "MERGED #11881 (5672b40c1) — U5 merge-slot grading, operator-approved, green + clean. Pure observability: a test asserts the written bytes are byte-identical with and without the report.",
+      "HELD #11889 DESPITE THE APPROVAL, and this is the one decision worth reading. It is RED on pytest-run, and red on EXACTLY the risk I named to the operator when asking. The two failures are the PRE-EXISTING positive controls in tests/test_automerge_request_gate.py: a genuine request no longer opens the PR ('threw', no pulls.create) and no longer arms (checks ran, enableAutoMerge did not). Merging a red landing-machinery PR is not what 'merge all three' approved, and doing it mid-jam would make the jam permanent. Told MI-280 precisely, including: do NOT fix this by making the control assert the new behaviour.",
+      "DISPATCHED + REGISTERED MI-283 the moment MI-281 went terminal.",
+      "Heartbeat 07:00:48Z."
+    ],
+    "next": [
+      "Merge #11891 on green — it is the unjammer and everything else queues behind it.",
+      "Then drain: #11882 (prop, resolve CLAUDE.md), the MI-279 backlog five, the MI-278 research three, the MI-280 remainder.",
+      "Re-check #11889 after MI-280 fixes the two positive controls. The operator's approval stands and must not be re-sought.",
+      "Staff Lane A and Lane P."
+    ],
+    "manager_errors_this_tick": [
+      "I REFUTED A CORRECT HYPOTHESIS WITH THE WRONG TEST at 06:25Z — see checklist.jam.correcting_my_own_earlier_call. Guards passing is not mergeability.",
+      "I NEARLY MIS-ATTRIBUTED A GUARD FAILURE TO #11891. I grepped the guards output for /FAIL/ and matched 'api-tier-policy guard: FAIL', which is the SELF-TEST DEMONSTRATING its own planted unrowed route — not a failure. Caught it by running check_api_tier_policy.py --all on the PR head AND on origin/main: exit 0 and 'OK — every route carries a row' on BOTH. A grep for the word FAIL cannot distinguish a guard failing from a guard demonstrating failure. Told MI-280 so it does not chase it either.",
+      "I CREATED A CONFLICT FOR #11891 by merging #11881 first — both edit scripts/ops/claim_merge_slot.py. Taken deliberately (#11891 was red and must re-push regardless, so it costs a resolution and not a CI cycle) and owned on the PR, but it is a cost I imposed on the lane fixing the jam.",
+      "MY LOCAL GUARD RUN IS NOT A CLEAN BILL OF HEALTH AND IS NOT REPORTED AS ONE: PASS 68 / FAIL 5 / SKIP 22 on #11891's head, and all five failures are MISSING TOOLING (pytest absent, ruff absent, lint-imports exit 127 = not found). That is 'we could not look', not 'nothing is wrong'. CI is the authority."
+    ]
   }
 }
