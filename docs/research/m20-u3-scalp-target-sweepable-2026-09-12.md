@@ -294,6 +294,77 @@ backtest is a **screen** with no walk-forward, and this is an observational
 profile with per-leg weekly n of 3–9. **U3b's gated run decides**; this is why
 the pre-registered grid brackets `1.5` on BOTH sides rather than only widening.
 
+## 4c. ⚠️ THE LEVER IS PROBABLY NOT THE TARGET — IT IS THE BREAK-EVEN RATCHET
+
+**This section reverses §4b's reading and is the most important result in the
+unit.** It exists because I caught a fidelity defect in my own measurement: the
+first parity grid omitted `--sim-breakeven`, so it ran **without the break-even
+ratchet that U1 established is armed on all 8 scalp legs** (`be_offset_bps: 15`,
+baseline-on at 1R). Re-run config-exact:
+
+| `tp_at_r` | n | win% | net R | maxDD | outcomes |
+|---:|--:|--:|--:|--:|---|
+| 0.75 | 72 | 72.2 | **+7.911** | 6.15 | tp 52 · sl 20 |
+| 1.0 | 72 | 62.5 | +6.839 | 8.55 | tp 45 · sl 27 |
+| **1.5 (LIVE)** | 65 | 55.4 | **−0.695** | 8.64 | sl 29 · tp 24 · **be_stop 12** |
+| 2.0 | 64 | 56.3 | +1.402 | 9.08 | sl 28 · tp 18 · **be_stop 18** |
+| 3.0 | 60 | 53.3 | **−8.781** | 9.84 | sl 28 · **be_stop 24** · tp 8 |
+
+### The 2×2, with an internal control that cannot be argued with
+
+| | BE armed (live) | BE disarmed |
+|---|--:|--:|
+| `tp_at_r` 0.75 | **+7.911** | **+7.911** |
+| `tp_at_r` 1.5 (live) | **−0.695** | **+2.033** |
+
+**The 0.75 row is IDENTICAL to three decimal places, and that is the control**:
+the ratchet arms at 1R, so at a 0.75R target it is unreachable by construction
+and must have exactly zero effect. It does. That the mechanism's own prediction
+holds to the digit is what makes the 1.5 row credible.
+
+Decomposed on this leg-quarter:
+
+- disarm the ratchet at the **live** target — **+2.729 R**
+- narrow 1.5 → 0.75, ratchet-free on both sides — **+5.878 R**
+- both — **+8.606 R**
+
+So §4b's *"narrower is better"* is **half an artifact of the ratchet**: part of
+what narrowing buys is simply putting the target below the arming threshold.
+The two levers are entangled in the live config and are separated only by the
+2×2 above.
+
+### The mechanism, and why it matches MI-277's signature exactly
+
+`be_stop` share rises monotonically with the target — **0.0% / 0.0% / 18.5% /
+28.1% / 40.0%** — because a wider target keeps the trade above 1R for longer,
+giving the ratchet more chances to arm and stop it at entry.
+
+⚠️ **That is precisely the fingerprint MI-277 measured on the live book**:
+winner hold collapsing **5.17h → 1.90h** while **losses stayed at exactly 1R**.
+A break-even ratchet produces both halves by construction — it truncates trades
+that reached 1R (shortening winner hold) and cannot touch a loser (which never
+reaches 1R, so losses stay at exactly −1R). No other lever in the U1 inventory
+has that shape.
+
+### ⚠️ The tension with U1, stated rather than resolved by preference
+
+U1 tested *"the break-even ratchet is the collapse mechanism"* against the LIVE
+JOURNAL and **refuted it — as dominant, on n=5**. This is a BACKTEST on a
+different population, a different instrument and a different quarter. **Both can
+be true**: the ratchet can be costly here and still not be the dominant driver
+of the live collapse. Do not read this section as overturning U1, and do not
+read U1 as closing this. What it does is make the ratchet the **highest-value
+thing left to measure properly**, which it was not before.
+
+### What this is NOT
+
+⚠️ **ONE leg, ONE quarter, n=60–72, NO IS/OOS, NO walk-forward, and on
+`data.binance.vision` rather than the `m27_data` corpus every matrix cell uses.
+A SCREEN.** The surface is also **non-monotonic** at 2.0 (+1.402 against 1.5's
+−0.695), which at this n is a noise warning and not a shape to fit to.
+`be_offset_bps` is **Tier-3**. Nothing here is a proposal; it is the evidence
+that says which proposal is worth building, and U3b's gated run decides.
+
 ## 5. Landing
 
 **This PR declares `landing: hold`.** `check_pr_landing.py::TIER1_SURFACE`
