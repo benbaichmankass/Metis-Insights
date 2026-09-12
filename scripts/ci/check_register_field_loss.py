@@ -252,6 +252,33 @@ def check(base: Optional[str], root: Path = REPO_ROOT,
         return {"ok": True, "results": [],
                 "summary": ("no --base given, so NOTHING was compared. This is "
                             "not a pass: run it with --base origin/main.")}
+    # ⚠️ ASSERT THE DENOMINATOR BEFORE GRADING ANYTHING. Found by accident while
+    # testing this guard: running a COPY of it from /tmp made `REPO_ROOT`
+    # resolve to `/`, every register read as absent, and the verdict was a
+    # confident `OK — no shared register lost a field` over a population of
+    # ZERO. That is `CLAUDE-RULES-CANONICAL.md` § "Green is not evidence" in
+    # this guard's own output: a verdict computed from zero inputs is VACUOUS,
+    # not clean, and the two are indistinguishable from outside unless the
+    # inputs are asserted. A wrong `--base`, a wrong cwd, or a rename of every
+    # register all produce it.
+    #
+    # "No register CHANGED" is a real and common reading and stays OK. "No
+    # register EXISTS" is not a reading at all.
+    present = [p for p, _, _ in registers if (root / p).is_file()]
+    if not present:
+        return {"ok": False, "results": [], "findings": [], "excused": [],
+                "phantom": [],
+                "unreadable": [{"path": str(root), "state": UNREADABLE,
+                                "findings": [],
+                                "why": ("no declared register exists here, so "
+                                        "nothing could be read")}],
+                "summary": (f"NOTHING WAS CHECKED — none of the {len(registers)} "
+                            f"declared registers exists under {root}. This is NOT "
+                            f"'no register lost a field': it is a vacuous verdict "
+                            f"over an empty population, and the usual cause is "
+                            f"being run from the wrong root. Refusing rather than "
+                            f"reporting a green that checked nothing.")}
+
     results = []
     for path, array, id_field in registers:
         base_text = _git_show(base, path, root)
@@ -456,6 +483,19 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
        not verdict_of(clean_result, decl)["ok"])
     ok("an UNREADABLE register FAILS rather than passing quietly",
        not verdict_of(unread_result, [])["ok"])
+
+    # ── THE EMPTY POPULATION. Found by accident: a copy of this script run from
+    #    /tmp resolved its root to `/`, every register read as absent, and the
+    #    verdict was a confident OK over ZERO inputs.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        v_empty = check("origin/main", root=Path(td))
+    ok("a root where NO register exists REFUSES rather than reporting a green "
+       "that checked nothing", not v_empty["ok"])
+    ok("…and says plainly that it is not 'no register lost a field'",
+       "NOT" in v_empty["summary"] and "vacuous" in v_empty["summary"])
+    ok("…while a root where the registers EXIST and none CHANGED is still a "
+       "real, clean reading", check("origin/main")["ok"])
 
     ok("with no --base NOTHING is compared, and it says so rather than passing "
        "quietly", "not a pass" in check(None)["summary"])

@@ -277,3 +277,25 @@ def test_an_unreadable_register_fails_rather_than_passing_quietly():
     v = G.verdict_of(
         [{"path": "R.json", "state": G.UNREADABLE, "findings": [], "why": ""}], [])
     assert not v["ok"]
+
+
+# ── THE EMPTY POPULATION, found by accident and fixed ────────────────────────
+# A copy of this script run from /tmp resolved its root to `/`, every register
+# read as absent, and the verdict was a confident `OK — no shared register lost
+# a field` over ZERO inputs. That is § "Green is not evidence" in the guard's
+# own output: a verdict from zero inputs is VACUOUS, not clean, and the two are
+# indistinguishable from outside unless the inputs are asserted.
+
+def test_a_root_with_no_registers_refuses_rather_than_reporting_green(tmp_path):
+    v = G.check("origin/main", root=tmp_path)
+    assert not v["ok"]
+    assert "NOTHING WAS CHECKED" in v["summary"]
+    assert "vacuous" in v["summary"]
+
+
+def test_registers_that_exist_but_did_not_change_is_still_a_real_clean_reading():
+    """The control: 'no register CHANGED' must stay OK, or the guard would fail
+    every PR that touches no register — which is most of them."""
+    v = G.check("origin/main")
+    assert v["ok"], v["summary"]
+    assert "NOTHING WAS CHECKED" not in v["summary"]
