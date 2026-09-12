@@ -1,0 +1,1 @@
+PR #11871 — manager register consolidation. Arms the self-land route (pr-landing R6).

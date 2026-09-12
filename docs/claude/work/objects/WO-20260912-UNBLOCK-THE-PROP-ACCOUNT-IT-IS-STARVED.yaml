@@ -2,47 +2,56 @@ id: WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED
 type: question
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
-  Unblock the prop account — it is starved at dispatch, and the remedy everyone
-  was waiting on has never once dispatched
-stage: CAPABILITY
+  Unblock the prop account: it is starved at dispatch, and the unblock is a sequence
+stage: DEPLOYMENT
 lifecycle: in_flight
 owner: session_01QF6kgTnqd4yg32y2UYe9FQ
 opened_at: 2026-09-12
-blocked_on: []
-blocked_on_basis: ASSESSED
+closed_at: null
 review_trigger: >-
-  Re-read when the Tier-2 projection fix (step 1) is merged AND deployed, which
-  is the first point at which the allowlist widening stops being inert.
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
 done_condition: >-
-  `breakout_1` OBSERVED routing: a `prop_tickets` row with status `emitted`
-  whose `order_package_id` traces to a fan-out round, against a STATED window in
-  which the leg was signalling. ⚠️ THE POSITIVE CONTROL IS NOT OPTIONAL — silence
-  in a window where the legs were not signalling proves nothing, and this account
-  signals roughly twice a week, so the window must be chosen and stated rather
-  than assumed. ⚠️ AND `rounds_applied` ALONE IS NO LONGER SUFFICIENT EVIDENCE,
-  which is this unit's own finding turned on its own done-condition: 317 live
-  soak rows carried `applied: true` with a non-empty `rounds_applied` while
-  NOTHING dispatched, because the plan the soak records is not the plan the
-  pipeline can read. A routing row is a claim about the PLAN; the ticket is the
-  claim about the DISPATCH. Record both. ⚠️ NOT SUFFICIENT: widening
-  ARBITRATION_FANOUT_ACCOUNTS and observing `apply_scope: allowlisted` — on the
-  current code that flips every observability surface to "routed" while the
-  account stays starved, which is strictly worse than the state it replaces.
-  ⚠️ IF THE OPERATOR DECIDES the prop roster should not be entry-clones of
-  `bybit_1` legs — which is what creates the symbol contest at all — this object
-  does NOT complete, it CHANGES: that is a legitimate Tier-3 roster decision and
-  must be RECORDED as one rather than left looking like an allowlist widening
-  about to happen.
+  breakout_1 is OBSERVED routing: a real prop ticket produced by the dispatch path, with the arbitration_fanout_soak showing routed > 0 for that account against a stated window in which its legs signalled. NOT done when a config change merges -- done when a ticket reaches the operator's terminal by the normal path.
 
+  [!] SHARPENED 2026-09-12 by MI-282 (the owning lane), and the clause above is
+  preserved because it is right about WHAT is owed and wrong about HOW to read it.
+  `arbitration_fanout_soak showing routed > 0` IS NOT SUFFICIENT EVIDENCE and must
+  not be used as the test: `rounds_applied` is a claim about the PLAN, not about
+  dispatch. MEASURED — 317 live soak rows carried `applied: true` with a non-empty
+  `rounds_applied` while the fan-out dispatched NOTHING, because the writer drops
+  the geometry its own reader validates (BL-20260912-THE-ARBITRATION-FANOUT-APPLY-
+  PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-
+  VALIDATES). The manager's own second sentence is the criterion that survives and
+  is now the ONLY one: a real prop TICKET reaching the operator's terminal by the
+  normal path -- a `prop_tickets` row with status `emitted` whose order_package_id
+  traces to a fan-out round -- against a STATED window in which the leg signalled.
+  [!] THE POSITIVE CONTROL IS NOT OPTIONAL: this account signals roughly twice a
+  week, so silence in a window where the legs were not signalling proves nothing.
+  [!] AND A NEW STEP (0) PRECEDES EVERYTHING: the projection fix is Tier-2 and must
+  land and deploy FIRST. Widening ARBITRATION_FANOUT_ACCOUNTS before it would flip
+  `apply_scope` to `allowlisted` and put breakout_1 in `rounds_applied` while the
+  reader still returns [] -- manufacturing the appearance of a fix on a REAL-MONEY
+  prop account, which is strictly worse than today's state.
 why: >-
-  OPERATOR-DIRECTED 2026-09-12, answering a decision prompt that raised the
-  concurrency cap specifically to staff a real-money lane. MI-274 established
-  (docs/research/prop-account-silence-2026-09-11.md) that `breakout_1` is starved
-  at dispatch rather than quiet, and refuted the low cushion as the cause. This
-  unit was dispatched to turn that attribution into a sequenced unblock, and was
-  warned that adding `breakout_1` to the allowlist is the obvious move and
-  exactly what must not be done on reflex. That warning turned out to be far more
-  load-bearing than anyone knew.
+  MI-274 refuted the cushion story and attributed the starvation: breakout_1 is absent from ARBITRATION_FANOUT_ACCOUNTS, measured 8 elected / 8 starved / 0 routed with legs signalling at timestamps identical to healthy siblings. The operator raised this as one of two priorities and it is still not trading. The attribution is done; what is owed is the unblock, which MI-274 recorded as a SEQUENCE not a single flip.
+
+source: >-
+  operator 2026-09-12: raise the cap to 5, staff the measurement fix plus one real-money lane
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by the manager (session_01HoFquGdTrD3TTGbMMRc43t). The
+  empty list is a POSITIVE finding here, not the NOT-ASSESSED default it
+  replaces: nothing blocks this object today, because MI-282 (prop lane) is RUNNING it right
+  now (session_01QF6kgTnqd4yg32y2UYe9FQ) and was observed working - read off `list_sessions`, not inferred
+  from the registry row. This is a statement about TODAY and about THIS object
+  only. It is NOT a forecast: a Tier-2 or Tier-3 gate reached later in the
+  queue is a real future blocker and must be written as a typed edge WHEN IT
+  BINDS, never pre-emptively - a false blocker is worse than a missing one,
+  and an anticipated one is a false one until the work arrives at it.
+
+captured_by: scripts/ops/capture_idea.py
 
 findings: >-
   THE FAN-OUT HAS NEVER DISPATCHED, ON ANY ACCOUNT, SINCE IT WAS BUILT — so the

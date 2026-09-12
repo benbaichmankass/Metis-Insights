@@ -144,8 +144,29 @@ runs:
         fi
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        # `-f` IS LOAD-BEARING, NOT DEFENSIVE, and its absence made this action
+        # silently unusable for any gitignored path. `.gitignore` ignores
+        # `runtime_logs/`, so a plain `git add` REFUSES such a path outright
+        # ("The following paths are ignored by one of your .gitignore files")
+        # and, under `set -euo pipefail`, kills this step AFTER the caller has
+        # already computed its artifact — i.e. the exact compute-then-discard
+        # failure this action exists to absorb, reintroduced one layer down.
+        # `replay-pregate-nightly` hand-rolled its own landing step and learned
+        # this the hard way on run #4390 (2026-09-02), destroying 10 salvaged
+        # heads; it could not then port onto this action without hitting the
+        # same wall here.
+        #
+        # ⚠️ `-f` CANNOT WIDEN WHAT A CALLER LANDS. `PATHS` is an explicit,
+        # caller-supplied list, never a wildcard sweep, so this overrides
+        # .gitignore for exactly the paths the caller named and nothing else.
+        # MEASURED 2026-09-12 over all 44 distinct `paths:` values passed by the
+        # 29 calling workflows: ZERO are gitignored, so this is a strict no-op
+        # for every caller that exists today and changes behaviour only for one
+        # that deliberately lands an ignored path. Force-adding such a path is
+        # an established pattern here — 72 files under `runtime_logs/` are
+        # already tracked that way.
         # shellcheck disable=SC2086 — PATHS is intentionally word-split into args.
-        git add -- ${PATHS}
+        git add -f -- ${PATHS}
         if git diff --cached --quiet; then
           echo "nothing to commit — no PR opened"
           echo "committed=false" >> "$GITHUB_OUTPUT"
