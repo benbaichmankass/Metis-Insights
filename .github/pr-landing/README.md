@@ -126,9 +126,37 @@ The checks that matter most:
   approval is a held, human-read PR while *using* one is free. That asymmetry is
   what closes the two-PR chain (self-land PR A writing an approval for your own
   PR B, then self-land B against it).
-- **R13** — a branch that ARMS auto-merge must hold the merge slot in
-  `docs/claude/session-board.json`, claimed in its own diff. Arming is not a
-  request to merge, it **is** the merge. The `PreToolUse` merge-slot guard in
+- **R13** — a branch that ARMS auto-merge must hold **an attributable,
+  timestamped merge-slot claim, made in its own diff**. Arming is not a
+  request to merge, it **is** the merge.
+  ⚠️ **TWO ROUTES SATISFY R13, AND ON A LANE BRANCH YOU WANT THE SECOND.** The
+  guard tries the per-branch route **first** and either is sufficient
+  (`check_pr_landing.py::slot_claim_state`):
+
+  | route | file | use it |
+  |---|---|---|
+  | legacy / automation | `docs/claude/session-board.json::merge_slot` | `commit-to-main` and the 27 workflows behind it. Still passes, byte-for-byte. |
+  | **per-branch (prefer this)** | `.github/merge-slots/{slug}.json` | **every session branch** |
+
+  ```
+  python3 scripts/ops/claim_merge_slot.py --branch-claim \
+    --branch claude/<your-branch> --held-by <session-id> --purpose "<what and which PR>"
+  ```
+
+  ⚠️ **`--branch-claim` IS NOT THE DEFAULT — you must pass the flag.** Without
+  it the script splices the shared field, which is the conflicting route.
+  **Why prefer it:** the shared `merge_slot` is ONE field in ONE file that every
+  armed branch must overwrite, so every armed branch conflicts with `main` the
+  moment anything else claims it. Measured over the last 40 commits to `main`
+  touching `session-board.json` (2026-09-11T23:12Z → 2026-09-12T09:30Z),
+  **39 of 40 moved `merge_slot.branch`** — median gap 11.5 minutes, 26 of 38
+  under 16. Resolving the conflict pushes a new head and **restarts CI**, so
+  resolving faster does not help. Observed with a control the same morning: all
+  four ARMED PRs of one session went `dirty` together, while the only two that
+  stayed CLEAN were the two declaring `landing: "hold"` — which write no claim
+  at all. **Nothing is given up:** R13 never serialized (see below), so the
+  shared field bought a guaranteed conflict and no exclusion. Full rationale:
+  `.github/merge-slots/README.md`. The `PreToolUse` merge-slot guard in
   `.claude/settings.json` matches only `mcp__github__merge_pull_request` and
   `mcp__github__enable_pr_auto_merge`, and the arming route calls **neither** —
   the merge is performed by `claude-pr-automerge.yml` under `GITHUB_TOKEN`, so
