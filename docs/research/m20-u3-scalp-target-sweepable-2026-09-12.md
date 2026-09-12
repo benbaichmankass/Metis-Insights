@@ -105,6 +105,16 @@ supplies roughly **62% of the reported net R**. **The error is FLATTERING**, whi
 direction that gets acted on — the same shape as
 `BL-20260820-HARNESS-DOES-NOT-MODEL-QUANTIZATION-REFUSAL`.
 
+⚠️ **AND IT IS A DIFFERENT CORPUS FROM THE MATRIX'S OWN CELLS — split the two claims.**
+The table above is `data.binance.vision` SOLUSDT 5m. Every M27 scalp verdict in
+`exit-refinement-coverage.json` was measured on the trainer's `/home/ubuntu/m27_data`,
+which `ict-scalp-exit-sweep.yml`'s own header records as a **different population**
+(different start date, row count and md5, and a different yearly walk-forward fold set).
+So: the **divergence** — harness force-closes at 24, production never closes on time — is
+established from **code** and is population-independent. The **magnitude** (38.4% of
+trades, ~62% of net R) is **corpus-specific and is NOT the matrix's number**, which nobody
+has measured. Re-deriving it on `m27_data` is part of what closes the row.
+
 ### Why this is filed separately rather than as a duplicate
 
 It is the `ict_scalp` instance of
