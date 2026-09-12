@@ -208,6 +208,16 @@ def update_row(path: pathlib.Path, row_id: str,
     it REFUSES a missing or non-string field, since appending to a field that
     does not exist means the caller is wrong about the row's shape.
 
+    ⚠️ AND THAT REFUSAL IS LOAD-BEARING, BECAUSE THE BACKLOGS CARRY TWO ROW
+    SHAPES. Measured on the health backlog 2026-09-12: **614 of 1496 rows have
+    no `detail` field at all** (377 resolved / 118 kept_open / 106 open / 8
+    wont_fix / 4 superseded / 1 invalid) and narrate in `summary` + `evidence`
+    instead. So the `--append-field detail` default is wrong for ~41% of rows,
+    and a helper that CREATED the missing field on append would quietly give
+    those rows a second, competing narrative field that no reader knows to look
+    at. The refusal is how a caller finds out which shape it is holding — which
+    is what happened the first time this tool was used in anger.
+
     ⚠️ IT HAS HAPPENED THREE TIMES, WHICH IS WHY THE REMEDY IS CODE RATHER THAN
     A REMINDER. `BL-20260901-BACKLOG-ROUND-TRIP-BROKEN-AGAIN-BY-A-HAND-WRITTEN-SPLICE`
     recorded the second occurrence ONE DAY after the first was repaired; a third
