@@ -37376,6 +37376,24 @@
         "PR-11903",
         "MI-283"
       ]
+    },
+    {
+      "id": "BL-20260912-TICK-COST-FILE-OUTLIVES-THE-PROCESS-IT-NAMES-SO-PROCESS-STARTED-UTC-CAN-MAKE-A-DEPLOY-LOOK-OLDER-THAN-THE-MERGE-IT-CONTAINS",
+      "title": "/api/diag/tick_cost's process_started_utc can name the PREVIOUS process, so a post-merge deploy check reads as NOT deployed when it is",
+      "severity": "medium",
+      "status": "open",
+      "opened": "2026-09-12",
+      "area": "observability",
+      "detail": "MEASURED 2026-09-12 while verifying the MI-283 deploy (#11903, merge 73747db4 at 19:47:52Z). /api/diag/tick_cost reported process_started_utc 2026-09-12T19:38:47.191900Z with ticks_measured 1, which PREDATES the merge -- so read as evidence about the running process it says the deployed code cannot contain the fix. The RUNNING process had in fact started 2026-09-12T19:50:37.678532Z, AFTER the merge, established from exit_interval_soak (which carries process_started_utc on every pass row and is durable). MECHANISM: tick_cost is persisted on a cadence (TICK_COST_WRITE_SECONDS, default 300) to a FILE that survives the process that wrote it, so between a restart and the new process's first persist the endpoint serves the PREVIOUS process's identity. ticks_measured 1 is the tell -- 15 minutes of uptime cannot have produced 1 tick -- but nothing on the payload SAYS the row is stale, so the reader has to notice the arithmetic. WHY IT MATTERS: this is the reading a session makes at exactly the moment it is deciding whether a Tier-2 change reached the fleet, and the failure is in the REASSURING-TO-WRONG direction for the observer (it reports a deploy as not-landed, so a session either waits forever or -- worse -- concludes the deploy mechanism is broken and starts remediating something that is fine). It nearly produced exactly that on this session. NOT THE SAME AS ITS NEIGHBOURS, and both were read before filing: BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY is that max_ms RESETS per process (a statistic under-observed); BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED is that the counters are per-PROCESS with no durable sibling. This row is the third thing: the FILE OUTLIVES THE PROCESS IT NAMES, so its process IDENTITY can be stale and is read as a fact about the current process. Filed as related, not as a duplicate. ALSO NOT BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE: that is about /api/diag/version reporting the DISK sha. Both bite the same question from opposite sides -- version tells you what is ON DISK and tick_cost tells you about a process that may no longer exist -- which is why establishing 'is the fix running' currently needs a THIRD surface (exit_interval_soak). PROPOSED FIX (not applied, would be Tier-1): stamp the payload with the file's own mtime, or carry a written_by_pid / written_at beside process_started_utc, so 'this row describes a process that has since exited' is expressible rather than inferred from a ticks_measured that looks too small.",
+      "resolution_criteria": "A reader of /api/diag/tick_cost can tell a payload describing the CURRENT process from one describing an EXITED one WITHOUT doing arithmetic on ticks_measured -- i.e. the payload carries its own freshness (file mtime, or a written_at/pid beside process_started_utc). NOT sufficient: documenting the hazard in prose, which is what this row is. NOT sufficient either: a session remembering to cross-check exit_interval_soak -- that is the workaround this row exists to remove. IF the operator decides the cross-check is acceptable and the endpoint should not change, this row does not clear, it CHANGES: record that decision and name exit_interval_soak as the sanctioned source for process identity, so the next session does not re-derive it.",
+      "refs": [
+        "BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY",
+        "BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED",
+        "BL-20260823-DIAG-VERSION-REPORTS-DISK-SHA-NOT-RUNNING-CODE",
+        "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP"
+      ],
+      "found_by": "MI-283 (session_01YEdjrYi5Kpp9dLw3yQNyNm)",
+      "tier": "1 — the proposed fix adds a freshness field to a read-only diag payload (observability); no order path, no config, no service."
     }
   ]
 }
