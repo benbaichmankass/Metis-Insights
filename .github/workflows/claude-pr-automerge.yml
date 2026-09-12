@@ -262,7 +262,7 @@ jobs:
                   'still opened — the relay does not go down over a missing secret ' +
                   '— but it will need one ordinary push before it can merge.');
               }
-              pr = (await opener.rest.pulls.create({
+              const createArgs = {
                 owner, repo, head, base: 'main', draft: false,
                 title: subject,
                 body: [
@@ -272,7 +272,33 @@ jobs:
                   '---',
                   '🤖 Generated with [Claude Code](https://claude.com/claude-code)',
                 ].join('\n'),
-              })).data;
+              };
+              // ⚠️ AN UNUSABLE PAT MUST NOT TAKE THE RELAY DOWN.
+              // Whether `BRANCH_PROTECTION_TOKEN` carries PR-create scope is NOT
+              // established — it cannot be read from a session, and it is the one
+              // open question on this change. Without this fallback the answer
+              // decides whether the relay works at all: a token lacking the scope
+              // returns 403 here, the whole script throws, and NO PR is opened —
+              // strictly worse than the GITHUB_TOKEN behaviour this change
+              // replaces. With it, the unknown degrades to the SAME state a
+              // missing secret already degrades to: PR opened, checks absent,
+              // arming refused by step 3. The question stops being load-bearing.
+              // Only the PAT attempt is guarded; a GITHUB_TOKEN failure is a real
+              // failure and still propagates.
+              try {
+                pr = (await opener.rest.pulls.create(createArgs)).data;
+              } catch (e) {
+                if (opener === github) { throw e; }
+                core.warning(
+                  `opening the PR under BRANCH_PROTECTION_TOKEN FAILED (${e.status || '?'}: ` +
+                  `${e.message}). Falling back to GITHUB_TOKEN. The PR will still be ` +
+                  `opened, but GitHub suppresses the \`pull_request\` event for that ` +
+                  `token, so the required checks will NOT attach to the first head and ` +
+                  `step 3 will REFUSE to arm auto-merge. If this is a 403, the PAT is ` +
+                  `missing PR-create scope — grant it, or expect one ordinary push per PR.`);
+                openerKind = 'github_token';
+                pr = (await github.rest.pulls.create(createArgs)).data;
+              }
               created = true;
               core.notice(`opened PR #${pr.number} (opener: ${openerKind})`);
             } else {

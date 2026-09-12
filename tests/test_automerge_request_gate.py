@@ -36,8 +36,10 @@ what separates "fixed" from "broken".
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -60,18 +62,57 @@ def _script() -> str:
     return bodies[0]
 
 
+# What `checks.listForRef` returns for a HEALTHY head: the repo's own required
+# check, plus this workflow's self job (always present on a PR it opened). This
+# is the default because it is what a genuine request looks like once the
+# `pull_request` event has fired, and the positive controls are about the
+# genuine case. Pass `check_runs=` explicitly to model anything else.
+HEALTHY_CHECKS = [{"name": "guards"}, {"name": "open-and-automerge"}]
+
+
 def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
-             get_content_raises: bool = False) -> dict:
+             get_content_raises: bool = False, check_runs=None,
+             pat: str = "", pat_create_fails: bool = False) -> dict:
     """Evaluate the real script against a mocked API; return every call it made.
 
     `blobs` maps (ref, path) -> blob sha, modelling the two `getContent` reads.
     A ref/path absent from it is a 404, i.e. genuinely not there.
+
+    `check_runs` is what `checks.listForRef` hands the 2026-09-12 arming gate.
+    It defaults to `HEALTHY_CHECKS`; pass `[]` or the self job alone to model
+    the zero-check head that gate exists to refuse.
+
+    `pat` / `pat_create_fails` model `BRANCH_PROTECTION_TOKEN` in its three
+    states: absent, present-and-working, and present-but-REFUSED (the PR-create
+    scope nobody has been able to verify). `@actions/github` is not installed
+    here — it ships inside `actions/github-script` — so `require` is shimmed to
+    hand back a stub client rather than being left to throw, which would make
+    every PAT path untestable instead of merely unexercised.
     """
     harness = """
     const CALLS = [];
     const BLOBS = %(blobs)s;
     const EXISTING = %(existing)s;
     const RAISES = %(raises)s;
+    const CHECK_RUNS = %(check_runs)s;
+    const PAT_CREATE_FAILS = %(pat_fails)s;
+
+    // `@actions/github` is bundled into actions/github-script and is NOT
+    // installed here, so a bare require would throw and no PAT path could ever
+    // be exercised. The shim is passed in as the script's own `require`.
+    const realRequire = require;
+    const patClient = { rest: { pulls: { create: async () => {
+      CALLS.push({ call: 'pat.pulls.create' });
+      if (PAT_CREATE_FAILS) {
+        const e = new Error('Resource not accessible by personal access token');
+        e.status = 403; throw e;
+      }
+      return { data: { number: 777, node_id: 'N', draft: false,
+                       head: { sha: '%(sha)s' } } };
+    } } } };
+    const requireShim = (m) => m === '@actions/github'
+      ? { getOctokit: () => { CALLS.push({ call: 'getOctokit' }); return patClient; } }
+      : realRequire(m);
 
     const context = {
       ref: 'refs/heads/%(branch)s',
@@ -79,7 +120,16 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
       repo: { owner: 'o', repo: 'r' },
       payload: { head_commit: { message: 'feat: a thing\\nbody' } },
     };
-    const core = { notice: (m) => CALLS.push({ call: 'notice', m }),
+    // MIRROR THE REAL `@actions/core` LOGGING SURFACE, not merely the two calls
+    // the script happened to make when this harness was written. Stubbing only
+    // `notice`/`setFailed` meant the first `core.warning` added to the workflow
+    // threw `core.warning is not a function` INSIDE the script, which the
+    // harness recorded as a generic `threw` — indistinguishable from the
+    // workflow genuinely failing, and it read as a production defect.
+    const core = { notice:    (m) => CALLS.push({ call: 'notice', m }),
+                   warning:   (m) => CALLS.push({ call: 'warning', m }),
+                   error:     (m) => CALLS.push({ call: 'error', m }),
+                   info:      (m) => CALLS.push({ call: 'info', m }),
                    setFailed: (m) => CALLS.push({ call: 'setFailed', m }) };
     const github = {
       graphql: async (q, v) => {
@@ -104,26 +154,36 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
           merge: async () => { CALLS.push({ call: 'pulls.merge' }); return {}; },
         },
         checks: { listForRef: async () => { CALLS.push({ call: 'checks' });
-                                            return { data: { check_runs: [] } }; } },
+                                            return { data: { check_runs: CHECK_RUNS } }; } },
       },
     };
 
     (async () => {
-      try { await (async () => {
+      try { await (async (require) => {
 %(script)s
-      })(); } catch (e) { CALLS.push({ call: 'threw', m: String(e.message) }); }
+      })(requireShim); } catch (e) { CALLS.push({ call: 'threw', m: String(e.message) }); }
       console.log('___RESULT___' + JSON.stringify(CALLS));
     })();
     """ % {
         "blobs": json.dumps(blobs),
         "existing": json.dumps(existing_pr),
         "raises": "true" if get_content_raises else "false",
+        "check_runs": json.dumps(HEALTHY_CHECKS if check_runs is None else check_runs),
+        "pat_fails": "true" if pat_create_fails else "false",
         "branch": branch,
         "sha": head_sha,
         "script": textwrap.indent(_script(), " " * 8),
     }
-    out = subprocess.run(["node", "-e", textwrap.dedent(harness)],
-                         capture_output=True, text=True, timeout=60)
+    # The script writes the gate's input file and shells out to
+    # `scripts/ci/automerge_arming.py`, so it needs both `ARMING_INPUT` and a cwd
+    # at the repo root — exactly as the workflow gives it.
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {**os.environ,
+               "ARMING_INPUT": str(Path(tmp) / "automerge-arming.json"),
+               "PR_OPEN_PAT": pat}
+        out = subprocess.run(["node", "-e", textwrap.dedent(harness)],
+                             capture_output=True, text=True, timeout=60,
+                             cwd=REPO, env=env)
     assert out.returncode == 0, out.stderr
     marker = "___RESULT___"
     assert marker in out.stdout, out.stdout
@@ -196,6 +256,107 @@ def test_positive_control_modified_request_on_an_open_nondraft_pr_arms():
                      "head": {"sha": "d" * 40}},
     )
     assert "enableAutoMerge" in _kinds(res)
+
+
+# --------------------------------------------------------------------------
+# THE ARMING GATE (2026-09-12) — the counterpart to the two positives above.
+#
+# ⚠️ THE TWO POSITIVE CONTROLS DID NOT CHANGE THEIR ASSERTIONS; their FIXTURE
+# did. They used to run against a mock whose `checks.listForRef` always returned
+# `[]` — a head with nothing attached — because when they were written arming
+# did not depend on checks at all. Under the gate that head is exactly the one
+# that must be REFUSED, so the old fixture asserted "a genuine request arms" of
+# a PR that is no longer genuine. Changing the assertion to expect a refusal
+# would have deleted the only thing standing between this change and the relay
+# going silent; changing the FIXTURE to a healthy head keeps the control doing
+# its job, and the test below is what stops that default from becoming a way of
+# passing the gate without ever testing it.
+# --------------------------------------------------------------------------
+
+def test_a_head_with_no_checks_attached_is_not_armed():
+    """The gate's whole point, exercised through the SHIPPED script.
+
+    ⚠️ A zero-check PR does not report zero check runs — it reports ONE, this
+    workflow's own job, green because it opened the PR. So the fixture is the
+    self job ALONE, not `[]`: `[]` would also be refused by a naive
+    `length > 0` gate and would prove nothing about the exclusion-by-name that
+    does the real work.
+    """
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        check_runs=[{"name": "open-and-automerge"}],
+    )
+    kinds = _kinds(res)
+    assert "pulls.create" in kinds, f"the PR must still be OPENED: {kinds}"
+    assert "enableAutoMerge" not in kinds, f"armed a head nothing is measuring: {kinds}"
+    assert any("NOT ARMING" in c.get("m", "") for c in res["calls"])
+
+
+def test_an_unreadable_check_list_is_not_read_as_permission_to_arm():
+    """`we could not look` is not `nothing is running`, and must not arm."""
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        check_runs="not-a-list",
+    )
+    assert "enableAutoMerge" not in _kinds(res)
+
+
+# --------------------------------------------------------------------------
+# WHO OPENS THE PR — the three BRANCH_PROTECTION_TOKEN states.
+# --------------------------------------------------------------------------
+
+def test_a_pat_is_used_to_open_the_pr_when_one_is_present():
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        pat="ghp_fake",
+    )
+    kinds = _kinds(res)
+    assert "getOctokit" in kinds, f"a present PAT must be used: {kinds}"
+    assert "pat.pulls.create" in kinds, f"the PR must be opened UNDER the PAT: {kinds}"
+    assert "pulls.create" not in kinds, "it must not also open one under GITHUB_TOKEN"
+
+
+def test_a_missing_pat_still_opens_the_pr_and_says_so_loudly():
+    """The fallback must be loud AND working. A missing secret must never take
+    the relay down — it degrades to `PR opened, arming refused`."""
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        pat="", check_runs=[{"name": "open-and-automerge"}],
+    )
+    kinds = _kinds(res)
+    assert "getOctokit" not in kinds
+    assert "pulls.create" in kinds, f"a missing PAT must still open the PR: {kinds}"
+    assert any(c["call"] == "warning" and "BRANCH_PROTECTION_TOKEN is NOT set" in c["m"]
+               for c in res["calls"]), "the fallback must announce itself"
+    assert "enableAutoMerge" not in kinds, "and must NOT arm, since no check attached"
+
+
+def test_an_UNUSABLE_pat_falls_back_and_still_opens_the_pr():
+    """⚠️ THE OPEN QUESTION ON THIS CHANGE, MADE NON-LOAD-BEARING.
+
+    Whether `BRANCH_PROTECTION_TOKEN` carries PR-create scope is NOT
+    established and cannot be read from a session. Without a fallback the
+    answer decides whether the relay works at all: a token lacking the scope
+    403s, the script throws, and NO PR is opened — strictly worse than the
+    GITHUB_TOKEN behaviour being replaced. With it, the unknown degrades to the
+    same state a missing secret does.
+    """
+    res = run_gate(
+        branch="claude/some-branch", head_sha="c" * 40,
+        blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},
+        pat="ghp_fake", pat_create_fails=True,
+        check_runs=[{"name": "open-and-automerge"}],
+    )
+    kinds = _kinds(res)
+    assert "pat.pulls.create" in kinds, "it must have TRIED the PAT"
+    assert "pulls.create" in kinds, f"an unusable PAT must still open the PR: {kinds}"
+    assert "threw" not in kinds, "a 403 on the PAT must not take the relay down"
+    assert any(c["call"] == "warning" and "FAILED" in c["m"] for c in res["calls"])
+    assert "enableAutoMerge" not in kinds, "and must NOT arm — the checks did not attach"
 
 
 # --------------------------------------------------------------------------
