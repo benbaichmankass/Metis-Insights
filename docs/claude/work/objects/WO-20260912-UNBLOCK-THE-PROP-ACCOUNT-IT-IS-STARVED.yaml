@@ -20,9 +20,9 @@ done_condition: >-
   not be used as the test: `rounds_applied` is a claim about the PLAN, not about
   dispatch. MEASURED — 317 live soak rows carried `applied: true` with a non-empty
   `rounds_applied` while the fan-out dispatched NOTHING, because the writer drops
-  the geometry its own reader validates (BL-20260912-THE-ARBITRATION-FANOUT-APPLY-
-  PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-
-  VALIDATES). The manager's own second sentence is the criterion that survives and
+  the geometry its own reader validates -- see
+  BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES
+  -- in the health backlog. The manager's own second sentence is the criterion that survives and
   is now the ONLY one: a real prop TICKET reaching the operator's terminal by the
   normal path -- a `prop_tickets` row with status `emitted` whose order_package_id
   traces to a fan-out round -- against a STATED window in which the leg signalled.
