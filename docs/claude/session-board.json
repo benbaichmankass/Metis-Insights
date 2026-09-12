@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
-    "branch": "claude/manager-0052z-tick",
-    "claimed_at": "2026-09-12T00:54:47Z",
-    "purpose": "manager 00:52Z tick: all three lanes terminal, the e35 question closed"
+    "branch": "claude/manager-scope-parser-third-instance",
+    "claimed_at": "2026-09-12T00:59:12Z",
+    "purpose": "append the third measured instance to the scope-overlap parser row"
   },
   "active_sessions": [
     {
