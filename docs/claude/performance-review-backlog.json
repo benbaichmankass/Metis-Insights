@@ -4798,7 +4798,20 @@
       "resolution_criteria": "EITHER (a) the 10 no-qty-match rows are adjudicated by a SUM-aware matcher whose false-corroboration rate is measured on a planted control -- e.g. partitions drawn from a symbol the population does not contain must NOT corroborate -- and the 8 weak and 5 refuted are individually explained; OR (b) an operator decision that a 25-of-50 adjudication is sufficient for the purpose, RECORDED as a decision with the remainder stated wherever the population is quoted. [!] NOT SUFFICIENT: a partition search reporting matches with no false-positive control -- with enough candidate subsets something always adds up. [!] NOT SUFFICIENT: dropping the unadjudicated rows and quoting the rest, which is what this row exists to prevent.",
       "next_action": "Decide (a) or (b). Until then, quote 25 of 50 as the adjudicated fraction whenever the netting_attributed population is used.",
       "updates": []
+    },
+    {
+      "id": "BL-20260912-THE-OKX-PROXY-BASIS-IS-FIT-FOR-THE-TREND-LEGS-AND-GRADES-UNFIT-ON-THE-SCALP-LEGS-IT-WAS-NEVER-VALIDATED-AGAINST",
+      "title": "MI-275's OKX price basis was validated on e35 legs only (0 unfit of 31); run on the ict_scalp_* control arm its own PC1 grades unfit — 5 of 126, max 120.5bp against a 25bp tolerance",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "research-method",
+      "opened_at": "2026-09-12",
+      "opened_by": "MI-278 U5 (session_01Wv1BdfEUnmCBZrhvUjeBzb)",
+      "detail": "MI-275 established OKX `*-USDT-SWAP` 1m as the price basis for the e35 counterfactual and validated it with PC1 (the journal's entry must fall inside the OKX bar covering the fill minute, 25bp tolerance): 0 unfit of 31, verdict `fit`. That validation covered TREND legs only. MEASURED 2026-09-12 in docs/research/m20-u5-the-non-e35-control-arm-2026-09-12.md, running the SAME PC1 over the untouched_control arm (126 ict_scalp_* packages): verdict `unfit`, 5 unfit, max deviation 120.53bp. Four are SOLUSDT and one BTCUSDT; the entries sit OUTSIDE the bar by 36-120bp. [!] WHY IT MATTERS BEYOND 4%: the arm whose basis is weaker is the CONTROL, i.e. the arm introduced to test the other one, so the asymmetry runs in the uncomfortable direction. And SOL carries the control's second-largest cell. The U5 verdict does not rest on SOL alone -- ETH and AVAX carry it independently -- but a later session quoting the control's SOL numbers without this caveat would be quoting the least well-founded cell in the study. [!] THE CAUSE IS NOT ESTABLISHED and is not guessed at here. Candidates worth one probe each: a scalp entry that is a limit fill recorded at a level the venue never printed in that minute; a genuine OKX-vs-Bybit divergence that matters more at a scalp's finer price scale than at a trend leg's; or a fill-minute rounding difference. Nobody has looked. [!] DO NOT 'FIX' THIS BY WIDENING THE TOLERANCE. 25bp was chosen as ~5x the widest deviation MI-275 measured and an order of magnitude below the smallest stop distance; widening it to admit a 120bp row would make the control incapable of failing, which is the point of having it.",
+      "next_step": "Probe the five unfit rows against the journal's own recorded fill and the package's declared entry, and establish whether the deviation is a journal artefact or a real basis divergence at scalp price scales.",
+      "resolution_criteria": "The cause of the five unfit rows is established by measurement, and either the basis is declared fit-for-scalps with the residual explained, or the scalp legs are declared outside this basis and any study using them says so. [!] A LATER RUN HAPPENING TO GRADE `fit` DOES NOT CLOSE THIS unless the population is the same or larger -- the rate is 4% and a smaller sample can miss it entirely. [!] AND WIDENING BASIS_TOL_BP CLOSES NOTHING, for the reason in the detail."
     }
   ],
-  "updated_at": "2026-09-11T22:49:33Z"
+  "updated_at": "2026-09-12"
 }
