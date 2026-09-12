@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research tooling, but it adds src/research/stop_attribution.py and src/research/** is not in TIER1_SURFACE, so the guard cannot vouch for it and self-landing is correctly refused. Needs one human merge click. Nothing here is Tier-2 or Tier-3: no config/, no src/runtime/, no src/units/, no deploy/, no order path, and no live parameter changes. The one pre-existing file it edits is a dated research script (scripts/research/stop_width_counterfactual_2026_09_11.py), rewired to import the new owner; its own --self-test still reports OK and 0 verdict changes were measured over the 322 rows where the old and new tolerances can both be evaluated.",
+  "why": "research tooling + one read-only diag pull; answers BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT"
+}
