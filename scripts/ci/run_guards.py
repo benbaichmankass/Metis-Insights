@@ -1890,6 +1890,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "due-list-token-guard",
+        # UNGATED. `when: None` because the failure it catches is a workflow
+        # that renders the due-list WITHOUT a token, and a diff-scoped guard
+        # cannot see a fourth such workflow being added months later — which is
+        # exactly how the third one shipped without an `env:` block and then, at
+        # `35 * * * *`, won 47 of the last 60 writes to docs/claude/DUE.json.
+        # It is a sub-second YAML scan, so the cost of running it always is
+        # nothing against a source that was blind in production for months.
+        "when": None,
+        # Self-test FIRST, the collapsed-state-guard posture: a guard that
+        # silently stopped matching must not read as a clean pass.
+        "steps": [["python3", "scripts/ci/check_due_list_token.py", "--self-test"],
+                  ["python3", "scripts/ci/check_due_list_token.py"]],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
