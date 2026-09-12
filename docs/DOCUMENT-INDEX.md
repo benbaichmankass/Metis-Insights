@@ -66,7 +66,7 @@ was read as an *instruction*.
 | `evidence` | 323 | A measurement that may be CITED. True of its date and population. |
 | `history` | 367 | A record of what happened. Never obeyed, never cited as a current measurement. |
 | `lookup` | 44 | Consulted for a fact. Neither obeyed, nor a measurement, nor a record of events. |
-| `unknown` | 71 | **Could not be categorised. Not a category — the absence of one.** |
+| `unknown` | 73 | **Could not be categorised. Not a category — the absence of one.** |
 
 ## Status — a closed set of six
 
@@ -77,7 +77,7 @@ was read as an *instruction*.
 | `closed_unfinished` | 9 | Abandoned mid-flight. NOT the same fact as superseded -- record what was left. |
 | `historical` | 369 | A record of something that happened. Correct forever, actionable never. |
 | `reference` | 0 | Consulted on demand. Neither current-and-actionable nor superseded. |
-| `unknown` | 574 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
+| `unknown` | 576 | NOBODY HAS CHECKED. Not a soft 'live'. The honest state, and a required one. |
 
 ⚠️ **`superseded` and `closed_unfinished` are DIFFERENT FACTS and are never
 collapsed.** Overtaken by a successor is not the same as abandoned mid-flight.
@@ -400,6 +400,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-177:self-measured-2026-09-08 / population-stated` | MI-177 fleet audit: 8/11 accounts read both sides, 25 symbol pairs, 24 exact + 1 known MGC divergence; 3 accounts not read. |
+| `docs/claude/work/TIER2-SELF-LAND-APPROVAL-RECORD-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md` | evidence | live | — | 2026-09-08 | `mi-189b:self-measured-2026-09-08 / population-stated` | MI-189b lane pass 5: the 3 accounts MI-177 could not read. 3 attempted, 3 determined — ib_live + oanda_practice could_not_read (dry gate), breakout_1 RECONCILES via prop_account_status (as-of, 8.5d stale). |
 | `docs/claude/work/SYSTEM-REVIEW-EVIDENCE-2026-09-11.md` | evidence | live | — | 2026-09-11 | `mi-272:self-measured-2026-09-11 / population-stated` | MI-272 system-review measurement record. The closed-flat invariant is EXERCISED AND WRONG: 9 violations, three SOLUSDT trades sized 7.5/9.3/9.8 all reporting the identical residual -250.4, because `exchange_qty` is the account+symbol NET book — so on a netted account every close with open siblings fires by construction, at Level.ERROR, to the operator. The 60s exit-eval requirement is BREACHED on the durable record (1,219/72,148 = 1.69%, max 2.00x; restart gaps 77/462 = 16.7%, max 3.51x) while the per-process instrument reads `within`. replay-pregate-nightly has ZERO successes in 77 scheduled runs. The drift gate is computed over 9.4% of its declared window, blocking 71% of the ML fleet, and 2 models pass it because they emit a constant. Populations stated throughout; two false P1s recorded as checked-and-refuted. Nothing enacted — all Tier-2/3 findings PROPOSED. |
 | `docs/claude/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md` | evidence | live | — | 2026-09-10 | `self-measured-2026-09-10 / population-stated` | Root cause of the exit-eval 60s breaches — and the TWO populations do NOT share one. Within-process: 100% slow-PASS (1218 of 1218, a COMPLETE census, have pass_ms > 30s and none has a residual above one cadence period), 97.0% predate 2026-08-22, leaving 14 in 18 days of which 10 sit in the IBKR reset window where each IB package costs a serialized 29.0s pinned-thread queue timeout (3 x 29.0s + ~4s reconciles the recorded 91,187ms pass). Restart gap: residual cadence sleep 0-30s + systemd downtime ~0.3s + startup-to-thread 6-15s + COLD first pass 12.7-16.9s, reconciling EXACTLY on all four boundaries measured — i.e. 19-60s BY CONSTRUCTION against a 60s requirement. Deploy speed is NOT the cause. Two Tier-2 remedies PROPOSED, not applied. |
@@ -412,6 +413,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md` | evidence | live | — | 2026-09-09 | `self-measured-2026-09-09 / population-stated` | Phase F: two of the three clears-when clauses on OI-20260901-REVIEW-PACKET-... were ALREADY MET and the row still read as outstanding — the cron has fired (7 schedule runs, 3 success, indexes on main with matching generated_at) and floor_state reads `none_gradeable` on 7 of 8 indexes, not `unknown`. The condition itself measured over 8 days: graded 52 / actionable 0 on 8 of 8, no leg above 10 closes in a 7d window, ~17x shortfall against the n>=20 floor. Widening mostly fails — the generator's own horizon reads 70d to grade the median reachable leg and 32 of 52 ungradeable at ANY window. Decision prepared as DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR; window and floor UNCHANGED. |
 | `docs/claude/work/MEASUREMENT-DEFECTS-2026-09-06.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/approvals/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/decision-drain-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/manager-wake-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/spawn-prompts/2026-09-06/1A-observation-sweep.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -424,6 +426,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/data/dataset-taxonomy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/data/versioning-policy.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
 | `docs/deployment.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/high-severity-class-map-2026-09-12.md` | evidence | live | — | 2026-09-12 | `dir:claude-is-working-notes / not-assessed` | — |
 | `docs/design/alpaca-trade-scoped-close-PROPOSAL.md` | plan | live | — | 2026-09-08 | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/b6-split-packet-2026-08-29.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
 | `docs/design/boot-read-size-PROPOSAL.md` | architecture | unknown | — | never | `dir:design-declares-contracts / not-assessed` | — |
