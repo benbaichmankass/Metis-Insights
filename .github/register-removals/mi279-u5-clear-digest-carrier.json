@@ -1,0 +1,6 @@
+{
+  "why": "Deliberate: this PR CLEARS OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED on an observation (a real `push`-event run of the new trigger), which is exactly the settled-row prune this directory exists for. Decided by session_013iSqp4LsU1eq8K326eUtgj (OPS lane, MI-279) on the evidence stated in the PR body; the row's own clears_when is the check a reviewer applies. The three FIELD losses this branch also carried were NOT deliberate and are NOT declared here — they were somebody else's `notes` write-backs reverted by a line-level merge, and they have been restored by field instead.",
+  "removals": [
+    {"file": "docs/claude/OPEN-ITEMS.json", "id": "OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED", "keys": []}
+  ]
+}
