@@ -1,0 +1,9 @@
+MI-280 — arm the landing route for claude/mi280-u7-observed.
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. Records that clause (1) of
+OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING
+was OBSERVED met: U7 (#11897) works in production, before/after on the same
+error-feed-digest carrier, with rows 0 -> 9 as the positive control.
+
+Nothing else goes on this branch after this push.
