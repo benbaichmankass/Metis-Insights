@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "A new reporting tool at scripts/ops/spent_decision_edges.py, a due-list source in scripts/ops/render_due_list.py that imports it, its registration in scripts/ci/run_guards.py, and one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Every touched path is inside TIER1_SURFACE (scripts/ops/**, scripts/ci/**, docs/**), and none is in check_pr_landing.LANDING_MACHINERY -- verified against that list rather than assumed, so R12 does not apply. It EDITS NO WORK OBJECT and proposes no lifecycle change: re-grading a `waiting` object is the owner's or the manager's call because it moves what the WIP ceiling and the constraint readout compute over, and this change only reports the disagreement."
+  "landing": "hold",
+  "why": "SELF-HELD pending a rewrite -- see hold_text. The genuinely additive half is the due-list source (the existing R3 reports in guard output, which no session reads while planning); the duplicated half is the grader and must go.",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "SELF-HELD: THIS DUPLICATES A MECHANISM THAT ALREADY LANDED. #12035 ('decision-answers R3', on main as 6bda42122) extends scripts/ci/check_decision_answers.py with exactly this report, and it merged BEFORE this branch was pushed. I did not run the one-line existence check CLAUDE.md prescribes for precisely this failure class (RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED), and a second implementation of 'is this edge spent?' is the drift I have spent this whole unit arguing against. Holding rather than auto-merging, and rewriting this branch to DELETE the duplicate grader and re-point the due-list source at the canonical owner. Do not merge as-is."
 }
