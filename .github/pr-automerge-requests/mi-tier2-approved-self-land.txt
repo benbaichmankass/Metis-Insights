@@ -1,0 +1,1 @@
+PR #11896 — MI-273. Tier-1 docs/registers only: record #11817 merged, delete the blocked_on edge it discharged, re-observe the loud OI row without clearing it.
