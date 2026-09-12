@@ -1036,6 +1036,18 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The typed-edge contract the work store's README declares and nothing
+        # enforced. Its self-test proves BOTH verdicts and BOTH ways the check
+        # could stop looking (an unreadable vocabulary, an unparseable object) —
+        # a guard that silently disables itself reports exactly like a clean one.
+        "name": "edge-kind-vocabulary-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_edge_kind_vocabulary.py", "--self-test"],
+            ["python3", "scripts/ci/check_edge_kind_vocabulary.py"],
+        ],
+    },
+    {
         "name": "due-list-guard",
         "when": None,
         "steps": [
