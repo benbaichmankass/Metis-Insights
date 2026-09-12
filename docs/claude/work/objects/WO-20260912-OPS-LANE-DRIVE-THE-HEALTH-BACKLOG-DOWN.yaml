@@ -1,0 +1,30 @@
+id: WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Ops lane: drive the health backlog down by CLASS, starting with the 20 open critical rows
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  Open CRITICAL count is driven from 20 toward 0 with every closure carrying OBSERVED evidence, not a passing test; and the open count is reported as a burn-down (opened vs closed) each session so the pile cannot grow silently while rows are worked.
+
+why: >-
+  702 open rows, 20 critical and 274 high. The register is the standing to-do list and nothing has been draining it while lanes sat idle. Reviews FILL this; only a dedicated drain EMPTIES it.
+
+source: >-
+  operator 2026-09-12: we have lots of backlog work for the ops lane to be working on
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
