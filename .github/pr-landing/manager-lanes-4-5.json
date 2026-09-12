@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records three operator decisions (Tier-2 PR approvals, dispatch the measurement fix, raise the concurrency cap to 5) and the registry rows plus work objects for lanes MI-281 and MI-282. Registers and docs only."
+}

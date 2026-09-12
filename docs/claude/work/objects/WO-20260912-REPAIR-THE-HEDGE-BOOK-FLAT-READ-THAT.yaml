@@ -1,0 +1,30 @@
+id: WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Repair the hedge-book flat read that closes live Bybit positions and books invented PnL
+stage: CAPABILITY
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  _bybit_position_protection SELECTS the book instead of taking rows[0], and its two collapses are separated: 'not rows' on a symbol-scoped call returns None (we could not look) rather than _flat, and more than one LIVE book returns None rather than picking one. THEN observed on the fleet: a netting_attribution_soak row on a hedge-armed symbol carrying a non-zero exchange_qty where the venue holds a position, and no further netting_attributed -> same-size-adopt pair. A passing unit test clears NEITHER -- a fixture cannot reproduce which row Bybit lists first, which is the whole mechanism.
+
+why: >-
+  LIVE defect on real money. src/runtime/order_monitor.py takes pos = rows[0] on a symbol-scoped get_positions with no zero-size skip and no hedge-book selection; since BYBIT_HEDGE_MODE_SYMBOLS was armed a zero-size sibling listed first makes the symbol read _flat, and _reconcile_netting_partial_closes then closes a live position with an ESTIMATED pnl. Three provable false closes, +15.86 manufactured, 7 of 49 netting_attributed closes on real-money bybit_2. It also caps how precisely the bleed magnitude can be stated, because its population is 100% ESTIMATED.
+
+source: >-
+  operator 2026-09-12, answering a direct decision prompt: dispatch a dedicated lane now
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
