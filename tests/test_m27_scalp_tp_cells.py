@@ -202,3 +202,100 @@ class TestRunCellSubtraction:
         sw.run_cell(tmp_path / "d.csv", ["--tp-at-r", "2.0"], tmp_path / "o2.json")
         assert "--sim-breakeven" in seen["cmd"]
         assert "--tp-at-r" in seen["cmd"] and "2.0" in seen["cmd"]
+
+
+class TestTimeoutShareFidelity:
+    """Every cell verdict carries the share of its trades the HARNESS killed.
+
+    Production has no time exit on any ict_scalp leg, so a `timeout` trade is
+    one the live leg would still have held. The share is not constant across
+    the grid — measured on SOLUSDT 5m it rises monotonically 21.4% (0.75R) to
+    58.5% (4R) — so a verdict printed without it cannot be told apart from one
+    measured at parity.
+    """
+
+    def test_share_is_computed_from_the_outcome_map(self):
+        w = {"trades": 40, "by_outcome": {"tp_hit": 10, "sl_hit": 10, "timeout": 20}}
+        assert sw.timeout_share(w) == 0.5
+
+    def test_absent_timeout_key_is_a_real_zero(self):
+        """No timeouts IS a measurement — distinct from not having looked."""
+        w = {"trades": 8, "by_outcome": {"tp_hit": 8}}
+        assert sw.timeout_share(w) == 0.0
+
+    def test_we_did_not_look_is_None_and_never_0(self):
+        """0.0 would read as PERFECT fidelity — the most flattering wrong answer."""
+        for w in ({"trades": 10},                      # no outcome map
+                  {"trades": 0, "by_outcome": {}},     # no trades
+                  {},                                  # nothing at all
+                  {"trades": 5, "by_outcome": None}):  # unusable map
+            assert sw.timeout_share(w) is None, w
+
+    def test_suffix_renders_both_windows(self):
+        cell = {"IS":  {"trades": 10, "by_outcome": {"timeout": 2}},
+                "OOS": {"trades": 10, "by_outcome": {"timeout": 5}}}
+        s = sw._fidelity_suffix(cell)
+        assert "IS 20%" in s and "OOS 50%" in s
+
+    def test_suffix_says_unknown_rather_than_omitting_it(self):
+        """A silently absent fidelity reads as a verdict with nothing to declare."""
+        cell = {"IS": {"trades": 10, "by_outcome": {"timeout": 1}}, "OOS": {}}
+        s = sw._fidelity_suffix(cell)
+        assert "OOS ?" in s, s
+        assert "OOS 0%" not in s
+
+    def test_the_measured_monotone_shape_is_pinned(self):
+        """Guards the claim the memo makes, not just the arithmetic."""
+        measured = [(0.75, 9, 42), (1.0, 14, 42), (1.25, 14, 41), (1.5, 15, 41),
+                    (2.0, 17, 41), (2.5, 21, 41), (3.0, 23, 41), (4.0, 24, 41)]
+        shares = [sw.timeout_share({"trades": n, "by_outcome": {"timeout": t}})
+                  for _, t, n in measured]
+        assert shares == sorted(shares), f"not monotone: {shares}"
+        assert shares[0] < 0.25 and shares[-1] > 0.55, shares
+
+
+class TestFidelityIsWiredToTheVerdictLine:
+    """The suffix must reach the PRINTED verdict, not merely exist as a helper.
+
+    A mutant that deleted `+ _fidelity_suffix(cell)` from main()'s print left
+    every helper test green — the same test-a-copy defect that made two other
+    tests in this session non-load-bearing. This drives the real `main()` and
+    reads its stdout.
+    """
+
+    def _tiny_csv(self, tmp_path):
+        import pandas as pd
+        n = 40
+        ts = pd.date_range("2025-01-01", periods=n, freq="h", tz="UTC")
+        p = tmp_path / "d.csv"
+        pd.DataFrame({"timestamp": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      "open": 1.0, "high": 1.1, "low": 0.9,
+                      "close": 1.0, "volume": 1.0}).to_csv(p, index=False)
+        return p
+
+    def test_printed_verdict_carries_the_timeout_share(self, tmp_path, monkeypatch, capsys):
+        data = self._tiny_csv(tmp_path)
+
+        def fake_run_cell(data_csv, extra, out_json):
+            # a wide cell times out far more than the baseline — the whole point
+            wide = any(a not in ("--symbol", "SOLUSDT", "--timeframe", "5m")
+                       and a.replace(".", "").isdigit() and float(a) >= 2.0
+                       for a in extra)
+            return {"total_trades": 100, "total_r": 10.0, "max_drawdown_r": 5.0,
+                    "expectancy_r": 0.1, "win_rate_pct": 50.0,
+                    "by_outcome": {"timeout": 60 if wide else 20,
+                                   "tp_hit": 20, "sl_hit": 20}}
+
+        monkeypatch.setattr(sw, "run_cell", fake_run_cell)
+        # argv[0] is the PROGRAM NAME — main() parses argv[1:], like sys.argv.
+        rc = sw.main(["ict_scalp_exit_sweep.py",
+                      "--data", str(data), "--symbol", "SOLUSDT",
+                      "--timeframe", "5m", "--split", "2025-01-01T20:00:00Z",
+                      "--cells", "bracket_geometry", "--out", str(tmp_path / "o")])
+        out = capsys.readouterr().out
+        assert rc == 0, out
+        assert "[timeout" in out, (
+            "the verdict line does not carry its fidelity — a reader cannot "
+            f"tell this from a parity run:\n{out}")
+        # and it must show the DIFFERENCE, not one constant for every cell
+        assert "IS 60%" in out and "IS 20%" in out, out

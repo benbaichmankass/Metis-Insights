@@ -147,6 +147,29 @@ def ladder_cells(tp_at_r: float) -> list:
     return out
 
 
+def timeout_share(window: dict) -> float | None:
+    """Fraction of a window's trades force-closed by the harness time exit.
+
+    THIS IS A FIDELITY NUMBER, NOT A PERFORMANCE ONE. Production has NO
+    time-based exit on any ict_scalp leg (BL-20260912-THE-ICT-SCALP-HARNESS-
+    FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL), so every
+    `timeout` trade is one the live leg would still have been holding. It is
+    printed beside each cell's verdict because it is NOT constant across the
+    grid: measured on SOLUSDT 5m it rises MONOTONICALLY with the target,
+    21.4% at 0.75R to 58.5% at 4R, so a wide cell is graded on a population
+    where most trades never resolved. A verdict that does not carry this
+    cannot be told apart from one measured at parity.
+
+    Returns None -- never 0.0 -- when the window has no trades or reports no
+    outcome map: `we could not look` is not `nothing timed out`.
+    """
+    by = window.get("by_outcome")
+    n = window.get("trades") or 0
+    if not isinstance(by, dict) or not n:
+        return None
+    return by.get("timeout", 0) / n
+
+
 def all_cells(tp_at_r: float) -> list:
     """THE assembly of every cell this sweep offers — one owner, not two.
 
@@ -332,6 +355,15 @@ def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
     return wf
 
 
+def _fidelity_suffix(cell: dict) -> str:
+    """`  [timeout IS x% OOS y%]`, or an explicit unknown. Never silently absent."""
+    parts = []
+    for w in ("IS", "OOS"):
+        sh = timeout_share(cell.get(w) or {})
+        parts.append(f"{w} {sh:.0%}" if sh is not None else f"{w} ?")
+    return f"  [timeout {' '.join(parts)}]"
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", default=str(_REPO / "data" / "XAUUSD_15m_deep.csv"))
@@ -460,7 +492,8 @@ def main(argv: list[str]) -> int:
               f"(n{cell['IS']['trades']}) | "
               f"OOS ΔR={cell['OOS']['total_r'] - base['OOS']['total_r']:+.2f} "
               f"ΔDD={cell['OOS']['max_dd_r'] - base['OOS']['max_dd_r']:+.2f} "
-              f"(n{cell['OOS']['trades']})  -> {verdict}", flush=True)
+              f"(n{cell['OOS']['trades']})  -> {verdict}"
+              + _fidelity_suffix(cell), flush=True)
 
     cands = [t for t, c in results["cells"].items() if c["verdict"] == "CANDIDATE"]
     print(f"\nCANDIDATES (pass IS+OOS pre-filter): "
