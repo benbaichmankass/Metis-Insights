@@ -36375,6 +36375,17 @@
         ".github/workflows/scope-overlap-audit.yml"
       ],
       "found_by": "session_01CTPC91xaHrK6ES33UKjkTY (MI-240)"
+    },
+    {
+      "id": "BL-20260912-TWO-OF-NINE-DUE-LIST-SOURCES-WERE-BLIND-IN-PRODUCTION-BECAUSE-THE-HOURLY-WRITER-CARRIED-NO-TOKEN",
+      "severity": "high",
+      "status": "resolved",
+      "area": "ci/observability",
+      "tier": 1,
+      "title": "render_due_list's red_crons and unlanded_automation read could_not_read on the committed artifact because the writer that wins has no GITHUB_TOKEN",
+      "detail": "MEASURED 2026-09-12. The live docs/claude/DUE.json on main, generated_at 06:27:30Z, reads `red_crons: {state: could_not_read, rows: 0, note: 'no GITHUB_TOKEN - cannot query the Actions API'}` and the same for `unlanded_automation`. Two of the nine sources are blind. ROOT CAUSE, and it is a last-writer-wins race between three producers rather than a bug in the renderer: THREE workflows run `render_due_list.py --write` and commit the artifact to main - due-list.yml (token, daily `5 5 * * *`), probes.yml (token, daily `20 5 * * *`) and error-feed-digest.yml (NO env block at all, HOURLY `35 * * * *`). POPULATION: the last 60 commits to docs/claude/DUE.json on main -> 47 (78.3%) written by error-feed-digest, 6 by due-list, 5 by probes, 2 other. So the token-less writer is not one of three, it is the one that wins, and it overwrites a token-carrying render within the hour. !! THE RENDERER IS NOT AT FAULT AND MUST NOT BE 'FIXED': src_red_crons returns could_not_read deliberately - its own docstring says 'Without a token we say so; we never report no red crons'. The refusal is correct. What was broken is that the refusal got COMMITTED and read as the state of the world. !! WHY IT MATTERS: red_crons is the F1 class its docstring names - 'a nightly nobody is waiting on' - and it is exactly what would have surfaced replay-pregate-nightly's 77 consecutive red scheduled runs over 2.5 months (68 failure / 9 cancelled / 0 success ever), which reached no register, no backlog row and no page (BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING calls that absence 'the deeper finding'). The instrument existed, was correct, and was blind in production.",
+      "proposed_fix": "FIXED: the missing `env: GITHUB_TOKEN` is added to error-feed-digest.yml's re-render step, AND a new ungated guard scripts/ci/check_due_list_token.py requires every workflow step that runs render_due_list.py (in any mode but --self-test) to resolve GITHUB_TOKEN from its own env, its job's, or the workflow's. !! THE ONE-LINE FIX IS NOT THE FIX: it repairs today's three writers and does nothing about the fourth, which is how this happened - nothing tied 'renders the due-list' to 'must carry a token'. A/B on the real tree: the guard reports 1 finding against main and 0 against the fixed branch. 7 planted defects fail it, 3 positive controls stay quiet. !! IT CHECKS THE BINDING, NEVER THE TOKEN'S VALIDITY - it cannot tell a real token from `GITHUB_TOKEN: \"\"`, and says so; the live half is the sources.red_crons.state field in the committed DUE.json, which is where to confirm this actually took effect. NOT YET OBSERVED on the fleet: no post-merge DUE.json has been read with red_crons in a `read` state.",
+      "source": "MI-280 U7, session_01BjTp5RYwedmpFfkEtkQo1j"
     }
   ]
 }
