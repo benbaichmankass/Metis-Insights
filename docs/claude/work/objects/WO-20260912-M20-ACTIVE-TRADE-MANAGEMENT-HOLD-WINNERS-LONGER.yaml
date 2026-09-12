@@ -181,3 +181,46 @@ decision_requests:
     FULL WRITE-UP: docs/research/m20-u4-scalp-exit-proposals-2026-09-12.md PROPOSAL 3 and the mutual-exclusion
     section; evidence in docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md section 4q.'
 captured_by: scripts/ops/capture_idea.py
+
+# ── Appended by the owning session (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12 ──
+# The manager's object above is kept VERBATIM and is authoritative: it carries the
+# operator's own directive and the manager's blocked_on_basis. This session created a
+# competing copy before the manager's had landed on main (the registry row it was told
+# to confirm was absent, so it could not tell). That copy is DISCARDED, not merged --
+# only the unit breakdown below is carried across.
+unit_breakdown: >-
+  U1 enumerate what CAN end a winner, per leg, with what arms it. U2 attribute what DID,
+  provenance-graded, and name the gap where it cannot be attributed. U3 counterfactual on
+  the config-exact harness, IS/OOS with a yearly walk-forward, at the exit-refinement gate
+  (Path A or Path B) -- not at a correlation bar. U4 one Tier-3 proposal per lever that
+  cleared U3, evidence attached, routed to the manager. U5 the MFE/MAE-in-ATR instrument
+  (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
+
+progress:
+  U1: >-
+    DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map
+    IMPORTED from pipeline.monitor_unit_for; every call site ASSERTED against the unit source;
+    cross-checked against 1000 journal rows, 24 pairs confirmed, 0 contradictions. giveback_stop
+    -- the only lever that by construction fires on a trade that WAS winning -- is armed on 1 of
+    44. Seven of eight ict_scalp_* legs arm exactly {tp_cross, sl_cross, breakeven_ratchet} and
+    that unit reads no trail_mult. HEADLINE IS THE INSTRUMENT: reconciler_filled is 84 of 294
+    closes and can never name a mechanism by construction (the reconciler watches the ENTRY
+    order); _classify_broker_exit refuses on 27 of 27 broker-truth rows because each fill lands a
+    median 0.55-0.79bp SHORT of the level its strict inequality tests.
+  U2: >-
+    DELIVERED, PR #11874. Over 183 closes / 49 winners with created_at >= 2026-08-27: NO EXIT
+    LEVER IS CUTTING WINNERS SHORT -- the lever family is 3 of 49, and the two giveback_stop
+    fires banked +$2,471.70. THE GAP IS THE FINDING: of the 31 winners short of their declared
+    tp_r, 17 (55%) carry an unattributable or contaminated label. That share is INVARIANT to the
+    label-recovery tolerance across 0.000R-0.250R, so it is a measurement and not a threshold
+    artifact. MI-277 section 2.2 is reported UNGRADEABLE (its ratio swings 1.18-1.98 at n~10),
+    and MI-277 section 3.3's cap_r figures could not be reproduced, so that table is deliberately
+    NOT adjudicated.
+  U3: >-
+    RESHAPED BY U2's RESULT, and the change is deliberate rather than a drift from the brief.
+    The brief says counterfactual "the mechanism(s) U2 implicates"; U2 implicates NONE, so
+    running the briefed unit would measure a mechanism found idle. The only mechanism with
+    enough attributed mass is the TAKE-PROFIT (18 of 49 winners ended exactly there; the stop
+    family banked another 6 at 12-13% of declared target), so U3 tests target geometry and the
+    trailing stop that precedes it. It must treat any live-population firing rate as a LOWER
+    BOUND, because 43% of the window is unattributable or contaminated.

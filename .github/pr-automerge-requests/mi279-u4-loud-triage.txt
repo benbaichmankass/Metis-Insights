@@ -1,0 +1,5 @@
+Tier-1 self-land. PR #11944.
+
+One backlog row amended with a re-measurement of the loud flag (71 of 84)
+and a four-part derivation proposal. NOTHING is re-flagged. Declaration:
+.github/pr-landing/mi279-u4-loud-triage.json

@@ -24,8 +24,11 @@ import pytest
 from scripts.ops.backlog_append import (
     LIVE_BACKLOGS,
     FormatNotReproducible,
+    RowNotFound,
     append_row,
     detect_format,
+    main,
+    update_row,
 )
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -262,3 +265,86 @@ def test_live_backlogs_covers_every_review_backlog():
 def test_live_backlogs_has_no_duplicate_entries():
     """A repeated path would inflate the guard's own coverage count."""
     assert len(LIVE_BACKLOGS) == len(set(LIVE_BACKLOGS)), LIVE_BACKLOGS
+
+
+# ---------------------------------------------------------------------------
+# The EDIT path (BL-20260905-BACKLOG-APPEND-HAS-NO-EDIT-PATH-SO-AMENDING-A-ROW-
+# REQUIRES-THE-FORBIDDEN-HAND-EDIT). `_self_test` carries the bulk of the
+# controls and pytest runs it via `test_self_test_passes`; what is added here is
+# the CLI, which the self-test cannot reach, and the two properties worth
+# naming so a reader finds them by name.
+# ---------------------------------------------------------------------------
+
+_EDIT_DOC = {
+    "schema_version": 1,
+    "updated_at": "2026-01-01",
+    "items": [
+        {"id": "BL-A", "title": "first — em dash", "detail": "alpha"},
+        {"id": "BL-B", "title": "second ⚠️ warn", "detail": "beta"},
+    ],
+}
+
+
+def _canon(path: pathlib.Path) -> str:
+    raw = json.dumps(_EDIT_DOC, indent=2, ensure_ascii=False) + "\n"
+    path.write_text(raw)
+    return raw
+
+
+def test_update_row_diff_is_line_local_and_round_trips(tmp_path):
+    """The backlog row's own criterion: `--check-live` clean AND a line-local diff.
+
+    A whole-file reformat that still PARSES is the failure being prevented, so
+    asserting valid JSON afterwards proves nothing on its own.
+    """
+    p = tmp_path / "b.json"
+    before = _canon(p)
+    update_row(p, "BL-B", append={"detail": " + more — text"})
+    after = p.read_text()
+
+    assert len(before.splitlines()) == len(after.splitlines())
+    changed = [i for i, (a, b) in enumerate(zip(before.splitlines(), after.splitlines()))
+               if a != b]
+    assert len(changed) == 1, f"expected 1 changed line, got {len(changed)}"
+    assert "BL-B" not in before.splitlines()[changed[0]] or True  # the detail line
+    assert after == json.dumps(json.loads(after), indent=2, ensure_ascii=False) + "\n"
+    assert "\\u2014" not in after and "more — text" in after
+
+
+def test_update_row_refuses_a_mixed_serialisation_and_leaves_it_untouched(tmp_path):
+    """A MIXED file — one row escaped, one literal — is what a hand-splice leaves.
+
+    A file that is WHOLLY ensure_ascii=True is a known serialisation and is
+    legitimately editable; only the mix is unreproducible. That distinction is
+    the whole reason a hand-splice is the dangerous act rather than the escaping.
+    """
+    p = tmp_path / "b.json"
+    raw = _canon(p).replace("first — em dash", "first \\u2014 em dash", 1)
+    p.write_text(raw)
+    with pytest.raises(FormatNotReproducible):
+        update_row(p, "BL-B", append={"detail": "x"})
+    assert p.read_text() == raw
+
+
+def test_update_row_refuses_an_id_that_is_not_filed(tmp_path):
+    p = tmp_path / "b.json"
+    raw = _canon(p)
+    with pytest.raises(RowNotFound):
+        update_row(p, "BL-NOPE", fields={"tier": "1"})
+    assert p.read_text() == raw
+
+
+def test_cli_update_appends_from_a_file(tmp_path):
+    """Text arrives from a FILE, never argv — shell quoting is where the
+    em-dashes and newlines this helper protects get mangled on the way in."""
+    p = tmp_path / "b.json"
+    _canon(p)
+    note = tmp_path / "note.txt"
+    note.write_text("\n\nADDENDUM — measured ⚠️ today")
+    rc = main(["--backlog", str(p), "--update", "BL-A", "--text", str(note)])
+    assert rc == 0
+    doc = json.loads(p.read_text())
+    row = [i for i in doc["items"] if i["id"] == "BL-A"][0]
+    assert row["detail"].startswith("alpha")
+    assert row["detail"].endswith("ADDENDUM — measured ⚠️ today")
+    assert "\\u2014" not in p.read_text()

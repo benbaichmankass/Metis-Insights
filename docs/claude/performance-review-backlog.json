@@ -4753,6 +4753,28 @@
       "resolution_criteria": "MI-277's section 3.8 records the attribution (the break-even ratchet, be_offset_bps: 15) and withdraws the floor inference, and its section 1.2 stops describing order_packages.sl as entry-frozen. Cleared by reading the amended sections. NOT cleared by this memo existing -- MI-277 is the document a session planning a target change will actually open."
     },
     {
+      "id": "BL-20260912-MI-277-S-LEVER-SENTENCE-IS-WINNER-SCOPED-AND-STALE-STOP-FIRED-SIX-TIMES-IN-ITS-POPULATION",
+      "title": "MI-277 section 3.5 says stale_stop appears zero times on bybit_1 in either era; six stale_stop rows sit inside its exact population, carrying -$4,742.85",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-278 U1 (docs/research/m20-u1-winner-close-inventory-2026-09-12.md)",
+      "detail": "MEASURED. Reproducing MI-277's stated population (bybit_1, status=closed, NOT is_backtest, pnl NOT NULL, pairs excluded, ids in window) on a 2026-09-12T05:2xZ pull gives 181 rows (78 pre + 103 post) against the memo's 180 (79 + 101) -- ~4h of window drift, so the population is positively identified. Inside it: SIX stale_stop rows, all ict_scalp_eth_15m -- ids 5115 (pre, -1562.24), 5158 (pre, -1054.07), 5244 (post, -10.45), 5319 (post, -1166.89), 5572 (post, -379.83), 5593 (post, -569.36); total -$4,742.85. ALL SIX ARE LOSSES, so 'zero' is correct of the WINNER sub-population, which is what the neighbouring clause ('0/42 pre, 0/34 post') counts -- but the sentence names the account and the era, not the winners. MI-277's CONCLUSION IS UNTOUCHED and is in fact confirmed: no lever cut a winner short on that account in that window. This is the same class MI-277 itself caught in MI-271 (a claim whose true population is narrower than its wording), which is why it is filed rather than noted.",
+      "resolution_criteria": "The sentence in docs/research/winner-size-collapse-2026-09-12.md section 3.5 states the winners-only population, or is corrected. Tier-1 doc fix. Cleared by reading the amended sentence."
+    },
+    {
+      "id": "BL-20260912-GIVEBACK-STOP-IS-ARMED-ON-ONE-OF-FORTY-FOUR-LIVE-LEGS-AND-THE-SCALP-FAMILY-HAS-NO-TRAIL-AT-ALL",
+      "title": "Across 44 enabled+live legs the only lever that fires by construction on a winning trade (giveback_stop) is armed on 1, and the ict_scalp unit reads no trail_mult at all",
+      "severity": "medium",
+      "tier": "3",
+      "status": "open",
+      "opened": "2026-09-12",
+      "source": "MI-278 U1 (docs/research/m20-u1-winner-close-inventory-2026-09-12.md)",
+      "detail": "MEASURED 2026-09-12 by scripts/research/m20_u1_winner_close_inventory.py: 55 declared legs, 44 enabled + execution:live, monitor unit IMPORTED from pipeline.monitor_unit_for, every claimed call site asserted against the unit source, cross-checked against 1000 journal rows with 24 mechanism/leg pairs confirmed and 0 contradictions. Armed counts over the 44: tp_cross 44, sl_cross 44, trail_base 35, trail_decay 16, breakeven_ratchet 8, stale_stop 3, exit_head 3, GIVEBACK_STOP 1 (uso_trend_1h). The stale-3 / giveback-1 split independently reproduces the figure exit_levers.py's docstring recorded on 2026-08-18, a positive control from a source the script does not read. Seven of the eight ict_scalp_* legs have an armed set of exactly {tp_cross, sl_cross, breakeven_ratchet}; the eighth adds stale_stop. The ict_scalp unit reads NO trail_mult (measured: zero scalp legs resolve trail_base), so a scalp winner either reaches its declared target or it does not -- there is no mechanism that banks a partial run. This is a DENOMINATOR, not a proposal: it says what COULD end a winner, not what did. Any change is Tier-3 and must clear the exit-refinement gate (Path A or Path B) with a yearly walk-forward first.",
+      "resolution_criteria": "Superseded when MI-278 U3 reports a counterfactual on the config-exact harness for at least one lever/leg pair this row identifies as absent, at the exit-refinement gate. Closes as closed_answered if that measurement shows no lever clears the gate -- an honest negative is a completed deliverable per the coverage-matrix contract. NOT closed by arming a lever without that evidence."
+    },
+    {
       "id": "BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET",
       "title": "The counterfactual the winner-collapse evidence points at -- is ict_scalp's 1.5R target too near? -- has NO harness: e35 excludes the scalp family by design and the fleet exit sweep does not sweep a target at all",
       "severity": "high",
