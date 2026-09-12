@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling: scripts/ci/run_guards.py gains a best-effort, never-fatal bootstrap step that registers the client-side register merge driver in the LOCAL clone's git config (skipped entirely under GITHUB_ACTIONS), plus tests/test_arm_register_merge_driver.py and one row's status + updates in docs/claude/health-review-backlog.json. It edits no tracked file at runtime, touches no runtime, order path, strategy config, risk cap or live-VM file, and changes nothing about GitHub-side mergeability."
+}
