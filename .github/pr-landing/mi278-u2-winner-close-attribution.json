@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Measurement only. docs/research/** (new memo + one RESEARCH-CAPABILITY-INDEX row), docs/DOCUMENT-INDEX.md, the performance backlog, and one new research script under scripts/research/. No src/, no config/, no deploy/, no .github/workflows/, no order path, no unit file. Every Tier-3 item in the memo is a PROPOSAL routed to the manager, and no exit-refinement coverage cell changes because U2 ran no sweep."
+}
