@@ -1,6 +1,6 @@
 # The readout — where the chain is held up, and what that costs
 
-_Generated 2026-09-12T12:48:23+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
+_Generated 2026-09-12T13:32:25+00:00 by `scripts/ops/constraint_readout.py` · cycle `CY-20260906-TRADING-TRUTH` (basis DECIDED)_
 
 > **This is A1, and it is computed rather than judged.** It reports its denominator before its conclusion, because a constraint named over unassessed edges is a fabricated answer wearing a computed label.
 
@@ -144,9 +144,9 @@ Waiting: `WO-20260901-PHASE-A` · `WO-20260901-PHASE-C` · `WO-20260901-PHASE-D`
 
 ⚠️ Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 94 of 179 objects have never been assessed for edges at all.
 
-**From `docs/claude/operator-owed-register.json`: read state `read`, 0 OPEN item(s)** (carry limit 2; 6 terminal, not listed).
+**From `docs/claude/operator-owed-register.json`: read state `read`, 1 OPEN item(s)** (carry limit 2; 6 terminal, not listed).
 
-- _(none open — every item carries a terminal `status`)_
+- `OO-20260912-LANDING-MACHINERY-PRS-ARE-GREEN-AND-CANNOT-SELF-LAND-SO-ARMING-IS-DEAD-REPO-WIDE` (`open` · high · judgement · 0d) — Three Tier-1 landing-machinery PRs are green and mergeable and R12 refuses to let any of them self-land — one is the arming relay, and until it merges every se…
 
 Status vocabulary: src.runtime.operator_owed (imported). ⚠️ Re-deriving it is not a hypothetical risk — this file's first run keyed on a field the register does not have (`state`, not `status`) and reported all 5 terminal items as open, one of them a question the operator had closed.
 
@@ -156,24 +156,24 @@ The two sources are kept **separate rather than merged** — one says *this work
 
 > Ported here by operator decision 2026-09-08 (`consolidate_into_the_readout`) so that ONE surface answers *what is due right now*. ⚠️ **This did not improve the diagnosis in §1.** Folding registers in adds ROWS, not assessed `blocked_on` BASIS — §1 still refuses to name a stage, and refusing is still correct. A longer readout is not a better-evidenced one.
 
-**Completeness: `all_sources_read`** · **120 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
+**Completeness: `all_sources_read`** · **121 row(s) due** across the sources that answered and are not already covered above (via `scripts/ops/render_due_list.py`).
 
 | source | state | rows | note |
 |---|---|---|---|
-| `open_items` | `read` | 71 |  |
+| `open_items` | `read` | 72 |  |
 | `soaks` | `read` | 4 | 4 declared soak(s): ready=1 · accruing=0 · not_writing=0 · unknown=3 |
 | `operator_owed` | `read` | _not repeated_ | covered by §4 · Decisions waiting on the operator |
 | `research_queue` | `read` | 3 |  |
-| `probes` | `read` | 9 | freshness=fresh age=27.0h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
+| `probes` | `read` | 9 | freshness=fresh age=27.7h cadence=daily (cron 20 5 * * *) \| 4 probe result(s) deferred to the `soaks` source,… |
 | `red_crons` | `read` | 11 |  |
 | `unlanded_automation` | `read` | 9 |  |
-| `error_feed` | `read` | 12 | digest 2026-09-12T06:27:27+00:00, age 6.4h |
+| `error_feed` | `read` | 12 | digest 2026-09-12T06:27:27+00:00, age 7.1h |
 | `sunset` | `read` | 0 |  |
 | `checklist_unrouted` | `read` | 1 |  |
 
 ⚠️ `rows` reads `—`, never `0`, for a source that could not be read — the distinction this table exists to preserve. A source marked _not repeated_ WAS read; its rows are rendered in the section named in its note.
 
-**`open_items` — 71 due**
+**`open_items` — 72 due**
 
 - 🔔 `OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING` · 3d — monitoring row 3d since last observation (cadence 3d)
   - docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md told its reader to paste it as a new session and no register pointed at it for 14 days. MI-148 now carries the work (#11138 l…
@@ -235,7 +235,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - The dedicated Claude bot (@ict_cluade_bot) is CONFIGURED and its drain is FIXED and DEPLOYED, and pings still land in the TRADER chat. #10674 is merged (5c45ca52) and live on the …
 - 🔔 `OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE` · 6d — loud row — must be reported on every session
   - The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unansw…
-- 🔔 `OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK` · 3d — monitoring row 3d since last observation (cadence 3d)
+- 🔔 `OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK` · 0d — loud row — must be reported on every session
   - #10746 (src/runtime/bybit_coverage_basis.py) is MERGED to main (af9af5e3) and its ARMING IS DELIBERATELY HELD, on an operator instruction given in-conversation 2026-09-02: 'hold i…
 - 🔔 `OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE` · 6d — loud row — must be reported on every session
   - Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_dec…
@@ -251,7 +251,7 @@ The two sources are kept **separate rather than merged** — one says *this work
   - The per-endpoint API reference (156,448 B: the /api/bot/* route table, BotStats, Position, CORS, and the /api/diag/* table) was moved VERBATIM out of CLAUDE.md into docs/reference…
 - 🔔 `OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED` · 1d — loud row — must be reported on every session
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow…
-- 🔔 `OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK` · 6d — monitoring row 6d since last observation (cadence 2d)
+- 🔔 `OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK` · 0d — loud row — must be reported on every session
   - The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * …
 - 🔔 `OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD` · 9d — monitoring row 9d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was appr…
@@ -283,13 +283,13 @@ The two sources are kept **separate rather than merged** — one says *this work
   - THREE FACTS, and they are different — say WHICH you cleared. (1) EXAMINED, locally: MI-195 added a yfinance-direct last rung to e35_shard_plan.resolve_feed_source (planner matrix …
 - 🔔 `OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS` · 4d — loud row — must be reported on every session
   - TWO MEASUREMENT TRAPS ON THE REAL-MONEY TRADE SURFACE, both of which have ALREADY produced a wrong operator-facing conclusion (2026-09-08, MI-200). Read this BEFORE measuring real…
-- 🔔 `OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED` · 3d — monitoring row 3d since last observation (cadence 2d)
+- 🔔 `OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED` · 0d — loud row — must be reported on every session
   - [!] CORRECTED 2026-09-09T22:52Z — CLAUSE (1) IS CLEARED AND THIS ROW'S OWN ID NOW OVERSTATES WHAT IS OPEN. The id is deliberately NOT renamed (the generated SESSION BRIEF, MI-214'…
 - 🔔 `OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING` · 3d — monitoring row 3d since last observation (cadence 3d)
   - The 2026-09-09 full-system audit (docs/audits/full-system-audit-2026-09-09.md, report RPT-20260909-171500-audit) filed 68 findings and 19 backlog rows and REMEDIATED NOTHING, corr…
 - 🔔 `OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN` · 1d — loud row — must be reported on every session
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient…
-- 🔔 `OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED` · 3d — monitoring row 3d since last observation (cadence 3d)
+- 🔔 `OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED` · 0d — loud row — must be reported on every session
   - MI-227 (Tier-2, operator-approved 2026-09-09, WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG, chosen: resize_and_invariant) makes an intent-reduce resize the SHRUNK p…
 - 🔔 `OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED` — monitoring row has NEVER been observed
   - MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (…
@@ -307,8 +307,8 @@ The two sources are kept **separate rather than merged** — one says *this work
   - MI-266 (Tier-1, PR #11783) added SECRET_JWT_SIGNING_KEY + SECRET_WEBAPP_PASSWORD_SHA256 to the SECRET_* map in .github/workflows/system-actions.yml, plus docs/runbooks/restore-web…
 - 🔔 `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED` · 0d — loud row — must be reported on every session
   - A DATED REGIME BREAK ON 2026-08-30 AND NOBODY NOTICED FOR TWO WEEKS. bybit_1 has had FIFTEEN CONSECUTIVE LOSING DAYS (2026-08-28..09-11, -$36,098) against +$17,951 the fortnight b…
-- 🔔 `OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX` · 1d — monitoring row 1d since last observation (cadence 1d)
-  - OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit…
+- 🔔 `OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX` · 0d — loud row — must be reported on every session
+  - [!] CORRECTED 2026-09-12 by MI-282 session_01QF6kgTnqd4yg32y2UYe9FQ — TWO OF THIS ROW'S THREE BLOCKERS ARE MISSTATED AND THE TEXT BELOW STILL SAYS THEM. Do not re-quote blocker (1…
 - 🔔 `OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET` · 0d — loud row — must be reported on every session
   - MI-276 shipped TWO alert-only Tier-2 detectors for the shape found twice on 2026-09-11, where both investigations ended with the same sentence - the operator noticed before any mo…
 - 🔔 `OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED` · 0d — loud row — must be reported on every session
@@ -317,6 +317,8 @@ The two sources are kept **separate rather than merged** — one says *this work
   - pr-landing R15 lets a Tier-2 PR self-land against an approval record it demonstrably could not have written -- the record must exist at the branch's merge-base with main, be byte-…
 - 🔔 `OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING` · 0d — loud row — must be reported on every session
   - MI-240 (Tier-2, operator-approved as DEC-20260910-EXIT-EVAL-60S-REMEDY, chosen `r2_only`, 2026-09-10T07:52Z) arms R2: once ONE IB-routed fetch in an exit-evaluation pass returns a…
+- 🔔 `OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING` · 0d — loud row — must be reported on every session
+  - MI-280 (engineering lane, session_01BjTp5RYwedmpFfkEtkQo1j, 2026-09-12) shipped eight units against four measured, unowned failure modes in the landing/register machinery. MERGED,…
 
 **`soaks` — 4 due**
 
@@ -408,7 +410,7 @@ The two sources are kept **separate rather than merged** — one says *this work
 **`error_feed` — 12 due**
 
 - 🔔 `ERROR-FEED-DIGEST-STALE` · 0d — EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition …
-  - error-feed digest is 6.4h old — expected hourly
+  - error-feed digest is 7.1h old — expected hourly
 - `ERRFEED-0c821ed7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…
   - [error] NEW x2 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: BTCUSDT | Side: short Trade id: N Origin: reverse_reconciler_adopt R
 - `ERRFEED-dc1aa4a7` · 0d — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-12T03:03:13 → 2026-09-12T06:04:09 · accounts=…

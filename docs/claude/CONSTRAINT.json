@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T12:48:23+00:00",
+  "generated_at": "2026-09-12T13:32:25+00:00",
   "generator": "scripts/ops/constraint_readout.py",
   "cycle_priority": {
     "cycle_id": "CY-20260906-TRADING-TRUTH",
@@ -767,12 +767,22 @@
     "from_work_store_note": "Zero here does NOT mean no decision is pending — it means no object DECLARES one, and 94 of 179 objects have never been assessed for edges at all.",
     "operator_owed_register": {
       "read_state": "read",
-      "count": 0,
+      "count": 1,
       "terminal_count": 6,
       "unrecognised": [],
       "carry_limit": 2,
       "status_vocabulary_source": "src.runtime.operator_owed (imported)",
-      "open_items": []
+      "open_items": [
+        {
+          "id": "OO-20260912-LANDING-MACHINERY-PRS-ARE-GREEN-AND-CANNOT-SELF-LAND-SO-ARMING-IS-DEAD-REPO-WIDE",
+          "status": "open",
+          "opened_at": "2026-09-12T12:45:00+00:00",
+          "severity": "high",
+          "owner_class": "judgement",
+          "age_days": 0,
+          "title": "Three Tier-1 landing-machinery PRs are green and mergeable and R12 refuses to let any of them self-land — one is the arming relay, and until it merges every se…"
+        }
+      ]
     }
   },
   "due": {
@@ -784,9 +794,9 @@
         "source": "open_items",
         "state": "read",
         "note": "",
-        "row_count": 71,
+        "row_count": 72,
         "covered_elsewhere": null,
-        "rows_shown": 71,
+        "rows_shown": 72,
         "rows": [
           {
             "source": "open_items",
@@ -1062,8 +1072,8 @@
             "source": "open_items",
             "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
             "title": "#10746 (src/runtime/bybit_coverage_basis.py) is MERGED to main (af9af5e3) and its ARMING IS DELIBERATELY HELD, on an operator instruction given in-conversation 2026-09-02: 'hold it until the soak'. Th",
-            "why_due": "monitoring row 3d since last observation (cadence 3d)",
-            "age_days": 3,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1134,8 +1144,8 @@
             "source": "open_items",
             "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
             "title": "The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its",
-            "why_due": "monitoring row 6d since last observation (cadence 2d)",
-            "age_days": 6,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1278,8 +1288,8 @@
             "source": "open_items",
             "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
             "title": "[!] CORRECTED 2026-09-09T22:52Z — CLAUSE (1) IS CLEARED AND THIS ROW'S OWN ID NOW OVERSTATES WHAT IS OPEN. The id is deliberately NOT renamed (the generated SESSION BRIEF, MI-214's work object and MI-",
-            "why_due": "monitoring row 3d since last observation (cadence 2d)",
-            "age_days": 3,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1305,8 +1315,8 @@
             "source": "open_items",
             "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
             "title": "MI-227 (Tier-2, operator-approved 2026-09-09, WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG, chosen: resize_and_invariant) makes an intent-reduce resize the SHRUNK parent row's OWN track",
-            "why_due": "monitoring row 3d since last observation (cadence 3d)",
-            "age_days": 3,
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1385,9 +1395,9 @@
           {
             "source": "open_items",
             "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
-            "title": "OPERATOR-RAISED 2026-09-11. MEASURED (docs/research/prop-account-silence-2026-09-11.md): the prop legs evaluate (997/995/1000 *_eval) and SIGNAL at a rate IDENTICAL to their bybit_1 siblings -- 8/18/1",
-            "why_due": "monitoring row 1d since last observation (cadence 1d)",
-            "age_days": 1,
+            "title": "[!] CORRECTED 2026-09-12 by MI-282 session_01QF6kgTnqd4yg32y2UYe9FQ — TWO OF THIS ROW'S THREE BLOCKERS ARE MISSTATED AND THE TEXT BELOW STILL SAYS THEM. Do not re-quote blocker (1)'s second half or bl",
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
             "loud": true,
             "link": ""
           },
@@ -1422,6 +1432,15 @@
             "source": "open_items",
             "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
             "title": "MI-240 (Tier-2, operator-approved as DEC-20260910-EXIT-EVAL-60S-REMEDY, chosen `r2_only`, 2026-09-10T07:52Z) arms R2: once ONE IB-routed fetch in an exit-evaluation pass returns a pinned-thread QUEUE ",
+            "why_due": "loud row — must be reported on every session",
+            "age_days": 0,
+            "loud": true,
+            "link": ""
+          },
+          {
+            "source": "open_items",
+            "id": "OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
+            "title": "MI-280 (engineering lane, session_01BjTp5RYwedmpFfkEtkQo1j, 2026-09-12) shipped eight units against four measured, unowned failure modes in the landing/register machinery. MERGED, ARMED and OBSERVED a",
             "why_due": "loud row — must be reported on every session",
             "age_days": 0,
             "loud": true,
@@ -1479,7 +1498,7 @@
         "source": "operator_owed",
         "state": "read",
         "note": "",
-        "row_count": 0,
+        "row_count": 1,
         "covered_elsewhere": "§4 · Decisions waiting on the operator",
         "rows_shown": 0,
         "rows": []
@@ -1524,7 +1543,7 @@
       {
         "source": "probes",
         "state": "read",
-        "note": "freshness=fresh age=27.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
+        "note": "freshness=fresh age=27.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make",
         "row_count": 9,
         "covered_elsewhere": null,
         "rows_shown": 9,
@@ -1815,7 +1834,7 @@
       {
         "source": "error_feed",
         "state": "read",
-        "note": "digest 2026-09-12T06:27:27+00:00, age 6.4h",
+        "note": "digest 2026-09-12T06:27:27+00:00, age 7.1h",
         "row_count": 12,
         "covered_elsewhere": null,
         "rows_shown": 12,
@@ -1823,7 +1842,7 @@
           {
             "source": "error_feed",
             "id": "ERROR-FEED-DIGEST-STALE",
-            "title": "error-feed digest is 6.4h old — expected hourly",
+            "title": "error-feed digest is 7.1h old — expected hourly",
             "why_due": "EVERY group below was observed at 2026-09-12T06:27:27+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
             "age_days": 0,
             "loud": true,
@@ -1960,7 +1979,7 @@
       }
     ],
     "unreadable_sources": [],
-    "due_count": 120,
+    "due_count": 121,
     "covered_elsewhere": {
       "operator_owed": "§4 · Decisions waiting on the operator"
     },
