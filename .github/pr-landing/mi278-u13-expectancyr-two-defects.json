@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one live endpoint read, one journal pull, a research instrument and two memos plus backlog rows -- entirely inside TIER1_SURFACE (scripts/research/**, docs/**). It CHANGES NO PUBLISHED FIGURE: the fix its evidence argues for is in src/web/api/routers/performance.py, i.e. Tier-2, and altering a number the operator reads is a decision rather than a side effect of a measurement -- so it is written out in the memo section 6 and explicitly not taken. No config, no src/ write, no deploy/, no unit file, no order path."
+}
