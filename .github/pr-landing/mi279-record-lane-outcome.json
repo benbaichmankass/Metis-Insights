@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only — one work-store object (this lane's own, owned by this session). No src/, config/, deploy/, workflow or order path. It records an outcome and changes no lifecycle: the object stays in_flight."
+}
