@@ -269,10 +269,17 @@ jobs:
             //      gate in step 3 REFUSES to arm. A loud refusal beats an
             //      unhandled error that takes the job down and tells four lanes
             //      nothing about why.
-            function _patClient(token) {
+            // ⚠️ IT TAKES NO PARAMETER AND CLOSES OVER `patToken` DELIBERATELY.
+            //    `automerge-trigger-guard` C6 is a SOURCE assertion: it looks for
+            //    the literal `getOctokit(patToken)`, and its own planted-defect
+            //    test mutates that exact string. A parameter named anything else
+            //    is behaviourally identical and makes both the check and its
+            //    plant stop matching — the guard then reports a regression that
+            //    is not there, which is how a guard gets relaxed to shut it up.
+            function _patClient() {
               const tries = [
-                () => __original_require__('@actions/github').getOctokit(token),
-                () => require('@actions/github').getOctokit(token),
+                () => __original_require__('@actions/github').getOctokit(patToken),
+                () => require('@actions/github').getOctokit(patToken),
               ];
               for (const t of tries) {
                 try { return t(); } catch (e) { /* try the next */ }
@@ -288,7 +295,7 @@ jobs:
                 'rather than living with it.');
               return null;
             }
-            const patClient = patToken ? _patClient(patToken) : null;
+            const patClient = patToken ? _patClient() : null;
             const opener = patClient || github;
 
             let pr = (await github.rest.pulls.list({

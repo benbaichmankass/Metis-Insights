@@ -73,6 +73,16 @@ def test_the_helper_is_actually_found():
     h = _helper()
     assert "__original_require__" in h
     assert "core.warning" in h
+    # The helper must close over `patToken` rather than take a parameter:
+    # `automerge-trigger-guard` C6 tests for the literal `getOctokit(patToken)`
+    # and its planted-defect test mutates that exact string, so a rename makes
+    # both the check and its plant silently stop matching.
+    assert "function _patClient()" in h, (
+        "the helper grew a parameter — C6 and its plant key on the literal "
+        "`getOctokit(patToken)`; see check_automerge_trigger.py")
+    assert h.count("getOctokit(patToken)") == 2, (
+        "expected both require spellings to build the client from the "
+        "closed-over `patToken`; got " + str(h.count("getOctokit(patToken)")))
 
 
 def _run_node(prelude: str) -> dict:
@@ -81,9 +91,15 @@ def _run_node(prelude: str) -> dict:
     const warnings = [];
     const core = {{ warning: (m) => warnings.push(String(m)) }};
     const github = {{ __kind: 'github_token_client' }};
+    // ⚠️ `patToken` is a CLOSED-OVER const, not a parameter. The helper takes
+    //    no argument on purpose — `automerge-trigger-guard` C6 asserts the
+    //    literal `getOctokit(patToken)` in the source, so the name is part of
+    //    the contract. Passing a token here instead would exercise a helper
+    //    the workflow does not have.
+    const patToken = 'tok';
     {prelude}
     {_helper()}
-    const client = _patClient('tok');
+    const client = _patClient();
     console.log(JSON.stringify({{
       kind: client === null ? null : (client.__kind || 'built'),
       warnings,
