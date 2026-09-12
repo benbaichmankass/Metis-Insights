@@ -22,14 +22,46 @@ done_condition: 'ALREADY MET FOR THE DIAGNOSIS HALF, and the object stays open f
   residual cadence sleep 0-30s + systemd downtime ~0.3s + startup-to-thread 6-15s + COLD first pass 12.7-16.9s,
   reconciling EXACTLY on all four boundaries measured, i.e. 19-60s by construction against a 60s requirement.
   What REMAINS is the operator answering DEC-20260910-EXIT-EVAL-60S-REMEDY below.'
-blocked_on:
-- kind: operator_decision
-  ref: DEC-20260910-EXIT-EVAL-60S-REMEDY
-  since: '2026-09-10'
-blocked_on_basis: ASSESSED 2026-09-10 by the lane that did the work, from the code and the live reads
+blocked_on: []
+blocked_on_basis: 'ASSESSED 2026-09-10T21:5xZ by session_01CTPC91xaHrK6ES33UKjkTY (the lane arming
+  R2). THE EDGE IS DISCHARGED, NOT DELETED FOR TIDINESS: it named an operator_decision on
+  DEC-20260910-EXIT-EVAL-60S-REMEDY, and that decision is ANSWERED IN THIS SAME FILE -- chosen: r2_only,
+  answered_at 2026-09-10T07:52:00Z, verdict: approved. An edge pointing at a settled decision is a FALSE
+  BLOCKER, and this repo says in terms that a false blocker is worse than a missing one, because the
+  constraint readout COMPUTES over these edges and would keep reporting this object as held on a question
+  nobody still owes. Nothing blocks it now: the build is PR #11738 and what it waits on is a merge click,
+  which is a landing state (R4 bars a Tier-2 diff from self-landing) and not a blocked_on edge -- putting
+  the click here would re-manufacture the same false blocker one hop along.
+  ⚠️ THE OBJECT IS NOT THEREBY FINISHED. Only R2 is built. R1 was DECLINED, and option 4 -- whether the
+  restart boundary is in scope for the 60s promise at all -- was NOT CHOSEN, so it is open rather than
+  settled by implication. If a later session decides to put option 4 back to the operator, that is a NEW
+  decision request and a NEW edge, not this one revived.
+  === THE ORIGINAL BASIS FOLLOWS AND IS PRESERVED AS THE RECORD OF WHAT WAS TRUE WHEN THE EDGE WAS
+  WRITTEN: ASSESSED 2026-09-10 by the lane that did the work, from the code and the live reads
   rather than from the dispatch brief. Nothing technical blocks the remedies - both are written out exactly,
   both are small, both have a rollback. What blocks them is that each is Tier-2 (R1 reorders live startup;
-  R2 changes what an exit pass does when a broker fetch times out) and neither is a session's call.
+  R2 changes what an exit pass does when a broker fetch times out) and neither is a session''s call.
+  === LIFECYCLE RETURNED TO `waiting` 2026-09-11T04:1xZ by session_01CTPC91xaHrK6ES33UKjkTY, AND THE
+  REASON IS RECORDED SO IT CANNOT BE READ AS A GUARD DODGE. I moved it `waiting` -> `in_flight` on
+  2026-09-10 while actively building R2. The build is finished (PR #11738, green, 5/5 checks) and what
+  remains is a HUMAN MERGE CLICK plus fleet observation, neither of which consumes a session''s
+  attention -- which is wip-ceiling''s OWN definition of `waiting`: "a thing blocked on someone else is
+  not consuming attention". MEASURED at the moment of the change: origin/main held EXACTLY 8 in_flight,
+  i.e. the ceiling was already full, so my object was the NINTH and wip-ceiling-guard failed with
+  verdict=over_no_exception. I did NOT file a wip-ceiling exception (a FILED justification still fails
+  until approved, so it would have unblocked nothing and would have spent an operator decision on a
+  bookkeeping question), and I did NOT move another session''s object.
+  === AND blocked_on STAYS EMPTY DELIBERATELY, WHICH IS IN TENSION WITH A ROW FILED THE SAME DAY --
+  BL-20260911-TEN-OF-25-WAITING-WORK-OBJECTS-CARRY-NO-EDGE-AND-SEVERAL-ASSERT-NOTHING-BLOCKS-THEM. The
+  tension is NOTICED, not missed, and this empty is ASSESSED rather than unexamined. The argument is the
+  paragraph above it: the merge click is a LANDING state (R4 bars a Tier-2 diff from self-landing
+  whatever its approval state), and the declared edge vocabulary is object / operator_decision /
+  external_event / data_accrual / capability -- of which operator_decision is WRONG here because the
+  decision is ANSWERED (r2_only, 2026-09-10T07:52:00Z), and an operator_decision edge with no matching
+  OPEN request is exactly what the work-store README flags. Manufacturing an edge to satisfy a guard
+  would put a FALSE BLOCKER into the constraint readout, which this repo states in terms is worse than a
+  missing one. If a successor judges that landing SHOULD be a typed edge, that is a schema change worth
+  making deliberately -- not a field to quietly fill in here.'
 captured_by: session_01Ww2pZVK5VUqV8xFFtTs9B1 (the investigating lane)
 source: manager (captured via scripts/ops/capture_idea.py), completed by the lane
 why: 'MI-230 shipped the instrument and its FIRST complete read contradicts what the OPEN-ITEMS row predicted.
