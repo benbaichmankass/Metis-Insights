@@ -36320,6 +36320,7 @@
     {
       "id": "BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL",
       "title": "scripts/backtest_ict_scalp.py force-closes every trade at timeout_bars (default 24) and NO ict_scalp leg has any time-based exit in production -- at the LIVE tp_at_r the timer supplies ~62% of reported net R, so the divergence FLATTERS",
+      "opened_at": "2026-09-12",
       "status": "open",
       "severity": "high",
       "tier": "1 to establish and document (this row). Removing the timeout from the harness, or wiring one into the live unit, changes strategy verdicts or the order path and is Tier-2/3 -- PROPOSED here, not enacted.",

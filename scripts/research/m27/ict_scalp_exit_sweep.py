@@ -152,8 +152,10 @@ def base_flags(symbol: str, timeframe: str, declared: list | None = None,
     timer ends 38.4% of trades at the live `tp_at_r` and supplies ~62% of the
     reported net R — **the error FLATTERS**, and its grip TIGHTENS as the target
     widens, so it biases the book against exactly the hold-longer levers M20
-    tests. `BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-
-    HAS-NO-TIME-EXIT-AT-ALL`.
+    tests. Filed as (id kept on ONE line — a tracking id wrapped across two
+    reads as a DANGLING reference to artifact-validity-guard, which is how a
+    row that IS filed can grade as tracked by nobody):
+    `BL-20260912-THE-ICT-SCALP-HARNESS-FORCE-CLOSES-AT-24-BARS-AND-LIVE-HAS-NO-TIME-EXIT-AT-ALL`
 
     ⚠️ THE DEFAULT IS DELIBERATELY *NOT* CHANGED TO PARITY. Doing so would
     silently re-grade every existing scalp cell against a different book, which
