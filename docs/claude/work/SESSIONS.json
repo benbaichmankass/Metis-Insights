@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-11T22:53:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 22:52Z tick)",
+  "updated_at": "2026-09-12T00:53:26Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 00:52Z tick)",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4804,7 +4804,7 @@
     {
       "session_id": "session_01WKwvhBuaYYCKbdkk7fHrpf",
       "registry_key": "pending-20260911T195437Z",
-      "state": "working",
+      "state": "completed",
       "title": "RESEARCH LANE MI-275 — the stop-width counterfactual, and the e35 revert decision",
       "owns_object": "WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE",
       "checklist_item": "MI-275",
@@ -4823,7 +4823,8 @@
           "note": "MI-275 stop-width counterfactual: the DELIVERABLE IS COMPLETE and needs nothing — local guards PASS 75 / FAIL 0, and CI was GREEN on all four required checks on head 752cca03a. Blocked only on LANDING, and the cause is measured rather than guessed: 12 of 12 consecutive main commits rewrite docs/claude/session-board.json::merge_slot (including the automated chore(ops) ones), main takes a commit every 3-15 min, and CI is ~12 min — so a branch that pr-landing R13 FORCES to write that same field cannot stay mergeable long enough to finish its checks. FIVE base merges so far, 5 of 5 conflicting on that one path and nothing else; on one head the PR went dirty before GitHub could even build a merge ref, so no check ran at all. R13 admits no non-conflicting form (slot_claim_state requires merge_slot.branch == this branch AND the file added-or-modified vs base). WHAT UNBLOCKS IT: a manager merge click on the next green head, or switching this PR to landing: hold — which drops the R13 claim and so stops it touching merge_slot at all. I have NOT switched it unilaterally because the dispatch specified self-land; say the word and it is a two-minute change. FILED, not re-filed: the measurement plus a remedy pointer are appended to BL-20260909-R13-FORCES-EVERY-ARMING-BRANCH-ONTO-ONE-SINGLE-HOLDER-KEY-SO-CONCURRENT-PRS-DIRTY-EACH-OTHER-BY-CONSTRUCTION (session-board.json is the one shared register the jsonregister merge driver does not cover; taking OURS for merge_slot is lossless because R13 does not serialize). backlog_search found five existing rows on this class, so no duplicate from me."
         }
       ],
-      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session: SESSION_STATUS_RUNNING, connected, context 696k/1M (515k an hour earlier). State `working` CONFIRMED rather than assumed. PR #11826 open, 3/4 green. Past the ~600k handoff trigger -- should land #11826 and close out, not open new work."
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session: SESSION_STATUS_RUNNING, connected, context 696k/1M (515k an hour earlier). State `working` CONFIRMED rather than assumed. PR #11826 open, 3/4 green. Past the ~600k handoff trigger -- should land #11826 and close out, not open new work.",
+      "manager_observation_2026_09_12T0053Z": "OBSERVED via get_session at 00:53Z: MI-275 research. IDLE, status_category completed. Its own summary: 'e35 revert not needed ($5.61 risk); MI-271 resolved'. PRs #11826, #11838, #11840 all MERGED."
     },
     {
       "session_id": "session_01MyUujGAQYs72UUgrfXXmFA",
@@ -4843,7 +4844,7 @@
     {
       "session_id": "session_014tHgKvnnLdpgAgGXbaHRUt",
       "registry_key": "pending-20260911T195437Z-3",
-      "state": "review_ready",
+      "state": "completed",
       "title": "ENGINEERING LANE MI-236 — decay stale in_flight rows",
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
       "checklist_item": "MI-236b",
@@ -4853,11 +4854,12 @@
       "why": "Manager-dispatched 2026-09-11 19:5xZ.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-11T19:57:14Z",
-      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 708k/1M. Registry read `working`. PR #11829 green; the lane's own summary names the merge_slot conflicts as CI-cadence churn, which matches BL-20260911-R13-MAKES-THE-MERGE-SLOT-A-GUARANTEED-CONFLICT-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES. Check-in armed 22:03Z. Past the ~600k handoff trigger: closes out rather than starting a fourth branch."
+      "manager_observation_2026_09_11T2153Z": "OBSERVED 2026-09-11T21:53Z via get_session (not inferred): SESSION_STATUS_IDLE, disconnected, status_bucket REVIEW_READY, context 708k/1M. Registry read `working`. PR #11829 green; the lane's own summary names the merge_slot conflicts as CI-cadence churn, which matches BL-20260911-R13-MAKES-THE-MERGE-SLOT-A-GUARANTEED-CONFLICT-AND-CRON-AUTOMATION-RE-ASSERTS-IT-EVERY-FEW-MINUTES. Check-in armed 22:03Z. Past the ~600k handoff trigger: closes out rather than starting a fourth branch.",
+      "manager_observation_2026_09_12T0053Z": "OBSERVED via get_session at 00:53Z: MI-236 engineering. IDLE, status_category completed. #11825 + #11829 MERGED. ⚠️ It flagged on the way out that claim_merge_slot.py has NO RELEASE MECHANISM, so its slot claim could not be handed back -- filed BL-20260910, and the next lane displaces the claim rather than inheriting a free slot."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
-  "⚠️_last_live_reconcile": "2026-09-11T22:53Z -- get_session on all SEVEN non-terminal rows spawned by this manager. Four graded terminal (MI-271/272/273/274, all IDLE + status_category completed), MI-275 RUNNING at 770k on a close-out branch, MI-276 and MI-236b review_ready. Every state below is an OBSERVED value.",
+  "⚠️_last_live_reconcile": "2026-09-12T00:53Z -- get_session on all three non-terminal rows. MI-275 and MI-236b both graded COMPLETED (their PRs merged); MI-276 remains review_ready, parked on the operator's OK for #11827 with its own check-in at 01:28Z. Every state below is an OBSERVED value.",
   "⚠️_HANDOFF_NOTE_2026_09_11_SUPERSEDED": "SUPERSEDED 2026-09-11T21:53Z, REVERTED by a lost update, RE-APPLIED 22:53Z. It declares session_01CTPC91xaHrK6ES33UKjkTY (MI-240) RUNNING and not to be stood down. True at 16:55Z, FALSE since -- that lane finished and its work is PR #11738, open and waiting on the operator, not on a running session. ORIGINAL: Manager session_01HrmZ1RRNM4UnEUaFdrPEjj handed off 2026-09-11T17:0xZ. ⚠️ CORRECTED: ONE sub-session IS RUNNING -- session_01CTPC91xaHrK6ES33UKjkTY (MI-240), confirmed RUNNING/connected at 16:55:03Z, auditing the manager's own merge resolution on #11738 and repairing a row that resolution dropped. DO NOT stand it down. The other 7 spawned this shift read IDLE/COMPLETED on a live 15:2xZ read. The three items the operator chose are QUEUED, not spawned (MI-271 research, MI-272 ops, MI-273 engineering) -- they asked to start those from a fresh manager session. The lease is RELEASED, so the incoming manager claims immediately.",
   "⚠️_LOST_UPDATE_2026_09_11": "MEASURED 2026-09-11T22:53Z. PR #11836 (manager 21:52Z tick, 9e33370a0) set updated_at to 21:53:01Z and superseded the handoff note. PR #11826 (bf92d258c, the MI-275 lane) then merged AFTER it carrying an older copy of this file's TOP-LEVEL block, and git's line-level merge took that side: updated_at rolled BACK to 21:28:49Z and the supersede was undone. The ROW-level additions from #11836 survived (3 rows still carry manager_observation_2026_09_11T2153Z), so this was a PARTIAL revert -- which is worse than a clean one, because the file looks updated while its own freshness claim is stale. Filed as BL-20260911-A-SHARED-REGISTER-LOSES-ITS-TOP-LEVEL-KEYS-TO-A-LINE-LEVEL-MERGE-WHILE-ITS-ROWS-SURVIVE. CONSEQUENCE, not hypothetical: manager-scope R6 reads updated_at, so the rolled-back value would have failed the NEXT heartbeat commit for a staleness nobody introduced on purpose."
 }
