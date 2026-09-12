@@ -1,0 +1,1 @@
+U40 — document the two live measurement traps on /api/bot/trades/closed.
