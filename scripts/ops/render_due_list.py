@@ -55,7 +55,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -70,6 +70,7 @@ _RESEARCH_QUEUE = Path("research/queue")
 _SUNSET_DIR = Path("comms/sunset")
 _SUNSET_DISPOSITIONS = Path("docs/claude/SUNSET-DISPOSITIONS.json")
 _PROBES = Path("docs/claude/PROBES.json")
+_ROUTING_AGE_TOOL = Path("scripts/ops/checklist_routing_age.py")
 _ROUTING_AGE = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 _ERROR_FEED = Path("docs/claude/ERROR-FEED-DIGEST.json")
 # How many error-level cause groups the due-list renders inline. A RENDERING
@@ -878,7 +879,7 @@ def src_sunset_dispositions(root: Path, today: date) -> SourceResult:
     return SourceResult("sunset", "read", rows)
 
 
-def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: today — the ages are derived at the register's OWN `generated_at`, not at render time, so using `today` here would silently re-date somebody else's measurement. That gap (a register whose producer has stopped running still renders as today's answer) is real and is filed as BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS — it is fixed by grading the register's age into its own STALE state, never by quietly stamping a fresh date onto a stale reading.
+def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: today — the ages are derived at the register's OWN `generated_at`, not at render time, so using `today` here would silently re-date somebody else's measurement. The register's own AGE is graded separately, by `checklist_routing_age.register_freshness` (imported, never restated), and a stale register earns its own LOUD row — never a quietly re-dated reading.
     """MI-246 — manager-checklist rows that were FILED and never ROUTED.
 
     WHY THIS IS A SOURCE. This renderer's own docstring names the defect it
@@ -916,11 +917,69 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: t
         return SourceResult("checklist_unrouted", "could_not_read",
                             note=f"{_ROUTING_AGE}: {type(exc).__name__}: {exc}")
 
+    # ⚠️ THE REGISTER'S OWN AGE, GRADED BEFORE ITS CONTENT — and as a SEPARATE
+    # fact from `history_state`. That field grades the DERIVATION; this grades
+    # whether anyone has re-run it. A producer that stops leaves this surface
+    # rendering last week's reading with a fresh look, which is the defect this
+    # whole module exists to refuse one level up
+    # (BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS).
+    #
+    # ⚠️ THE VERDICT IS `checklist_routing_age.register_freshness`, IMPORTED —
+    # it owns the cadence (read from its producer's cron) and defers the
+    # arithmetic to `probe_freshness` above. Three definitions of "is this file
+    # current?" would be two too many.
+    stale_rows: list[dict] = []
+    fresh_state, age_h = "grader_unavailable", None
+    tool = root / _ROUTING_AGE_TOOL
+    if tool.exists():
+        try:
+            import importlib.util
+            import sys as _sys
+            _n = "_routing_age_due"
+            _spec = importlib.util.spec_from_file_location(_n, tool)
+            _m = importlib.util.module_from_spec(_spec)
+            _sys.modules[_n] = _m
+            try:
+                _spec.loader.exec_module(_m)
+                fresh_state, age_h = _m.register_freshness(reg)
+            finally:
+                _sys.modules.pop(_n, None)
+        except Exception:  # noqa: BLE001 — any failure is `we could not look`
+            fresh_state, age_h = "grader_unavailable", None
+    if fresh_state == "stale":
+        stale_rows.append(_row(
+            "checklist_unrouted", "checklist-register-stale",
+            f"the unrouted-row register is {age_h:.0f}h old — its producer has not run",
+            (f"{_ROUTING_AGE} was generated at "
+             f"{reg.get('generated_at') or '(unrecorded)'}, and "
+             f"`.github/workflows/constraint-readout.yml` writes it on a DAILY cron. "
+             f"⚠️ EVERY ROW BELOW IS THAT READING, NOT TODAY'S: anything that crossed "
+             f"the threshold since is absent, and a row listed as newly stalled may "
+             f"since have been routed. This is not the same fact as "
+             f"`history_state` — that grades whether the ages could be DERIVED; this "
+             f"says the derivation succeeded and nobody re-ran it. Regenerate: "
+             f"`python3 scripts/ops/checklist_routing_age.py --write`."),
+            age_days=int(age_h // 24) if age_h else None,
+            loud=True, link=str(_ROUTING_AGE)))
+    elif fresh_state != "fresh":
+        stale_rows.append(_row(
+            "checklist_unrouted", "checklist-register-age-ungradeable",
+            f"the unrouted-row register's age could not be established ({fresh_state})",
+            (f"`{fresh_state}` is *we could not look*, **NOT** a fresh reading — "
+             f"`undateable` means no readable `generated_at`, `cadence_unknown` means "
+             f"no declared cadence, and `grader_unavailable` means the freshness "
+             f"check itself could not run, which is the same defect one level up. "
+             f"Do not read the rows below as today's answer."),
+            loud=True, link=str(_ROUTING_AGE)))
+
     hist = reg.get("history_state")
     if hist != "derived":
-        return SourceResult("checklist_unrouted", "could_not_read",
+        # ⚠️ The staleness row still rides, because "the derivation failed" and
+        # "nobody re-ran it" are different facts and a reader needs both.
+        return SourceResult("checklist_unrouted", "could_not_read", stale_rows,
                             note=f"history_state={hist!r}: "
-                                 f"{reg.get('history_note', 'no reason recorded')}")
+                                 f"{reg.get('history_note', 'no reason recorded')}"
+                                 f" · register_freshness={fresh_state}")
 
     thr = reg.get("threshold_hours", "?")
     # ⚠️ BRANCH ON THE VOCABULARY, NOT ON THE SHAPE OF A LIST. `stall_counts` is
@@ -975,11 +1034,16 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: t
         # `within` is the ONLY state that means nothing is owed, and an empty
         # list here has to be attributable to it rather than to a source that
         # quietly found nothing to say.
-        return SourceResult("checklist_unrouted", "read", [],
+        # ⚠️ `stale_rows`, not `[]`. "Nothing is due per this register" and
+        # "this register is a day old" are compatible and the second is what
+        # tells a reader how much the first is worth.
+        return SourceResult("checklist_unrouted", "read", stale_rows,
                             note=f"nothing due: {n_newly} new crossing(s), "
                                  f"{n_standing} standing, {n_within} within {thr}h, "
-                                 f"{n_unknown} ungradeable")
-    return SourceResult("checklist_unrouted", "read", rows)
+                                 f"{n_unknown} ungradeable "
+                                 f"· register_freshness={fresh_state}")
+    return SourceResult("checklist_unrouted", "read", stale_rows + rows,
+                        note=f"register_freshness={fresh_state}")
 
 
 def src_stuck_branches(
@@ -1467,9 +1531,25 @@ def _self_test() -> int:
          "keep reporting a probe fail as a due row, never to lose a signal")
 
     # ── MI-246: checklist rows filed and never routed ──────────────────────
+    _cra_tool = Path(__file__).resolve().parent / "checklist_routing_age.py"
+
+    def _fresh_stamp(hours_ago: float = 1.0) -> str:
+        return (datetime.now(timezone.utc)
+                - timedelta(hours=hours_ago)).isoformat(timespec="seconds")
+
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         (root / "docs/claude/work").mkdir(parents=True)
+        # The REAL freshness grader, so the register's age is graded through the
+        # same import path production uses rather than a restatement of it.
+        (root / "scripts/ops").mkdir(parents=True)
+        import shutil as _shutil0
+        _shutil0.copy(_cra_tool, root / _ROUTING_AGE_TOOL)
+        # …and THIS module too: `register_freshness` resolves the arithmetic
+        # (`probe_freshness`) relative to its OWN file, so a copied grader needs
+        # its sibling or it correctly reports `grader_unavailable` — which would
+        # make every control below pass for the wrong reason.
+        _shutil0.copy(Path(__file__).resolve(), root / "scripts/ops/render_due_list.py")
         # an ABSENT register is `could_not_read`, never a clean empty list
         na = src_checklist_unrouted(root, today)
         assert na.state == "could_not_read" and na.rows == [], \
@@ -1479,11 +1559,28 @@ def _self_test() -> int:
         # history_state other than `derived` is *we did not look*
         (root / _ROUTING_AGE).write_text(json.dumps(
             {"schema_version": 1, "history_state": "could_not_read",
+             "generated_at": _fresh_stamp(),
              "history_note": "the clone is SHALLOW"}), encoding="utf-8")
         sh = src_checklist_unrouted(root, today)
         assert sh.state == "could_not_read", \
             "a truncated git history reports every row as young — that is not a read"
         assert "SHALLOW" in sh.note, "and the reason travels with the verdict"
+        assert "register_freshness=fresh" in sh.note, \
+            "the register's own age is graded even when the DERIVATION failed"
+        assert sh.rows == [], "a fresh-but-underived register earns no staleness row"
+
+        # ⚠️ THE TWO FACTS ARE INDEPENDENT AND BOTH MUST SURVIVE. A register that
+        # BOTH failed to derive AND is a week old owes the reader both lines; an
+        # early `return` that dropped the staleness row would lose the one that
+        # says the producer is dead.
+        (root / _ROUTING_AGE).write_text(json.dumps(
+            {"schema_version": 1, "history_state": "could_not_read",
+             "generated_at": _fresh_stamp(24 * 7),
+             "history_note": "the clone is SHALLOW"}), encoding="utf-8")
+        both = src_checklist_unrouted(root, today)
+        assert both.state == "could_not_read", both.state
+        assert {r["id"] for r in both.rows} == {"checklist-register-stale"}, both.rows
+        assert "SHALLOW" in both.note and "register_freshness=stale" in both.note
 
         # a real crossing becomes a DUE row; the stock stays ONE row
         (root / _ROUTING_AGE).write_text(json.dumps({
@@ -1492,6 +1589,7 @@ def _self_test() -> int:
                                "owner": "unassigned", "status": "ready",
                                "unrouted_hours": 49.0}],
             "standing_count": 60, "seeded_count": 8, "within_count": 3,
+            "generated_at": _fresh_stamp(),
             "ungradeable_count": 2}), encoding="utf-8")
         got = src_checklist_unrouted(root, today)
         ids = {r["id"] for r in got.rows}
@@ -1513,6 +1611,57 @@ def _self_test() -> int:
         stand = next(r for r in got.rows if r["id"] == "checklist-unrouted-standing")
         assert "68" in stand["title"], \
             "standing + seeded are ONE stock — a seeded row is still unrouted"
+        assert "register_freshness=fresh" in got.note, \
+            "a fresh register says so, or `fresh` is indistinguishable from unread"
+
+        # ── the register's OWN age ─────────────────────────────────────────
+        # A producer that stops running leaves this surface rendering last
+        # week's reading with a fresh look. THE ROWS STILL RIDE — the reading is
+        # not discarded, it is DATED — because discarding it would lose real
+        # unrouted rows to fix a labelling defect.
+        _stale_reg = json.loads((root / _ROUTING_AGE).read_text(encoding="utf-8"))
+        _stale_reg["generated_at"] = _fresh_stamp(24 * 5)
+        (root / _ROUTING_AGE).write_text(json.dumps(_stale_reg), encoding="utf-8")
+        st = src_checklist_unrouted(root, today)
+        ids = {r["id"] for r in st.rows}
+        assert "checklist-register-stale" in ids, \
+            "a 5-day-old register must say so — its producer runs DAILY"
+        assert "MI-999" in ids, \
+            "the rows still ride: the reading is DATED, never discarded"
+        srow = next(r for r in st.rows if r["id"] == "checklist-register-stale")
+        assert srow["loud"], \
+            ("LOUD, unlike the unrouted rows themselves: 'this whole surface is "
+             "out of date' is not the same kind of thing as one item being due")
+        assert "not the same fact as" in srow["why_due"], \
+            "it must distinguish itself from `history_state`, or the two collapse"
+
+        # A register whose age CANNOT be established is *we could not look*,
+        # never `fresh`. Three distinct ways in, and none may render as clean.
+        for _bad, _why in ((None, "no generated_at at all"),
+                           ("not-a-timestamp", "an unparseable stamp")):
+            _r = dict(_stale_reg)
+            if _bad is None:
+                _r.pop("generated_at", None)
+            else:
+                _r["generated_at"] = _bad
+            (root / _ROUTING_AGE).write_text(json.dumps(_r), encoding="utf-8")
+            ug = src_checklist_unrouted(root, today)
+            assert "checklist-register-age-ungradeable" in {r["id"] for r in ug.rows}, \
+                f"{_why} must not read as a fresh register"
+            assert next(r for r in ug.rows
+                        if r["id"] == "checklist-register-age-ungradeable")["loud"]
+
+        # …and if the GRADER itself cannot be imported, that is its own state and
+        # is reported — a freshness check that silently stops running is the
+        # same defect one level up from the one it grades.
+        (root / _ROUTING_AGE).write_text(json.dumps(_stale_reg), encoding="utf-8")
+        (root / _ROUTING_AGE_TOOL).write_text("def (", encoding="utf-8")
+        gu = src_checklist_unrouted(root, today)
+        _g = next(r for r in gu.rows
+                  if r["id"] == "checklist-register-age-ungradeable")
+        assert "grader_unavailable" in _g["title"], _g["title"]
+        assert "grader_unavailable" in gu.note, gu.note
+        _shutil0.copy(_cra_tool, root / _ROUTING_AGE_TOOL)
 
     # ── the settled-disposition source ─────────────────────────────────────
     # ⚠️ Every control builds its OWN tree and copies the REAL grader into it,
@@ -1580,7 +1729,7 @@ def _self_test() -> int:
     assert src_settled_disposition_owed in SOURCES, \
         "src_settled_disposition_owed is not registered in SOURCES"
 
-    print("due-list: self-test OK — 63 planted controls all fire")
+    print("due-list: self-test OK — 77 planted controls all fire")
     return 0
 
 
