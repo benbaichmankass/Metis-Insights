@@ -72,7 +72,7 @@ outcome: >-
   close -- each follows a pairs_stop close ~105s earlier of the OPPOSITE direction and an unrelated
   size -- so the flap guard is not implicated; the shape resembles the adopt-ATTRIBUTION defect and
   wants its own lane. And U5's pick,
-  BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL, is the SAME defect class in
+  BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW, is the SAME defect class in
   a different reader and was VERIFIED still live: account_open_positions still does `if sym in seen:
   return`, now instrumented but still dropping the second hedge book, and still emits no
   position_idx.
