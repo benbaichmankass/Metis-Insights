@@ -41,9 +41,20 @@ import yaml
 WORKFLOW = (pathlib.Path(__file__).resolve().parents[1]
             / ".github" / "workflows" / "pr-queue-watch.yml")
 
-#: Steps whose whole purpose is to REPORT a verdict. A reporter that can be
-#: skipped by an unrelated failure is not a reporter.
-REPORTING_STEPS = ("Report the verdict", "Report the BLOCKED-LANE verdict")
+#: Steps whose whole purpose is to REPORT a verdict or RECORD an observation.
+#: One that can be skipped by an unrelated failure is neither.
+#:
+#: ⚠️ ONE LIST, DELIBERATELY. `Watch the MANAGER STATE that needs no MCP` was
+#: added 2026-09-12 as the RESIDUAL the row above filed and did NOT fix: it was
+#: skipped by the same mechanism, and because it escalates nothing of its own,
+#: its loss was silent even on the runs that went red. Giving it a second
+#: constant with a second assertion would let the two drift; the property is
+#: identical, so the list is.
+REPORTING_STEPS = (
+    "Report the verdict",
+    "Report the BLOCKED-LANE verdict",
+    "Watch the MANAGER STATE that needs no MCP",
+)
 
 
 def _steps(text: str) -> list[dict]:
@@ -150,3 +161,62 @@ def test_negative_control_a_semantically_inert_edit_stays_green():
     inert = text.replace("if: always()", "if: ${{ always() }}")
     assert inert != text, "THE CONTROL DID NOT APPLY — nothing was rewritten."
     assert_reporters_always(inert)
+
+
+def test_the_manager_state_watch_is_also_downstream_of_a_step_that_can_fail():
+    """The premise for the third entry, asserted rather than assumed."""
+    names = [x.get("name") for x in _steps(WORKFLOW.read_text())]
+    assert names.index("Land the receipt on main (auto-merge PR)") < \
+        names.index("Watch the MANAGER STATE that needs no MCP")
+
+
+def test_the_manager_state_watch_does_not_fail_the_job():
+    """`always()` must not have turned an observer into a second pager.
+
+    The step's own comment refuses to add an un-latched paging path, citing the
+    window in which 202 of 376 CRITICALs were one ignored alarm. Making it run
+    unconditionally must not quietly undo that.
+    """
+    step = _by_name(WORKFLOW.read_text(), "Watch the MANAGER STATE that needs no MCP")
+    assert step.get("continue-on-error") is True, (
+        "the manager-state watch reports and must not fail the job; "
+        "`always()` without `continue-on-error` turns it into a pager"
+    )
+    assert "exit 1" not in step["run"]
+
+
+def test_a_checkout_that_never_landed_is_not_read_as_an_odd_exit_code():
+    """`always()` makes a new state reachable: the job whose checkout failed.
+
+    The watcher script is then absent, and a bare `python3 <missing>` would land
+    in the `*)` arm as an 'unexpected exit code' -- reporting a verdict ABOUT a
+    watcher that never ran. *We could not look* is its own state.
+    """
+    body = _by_name(WORKFLOW.read_text(), "Watch the MANAGER STATE that needs no MCP")["run"]
+    assert "manager_state_watch.py" in body
+    assert re.search(r'if \[ ! -f scripts/ops/manager_state_watch\.py \]', body), (
+        "no absent-watcher arm: with `always()` this step can run on a job whose "
+        "checkout failed, and that must not be graded as an odd exit code"
+    )
+    assert "could not look" in body.lower()
+
+
+def test_planted_defect_removing_always_from_the_manager_watch_FAILS_the_guard():
+    text = WORKFLOW.read_text()
+    assert_reporters_always(text)  # PRE-RED check: clean before planting
+
+    # Anchor on SHAPE: this step is the only one whose `if: always()` is
+    # immediately followed by `continue-on-error: true`.
+    marker = "        if: always()\n        continue-on-error: true\n"
+    assert text.count(marker) == 1, (
+        f"THE PLANT DID NOT LAND: expected exactly one manager-watch anchor, "
+        f"found {text.count(marker)}. This probe is inert — fix it."
+    )
+    planted = text.replace(marker, "        continue-on-error: true\n", 1)
+    assert planted != text, "THE PLANT DID NOT LAND — the text is unchanged."
+    assert "always()" not in str(
+        _by_name(planted, "Watch the MANAGER STATE that needs no MCP").get("if") or ""), \
+        "THE PLANT DID NOT LAND — the step still carries always()."
+
+    with pytest.raises(AssertionError, match="SKIPPED"):
+        assert_reporters_always(planted)

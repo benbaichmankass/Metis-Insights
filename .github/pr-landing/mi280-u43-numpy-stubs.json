@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "tests/** only, plus one row's `updates` + `status` in docs/claude/health-review-backlog.json. Drops `numpy` from six MagicMock stub tuples in test modules, adds pytest.importorskip where the module genuinely needs numpy, and adds tests/test_no_numpy_magicmock_stub.py as the guard that makes a seventh fail. No src/, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps, no live-VM file. Test hygiene and a test-only guard are Tier-1 by the canonical doc's own examples."
+}

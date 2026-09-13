@@ -1,0 +1,65 @@
+id: WO-20260912-THE-ARBITRATION-FAN-OUT-APPLY-PATH-HAS
+type: question
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The arbitration fan-out apply path has never dispatched: apply_rounds drops the geometry its own reader validates
+stage: DEPLOYMENT
+lifecycle: dormant
+owner: null
+opened_at: 2026-09-12
+closed_at: null
+review_trigger: >-
+  Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
+  work only when it is given an owner and moved out of `dormant`.
+done_condition: >-
+  A live arbitration_fanout_soak row shows a rounds_applied entry carrying side/entry/sl/tp, AND a dispatch attributable to that round is observed on bybit_1 (demo). Adding breakout_1 to ARBITRATION_FANOUT_ACCOUNTS is a SEPARATE, LATER step and is NOT part of this object's done-condition.
+
+why: >-
+  MEASURED 2026-09-12T13:27Z over the 100-row arbitration_fanout_soak tail (2026-09-09T09:50 -> 2026-09-12T13:27): 93 of 93 rounds_applied entries carry EXACTLY the key-set ('accounts','strategy'); 106 of 106 rounds_planned entries carry the full 7-key geometry. intent_multiplexer._attach_fanout_plan builds a two-key projection; pipeline._fanout_apply_rounds requires side/entry/sl/tp and returns [] otherwise, so the reader fail-closes EVERY tick and the fan-out has dispatched nothing on any account since PR #10544 (2026-08-31). breakout_1 is additionally dropped at the allowlist gate (apply_scope not_allowlisted, 13 of 13 starved gradings). Newest prop ticket 2026-09-05T17:01Z, 7 days stale.
+
+source: >-
+  operator (conversational), 2026-09-12: 'still not getting prop trades'
+
+blocked_on: []
+blocked_on_basis: >-
+  NOT_ASSESSED. ⚠️ This empty list is NOT the claim that nothing blocks this
+  object — nobody has looked. Write a TRUE edge before moving it out of
+  `dormant`; an invented edge is read by the constraint computation as a real
+  blocker, and a false blocker is worse than a missing one.
+
+captured_by: scripts/ops/capture_idea.py
+
+operator_decisions:
+  - id: DEC-20260912-LAND-THE-FANOUT-PROJECTION-FIX
+    decided_on: "2026-09-12"
+    source: operator (conversational, manager decision popup)
+    verdict: approved
+    scope: >-
+      Merging #11970 into main. The popup stated in full that this ARMS a
+      dispatch path that has never executed, that pipeline uses
+      `if _rounds: fan-out else: global` so the fan-out becomes the SOLE
+      dispatcher for contested symbols on bybit_1, and that bybit_1 is demo
+      but mode:live. No condition was attached.
+    chosen: land_it_now
+    enacted: "merged 2026-09-12 as 1baff7a1f019efc10f8df9f26e24f8ee0f0157d5"
+
+  - id: DEC-20260912-BREAKOUT-1-ARMING-STAYS-GATED
+    decided_on: "2026-09-12"
+    source: operator (conversational, manager decision popup)
+    verdict: approved_with_conditions
+    chosen: come_back_with_the_evidence
+    scope: >-
+      How the SECOND step — adding breakout_1 to ARBITRATION_FANOUT_ACCOUNTS —
+      is gated. It is NOT approved. The operator explicitly declined to
+      pre-authorise it.
+    condition: >-
+      The manager must first OBSERVE bybit_1 genuinely dispatching through the
+      fan-out, then bring the operator the observed soak row and ask again.
+      A merge is not a deploy and a deploy is not an observation. Arming
+      breakout_1 without that second approval is forbidden.
+    why_this_matters: >-
+      Arming the allowlist before the dispatch is verified flips apply_scope to
+      `allowlisted` and puts breakout_1 into rounds_applied while it stays
+      starved — every observability surface, including the starvation counter
+      itself, would then report the account as routed. That is the trap this
+      sequencing exists to avoid, and it is why the operator kept the gate.

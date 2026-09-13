@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One new guard at scripts/ci/check_uncarried_specs.py, its registration in scripts/ci/run_guards.py, and one `observation` field in docs/claude/OPEN-ITEMS.json. Every path is inside TIER1_SURFACE and none is in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list rather than by reading prose. No src/, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps. The guard READS the tree and writes nothing. It cannot red the repo on landing: the whole-tree census is reported and never gates, and the only failing condition is a file THIS diff adds that classifies as a spec and that nothing carries -- verified live on this branch, which adds one such file (the guard itself is scripts/, not an artifact dir) and passes."
+}

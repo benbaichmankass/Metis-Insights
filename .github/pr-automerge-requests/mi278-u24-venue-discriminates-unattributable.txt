@@ -1,0 +1,4 @@
+MI-278 / U24 — which label state the unattributable closes are in.
+PR #12115, opened by this session so CI fires on a real pull_request event.
+Tier-1: one scripts/research/ census module, one memo, two register rows,
+one backlog append. Read-only diag GETs. Nothing enacted.

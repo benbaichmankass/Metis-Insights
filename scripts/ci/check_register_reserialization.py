@@ -56,14 +56,29 @@ import subprocess
 import sys
 from typing import Any
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _git_base  # noqa: E402  -- the ONE owner of base resolution
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
-# ── the four states, never collapsed ────────────────────────────────────────
+# ── the five states, never collapsed ────────────────────────────────────────
 CLEAN = "clean"
 RESERIALIZED = "reserialized"
 UNREADABLE = "unreadable"          # we could not look — NOT a pass
 UNTOUCHED = "untouched"
-ALL_STATES = (CLEAN, RESERIALIZED, UNREADABLE, UNTOUCHED)
+# ⚠️ `NEW_REGISTER` AND `UNREADABLE` ARE THE SAME BYTES AND OPPOSITE FACTS, and
+# collapsing them is what this state was added to stop. `git show <ref>:<path>`
+# exits non-zero both when the path is absent from an existing ref (a register
+# this diff ADDS — there is nothing to have re-serialized, and the honest
+# verdict is that the question does not arise) and when the ref itself cannot
+# be resolved (*we could not look*). `_git_base.read_at` has always told them
+# apart; this guard threw the distinction away one layer up, so a PR that
+# legitimately adds a register FAILED — reproduced before the fix, `ok=False`
+# with the new file graded `unreadable`.
+# It is deliberately NOT folded into CLEAN: `clean` means we compared two
+# versions and the comparison held, and there was no base version to compare.
+NEW_REGISTER = "new_register"
+ALL_STATES = (CLEAN, RESERIALIZED, UNREADABLE, UNTOUCHED, NEW_REGISTER)
 
 ID_FIELDS = ("id", "session_id", "pr", "item_id", "key")
 
@@ -169,8 +184,28 @@ def _dump_lines(row: Any) -> int:
     return len(json.dumps(row, indent=2, ensure_ascii=False).splitlines())
 
 
-def grade(base_text: str | None, head_text: str | None, *, path: str) -> dict:
-    """Pure decision, so the policy is arguable in tests rather than on a PR."""
+def grade(base_text: str | None, head_text: str | None, *, path: str,
+          base_state: str | None = None) -> dict:
+    """Pure decision, so the policy is arguable in tests rather than on a PR.
+
+    *base_state* is `_git_base.read_at`'s verdict for the base side. Omitting it
+    means ``we were not told``, which grades UNREADABLE — the fail-safe
+    direction, and byte-for-byte the behaviour before the state existed. Only an
+    EXPLICIT `ABSENT_AT_BASE` buys the new-register verdict, so a caller cannot
+    reach it by forgetting to say anything.
+    """
+    if base_state == _git_base.ABSENT_AT_BASE and head_text is not None:
+        # `lost_lines` is 0 because there were no base lines to lose — a real
+        # reading. `lost_fraction` is 0/0, which is UNDEFINED, so it is None and
+        # never 0.0: a fraction of a file that does not exist is not "none of
+        # it", and a consumer must be able to tell those apart.
+        return {"path": path, "state": NEW_REGISTER, "lost_lines": 0,
+                "budget": 0, "rows_touched": None, "lost_fraction": None,
+                "why": "this register does not exist at the fork point, so this "
+                       "diff ADDS it — there is no earlier serialization for it "
+                       "to have destroyed. Reported rather than swallowed: a "
+                       "register newly bound to the merge driver is a thing a "
+                       "reviewer should see named."}
     if base_text is None or head_text is None:
         return {"path": path, "state": UNREADABLE, "lost_lines": None,
                 "budget": None, "rows_touched": None, "lost_fraction": None,
@@ -237,13 +272,122 @@ def grade(base_text: str | None, head_text: str | None, *, path: str) -> dict:
                     "conditions must hold, so this is clean")}
 
 
-def _show(ref: str, path: str, cwd: pathlib.Path = REPO) -> str | None:
-    rc, out = _git("show", f"{ref}:{path}", cwd=cwd)
-    return out if rc == 0 else None
+#: How many unmarked candidates to NAME before summarising the rest. The list is
+#: 23 today; a cap exists so a future tree of 300 JSON files cannot turn a
+#: scope note into the page nobody reads. ⚠️ THE CAP TRUNCATES THE LIST, NEVER
+#: THE COUNT — a truncated census that also truncated its own total would be the
+#: unasserted denominator one level up, which is the defect this renderer exists
+#: to fix.
+UNMARKED_NAME_CAP = 40
+
+
+def render_unmarked(paths: list[str], cap: int = UNMARKED_NAME_CAP) -> list[str]:
+    """The unmarked candidates, NAMED — pure, so the cap is arguable in a test.
+
+    ⚠️ WHY NAMING THEM IS THE FIX AND COUNTING THEM WAS THE DEFECT. The old
+    output said *"23 unmarked candidate(s) NOT checked (so `clean` is a scope
+    result, not full coverage)"* — true, honest about its scope, and
+    unactionable: a reader could not tell that three of the four review
+    backlogs were among the 23. On 2026-09-13 a session hand-resolved a
+    conflict in `performance-review-backlog.json`, silently dropped a row that
+    had landed on `main` hours earlier, and every guard passed — including this
+    one, which knew the file was unbound and said only a number. Filed by the
+    MI-278 lane as the row about three of the four review backlogs never being
+    bound to the row-aware merge driver, and this is its `next_step` (1).
+
+    ⚠️ THAT ROW IS CITED BY DESCRIPTION AND NOT BY ID, DELIBERATELY. It is filed
+    on PR #12148, which is `landing: hold` awaiting a human read, so its id does
+    not yet resolve on `main` — and `check_backlog_refs` correctly refused this
+    file for naming it. A doc saying "tracked by BL-X" where BL-X was never
+    filed reads as tracked while being tracked by nobody. Put the id back once
+    that PR lands; do not file a second copy of the row to satisfy the guard.
+
+    This is the repo's unasserted-denominator class (sub-class C) applied to a
+    coverage census: the number was correct and told nobody anything.
+    """
+    if not paths:
+        return ["  (none — every register-shaped JSON under docs/claude is bound)"]
+    shown, rest = paths[:cap], len(paths) - min(len(paths), cap)
+    lines = [f"  {rel}" for rel in shown]
+    if rest:
+        lines.append(f"  ... and {rest} more (the COUNT above is complete; only "
+                     "this list is capped)")
+    return lines
+
+
+def _base_read(ref: str, path: str,
+               cwd: pathlib.Path = REPO) -> tuple[str, str | None]:
+    """`read_at`'s verdict for the base side, forwarded WITHOUT collapsing it.
+
+    ⚠️ THIS USED TO COLLAPSE TWO OF `read_at`'s THREE STATES, and the collapse
+    was the defect. `_base_text` returned None for both `ABSENT_AT_BASE` (the
+    register is NEW in this diff) and `UNREADABLE` (*we could not look*), which
+    was exactly what the pre-#12138 `_show` did — deliberate at the time, so
+    that the fork-point change altered WHICH REF is read and nothing else, and
+    filed rather than silently folded in. That row is what this repays: a PR
+    that legitimately adds a register graded `unreadable` and FAILED.
+
+    Nothing is decided here. The two states are handed to `grade`, which is the
+    one place the policy lives and the one place it is argued in tests.
+    """
+    return _git_base.read_at(ref, path, repo=cwd)
 
 
 def check(base: str, *, root: pathlib.Path = REPO) -> dict:
     regs = registers_from_gitattributes(root)
+    unmarked = unmarked_registers(root)
+    # THE FORK POINT, NOT THE TIP. `git diff {base}...HEAD` is already
+    # three-dot (merge-base semantics), so the FILE LIST was always scoped
+    # correctly -- but the base CONTENT was read at `base` itself, i.e. the
+    # tip. Mixed basis: files graded at the fork point, bytes compared against
+    # a ref that has moved. Measured 2026-09-12 on a branch 25 register-commits
+    # behind: an honest ONE-ROW append reported "421 base line(s) lost" against
+    # 0 at the merge base, because rows OTHER SESSIONS added after the fork read
+    # as this diff's losses. The verdict happened to survive (a 75% floor, and a
+    # budget that inflates with the same contaminated input), so what was wrong
+    # was the number a human reads and acts on.
+    resolved_base, base_state = _git_base.resolve_base(base, repo=root)
+
+    # ⚠️ AN UNRESOLVABLE BASE IS REFUSED, AND UNTIL NOW IT GRADED VACUOUSLY
+    # CLEAN. MEASURED 2026-09-13: `check("origin/does-not-exist")` returned
+    # ok=True with registers_in_diff=0 and EVERY register recorded UNTOUCHED —
+    # a verdict byte-identical to a run that compared everything and found it
+    # clean. Both `git diff` calls below fail, `out` is empty, `touched` is
+    # empty, and the `rel not in touched` branch then marks each register
+    # UNTOUCHED, which is a clean state.
+    #
+    # The information to refuse was already computed and thrown away: this line
+    # bound `resolve_base`'s verdict to `_base_state`, underscore-prefixed and
+    # unused, one line above the diff call — while this guard already owns an
+    # UNREADABLE state whose whole purpose is *we could not look*.
+    #
+    # ⚠️ `registers_in_diff == 0` NOW MEANS TWO DIFFERENT THINGS AND THEY ARE
+    # KEPT APART: on a resolvable base it is coverage (this diff touched no
+    # register), and on an unresolvable one it is the absence of any reading.
+    # Reporting the second as the first is what made this vacuous.
+    #
+    # ⚠️ THE TEST IS THE REF, NOT THE DIFF BEING EMPTY. An empty diff against a
+    # REAL base is the ordinary case on nearly every PR in this repo and must
+    # stay clean; refusing on an empty `touched` would fail all of them.
+    if base and base_state == _git_base.TIP_UNRESOLVABLE and \
+            not _git_base.ref_exists(base, repo=root):
+        return {
+            "ok": False,
+            "rows": [],
+            "registers_checked": len(regs),
+            "registers_in_diff": None,   # None, never 0 — nothing was read
+            "unmarked_candidates": len(unmarked),
+            "unmarked_paths": unmarked,
+            "reserialized": [],
+            "unreadable": [],
+            "new_registers": [],
+            "base_state": _git_base.TIP_UNRESOLVABLE,
+            "why": (f"the base ref {base!r} could not be resolved, so NO "
+                    "register was compared. That is 'we could not look', and "
+                    "it is not the same fact as 'this diff touched no "
+                    "register' — which is what a count of 0 would say."),
+        }
+
     rc, out = _git("diff", "--name-only", f"{base}...HEAD", cwd=root)
     if rc != 0:
         rc, out = _git("diff", "--name-only", base, cwd=root)
@@ -256,20 +400,28 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
                          "lost_fraction": 0.0,
                          "why": "not changed by this diff"})
             continue
-        rows.append(grade(_show(base, rel, root),
+        base_state, base_text = _base_read(resolved_base, rel, root)
+        rows.append(grade(base_text,
                           (root / rel).read_text(encoding="utf-8")
                           if (root / rel).is_file() else None,
-                          path=rel))
+                          path=rel, base_state=base_state))
     bad = [r for r in rows if r["state"] == RESERIALIZED]
     unread = [r for r in rows if r["state"] == UNREADABLE]
+    fresh = [r for r in rows if r["state"] == NEW_REGISTER]
     return {
         "ok": not bad and not unread,
         "rows": rows,
         "registers_checked": len(regs),
         "registers_in_diff": sum(1 for r in rows if r["state"] != UNTOUCHED),
-        "unmarked_candidates": len(unmarked_registers(root)),
+        "unmarked_candidates": len(unmarked),
+        # ⚠️ THE LIST, not only its length. A census that counts what it did not
+        # check, without saying WHAT, cannot be acted on — see render_unmarked.
+        "unmarked_paths": unmarked,
         "reserialized": [r["path"] for r in bad],
         "unreadable": [r["path"] for r in unread],
+        "new_registers": [r["path"] for r in fresh],
+        "base_state": base_state,
+        "why": None,
     }
 
 
@@ -391,6 +543,44 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
         say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} {label} is "
             f"{UNREADABLE}")
 
+    # ── THE SPLIT: `new register` vs `we could not look` ────────────────────
+    # These two are the SAME `git show` failure and OPPOSITE facts, and until
+    # this state existed a PR that legitimately ADDED a register failed. Both
+    # directions are asserted here, because fixing only the first would turn
+    # every unreadable base into a pass — strictly worse than the bug.
+    v = grade(None, base, path="p", base_state=_git_base.ABSENT_AT_BASE)
+    if v["state"] != NEW_REGISTER:
+        fails.append(f"a register ABSENT at the fork point graded {v['state']},"
+                     f" not {NEW_REGISTER} — a PR that adds a register fails")
+    say(f"  {'ok ' if v['state'] == NEW_REGISTER else 'FAIL'} a register absent "
+        f"at the fork point is {NEW_REGISTER}, not a failure")
+
+    # THE OTHER DIRECTION, and it is the one that must not be lost.
+    v = grade(None, base, path="p", base_state=_git_base.UNREADABLE)
+    if v["state"] != UNREADABLE:
+        fails.append(f"an UNREADABLE base graded {v['state']} — the split "
+                     "turned 'we could not look' into a pass")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} an unreadable base "
+        f"is still {UNREADABLE}")
+
+    # AND THE DEFAULT IS FAIL-SAFE: a caller that says nothing about the base
+    # gets the strict verdict, so the permissive one cannot be reached by
+    # omission — only by an explicit ABSENT_AT_BASE.
+    v = grade(None, base, path="p")
+    if v["state"] != UNREADABLE:
+        fails.append(f"an unstated base_state graded {v['state']} — the "
+                     "permissive verdict is reachable by forgetting to say")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} an UNSTATED base "
+        f"state is {UNREADABLE} (the permissive verdict needs an explicit say)")
+
+    # A head that cannot be read is unreadable EVEN WHEN the base is absent —
+    # both sides gone is not a register being added, it is nothing to grade.
+    v = grade(None, None, path="p", base_state=_git_base.ABSENT_AT_BASE)
+    if v["state"] != UNREADABLE:
+        fails.append(f"absent base AND unreadable head graded {v['state']}")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} absent base with an "
+        f"unreadable head is {UNREADABLE}, not {NEW_REGISTER}")
+
     v = grade(base, base, path="p")
     if v["state"] != UNTOUCHED:
         fails.append(f"identical bytes graded {v['state']}")
@@ -400,11 +590,131 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
     reached = {grade(base, base, path="p")["state"],
                grade(base, honest, path="p")["state"],
                grade(base, reser, path="p")["state"],
-               grade(None, base, path="p")["state"]}
+               grade(None, base, path="p")["state"],
+               grade(None, base, path="p",
+                     base_state=_git_base.ABSENT_AT_BASE)["state"]}
     if reached != set(ALL_STATES):
         fails.append(f"not every state is reachable: {sorted(reached)}")
-    say(f"  {'ok ' if reached == set(ALL_STATES) else 'FAIL'} all four states "
-        "are reachable, so none is decorative")
+    say(f"  {'ok ' if reached == set(ALL_STATES) else 'FAIL'} all "
+        f"{len(ALL_STATES)} states are reachable, so none is decorative")
+
+    # ── THE CENSUS MUST NAME WHAT IT DID NOT CHECK ──────────────────────────
+    # A count is true and unactionable. On 2026-09-13 this guard printed "23
+    # unmarked candidate(s) NOT checked" while three of the four review backlogs
+    # sat in that 23, and a hand-resolved conflict in one of them dropped a filed
+    # row with every guard green.
+    sample = ["docs/claude/performance-review-backlog.json",
+              "docs/claude/ml-review-backlog.json"]
+    out = "\n".join(render_unmarked(sample))
+    named = all(x in out for x in sample)
+    if not named:
+        fails.append("render_unmarked did not NAME the candidates it was given — "
+                     "a count is what this replaced")
+    say(f"  {'ok ' if named else 'FAIL'} the unmarked candidates are NAMED, not "
+        "counted")
+
+    # THE CAP TRUNCATES THE LIST AND NEVER THE COUNT. A census that capped its
+    # own total would be the unasserted denominator one level up — the exact
+    # defect this renderer exists to fix, reintroduced by the fix.
+    many = [f"docs/claude/f{i:03d}.json" for i in range(100)]
+    capped = render_unmarked(many, cap=10)
+    listed = [ln for ln in capped if ln.strip().startswith("docs/")]
+    says_rest = any("90 more" in ln for ln in capped)
+    cap_ok = len(listed) == 10 and says_rest
+    if not cap_ok:
+        fails.append(f"cap misbehaved: listed {len(listed)} line(s), "
+                     f"says_rest={says_rest} — it must show exactly `cap` and "
+                     "state how many it withheld")
+    say(f"  {'ok ' if cap_ok else 'FAIL'} the cap truncates the LIST and says "
+        "how many it withheld")
+
+    # AND AN EMPTY LIST MUST SAY SO IN WORDS. Rendering nothing would make "every
+    # register is bound" and "the probe stopped matching" the same output.
+    empty = render_unmarked([])
+    empty_ok = bool(empty) and "none" in empty[0]
+    if not empty_ok:
+        fails.append("an empty unmarked list rendered as nothing — silence "
+                     "cannot distinguish full coverage from a broken probe")
+    say(f"  {'ok ' if empty_ok else 'FAIL'} an empty list is stated in words, "
+        "not rendered as silence")
+
+    # THE LIST MUST REACH THE CALLER, not just exist. check() surfacing only a
+    # length is what main() could print nothing useful from.
+    v_chk = check("HEAD")
+    has_paths = isinstance(v_chk.get("unmarked_paths"), list) and \
+        len(v_chk["unmarked_paths"]) == v_chk["unmarked_candidates"]
+    if not has_paths:
+        fails.append("check() does not return unmarked_paths, or its length "
+                     "disagrees with unmarked_candidates — the count and the "
+                     "list must be the same population")
+    say(f"  {'ok ' if has_paths else 'FAIL'} check() returns the LIST and it "
+        f"agrees with the count ({v_chk.get('unmarked_candidates')})")
+
+    # AND THE LIST MUST EXCLUDE WHAT IS BOUND, or it is not a list of gaps.
+    bound = set(registers_from_gitattributes())
+    overlap = bound & set(v_chk.get("unmarked_paths") or [])
+    if overlap:
+        fails.append(f"bound register(s) appear as unmarked: {sorted(overlap)}")
+    say(f"  {'ok ' if not overlap else 'FAIL'} no bound register appears in the "
+        "unmarked list")
+
+    # ── AN UNRESOLVABLE BASE IS REFUSED, NOT GRADED CLEAN ───────────────────
+    # Measured before the fix: check("origin/does-not-exist") returned ok=True
+    # with registers_in_diff=0 and every register UNTOUCHED — indistinguishable
+    # from a run that compared everything.
+    v_bad = check("no-such-ref-anywhere-000-selftest")
+    bad_ok = (v_bad["ok"] is False
+              and v_bad["base_state"] == _git_base.TIP_UNRESOLVABLE
+              and v_bad["registers_in_diff"] is None
+              and not v_bad["rows"])
+    if not bad_ok:
+        fails.append(
+            f"an unresolvable base graded ok={v_bad['ok']} "
+            f"registers_in_diff={v_bad['registers_in_diff']!r} with "
+            f"{len(v_bad['rows'])} row(s) — it must REFUSE, and its count must "
+            "be None rather than 0, because 0 is a real reading")
+    say(f"  {'ok ' if bad_ok else 'FAIL'} an unresolvable base is REFUSED and "
+        "its count is None, never 0")
+
+    # POSITIVE CONTROL. Without it a guard that refused every base would pass
+    # the assertion above and be strictly worse than the defect.
+    v_good = check("HEAD")
+    good_ok = (v_good["base_state"] != _git_base.TIP_UNRESOLVABLE
+               and isinstance(v_good["registers_in_diff"], int))
+    if not good_ok:
+        fails.append("a REAL base was refused, or reported no count — the "
+                     "refusal is not keyed on the ref being unresolvable")
+    say(f"  {'ok ' if good_ok else 'FAIL'} a REAL base still grades "
+        f"(registers_in_diff={v_good['registers_in_diff']})")
+
+    # ⚠️ THE DISCRIMINATOR, and it is the control that decides the
+    # implementation. A defect keying the refusal on the DIFF being empty
+    # behaves identically to the correct one on both inputs above — a bogus ref
+    # yields an empty diff, and HEAD here happens to yield a non-empty one. An
+    # empty diff against a REAL base is the ordinary case on most PRs in this
+    # repo, and refusing it would fail all of them. So: a real ref whose diff
+    # against HEAD is EMPTY must still be GRADED.
+    import subprocess as _sp
+    head_sha = _sp.run(["git", "-C", str(REPO), "rev-parse", "HEAD"],
+                       capture_output=True, text=True).stdout.strip()
+    if not head_sha:
+        fails.append("could not resolve HEAD, so the empty-diff control is "
+                     "UNTESTED — not passed")
+        say("  FAIL could not build the empty-diff control")
+    else:
+        v_self = check(head_sha)          # HEAD vs HEAD: a real ref, no diff
+        self_ok = (v_self["base_state"] != _git_base.TIP_UNRESOLVABLE
+                   and v_self["registers_in_diff"] == 0
+                   and v_self["ok"] is True)
+        if not self_ok:
+            fails.append(
+                "a REAL ref with an EMPTY diff was refused or graded not-ok "
+                f"(base_state={v_self['base_state']!r} "
+                f"registers_in_diff={v_self['registers_in_diff']!r}) — the "
+                "refusal is keyed on the diff being empty, which would fail "
+                "every PR that touches no register")
+        say(f"  {'ok ' if self_ok else 'FAIL'} a REAL ref with an EMPTY diff is "
+            "GRADED (count 0 = coverage), not refused")
 
     # The register set must come from .gitattributes and must not be empty —
     # an empty list would make every run vacuously green.
@@ -434,16 +744,39 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     v = check(a.base)
+    # THE REFUSAL IS REPORTED BEFORE THE COVERAGE LINE, NEVER THROUGH IT. That
+    # line's shape ("N register(s) bound ... M in this diff") reads as a
+    # measurement, and printing `None` into it would dress the absence of any
+    # reading as a reading.
+    if v.get("base_state") == _git_base.TIP_UNRESOLVABLE:
+        print(f"::error::register-reserialization: {v['why']}")
+        return 1
     print(f"register-reserialization: {v['registers_checked']} register(s) bound "
           f"to the merge driver, {v['registers_in_diff']} in this diff; "
           f"{v['unmarked_candidates']} unmarked candidate(s) NOT checked "
           "(so `clean` is a scope result, not full coverage)")
+    # NAMED, not counted. The count alone was true and unactionable: it could
+    # not tell a reader that three of the four review backlogs were in it.
+    print("  not bound to the merge driver, so NOT graded by this run — this is "
+          "the scope of `clean`, not a list of faults:")
+    for line in render_unmarked(v["unmarked_paths"]):
+        print(line)
     for r in v["rows"]:
         if r["state"] != UNTOUCHED:
             print(f"  {r['state']:14} {r['path']} — {r['why']}")
+    if v["new_registers"]:
+        # A NOTICE, not an error: adding a register is legitimate. It is said
+        # out loud anyway, because the alternative to failing on it is not
+        # silence — a file newly bound to the merge driver changes how every
+        # other branch merges, and a reviewer should be told it happened.
+        print("::notice::this PR ADDS register(s) that do not exist at the fork "
+              "point, so there is no earlier serialization to compare against:")
+        for p_ in v["new_registers"]:
+            print(f"  - {p_}")
     if v["unreadable"]:
         print("::error::a register could not be READ, which is not the same as "
-              "a register that is fine:")
+              "a register that is fine, and not the same as one this diff ADDS "
+              "(that is `new_register`):")
         for p in v["unreadable"]:
             print(f"  - {p}")
     if v["reserialized"]:

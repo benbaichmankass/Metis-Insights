@@ -1,0 +1,7 @@
+MI-278 U27 — document-index-guard R6 gains an ungated step (its residue is measured at zero),
+and R1's remedy quotes the generator's own stub instead of a command that rewrites 62 unrelated
+headers. Plus the memo, one generated stub row in docs/DOCUMENT-INDEX.md, and two corrections
+appended to the health backlog row this change discharges.
+
+Tier-1: scripts/ci/**, docs/**, .github/**. No src/, no config/, no unit files, no order path.
+The prior `landing: hold` on #12131 is discharged in the declaration's own `why`, not deleted.

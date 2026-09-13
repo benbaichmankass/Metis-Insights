@@ -76,6 +76,214 @@ progress:
     family banked another 6 at 12-13% of declared target), so U3 tests target geometry and the
     trailing stop that precedes it. It must treat any live-population firing rate as a LOWER
     BOUND, because 43% of the window is unattributable or contaminated.
+  U31: >-
+    DELIVERED, PR pending. THE CYCLE PRIORITY APPLIED TO THIS OBJECT'S OWN EVIDENCE: repair the
+    measurement before acting on what it says. Working clause 1 of
+    BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY,
+    whose 21 named surfaces were 19 unpaid. The most load-bearing was
+    bleed_attribution_2026_09_11.py -- the script behind the -$38,851.81 figure the loud
+    OI-20260911 rests on -- which reads order_package_id ZERO times (positive control: account_id
+    twice) and, verified off the script rather than off prose, does NOT scope by account, so its
+    arms are POOLED. THE FINDING, and it is this row's first conclusion change: pooled, the e35
+    pre/post stop-rate Fisher goes p=8e-05 on ROWS to p=0.05703 on PACKAGES -- it crosses alpha and
+    is the ONLY arm in the table that changes; the other three are neither_significant on both.
+    !! THE MECHANISM IS NOT THE UNEQUAL INFLATION THIS ROW WAS FILED ABOUT: on this window the e35
+    arms inflate almost equally (1.444x / 1.471x). It is ~a third fewer independent observations
+    plus the post arm's stop-outs collapsing 15 rows -> 8 packages, 1.875x against its own 1.471x,
+    i.e. concentrated in fanned packages. !! AND THE USEFUL HALF: scoped to bybit_1 the inflation is
+    1.0581x and e35 is BYTE-IDENTICAL on both denominators, because FAN-OUT IS CROSS-ACCOUNT -- so a
+    per-account reading is immune and the whole exposure is in the pooled arms. That says WHICH
+    READING IS SAFE rather than passing verdict on the analysis.
+    !! pnl_sum IS DELIBERATELY NOT RE-DERIVED. It is an ACCOUNT fact; a package denominator would
+    UNDERSTATE money actually lost, and a session revising the headline DOWNWARD would commit the
+    row's error in the opposite direction -- the likelier mistake, because a package denominator
+    sounds uniformly more careful. The deliverable is the PARTITION (10 price_path / 9 account_fact
+    / 1 both_stated / 0 undeclared), completeness-checked by CALLING summarise, not reading it.
+    !! IT DOES NOT WEAKEN OI-20260911's HEADLINE and does not touch its clears_when. It narrows one
+    supporting claim -- the e35 contrast, the row's own leading candidate -- which makes the row's
+    existing framing MORE right: it already records that the bleed predates e35 by three days.
+    !! A MISLABEL OF MY OWN, caught by running on live data rather than reading: a single verdict
+    string returned `loses_significance` for an arm that was never significant (b4_geometry,
+    0.3043 -> 0.4643) and `strengthens` for two that stayed non-significant. Sub-class A
+    unprovenanced diagnostic output; fixed by branching on the actual condition -- two orthogonal
+    never-collapsed facts, `significance` and `strength` -- with both live mislabels pinned as
+    regression tests naming their own figures.
+    WHAT REMAINS: 17 of 21 surfaces, three of them the Tier-2 dashboard routes (no live figure was
+    re-graded -- that is a decision, not a side effect of a re-derivation).
+    Evidence: docs/research/m20-u31-bleed-record-package-denominator-2026-09-13.md
+  U32: >-
+    DELIVERED. scripts/research/e35_binomial_package_denominator.py re-derives
+    e35_break_attribution's one-sided binomial per ORDER PACKAGE. NOT A REPEAT OF U31: this
+    statistic takes TWO terms from row counts -- k,n from the E35 arm's POST rows AND the null p
+    from the family-matched CONTROL's own rows/rows rate -- so fan-out reaches the sample size
+    and the null hypothesis by different paths and one rows->packages swap cannot attribute the
+    move. Four cells, threshold-free attribution. MEASURED pooled bybit_*, 204 rows / 155
+    packages (1.3161x, 27 packages spanning >1 account, 4 packages disagreeing on win/loss, 0
+    straddling the deploy, 0 rows without a package id): the four cells span 0.0243-0.1779 and
+    ONE crosses alpha while both PURE bases read 0.0586 and 0.1010. Graded `offsetting` -- the
+    substitutions push OPPOSITE ways and cancel, so the published p is stable by coincidence, not
+    robustness; a plain rows-vs-packages re-derivation would have reported no change and been
+    wrong to stop. THE DESCRIPTION AND THE INFERENCE DO NOT MOVE TOGETHER: the e35 delta is
+    robust (-55.0 -> -57.6pp) while the FAMILY-MATCHED CONTROL'S DELTA FLIPS SIGN (+0.8 ->
+    -8.3pp) -- opposite conclusions about whether the break is e35-specific, on 3 pre packages,
+    which is a finding about that arm's fragility and NOT a new verdict. Per-account every cell
+    collapses to one number at inflation ~1.0, reproducing U31's transferable finding that
+    fan-out is CROSS-account and pooling is the exposure; bybit_1's residual 1.0362x is three
+    ict_scalp_* packages writing several rows on ONE account, lands entirely in control_other,
+    and is NOT fan-out. Carried a behaviour-preserving refactor of the subject (arm_of/ARMS
+    extracted from grade()), proven byte-identical on the real 1000-row pull.
+    !! THE UNIT'S OWN CORRECTION, and it corrects this object too: re-measured with U12's
+    instrument, price_path_not_deduped reads 21 -- UNCHANGED since U12 named it. U19, U31 and
+    U32 each built a re-derivation BESIDE the exposed surface rather than changing it, so
+    nothing has left the list. U31's board note said '17 of 21 remain' and U32's own START said
+    '16'; both are wrong and the true count has never moved. Filed as
+    BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED.
+    Population fingerprint is BYTE-IDENTICAL to U31's (rowset sha256:1752f298..., order
+    sha256:b073ee2c..., ids 5731->4732), so the two memos differ by method and never by pull --
+    U26's stanza paying off on its first re-use. Memo:
+    docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md
+  U33: >-
+    DELIVERED. Tested the candidate BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED named as untested
+    and called 'a different unit'. CONFIRMED AT THE FIELD: _netting_rows_to_attribute computes
+    take = min(qty, remaining) from excess = journal_qty - backed -- a subtraction of two
+    AGGREGATES distributed by a leg_gone/FIFO heuristic, with no venue fill anywhere. That
+    explains U16's sum_matched_unique = 0 of 12 in one line. !! AND THE FIELD SAYS THREE THINGS
+    THE CANDIDATE DID NOT. (1) _netting_apply_close's PARTIAL branch does NOT close the row: it
+    writes position_size = qty - take and leaves status='open', so the row closes LATER as sl /
+    sl_cross / reconciler_filled -- and MI-277 annex A6, U9 and U16 ALL scope this contamination
+    by exit_reason == 'netting_attributed', a filter structurally unable to see it. (2) The notes
+    stamp that would reveal it is DROPPABLE: neither netting_attribution_basis nor
+    netting_attributed_qty is in json_notes._DEFAULT_PROTECTED, whose own comments record THREE
+    prior instances of exactly this cap shedding a load-bearing key. (3) src/runtime/provenance.py
+    has NO QUANTITY AXIS -- position_size 0, quantity 0, size 0 against exit_price_source 12 --
+    so classify_pnl grades the PRICE and is_measured() returns True for a row whose quantity was
+    manufactured. MEASURED over 765 bybit rows of the same pull U31/U32 used (rowset
+    sha256:1752f298...): filter matches 50, stamp census 52, filter misses 2, and 111 ungradeable
+    from the journal. JOINED AGAINST A SECOND INDEPENDENT SOURCE -- the attribution soak, written
+    before the DB is touched and not subject to the cap -- 4 of its 29 applied trades carry NO
+    stamp at all, every one labelled with an ordinary exit reason. TOTAL INVISIBLE, BOTH SOURCES:
+    6; the journal alone sees 2, so a journal-only audit under-counts 3x. ada_pullback_2h is an
+    E35 LEG, so one lands in the e35 arm U32 measured; trend_donchian_eth and eth_pullback_2h in
+    control_same_family; three of the six are ict_scalp_*, MI-277's own subject; and 5404 is on
+    bybit_portfolio, which mirrors real-money bybit_2 by an enforced invariant. !! NO PUBLISHED
+    FIGURE IS RESTATED and six rows will not move a headline -- what changes is the SCOPING RULE.
+    !! NO CLOSE IS CLAIMED FALSE: option (b) of the parent row stays exhausted and was not
+    re-attempted. !! THE 111 ARE BOUNDED, NOT RESOLVED -- the soak is itself a 1000-line tail of a
+    3,879,840-byte file. !! NOTHING IS FIXED: order_monitor.py and json_notes.py are Tier-2 and
+    untouched; two remedies are named in the backlog and neither is applied. Filed
+    BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT
+    and
+    BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED.
+    Memo: docs/research/m20-u33-netting-position-size-basis-2026-09-13.md
+  U36: >-
+    DELIVERED. Adjudicated PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG
+    against the LIVE endpoint and CORRECTED IT: its criterion is unsound and the mechanism it
+    root-caused is provably not operating. MEASURED 2026-09-13 on
+    /api/bot/performance?window=30d (HTTP 200, 41 REAL-MONEY trades, since 2026-08-14T04:02:16Z):
+    expectancyR +0.1113 against totalPnl -14.5552 and profitFactor 0.8251 -- the sign disagreement
+    IS still live, so the row's criterion is not met. !! BUT rBasis READS 41/41 declaredInitial
+    with storedStop 0, verified per leg as well as in the headline, so MI-144's
+    r_multiple_provenanced is FULLY BINDING and the trailed-stop collapse cannot have touched any
+    published R. rProvenance.contaminated still reads 11 and that is NOT a contradiction --
+    classify_r grades the STORED STOP while rBasis says what the R was DIVIDED BY, a distinction
+    the route's own comment draws. CONSEQUENCE: the row's remedy applied TODAY would exclude rows
+    whose R the mechanism never reached. !! AND THE CRITERION IS UNSOUND ON ITS OWN TERMS: R is pnl
+    over the trade's own risk, so a book whose winners are sized smaller than its losers MUST show
+    positive mean R and negative dollars; requiring agreement would force a Tier-2 route the
+    operator reads to publish a wrong number. WHAT EXPLAINS IT, per leg and summing exactly to the
+    headline: dollars-per-R is 1.480 and 2.961 on the two POSITIVE-R legs against 3.793, 4.274 and
+    4.577 on the three NEGATIVE-R legs -- TOTAL SEPARATION, gap 0.832, spread 3.09x, threshold-free.
+    Every profitable leg is sized smaller per unit of risk than every losing one. Filed as
+    BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY
+    (Tier-3, PROPOSES NOTHING). Sibling PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN annotated too,
+    since PB-20260906 says to close them together. NOTHING IS CHANGED: /api/bot/performance is
+    src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
+    scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
+    all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
+
+  U34: >-
+    DELIVERED. Worked PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13's next_action, which THREE prior
+    sessions re-measured around without ever running. !! THE PACKETS ALREADY EXISTED AND NOBODY
+    READ THEM: a daily cron has committed one index per day to comms/strategy_reviews/ since
+    2026-09-01 -- ELEVEN of them -- and every one reads actionable: 0 over graded: 52. RAN THE
+    PRODUCER FOR THE FLEET: scripts/ops/build_strategy_evidence.py over all 52 enabled legs, 52
+    records committed to comms/strategy_evidence/ -- 19 MEASURED (12 faithful, 7 approximate), 10
+    no_harness, 23 harness_failed, against a prior coverage of ONE (the builder's own verification
+    case). That discharges the precondition
+    BL-20260909-STRATEGY-REVIEW-PACKET-GRADES-EDGE-OFF-A-LIVE-WINDOW-WHICH-THE-PROMOTION-EVIDENCE-RULE-FORBIDS
+    named in its own progress note.
+    !! AND IT CHANGES NO VERDICT, PROVEN BY RUNNING IT RATHER THAN READING IT: with the records in
+    place, htf_pullback_trend_2h (FAITHFUL, net_r_oos +2.7261, n=79) grades hold, and
+    trend_donchian (net_r_oos -7.1079, n=75) ALSO grades hold. decide() consults the offline record
+    only to choose between NO_OFFLINE_EVIDENCE and 'hold'; the KILL/DEMOTE matrix begins at
+    `elif n < 30` and is gated on n_closed >= 20 LIVE closes -- the calendar-time accrual
+    docs/CLAUDE-RULES-CANONICAL.md's promotion-evidence rule forbids. MI-216 shipped the producer
+    with 'the producer comes FIRST'; the consumer was never re-pointed.
+    !! TWO OF PB-20260821'S FOUR LEGS ARE ON REAL MONEY AND THAT ROW HAS NEVER SAID SO --
+    eth_pullback_2h on bybit_2 and tlt_pullback_1h on alpaca_live, both execution: live -- while the
+    row singles out slv_trend_1h, which is paper-only and already in shadow.
+    !! AND BOTH LEGS THAT CAN BE GRADED SHOW A POSITIVE OFFLINE EDGE, the opposite of the row's
+    premise; htf_pullback_trend_2h's +2.73 at n=79 FAITHFUL is the first evidence the mechanism has
+    ever offered about a leg it demoted to shadow on 2026-08-23. NOT a promotion proposal -- Tier-3,
+    not made here.
+    !! SHADOW IS A ONE-WAY DOOR: both shadow legs grade horizon_class structurally_ungradeable with
+    days_to_floor NULL, so the remedy that row proposes removes a leg from the surface that would
+    ratify it.
+    !! A NEW BLOCKER ON THE PRODUCER HALF: 13 of the 23 harness_failed are a FEED. Positive control
+    -- data.binance.vision HTTP 200 while Yahoo returns 429 / SSLError -- so 19 equity/ETF and 5
+    futures legs are unbuildable here, and yfinance is in requirements-backtest.txt but NOT
+    requirements.txt. Filed as
+    BL-20260913-THE-OFFLINE-EDGE-BUILDER-CANNOT-GRADE-ANY-EQUITY-OR-FUTURES-LEG-BECAUSE-YFINANCE-IS-NOT-IN-REQUIREMENTS-TXT.
+    !! COMMITTING THE RECORDS MAKES THE NEXT INDEX LOOK HEALTHIER WHILE CHANGING NOTHING -- 18 legs
+    move no_offline_evidence -> hold and actionable stays 0. Stated in the memo and in both backlog
+    rows so the label change is not read as progress. NO Tier-3 change is proposed; decide() is
+    untouched. Memo: docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md
+  U38: >-
+    DELIVERED. Worked
+    BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION,
+    whose own text says an honest negative closes it. IT DOES, AND THAT WAS THE SMALL HALF.
+    !! THE TRUNCATION ANSWER IS A DERIVATION, NOT A RE-RUN (which the row rules out). /api/diag/journal
+    is ORDER BY id DESC LIMIT n with no offset and no filter, so a missing member has an id BELOW the
+    minimum; the pull is DENSE (0 gaps over 1000 ids) so it cannot be an interior row, and id order
+    agrees with created_at order (0 inversions over 999 adjacent pairs) so a member below the edge was
+    created no later than the edge row. On one live pull (ids 4732-5731, rowset sha256:5b1cacd6..., 793
+    packages): ONE package of 793 (0.13%) within reach, 776 beyond, 16 unbounded_class, 0 ungradeable.
+    Single-row packages are graded too and must be -- a truncated fan-out's remnant IS a single row; 0
+    of 683 were within reach. The state is named beyond_observed_reach, never complete: it is a bound
+    from an observed maximum (5.918s), not a proof.
+    !! THE BIG HALF: order_package_id IS NOT A FAN-OUT KEY. SIXTEEN of the 110 multi-row packages
+    (14.5%, 41 of 317 rows) repeat an account_id, and a package holding two rows for the SAME account
+    cannot be one cross-account fan-out -- they are one id REUSED across re-entries (pkg-4f8140865a9a4441
+    is four bybit_1/ict_scalp_sol_15m longs at 20:12, 05:05, 08:00, 11:07; pkg-4b0f61d469e64c00 is two
+    ib_paper/mgc_trend_1h shorts 4.1 DAYS apart). The classes separate with NO THRESHOLD TO CHOOSE: the
+    94 distinct-account packages max 5.918s spread (median 2.16s, zero above 60s) against 3907s-353436s
+    -- a 662x gap with nothing in between. CONTIGUITY IS NOT THE TEST: 12 of 16 are non-contiguous but
+    FOUR ARE CONTIGUOUS and one spans 105 ids.
+    !! AND IT MOVES A PUBLISHED CAUSAL NUMBER, ONE-SIDEDLY. Running U15's own arm builder and U22's own
+    band UNMODIFIED (positive control: 168 of 168 unit packages recognised), ALL TEN reuse units that
+    fall inside U15's cells are in control_post and NONE in the other three, carrying SIX OF THAT CELL'S
+    SEVEN disagreements (7 -> 1, n 71 -> 61). Band 3.8..29.6pp -> 6.1..23.7pp, WIDTH narrowing 32%. THE
+    SIGN SURVIVES BOTH, so U15/U19/U22 are not contradicted on direction. NO EXCLUSION IS PROPOSED and
+    the instrument refuses to -- a planted 'RECOMMENDATION: exclude' line is caught by its own controls.
+    !! A SECOND, UNPLANNED FINDING: hypothesis (b) of
+    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN is OBSERVED, not merely a
+    candidate -- and it needed no retained pull, only two DECLARED fingerprints. U31/U32 declared order
+    sha256:b073ee2c... / rowset sha256:1752f298... over ids 5731->4732; U38's pull hours later the same
+    day has the SAME ids, the SAME order digest and a DIFFERENT rowset digest (sha256:5b1cacd6...), so at
+    least one row was RE-STAMPED between them. It does NOT attribute the 30-vs-31 (digests cannot name
+    the changed rows) and must not be read as closing that row. This is U26's stanza paying off a second
+    time and the first time it discriminated anything.
+    !! THREE TRUNCATION DETECTORS TESTED, ALL FAIL, EACH WITH A POSITIVE CONTROL: linked_trade_id points
+    outside the observed member set 0 of 520 times; no order_packages field declares an expected fan-out
+    width; and GET /api/bot/db/table/trades?filter_col=order_package_id -- which COULD complete a package
+    -- carries Depends(require_session) and returns 401 to a DIAG_READ_TOKEN session (/api/diag/version
+    -> 200, same host, same bearer). So the row's 'pull by id range rather than tail limit' candidate is
+    NOT AVAILABLE to a research session.
+    Filed BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL.
+    Instrument scripts/research/package_fanout_integrity.py (68 self-test + 33 pytest controls; 19
+    defects planted and 19 caught -- two ESCAPED on the first pass and both were control gaps, not module
+    bugs, now closed; 4 no-op plants fired zero). Nothing in src/, config/ or any unit file is touched.
+    Memo: docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md
   U5: >-
     DELIVERED, PR #12031 (open, blocked on checks that cannot fire — the PR was opened by
     claude-pr-automerge under GITHUB_TOKEN, so it carries no pull_request event). The excursion

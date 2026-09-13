@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling and evidence only: a new scripts/research/ module, its tests, a memo, a backlog-row update and a work-object progress entry. Every path is inside TIER1_SURFACE. It imports bleed_attribution_2026_09_11.py and package_denominator_rederive.py UNMODIFIED and edits neither, so no published record is written over; it re-grades no live figure (the three dashboard routes in U12's list are src/web/, Tier-2, and are untouched); and it proposes no parameter change."
+}

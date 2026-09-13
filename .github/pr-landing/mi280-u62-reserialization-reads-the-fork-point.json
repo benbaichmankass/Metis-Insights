@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one scripts/ci/ guard and its test module. No src/, config/, deploy/, workflow, runtime or order path. DIRECTION OF THE CHANGE, STATED: it alters only WHICH REF the base content is read at (tip -> fork point), and the two states read_at distinguishes are collapsed exactly as the old _show did, so behaviour is unchanged except for the contaminated number. Planted-defect verified both ways: reverting the call site to the tip makes an honest one-row append report 97 lost lines where the fix reports 0, while the guard grades `clean` and exits 0 in BOTH cases -- which is why the controls assert the reported NUMBER and not the exit code."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two backlog-row dispositions from live read-only diag pulls (/api/diag/bybit_open_orders on bybit_1 and bybit_2). docs/claude/health-review-backlog.json only — no src/, no ml/, no config, no scripts, no workflows, no order path. Nothing is enacted: the over-cover this measures is detect-only by design, the remediation is Tier-2, and no order, leg or position is touched."
+}
