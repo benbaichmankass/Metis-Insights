@@ -198,6 +198,35 @@ GUARDS: List[Dict[str, Any]] = [
             # why the reason is written here rather than only in the script.
             ["python3", "scripts/ci/check_document_index.py",
              "--base", "origin/{base_ref}"],
+            # The whole-tree backstop, deliberately UNGATED — the
+            # `diagnostic-provenance-guard` / `api-tier-policy-guard` pattern,
+            # for the same reason and on the same evidence shape.
+            #
+            # ⚠️ THIS COULD NOT EXIST UNTIL 2026-09-13, and R6's own comment
+            # says why: "There are 47 standing disagreements on `main` today;
+            # an unscoped rule would fail every PR in the repo from the moment
+            # it merged, which is not a guard, it is an outage." MEASURED
+            # against a fresh `build_rows()`: **46 drifted rows at b209768c2
+            # and 0 at `origin/main`** — the residue was drained by the
+            # `document_index.py --write` that rode PR #12122. It is held at
+            # zero here rather than re-measured by hand and found unchanged.
+            #
+            # ⚠️ WHY UNGATED AND NOT ONLY DIFF-SCOPED: the scoped step cannot
+            # see a row drift that no PR touches, and that is the normal case
+            # — a row drifts when `status_for` or `ACTIVE_DOCS` changes, i.e.
+            # from a commit that touches neither the row nor its document. All
+            # 46 accumulated exactly that way, invisibly, under a guard that
+            # was reporting OK.
+            #
+            # ⚠️ THE COST IS REAL AND IS NOT HIDDEN: a change to `status_for`
+            # or to `ACTIVE_DOCS` now reds every PR until someone runs
+            # `--write`. That is the accepted trade in the two precedents
+            # above, and it is the correct direction — the alternative is what
+            # just happened, where the drift is discovered only when an
+            # unrelated PR happens to run the writer. Rollback is deleting
+            # this one step; the diff-scoped rule and the census are untouched
+            # and keep working.
+            ["python3", "scripts/ci/check_document_index.py", "--all"],
         ],
     },
     {
@@ -994,6 +1023,81 @@ GUARDS: List[Dict[str, Any]] = [
         # for the reason the pr-queue-watch guard above records: failing on it
         # would red every PR the day this merges, which is how a guard gets
         # disabled instead of fixed.
+        # THE DETECTOR, WIRED. THE REPORT, STILL NOT.
+        #
+        # check_guard_glob_coverage.py asks whether each guard is TRIGGERED by
+        # every file its check actually reads -- the 2026-08-23 defect where
+        # `exit-coverage-matrix-guard` joined config/strategies.yaml and did not
+        # list it, so the one edit that could stale the matrix was the one edit
+        # that would not run the guard.
+        #
+        # ⚠️ ONLY `--self-test` RUNS HERE, AND THAT IS THE WHOLE DESIGN. Its
+        # report emits LEADS, not verdicts, and exits 1 on any un-triaged one --
+        # its author declared it manual-only for exactly that reason, and was
+        # right: a build failing on unconfirmed leads trains everyone to walk
+        # past it, the desensitised-alarm P1. That reasoning is about the
+        # REPORT. It was never an argument for leaving the DETECTOR unproven,
+        # and the two were bundled.
+        #
+        # MEASURED 2026-09-12: `guard-selftest-coverage` graded this file
+        # `none` -- "no failure-path evidence anywhere", the only one of 89 in
+        # that bucket -- while its --self-test plants the real 2026-08-23 defect
+        # (dropping config/strategies.yaml from that guard's globs) and requires
+        # the audit to flag it, AND asserts the real table still reads clean. A
+        # positive and a negative control, run by nothing. 0.4s, stdlib, no
+        # network, no diff needed.
+        #
+        # `when: None`: the input it grades is the GUARDS table in this very
+        # file plus the paths other guards' scripts open, so a PR that breaks it
+        # need not touch anything a `when:` could name.
+        #
+        # ⚠️ THE LEADS STILL DO NOT GATE. Nothing here runs the report, so the
+        # one live lead (exit-mechanism-coverage-guard reading
+        # config/lever_reachability.json, re-confirmed non-verdict-bearing by
+        # perturbation on 2026-09-12) cannot red a PR. If someone ever wires the
+        # report too, that is a different decision and needs its own argument.
+        "name": "guard-glob-coverage-detector",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_glob_coverage.py", "--self-test"],
+        ],
+    },
+    {
+        # THE WORK DIGEST'S OWN SELF-TEST, RUN ON A PR FOR THE FIRST TIME.
+        #
+        # scripts/ops/work_digest.py::_self_test check 11 GLOBS the real
+        # docs/claude/ for `*-review-backlog.json` and asserts every one on disk
+        # is in SOURCES -- the LIVE_BACKLOGS lesson, that a hand-maintained
+        # coverage list which can fall behind unnoticed IS the defect. It was a
+        # correct check with no PR-time carrier: work-digest.yml runs it on
+        # `schedule`, `push: [main]` and `workflow_dispatch`, and NOT on
+        # `pull_request`. So a PR adding a review backlog was graded by nobody
+        # before the merge and first failed on MAIN -- the PR #9208 shape
+        # (merge green, leave main red) with a longer fuse.
+        #
+        # ⚠️ AND pytest-run CANNOT COVER IT, which is why this entry exists
+        # rather than another line in that filter. The property depends on
+        # WHICH FILES EXIST under docs/claude/, so covering it there means
+        # matching the whole tree -- measured 2026-09-12 at 330 committed files
+        # that a backlog append touches on very many PRs. `guards` does not
+        # short-circuit, so the exclusion's long-standing "guards owns it"
+        # premise becomes TRUE here instead of assumed. BL-20260814 is the row
+        # that recorded that premise had never been checked per-file.
+        #
+        # `when: None` deliberately: the diff that breaks it ADDS a file the
+        # digest does not read, and such a PR need touch neither the digest nor
+        # any path a `when:` could name.
+        #
+        # No second implementation of the property -- the existing self-test is
+        # the one owner, invoked. A copy here would be the mechanism-that-
+        # already-existed class, and the two would drift.
+        "name": "work-digest-source-coverage",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/work_digest.py", "--self-test"],
+        ],
+    },
+    {
         "name": "digest-liveness-guard",
         "when": None,
         "steps": [

@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -219,3 +221,117 @@ def test_a_LARGE_HONEST_APPEND_is_clean_which_pins_the_DIRECTION():
     assert v["state"] == G.CLEAN, v
     assert v["lost_lines"] <= 2, \
         f"an append must lose ~nothing from the base; got {v['lost_lines']}"
+
+
+# ---------------------------------------------------------------------------
+# THE BASE-SELECTION CONTROL, 2026-09-13.
+#
+# Every test above -- and all 11 self-test calls -- exercise the PURE `grade()`.
+# `check()` was exercised ZERO times, and `check()` is where the base is chosen.
+# That is why the defect below survived: the decision was covered, the caller
+# was not. (Same shape as BL-20260912-SEVEN-OF-TEN-BASE-READING-GUARDS-... and
+# the `_at_ref` escape it records.)
+#
+# ⚠️ A GREEN RUN IS NOT EVIDENCE HERE. With the defect present the guard still
+# grades `clean` -- masked by a 75% floor AND by a budget that inflates with the
+# same contaminated input. A control asserting only the exit code passes against
+# the defect. It must assert the REPORTED NUMBER.
+# ---------------------------------------------------------------------------
+
+
+def _run(repo, *args):
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+
+
+def _register(rows):
+    return json.dumps({"items": rows}, indent=2, ensure_ascii=False) + "\n"
+
+
+def _row(i):
+    return {"id": f"BL-{i:04d}", "title": f"row {i} — with an em-dash",
+            "detail": "x" * 40}
+
+
+def _repo_with_moved_base():
+    """A repo whose branch is behind a main that appended rows of its own.
+
+    Returns (repo_path, register_relpath). The branch makes ONE honest append.
+    """
+    tmp = tempfile.mkdtemp()
+    repo = Path(tmp)
+    _run(repo, "init", "-q", "-b", "main")
+    _run(repo, "config", "user.email", "t@example.invalid")
+    _run(repo, "config", "user.name", "t")
+    rel = "docs/claude/health-review-backlog.json"
+    (repo / "docs" / "claude").mkdir(parents=True)
+    (repo / ".gitattributes").write_text(
+        f"{rel} merge=jsonregister\n", encoding="utf-8")
+    base_rows = [_row(i) for i in range(40)]
+    (repo / rel).write_text(_register(base_rows), encoding="utf-8")
+    _run(repo, "add", "-A")
+    _run(repo, "commit", "-qm", "base")
+
+    _run(repo, "checkout", "-q", "-b", "feature")
+    (repo / rel).write_text(_register(base_rows + [_row(900)]), encoding="utf-8")
+    _run(repo, "add", "-A")
+    _run(repo, "commit", "-qm", "one honest appended row")
+
+    # main moves ahead, the way other sessions move it: more rows.
+    _run(repo, "checkout", "-q", "main")
+    (repo / rel).write_text(
+        _register(base_rows + [_row(i) for i in range(500, 520)]), encoding="utf-8")
+    _run(repo, "add", "-A")
+    _run(repo, "commit", "-qm", "other sessions append")
+    _run(repo, "checkout", "-q", "feature")
+    return repo, rel
+
+
+def test_an_honest_append_against_a_MOVED_base_reports_zero_lost_lines():
+    """PLANTED: reading the base at the TIP blames this diff for main's rows.
+
+    Asserts the NUMBER, not the exit code -- the guard grades `clean` either
+    way, which is exactly how this survived.
+    """
+    repo, rel = _repo_with_moved_base()
+
+    # Sanity: the fixture really does have a base that moved ahead, or the
+    # control proves nothing.
+    behind = _run(repo, "rev-list", "--count", "HEAD..main").stdout.strip()
+    assert behind == "1", f"fixture did not move main ahead: {behind}"
+
+    out = G.check("main", root=repo)
+    row = next(r for r in out["rows"] if r["path"] == rel)
+    assert row["lost_lines"] == 0, (
+        f"an honest one-row append reported {row['lost_lines']} lost line(s). "
+        "Those are main's rows, not this diff's — the base is being read at the "
+        "TIP instead of the fork point.")
+    assert row["state"] == G.CLEAN
+
+    # NEGATIVE CONTROL: the defect, reinstated. Read at the tip and the same
+    # honest append must report a NON-ZERO count, or this test cannot fail and
+    # is decoration.
+    tip_text = subprocess.run(
+        ["git", "show", f"main:{rel}"], cwd=repo,
+        capture_output=True, text=True).stdout
+    head_text = (repo / rel).read_text(encoding="utf-8")
+    at_tip = G.grade(tip_text, head_text, path=rel)
+    assert at_tip["lost_lines"] > 0, (
+        "reverting to a tip read did NOT change the reported number, so this "
+        "control does not discriminate and proves nothing")
+
+
+def test_check_resolves_the_fork_point_rather_than_trusting_the_ref():
+    """The resolver is USED, not merely imported — a resolver nothing is proven
+    to use is decoration (the lesson this guard's sibling row records)."""
+    repo, rel = _repo_with_moved_base()
+    merge_base = _run(repo, "merge-base", "HEAD", "main").stdout.strip()
+    tip = _run(repo, "rev-parse", "main").stdout.strip()
+    assert merge_base and tip and merge_base != tip, "fixture is degenerate"
+
+    # Grading against the ref NAME must equal grading against the fork-point
+    # SHA, and must NOT equal grading against the tip.
+    by_name = next(r for r in G.check("main", root=repo)["rows"]
+                   if r["path"] == rel)
+    by_sha = next(r for r in G.check(merge_base, root=repo)["rows"]
+                  if r["path"] == rel)
+    assert by_name["lost_lines"] == by_sha["lost_lines"] == 0

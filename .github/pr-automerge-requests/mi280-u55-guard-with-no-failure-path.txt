@@ -1,0 +1,1 @@
+U55 — wire the detector's self-test (the report stays manual-only), delete the stale exemption, bank the floor.

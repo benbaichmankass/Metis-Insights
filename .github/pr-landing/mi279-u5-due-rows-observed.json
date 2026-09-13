@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Observations written into docs/claude/OPEN-ITEMS.json for the two monitoring rows that are DUE, plus one backlog-row disposition recording a schema hazard found while writing them. No src/, no ml/, no config, no scripts, no workflows, no order path. NOTHING IS CLEARED: one row's verified_at is refreshed with a NEGATIVE observation and its clears_when is untouched; the other's verified_at is deliberately left stale because it is blocked on the operator."
+}
