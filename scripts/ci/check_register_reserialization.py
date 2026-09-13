@@ -346,7 +346,48 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
     # as this diff's losses. The verdict happened to survive (a 75% floor, and a
     # budget that inflates with the same contaminated input), so what was wrong
     # was the number a human reads and acts on.
-    resolved_base, _base_state = _git_base.resolve_base(base, repo=root)
+    resolved_base, base_state = _git_base.resolve_base(base, repo=root)
+
+    # ⚠️ AN UNRESOLVABLE BASE IS REFUSED, AND UNTIL NOW IT GRADED VACUOUSLY
+    # CLEAN. MEASURED 2026-09-13: `check("origin/does-not-exist")` returned
+    # ok=True with registers_in_diff=0 and EVERY register recorded UNTOUCHED —
+    # a verdict byte-identical to a run that compared everything and found it
+    # clean. Both `git diff` calls below fail, `out` is empty, `touched` is
+    # empty, and the `rel not in touched` branch then marks each register
+    # UNTOUCHED, which is a clean state.
+    #
+    # The information to refuse was already computed and thrown away: this line
+    # bound `resolve_base`'s verdict to `_base_state`, underscore-prefixed and
+    # unused, one line above the diff call — while this guard already owns an
+    # UNREADABLE state whose whole purpose is *we could not look*.
+    #
+    # ⚠️ `registers_in_diff == 0` NOW MEANS TWO DIFFERENT THINGS AND THEY ARE
+    # KEPT APART: on a resolvable base it is coverage (this diff touched no
+    # register), and on an unresolvable one it is the absence of any reading.
+    # Reporting the second as the first is what made this vacuous.
+    #
+    # ⚠️ THE TEST IS THE REF, NOT THE DIFF BEING EMPTY. An empty diff against a
+    # REAL base is the ordinary case on nearly every PR in this repo and must
+    # stay clean; refusing on an empty `touched` would fail all of them.
+    if base and base_state == _git_base.TIP_UNRESOLVABLE and \
+            not _git_base.ref_exists(base, repo=root):
+        return {
+            "ok": False,
+            "rows": [],
+            "registers_checked": len(regs),
+            "registers_in_diff": None,   # None, never 0 — nothing was read
+            "unmarked_candidates": len(unmarked),
+            "unmarked_paths": unmarked,
+            "reserialized": [],
+            "unreadable": [],
+            "new_registers": [],
+            "base_state": _git_base.TIP_UNRESOLVABLE,
+            "why": (f"the base ref {base!r} could not be resolved, so NO "
+                    "register was compared. That is 'we could not look', and "
+                    "it is not the same fact as 'this diff touched no "
+                    "register' — which is what a count of 0 would say."),
+        }
+
     rc, out = _git("diff", "--name-only", f"{base}...HEAD", cwd=root)
     if rc != 0:
         rc, out = _git("diff", "--name-only", base, cwd=root)
@@ -379,6 +420,8 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
         "reserialized": [r["path"] for r in bad],
         "unreadable": [r["path"] for r in unread],
         "new_registers": [r["path"] for r in fresh],
+        "base_state": base_state,
+        "why": None,
     }
 
 
@@ -615,6 +658,64 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
     say(f"  {'ok ' if not overlap else 'FAIL'} no bound register appears in the "
         "unmarked list")
 
+    # ── AN UNRESOLVABLE BASE IS REFUSED, NOT GRADED CLEAN ───────────────────
+    # Measured before the fix: check("origin/does-not-exist") returned ok=True
+    # with registers_in_diff=0 and every register UNTOUCHED — indistinguishable
+    # from a run that compared everything.
+    v_bad = check("no-such-ref-anywhere-000-selftest")
+    bad_ok = (v_bad["ok"] is False
+              and v_bad["base_state"] == _git_base.TIP_UNRESOLVABLE
+              and v_bad["registers_in_diff"] is None
+              and not v_bad["rows"])
+    if not bad_ok:
+        fails.append(
+            f"an unresolvable base graded ok={v_bad['ok']} "
+            f"registers_in_diff={v_bad['registers_in_diff']!r} with "
+            f"{len(v_bad['rows'])} row(s) — it must REFUSE, and its count must "
+            "be None rather than 0, because 0 is a real reading")
+    say(f"  {'ok ' if bad_ok else 'FAIL'} an unresolvable base is REFUSED and "
+        "its count is None, never 0")
+
+    # POSITIVE CONTROL. Without it a guard that refused every base would pass
+    # the assertion above and be strictly worse than the defect.
+    v_good = check("HEAD")
+    good_ok = (v_good["base_state"] != _git_base.TIP_UNRESOLVABLE
+               and isinstance(v_good["registers_in_diff"], int))
+    if not good_ok:
+        fails.append("a REAL base was refused, or reported no count — the "
+                     "refusal is not keyed on the ref being unresolvable")
+    say(f"  {'ok ' if good_ok else 'FAIL'} a REAL base still grades "
+        f"(registers_in_diff={v_good['registers_in_diff']})")
+
+    # ⚠️ THE DISCRIMINATOR, and it is the control that decides the
+    # implementation. A defect keying the refusal on the DIFF being empty
+    # behaves identically to the correct one on both inputs above — a bogus ref
+    # yields an empty diff, and HEAD here happens to yield a non-empty one. An
+    # empty diff against a REAL base is the ordinary case on most PRs in this
+    # repo, and refusing it would fail all of them. So: a real ref whose diff
+    # against HEAD is EMPTY must still be GRADED.
+    import subprocess as _sp
+    head_sha = _sp.run(["git", "-C", str(REPO), "rev-parse", "HEAD"],
+                       capture_output=True, text=True).stdout.strip()
+    if not head_sha:
+        fails.append("could not resolve HEAD, so the empty-diff control is "
+                     "UNTESTED — not passed")
+        say("  FAIL could not build the empty-diff control")
+    else:
+        v_self = check(head_sha)          # HEAD vs HEAD: a real ref, no diff
+        self_ok = (v_self["base_state"] != _git_base.TIP_UNRESOLVABLE
+                   and v_self["registers_in_diff"] == 0
+                   and v_self["ok"] is True)
+        if not self_ok:
+            fails.append(
+                "a REAL ref with an EMPTY diff was refused or graded not-ok "
+                f"(base_state={v_self['base_state']!r} "
+                f"registers_in_diff={v_self['registers_in_diff']!r}) — the "
+                "refusal is keyed on the diff being empty, which would fail "
+                "every PR that touches no register")
+        say(f"  {'ok ' if self_ok else 'FAIL'} a REAL ref with an EMPTY diff is "
+            "GRADED (count 0 = coverage), not refused")
+
     # The register set must come from .gitattributes and must not be empty —
     # an empty list would make every run vacuously green.
     regs = registers_from_gitattributes()
@@ -643,6 +744,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     v = check(a.base)
+    # THE REFUSAL IS REPORTED BEFORE THE COVERAGE LINE, NEVER THROUGH IT. That
+    # line's shape ("N register(s) bound ... M in this diff") reads as a
+    # measurement, and printing `None` into it would dress the absence of any
+    # reading as a reading.
+    if v.get("base_state") == _git_base.TIP_UNRESOLVABLE:
+        print(f"::error::register-reserialization: {v['why']}")
+        return 1
     print(f"register-reserialization: {v['registers_checked']} register(s) bound "
           f"to the merge driver, {v['registers_in_diff']} in this diff; "
           f"{v['unmarked_candidates']} unmarked candidate(s) NOT checked "
