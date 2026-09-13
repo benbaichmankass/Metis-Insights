@@ -365,14 +365,21 @@ def _self_test() -> int:
        "agreeing signs need no explanation and the criterion is reported met")
 
     # --- declared states ------------------------------------------------------
-    for vv in (v, v2, v3, v4, v5, v6):
-        if (vv["sign_state"] not in SIGN_STATES
-                or vv["mechanism_state"] not in MECHANISM_STATES
-                or vv["explanation"] not in EXPLANATION_STATES):
-            fails.append("every state is declared")
-            break
-    else:
-        print("  ok  every state returned is in its declared tuple")
+    # ⚠️ THE DENOMINATOR IS PRINTED, not implied. "every state is declared" over
+    # an unstated population is the C sub-class of UNPROVENANCED DIAGNOSTIC
+    # OUTPUT — an empty loop would print the same reassuring line — and
+    # diagnostic-provenance-guard caught exactly that here, in the module whose
+    # own subject is that class.
+    checked = [v, v2, v3, v4, v5, v6]
+    graded = [(vv["sign_state"], vv["mechanism_state"], vv["explanation"])
+              for vv in checked]
+    undeclared = [t for t in graded
+                  if t[0] not in SIGN_STATES or t[1] not in MECHANISM_STATES
+                  or t[2] not in EXPLANATION_STATES]
+    ok(len(graded) == 6 and not undeclared,
+       f"all 3 state fields are in their declared tuples over "
+       f"{len(graded)} report(s) = {3 * len(graded)} gradings, "
+       f"{len(undeclared)} undeclared")
 
     ok("Tier-2" in render(v),
        "render states that the route is Tier-2 and untouched")
