@@ -116,3 +116,10 @@ outcome_so_far: >-
   !! THE LOUD ROW I OPENED IS THE THING TO CARRY: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE.
   A real-money account may hold a position no bot surface can see, and every surface reads through
   the defective path, so their silence is not evidence it closed.
+  !! AND THE CLOSE-OUT PR ITSELF HIT THE TRAP U28 IS ABOUT, WHICH IS RECORDED RATHER THAN QUIETLY
+  FIXED. I pushed the content and the arming file in ONE push, so claude-pr-automerge found no open
+  PR and created #12220 under GITHUB_TOKEN -- born with no CI, `user.login` github-actions[bot],
+  exactly the sequence CLAUDE.md's two-push order exists to prevent and exactly what U28 measured
+  on #12087. Eighth recorded instance by the repo's own count, and the first one committed by the
+  session that had just finished writing the gate for it. The remedy is this commit: one ordinary
+  push from a real author, which is what arms CI on such a PR.
