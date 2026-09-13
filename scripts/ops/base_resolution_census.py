@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# wiring: manual-only - this is a MEASUREMENT INSTRUMENT, not a guard. It has no
+# failing condition, because "reads at the tip" is not by itself a defect: the
+# docstring below records the measurement showing it is BENIGN for an id
+# set-difference and contaminating for a content or count comparison. A runner
+# that failed on the pattern would fire on two scripts measured not to be harmed
+# by it, and the cheapest way to satisfy it would be a resolver call nobody uses.
+# Run by a session draining the tip-read family, and cited from
+# scripts/ci/_git_base.py in place of the frozen count that went stale.
 """WHO resolves a `--base` to the fork point, and who reads it wherever it points?
 
 WHY A CENSUS AND NOT ANOTHER SENTENCE. `scripts/ci/_git_base.py`'s docstring
