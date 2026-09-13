@@ -103,7 +103,17 @@ TESTS_DIR = REPO / "tests"
 # The RATCHET. It may rise and may never fall: a PR that reduces the number of
 # guards with a resolved failure path fails here, naming the loss. Raise it in
 # the same PR that earns it -- the script prints the value to set.
-COVERAGE_FLOOR = 58
+#
+# ⚠️ BANKED 58 -> 67 on 2026-09-12, and it had been 58 while coverage stood at
+# 66. A ratchet that is never ratcheted is not a ratchet: at a floor of 58 the
+# repo could have LOST the failure path of EIGHT guards -- 12% of what it had
+# -- and this check would have printed a clean pass the whole way down. The
+# script prints the value to bank on every run; nobody had.
+#
+# The consequence is stated rather than left implicit: a PR that drops coverage
+# below 67 now FAILS, including one that reverts the change that earned the
+# 67th. That is what banking means, and it is the point.
+COVERAGE_FLOOR = 67
 
 _MONEY_BLAST_RADII = {"accounting", "money-at-risk", "money_at_risk"}
 
