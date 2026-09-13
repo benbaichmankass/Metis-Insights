@@ -1,0 +1,1 @@
+arm auto-merge for PR #12182 (claude/mi280-u82-conflict-markers-canonical-docs)

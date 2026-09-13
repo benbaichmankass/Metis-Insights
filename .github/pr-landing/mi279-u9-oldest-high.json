@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/health-review-backlog.json only, plus this declaration, its arming file and a per-branch merge-slot claim. One row filed and two updated from read-only live diag pulls (/api/diag/ib_open_orders, /api/diag/exchange_positions) and from reading src/runtime/order_monitor.py on the tree. No src/, no ml/, no config/, no scripts/, no .github/workflows/, no order path. The one remediation identified (a Tier-2 cancel-ib-order dry-run against IB order 6) is PROPOSED to the manager and deliberately NOT run here."
+}
