@@ -1,0 +1,1 @@
+MI-280 U57: correct the record on the mergeability mapping (it holds) and record the vacuous-probe trap that nearly refuted it.

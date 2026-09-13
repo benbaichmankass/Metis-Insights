@@ -1,0 +1,5 @@
+MI-278 U25 — performance sign-agreement probe (scripts/research/performance_sign_agreement.py),
+its memo, the capability-index row, the backlog rows and the regenerated document index.
+
+Tier-1: docs/**, scripts/research/**, .github/**. No src/, no config/, no unit files.
+Landing declared in .github/pr-landing/mi278-u25-performance-sign-agreement.json.
