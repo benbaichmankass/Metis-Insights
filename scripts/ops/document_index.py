@@ -1018,6 +1018,82 @@ def census(rows: List[Dict[str, str]]) -> str:
     return "\n".join(out)
 
 
+# Three states, never collapsed. An index that is ABSENT has nothing to lose;
+# one we could not READ is *we did not look*, and the two must not share a
+# value -- returning `{}` for both would make an unreadable index authorise the
+# very overwrite this reader exists to gate.
+BASES_READ, BASES_ABSENT, BASES_UNREADABLE = "read", "absent", "unreadable"
+
+
+def committed_bases(index_text: Optional[str] = None
+                    ) -> Tuple[str, Dict[str, str]]:
+    """`(state, {path: basis})` read back from the table this module WROTE.
+
+    A reader for our own output, so `--write` can tell what it is about to
+    replace.
+
+    ⚠️ ABSENT AND UNREADABLE ARE DIFFERENT ANSWERS. A missing index is the
+    first-run case and genuinely has nothing at risk. An index that exists and
+    cannot be read tells us nothing about what it holds, and `--write` refuses
+    on it -- the alternative is that a permissions error or a decode failure
+    silently green-lights replacing every recorded basis in the file.
+    """
+    if index_text is None:
+        try:
+            index_text = INDEX_PATH.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return BASES_ABSENT, {}
+        except (OSError, UnicodeDecodeError):
+            return BASES_UNREADABLE, {}
+    out: Dict[str, str] = {}
+    for line in index_text.splitlines():
+        if not line.startswith("| `"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 6:
+            continue
+        path = cells[0].strip().strip("`")
+        if "/" not in path:          # the summary tables at the top of the file
+            continue
+        out[path] = cells[5].strip().strip("`")
+    return BASES_READ, out
+
+
+def unowned_bases(committed: Dict[str, str],
+                  rows: List[Dict[str, str]]) -> List[Tuple[str, str, str]]:
+    """`[(path, committed_basis, computed_basis)]` -- rows whose recorded basis
+    this generator did NOT produce and is about to overwrite.
+
+    ⚠️ DERIVED, NEVER PATTERN-MATCHED, and that is the whole design. The
+    motivating convention is `<mi-id>:self-measured-<date> / ...`, and matching
+    THAT string would catch one habit and miss every other -- while this repo's
+    own rule is that a probe must be shown able to find a positive. Comparing
+    against what `build_rows()` computes for the same path finds any basis this
+    module did not write, whatever convention produced it.
+
+    MEASURED 2026-09-13 over all 1081 committed rows on `main`: exactly ONE
+    differs, and it is the hand-written one. So the test is precise rather than
+    noisy -- a check that flagged hundreds would be walked past, which is this
+    repo's stated P1.
+
+    ⚠️ WHAT IT DOES NOT DO. It does not judge which basis is BETTER, and it
+    never carries the committed one forward: `STATUS_EXPLICIT`'s docstring
+    forbids this generator asserting what it cannot derive, and the row that
+    recorded the 35 erased bases REFUSED restoring them on exactly that
+    reasoning. This makes the replacement VISIBLE and DELIBERATE; it does not
+    reverse that decision, and doing so would be a separate one.
+    """
+    out: List[Tuple[str, str, str]] = []
+    for r in rows:
+        was = committed.get(r["path"])
+        if was is None:                     # a new document has nothing to lose
+            continue
+        now = r.get("basis", "")
+        if was and now and was != now:
+            out.append((r["path"], was, now))
+    return sorted(out)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="rebuild index and stamp headers")
@@ -1028,6 +1104,12 @@ def main() -> int:
              "if you have ACTUALLY re-verified them — it asserts a human act. "
              "Deliberately NOT what the guard's remedy line tells you to run; "
              "--write carries each document's existing date instead.")
+    ap.add_argument(
+        "--reset-unowned-bases", action="store_true",
+        help="Replace `basis` values this generator did not produce. Without "
+             "it --write REFUSES rather than silently erasing what a session "
+             "recorded about a document. Deliberately NOT what the guard's "
+             "remedy line tells you to run.")
     a = ap.parse_args()
 
     today = date.today().isoformat()
@@ -1041,8 +1123,43 @@ def main() -> int:
             print(f"\n⚠️ generated-waiver DID NOT VERIFY (waiver refused): {sorted(unverified)}")
         return 0
 
+    # ⚠️ REFUSE BEFORE WRITING, NOT AFTER. A warning printed alongside a diff
+    # that already happened is the shape this repo has paid for: the hazard was
+    # documented in `carry_last_verified`'s docstring and still erased 35
+    # recorded bases across two PRs. The precedent it cites is `backlog_append`,
+    # fixed by making the helper REFUSE.
+    bases_state, committed = committed_bases()
+    if bases_state == BASES_UNREADABLE and not a.reset_unowned_bases:
+        print(f"REFUSING to write: {INDEX_PATH.relative_to(REPO)} exists and "
+              f"could not be READ, so this run cannot tell which rows carry a "
+              f"`basis` it did not produce. That is 'we could not look', never "
+              f"'nothing is at risk'. Fix the file, or re-run with "
+              f"--reset-unowned-bases to overwrite it regardless.")
+        return 1
+    at_risk = unowned_bases(committed, rows)
+    if at_risk and not a.reset_unowned_bases:
+        print(f"REFUSING to write: {len(at_risk)} row(s) carry a `basis` this "
+              f"generator did not produce, and --write would replace them.")
+        for pth, was, now in at_risk:
+            print(f"  {pth}")
+            print(f"      recorded : {was}")
+            print(f"      would be : {now}")
+        print("These record what a session ESTABLISHED about a document; this "
+              "module cannot derive them, so it cannot carry them either "
+              "(STATUS_EXPLICIT's own rule). Either move the determination into "
+              "STATUS_EXPLICIT in this file, or re-run with "
+              "--reset-unowned-bases to replace them deliberately.")
+        return 1
+
     INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     INDEX_PATH.write_text(render_index(rows, today, generated), encoding="utf-8")
+    if at_risk:
+        # Deliberate is not the same as unrecorded: name them in the run output
+        # so the erasure appears in whatever log or transcript carries it.
+        print(f"--reset-unowned-bases: REPLACED {len(at_risk)} recorded "
+              f"basis(es) that this generator did not produce:")
+        for pth, was, _now in at_risk:
+            print(f"  {pth}: {was}")
     print(f"wrote {INDEX_PATH.relative_to(REPO)} ({len(rows)} rows)")
 
     changed = 0
