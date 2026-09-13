@@ -37285,6 +37285,7 @@
     },
     {
       "id": "BL-20260912-BYBIT2-SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED",
+      "opened": "2026-09-12",
       "severity": "critical",
       "status": "open",
       "tier": 2,

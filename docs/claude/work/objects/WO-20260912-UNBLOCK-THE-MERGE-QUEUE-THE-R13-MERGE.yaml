@@ -4,8 +4,8 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Unblock the merge queue: the R13 merge-slot unjammer is one lint error from green and its lane cannot see it
 stage: CAPABILITY
-lifecycle: in_flight
-owner: session_013njtHZThET6vgiGMdHZPiz
+lifecycle: waiting
+owner: null
 opened_at: 2026-09-12
 closed_at: null
 review_trigger: >-
@@ -28,3 +28,24 @@ blocked_on_basis: >-
   blocker, and a false blocker is worse than a missing one.
 
 captured_by: scripts/ops/capture_idea.py
+manager_observation_2026_09_13T0355Z: >-
+  Lifecycle corrected in_flight -> waiting and owner cleared, because
+  session_013njtHZThET6vgiGMdHZPiz is TERMINAL in SESSIONS.json (completed) and
+  check_stale_in_flight graded this row UNSUPPORTED. It is NOT auto-closed: the
+  guard's own text forbids that, and the done_condition's second half is
+  genuinely unmet. What is owed is unchanged - the spawn-prompt template,
+  .github/pr-landing/README.md and the session-coordination skill must tell a
+  lane to pass --branch-claim, and the jam must be RE-MEASURED against its own
+  before-figure (14 of 19 conflicted, 13 on the shared merge_slot field, 4 clean
+  as the positive control). Waiting means it needs a new owner, not that it is
+  done.
+  NEW EVIDENCE FOR WHOEVER TAKES IT, measured this session at 03:07Z: the
+  --branch-claim route is NOT available to a manager branch. Writing
+  .github/merge-slots/<slug>.json was REFUSED by check_manager_scope R2 by name,
+  because .github/ is a worker path, so a manager writing a per-branch claim is
+  doing an item. A manager must therefore keep using the shared
+  docs/claude/session-board.json::merge_slot field - and must splice it via
+  scripts/ops/claim_merge_slot.py rather than a JSON round-trip, since R2 also
+  refuses the whole-file reserialization a naive rewrite produces (refused at
+  03:09Z). So the guidance this object owes cannot simply say 'always use
+  --branch-claim'; it has to say which route each kind of branch may use.
