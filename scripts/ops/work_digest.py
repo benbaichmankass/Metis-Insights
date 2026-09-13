@@ -59,6 +59,20 @@ Usage::
     python3 scripts/ops/work_digest.py --base origin/main~20 --head HEAD
     python3 scripts/ops/work_digest.py --base <ref> --head HEAD --write
     python3 scripts/ops/work_digest.py --self-test
+
+⚠️ **THE `--base` REF IS READ AS GIVEN — THE TIP — AND A MERGE BASE WOULD BE
+MEANINGLESS HERE. DO NOT "FIX" IT.** This script takes BOTH `--base` and
+`--head` and compares two ARBITRARY refs over a WINDOW; it is not a
+diff-scoper asking *"did this branch do X?"*, so there is no branch whose fork
+point would be the right reference. Resolving a merge base between two
+arbitrary refs would silently move one end of the window.
+
+It is listed among the tip-readers by `scripts/ops/base_resolution_census.py`,
+which says in terms that that is **a count of a pattern, not a list of
+defects**. The per-script audit is in
+`scripts/ops/check_backlog_criteria.py::_load_at_ref` and names this script
+under **"RIGHT BY DESIGN, DO NOT 'FIX' THESE"**. This note exists locally
+because a warning in another file does not reach someone reading this one.
 """
 # wiring: .github/workflows/work-digest.yml (cron "20 2,6,10,14,18,22 * * *" +
 # workflow_dispatch) -> `--base <24h ago> --head main --write`, then
