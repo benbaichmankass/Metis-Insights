@@ -4922,7 +4922,8 @@
         "docs/research/m20-u19-package-denominator-rederivation-2026-09-12.md",
         "docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md",
         "scripts/research/fanout_denominator_survey.py"
-      ]
+      ],
+      "tier": "1 — the accounting half (a) and the 18 non-dashboard entries of (b) are Tier-1 research/doc work a session may do itself; the THREE dashboard routes (/api/bot/stats winRate, /api/bot/performance, /api/bot/attribution) are src/web/ Tier-2 AND change a number the operator reads, so they are an operator decision and must not ride a Tier-1 sweep"
     }
   ],
   "updated_at": "2026-09-12"
