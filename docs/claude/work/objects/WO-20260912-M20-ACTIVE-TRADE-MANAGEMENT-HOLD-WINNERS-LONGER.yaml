@@ -396,3 +396,79 @@ progress:
     both re-run correctly and recorded rather than counted; 2 no-op plants fired zero). Nothing in
     src/, config/ or any unit file is touched. Memo:
     docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md
+  U45: >-
+    PAUSED MID-UNIT 2026-09-13T08:4xZ, operator-directed (token budget spent, all lanes paused,
+    seven_day window resets 2026-09-16T18:00:00Z). NOTHING WAS COMMITTED -- branch
+    claude/mi278-u45-avax-risk-qty-reconstruction exists and is byte-identical to main. Everything
+    below is MEASUREMENT THAT EXISTS NOWHERE ELSE; a resuming session that skips it will re-derive
+    it from scratch.
+    !! THE UNIT: PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK, the oldest UNTOUCHED open+high
+    row in docs/claude/performance-review-backlog.json. Its resolution_criteria is blocked on the
+    PRE-CLAMP risk-derived qty not being recorded, and the fix it proposes is a stamp in
+    src/units/accounts/risk.py -- Tier-2 and outside the research lane. The ANGLE was: if that
+    number is RECONSTRUCTIBLE from what is already stamped, the Tier-3 sizing decision is
+    unblocked with no runtime change.
+    !! THE ROW IS NO LONGER n=2 AND ITS CENTRAL CLAIM RE-VERIFIES. Population: /tmp/j3.json, a
+    1000-row journal tail (ids 4772-5736, 2026-08-19 -> 2026-09-13), 76 ict_scalp_avax_5m rows
+    (29 closed / 25 exchange_rejected / 22 rejected). ALL 25 exchange_rejected rows now carry
+    notes.margin_basis, against the 2 the row was filed on, and 24 of 25 have position_size ==
+    max_qty_by_margin AT VENUE PRECISION. !! MY FIRST TEST USED 1e-6 AND REPORTED 'differs' -- the
+    row was right and the test was wrong; 23374.8 is 23374.829... at venue precision. Do not
+    re-derive that false negative. The cap identity is EXACT: basis_usd x leverage x buffer /
+    entry_price = max_qty_by_margin (4592.3620 vs 4592.3620 stamped).
+    !! THE ROW'S OWN CAVEAT HAS EXPIRED AND THAT IS THE NEW FINDING. It says ceiling-sized orders
+    are "the TAIL, not the norm" against a median accepted size of 4574.3. Available margin on
+    bybit_1 fell 86.4% (91,800.28 -> 12,530.34) from 2026-08-22 to 2026-09-11 and the ceiling fell
+    86.2% in lockstep (33,265.4 -> 4,592.4), so the 09-11 ceiling of 4,592 has now MET that median.
+    The tail is becoming the norm. This is on bybit_1, the same book carrying the 17-day losing
+    streak (OI-20260911).
+    !! THE RECONSTRUCTION IS SOUND AND ITS INPUTS ARE READ-ONLY. Chain verified in code, not
+    assumed: effective_risk_pct = risk_pct x _confidence_scalar; bybit_1 declares risk.risk_pct
+    0.015 and NO confidence_sizing key, whose default is "off" => scalar 1.0, so the fraction is
+    exactly 0.015. !! CORRECTION TO CARRY: an earlier note in this session said bybit_1's
+    risk_per_trade_pct "reads None" -- that is the WRONG KEY NAME; risk.risk_pct is declared 0.015.
+    _size_unbounded gives raw_qty = balance x 0.015 / |entry-sl|, floored to the instrument step.
+    balance IS live_balances[bybit_1] (coordinator _default_balance_fetcher), which is the SAME
+    value account_context_snapshots.equity records (coordinator.py:3408 reads live_balances.get).
+    So the equity term is recorded per (order_package_id, account_id) ALREADY -- no Tier-2 stamp is
+    needed for it.
+    !! THE BLOCKER I HIT, AND IT IS THE REAL FINDING OF THE UNIT: account_context_snapshots IS NOT
+    READABLE FROM A RESEARCH SESSION. /api/diag/journal refuses it -- _JOURNAL_TABLES (diag.py:62)
+    allows only order_packages / trades / insights_history / insights_usage -- and the Data
+    Explorer route /api/bot/db/table/account_context_snapshots returns HTTP 401 invalid_session
+    browser-direct. exposure_soak carries a usable per-account `equity` but /api/diag/log_file is
+    HARD-CAPPED AT 1000 LINES (verified: asking for 20000 returns 1000), which is ~16h and covers
+    NONE of the rejected rows (newest 2026-09-11T11:44). So the row's stated blocker is REAL but
+    MISDIAGNOSED: the number is already written, it just has no read surface. Adding
+    account_context_snapshots to _JOURNAL_TABLES is a far cheaper fix than a new risk.py stamp --
+    still Tier-2 (src/), so PROPOSE it, do not apply it.
+    !! THE OFFLINE ROUTE THAT NEEDS NO NEW SURFACE, and it is where I stopped: INVERT position_size
+    on rows the caps did NOT bind. implied_equity = position_size x |entry-sl| / 0.015. Ran over
+    677 bybit_1 non-backtest rows across 27 days; per-day MAX implied equity is the estimator (a
+    capped or budget-scaled row inverts LOW, so the max is the least-contaminated read).
+    !! THE POSITIVE CONTROL IS AVAILABLE AND I DID NOT GET TO RUN IT -- run it FIRST: 09-12/09-13
+    overlap the exposure_soak tail, which reads equity 133,217-134,506 for bybit_1; the inversion
+    gives max 133,868 on 09-12 and 132,211 as 09-11's p90. Those agree to ~0.5%, so the method
+    looks verified, BUT I had not yet asserted it as a control. Do not report the reconstruction
+    without it. One day (09-04) inverts to 8,531,596, three orders of magnitude out -- that outlier
+    must be explained or excluded on a stated rule, not silently dropped.
+    !! THE HEADLINE THE OPERATOR NEEDS, AND IT REFRAMES THE ROW: the risk-derived size is
+    degenerate because the STOP IS, not because margin is tight. Stop distance over all 76 rows
+    ranges 0.41 bp to 1404 bp -- a 3400x spread -- median 64.09 bp (exchange_rejected 74.34,
+    rejected 82.04, closed 45.06). On the newest rejected row (id 5672, entry 7.367, stop 7.3636)
+    the stop is 4.6 bp, so 0.015 x ~134k equity / 0.0034 demands ~593,000 AVAX = ~$4.37M notional
+    on a ~$134k account -- roughly 129x the margin ceiling. NO margin cap anywhere would pass that;
+    the ceiling is the only thing standing between this leg and a nonsense order, which is exactly
+    why the row warns that fixing the venue clamp converts refusals into ceiling-sized FILLS.
+    !! THE TIER-3 PROPOSAL THAT FOLLOWS (drafted, NOT put to the operator): the lever is a MINIMUM
+    STOP DISTANCE (or an ATR floor) on ict_scalp_avax_5m, not a margin or leverage change. Sizing
+    off a 4.6 bp stop is arithmetically unbounded whatever the risk fraction is. Do not widen the
+    margin cap -- the row says so explicitly.
+    !! NEXT CONCRETE STEP: (1) run the positive control above and state it; (2) decide the 09-04
+    outlier rule; (3) build it as a Tier-1 instrument under scripts/research/ with self-test +
+    pytest controls + planted defects, per this lane's pattern; (4) write the memo; (5) register in
+    docs/DOCUMENT-INDEX.md and docs/research/RESEARCH-CAPABILITY-INDEX.md; (6) raise the Tier-3
+    stop-floor decision on this object's decision_requests; (7) full guard set on COMMITTED state,
+    open the PR yourself, arm as a SECOND push.
+    !! DO NOT TOUCH config/strategies.yaml, config/accounts.yaml or any src/ file -- every sizing
+    change here is a Tier-3 proposal for the operator.
