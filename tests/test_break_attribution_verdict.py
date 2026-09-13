@@ -4,7 +4,6 @@ The module ships an executable `--self-test`; this file is the pytest surface so
 those controls run in CI on every PR. Every test names the defect it would
 catch, and each was verified by PLANTING that defect and watching this file fail.
 """
-import datetime as dt
 import importlib.util
 import os
 

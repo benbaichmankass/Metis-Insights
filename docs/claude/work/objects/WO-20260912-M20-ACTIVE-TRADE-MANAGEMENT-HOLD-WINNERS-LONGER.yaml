@@ -200,4 +200,30 @@ progress:
     src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
-
+  U41: >-
+    DELIVERED. OI-20260911's discriminating measurement is RUN and the break is ATTRIBUTED:
+    VERDICT both_contribute. POPULATION 214 package ids (closed, non-backtest, pnl NOT NULL,
+    non-pairs) of 1000 order_packages read, 0 unplaceable in time; event 2026-08-30T08:53:19Z;
+    15m candles; 24h window carries it. Cells pre/post: e35 59/52, control_same_family 44/40,
+    control_other 293/183. TERM 1 stop-out-rate DiD, declared-only, package unit: +11.6pp.
+    TERM 2 MFE:MAE excursion -- GEOMETRY-FREE by construction so e35 cannot move it -- at 24h:
+    e35 median 0.942->0.425, POOLED control (both non-e35 arms, n=65/74) d_med -1.4313, both
+    measured. Excursion fell in BOTH arms, which is a market move e35 cannot reach, AND the
+    stop-rate rose on top -- so neither candidate can be reverted away alone. !! DO NOT QUOTE
+    THE MEAN: MFE:MAE is unbounded above (MAE->0) and control_other's mean falls -23.72 against
+    a median of -1.3229, a ~16x overstatement. The sign survives and that is CHECKED, not
+    assumed -- the instrument grades every term on SIGN STABILITY (delta-of-means vs
+    delta-of-medians) and returns the new sign_unstable -> cannot_discriminate where they
+    disagree, so an unstable term can never be spent as evidence the control did NOT fall, which
+    would return e35_geometry and license a revert. THE GATE FIRED ON LIVE DATA at 4h (e35 mean
+    +1.017 while median -0.118). !! LIMIT: candles are Binance Vision, so GLD/MGC/QQQ/SLV/SPY/
+    TLT/USO returned 0 and the excursion half is CRYPTO-ONLY. !! THE ROW DOES NOT CLEAR -- its
+    separate final clause owes a sustained-losing-streak detector, which is BUILT (MI-276) and
+    has never fired (OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET).
+    !! AND ITS clears_when CLAIM THAT THIS 'also discharges' OI-20260830 IS FALSE against that
+    row's OWN criterion, which asks for deploy verification (config read-back + a trade OPENED
+    after 892c9a2c on a leg with cap_r > tp_r). OI-20260830 left OPEN and UNTOUCHED; filed as
+    BL-20260913-AN-OPEN-ITEMS-ROW-DECLARES-THAT-MEETING-IT-DISCHARGES-ANOTHER-ROW-WHOSE-OWN-CRITERION-ASKS-A-DIFFERENT-QUESTION.
+    NO PARAMETER CHANGE PROPOSED; geometry is Tier-3. Instrument:
+    scripts/research/m20_u41_break_attribution_verdict.py (44 self-test + 30 pytest controls).
+    Memo: docs/research/m20-u41-e35-break-attribution-verdict-2026-09-13.md
