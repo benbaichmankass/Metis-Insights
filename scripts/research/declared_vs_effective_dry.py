@@ -85,7 +85,6 @@ import collections
 import json
 import re
 import sys
-from typing import Any
 
 #: What the executor recorded about a dispatch, bucketed by cause.
 REFUSAL_CAUSES = (
