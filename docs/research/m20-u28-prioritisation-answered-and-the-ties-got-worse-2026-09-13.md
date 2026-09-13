@@ -108,3 +108,13 @@ The prioritisation row says *"now that conviction IS the live key its agreement 
 ## Standing
 
 `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-…` is `loud: true` and unchanged: **17 days, −$38,851.81, onset 2026-08-27**. ⚠️ Note the overlap without overclaiming it: `trend_donchian_eth` / `_sol` are directional legs and are the same legs saturating here. **Nothing in this unit establishes a link** between the saturation and the bleed; they share a name and nothing more has been measured.
+
+---
+
+## 7. ⚠️ Two process failures of mine, in this unit, recorded rather than tidied
+
+**(a) A silent `git checkout` failure sent a merge to the wrong branch.** I ran `git checkout -q <a-branch-name-that-did-not-exist>` inside a longer command, read only its tail, and did not see the failure — then merged `origin/main` and ran a full guard set on the **previous** branch while believing I was on this one. Nothing was pushed and the armed branch was reset to its published head, so no PR was affected. **It is the same class as the `tail -N | grep FAIL` truncation flaw this lane has now hit three times: reading part of an output and treating it as the whole.**
+
+**(b) I committed `docs/DOCUMENT-INDEX.md` with an unresolved `<<<<<<< HEAD` block, and every guard said OK.** My resolver regex matched once and there were two blocks. `check_document_index.py --all` printed `document-index: OK` at exit 0 on the corrupted file — **verified by planting a block deliberately afterwards, not inferred**. The mechanism is benign: `parse_rows` skips non-row lines, so both conflicting rows parse as ordinary registrations and every rule is satisfied. It matters more now that #12136 made R6 ungated, because a green document-index step reads as evidence the file is intact.
+
+The repo already decided this class for the **JSON** registers — `check_register_reserialization.py` carries an explicit `('conflict markers', …)` self-test and grades such a file `UNREADABLE` — and `docs/DOCUMENT-INDEX.md` is outside its walk. Filed as `BL-20260913-DOCUMENT-INDEX-MD-CAN-CARRY-AN-UNRESOLVED-MERGE-CONFLICT-BLOCK-AND-EVERY-GUARD-READS-OK`. **No fix is proposed here** — the narrow and broad options are named in the row, and choosing between them is not this unit's question.
