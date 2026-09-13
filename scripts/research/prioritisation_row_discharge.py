@@ -3,7 +3,7 @@
 # (the 2026-09-08 ranking-key A/B) plus one lifetime soak read. A scheduled
 # runner would re-answer a closed question against a moving population, which
 # is exactly what the design file it reads refuses to be re-queued for.
-"""Has BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN already been answered? (MI-278 U28)
+"""Has BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT already been answered? (MI-278 U28)
 
 THE QUESTION, AND WHY IT IS NOT "RUN THE STUDY"
 ------------------------------------------------
@@ -77,11 +77,10 @@ ARMS = ("confidence_first", "priority_first", "recent_pnl_first", "random_tiebre
 def _load(path: pathlib.Path) -> Any | None:
     try:
         return json.loads(path.read_text())
-    # allow-silent: None here is the DECLARED `ungradeable` input, not a swallowed
-    # error. Every caller grades a None artifact as `ungradeable` -- *we could not
-    # read it* -- which BLOCKS the close, so an unreadable file can never be
-    # mistaken for a met criterion. Controls 2 and 3 assert exactly that.
-    except Exception:  # noqa: BLE001
+    # None here is the DECLARED `ungradeable` input, not a swallowed error: every
+    # caller grades a None artifact as `ungradeable` -- *we could not read it* --
+    # which BLOCKS the close. Controls 2 and 3 assert exactly that.
+    except Exception:  # noqa: BLE001  # allow-silent: None IS the declared `ungradeable` input; it blocks the close, never passes it
         return None
 
 
@@ -206,11 +205,10 @@ def soak_decided_share(soak_lines: list[str], tol: float = 0.0) -> dict:
     for ln in soak_lines:
         try:
             rows.append(json.loads(ln))
-        # allow-silent: an unparseable soak line is COUNTED into `unparseable` and
-        # reported beside every rate, never dropped. Control 17 asserts the count,
-        # and an all-unparseable file returns `ungradeable`, never a 0.0 tie rate
-        # (control 19).
-        except Exception:  # noqa: BLE001
+        # An unparseable soak line is COUNTED and reported beside every rate, never
+        # dropped; an all-unparseable file returns `ungradeable`, never a 0.0 tie
+        # rate. Controls 17 and 19 assert both halves.
+        except Exception:  # noqa: BLE001  # allow-silent: counted into `unparseable` and reported, never dropped
             unparseable += 1
     if not rows:
         return {"state": "ungradeable", "why": "no parseable soak rows",

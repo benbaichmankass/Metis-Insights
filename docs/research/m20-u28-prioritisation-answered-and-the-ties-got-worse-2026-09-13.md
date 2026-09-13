@@ -9,7 +9,7 @@
 
 ## 0. The unit began as "run the study" and the study had already run
 
-`BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN` reads as an open build. `docs/research/trade-prioritisation-research-DESIGN.yaml` carries `status: answered`, `answered_on: '2026-09-08'`, `answered_by: WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS`. **Building the harness again would have been `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`** — the second time in this lane that the existence check paid for itself today (the first: `BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE`'s two invariants are already built in #12070).
+`BL-20260831-TRADE-PRIORITISATION-IS-UNPROVEN-CONFIDENCE-IS-A-START-NOT-A-RESULT` reads as an open build. `docs/research/trade-prioritisation-research-DESIGN.yaml` carries `status: answered`, `answered_on: '2026-09-08'`, `answered_by: WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS`. **Building the harness again would have been `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED`** — the second time in this lane that the existence check paid for itself today (the first: `BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE`'s two invariants are already built in #12070).
 
 So the deliverable is the four criteria checked one at a time, not another study.
 
@@ -42,7 +42,7 @@ The design's `answer` is *"NO. Arbitration ORDER does not measurably drive outco
 
 ## 3. ⚠️ THE TIE RATE HAS RISEN — 190/370 = 51.4% THROUGH 2026-08-30, 90/115 = 78.3% SINCE — AND IT IS NOT A MIX EFFECT
 
-`BL-20260831-CONFIDENCE-SATURATES-AT-ONE` measured **186/371 = 50.1%** exact ties through 2026-08-30T23:34Z and asks (criterion 4) for a re-measure on the **same** population definition. Same definition (≥2 non-flat contenders, one symbol, one tick), same soak, **disjoint** slices:
+`BL-20260831-CONFIDENCE-SATURATES-AT-ONE-SO-HALF-OF-ARBITRATIONS-CANNOT-BE-DECIDED-ON-IT` measured **186/371 = 50.1%** exact ties through 2026-08-30T23:34Z and asks (criterion 4) for a re-measure on the **same** population definition. Same definition (≥2 non-flat contenders, one symbol, one tick), same soak, **disjoint** slices:
 
 | slice | n contests | exact ties | rate |
 |---|---|---|---|
