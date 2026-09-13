@@ -210,10 +210,10 @@ def evaluate(population: Set[str],
                    if enforce_all and p not in (scope or set())
                    else "This diff touches that document, so it is yours to "
                         "reconcile. ")
-                + f"R3 cannot see this: "
-                f"the header and the row were written by the same run and agree "
-                f"with each other. Run: python3 scripts/ops/document_index.py "
-                f"--write, then READ what it changed before committing.")
+                + "R3 cannot see this: "
+                "the header and the row were written by the same run and agree "
+                "with each other. Run: python3 scripts/ops/document_index.py "
+                "--write, then READ what it changed before committing.")
 
     # R1 — a document exists and is not registered.
     # ⚠️ THE REMEDY NAMES THE ROW, because the old one named a COMMAND whose
