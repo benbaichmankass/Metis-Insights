@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only — it takes a /api/bot/performance pull as its input, so it cannot
+# run unattended without a scheduled fetch, and its output is EVIDENCE FOR A TIER-3
+# DECISION rather than a pass/fail. Scheduling it would put a recurring "this leg's
+# loss inverts" line in front of sessions with no disposition anyone may take from it,
+# which is the desensitised-alarm shape this repo calls its own worst failure mode. A
+# session runs it when a kill or demote is actually being argued.
 """Is a leg's KILL/DEMOTE case built on rows anyone can stand behind?
 
 A kill argument is almost always made from a HEADLINE dollar loss. But this
