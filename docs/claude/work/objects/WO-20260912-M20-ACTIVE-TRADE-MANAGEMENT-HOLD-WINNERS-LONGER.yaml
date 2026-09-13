@@ -200,4 +200,25 @@ progress:
     src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
+  U37: >-
+    DELIVERED. Re-measured PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK a month after its n=2
+    and found three things. (1) THE CLAIM REPRODUCES AT 15x: over the 1000-row journal tail, 208
+    rows carry notes.margin_basis and 32 -- 15.4% of every recorded row -- sit at ratio >= 0.999
+    of max_qty_by_margin, THIRTY of them ict_scalp_avax_5m on bybit_1, the row's own leg.
+    clamp_did_not_bind is 0. (2) THE ROW'S EQUALITY TEST IS A TRAP: sizes are QUANTISED to the
+    venue step (33141.1000 against a cap of 33141.1001), so an exact `==` probe returns ZERO
+    across all 1000 rows -- my first probe did exactly that and I would have reported the effect as
+    stopped had I not run the ratio as a positive control. (3) THE ROW'S CRITERION IS UNVERIFIABLE:
+    notes.margin_basis has ONE writer, execute.log_rejection_to_journal, a refusal-only path, so a
+    PLACED order can never carry it -- POSITIVE CONTROL: 623 closed+open rows, ALL 623 carrying a
+    notes dict, ZERO carrying the stamp. The row's criterion is about orders that PLACE and its
+    why_it_matters is entirely about the refusal-to-fill transition, which is exactly where the
+    evidence disappears. !! A SECOND, INDEPENDENT HAZARD, not folded in: margin_basis is an
+    unprotected nested DICT in notes and dump_capped sheds exactly that, with 138 of the 623 placed
+    rows already _truncated -- so even a stamp on the placement path would be dropped on the fullest
+    rows. Same class as U33. Filed
+    BL-20260913-THE-MARGIN-CEILING-RECORD-IS-WRITTEN-ONLY-ON-REFUSED-ORDERS-SO-A-PLACED-ORDER-CAN-NEVER-SHOW-THAT-ITS-SIZE-WAS-A-CEILING.
+    !! NOTHING APPLIED: risk.py, execute.py and json_notes.py are Tier-2 and read only; per-leg
+    sizing is Tier-3. The row's next_action is upgraded from one stamp to three steps and all three
+    are PROPOSED. Memo: docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md
 
