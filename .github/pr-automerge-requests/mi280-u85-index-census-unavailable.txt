@@ -1,0 +1,1 @@
+arm auto-merge for PR #12189 (claude/mi280-u85-index-census-unavailable)
