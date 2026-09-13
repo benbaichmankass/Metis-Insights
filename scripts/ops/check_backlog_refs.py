@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import difflib
 import glob
 import json
 import os
@@ -261,6 +262,97 @@ def dangling(found: dict[str, set[str]], filed: set[str]) -> dict[str, set[str]]
     return {k: v for k, v in sorted(found.items()) if k not in filed}
 
 
+# Three states, never collapsed. "We found a likely id", "we found nothing
+# close" and "several are equally likely" are different answers, and the third
+# is the one a single-suggestion design silently turns into the first.
+SUGGEST_PREFIX = "prefix"
+SUGGEST_AMBIGUOUS = "ambiguous"    # too many start with it to name one
+SUGGEST_FUZZY = "fuzzy"
+SUGGEST_NONE = "none"
+
+#: How many candidates to show. More than this is not a hint, it is a second
+#: problem to read.
+_MAX_SUGGESTIONS = 3
+
+#: Below this length a "prefix" is not evidence of anything -- `BL-2026` would
+#: match hundreds of rows and the hint would be noise dressed as help.
+_MIN_PREFIX_LEN = 12
+
+
+def suggest_for(ref: str, filed: set[str]) -> tuple[str, list[str]]:
+    """`(kind, candidates)` -- which filed id did the author probably mean?
+
+    ⚠️ PREFIX FIRST, AND NOT BECAUSE IT IS EASIER. MEASURED 2026-09-13 over
+    every dangling reference this guard raised against one session's branches
+    (n=3, one session, one author -- state the population, it is small):
+    ALL THREE were exact PREFIXES of a real filed row.
+
+        BL-...-A-DUPLICATE-ROW-ID-REACHED-MAIN          elided in prose
+        BL-...-GRADES-THE-WRONG-TREE                    elided in prose
+        BL-...-GRADES-THE-WRONG                         WRAPPED across a
+                                                        docstring line
+
+    None was a typo. The failure mode these ids actually have is REFORMATTING
+    -- an id shortened or line-broken for readability stops being an id -- and
+    that always truncates, never garbles. `difflib` is the obvious
+    implementation and is NOT the one the evidence asks for, so it is the
+    fallback rather than the rule.
+
+    ⚠️ AMBIGUITY IS REPORTED, NEVER RESOLVED. A prefix shared by several filed
+    rows returns all of them (capped). Picking the first would be the
+    implicit-input-selection shape `check_diagnostic_provenance.py` exists to
+    catch: a confident single answer computed from an arbitrary tiebreak.
+
+    ⚠️ IT SUGGESTS AND NEVER REWRITES. The author may genuinely have meant an
+    id nobody has filed yet, and the fix for that is to file the row -- which
+    the existing message already says. This only removes the lookup.
+    """
+    if len(ref) >= _MIN_PREFIX_LEN:
+        pre = sorted(f for f in filed if f.startswith(ref) and f != ref)
+        if len(pre) > _MAX_SUGGESTIONS:
+            # ⚠️ NOT `prefix` WITH THE FIRST THREE. MEASURED on the live
+            # register (1876 filed ids): a bare date prefix matched 9 rows and
+            # a date-plus-common-word prefix matched 29, so showing three of
+            # them would present an arbitrary alphabetical tiebreak as a hint.
+            #
+            # ⚠️ The illustrations are DESCRIBED rather than QUOTED for a
+            # reason that is this function's own subject: writing a truncated
+            # id here made THIS FILE carry a dangling reference, and the guard
+            # refused its own source. A comment about ids is still text an id
+            # extractor reads.
+            #
+            # Saying HOW MANY is the useful answer: it tells the author their
+            # reference is too truncated to identify anything, which is a
+            # different problem from having mistyped one.
+            return SUGGEST_AMBIGUOUS, pre
+        if pre:
+            return SUGGEST_PREFIX, pre
+    close = difflib.get_close_matches(ref, sorted(filed), n=_MAX_SUGGESTIONS,
+                                      cutoff=0.85)
+    if close:
+        return SUGGEST_FUZZY, list(close)
+    return SUGGEST_NONE, []
+
+
+def suggestion_lines(ref: str, filed: set[str]) -> list[str]:
+    """The hint, as lines. Empty when there is nothing to say -- a hint printed
+    on every finding whether or not it has content is decoration, and this repo
+    walks past decoration."""
+    kind, cands = suggest_for(ref, filed)
+    if kind == SUGGEST_NONE:
+        return []
+    if kind == SUGGEST_AMBIGUOUS:
+        return [f"      ↳ {len(cands)} filed ids START WITH this, so it names "
+                f"none of them — the reference is truncated too far to "
+                f"identify a row. Cite the id in full."]
+    if kind == SUGGEST_PREFIX:
+        head = ("      ↳ a filed id STARTS WITH this. An id shortened or "
+                "line-wrapped for readability stops being an id:")
+    else:
+        head = "      ↳ did you mean:"
+    return [head] + [f"          {c}" for c in cands]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repo-root", default=str(REPO))
@@ -323,6 +415,14 @@ def main(argv: list[str] | None = None) -> int:
     for k, v in bad.items():
         for f in sorted(v):
             print(f"  {f}: {k}")
+        # ⚠️ DIFF-SCOPED MODE ONLY, deliberately. `--all` reports a standing
+        # debt of dozens of references (86 when this was written) and is
+        # report-only by design for exactly the alarm-fatigue reason this
+        # module's docstring gives; four extra lines each would turn a long
+        # report into an unreadable one. This mode is a human trying to fix
+        # ONE thing right now.
+        for line in suggestion_lines(k, filed):
+            print(line)
     print("")
     print("Fix: file the row in the right backlog (docs/claude/*-backlog.json) with honest "
           "severity and enough detail to act on, or correct the id if it is a typo/rename.")

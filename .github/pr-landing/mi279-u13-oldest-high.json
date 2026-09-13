@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ci/run_guards.py (a guard TRIGGER widening only -- when.globs for exit-mechanism-coverage-guard extended from one src/runtime file to src/runtime/*.py so it matches the tool's own _IMPL_DIRS) and docs/claude/health-review-backlog.json, plus this declaration, its arming file and a per-branch merge-slot claim. Both are in TIER1_SURFACE (scripts/ci/**, docs/**). No detector logic, no src/, no ml/, no config/, no .github/workflows/, no order path, nothing enacted. Full suite on the committed tree: PASS 106 / FAIL 1 / SKIP 0, the one failure being pr-landing pre-arming."
+}

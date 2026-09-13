@@ -385,3 +385,120 @@ class TestUnreadableRegisterIsNotAnEmptyOne:
         assert rc in (0, 1), (
             "the gating verdict is unchanged by an unreadable register — see the "
             "measurement in filed_ids_with_state's docstring")
+
+
+# ---------------------------------------------------------------------------
+# "Correct the id if it is a typo/rename" — but WHICH id?
+#
+# The guard named the dangling reference and stopped there, so every finding
+# cost a manual lookup against a 1876-id register. MEASURED 2026-09-13 over
+# every dangling reference this guard raised against one session's branches
+# (n=3, one session, one author — state the population, it is small): ALL
+# THREE were exact PREFIXES of a real filed row, and none was a typo.
+#
+#   BL-…-A-DUPLICATE-ROW-ID-REACHED-MAIN          elided in prose
+#   BL-…-GRADES-THE-WRONG-TREE                    elided in prose
+#   BL-…-GRADES-THE-WRONG                         WRAPPED across a docstring
+#
+# The failure mode these ids have is REFORMATTING, which always truncates and
+# never garbles. `difflib` is the obvious implementation and is not the one the
+# evidence asks for, so prefix leads and fuzzy is the fallback.
+# ---------------------------------------------------------------------------
+
+REAL = "BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE"
+OTHER = "BL-20260913-A-DUPLICATE-ROW-ID-REACHED-MAIN-AND-TURNED-REGISTER-ID-GUARD-RED-FOR-EVERY-BACKLOG-TOUCHING-PR-IN-THE-REPO"
+
+#: A FIXED universe, not the live register. The three cases below are the real
+#: ones from 2026-09-13, but pinning them to the live backlog would make this
+#: test fail the day someone closes and removes a row — testing the register's
+#: contents rather than the suggester's logic.
+FILED = {REAL, OTHER, "BL-20260101-SOMETHING-ELSE-ENTIRELY-AND-UNRELATED"}
+
+
+class TestTheThreeRealCasesFrom20260913:
+    @pytest.mark.parametrize("ref,expected,why", [
+        ("BL-20260913-A-DUPLICATE-ROW-ID-REACHED-MAIN", OTHER,
+         "elided in a landing record"),
+        ("BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE", REAL,
+         "elided in a backlog row's detail"),
+        ("BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG", REAL,
+         "line-wrapped across a docstring"),
+    ])
+    def test_a_truncated_id_names_the_row_it_truncates(self, ref, expected, why):
+        kind, cands = cbr.suggest_for(ref, FILED)
+        assert kind == cbr.SUGGEST_PREFIX, (why, kind)
+        assert cands == [expected], (why, cands)
+
+
+class TestAmbiguityIsReportedNotResolved:
+    """A prefix shared by many rows names none of them. Returning the first
+    three would present an alphabetical tiebreak as a hint — the
+    implicit-input-selection shape `check_diagnostic_provenance.py` exists to
+    catch. MEASURED on the live register: `BL-20260913-` matches 9 rows and
+    `BL-20260912-THE-` matches 29."""
+
+    def test_too_many_matches_is_its_own_state(self):
+        filed = {f"BL-20260913-ROW-NUMBER-{i}-WITH-A-LONG-TAIL" for i in range(9)}
+        kind, cands = cbr.suggest_for("BL-20260913-ROW", filed)
+        assert kind == cbr.SUGGEST_AMBIGUOUS
+        assert len(cands) == 9
+
+    def test_the_ambiguous_hint_names_no_candidate(self):
+        filed = {f"BL-20260913-ROW-NUMBER-{i}-WITH-A-LONG-TAIL" for i in range(9)}
+        body = " ".join(cbr.suggestion_lines("BL-20260913-ROW", filed))
+        assert "9 filed ids START WITH this" in body
+        assert "ROW-NUMBER-0" not in body, (
+            "an ambiguous prefix must not present one arbitrary candidate as the answer")
+
+    def test_a_few_matches_ARE_all_shown(self):
+        """The control for the one above. Two candidates is genuine ambiguity a
+        human can resolve by reading; suppressing them would be as unhelpful as
+        picking one."""
+        filed = {f"BL-20260913-ROW-NUMBER-{i}-WITH-A-LONG-TAIL" for i in range(2)}
+        kind, cands = cbr.suggest_for("BL-20260913-ROW", filed)
+        assert kind == cbr.SUGGEST_PREFIX
+        assert len(cands) == 2
+
+
+class TestItDoesNotInventHelp:
+    def test_a_genuinely_absent_id_gets_no_hint(self):
+        kind, cands = cbr.suggest_for(
+            "BL-99999999-THIS-WAS-NEVER-FILED-ANYWHERE-AT-ALL", FILED)
+        assert kind == cbr.SUGGEST_NONE
+        assert cands == []
+
+    def test_no_hint_means_no_lines(self):
+        """A hint rendered on every finding whether or not it has content is
+        decoration, and decoration in this repo's guard output gets walked
+        past."""
+        assert cbr.suggestion_lines(
+            "BL-99999999-THIS-WAS-NEVER-FILED-ANYWHERE-AT-ALL", FILED) == []
+
+    def test_a_prefix_too_short_to_discriminate_is_not_evidence(self):
+        """`BL-2026` would match hundreds of rows. Below the floor the prefix
+        branch must not fire at all."""
+        assert len("BL-2026") < cbr._MIN_PREFIX_LEN
+        kind, _ = cbr.suggest_for("BL-2026", FILED)
+        assert kind != cbr.SUGGEST_PREFIX
+
+    def test_the_suggester_can_actually_find_something(self):
+        """The positive that keeps the three assertions above from passing
+        vacuously against a suggester that returns NONE for everything."""
+        kind, cands = cbr.suggest_for(REAL[:60], FILED)
+        assert kind == cbr.SUGGEST_PREFIX and cands
+
+
+class TestFuzzyIsTheFallbackNotTheRule:
+    def test_a_real_typo_still_gets_a_suggestion(self):
+        typo = REAL[:-1] + "X"          # same length, one character wrong
+        kind, cands = cbr.suggest_for(typo, FILED)
+        assert kind == cbr.SUGGEST_FUZZY
+        assert cands == [REAL]
+
+    def test_prefix_wins_when_both_could_match(self):
+        """Ordering is load-bearing, not incidental: the measured population is
+        truncations, and a fuzzy match on a truncated id can return a DIFFERENT
+        row that happens to score well."""
+        ref = REAL[:70]
+        kind, _ = cbr.suggest_for(ref, FILED)
+        assert kind == cbr.SUGGEST_PREFIX
