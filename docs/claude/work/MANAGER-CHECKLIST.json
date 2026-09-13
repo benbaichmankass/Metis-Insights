@@ -5537,5 +5537,26 @@
       "watch for the sharpened fan-out condition",
       "MI-279 has 5 armed PRs but set no needs_action; not treated as blocking"
     ]
+  },
+  "manager_tick_2026_09_13T0155Z": {
+    "THE_FANOUT_DISPATCHED_FOR_THE_FIRST_TIME": {
+      "round": "arbitration_fanout_soak 2026-09-13T01:41:47.586858Z — fanout_schema 3, apply_state dispatchable, XRPUSDT, {strategy ict_scalp_xrp_5m, accounts [bybit_1], side long, entry 1.3664, sl 1.36405143, tp 1.36992286}",
+      "package": "order_packages XRPUSDT 2026-09-13T01:41:50Z carries meta.arbitration_fanout_round = {strategy ict_scalp_xrp_5m, accounts [bybit_1]} — THE MARKER, present for the first time ever. MI-280 measured ZERO of 400 packages carrying it as recently as #12098.",
+      "trade": "id 5731, pkg-819ccb150c5742fc, 01:41:52.650202Z, bybit_1 XRPUSDT ict_scalp_xrp_5m, entry/sl/tp IDENTICAL to the round to 8 decimals.",
+      "what_this_PROVES": "the repaired apply path executes end to end and the geometry the OLD projection dropped now reaches a live order. #11970 is no longer merely dispatchable — it DISPATCHED.",
+      "what_it_does_NOT_prove_and_this_is_the_part_that_matters_for_DECISION_2": "the round had per_account.bybit_1.holds_winner TRUE, starved_accounts EMPTY and only ONE electing account — so the GLOBAL path would have dispatched the same package. The marker proves the FAN-OUT branch placed it, but NOT that the fan-out routes a leg the global election would have STARVED. Starvation is exactly breakout_1's problem, so decision 2's gate is NOT met by this."
+    },
+    "ANOMALY_FILED_rather_than_glossed": {
+      "what": "trade 5731 carries direction=SHORT while its own bracket is LONG-shaped (sl 1.36405143 < entry 1.3664 < tp 1.36992286) and the round that created it said LONG.",
+      "singleton_CHECKED_not_assumed": "population 300 newest trades, 88 ict_scalp rows graded. 16 disagree with their geometry, but 15 are `long` with sl ABOVE entry — a TRAILED STOP past breakeven, benign. 5731 is the ONLY inverted row, and it is the first fan-out dispatch.",
+      "no_cause_picked": "(a) the direction stamp is wrong, or (b) the side was inverted. The bracket matching the round exactly favours (a), but that is inference, not a venue read, and the trade already reads closed.",
+      "why_it_matters": "direction feeds _exchange_position_set, keyed on (symbol, normalised_side) — the SAME key whose collapse the hedge-book dedupe repaired hours earlier. A mis-stamped direction makes the reconciler hunt the wrong side. bybit_1 is demo; the path is not account-scoped.",
+      "filed": "a health-backlog row with the measurement, the control, both candidate causes and a resolution criterion that demands a VENUE read on the next dispatch while it is still open."
+    },
+    "next": [
+      "check the NEXT fan-out dispatch against the venue WHILE OPEN, to settle (a) vs (b)",
+      "decision 2 still needs a dispatchable round on a strategy NOT already holding that symbol AND an account the global election would starve",
+      "the dedupe row is LOUD and due 2026-09-14"
+    ]
   }
 }
