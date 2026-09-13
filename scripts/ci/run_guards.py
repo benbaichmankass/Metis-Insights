@@ -1034,6 +1034,41 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # THE WORK DIGEST'S OWN SELF-TEST, RUN ON A PR FOR THE FIRST TIME.
+        #
+        # scripts/ops/work_digest.py::_self_test check 11 GLOBS the real
+        # docs/claude/ for `*-review-backlog.json` and asserts every one on disk
+        # is in SOURCES -- the LIVE_BACKLOGS lesson, that a hand-maintained
+        # coverage list which can fall behind unnoticed IS the defect. It was a
+        # correct check with no PR-time carrier: work-digest.yml runs it on
+        # `schedule`, `push: [main]` and `workflow_dispatch`, and NOT on
+        # `pull_request`. So a PR adding a review backlog was graded by nobody
+        # before the merge and first failed on MAIN -- the PR #9208 shape
+        # (merge green, leave main red) with a longer fuse.
+        #
+        # ⚠️ AND pytest-run CANNOT COVER IT, which is why this entry exists
+        # rather than another line in that filter. The property depends on
+        # WHICH FILES EXIST under docs/claude/, so covering it there means
+        # matching the whole tree -- measured 2026-09-12 at 330 committed files
+        # that a backlog append touches on very many PRs. `guards` does not
+        # short-circuit, so the exclusion's long-standing "guards owns it"
+        # premise becomes TRUE here instead of assumed. BL-20260814 is the row
+        # that recorded that premise had never been checked per-file.
+        #
+        # `when: None` deliberately: the diff that breaks it ADDS a file the
+        # digest does not read, and such a PR need touch neither the digest nor
+        # any path a `when:` could name.
+        #
+        # No second implementation of the property -- the existing self-test is
+        # the one owner, invoked. A copy here would be the mechanism-that-
+        # already-existed class, and the two would drift.
+        "name": "work-digest-source-coverage",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/work_digest.py", "--self-test"],
+        ],
+    },
+    {
         "name": "digest-liveness-guard",
         "when": None,
         "steps": [
