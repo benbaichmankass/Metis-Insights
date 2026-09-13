@@ -83,10 +83,48 @@ def test_the_three_term_states_are_distinct():
     """Catches: collapsing 'the cell is too small' into 'the cell is empty', or
     either into 'measured'. They imply different next steps — one needs more
     time, the other needs a working fetch."""
-    big, small, empty = {"n": 20, "mean_fa": 1.0}, {"n": 3, "mean_fa": 1.0}, {"n": 0, "mean_fa": None}
+    big = {"n": 20, "mean_fa": 1.0, "median_fa": 1.0}
+    small = {"n": 3, "mean_fa": 1.0, "median_fa": 1.0}
+    empty = {"n": 0, "mean_fa": None, "median_fa": None}
     assert U41.term_state(big, big) == "measured"
     assert U41.term_state(big, small) == "insufficient_n"
     assert U41.term_state(big, empty) == "not_measured"
+
+
+def test_a_mean_carried_by_outliers_is_sign_unstable_not_measured():
+    """MFE:MAE is bounded below by 0 and unbounded above, so an arm mean can be
+    carried by a couple of near-zero-MAE packages. When the mean and the median
+    disagree on DIRECTION the term is not readable, and the module must say so
+    rather than hand the verdict a number the typical package never saw."""
+    # the shape actually observed in the live control arm: mean 27.5 -> 3.7
+    outlier_pre = {"n": 60, "mean_fa": 27.457, "median_fa": 1.20}
+    outlier_post = {"n": 58, "mean_fa": 3.737, "median_fa": 1.35}
+    assert U41.term_state(outlier_pre, outlier_post) == "sign_unstable"
+    # a flat median against a large mean fall is disagreement too, not a tie
+    flat_post = dict(outlier_post, median_fa=1.20)
+    assert U41.term_state(outlier_pre, flat_post) == "sign_unstable"
+    # and a genuine fall — both statistics agreeing — still grades measured
+    real_post = dict(outlier_post, median_fa=0.80)
+    assert U41.term_state(outlier_pre, real_post) == "measured"
+
+
+def test_sign_unstable_cannot_be_spent_as_the_control_not_falling():
+    """The dangerous misreading: `sign_unstable` means WE COULD NOT READ IT.
+    Treating it as 'the control did not fall' would return e35_geometry and
+    license a revert on a term that was never established."""
+    v, why = U41.verdict(11.6, -0.5, None,
+                         treated_state="measured", control_state="sign_unstable")
+    assert v == "cannot_discriminate"
+    assert v != "e35_geometry"
+    assert why
+
+
+def test_the_n_floor_is_checked_before_sign_stability():
+    """A 2-row cell must report insufficient_n, its real reason — not be
+    relabelled an outlier artifact, which would send a reader hunting for
+    outliers in a cell that is simply empty."""
+    assert U41.term_state({"n": 2, "mean_fa": 27.0, "median_fa": 1.0},
+                          {"n": 2, "mean_fa": 3.0, "median_fa": 1.4}) == "insufficient_n"
 
 
 def test_an_ungradeable_delta_is_none_never_zero():
@@ -183,4 +221,5 @@ def test_a_real_verdict_does_not_carry_the_does_not_clear_warning():
 
 def test_vocabularies_are_declared():
     assert set(U41.VERDICTS) >= {"e35_geometry", "market_regime", "cannot_discriminate"}
-    assert set(U41.TERM_STATES) == {"measured", "insufficient_n", "not_measured"}
+    assert set(U41.TERM_STATES) == {"measured", "insufficient_n", "not_measured",
+                                    "sign_unstable"}

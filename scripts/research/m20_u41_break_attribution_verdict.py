@@ -95,7 +95,14 @@ VERDICTS = (
 )
 
 #: Whether a single term could be read at all.
-TERM_STATES = ("measured", "insufficient_n", "not_measured")
+#: `sign_unstable` is *the cell is big enough and still not readable*: the mean
+#: and the median move in opposite directions, so the delta is an artifact of a
+#: few packages rather than a property of the arm. It is deliberately NOT folded
+#: into `measured` with a caveat -- MFE:MAE is bounded below by 0 and unbounded
+#: above (MAE -> 0 sends it to infinity), so an arm mean can be carried by two
+#: rows, and a verdict taken off one would name a cause the typical package
+#: never saw.
+TERM_STATES = ("measured", "insufficient_n", "not_measured", "sign_unstable")
 
 #: The smallest cell that may carry a term. Chosen, not tuned: below this a
 #: difference of one package moves the rate by more than the effect under study.
@@ -156,11 +163,29 @@ def excursion_terms(rows: list[dict], window_h: int) -> dict:
     return out
 
 
+def _sign(x: float) -> int:
+    return (x > 0) - (x < 0)
+
+
 def term_state(cell_a: dict, cell_b: dict, min_cell: int = MIN_CELL) -> str:
+    """`a`=pre, `b`=post. Gradeability of one arm's before/after delta.
+
+    The sign test compares the delta of MEANS against the delta of MEDIANS. A
+    median delta of exactly 0 against a large mean delta DISAGREES here (the
+    typical package did not move and the mean did), which is the outlier case
+    this gate exists for -- so agreement requires equal `_sign`, not merely the
+    absence of an opposite sign.
+    """
     if cell_a.get("mean_fa") is None or cell_b.get("mean_fa") is None:
         return "not_measured"
     if cell_a["n"] < min_cell or cell_b["n"] < min_cell:
         return "insufficient_n"
+    med_a, med_b = cell_a.get("median_fa"), cell_b.get("median_fa")
+    if med_a is None or med_b is None:
+        # A cell with a mean and no median is a shape defect, not a reading.
+        return "not_measured"
+    if _sign(cell_b["mean_fa"] - cell_a["mean_fa"]) != _sign(med_b - med_a):
+        return "sign_unstable"
     return "measured"
 
 
@@ -171,6 +196,18 @@ def arm_delta(terms: dict, arm: str, min_cell: int = MIN_CELL) -> tuple[str, flo
     if state != "measured":
         return state, None
     return state, round(post["mean_fa"] - pre["mean_fa"], 4)
+
+
+def arm_delta_median(terms: dict, arm: str) -> float | None:
+    """post - pre on MEDIANS, for the report. `None` when either is absent.
+
+    Rendered beside the mean so a reader can see WHY a term graded
+    `sign_unstable` rather than having to take the state on trust.
+    """
+    pre, post = terms[(arm, "pre")], terms[(arm, "post")]
+    if pre.get("median_fa") is None or post.get("median_fa") is None:
+        return None
+    return round(post["median_fa"] - pre["median_fa"], 4)
 
 
 def verdict(stop_did_pp: float | None, treated_ex: float | None,
@@ -226,17 +263,28 @@ def report(res: dict) -> list[str]:
                    % (arm, res["cells"].get((arm, "pre"), 0), res["cells"].get((arm, "post"), 0)))
     for w in res["windows"]:
         t = res["excursion"][w]
-        out.append("  excursion MFE:MAE in ATR at %dh (mean, n) — geometry-FREE by "
-                   "construction, so e35 cannot move it:" % w)
+        out.append("  excursion MFE:MAE in ATR at %dh — geometry-FREE by "
+                   "construction, so e35 cannot move it." % w)
+        out.append("      MEAN is shown with the MEDIAN beside it because this ratio is "
+                   "unbounded above (MAE→0); where they disagree on sign the term is "
+                   "sign_unstable and carries NO verdict:")
         for arm in ARMS:
             pre, post = t[(arm, "pre")], t[(arm, "post")]
-            out.append("      %-22s pre %s (n=%d)   post %s (n=%d)   delta %s"
+            st, d = res["deltas"][w].get(arm, ("not_measured", None))
+            out.append("      %-22s pre %s/%s (n=%d)   post %s/%s (n=%d)   "
+                       "d_mean %s  d_med %s  [%s]"
                        % (arm,
-                          "  none" if pre["mean_fa"] is None else "%6.3f" % pre["mean_fa"],
+                          "none" if pre["mean_fa"] is None else "%.3f" % pre["mean_fa"],
+                          "none" if pre["median_fa"] is None else "%.3f" % pre["median_fa"],
                           pre["n"],
-                          "  none" if post["mean_fa"] is None else "%6.3f" % post["mean_fa"],
-                          post["n"],
-                          res["deltas"][w].get(arm, (None, None))[1]))
+                          "none" if post["mean_fa"] is None else "%.3f" % post["mean_fa"],
+                          "none" if post["median_fa"] is None else "%.3f" % post["median_fa"],
+                          post["n"], d, arm_delta_median(t, arm), st))
+    out.append("  POOLED CONTROL (both non-e35 arms — this, not control_other alone, is "
+               "what the verdict keys on): pre n=%s post n=%s  d_mean %s  d_med %s  [%s]"
+               % (res.get("control_pre_n"), res.get("control_post_n"),
+                  res.get("control_delta"), res.get("control_delta_median"),
+                  res.get("control_state")))
     out.append("  stop-rate DiD (declared-only, package unit): %s"
                % ("not supplied" if res["stop_did_pp"] is None
                   else "%+.1f pp" % res["stop_did_pp"]))
@@ -290,9 +338,43 @@ def self_test() -> int:
        set(t) == {(a, e) for a in ARMS for e in ERAS})
 
     # --- term gradeability --------------------------------------------------
-    big = {"n": 20, "mean_fa": 1.0}
-    small = {"n": 3, "mean_fa": 1.0}
-    empty = {"n": 0, "mean_fa": None}
+    # --- sign stability: the outlier gate ----------------------------------
+    # A cell pair whose MEAN falls hard while the MEDIAN does not move is the
+    # unbounded-ratio artifact. It must NOT grade `measured`.
+    ok("mean and median agreeing on a fall grades measured",
+       term_state({"n": 20, "mean_fa": 5.0, "median_fa": 2.0},
+                  {"n": 20, "mean_fa": 2.0, "median_fa": 1.0}) == "measured")
+    ok("a mean that falls while the median RISES is sign_unstable, never measured",
+       term_state({"n": 20, "mean_fa": 27.0, "median_fa": 1.0},
+                  {"n": 20, "mean_fa": 3.0, "median_fa": 1.4}) == "sign_unstable")
+    ok("a mean that falls while the median is FLAT is sign_unstable too — a zero "
+       "median delta is disagreement, not a tie to be waved through",
+       term_state({"n": 20, "mean_fa": 27.0, "median_fa": 1.2},
+                  {"n": 20, "mean_fa": 3.0, "median_fa": 1.2}) == "sign_unstable")
+    ok("mean and median agreeing on a RISE grades measured",
+       term_state({"n": 20, "mean_fa": 1.0, "median_fa": 1.0},
+                  {"n": 20, "mean_fa": 4.0, "median_fa": 2.0}) == "measured")
+    ok("the n floor is tested BEFORE sign stability, so a tiny cell reports its "
+       "real reason rather than being mislabelled an outlier artifact",
+       term_state({"n": 2, "mean_fa": 27.0, "median_fa": 1.0},
+                  {"n": 2, "mean_fa": 3.0, "median_fa": 1.4}) == "insufficient_n")
+    ok("a cell carrying a mean but NO median is not_measured, never measured",
+       term_state({"n": 20, "mean_fa": 5.0, "median_fa": None},
+                  {"n": 20, "mean_fa": 2.0, "median_fa": 1.0}) == "not_measured")
+    ok("sign_unstable reaches the verdict as cannot_discriminate — it can never "
+       "be spent as evidence the control did not fall",
+       verdict(11.6, -0.5, None, treated_state="measured",
+               control_state="sign_unstable")[0] == "cannot_discriminate")
+    ok("sign_unstable is a declared TERM_STATE", "sign_unstable" in TERM_STATES)
+    ok("_sign is 0 at zero, so a flat delta cannot masquerade as agreement",
+       (_sign(0.0), _sign(-2.0), _sign(2.0)) == (0, -1, 1))
+    ok("arm_delta_median returns None rather than 0.0 when a median is absent",
+       arm_delta_median({("e35", "pre"): {"median_fa": None},
+                         ("e35", "post"): {"median_fa": 1.0}}, "e35") is None)
+
+    big = {"n": 20, "mean_fa": 1.0, "median_fa": 1.0}
+    small = {"n": 3, "mean_fa": 1.0, "median_fa": 1.0}
+    empty = {"n": 0, "mean_fa": None, "median_fa": None}
     ok("two full cells are measured", term_state(big, big) == "measured")
     ok("a small cell is insufficient_n, NOT measured", term_state(big, small) == "insufficient_n")
     ok("an empty cell is not_measured, which is a DIFFERENT fact from insufficient_n",
@@ -430,18 +512,27 @@ def main() -> int:
     pooled = {("control", e): {
         "n": excursion[w][("control_same_family", e)]["n"]
              + excursion[w][("control_other", e)]["n"],
-        "mean_fa": None} for e in ERAS}
+        "mean_fa": None, "median_fa": None} for e in ERAS}
     for e in ERAS:
         vals = [float(r["fa_ratio"]) for r in rows
                 if r["window_h"] == w and r["era"] == e
                 and r["arm"] in ("control_same_family", "control_other")
                 and r.get("fa_ratio") is not None]
         pooled[("control", e)]["mean_fa"] = round(statistics.fmean(vals), 4) if vals else None
+        # The pooled control is graded on the SAME sign-stability test as an arm,
+        # so a pooled fall carried by a handful of near-zero-MAE packages refuses
+        # instead of deciding the verdict.
+        pooled[("control", e)]["median_fa"] = (round(statistics.median(vals), 4)
+                                               if vals else None)
         pooled[("control", e)]["n"] = len(vals)
     c_state = term_state(pooled[("control", "pre")], pooled[("control", "post")])
     c_delta = (None if c_state != "measured"
                else round(pooled[("control", "post")]["mean_fa"]
                           - pooled[("control", "pre")]["mean_fa"], 4))
+    c_delta_med = (None if pooled[("control", "pre")]["median_fa"] is None
+                   or pooled[("control", "post")]["median_fa"] is None
+                   else round(pooled[("control", "post")]["median_fa"]
+                              - pooled[("control", "pre")]["median_fa"], 4))
     v, why = verdict(args.stop_did_pp, t_delta, c_delta,
                      treated_state=t_state, control_state=c_state)
 
@@ -451,6 +542,9 @@ def main() -> int:
            "verdict_window": w, "verdict": v, "verdict_why": why,
            "control_pooled": {f"{k[0]}_{k[1]}": val for k, val in pooled.items()},
            "control_state": c_state, "control_delta": c_delta,
+           "control_delta_median": c_delta_med,
+           "control_pre_n": pooled[("control", "pre")]["n"],
+           "control_post_n": pooled[("control", "post")]["n"],
            "treated_state": t_state, "treated_delta": t_delta}
     if args.json:
         print(json.dumps({k: (str(val) if isinstance(val, dict)
