@@ -72,23 +72,63 @@ BACKLOG_GLOB = "docs/claude/*backlog*.json"
 EXTRA_REGISTERS = (("comms/follow_ups.json", "follow_ups"),)
 
 
-def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+def filed_ids_with_state(repo: pathlib.Path = REPO) -> tuple[set[str], list[str]]:
+    """`(every filed id, the registers we could NOT read)`.
+
+    ⚠️ **THE SECOND HALF EXISTS BECAUSE THE UNIVERSE SHRINKING IS INVISIBLE.**
+    A register that does not parse was skipped with `continue` and the comment
+    *"a malformed backlog is another guard's problem"* — defensible about whose
+    job the CORRUPTION is, and silent about what it does HERE: every id that
+    register defines drops out of `filed`, so every citation of one reads as a
+    reference resolving to NOTHING.
+
+    MEASURED on `origin/main` @`eb606713d` with one `THIS IS NOT JSON` line
+    inserted into `docs/claude/health-review-backlog.json`: `--all` went from
+    **86 dangling references to 1660** — exactly **+1574**, the row count of
+    that file. Every one of the added 1574 is a confident claim that a row which
+    exists does not, and 1660 lines of it is the desensitised alarm this repo
+    calls its own worst failure mode, with the 86 real findings buried inside.
+
+    ⚠️ **THE GATING `--base` MODE WAS MEASURED AND IS NOT AFFECTED — do not
+    "fix" it.** An id already cited at the base is exempted by
+    `_refs_anywhere_at`, and every real row id is cited at base in its own
+    register row, so the gate cannot false-fail on one. Verified with a positive
+    control that came back OK, and then by establishing WHY rather than reading
+    the OK as evidence. The one reachable false-PASS needs a single diff to FILE
+    a row and CORRUPT the register, which `register-id-guard` reds anyway. So
+    the gate gets a WARNING, not a refusal: a refusal nothing can reach is the
+    decorative branch `collapsed-state-guard` exists to refuse.
+    """
     out: set[str] = set()
-    for f in glob.glob(str(repo / BACKLOG_GLOB)):
+    unreadable: list[str] = []
+    for f in sorted(glob.glob(str(repo / BACKLOG_GLOB))):
         try:
-            for it in json.load(open(f, encoding="utf-8")).get("items", []):
-                if it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — a malformed backlog is another guard's problem
+            doc = json.load(open(f, encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — whose job the CORRUPTION is, is another guard's
+            unreadable.append(str(pathlib.Path(f).relative_to(repo)))
             continue
+        for it in (doc.get("items") or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
     for rel, key in EXTRA_REGISTERS:
         try:
-            for it in json.load(open(repo / rel, encoding="utf-8")).get(key, []):
-                if isinstance(it, dict) and it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — same reasoning as above
+            doc = json.load(open(repo / rel, encoding="utf-8"))
+        except FileNotFoundError:
+            # ABSENT, not unreadable. `comms/follow_ups.json` is optional and a
+            # tree without it is not a tree whose universe is incomplete.
             continue
-    return out
+        except Exception:  # noqa: BLE001
+            unreadable.append(rel)
+            continue
+        for it in (doc.get(key) or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
+    return out, unreadable
+
+
+def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+    """The ids only. Callers that report a COUNT must use the pair above."""
+    return filed_ids_with_state(repo)[0]
 
 
 def _git(args: list[str], repo: pathlib.Path) -> str:
@@ -230,16 +270,41 @@ def main(argv: list[str] | None = None) -> int:
                     help="full sweep; REPORTS the pre-existing debt, does not fail on it")
     args = ap.parse_args(argv)
     repo = pathlib.Path(args.repo_root)
-    filed = filed_ids(repo)
+    filed, unreadable = filed_ids_with_state(repo)
+
+    if unreadable:
+        # ⚠️ BEFORE THE LIST, NEVER AFTER IT. The list is the thing that becomes
+        # untrustworthy, and a reader who has already read 1660 "resolves to
+        # NOTHING" lines has drawn the conclusion by the time a footnote lands.
+        print("::error::the universe of FILED ids is INCOMPLETE — "
+              f"{len(unreadable)} register(s) are present and do NOT parse, so "
+              "every id they define is missing from it and every citation of "
+              "one reads as a reference resolving to NOTHING. Measured: one "
+              "corrupt 1574-row backlog turns 86 dangling references into 1660. "
+              "Treat the report below as OVER-COUNTING by an unknown amount.")
+        for rel in unreadable:
+            print(f"  - {rel}")
+        print("Fix the register first (git checkout the last parseable copy, or "
+              "resolve the conflict row-aware via scripts/ops/merge_json_register.py), "
+              "then re-run. register-id-guard fails on this too, and that is the "
+              "blocking half.")
 
     if args.all:
         bad = dangling(refs_everywhere(repo), filed)
-        print(f"{len(filed)} filed ids; {len(bad)} dangling references repo-wide")
+        qualifier = (" — OVER-COUNTED, see the incomplete universe above"
+                     if unreadable else "")
+        print(f"{len(filed)} filed ids; {len(bad)} dangling references "
+              f"repo-wide{qualifier}")
         for k, v in bad.items():
             print(f"  {k}  <- {sorted(v)[0]}"
                   + (f" (+{len(v) - 1} more)" if len(v) > 1 else ""))
-        # Report-only by design: see the module docstring on alarm fatigue.
-        return 0
+        # Report-only on the DEBT by design (see the module docstring on alarm
+        # fatigue) — but an unreadable register is not debt, it is a broken
+        # input, and a sweep that cannot state its own denominator should not
+        # exit 0. This mode is `allow_fail` in run_guards.py, so it still gates
+        # nothing; what changes is that it stops CLAIMING a number it cannot
+        # stand behind.
+        return 2 if unreadable else 0
 
     if not args.base:
         print("::error::--base <ref> or --all required")
