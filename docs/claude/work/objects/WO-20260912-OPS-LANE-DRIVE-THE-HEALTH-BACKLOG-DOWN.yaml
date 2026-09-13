@@ -87,3 +87,32 @@ outcome_so_far: >-
   into session_registry and found, by RUNNING cmd_register, that spawn_gate already refuses that
   case. Reverted before it landed - RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. The cheap existence
   check CLAUDE.md prescribes caught it twice today.
+  === CLOSE-OUT 2026-09-13T08:2xZ (MI-279 OPS lane, session_013iSqp4LsU1eq8K326eUtgj). THE OBJECT
+  STAYS in_flight: this is a PAUSE, not a completion. Acting on the operator directive relayed by
+  the manager on PR #12215 (07:52Z) -- out of weekly tokens, pause all lanes, close up so no work
+  is lost. !! I NEVER RECEIVED THAT DIRECTIVE IN MY OWN CHANNEL. The manager delivered it via
+  create_trigger into live sessions and recorded that the lanes acting on it was UNOBSERVED; no
+  such prompt reached this session, and I am acting on the commit-message relay because stopping is
+  cheap to reverse and continuing spends a budget the operator said is gone. Recorded as a relay,
+  not as a directive I received.
+  NOTHING IS UNPUSHED. Everything this lane produced is on a branch and on a PR.
+  LANDED THIS PASS: #12211 (U27) merged as 475495155.
+  IN FLIGHT AND HANDED FORWARD, both pushed, both with full guard runs green locally:
+  #12213 (U28) -- Tier-1 but landing:hold, changes_landing_machinery. NEEDS A HUMAN MERGE CLICK.
+  #12216 (U29) -- Tier-1, self, armed; all four required checks green at 08:10Z, auto-merge on.
+  !! #12213 HAS A CI ANOMALY A SUCCESSOR MUST NOT READ AS GREEN. Its head carries ONLY `watch`:
+  no pull_request-event run has ever fired on that branch (measured -- 5 runs, all push or
+  pull_request_target), while the identical route on #12216 produced all four required checks
+  twice. I dispatched guards.yml, pytest-run.yml and pytest-collect.yml on the branch at ~08:2xZ
+  via workflow_dispatch, which the repo added to the required checks precisely so a dropped webhook
+  cannot block a merge. VERIFY THOSE THREE ARE GREEN BEFORE MERGING; total_count 1 is not green.
+  WHAT IS LEFT, in the order I would take it: (1) the ci/landing class -- 12 open rows, one root
+  cause, the largest cluster of open `high` rows inside a Tier-1 remit; (2) the four members of the
+  zero-CI class named in #12213's body, none of which #12213 closes, since all want an OBSERVED
+  attached check on a relay-opened head; (3) the Tier-2 proposals from U29, routed and not taken --
+  the settle-coin backfill condition in src/units/accounts/clients.py, and a read-only `symbol=`
+  parameter on /api/diag/exchange_positions without which that critical row's criterion (1) cannot
+  be checked by anyone.
+  !! THE LOUD ROW I OPENED IS THE THING TO CARRY: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE.
+  A real-money account may hold a position no bot surface can see, and every surface reads through
+  the defective path, so their silence is not evidence it closed.
