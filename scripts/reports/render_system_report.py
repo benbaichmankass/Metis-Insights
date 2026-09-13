@@ -554,6 +554,21 @@ def render_html(report: dict) -> str:
     ]
     if cons.get("headline"):
         header.append(f"<p>{_f(cons.get('headline'))}</p>")
+    # ⚠️ PARTIAL REVIEW BANNER. Stamped by `--allow-partial-triage` into the
+    # PAYLOAD rather than passed as a render flag, so any caller of
+    # `write_report()` -- not just the CLI -- renders it. An incomplete review
+    # is publishable; it must never be mistakable for a complete one
+    # (BL-20260814-STRICT-GUARD-DOES-NOT-ENFORCE-THE-TRIAGE-GATE).
+    _partial = (cons.get("review_coverage") or {}).get("partial_triage")
+    if _partial:
+        _per = _partial.get("untriaged_by_domain") or {}
+        _detail = ", ".join(f"{k}: {v}" for k, v in sorted(_per.items())) or "count not stated"
+        header.insert(0, (
+            '<p class="grade" style="background:#7f1d1d;color:#fff;padding:.6rem .8rem;'
+            'border-radius:6px;font-weight:700">&#9888; PARTIAL REVIEW &mdash; the '
+            'backlog triage gate was NOT met and this report was published anyway '
+            f'({html.escape(_detail)} rows untriaged). Do not read it as a complete '
+            'review.</p>'))
     # An audit report is a governance pass, not a trading window: the trade /
     # market / ML / review-coverage sections don't apply, so they're skipped
     # (rendering them would print misleading em-dash trading blocks). The audit
@@ -841,7 +856,7 @@ _NON_REASONS = (
 )
 
 
-def _validate_review_coverage(report: dict) -> list[str]:
+def _validate_review_coverage(report: dict, *, allow_partial_triage: bool = False) -> list[str]:
     """Return a list of coverage violations (empty = clean).
 
     Enforces, mechanically, what the SKILL's Review-coverage guard requires:
@@ -908,6 +923,72 @@ def _validate_review_coverage(report: dict) -> list[str]:
                 "`summary` does not justify it. A review dispositions; carrying "
                 "every row forward unchanged is not backlog work (75 such touches "
                 "were recorded while the backlog grew +129 net in 30 days)")
+
+    # ── THE TRIAGE GATE, WHICH THE SKILL CALLS HARDEST TO FAKE AND WHICH
+    #    THIS BACKSTOP DID NOT CHECK (2026-08-14 -> built 2026-09-12) ───────
+    #
+    # `BL-20260814-STRICT-GUARD-DOES-NOT-ENFORCE-THE-TRIAGE-GATE`. The
+    # /system-review skill states the backlog drive is "a HARD COMPLETION
+    # GATE, every open item, not a sample", that each domain's
+    # `count_untriaged` MUST be 0, and that a run must STOP otherwise. It also
+    # names `--strict` as "the mechanical coverage backstop" so "a skipped
+    # assessment can't quietly ship".
+    #
+    # MEASURED on the run that filed the row: `--strict` passed a report
+    # declaring count_untriaged of 201 / 39 / 26. The honest disclosure
+    # survived only because the payload was written honestly -- a run that
+    # omitted the counts, or set them to 0, would have rendered IDENTICALLY.
+    # That is "green is not evidence" applied to the review process itself.
+    #
+    # ⚠️ A MISSING COUNT IS NOT A PASS. `count_untriaged` absent is *we did not
+    # look*, and reading it as 0 would make the cheapest way past this gate
+    # deleting the field -- the guard-cheaper-to-lie-to-than-satisfy shape this
+    # repo refuses. It is reported as its own violation, distinctly.
+    #
+    # ⚠️ AND THE OPT-OUT DOES NOT SILENCE THE FACT. `--allow-partial-triage`
+    # lets an incomplete review PUBLISH; it stamps `partial_triage` into the
+    # payload so `render_html` prints a PARTIAL REVIEW banner. Publishable,
+    # never mistakable for complete.
+    for domain in ("health", "performance", "ml"):
+        blk = rc.get("backlog_drive", {}).get(domain) or {}
+        if not isinstance(blk, dict) or not blk:
+            # ⚠️ SCOPED TO A DOMAIN BLOCK THAT EXISTS. An absent block is a
+            # DIFFERENT question -- whether all three domains must be reported
+            # at all -- which this row does not raise and which the existing
+            # required-keys check governs. Demanding a count from a block
+            # nobody wrote would fail fixtures and reports that are testing
+            # something else entirely, which is how a guard gets switched off.
+            # The lie path stays closed: you cannot delete just the count from
+            # a block you did write.
+            continue
+        untriaged = blk.get("count_untriaged")
+        # ⚠️ ABSENCE IS DELIBERATELY NOT A VIOLATION YET, AND THAT IS A GAP
+        # RATHER THAN A JUDGEMENT THAT IT IS FINE. `count_untriaged` is named
+        # FOUR times in .claude/skills/system-review/SKILL.md and ZERO times in
+        # comms/schema/system_report_response.template.json -- measured
+        # 2026-09-12 -- so the field the gate is written against is not in the
+        # schema authors fill in, and EVERY report rendered from the template
+        # today omits it. Failing on absence would therefore red every review
+        # run on day one, which is how a guard gets switched off rather than
+        # satisfied (the same argument that kept `workflow-push-target-guard`
+        # ungated only because its tree already read zero). This change adds
+        # the field to the template so reports start carrying it; tightening
+        # absence into a violation is a SECOND step once they do, tracked at
+        # BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD.
+        if isinstance(untriaged, (int, float)) and untriaged > 0 and not allow_partial_triage:
+            violations.append(
+                f"backlog_drive.{domain}: count_untriaged is {untriaged}, and the "
+                "skill calls 100% triage a HARD COMPLETION GATE ('every open item, "
+                "not a sample'). Triage the remainder, or publish an explicitly "
+                "PARTIAL review with --allow-partial-triage")
+        triaged = blk.get("triaged")
+        start = blk.get("open_at_start")
+        if (isinstance(triaged, (int, float)) and isinstance(start, (int, float))
+                and triaged != start and not allow_partial_triage):
+            violations.append(
+                f"backlog_drive.{domain}: triaged {triaged} != open_at_start "
+                f"{start} -- the gate is every open row, so a shortfall is a "
+                "partial review however it is counted")
 
     # ── SINCE-LAST BUILD VERIFICATION (2026-08-20) ────────────────────────
     #
@@ -1148,6 +1229,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("json_path", help="Path to the consolidated report JSON.")
     ap.add_argument("--out-dir", default="comms/reports", help="Report artifact root (default: comms/reports).")
     ap.add_argument("--no-index", action="store_true", help="Do not update index.json.")
+    ap.add_argument("--allow-partial-triage", action="store_true",
+                    help=("Publish a review whose backlog triage gate is NOT met. "
+                          "It stamps a PARTIAL REVIEW banner into the rendered HTML "
+                          "-- publishable, never mistakable for complete."))
     ap.add_argument("--strict", action="store_true",
                     help="Fail (exit 3, write nothing) if the Review-coverage guard is "
                          "violated: a required review_coverage key is missing/empty, or an "
@@ -1160,7 +1245,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: cannot read consolidated JSON {args.json_path}: {exc}", file=sys.stderr)
         return 1
 
-    violations = _validate_review_coverage(report)
+    if args.allow_partial_triage:
+        rc = (report.setdefault("consolidated", {})
+                    .setdefault("review_coverage", {}))
+        per = {}
+        for _d in ("health", "performance", "ml"):
+            _b = (rc.get("backlog_drive", {}) or {}).get(_d) or {}
+            _u = _b.get("count_untriaged") if isinstance(_b, dict) else None
+            if isinstance(_u, (int, float)) and _u > 0:
+                per[_d] = _u
+        rc["partial_triage"] = {"declared_by": "--allow-partial-triage",
+                                "untriaged_by_domain": per}
+
+    violations = _validate_review_coverage(
+        report, allow_partial_triage=args.allow_partial_triage)
     if violations:
         for v in violations:
             print(f"::warning:: review-coverage: {v}", file=sys.stderr)
