@@ -524,3 +524,41 @@ def test_no_BOUND_register_appears_in_the_unmarked_list():
     bound = set(G.registers_from_gitattributes(REPO))
     assert not (bound & set(G.check("HEAD")["unmarked_paths"]))
 
+
+# ---------------------------------------------------------------------------
+# AN UNRESOLVABLE BASE IS REFUSED, NOT GRADED CLEAN.
+# Measured before the fix: check("origin/does-not-exist") returned ok=True with
+# registers_in_diff=0 and every register UNTOUCHED — a verdict byte-identical to
+# a run that compared everything and found it clean. Both `git diff` calls fail,
+# `touched` is empty, and every register takes the `not in touched` branch.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unresolvable_base_is_refused_and_its_count_is_None_not_zero():
+    v = G.check("no-such-ref-anywhere-000-pytest")
+    assert v["ok"] is False
+    assert v["base_state"] == G._git_base.TIP_UNRESOLVABLE
+    assert v["rows"] == []
+    assert v["registers_in_diff"] is None, (
+        "0 is a real reading — 'this diff touched no register'. Nothing was "
+        "read here, and the two must not share a value.")
+
+
+def test_a_REAL_base_still_grades_so_the_refusal_is_not_refuse_everything():
+    v = G.check("HEAD")
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert isinstance(v["registers_in_diff"], int)
+
+
+def test_a_REAL_ref_with_an_EMPTY_diff_is_graded_not_refused():
+    """THE DISCRIMINATOR. A defect keying the refusal on the DIFF being empty
+    behaves identically to the correct one on a bogus ref, because a bogus ref
+    also yields an empty diff. An empty diff against a real base is the ordinary
+    case on most PRs here, and refusing it would fail all of them."""
+    head = _run(REPO, "rev-parse", "HEAD").stdout.strip()
+    assert head, "fixture is degenerate"
+    v = G.check(head)                       # a real ref, and no diff against it
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert v["registers_in_diff"] == 0
+    assert v["ok"] is True
+

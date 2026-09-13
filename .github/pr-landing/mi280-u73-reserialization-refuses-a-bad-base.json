@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ci/check_register_reserialization.py and its test file: check() now REFUSES an unresolvable --base ref instead of grading every register UNTOUCHED and returning ok=True (measured before the fix: ok=True, registers_in_diff=0). registers_in_diff is None on a refusal, never 0, because 0 is a real reading on a resolvable base. A REAL base is unchanged (rc=0), and a REAL ref whose diff is EMPTY is still GRADED — the control that discriminates a refusal keyed on the ref from one keyed on the diff being empty, which would fail every PR touching no register. Four planted defects each caught by its own control; self-test OK, 34 passed, ruff clean. Also carries a merge of origin/main to pick up #12163's register de-duplication, which this branch inherited from 1575b22fa. Tier-1 surface by the canonical list (scripts/ci/**, tests/**), and NOT landing machinery — verified against check_pr_landing.py::LANDING_MACHINERY, which does not list this file. No src/, no config/, no deploy/, no workflow, no order path."
+}
