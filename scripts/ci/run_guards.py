@@ -166,6 +166,18 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The SIBLING of `decision-answers-guard`. That one asks whether an
+        # answer a human WROTE will be READ; this asks whether a CONSUMER reads
+        # both shapes at all. They are different failures: the first strands an
+        # answer, the second reports a settled decision as open.
+        "name": "decision-answer-consumers",
+        "when": {"regex": r"^(src|scripts)/.*\.py$"},
+        "steps": [
+            ["python3", "scripts/ci/check_decision_answer_consumers.py", "--self-test"],
+            ["python3", "scripts/ci/check_decision_answer_consumers.py"],
+        ],
+    },
+    {
         # The document register must not silently stop being true.
         #
         # UNGATED (`when: None`) deliberately, for the reason the api-tier-policy
@@ -2414,6 +2426,34 @@ GUARDS: List[Dict[str, Any]] = [
         "name": "ruff-lint",
         "when": {"regex": r"\.py$|ruff\.toml$|requirements-dev\.txt$"},
         "steps": [["ruff", "check", "."]],
+    },
+    {
+        # R3 (a WORSENING against the committed seed) is the enforcing rule and
+        # can fail today. R1/R2 are VIOLATED on the current tree and are
+        # REPORTED, not enforced: their remedy is Tier-3 and failing here would
+        # red every PR in the repo, which is how a guard gets disabled instead
+        # of fixed (the reasoning check_pr_queue_watch.py already writes down).
+        # `--strict` arms them once the operator's change lands; there is no
+        # flag to unset.
+        "name": "priority-fallback-distribution",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py", "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py"],
+        ],
+        # ⚠️ DELIBERATELY **NOT** `notify: True`, for the reason already written
+        # down against `operator-owed` above: guards.yml's ping fires once per PR
+        # RUN, and every notify-class guard is DIFF-SCOPED — it trips on something
+        # the PR introduced, so the ping reaches the author who caused it. R1 and
+        # R2 here are the opposite shape: they report a STANDING condition that is
+        # violated on the current tree and that no PR introduced, so a ping would
+        # fire on every PR from every session about a finding nobody in that PR
+        # can act on. And the remedy is TIER-3 — an operator decision on the
+        # fallback value — so the ping could not be actioned by its recipient
+        # either. That is the desensitised-alarm shape this repo names as its own
+        # worst failure mode. `tests/ci/test_run_guards.py::test_notify_set_is_
+        # preserved` caught the original `notify: True` as an undeclared
+        # behaviour change, correctly; a red CI check is the right signal here.
     },
     {
         "name": "secret-scan",

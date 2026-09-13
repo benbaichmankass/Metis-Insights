@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI/tooling only: a new guard under scripts/ci/, its pytest surface under tests/, one registration line in scripts/ci/run_guards.py, a seed file under docs/claude/work/, one memo under docs/research/, two index registrations, three backlog update notes and one work-object progress note. Every path is inside TIER1_SURFACE. src/runtime/intents.py, config/strategies.yaml and config/accounts.yaml are PARSED READ-ONLY and never written; scripts/check_strategy_coverage.py is deliberately untouched. No priority value is proposed — that is Tier-3 and the operator's. The new guard reports R1/R2 and enforces only R3 (a worsening against a committed seed), so it cannot red an unrelated PR over a standing Tier-3 condition."
+}
