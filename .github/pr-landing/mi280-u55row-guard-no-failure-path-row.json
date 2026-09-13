@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row, carried verbatim from #12111 so that PR can stop touching the shared register; no code, config, workflow, or runtime."
+}

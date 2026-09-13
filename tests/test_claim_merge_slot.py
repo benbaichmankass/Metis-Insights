@@ -123,10 +123,25 @@ def test_real_board_diff_is_small_enough_to_conflict_narrowly():
                                           claimed_at="2026-09-09T06:00:00Z"))
     changed = mod._changed_lines(src, out)
     budget = _budget(mod, src, out)
+    # ⚠️ THE MESSAGE NAMES THE EVIDENCE, NOT A CAUSE IT CANNOT SEE. It used to
+    # assert "A whole-file re-serialisation turns every concurrent session edit
+    # into a conflict" — a CAUSE the line-zip metric cannot distinguish from a
+    # one-line insertion, which shifts every following line and scores the same.
+    # A session that had merely added a key was told it had reformatted the
+    # file, and lost a full ~16-minute CI cycle chasing a reformat that never
+    # happened (BL-20260909-SESSION-BOARD-SCHEMA-DOCUMENTS-A-PR-FIELD-THAT-THE-CLAIM-TOOL-REFUSES-AND-CI-REDS-ON).
+    # That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A, and CLAUDE.md's
+    # remedy for it is to report the actual quantity rather than reword the
+    # label — so the line COUNTS ride along, and a pure shift now announces
+    # itself as one.
     assert changed <= budget, (
         f"{changed} lines change against a budget of {budget} (the two slots' "
-        f"own size). A whole-file re-serialisation turns every concurrent "
-        f"session edit into a conflict.")
+        f"own size). Line counts: {len(src.splitlines())} -> "
+        f"{len(out.splitlines())}. ⚠️ THIS METRIC IS POSITIONAL: if the two "
+        f"counts differ, a single inserted or deleted line shifts everything "
+        f"after it and inflates this number, so read the counts before "
+        f"concluding the file was re-serialised — that is a DIFFERENT fault "
+        f"with a different fix.")
 
 
 @pytest.mark.parametrize("extra_keys", [0, 1, 2, 5])
@@ -223,3 +238,40 @@ def test_a_board_without_a_top_level_slot_is_refused():
     with pytest.raises(mod.SpliceError):
         mod.splice('{\n "active_sessions": []\n}\n',
                    mod.build_claim("b", "h", "p"))
+
+
+def test_schema_string_matches_what_build_claim_actually_writes():
+    """The board's own `schema.merge_slot` must name exactly the keys the ONLY
+    writer renders.
+
+    WHY THIS EXISTS. The schema string drifted from the writer in BOTH
+    directions and nothing noticed for months
+    (BL-20260909-SESSION-BOARD-SCHEMA-DOCUMENTS-A-PR-FIELD-THAT-THE-CLAIM-TOOL-REFUSES-AND-CI-REDS-ON):
+    it declared a ``pr`` key ``claim_merge_slot.py`` renders **zero** times, and
+    omitted the ``purpose`` key it renders on **every** claim. The row noticed
+    only the first direction; the second was found by running ``build_claim``
+    rather than reading about it.
+
+    ⚠️ A DOC THAT IS WRONG IN THE PERMISSIVE DIRECTION COSTS MORE THAN A MISSING
+    ONE. A session that followed the documented shape added ``pr``, and the
+    size test above then reported a whole-file reformat it had not performed —
+    so the doc did not merely fail to help, it actively sent a session to debug
+    the wrong thing for a full CI cycle.
+
+    This pins the two together so the next drift fails here, next to the writer,
+    instead of surfacing as an opaque red on somebody else's PR.
+    """
+    import json
+    mod = _load()
+    written = set(mod.build_claim("claude/x", "sess", "p",
+                                  claimed_at="2026-01-01T00:00:00Z"))
+    schema = json.loads(BOARD.read_text(encoding="utf-8"))["schema"]["merge_slot"]
+    declared = {k.strip() for k in
+                schema.split("}")[0].lstrip("{ ").split(",") if k.strip()}
+    declared = {d.split(":")[0].strip() for d in declared}
+    assert declared == written, (
+        f"schema.merge_slot declares {sorted(declared)} but "
+        f"claim_merge_slot.build_claim writes {sorted(written)}. "
+        f"The WRITER is authoritative — field beats comment — so fix the schema "
+        f"string in docs/claude/session-board.json unless the writer is the one "
+        f"that changed.")

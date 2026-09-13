@@ -1,6 +1,6 @@
 # PROPOSAL (Tier-1): `loud` is set on 84.5% of `OPEN-ITEMS.json` and has stopped selecting anything
 
-> **Doc status:** `live` · category `plan` · last verified `2026-09-12` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-279 (OPS lane, `/backlog-drain`), `session_013iSqp4LsU1eq8K326eUtgj`.**
 **This is a PROPOSAL to the manager. Nothing was re-flagged.** No row's `loud`

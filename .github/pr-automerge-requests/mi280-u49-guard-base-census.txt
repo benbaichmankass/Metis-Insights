@@ -1,1 +1,1 @@
-U49 — backlog-unresolve compares against the fork point and stops going silent.
+U49 — read the fork point, and stop going silent on an unreadable base (reconciled with #12093).
