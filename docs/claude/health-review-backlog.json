@@ -38024,7 +38024,7 @@
     {
       "id": "BL-20260912-REGISTER-RESERIALIZATION-READS-THE-BASE-TIP-SO-ITS-LOST-LINE-COUNT-IS-CONTAMINATED-BY-ROWS-OTHER-SESSIONS-ADDED",
       "title": "register-reserialization scopes its FILE LIST to the fork point but reads the base CONTENT at the tip, so it reports lost lines this diff did not lose — a recurrence of the class already fixed in its sibling",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 — scripts/ci/check_register_reserialization.py; a CI guard's diagnostic output, no runtime, no order path",
       "opened_at": "2026-09-12",
@@ -38034,6 +38034,14 @@
       "related": [
         "BL-20260912-REGISTER-FIELD-LOSS-FAILS-A-MERELY-BEHIND-BRANCH-AND-ITS-SELF-TEST-EMBEDS-A-LIVE-CHECK-SO-THE-CAUSE-IS-MISREPORTED",
         "BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY"
+      ],
+      "resolved_at": "2026-09-13",
+      "updates": [
+        {
+          "at": "2026-09-13T00:49:00+00:00",
+          "by": "claude (MI-280 engineering lane, U65)",
+          "note": "RESOLVED by PR #12138, squashed to main as 64321313e. Verified ON MAIN rather than from the PR: check_register_reserialization.py line 272 calls _git_base.resolve_base and line 285 passes resolved_base to the content read, and the two controls are present in tests/test_register_reserialization.py and pass (19 tests) against main's own copy.\n\nEACH CRITERION, AND HOW IT WAS MET:\n  (1) 'resolves its base through _git_base.resolve_base ... for the CONTENT read as well as the file list' -- done. The file list was always fork-point-scoped ({base}...HEAD is three-dot); it is the CONTENT read that moved, from `git show <base>:<path>` to read_at(resolved_base, ...).\n  (2) 'a planted-defect control proves the difference ... an honest single-row append must report 0 lost lines, while reverting the call site to `git show <tip>:<path>` must make the same control report a non-zero count' -- done, both directions, on a temp git repo whose branch is behind a main that appended rows of its own. Fix: 0. Reverted: `assert 97 == 0`.\n  (3) 'A GREEN RUN IS NOT EVIDENCE HERE ... it must assert the REPORTED NUMBER' -- this was the criterion that mattered and it was RIGHT. With the defect planted the guard reports `lost_lines=97 budget=324 state=clean ok=True`: clean verdict, exit 0, wrong number. A control on the exit code would have passed against the defect. Both controls assert lost_lines.\n  (4) 'Fixing check_backlog_refs.py is explicitly NOT required to close this row' -- honoured, not folded in. That guard has the same mixed basis but errs toward a FALSE NEGATIVE, and its harm is genuinely low: a tip-only id is by construction filed on main and therefore not dangling. Re-checked this session and left alone.\n\nONE THING THE FIX DELIBERATELY DID NOT DO, and it is now its own row: read_at distinguishes ABSENT_AT_BASE from UNREADABLE and _base_text collapses them exactly as the old _show did, so the change altered WHICH REF is read and nothing else. That collapse makes a PR which legitimately ADDS a register grade `unreadable` and FAIL the guard -- reproduced, and filed as BL-20260913-A-PR-THAT-ADDS-A-REGISTER-FAILS-REGISTER-RESERIALIZATION-BECAUSE-A-NEW-FILE-GRADES-UNREADABLE. Splitting the states is a behavioural change needing its own control, which is why it is a separate unit and not a quiet extension of this one.\n\nWHY THE DEFECT SURVIVED, recorded because it is the reusable part: the guard's 14 existing tests and all 11 of its self-test calls exercise the PURE grade(); check() -- where the base is chosen -- was exercised ZERO times. A well-covered decision and an uncovered caller. The new controls needed a temp-git-repo harness for exactly that reason, not as scaffolding."
+        }
       ]
     },
     {
