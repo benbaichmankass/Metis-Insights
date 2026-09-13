@@ -470,6 +470,57 @@ def population_control() -> int:
     return failures
 
 
+# ---------------------------------------------------------------------------
+# THE VERDICT — a graded state, not a bare exit code
+# ---------------------------------------------------------------------------
+# `OK` and `OK` are the same two bytes whether R6 looked or not, and until
+# 2026-09-13 that is what the diff-scoped and unscoped runs printed when
+# `build_rows()` RAISED. OBSERVED 2026-09-12 by the author of
+# BL-20260912-DOCUMENT-INDEX-GUARD-REPORTS-OK-WHILE-ITS-OWN-ROW-DRIFT-CENSUS-IS-UNAVAILABLE,
+# on their own typo and by accident: the census line said
+# "UNAVAILABLE ... NOT 'no rows drifted'" -- exactly right -- and the verdict
+# line under it said OK anyway. A reader comparing verdicts could not tell
+# that R6 had gone blind.
+#
+# ⚠️ THE UNGATED HALF IS ALREADY FIXED AND THIS DOES NOT RE-FIX IT. #12136
+# made an uncomputable census an `R6 UNCOMPUTABLE (--all)` FINDING, so the
+# `--all` step -- the one CI runs -- exits 1. MEASURED 2026-09-13 with a
+# confirmed-live plant (`build_rows` raising): `--all` rc=1 FAIL, `--base` rc=0
+# OK, unscoped rc=0 OK. What was left was the two modes a human runs locally,
+# which is precisely where the row's author was standing.
+#
+# ⚠️ AND THE SCOPED ASYMMETRY IS DELIBERATE AND IS PRESERVED. #12136's own
+# comment argues it: the scoped step is one check among many and can afford
+# *we could not look*, while an UNGATED assertion that silently reports nothing
+# reads byte-identically to a clean tree. That reasoning postdates the row and
+# is not overridden here -- the exit code for the scoped modes is UNCHANGED.
+# What changes is that the verdict LINE stops claiming a clean R6 reading it
+# did not get.
+VERDICT_FAIL = "fail"
+VERDICT_OK = "ok"
+VERDICT_OK_R6_BLIND = "ok_r6_blind"   # nothing failed, but R6 could not look
+
+
+def verdict(n_findings: int, drift_state: str) -> tuple:
+    """`(state, exit_code, line)` — PURE, so what the guard CLAIMS is arguable
+    in a test rather than only against a tree in which the builder is broken.
+
+    The row that asked for this says in terms that asserting on the MESSAGE is
+    not sufficient, because the message was already correct while the verdict
+    was already wrong. So the thing under test is this triple.
+    """
+    if n_findings:
+        return (VERDICT_FAIL, 1,
+                f"document-index: FAIL — {n_findings} finding(s).")
+    if drift_state == DRIFT_UNCOMPUTABLE:
+        return (VERDICT_OK_R6_BLIND, 0,
+                "document-index: OK — but the R6 row-drift census was "
+                "UNAVAILABLE, so this is NOT a clean R6 reading. A tree where "
+                "build_rows() raises is one where `--write` is broken too; the "
+                "ungated `--all` step fails on it.")
+    return (VERDICT_OK, 0, "document-index: OK")
+
+
 def self_test() -> int:
     CATS = {"instruction", "evidence", "history", "unknown"}
     STS = {"live", "superseded", "historical", "unknown"}
@@ -665,6 +716,77 @@ def self_test() -> int:
         print("  PASS  an agreeing row set grades `computed`, which is a "
               "different fact from `uncomputable`")
 
+    # ── THE VERDICT ─────────────────────────────────────────────────────────
+    # ⚠️ THE ROW THAT ASKED FOR THIS RULES OUT THE OBVIOUS TEST. The census
+    # MESSAGE was already correct -- "UNAVAILABLE ... NOT 'no rows drifted'" --
+    # and the verdict under it was already wrong, so asserting on the message
+    # would have passed against the defect. The assertion is on the graded
+    # VERDICT, which is the triple `verdict()` returns.
+    clean = verdict(0, DRIFT_COMPUTED)
+    blind = verdict(0, DRIFT_UNCOMPUTABLE)
+    if clean == blind:
+        print("  FAIL  [verdict] a run whose R6 census could not be computed "
+              "returns the SAME verdict as a clean one — which is the defect, "
+              "not a style point")
+        failures += 1
+    else:
+        print("  PASS  [verdict] an uncomputable census does not return the "
+              "clean verdict")
+    if blind[0] != VERDICT_OK_R6_BLIND:
+        print(f"  FAIL  [verdict] an uncomputable census graded {blind[0]!r}; "
+              f"it must be its own state, never folded into `ok`")
+        failures += 1
+    else:
+        print("  PASS  [verdict] *we could not look* is its own graded state")
+    # The exit code for the scoped modes is DELIBERATELY unchanged (#12136's
+    # reasoning, preserved). Pinned, so a later "tighten it" has to argue with
+    # the comment on `verdict()` rather than silently red every local run.
+    if blind[1] != 0:
+        print("  FAIL  [verdict] the scoped verdict's EXIT CODE changed; the "
+              "ungated --all step is what fails on this, by design")
+        failures += 1
+    else:
+        print("  PASS  [verdict] the scoped exit code is unchanged, as designed")
+    if verdict(3, DRIFT_COMPUTED)[1] != 1 or verdict(3, DRIFT_UNCOMPUTABLE)[1] != 1:
+        print("  FAIL  [verdict] findings must fail whatever the census did")
+        failures += 1
+    else:
+        print("  PASS  [verdict] findings fail regardless of the census state")
+    # END-TO-END, through the real rule: an uncomputable census under --all is
+    # a FINDING, so the step CI runs exits 1. This is the half #12136 shipped.
+    #
+    # ⚠️ IT IS NOT UNCONTROLLED TODAY AND THIS DOES NOT CLAIM TO BE THE FIRST.
+    # The `r6_all` case list already asserts `row_status_drift`'s side of it;
+    # discovered by planting `enforce_all and ...` away and watching BOTH that
+    # control and this one go red. What this adds is the layer above: that the
+    # finding actually reaches the VERDICT, which is the join the row is about
+    # -- a correct finding under a verdict that ignored it was the whole
+    # defect.
+    _blind_findings = evaluate(set(), [], {}, set(), CATS, STS,
+                               computed=None, scope=None, enforce_all=True)
+    if not any("R6 UNCOMPUTABLE" in f for f in _blind_findings):
+        print("  FAIL  [verdict] --all did not raise a finding on an "
+              "uncomputable census, so the step CI runs would exit 0 on a "
+              "broken build_rows()")
+        failures += 1
+    elif verdict(len(_blind_findings), DRIFT_UNCOMPUTABLE)[1] != 1:
+        print("  FAIL  [verdict] --all raised the finding and the verdict "
+              "still did not fail")
+        failures += 1
+    else:
+        print("  PASS  [verdict] --all FAILS on an uncomputable census, "
+              "end-to-end through evaluate()")
+    # The control that keeps the four above from passing vacuously against an
+    # `evaluate()` that finds something in everything.
+    if evaluate(set(), [], {}, set(), CATS, STS,
+                computed={}, scope=None, enforce_all=True):
+        print("  FAIL  [verdict] evaluate() reports findings on an EMPTY, "
+              "computable register — the controls above prove nothing")
+        failures += 1
+    else:
+        print("  PASS  [verdict] a computable empty register is silent, so the "
+              "controls above are not vacuous")
+
     # ── R7: THE FILE ITSELF ─────────────────────────────────────────────────
     # The measured incident is the first case: a HALF-resolved conflict, with
     # only the opener left behind. A control requiring the full three-marker
@@ -722,10 +844,18 @@ def self_test() -> int:
               f"behave as declared. The guard cannot be trusted.")
         return 1
     # ⚠️ `len(r7)` IS IN THIS SUM ON PURPOSE. The count is the self-test's own
-    # denominator, and eight cases that ran but were not counted would be the
+    # denominator, and cases that ran but were not counted would be the
     # unasserted-denominator class inside the thing that exists to prevent it.
+    #
+    # ⚠️ THE TRAILING TERM IS THE HAND-WRITTEN CHECKS -- the ones not driven by
+    # a `cases`-style list -- and it MUST be bumped when one is added. It went
+    # 8 -> 14 on 2026-09-13 with the six `[verdict]` controls. Nothing computes
+    # it, which is a real weakness of this line and is stated rather than
+    # hidden: the six were counted by hand, and the original eight were taken
+    # on trust rather than re-audited.
+    _HANDWRITTEN = 14
     print(f"document-index self-test: OK — "
-          f"{len(cases) + len(r6) + len(r6_all) + len(r7) + 8} planted rule cases, "
+          f"{len(cases) + len(r6) + len(r6_all) + len(r7) + _HANDWRITTEN} planted rule cases, "
           f"every rule observed FIRING and every clean case observed SILENT; "
           f"plus 3 planted FILES proving the population builder sees a "
           f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
@@ -877,11 +1007,10 @@ def main() -> int:
             print(f"  {f}")
         if len(findings) > 60:
             print(f"  ... and {len(findings) - 60} more")
-        print(f"document-index: FAIL — {len(findings)} finding(s).")
-        return 1
 
-    print("document-index: OK")
-    return 0
+    _state, rc, line = verdict(len(findings), drift_state)
+    print(line)
+    return rc
 
 
 if __name__ == "__main__":

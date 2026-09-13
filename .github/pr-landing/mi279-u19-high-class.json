@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI tooling and observability: scripts/ci/check_artifact_caveats.py gains an artifact-path trigger alongside its producer-tool trigger (censused, not enforced, arming itself when the artifact declares basis=producers_and_artifact) and its closed-status set gains the two spellings that actually occur, keeping the dead ones. Plus one backlog row updated with the measurement. No src/, no ml/, no config/, no .github/workflows/, no order path, and the research artifact itself is deliberately NOT touched (another lane holds two open PRs against it). Nothing enacted, nothing adjudicated."
+}

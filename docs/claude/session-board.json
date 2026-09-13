@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "github-actions[bot] · stale-automation-sweep run 34702697646",
-    "branch": "automation/data-commit-34689800742-1",
-    "claimed_at": "2026-09-12T15:36:17Z",
-    "purpose": "Re-asserted by sweep_stale_automation_prs.py after the producing run exited; arming IS the merge (R13)."
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "branch": "claude/manager-tick-20260912-0610z",
+    "claimed_at": "2026-09-13T03:09:33Z",
+    "purpose": "0255Z manager tick: lease heartbeat + sub-session registry + manager checklist. Overwrites the 15:36Z stale-automation-sweep claim, which is 21h old and spent."
   },
   "active_sessions": [
     {
