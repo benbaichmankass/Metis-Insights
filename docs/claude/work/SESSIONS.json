@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T07:00:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z tick; observations are the 05:56 ones, explicitly not re-read",
+  "updated_at": "2026-09-13T07:55:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0752Z manager tick, all three lanes get_session'd live",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4901,8 +4901,8 @@
       },
       "item": "MI-278",
       "lane": "research",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:04Z get_session (NOT re-read at 0652Z — this tick went on restoring the lapsed lease; the reading is 60 min old and labelled): RUNNING/connected, 581406/1M (58%), branch claude/mi278-u41-break-attribution-verdict"
+      "last_observed_at": "2026-09-13T07:54Z",
+      "last_observation": "2026-09-13T07:54:25Z get_session: RUNNING/connected, 581406/1M (58%), branch claude/mi278-u44-union-driver-on-work-objects-is-unsafe, '#12212 merged; #12148 awaiting merge click'. ⚠️ rate_limit_info isUsingOverage TRUE, status REJECTED."
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4927,8 +4927,8 @@
       },
       "item": "MI-279",
       "lane": "ops",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:12Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 289732/1M (29%), branch claude/mi279-u23-builder-latch"
+      "last_observed_at": "2026-09-13T07:54Z",
+      "last_observation": "2026-09-13T07:54:28Z get_session: RUNNING/connected, 745508/1M (75%) — UP from 289732 an hour ago, so it did NOT compact; it is now past the ~600k handoff threshold. branch claude/mi279-u29-settle-coin-page-blindness. ⚠️ rate_limit_info isUsingOverage TRUE, status REJECTED. ⚠️ post_turn_summary is ABSENT on this read, where it was present an hour ago — noted, not interpreted."
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
@@ -4953,8 +4953,8 @@
       },
       "item": "MI-280",
       "lane": "engineering",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:55:56Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 706997/1M (71%), #12189 merged"
+      "last_observed_at": "2026-09-13T07:54Z",
+      "last_observation": "2026-09-13T07:53:53Z get_session: RUNNING/connected, 729747/1M (73%) — past the handoff threshold. branch claude/mi280-u90-open-items-observation-loss, 'diagnostic-provenance-guard merged; duplicate detection armed (U89), register 1586 rows 0 dups'. ⚠️ rate_limit_info isUsingOverage TRUE, status REJECTED."
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
