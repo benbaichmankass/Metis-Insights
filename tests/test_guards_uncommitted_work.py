@@ -231,3 +231,105 @@ def test_main_renders_the_headline_through_this_function():
     assert src.count('f"PASS {') == 1, (
         f"expected exactly one PASS-line f-string (the one inside "
         f"counts_line); found {src.count(chr(102) + chr(34) + 'PASS {')}")
+
+
+# --------------------------------------------------------------------------
+# The THIRD route to the same false green, and the one that bites while you
+# are iterating: the tree is dirty and the guard RAN ANYWAY.
+#
+# Relevance is a UNION, so a COMMITTED change to a guarded path selects the
+# guard; it then reads the commit range, passes, and is counted — while the
+# edits sitting on top of that commit went unscanned. Nothing in `unchecked`
+# covers it, because the guard was never skipped.
+#
+# MEASURED 2026-09-13 on `main` @`950244f87`, both directions:
+#   * a FAILING run with a dirty tree printed `PASS 0 · FAIL 1 · … · SKIP 0`
+#     and ZERO occurrences of "uncommitted" anywhere in the output — the
+#     notice was built inside the all-passed footer, which `main()` reaches
+#     only after returning early on `failures`;
+#   * a PASSING run with a dirty file that was ALSO in the graded diff printed
+#     `PASS 1 · FAIL 0 · … · SKIP 0` with no qualifier on the counts line.
+# --------------------------------------------------------------------------
+
+def test_a_clean_tree_produces_no_notice():
+    """A notice that fires every run gets walked past. That is the
+    desensitized-alarm P1, and it is the reason this is the first assertion
+    here rather than an afterthought."""
+    assert run_guards.dirty_tree_lines([], ["some/committed/file.py"]) == []
+
+
+def test_a_dirty_path_is_named():
+    lines = run_guards.dirty_tree_lines(["a/b.py"], [])
+    assert any("a/b.py" in ln for ln in lines)
+    assert any("UNCOMMITTED WORK (1 path(s))" in ln for ln in lines)
+
+
+def test_a_dirty_path_INSIDE_the_graded_diff_is_called_out_separately():
+    """The dangerous case. Its guard RAN and PASSED on the committed version,
+    so the run reports coverage it does not have — the opposite of the
+    not-selected case, which at least drops the guard visibly."""
+    lines = run_guards.dirty_tree_lines(["a/b.py"], ["a/b.py"])
+    marked = [ln for ln in lines if "a/b.py" in ln]
+    assert marked and "ALSO in the graded diff" in marked[0], marked
+
+
+def test_a_dirty_path_OUTSIDE_the_graded_diff_is_not_marked_as_covered():
+    """The control for the one above. If every path got the marker, the
+    distinction would be decoration."""
+    lines = run_guards.dirty_tree_lines(["a/b.py"], ["other/c.py"])
+    marked = [ln for ln in lines if "a/b.py" in ln]
+    assert marked and "ALSO in the graded diff" not in marked[0], marked
+
+
+def test_the_notice_does_not_tell_you_it_fixed_anything():
+    """The row says in terms: no stashing, no committing, no grading the
+    worktree instead. The guards' committed-state reading is what CI does, so
+    'helpfully' diverging from it would make the local run disagree with CI —
+    worse than the trap. The notice must therefore say what to do, not do it."""
+    body = " ".join(run_guards.dirty_tree_lines(["a/b.py"], []))
+    assert "Commit them and re-run" in body
+    assert "does NOT change the exit code" in body
+
+
+class TestTheHeadlineCarriesBothFactsSeparately:
+    """`NOT GRADED` counts GUARDS relevance dropped; `PATH(S) UNCOMMITTED`
+    counts PATHS no guard read. Neither implies the other, and collapsing them
+    would print `NOT GRADED 0` on a dirty tree — wrong in the reassuring
+    direction."""
+
+    def test_clean_run_is_unchanged(self):
+        assert run_guards.counts_line(5, 0, 0, 2) == (
+            "PASS 5 · FAIL 0 · COULD-NOT-RUN 0 · SKIP 2")
+
+    def test_dirty_paths_alone_qualify_the_line(self):
+        line = run_guards.counts_line(5, 0, 0, 2, 0, 3)
+        assert line.endswith("· 3 PATH(S) UNCOMMITTED")
+        assert "NOT GRADED" not in line
+
+    def test_dropped_guards_alone_qualify_the_line(self):
+        line = run_guards.counts_line(5, 0, 0, 2, 1, 0)
+        assert line.endswith("· 1 NOT GRADED (uncommitted)")
+        assert "PATH(S) UNCOMMITTED" not in line
+
+    def test_both_render_together(self):
+        line = run_guards.counts_line(5, 1, 0, 2, 1, 3)
+        assert "1 NOT GRADED (uncommitted)" in line
+        assert "3 PATH(S) UNCOMMITTED" in line
+
+
+def test_the_notice_is_printed_BEFORE_the_failure_early_return():
+    """THE STRUCTURAL INVARIANT THAT REGRESSED, asserted structurally.
+
+    `main()` returns early on `failures` and again on `could_not_run`. The
+    notice used to be built after both, inside the all-passed footer, so the
+    run where a stale verdict is most confusing said nothing about the tree.
+    A test that only called `dirty_tree_lines` directly would pass against
+    that version — the defect was never in the renderer, it was in WHERE it
+    was reached from.
+    """
+    src = (REPO / "scripts" / "ci" / "run_guards.py").read_text(encoding="utf-8")
+    call = src.index("for line in dirty_tree_lines(")
+    early_return = src.index('print("\\nFAILING GUARDS')
+    assert call < early_return, (
+        "dirty_tree_lines is reached only after main() has already returned on "
+        "a failing run — the exact regression this test exists to catch")

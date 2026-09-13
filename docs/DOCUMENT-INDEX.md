@@ -723,6 +723,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u16-netting-unmatched-remainder-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u18-e35-dose-response-still-not-gradeable-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u19-package-denominator-rederivation-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

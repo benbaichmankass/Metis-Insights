@@ -175,6 +175,32 @@ progress:
     and
     BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED.
     Memo: docs/research/m20-u33-netting-position-size-basis-2026-09-13.md
+  U36: >-
+    DELIVERED. Adjudicated PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG
+    against the LIVE endpoint and CORRECTED IT: its criterion is unsound and the mechanism it
+    root-caused is provably not operating. MEASURED 2026-09-13 on
+    /api/bot/performance?window=30d (HTTP 200, 41 REAL-MONEY trades, since 2026-08-14T04:02:16Z):
+    expectancyR +0.1113 against totalPnl -14.5552 and profitFactor 0.8251 -- the sign disagreement
+    IS still live, so the row's criterion is not met. !! BUT rBasis READS 41/41 declaredInitial
+    with storedStop 0, verified per leg as well as in the headline, so MI-144's
+    r_multiple_provenanced is FULLY BINDING and the trailed-stop collapse cannot have touched any
+    published R. rProvenance.contaminated still reads 11 and that is NOT a contradiction --
+    classify_r grades the STORED STOP while rBasis says what the R was DIVIDED BY, a distinction
+    the route's own comment draws. CONSEQUENCE: the row's remedy applied TODAY would exclude rows
+    whose R the mechanism never reached. !! AND THE CRITERION IS UNSOUND ON ITS OWN TERMS: R is pnl
+    over the trade's own risk, so a book whose winners are sized smaller than its losers MUST show
+    positive mean R and negative dollars; requiring agreement would force a Tier-2 route the
+    operator reads to publish a wrong number. WHAT EXPLAINS IT, per leg and summing exactly to the
+    headline: dollars-per-R is 1.480 and 2.961 on the two POSITIVE-R legs against 3.793, 4.274 and
+    4.577 on the three NEGATIVE-R legs -- TOTAL SEPARATION, gap 0.832, spread 3.09x, threshold-free.
+    Every profitable leg is sized smaller per unit of risk than every losing one. Filed as
+    BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY
+    (Tier-3, PROPOSES NOTHING). Sibling PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN annotated too,
+    since PB-20260906 says to close them together. NOTHING IS CHANGED: /api/bot/performance is
+    src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
+    scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
+    all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
+
   U38: >-
     DELIVERED. Worked
     BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION,
