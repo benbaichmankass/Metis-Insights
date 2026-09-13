@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T04:00:30Z",
+  "updated_at": "2026-09-13T04:58:30Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T04:00:30Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0352Z manager tick",
+  "as_of": "2026-09-13T04:58:30Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0452Z manager tick",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5638,6 +5638,33 @@
       "decision 2 (arming breakout_1) still needs a dispatchable round on a strategy NOT already holding that symbol AND an account the global election would starve",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
       "MI-280 compacted; re-read its context every tick rather than carrying the old warning"
+    ]
+  },
+  "manager_tick_2026_09_13T0452Z": {
+    "I_CHASED_THE_WRONG_GUARD_FOR_TWO_TICKS": {
+      "what_I_finally_did": "READ THE CI JOB LOG instead of re-running guards by hand. It prints `PASS 69 · FAIL 1` and then `FAILING GUARDS — every one is listed here, so one run is enough`. The one failure was `artifact-validity-guard: scripts/ops/check_backlog_criteria.py` — a guard I had never run, and NOT check_backlog_refs, which I spent two commits and two pushes chasing at 0352Z.",
+      "why_that_matters_more_than_the_fix": "the job is BUILT to name every failing guard in one place so a second run is unnecessary, and I ignored it in favour of a local grep for the string 'FAIL' — which also caught two SELF-TESTS asserting their guards fail closed. I reconstructed a worse answer from a noisier source while the authoritative one sat in the log. State the instrument, not the impression.",
+      "what_was_actually_wrong_four_rows_I_FILED": "three of my rows carried NO resolution_criteria — 'a row nobody can tell is FINISHED never gets closed' — and four carried severity in the P0-P3 dialect against the guard's critical|high|medium|low vocabulary, which exists because five spellings of 'medium' left 44% of the open backlog unsortable. So every row I filed this window was unworkable by the repo's own definition, while I was reporting them as filed.",
+      "each_criterion_names_what_does_NOT_clear_it": "including the withdrawn fan-out row, whose criterion states it is ALREADY MET and must not be reopened to re-verify an inversion that does not exist.",
+      "state_now": "backlog-criteria OK · backlog-refs OK · manager-scope OK · pr-landing OK · register-ids OK · stale-in-flight OK · claim-basis OK — all on committed state."
+    },
+    "lanes_all_three_RUNNING_re_observed": {
+      "MI-278_research": "58% (flat for 2h), resolving #12175's conflict, 2 PRs awaiting a click",
+      "MI-279_ops": "29% (flat), 5 PRs armed, e2e tests with mutation controls in flight",
+      "MI-280_engineering": "71% (flat since it compacted at ~04:00), U82 MERGED, U83/U84 in flight, 2 PRs armed and green",
+      "no_spawns": "three lanes exactly, per the operator's rollback instruction.",
+      "spend_note": "MI-278 and MI-280 report byte-identical usage blocks to the 03:00 read, so the reported cost figures are NOT refreshing every tick and must not be differenced as if they were. I differenced them last tick ('+$130.98 in the hour') — that number came from a 03:00-to-04:00 pair that did move, but the 04:00-to-05:00 pair did not, so treat per-hour spend as UNMEASURED rather than zero."
+    },
+    "merge_queue": {
+      "mine": "#11875 was red on artifact-validity, is now fixed; auto-merge stays armed so it lands on green.",
+      "still_needs_the_operator": "#12046 (MI-280) — `landing: hold` / `unvouchable_paths`, nothing armed, needs ONE human merge click. Unchanged from the 0352Z report and re-confirmed by its own lane this tick ('awaiting human merge on #12046'). Reported, not re-asked: the approval is not what it is waiting on.",
+      "everything_else": "armed and self-landing on green. No manager merge taken; lanes are resolving their own conflicts."
+    },
+    "next": [
+      "#12046 needs one operator merge click",
+      "READ THE CI JOB LOG FIRST on any red check — it names every failing guard in one place",
+      "decision 2 (arming breakout_1) still gated on a dispatchable round for a strategy NOT already holding that symbol",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
     ]
   }
 }
