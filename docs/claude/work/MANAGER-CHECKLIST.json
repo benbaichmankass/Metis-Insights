@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T07:00:00Z",
+  "updated_at": "2026-09-13T07:05:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,7 +4116,7 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T07:00:00Z",
+  "as_of": "2026-09-13T07:05:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z manager tick (branch restarted after #11875 squash-merged)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
@@ -5713,6 +5713,7 @@
       "#12046 still needs one operator merge click",
       "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
-    ]
+    ],
+    "AND_A_PR_EXISTED_THE_WHOLE_TIME_WHICH_CORRECTS_MY_LAST_REPORT": "PR #12200 was opened AUTOMATICALLY by claude-pr-automerge at 05:59:33Z — the very first push after #11875 squash-merged — and its head tracked every commit I made afterwards. I never looked for it; I kept reading #11875. So last tick's report that 'no CI fired on my pushes, suspect a GitHub event problem' is WRONG and is corrected: CI was not firing ON #11875 because #11875 was merged, while a live PR carrying the same pushes sat beside it. 'No checks on the PR I am watching' is not 'no checks'. The arming file did exactly what it is for; what failed was that I did not ask which PR the branch actually had. #12200's body is rewritten to describe what it really carries."
   }
 }
