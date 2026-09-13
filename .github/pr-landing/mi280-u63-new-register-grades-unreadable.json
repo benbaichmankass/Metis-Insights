@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row recording a latent false positive in scripts/ci/check_register_reserialization.py, reproduced in a temp repo. No code, config, workflow or runtime is changed by this PR -- the fix it argues for is a separate change with its own control."
+}

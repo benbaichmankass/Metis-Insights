@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/checklist_routing_age.py (a new freshness grader and a banner in its brief renderer), scripts/ops/render_due_list.py (the same verdict, IMPORTED, in its checklist source), and one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Both code paths are inside TIER1_SURFACE (scripts/ops/**) and neither file is in check_pr_landing.LANDING_MACHINERY -- verified against that list rather than assumed, so R12 does not apply. It is purely additive to two read-only reporting surfaces: it DATES a reading that was already being rendered, and never discards or re-dates one. The producer workflow whose failure this makes visible is NOT touched here -- that is already filed as two separate rows with their own owner."
+}

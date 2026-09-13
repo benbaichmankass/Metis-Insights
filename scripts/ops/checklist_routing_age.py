@@ -154,6 +154,77 @@ HIST_DERIVED = "derived"
 HIST_COULD_NOT_READ = "could_not_read"
 HISTORY_STATES = (HIST_DERIVED, HIST_COULD_NOT_READ)
 
+# ── HOW OLD IS THIS REGISTER, AND IS THAT STALE? ──────────────────────────
+#
+# `history_state` grades the DERIVATION and never the AGE OF THE FILE, so a
+# producer that stops running keeps both consumers — the CLAUDE.md session brief
+# and `docs/claude/DUE.md` — rendering last week's reading as today's answer,
+# with no line saying so. That is the failure this module exists to fix, one
+# level up: a surface that cannot tell a working mechanism from a dead one
+# (`BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS`).
+#
+# ⚠️ THE CADENCE IS READ FROM THE PRODUCER'S OWN CRON, not guessed: this module
+# runs in `.github/workflows/constraint-readout.yml`, whose schedule is
+# `cron: "5 6 * * *"` — daily. A wrong cadence here would make a healthy
+# register read stale (the desensitised alarm) or a dead one read fresh.
+PRODUCER_CADENCE_HOURS = 24.0
+PRODUCER_WORKFLOW = ".github/workflows/constraint-readout.yml"
+
+#: FIVE states, never collapsed. The last three are each a DIFFERENT *we could
+#: not establish freshness*, and none of them is `fresh`.
+FRESH_FRESH = "fresh"
+FRESH_STALE = "stale"
+FRESH_UNDATEABLE = "undateable"          # no readable `generated_at`
+FRESH_CADENCE_UNKNOWN = "cadence_unknown"
+FRESH_GRADER_UNAVAILABLE = "grader_unavailable"   # we could not import the grader
+FRESHNESS_STATES = (FRESH_FRESH, FRESH_STALE, FRESH_UNDATEABLE,
+                    FRESH_CADENCE_UNKNOWN, FRESH_GRADER_UNAVAILABLE)
+
+
+def register_freshness(register: dict | None, now: datetime | None = None,
+                       *, cadence_h: float | None = PRODUCER_CADENCE_HOURS,
+                       repo: Path | None = None) -> tuple[str, float | None]:
+    """Grade the register's OWN age. Returns (state, age_hours).
+
+    ⚠️ **THE ARITHMETIC IS `render_due_list.probe_freshness`, IMPORTED.** That
+    function already owns "is a dated report older than its declared cadence?"
+    for the probe reports and the error-feed digest, and a second copy would be
+    free to drift — the failure that would produce (two surfaces disagreeing
+    about whether the same file is current) is worse than either being wrong
+    alone. It is imported BY PATH, lazily, so this producer takes no
+    module-level dependency on a renderer that reads it.
+
+    ⚠️ **AN UNIMPORTABLE GRADER IS `grader_unavailable`, NEVER `fresh`.** A
+    freshness check that silently stops running is the exact defect one level
+    up from the one this grades.
+    """
+    now = now or datetime.now(timezone.utc)
+    if not isinstance(register, dict):
+        return FRESH_UNDATEABLE, None
+    root = repo or Path(__file__).resolve().parents[2]
+    tool = root / "scripts" / "ops" / "render_due_list.py"
+    try:
+        import importlib.util
+        import sys as _sys
+        name = "_due_freshness"
+        spec = importlib.util.spec_from_file_location(name, tool)
+        mod = importlib.util.module_from_spec(spec)
+        # ⚠️ REGISTERED IN sys.modules BEFORE exec. `render_due_list` defines a
+        # @dataclass, and dataclasses resolve `cls.__module__` through
+        # sys.modules — so a module executed without being registered raises
+        # `AttributeError: 'NoneType' object has no attribute '__dict__'`,
+        # which this function would then report as `grader_unavailable` on a
+        # perfectly healthy tree. Found by running it, not by reading it.
+        _sys.modules[name] = mod
+        try:
+            spec.loader.exec_module(mod)
+            probe_freshness = mod.probe_freshness
+        finally:
+            _sys.modules.pop(name, None)
+    except Exception:  # noqa: BLE001 — any failure is `we could not look`
+        return FRESH_GRADER_UNAVAILABLE, None
+    return probe_freshness(register.get("generated_at"), cadence_h, now)
+
 
 # ── pure classifiers ───────────────────────────────────────────────────────
 
@@ -447,7 +518,7 @@ def _envelope(now, hist_state, note, newly, standing, within, unknown,
 
 # ── the brief block (the ONE author of these words) ────────────────────────
 
-def render_brief_lines(register: dict | None) -> list:
+def render_brief_lines(register: dict | None, now: datetime | None = None) -> list:
     """Markdown for the CLAUDE.md session brief.
 
     Lives HERE, not in the renderer, for the reason `constraint_readout` and
@@ -460,10 +531,37 @@ def render_brief_lines(register: dict | None) -> list:
                 "is absent or unreadable, **NOT that nothing has been left unrouted**. "
                 "Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.)", ""]
 
+    # ⚠️ FRESHNESS IS GRADED BEFORE THE CONTENT, and a STALE register is
+    # reported as its own line rather than folded into `history_state`. Those
+    # are different facts: `could_not_read` says the DERIVATION failed, while
+    # this says the derivation succeeded and then nobody re-ran it. Collapsing
+    # them would lose the one that says the producer is dead.
+    # ⚠️ `now` IS A PARAMETER so this renderer is DETERMINISTIC under test. A
+    # control that asserted the rendered age against wall-clock time would drift
+    # by an hour every hour and be "fixed" by loosening it until it graded
+    # nothing. Callers pass nothing and get real time.
+    _fresh, _age = register_freshness(register, now)
+    _stale_lines: list = []
+    if _fresh == FRESH_STALE:
+        _stale_lines = [
+            f"**🧭 ⚠️ THIS READING IS {_age:.0f}h OLD — its producer has not run.** "
+            f"The rows below were measured at `{register.get('generated_at')}`, not "
+            f"today. `{PRODUCER_WORKFLOW}` writes this register on a daily cron; "
+            f"anything that crossed the threshold since then is NOT in it, and a "
+            f"row listed as `newly_stalled` may since have been routed. "
+            f"Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.", ""]
+    elif _fresh != FRESH_FRESH:
+        _stale_lines = [
+            f"**🧭 ⚠️ THE AGE OF THIS READING COULD NOT BE ESTABLISHED "
+            f"(`{_fresh}`).** That is *we could not look*, **NOT** a fresh "
+            f"reading — do not treat the rows below as today's answer without "
+            f"re-running `python3 scripts/ops/checklist_routing_age.py --write`.",
+            ""]
+
     hist = register.get("history_state")
     thr = register.get("threshold_hours", THRESHOLD_HOURS)
     if hist != HIST_DERIVED:
-        return [f"**🧭 UNROUTED CHECKLIST ROWS — ⚠️ COULD NOT BE MEASURED** "
+        return _stale_lines + [f"**🧭 UNROUTED CHECKLIST ROWS — ⚠️ COULD NOT BE MEASURED** "
                 f"(`{register.get('history_note', 'no reason recorded')}`). "
                 f"**This is *we did not look*, not *nothing is stalled*** — the ages come "
                 f"from the git history of the checklist, and a truncated history reports "
@@ -473,7 +571,9 @@ def render_brief_lines(register: dict | None) -> list:
     standing = register.get("standing_count", 0)
     within = register.get("within_count", 0)
     ung = register.get("ungradeable_count", 0)
-    L: list = []
+    # The staleness banner leads, so a reader meets "this is N hours old" BEFORE
+    # the rows, not after them.
+    L: list = list(_stale_lines)
     if newly:
         L.append(f"**🧭 {len(newly)} FILED ROW(S) CROSSED {thr}h UNROUTED — nobody has been "
                  f"given them, and this is the first time each is being said.** "
@@ -664,6 +764,72 @@ def _self_test() -> int:
     # the envelope round-trips through the repo's serialisation
     blob = json.dumps(env, indent=2, ensure_ascii=False)
     ck(json.loads(blob) == env, "envelope round-trips (indent=2, ensure_ascii=False)")
+
+    # ── THE REGISTER'S OWN AGE ────────────────────────────────────────────
+    # `history_state` grades the DERIVATION and never the AGE OF THE FILE, so a
+    # producer that stops running leaves the session brief rendering last week's
+    # reading with a fresh look. These grade the age, and the brief's banner.
+    from datetime import timedelta as _td
+    _now = datetime(2026, 9, 12, 12, 0, tzinfo=timezone.utc)
+
+    def _reg(hours_ago=None, *, stamp="__auto__", **kw):
+        r = {"schema_version": 1, "history_state": HIST_DERIVED,
+             "threshold_hours": 24, "newly_stalled": [], "standing_count": 0,
+             "within_count": 0, "ungradeable_count": 0}
+        if stamp == "__auto__":
+            r["generated_at"] = (_now - _td(hours=hours_ago)).isoformat()
+        elif stamp is not None:
+            r["generated_at"] = stamp
+        r.update(kw)
+        return r
+
+    ck(register_freshness(_reg(2), _now)[0] == FRESH_FRESH, "2h old is fresh")
+    ck(register_freshness(_reg(24 * 6), _now)[0] == FRESH_STALE, "6 days is stale")
+    # THE BOUNDARY IS THE CADENCE PLUS THE SLACK the shared grader declares, not
+    # the cadence alone — a run that starts on time can commit an hour later.
+    ck(register_freshness(_reg(29), _now)[0] == FRESH_FRESH,
+       "29h is inside cadence+slack and must NOT alarm — a healthy daily "
+       "producer that ran late is not a dead one")
+    ck(register_freshness(_reg(31), _now)[0] == FRESH_STALE, "31h is past it")
+    # THREE WAYS THE AGE CANNOT BE ESTABLISHED, and none of them is `fresh`.
+    ck(register_freshness(_reg(stamp="not-a-timestamp"), _now)[0] == FRESH_UNDATEABLE,
+       "an unparseable stamp is `undateable`, never fresh")
+    ck(register_freshness(_reg(stamp=None), _now)[0] == FRESH_UNDATEABLE,
+       "an absent stamp is `undateable`, never fresh")
+    ck(register_freshness(None, _now)[0] == FRESH_UNDATEABLE,
+       "a non-dict register is `undateable`, never fresh")
+    ck(register_freshness(_reg(2), _now, cadence_h=None)[0] == FRESH_CADENCE_UNKNOWN,
+       "no declared cadence is `cadence_unknown`, never fresh")
+    ck(register_freshness(_reg(2), _now, repo=Path("/nonexistent-xyz"))[0]
+       == FRESH_GRADER_UNAVAILABLE,
+       "an unimportable grader is its OWN state — a freshness check that "
+       "silently stops running is the same defect one level up")
+    # …and the declared cadence must match the producer's actual cron, or a
+    # healthy register reads stale (the desensitised alarm) or a dead one fresh.
+    _wf = Path(__file__).resolve().parents[2] / PRODUCER_WORKFLOW
+    if _wf.is_file():
+        ck('cron: "5 6 * * *"' in _wf.read_text(encoding="utf-8"),
+           f"PRODUCER_CADENCE_HOURS={PRODUCER_CADENCE_HOURS} claims a DAILY cron; "
+           f"{PRODUCER_WORKFLOW} no longer declares one")
+
+    # THE BRIEF SAYS SO, which is the criterion in the row's own words.
+    _stale_brief = "\n".join(render_brief_lines(_reg(24 * 5), _now))
+    ck("THIS READING IS" in _stale_brief and "120h OLD" in _stale_brief,
+       "the brief must lead with the register's age when it is stale")
+    ck("producer has not run" in _stale_brief, "…and say what that means")
+    _fresh_brief = "\n".join(render_brief_lines(_reg(2), _now))
+    ck("THIS READING IS" not in _fresh_brief,
+       "a FRESH register must NOT carry the banner — a permanent banner is the "
+       "desensitised alarm and would make the stale case invisible")
+    _ung_brief = "\n".join(render_brief_lines(_reg(stamp=None), _now))
+    ck("COULD NOT BE ESTABLISHED" in _ung_brief,
+       "an ungradeable age is reported, never rendered as fresh")
+    # BOTH FACTS SURVIVE TOGETHER: a register that failed to derive AND is old
+    # owes the reader both lines, and an early return would drop one.
+    _both = "\n".join(render_brief_lines(
+        _reg(24 * 5, history_state=HIST_COULD_NOT_READ, history_note="SHALLOW"), _now))
+    ck("THIS READING IS" in _both and "COULD NOT BE MEASURED" in _both,
+       "a stale AND underived register must carry both lines")
 
     if f:
         for m in f:

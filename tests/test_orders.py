@@ -5,7 +5,24 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Stub optional heavy deps so pipeline can be imported without a full install.
-for _mod in ("pandas", "matplotlib", "matplotlib.pyplot", "numpy", "scipy", "sklearn", "dotenv"):
+# ⚠️ `numpy` IS DELIBERATELY ABSENT FROM THIS TUPLE. A MagicMock in
+# `sys.modules["numpy"]` makes `np.bool_` a MagicMock — not a type — so
+# `_pytest.python_api.is_bool`'s `isinstance(val, np.bool_)` raises TypeError and
+# breaks `pytest.approx` for the WHOLE session, surfacing four frames down as an
+# ordinary assertion failure on a value that is in fact correct. tests/conftest.py
+# pre-imports the real numpy so it wins this slot, but that remedy is a documented
+# no-op where numpy is ABSENT — which is exactly the lean `guards` CI job.
+# BL-20260902-FIVE-TEST-MODULES-STUB-NUMPY-AND-BREAK-PYTEST-APPROX-WHERE-NUMPY-IS-ABSENT
+# ⚠️ AND THIS MODULE GENUINELY NEEDS NUMPY (transitively). `importorskip` is what
+# the stub was standing in for: where numpy is absent this module SKIPS — loud,
+# local and correctly attributed — instead of collecting and poisoning whatever
+# runs after it. Dropping the stub without this would turn a silent
+# cross-test failure into a collection ERROR, which is better but still noise.
+import pytest as _pytest_for_numpy_gate
+
+_pytest_for_numpy_gate.importorskip("numpy")
+
+for _mod in ("pandas", "matplotlib", "matplotlib.pyplot", "scipy", "sklearn", "dotenv"):
     sys.modules.setdefault(_mod, MagicMock())
 
 from src.runtime.orders import safe_place_order  # noqa: E402

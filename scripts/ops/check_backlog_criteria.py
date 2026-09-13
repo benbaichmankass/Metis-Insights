@@ -192,27 +192,133 @@ _PLACEHOLDERS = {
 _MIN_LEN = 40
 
 
-def _load(path: pathlib.Path) -> list[dict[str, Any]]:
+#: How a backlog file read. THREE STATES, NEVER COLLAPSED, on BOTH sides of the
+#: diff — `absent` and `unreadable` are opposite facts and neither is "no rows".
+ROWS_READ, ROWS_ABSENT, ROWS_UNREADABLE = "read", "absent", "unreadable"
+
+
+def _rows_of(text: str | None) -> tuple[str, list[dict[str, Any]]]:
+    """`(state, rows)` for a backlog file's TEXT. The ONE parser for both sides.
+
+    ⚠️ **A TOP-LEVEL SHAPE THAT IS NEITHER A LIST NOR AN ``items`` DICT IS
+    `unreadable`, NOT EMPTY.** The old code returned `[]` for it, so a file
+    whose array had been renamed away read as a backlog with no rows. All four
+    live backlogs are `{"items": [...]}` (measured 2026-09-13), so nothing
+    legitimate lands here.
+    """
+    if text is None:
+        return ROWS_ABSENT, []
     try:
-        d = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
-        return []
-    return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
+        doc = json.loads(text)
+    except json.JSONDecodeError:
+        return ROWS_UNREADABLE, []
+    if isinstance(doc, list):
+        return ROWS_READ, doc
+    if isinstance(doc, dict) and isinstance(doc.get("items"), list):
+        return ROWS_READ, doc["items"]
+    return ROWS_UNREADABLE, []
 
 
-def _load_at_ref(ref: str, rel: str) -> list[dict[str, Any]]:
-    """The file's rows as of *ref*. A file absent at the base is simply new."""
+def _read_file(path: pathlib.Path) -> tuple[str, list[dict[str, Any]]]:
+    """`(state, rows)` for a backlog file ON DISK — the HEAD side of the diff."""
+    try:
+        return _rows_of(path.read_text())
+    except FileNotFoundError:
+        return ROWS_ABSENT, []
+    except OSError:
+        return ROWS_UNREADABLE, []
+
+
+def _load(path: pathlib.Path) -> list[dict[str, Any]]:
+    """Rows only. Safe ONLY because `main` refuses before any caller gets here.
+
+    ⚠️ **DO NOT REINSTATE THIS AS THE WHOLE STORY.** Until 2026-09-13 this WAS
+    the whole story — a bare `except (OSError, json.JSONDecodeError): return []`
+    — and it made the guard state a confident falsehood. MEASURED on
+    `origin/main` @`7f832e8c0`, with a conflict marker inserted into
+    `docs/claude/health-review-backlog.json` (**1574 rows**), all three checks
+    printed OK and the run exited 0:
+
+        backlog-criteria guard: OK — every NEW backlog row states what done looks like.
+        kept-open-exit-condition guard: OK — 0 row(s) entered kept_open in this diff...
+        accrual-clock guard: OK — 0 accrual-gated row(s) entered or were filed...
+
+    Three OK lines about a file none of them could read. The head-side
+    precondition in `main` is what makes this helper honest: by the time any
+    check calls it, every declared backlog on disk has been shown to parse.
+    """
+    return _read_file(path)[1]
+
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ci"))
+import _git_base  # noqa: E402  -- path shim above; ONE owner for base resolution
+
+
+def _load_at_ref(ref: str, rel: str) -> tuple[str, list[dict[str, Any]]]:
+    """The file's rows as of the FORK POINT with *ref*. Absent at base = new.
+
+    ⚠️ **THE FORK POINT, NOT THE TIP, AND THE DISTINCTION IS NOT COSMETIC.**
+    Both checks that use this ask *"did THIS DIFF do X?"*, which is only the
+    diff's doing when the comparison is against the branch's ANCESTOR. Read at
+    the base TIP it also differs when the BASE moved ahead -- the normal state
+    of every working branch -- and then:
+
+      * `_check_new_rows` grandfathers by id (`if rid in before: continue`), so
+        a larger `before` UNDER-enforces: a row this diff really did add is
+        skipped because main added one with the same id meanwhile.
+      * `_check_kept_open_transitions` FALSE-BLAMES: if main moved a row OUT of
+        `kept_open` after the fork, the base reads `resolved` while this
+        untouched branch still reads `kept_open`, so the branch is reported as
+        moving a row INTO `kept_open` that it never touched.
+
+    Two opposite failure directions from one wrong reference, which is why this
+    was worth fixing rather than tolerating.
+
+    ⚠️ **AND NOT EVERY GUARD THAT READS THE TIP IS WRONG — the audit matters
+    more than the count.** Measured 2026-09-12: 10 scripts read file content at
+    `--base`; 7 read the tip. Auditing those 7 INDIVIDUALLY rather than treating
+    the shape as a defect:
+
+      * WRONG (false blame): `check_backlog_unresolve.py`,
+        `render_session_brief.py`, and this file's kept-open half.
+      * WRONG but UNDER-enforcing: `check_claim_basis.py`, and this file's
+        new-rows half.
+      * **RIGHT BY DESIGN, DO NOT "FIX" THESE:** `check_register_ids.py` asks
+        *"does my id collide with what main HAS?"* -- the tip is exactly right,
+        and the fork point would MISS a collision with a row main gained after
+        the branch was cut, which is the likeliest collision there is.
+        `work_digest.py` and `work_phase_ping.py` take BOTH `--base` and
+        `--head` and compare two arbitrary refs over a WINDOW; they are not
+        diff-scopers and a merge base would be meaningless to them.
+
+    ⚠️ The fallback is to the ref AS GIVEN when no merge base can be computed --
+    i.e. today's behaviour -- so this can only ever remove a false failure.
+
+    ⚠️ **AND THE THIRD STATE IS WHY THIS RETURNS A PAIR.** Until 2026-09-13 it
+    returned a bare list and a JSON PARSE failure at a perfectly readable ref
+    collapsed into the same `[]` as a file that is genuinely new. MEASURED on
+    `origin/main` @`7f832e8c0` by corrupting the base copy of
+    `health-review-backlog.json` and leaving the head copy intact: **393
+    pre-existing rows were blamed** on a diff that touched none of them, under a
+    headline about rows "that are not WORKABLE". That is the same defect `main`
+    below refuses for an unresolvable REF, one layer down — and the comment
+    there said in terms that this case was deliberately left because it had no
+    measurement behind it. It has one now.
+    """
+    base_ref, _state = _git_base.resolve_base(ref)
     try:
         out = subprocess.run(
-            ["git", "show", f"{ref}:{rel}"],
+            ["git", "show", f"{base_ref}:{rel}"],
             capture_output=True, text=True, check=False,
         )
-        if out.returncode != 0:
-            return []
-        d = json.loads(out.stdout)
-    except (OSError, json.JSONDecodeError):
-        return []
-    return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
+    except OSError:
+        return ROWS_UNREADABLE, []
+    if out.returncode != 0:
+        # git reports a bad REF and a path missing at a good ref identically,
+        # and `main` has already established the ref resolves — so this is the
+        # file being absent at the base, i.e. genuinely new. Not a failure.
+        return ROWS_ABSENT, []
+    return _rows_of(out.stdout)
 
 
 #: The four severities a new row may declare. Deliberately NOT accepting the
@@ -366,11 +472,30 @@ def _report(bad: list[tuple[str, str, str]], *, advisory: bool) -> int:
 
 def _check_new_rows(base_ref: str) -> int:
     bad: list[tuple[str, str, str]] = []
+    skipped: list[str] = []
     for rel in BACKLOGS:
         path = pathlib.Path(rel)
         if not path.exists():
             continue
-        before = {str(r.get("id")) for r in _load_at_ref(base_ref, rel) if r.get("id")}
+        state, base_rows = _load_at_ref(base_ref, rel)
+        if state == ROWS_UNREADABLE:
+            # ⚠️ THE BASE COPY DID NOT PARSE — *we could not look*, and grading
+            # on it is the 393-row false blame in `_load_at_ref`'s docstring:
+            # with no `before` set every pre-existing row reads as one this diff
+            # just added. SKIPPED rather than REFUSED, deliberately. A corrupt
+            # base is main's problem, not this branch's, and the likeliest PR to
+            # meet it is the one REPAIRING it — refusing would block the repair.
+            # Under-enforcing for one file is the lesser harm; doing it silently
+            # is not, which is why it is announced.
+            skipped.append(rel)
+            print(
+                f"backlog-criteria guard: SKIPPING {rel} — its copy at "
+                f"{base_ref} did NOT PARSE, so a pre-existing row cannot be "
+                f"told from a new one. Its rows are NOT checked by this run. "
+                f"This is 'we could not look', not 'the base had no rows'."
+            )
+            continue
+        before = {str(r.get("id")) for r in base_rows if r.get("id")}
         for row in _load(path):
             rid = str(row.get("id") or "")
             if not rid or rid in before:
@@ -379,15 +504,32 @@ def _check_new_rows(base_ref: str) -> int:
             if why:
                 bad.append((rel, rid, why))
     if not bad:
-        print("backlog-criteria guard: OK — every NEW backlog row states what done looks like.")
+        # ⚠️ THE OK LINE MUST NOT CLAIM COVERAGE IT DOES NOT HAVE. An
+        # unqualified "every NEW backlog row" over a run that skipped a file is
+        # the same unprovenanced verdict this whole change exists to remove.
+        if skipped:
+            print(
+                "backlog-criteria guard: OK for the files it could grade — "
+                f"{len(skipped)} SKIPPED (see above), so this is NOT a verdict "
+                f"over every new row: {', '.join(skipped)}"
+            )
+        else:
+            print("backlog-criteria guard: OK — every NEW backlog row states what done looks like.")
     return _report(bad, advisory=False)
 
 
-def _kept_open_status_by_id(ref: str, rel: str) -> dict[str, str]:
-    """``{row id: status}`` as of *ref*. A row absent at the base is simply new."""
-    return {
+def _kept_open_status_by_id(ref: str, rel: str) -> tuple[str, dict[str, str]]:
+    """`(state, {row id: status})` as of *ref*. A row absent at the base is new.
+
+    The state rides along because the two callers below already skip on an empty
+    map, and until 2026-09-13 they could not tell WHY it was empty: a file that
+    is genuinely new and one whose base copy is CORRUPT both arrived as `{}` and
+    were announced with the same words, "absent or empty at {base}".
+    """
+    state, rows = _load_at_ref(ref, rel)
+    return state, {
         str(r.get("id")): str(r.get("status") or "")
-        for r in _load_at_ref(ref, rel)
+        for r in rows
         if r.get("id")
     }
 
@@ -431,7 +573,15 @@ def _check_kept_open_transitions(base_ref: str) -> int:
         path = pathlib.Path(rel)
         if not path.exists():
             continue
-        before = _kept_open_status_by_id(base_ref, rel)
+        base_state, before = _kept_open_status_by_id(base_ref, rel)
+        if base_state == ROWS_UNREADABLE:
+            print(
+                f"kept-open-exit-condition guard: SKIPPING {rel} — its copy at "
+                f"{base_ref} did NOT PARSE. Its rows are NOT checked by this "
+                f"run. This is 'we could not look', a DIFFERENT fact from the "
+                f"absent case below."
+            )
+            continue
         if not before:
             # The file did not exist (or held no rows) at the base. Every row in
             # it would then read as "filed directly as kept_open", so a new
@@ -548,7 +698,14 @@ def _check_accrual_rows(base_ref: str) -> int:
         path = pathlib.Path(rel)
         if not path.exists():
             continue
-        before = _kept_open_status_by_id(base_ref, rel)
+        base_state, before = _kept_open_status_by_id(base_ref, rel)
+        if base_state == ROWS_UNREADABLE:
+            print(
+                f"accrual-clock guard: SKIPPING {rel} — its copy at {base_ref} "
+                f"did NOT PARSE. Its rows are NOT checked by this run. This is "
+                f"'we could not look', a DIFFERENT fact from the absent case."
+            )
+            continue
         if not before:
             print(
                 f"accrual-clock guard: SKIPPING {rel} — absent or empty at "
@@ -885,11 +1042,260 @@ def _self_test() -> int:
         print("  [FAIL] the two date reasons are byte-identical — collapsed")
         failures += 1
 
+    # ── THE BASE MUST BE RESOLVED BEFORE ANY ROW IS BLAMED ──────────────────
+    # Measured 2026-09-13: an unresolvable base produced 547 findings naming
+    # individual rows, under a headline about rows not being WORKABLE. The base
+    # was the whole cause and the headline never mentioned it.
+    import contextlib
+    import io
+    import os
+    import tempfile
+
+    _repo = pathlib.Path(__file__).resolve().parents[2]
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc_bad = main(["--base", "no-such-ref-anywhere-000-selftest"])
+    out_bad = buf.getvalue()
+    if rc_bad == 0:
+        print("  [FAIL] an unresolvable base returned 0 — a verdict over nothing")
+        failures += 1
+    if "could not be resolved" not in out_bad:
+        print("  [FAIL] an unresolvable base did not SAY the base was the cause; "
+              f"got {out_bad[:120]!r}")
+        failures += 1
+    # THE ONE THAT MATTERS: it must grade NOTHING, not grade everything badly.
+    blamed = [ln for ln in out_bad.splitlines()
+              if ln.startswith("  docs/claude/")]
+    if blamed:
+        print(f"  [FAIL] an unresolvable base still blamed {len(blamed)} row(s); "
+              "refusing means grading nothing, not failing everything")
+        failures += 1
+    if not failures:
+        print("  [ok]   an unresolvable base is REFUSED, names the ref, and "
+              "blames no row")
+
+    # POSITIVE CONTROL. Without it, a guard that refused EVERY base would pass
+    # all three assertions above and be strictly worse than the defect.
+    buf2 = io.StringIO()
+    with contextlib.redirect_stdout(buf2):
+        rc_ok = main(["--base", "HEAD"])
+    out_ok = buf2.getvalue()
+    if "could not be resolved" in out_ok:
+        print("  [FAIL] a REAL base was refused — the refusal is not keyed on "
+              "the ref being unresolvable")
+        failures += 1
+    elif rc_ok != 0:
+        print(f"  [FAIL] a real base did not grade cleanly (rc={rc_ok})")
+        failures += 1
+    else:
+        print("  [ok]   a REAL base still grades, so the refusal is not "
+              "'refuse everything'")
+
+    # AND THE TEST IS `ref_exists`, NOT "is the file there". A file absent at a
+    # REAL base is legitimately new and its rows MUST be graded — that is the
+    # case this whole guard exists for.
+    #
+    # ⚠️ THE FIRST VERSION OF THIS CONTROL ONLY EXERCISED THE PRIMITIVE, and a
+    # planted defect keying the refusal on `_load_at_ref(...)` being empty
+    # sailed past it: at HEAD the file is present so nothing refused, and at a
+    # bogus ref it is empty so the refusal fired — behaviour identical to the
+    # correct implementation, because no input told the two apart. Discriminating
+    # them needs a ref that EXISTS and genuinely lacks the file, so this builds
+    # one: a real commit over the EMPTY TREE.
+    empty_tree = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"],
+        capture_output=True, text=True, cwd=_repo)
+    empty_commit = subprocess.run(
+        ["git", "commit-tree", empty_tree.stdout.strip(), "-m", "selftest empty base"],
+        capture_output=True, text=True, cwd=_repo,
+        env={**os.environ,
+             "GIT_AUTHOR_NAME": "selftest", "GIT_AUTHOR_EMAIL": "s@invalid",
+             "GIT_COMMITTER_NAME": "selftest", "GIT_COMMITTER_EMAIL": "s@invalid"})
+    empty_ref = empty_commit.stdout.strip()
+    if not empty_ref:
+        print("  [FAIL] could not build an empty-tree commit, so the "
+              "ref-vs-file distinction is UNTESTED — not passed")
+        failures += 1
+    else:
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            main(["--base", empty_ref])
+        out_empty = buf3.getvalue()
+        # The ref EXISTS, so it must NOT be refused. Grading every row as new is
+        # the correct answer against a genuinely empty base, so the assertion is
+        # on the REFUSAL and deliberately not on the exit code.
+        if "could not be resolved" in out_empty:
+            print("  [FAIL] a REAL ref that merely lacks the file was refused — "
+                  "the refusal is keyed on the FILE, not the REF, and a "
+                  "genuinely new register would be rejected")
+            failures += 1
+        else:
+            print("  [ok]   a REAL ref lacking the file is GRADED, not refused "
+                  "— the refusal keys on the ref")
+
+    # ── FILE-STATE CONTROLS: a backlog that does not PARSE ──────────────────
+    # MEASURED on origin/main @7f832e8c0 before any of this was written, with a
+    # conflict marker inserted into docs/claude/health-review-backlog.json:
+    #   HEAD copy corrupt -> three OK lines and rc=0, over 1574 unread rows
+    #   BASE copy corrupt -> rc=1 blaming 393 PRE-EXISTING rows this diff never
+    #                        touched, under a headline about rows "not WORKABLE"
+    # Both directions from one collapse, so both get a control, and each has its
+    # positive control beside it — a guard that only demonstrates its failures
+    # cannot show it is not simply always-red.
+    _cwd = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as _d:
+            _root = pathlib.Path(_d)
+            (_root / "docs/claude").mkdir(parents=True)
+            _target = _root / ALL_BACKLOGS[0]
+            os.chdir(_root)
+
+            def _run_main(args: list[str]) -> tuple[int, str]:
+                _b = io.StringIO()
+                with contextlib.redirect_stdout(_b):
+                    _rc = main(args)
+                return _rc, _b.getvalue()
+
+            # (A) HEAD side: present and unparseable -> REFUSED, nothing graded.
+            _target.write_text('{"items": [{"id": "A"} THIS IS NOT JSON')
+            rc_a, out_a = _run_main(["--base", "irrelevant-the-refusal-precedes-it"])
+            if rc_a == 0 or "does NOT parse" not in out_a:
+                print("  [FAIL] a backlog that is PRESENT and does not parse "
+                      f"was graded rather than refused (rc={rc_a}, and the "
+                      "refusal message is absent) — the 1574-row vacuous OK")
+                failures += 1
+            elif "guard: OK" in out_a:
+                print("  [FAIL] the run refused AND still printed a 'guard: OK' "
+                      "line — the verdict is what a human reads")
+                failures += 1
+            else:
+                print("  [ok]   an unparseable backlog on disk REFUSES, and "
+                      "prints no OK line")
+
+            # ...and --all goes through the same door. The census had the right
+            # instinct for an ABSENT file and the wrong one for a corrupt one:
+            # it printed `kept_open 0 -> 0` for a file it could not parse.
+            rc_all, out_all = _run_main(["--all"])
+            if rc_all == 0 or "does NOT parse" not in out_all:
+                print(f"  [FAIL] --all graded an unparseable backlog (rc={rc_all})")
+                failures += 1
+            else:
+                print("  [ok]   --all refuses it too")
+
+            # (B) POSITIVE CONTROL: a VALID but EMPTY backlog is not a parse
+            # failure and must NOT be refused. Asserted on the MESSAGE, not the
+            # exit code — the bogus ref that follows legitimately refuses for a
+            # different reason, and conflating the two is what this file is for.
+            _target.write_text('{"items": []}')
+            _, out_b = _run_main(["--base", "no-such-ref-anywhere-000"])
+            if "does NOT parse" in out_b:
+                print("  [FAIL] an EMPTY but valid backlog was reported as "
+                      "unparseable — empty is a real reading, not a failure")
+                failures += 1
+            else:
+                print("  [ok]   an empty-but-valid backlog is not a parse failure")
+    finally:
+        os.chdir(_cwd)
+
+    # (C) BASE side: the copy at the base does not parse. Needs a REAL repo with
+    # a REAL history, because the whole point is a ref that resolves and a file
+    # that is there and corrupt AT IT — nothing weaker tells the cases apart.
+    _cwd = os.getcwd()
+    try:
+        with tempfile.TemporaryDirectory() as _d:
+            _root = pathlib.Path(_d)
+            (_root / "docs/claude").mkdir(parents=True)
+            _target = _root / ALL_BACKLOGS[0]
+            _env = {**os.environ,
+                    "GIT_AUTHOR_NAME": "selftest", "GIT_AUTHOR_EMAIL": "s@invalid",
+                    "GIT_COMMITTER_NAME": "selftest", "GIT_COMMITTER_EMAIL": "s@invalid"}
+
+            def _git(*a: str) -> None:
+                subprocess.run(["git", *a], cwd=_root, env=_env,
+                               capture_output=True, text=True, check=False)
+
+            _git("init", "-q")
+            _target.write_text('{"items": [{"id": "A"} NOT JSON')
+            _git("add", "-A")
+            _git("commit", "-qm", "base: corrupt")
+            # The head copy is FINE and carries one row that would FAIL grading
+            # if it were treated as new. On the old code it was, 393 times over.
+            _target.write_text(json.dumps({"items": [{"id": "A", "status": "open"}]}))
+            _git("add", "-A")
+            _git("commit", "-qm", "head: repaired")
+            os.chdir(_root)
+            _b = io.StringIO()
+            with contextlib.redirect_stdout(_b):
+                rc_c = main(["--base", "HEAD~"])
+            out_c = _b.getvalue()
+            if "SKIPPING" not in out_c or "did NOT PARSE" not in out_c:
+                print("  [FAIL] an unparseable BASE copy was not announced as "
+                      f"skipped (rc={rc_c}) — see the 393-row false blame")
+                failures += 1
+            elif ": A —" in out_c or rc_c != 0:
+                print("  [FAIL] rows were BLAMED against a base that could not "
+                      f"be read (rc={rc_c})")
+                failures += 1
+            elif "every NEW backlog row" in out_c:
+                print("  [FAIL] the OK line claimed coverage over every new row "
+                      "on a run that skipped a file")
+                failures += 1
+            else:
+                print("  [ok]   an unparseable BASE copy is SKIPPED loudly, "
+                      "blames nothing, and the OK line says so")
+    finally:
+        os.chdir(_cwd)
+
     if failures:
         print("self-test FAILED — the guard does not fail closed.")
         return 1
     print("self-test OK — rejects empty/placeholder/too-short criteria, missing or\n           legacy severity, unreadable tier, and unparseable snooze; accepts a\n           complete row.")
     return 0
+
+
+def _backlogs_that_do_not_parse() -> list[str]:
+    """Declared backlogs that are PRESENT on disk and do NOT parse.
+
+    ⚠️ **THE HEAD SIDE IS A REFUSAL, NOT A SKIP, AND THE ASYMMETRY WITH
+    `_check_new_rows` IS DELIBERATE.** On the BASE side an unparseable copy is
+    main's problem and the PR in front of it may well be the repair, so skipping
+    is the lesser harm. On the HEAD side there is no benign reading: the file
+    this run was asked to GRADE cannot be read, so every row in it is ungraded,
+    and the old code said so by printing OK.
+
+    ⚠️ **AN EMPTY BACKLOG IS NOT A PARSE FAILURE** — `{"items": []}` reads
+    `ROWS_READ` with no rows and is waved through, which is the positive control
+    in the self-test. Only a file that does not parse, or whose top-level shape
+    holds no rows array at all, lands here.
+
+    ⚠️ **CI GOING RED ANYWAY IS NOT A REASON TO SKIP THIS.** As of 2026-09-13
+    `register-id-guard` also fails on an unparseable register, so the PR would
+    be red either way — but this guard would still have PRINTED a verdict over
+    rows it never read, and the verdict is what a human reads. The fix is about
+    this guard not stating a falsehood, not only about the build colour.
+    """
+    broken: list[str] = []
+    for rel in ALL_BACKLOGS:
+        path = pathlib.Path(rel)
+        if not path.exists():
+            continue
+        if _read_file(path)[0] == ROWS_UNREADABLE:
+            broken.append(rel)
+    return broken
+
+
+def _refuse_unparseable(broken: list[str]) -> None:
+    print("::error::backlog-criteria: a declared backlog is PRESENT on disk and "
+          "does NOT parse, so NOTHING was graded. This is 'we could not look' — "
+          "it is not 'every row is fine', which is what this guard printed for "
+          "this case until 2026-09-13 (measured: three OK lines over a 1574-row "
+          "file nothing had read).")
+    for rel in broken:
+        print(f"  - {rel}")
+    print("\nFix: restore the file — `git checkout` the last parseable copy, or "
+          "resolve the conflict row-aware via scripts/ops/merge_json_register.py "
+          "— and re-run. Do NOT hand-resolve a register conflict line-by-line.")
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -901,9 +1307,62 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     if args.self_test:
         return _self_test()
+
+    # ── THE FILES THIS RUN GRADES MUST BE READABLE BEFORE ANYTHING IS GRADED ──
+    # Applies to BOTH --all and --base: the census reads the same files through
+    # the same `_load`, and printed `kept_open 0 -> 0` for a file it could not
+    # parse, beside a line for a MISSING file that correctly says "this is 'we
+    # could not look', not zero". The census had the right instinct for absence
+    # and the wrong one for corruption.
+    if args.all or args.base:
+        broken = _backlogs_that_do_not_parse()
+        if broken:
+            _refuse_unparseable(broken)
+            return 2
+
     if args.all:
         return _census()
     if args.base:
+        # ── THE BASE MUST BE RESOLVABLE BEFORE ANY ROW IS GRADED ────────────
+        # MEASURED 2026-09-13: `--base no-such-ref-anywhere-000` emitted **547
+        # findings**, each naming an individual backlog row, under the headline
+        # "backlog row(s) that are not WORKABLE — missing or unusable
+        # resolution_criteria / severity / tier". Not one word of that headline
+        # is about the base, and the base was the entire cause: `_load_at_ref`
+        # returns [] for an unresolvable ref exactly as it does for a file that
+        # is genuinely new, so every pre-existing row read as one this diff had
+        # just added.
+        #
+        # ⚠️ THIS IS UNPROVENANCED DIAGNOSTIC OUTPUT, SUB-CLASS A — a failure
+        # message naming a cause no code path tested. The repo's own remedy for
+        # it is to branch on the actual failure STAGE rather than reword the
+        # label, which is what this does: the ref is checked once, before
+        # anything is graded, and a bad one is REFUSED rather than described as
+        # 547 bad rows.
+        #
+        # ⚠️ `ref_exists` IS THE RIGHT TEST AND "the file is absent" IS NOT.
+        # A file absent at a REAL base is legitimately new, and grading its rows
+        # is correct — that is the case this guard exists for. Only an
+        # unresolvable REF means *we could not look*. `_git_base.read_at` keeps
+        # those two apart for the same reason.
+        #
+        # ⚠️ THAT DEFERRAL IS DISCHARGED — this comment used to end "KNOWN, AND
+        # DELIBERATELY NOT FIXED HERE: `_load_at_ref` still collapses a JSON
+        # PARSE failure at a readable ref ... that case has not been observed
+        # and has no measurement behind it". It is observed and measured now
+        # (2026-09-13, on `origin/main` @`7f832e8c0`): a corrupt BASE copy blamed
+        # **393 pre-existing rows**, and a corrupt HEAD copy produced three
+        # "OK" lines over **1574 rows** nothing had read. Both are fixed —
+        # `_load_at_ref` returns a state and the base side SKIPS loudly;
+        # `_backlogs_that_do_not_parse` below refuses on the head side.
+        if not _git_base.ref_exists(args.base):
+            print(f"::error::backlog-criteria: the base ref {args.base!r} could "
+                  "not be resolved, so NOTHING was graded. This is 'we could "
+                  "not look', not 'every row is fine' and not 'every row is "
+                  "broken' — without a base every existing row would read as "
+                  "one this diff just added.")
+            return 2
+
         # BOTH diff-scoped checks under one invocation, and the return codes are
         # OR-ed rather than short-circuited so a PR sees every failing row at
         # once instead of re-running to find the next one (the reason

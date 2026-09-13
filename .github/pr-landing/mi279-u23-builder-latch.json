@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's detail + updates: re-verifies clause (a) unmet on a live diag read (the latch file is still present:false at 14 days), measures clause (b) with its population and both controls (792 of 792 builder exceptions transient over 1000 capped WARN rows), and records why it does NOT close — the later-day sample is n=1 and the feed's 1000-row cap spans only ~19.3h. Register only, read-only diag and read-only bot API: no src/, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted, no row closed."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-only: a new instrument under scripts/research/, its pytest surface under tests/, one memo under docs/research/, two index registrations, one new backlog row and two update notes, and one work-object progress note. Every path is inside TIER1_SURFACE. No src/, no config/, no unit file, no workflow, no order path; src/web/api/routers/{diag,db_explorer}.py were read only. No parameter is proposed and no Tier-3 change is implied."
+}

@@ -1,0 +1,7 @@
+MI-279 OPS lane (/backlog-drain) U3 — Tier-1 self-land.
+PR #12066. Adds the binding section "The row you are reading outranks the label
+in it" to docs/CLAUDE-RULES-CANONICAL.md plus point-of-use pointers in the
+performance-review and health-review skills, closing
+BL-20260826-FOUR-WRONG-CONCLUSIONS-IN-ONE-SESSION-FROM-READING-A-STORED-LABEL-AS-THE-MEASUREMENT
+on a live observation, and files two findings separately.
+Tier-1 surface only: docs/**, .claude/skills/**/*.md, .github/**.

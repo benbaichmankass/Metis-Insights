@@ -95,6 +95,41 @@ contract + generation discipline. This skill adds the two missing halves:
    with backoff (2s/4s/8s/16s), never treat the first failure as an expired token
    or hand off to the operator. There is **no `create_label`** — labels come from
    `bootstrap-labels.yml`.
+
+   ⚠️ **AND IF A BOARD WRITE ITSELF 403s, THERE IS A RELAY — A 403 IS NEVER A
+   REASON TO SKIP THE BOARD.** `add_issue_comment` returning
+   `403 Resource not accessible by integration` while `issue_read` on the SAME
+   issue succeeds is a **write-scope boundary**, not the transient MCP drop
+   above: retrying with backoff will not clear it, and neither will `gh`
+   (absent) or `curl` to `api.github.com` (403 at the proxy). Reach for
+   **`.github/workflows/board-post.yml`** — drop
+   `automation/board-posts/<name>.md`, whose entire contents become the comment,
+   push it on a `claude/**` branch, and read
+   `automation/board-results/<name>.txt` back. Its sibling for PRs is
+   **`.github/workflows/pr-opener.yml`** (`automation/pr-requests/<name>.json`,
+   result at `automation/pr-results/<name>.txt`; use a FRESH filename per PR —
+   the result file is the idempotency key).
+
+   ⚠️ **BOTH RELAYS COMMIT A RESULT FILE BACK, WHICH RE-BURIES AN OPEN PR's
+   CHECKS.** GitHub does not trigger workflows for `GITHUB_TOKEN` pushes, so when
+   that commit lands last the PR shows **zero checks** — blocked, not green — and
+   the more diligently you use the board the more often it happens. Push one
+   ordinary commit yourself to arm CI, and read `mergeable_state` to tell the two
+   zero-check causes apart (`blocked` = no checks fired, `dirty` = merge
+   conflict).
+
+   ⚠️ **This paragraph exists because its absence was MEASURED.** On 2026-09-01 a
+   session hit the write 403, read this skill and the board's own body of record,
+   correctly concluded no board path existed, and found both relays only by
+   reading `.github/workflows/` after every documented path had failed — the
+   strings `board-post` and `pr-opener` appeared **zero** times in all four
+   documents a session would consult
+   (`BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED`).
+   `CLAUDE.md` and `docs/claude/coordination-board.md` were fixed; this file was
+   not, and it is the one skill-first lookup makes binding. ⚠️ **The 403 is not
+   universal** — measured 2026-09-12, `add_issue_comment` on the board succeeded
+   **5 of 5** times from a PM-side web session, so a session that does not hit it
+   should not conclude the relay is unnecessary for the one that does.
 3. **Claim the WORK, not just the files.** `docs/claude/work/` is the state of
    record for what is being worked and under which intent, and it is the only
    surface a session arriving COLD can read. Before you start: if your task
