@@ -79,6 +79,19 @@ MECHANISM_STATES = (
     "not_gradeable",     # no rBasis block — we could not look
 )
 
+#: The four states `src/runtime/r_provenance.py::classify_r` can return, and the
+#: payload key each is published under. ALL FOUR are reported, never just the
+#: alarming one: this module's whole thesis is that `contaminated` does NOT
+#: decide the verdict, and a reader can only see that if they can see the rest
+#: of the distribution beside it. `collapsed-state-guard` caught the earlier
+#: version naming only `contaminated`, and it was right to.
+R_PROVENANCE_STATES = {
+    "contaminated": "contaminated",
+    "confirmed_initial": "confirmedInitial",
+    "unverified": "unverified",
+    "no_basis": "noBasis",
+}
+
 #: Is a disagreement accounted for?
 EXPLANATION_STATES = (
     "risk_size_heterogeneity",  # winners are sized smaller than losers, cleanly
@@ -117,12 +130,19 @@ def mechanism_state(payload: dict) -> tuple[str, dict]:
     if not isinstance(rb, dict) or not rb:
         return "not_gradeable", {"rBasis": None}
     stored = int(rb.get("storedStop") or 0)
+    rp = payload.get("rProvenance") or {}
     detail = {
         "rBasis": rb,
-        # Reported BESIDE the verdict and never used as the verdict — it grades
-        # the stored stop, which a declared-basis R never consults.
-        "rProvenance_contaminated": (payload.get("rProvenance") or {}).get(
-            "contaminated"),
+        # Reported BESIDE the verdict and never used AS the verdict — these
+        # grade the STORED STOP, which a declared-basis R never consults. All
+        # four states are surfaced, with `None` (never 0) for one the payload
+        # does not carry, so an absent count cannot read as a measured zero.
+        "r_provenance": {
+            state: (rp[key] if key in rp else None)
+            for state, key in R_PROVENANCE_STATES.items()
+        },
+        # `None`, never False, when the block is absent: we could not look.
+        "r_provenance_read": (True if rp else None),
     }
     return ("can_operate" if stored > 0 else "cannot_operate"), detail
 
@@ -236,9 +256,10 @@ def render(v: dict) -> str:
              f"profitFactor {d.get('profitFactor')})")
     md = v["mechanism_detail"]
     L.append(f"  mechanism_state : {v['mechanism_state']}  rBasis={md.get('rBasis')}")
-    L.append(f"                    rProvenance.contaminated="
-             f"{md.get('rProvenance_contaminated')}  <- grades the STORED STOP, "
-             f"NOT the basis used")
+    L.append(f"                    rProvenance={md.get('r_provenance')}  "
+             f"(read={md.get('r_provenance_read')})")
+    L.append( "                    ^ ALL FOUR grade the STORED STOP, NOT the "
+              "basis used — none of them drives the verdict above")
     L.append(f"  explanation     : {v['explanation']}  {json.dumps(v['explanation_detail'])}")
     L += ["", f"  {'leg':<24} {'n':>3} {'totalPnl':>10} {'totalR':>9} "
               f"{'expR':>8} {'$/R':>8}"]
@@ -298,11 +319,28 @@ def _self_test() -> int:
        "…and storedStop>0 means the named mechanism IS a candidate")
     ok(mechanism_state({})[0] == "not_gradeable",
        "…and an absent rBasis is `we could not look`, never `cannot_operate`")
-    st, det = mechanism_state({"rBasis": CLEAN,
-                               "rProvenance": {"contaminated": 11}})
-    ok(st == "cannot_operate" and det["rProvenance_contaminated"] == 11,
+    FULL_RP = {"contaminated": 11, "confirmedInitial": 8, "unverified": 22,
+               "noBasis": 0}
+    st, det = mechanism_state({"rBasis": CLEAN, "rProvenance": FULL_RP})
+    ok(st == "cannot_operate" and det["r_provenance"]["contaminated"] == 11,
        "a HIGH `contaminated` count does NOT flip the verdict — that field "
        "grades the stored stop, which a declared-basis R never consults")
+    ok(det["r_provenance"] == {"contaminated": 11, "confirmed_initial": 8,
+                               "unverified": 22, "no_basis": 0},
+       "…and ALL FOUR r_provenance states are reported, not just the alarming "
+       "one — a reader can only see that `contaminated` did not drive the "
+       "verdict if they can see the rest of the distribution")
+    _, det2 = mechanism_state({"rBasis": CLEAN,
+                               "rProvenance": {"contaminated": 11}})
+    ok(det2["r_provenance"]["no_basis"] is None
+       and det2["r_provenance"]["unverified"] is None,
+       "…and a state the payload omits reports None, NEVER 0 — an absent count "
+       "must not read as a measured zero")
+    _, det3 = mechanism_state({"rBasis": CLEAN})
+    ok(det3["r_provenance_read"] is None
+       and all(v is None for v in det3["r_provenance"].values()),
+       "…and an absent rProvenance block reads `we could not look`, never a "
+       "clean distribution of zeros")
 
     # --- the explanation, and its threshold-free separation ------------------
     #     Winners sized SMALLER than every loser -> separated.

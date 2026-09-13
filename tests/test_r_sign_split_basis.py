@@ -63,6 +63,10 @@ def test_an_absent_profit_factor_is_none_not_false():
 # The mechanism test — and why it must not read `contaminated`
 # --------------------------------------------------------------------------
 
+FULL_RP = {"contaminated": 11, "confirmedInitial": 8, "unverified": 22,
+           "noBasis": 0}
+
+
 def test_mechanism_is_graded_from_rbasis_never_from_contaminated():
     """`rProvenance.contaminated` grades the STORED STOP; `rBasis` says what
     each R was DIVIDED BY. A declared-basis R never consults the stored stop, so
@@ -70,10 +74,32 @@ def test_mechanism_is_graded_from_rbasis_never_from_contaminated():
 
     Plant: grade off `contaminated`.
     """
-    st, det = U36.mechanism_state({"rBasis": dict(CLEAN),
-                                   "rProvenance": {"contaminated": 11}})
+    st, det = U36.mechanism_state({"rBasis": dict(CLEAN), "rProvenance": FULL_RP})
     assert st == "cannot_operate"
-    assert det["rProvenance_contaminated"] == 11
+    assert det["r_provenance"]["contaminated"] == 11
+
+
+def test_all_four_r_provenance_states_are_reported():
+    """A reader can only see that `contaminated` did not drive the verdict if
+    they can see `confirmed_initial`, `unverified` and `no_basis` beside it.
+    `collapsed-state-guard` caught an earlier version naming only the alarming
+    one. Plant: report `contaminated` alone."""
+    _, det = U36.mechanism_state({"rBasis": dict(CLEAN), "rProvenance": FULL_RP})
+    assert det["r_provenance"] == {"contaminated": 11, "confirmed_initial": 8,
+                                   "unverified": 22, "no_basis": 0}
+
+
+def test_an_omitted_state_is_none_never_a_measured_zero():
+    _, det = U36.mechanism_state({"rBasis": dict(CLEAN),
+                                  "rProvenance": {"contaminated": 11}})
+    assert det["r_provenance"]["unverified"] is None
+    assert det["r_provenance"]["no_basis"] is None
+
+
+def test_an_absent_r_provenance_block_is_we_could_not_look():
+    _, det = U36.mechanism_state({"rBasis": dict(CLEAN)})
+    assert det["r_provenance_read"] is None
+    assert all(v is None for v in det["r_provenance"].values())
 
 
 def test_stored_stop_in_use_makes_the_mechanism_a_candidate():
