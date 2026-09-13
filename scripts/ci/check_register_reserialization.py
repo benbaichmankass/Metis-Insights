@@ -291,9 +291,16 @@ def render_unmarked(paths: list[str], cap: int = UNMARKED_NAME_CAP) -> list[str]
     backlogs were among the 23. On 2026-09-13 a session hand-resolved a
     conflict in `performance-review-backlog.json`, silently dropped a row that
     had landed on `main` hours earlier, and every guard passed — including this
-    one, which knew the file was unbound and said only a number.
-    (`BL-20260913-THREE-OF-THE-FOUR-REVIEW-BACKLOGS-WERE-NEVER-BOUND-TO-THE-ROW-AWARE-MERGE-DRIVER-SO-A-HAND-RESOLVED-CONFLICT-SILENTLY-DROPS-FILED-ROWS`,
-    whose `next_step` (1) asks for exactly this.)
+    one, which knew the file was unbound and said only a number. Filed by the
+    MI-278 lane as the row about three of the four review backlogs never being
+    bound to the row-aware merge driver, and this is its `next_step` (1).
+
+    ⚠️ THAT ROW IS CITED BY DESCRIPTION AND NOT BY ID, DELIBERATELY. It is filed
+    on PR #12148, which is `landing: hold` awaiting a human read, so its id does
+    not yet resolve on `main` — and `check_backlog_refs` correctly refused this
+    file for naming it. A doc saying "tracked by BL-X" where BL-X was never
+    filed reads as tracked while being tracked by nobody. Put the id back once
+    that PR lands; do not file a second copy of the row to satisfy the guard.
 
     This is the repo's unasserted-denominator class (sub-class C) applied to a
     coverage census: the number was correct and told nobody anything.
