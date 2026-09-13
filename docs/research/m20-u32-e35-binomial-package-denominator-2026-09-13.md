@@ -23,10 +23,8 @@ n_duplicate_ids: 0
 U26's stanza rather than a coincidence worth ignoring. `rowset_digest`
 `sha256:1752f298…` and `order_digest` `sha256:b073ee2c…` match the fingerprint
 recorded in
-`m20-u31-bleed-record-package-denominator-2026-09-13.md` exactly — **that memo is
-not on `main` yet** (it lands with PR #12164), so it is named here rather than
-linked, because a relative link to a file a reader cannot open is worse than a
-name they can search for. So U31's numbers and U32's are computed over **the same 1000 rows in the
+[`m20-u31-bleed-record-package-denominator-2026-09-13.md`](m20-u31-bleed-record-package-denominator-2026-09-13.md)
+exactly (PR #12164, merged 2026-09-13T02:37:48Z). So U31's numbers and U32's are computed over **the same 1000 rows in the
 same order**, and any difference between the two memos is a difference of
 *method*, never of *pull* — which is precisely the attribution
 `BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN`
@@ -181,9 +179,11 @@ three of the 21 are Tier-2 dashboard routes a research unit does not get to
 touch. `bleed_attribution_2026_09_11.py` is still on the exposed list after U31
 re-derived it, for exactly the same reason this one will be.
 
-**So "N of 21 remain" is the wrong sentence and I wrote it too**: U31's board note
-said 17, this unit's own START comment said 16, and the true count has never
-moved off 21. Filed as
+**So "N of 21 remain" is the wrong sentence and I wrote it too** — and the three
+quotes do not even agree with each other: U31's coordination-board note said
+**17**, U31's own work-object progress entry said **19**, this unit's START
+comment said **16**. Three numbers for one quantity inside one session, while the
+instrument read **21** throughout. Filed as
 `BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED`.
 
 ⚠️ **Two other population figures in U12's memo HAVE moved and must not be
