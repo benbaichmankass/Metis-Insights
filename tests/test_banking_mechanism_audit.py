@@ -118,6 +118,23 @@ def test_exit_plan_has_no_live_reader():
         os.path.join("src", "core", "coordinator.py"),          # the writer
         os.path.join("src", "units", "db", "database.py"),      # serialise-on-write
         os.path.join("src", "units", "strategies", "turtle_soup.py"),  # uncalled hook
+        # MI-278 U8, 2026-09-12 — RE-ESTABLISHED RATHER THAN WAIVED, which is what
+        # this test asks for. `stop_attribution.py` reads the `exit_plan` COLUMN
+        # (`order_packages.exit_plan.stop.price`, the entry-frozen declared stop)
+        # to answer whether a stop-out was ended by the declared stop or by one a
+        # trailing lever had already moved.
+        #
+        # WHAT IS UNCHANGED: MI-163's verdict. `src/runtime/exit_plan.py`'s LEVERS
+        # are still not on the live exit path — this reader is a pure function
+        # called from research scripts, never from the monitor, the coordinator or
+        # any order path, and it imports nothing from `src/runtime/exit_plan.py`.
+        #
+        # WHAT IS NOW NARROWER, and is corrected in the memo rather than left to
+        # rot: `docs/research/banking-half-2026-09-07.md` § 1 said "Both callers
+        # write; nothing reads." The COLUMN now has exactly one reader, offline.
+        # "Nothing reads it" and "nothing on the live path reads it" were the same
+        # sentence until today and are not any more.
+        os.path.join("src", "research", "stop_attribution.py"),
     }
     offenders = []
     for root, _dirs, files in os.walk(os.path.join(_REPO, "src")):
