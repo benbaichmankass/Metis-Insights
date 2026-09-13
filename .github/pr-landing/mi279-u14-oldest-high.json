@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/research/m20_fleet_exit_sweep.py (research tooling — reporting only: a counted banner, a non-zero exit on a zero-cell run, a pure fleet_grading_census helper, and the captured stderr tail surfaced in the SUMMARY/stdout split line), tests/test_fleet_sweep_split.py, and docs/claude/health-review-backlog.json, plus this declaration, its arming file and a per-branch merge-slot claim. All in TIER1_SURFACE (scripts/research/**, tests/**, docs/**). No src/, no ml/, no config/, no .github/workflows/, no order path. No cell's grading changed and no verdict logic was touched — insufficient_base is unchanged; only what the run REPORTS about itself moved. Nothing enacted."
+}
