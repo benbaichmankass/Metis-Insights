@@ -347,3 +347,55 @@ progress:
     NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Nothing in src/, config/ or any unit
     file is touched. Memo:
     docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md
+  U5: >-
+    DELIVERED, PR #12031 (open, blocked on checks that cannot fire — the PR was opened by
+    claude-pr-automerge under GITHUB_TOKEN, so it carries no pull_request event). The excursion
+    instrument OI-20260911's clears_when needs, WITH the control arm it was missing. MAE grows
+    in BOTH arms; MFE collapses only in the treated one (48h 0.195x vs 0.945x), surviving
+    symbol matching except BTCUSDT. ACQUITS e35 of the winner-size collapse while leaving the
+    e35 stop-side effect real. Per-leg is unreachable — the largest cell is 5 packages.
+  U8: >-
+    DELIVERED, PR #11976 (open, needs a human merge click). A stop-out graded against
+    trades.stop_loss is graded against a level that may have been amended after entry.
+  U10: >-
+    DELIVERED. The venue CANNOT attribute the unattributable-price winners.
+  U11: >-
+    DELIVERED. Which e35 controls can report, and which cannot at their own n.
+  U12: >-
+    DELIVERED. Names the surfaces that compute a price-path rate per trades row, so the
+    fan-out denominator question has one place to be answered rather than five.
+  U13: >-
+    DELIVERED, PR #12007 (open). The expectancyR sign disagreement is live today, and
+    contamination x fan-out interact rather than adding.
+  U14: >-
+    DELIVERED, merged. Corrected the bleed record in THREE places that disagreed: onset
+    2026-08-27 (not 08-28), 17 days, -$38,851.81, bounded BELOW by the data. The pre-period is
+    WITHDRAWN as ungradeable (3.4% vs 20.4% provenance coverage). Two registers were wrong and
+    agreeing; CLAUDE.md's third figure was right against its own window and is untouched.
+  U15: >-
+    DELIVERED, merged. Separates entry-declared from amended stop-outs in BOTH arms. Declared-
+    only DiD is +7.6pp against the +21.2pp U5 published forty minutes earlier — and a SECOND
+    undeclared degree of freedom (which fan-out row is rows[0]) moves it 4.3-28.2pp on identical
+    data, entirely through the CONTROL, which is why single-arm studies never saw it. Sign
+    positive in all six combinations, so the e35 stop-side effect is real at a third to a half
+    of the published magnitude. Trailing amends the control at 29% pre / 20% post, so trailing
+    is NOT an e35 phenomenon.
+  U16: >-
+    DELIVERED, merged (#12062). Closes option (b) of the netting row as UNREACHABLE, leaving it
+    on option (a). sum_matched_unique = 0 of 12, so a sum-aware matcher does not rescue the
+    population — and the more useful result is that the obvious extension is UNSOUND: subset-sum
+    is under-determined (trade 4930 admits 74 answers spanning $37.01). Corrects its own author's
+    intermediate "2 of 10 explained", an artifact of taking the first combination found.
+  U17: >-
+    DELIVERED (this PR, landing: hold — scripts/ top level is outside TIER1_SURFACE). Ships part
+    1 of BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE:
+    two CI detectors in scripts/check_strategy_coverage.py, self-test 8 -> 38 controls. Re-measured
+    at origin/main 4a91b834e and every figure REPRODUCES the audit's F-29 three days on. BOTH
+    invariants fail on main, so they ship armed against a PINNED, SELF-CLEARING waiver rather than
+    hard — arming hard would have turned every open PR red for a condition none of them caused.
+    CORRECTS THE ROW AND THE CORRECTION CHANGES THE REMEDY: the SLV rival is execution:shadow, so
+    today the inversion makes the LIVE leg beat the DATA-ONLY one, and mapping slv_pullback_1d at
+    its siblings' 0 would create a tie that can hand SLV to a shadow leg. The Tier-3 half is
+    operator-approved in principle (WO-20260909-DECISION-UNKNOWN-STRATEGY-PRIORITY-IS-INVERTED)
+    and deliberately NOT taken — it is proposed, including the one part that approval does not
+    settle.
