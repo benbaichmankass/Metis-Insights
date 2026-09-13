@@ -138,7 +138,9 @@ def evaluate(population: Set[str],
              categories: Set[str],
              statuses: Set[str],
              computed: Optional[Dict[str, str]] = None,
-             scope: Optional[Set[str]] = None) -> List[str]:
+             scope: Optional[Set[str]] = None,
+             enforce_all: bool = False,
+             stubs: Optional[Dict[str, str]] = None) -> List[str]:
     """Return a list of findings. Empty list = the register is true.
 
     `headers[path]` is the status token read from that file's own stamp, or
@@ -168,25 +170,79 @@ def evaluate(population: Set[str],
     # when the document was in ACTIVE_DOCS, a hand-edit, and a `--write` that
     # predates a change to `status_for` are all consistent with the same
     # evidence, and asserting one would be the unprovenanced-diagnostic class.
+    #
+    # ⚠️ `enforce_all=True` DROPS THE SCOPING, and it is shippable ONLY because
+    # the residue is gone. R6's comment above recorded 47 standing
+    # disagreements as the reason it could not be unscoped; MEASURED
+    # 2026-09-13 against a fresh `build_rows()` the count is **46 at
+    # b209768c2 and 0 at `origin/main`** — drained by the
+    # `document_index.py --write` that rode PR #12122. This is the
+    # `diagnostic-provenance-guard` shape exactly: a diff-scoped step plus an
+    # ungated one, the ungated one added only once the residue reads zero, so
+    # nothing is grandfathered and there is no standing audit for anyone to
+    # forget to run.
+    #
+    # ⚠️ UNDER `enforce_all` AN UNCOMPUTABLE ROW SET IS A FINDING, and under
+    # the scoped rule it is not. That asymmetry is deliberate: the scoped step
+    # is one check among many and can afford *we could not look*, but an
+    # UNGATED assertion that silently reports nothing when its own input could
+    # not be built reads byte-identically to a clean tree — which is the
+    # unasserted-denominator defect this repo files as sub-class C.
     drift_state, drifted = row_status_drift(rows, computed)
-    if scope is not None and drift_state == DRIFT_COMPUTED:
-        in_scope = {p for p, _c, _f in drifted} & scope
+    if enforce_all and drift_state == DRIFT_UNCOMPUTABLE:
+        findings.append(
+            "R6 UNCOMPUTABLE (--all): a fresh build_rows() could not be "
+            "computed, so the ungated drift assertion could not run. This is "
+            "*we could not look*, NOT a clean register, and the ungated step "
+            "fails rather than printing a reassuring nothing.")
+    if (enforce_all or scope is not None) and drift_state == DRIFT_COMPUTED:
+        in_scope = ({p for p, _c, _f in drifted}
+                    if enforce_all else {p for p, _c, _f in drifted} & (scope or set()))
         for p, committed, fresh in drifted:
             if p not in in_scope:
                 continue
             findings.append(
                 f"R6 ROW DRIFT: {INDEX_REL} records status '{committed}' for {p}, "
-                f"but a fresh build_rows() computes '{fresh}'. This diff touches "
-                f"that document, so it is yours to reconcile. R3 cannot see this: "
+                f"but a fresh build_rows() computes '{fresh}'. "
+                + ("The ungated step reports every drifted row, so this one is "
+                   "not necessarily yours — but the register is not coherent "
+                   "until it is gone. "
+                   if enforce_all and p not in (scope or set())
+                   else "This diff touches that document, so it is yours to "
+                        "reconcile. ")
+                + f"R3 cannot see this: "
                 f"the header and the row were written by the same run and agree "
                 f"with each other. Run: python3 scripts/ops/document_index.py "
                 f"--write, then READ what it changed before committing.")
 
     # R1 — a document exists and is not registered.
+    # ⚠️ THE REMEDY NAMES THE ROW, because the old one named a COMMAND whose
+    # diff is two orders of magnitude larger than the finding. MEASURED
+    # 2026-09-13: on a tree one document ahead of the last `--write`,
+    # `document_index.py --write` changed 65 files — 3 real and 62 one-line
+    # `Doc status:` header rewrites in documents the change never touched —
+    # and one of those runs erased the hand-written basis on 35 rows. This is
+    # the same trap `document_index.py::carry_last_verified` already names for
+    # the DATE ("the guard prescribed it, which made it a trap rather than a
+    # footgun"); that fix carried the date and left the status surface moving.
+    # The stub below is the generator's OWN output for this path, so pasting
+    # it cannot drift from what `--write` would produce, and R6 checks that.
     for p in sorted(population - registered):
-        findings.append(
-            f"R1 UNREGISTERED: {p} is in the document population but has no row "
-            f"in {INDEX_REL}. Run: python3 scripts/ops/document_index.py --write")
+        stub = (stubs or {}).get(p)
+        if stub:
+            findings.append(
+                f"R1 UNREGISTERED: {p} is in the document population but has "
+                f"no row in {INDEX_REL}. Add THIS ONE LINE, in sorted position "
+                f"(it is the generator's own output for this path, so R6 will "
+                f"agree with it):\n      {stub}\n      Running "
+                f"`document_index.py --write` also works and is what you want "
+                f"if several documents are unregistered — but on a tree behind "
+                f"the last write it re-decides every other document's status "
+                f"too, so READ its diff before committing.")
+        else:
+            findings.append(
+                f"R1 UNREGISTERED: {p} is in the document population but has no row "
+                f"in {INDEX_REL}. Run: python3 scripts/ops/document_index.py --write")
 
     # R2 — a row names a file that no longer exists.
     for p in sorted(registered - population):
@@ -448,6 +504,78 @@ def self_test() -> int:
             print(f"        got {found}")
             failures += 1
 
+    # ── R6 UNGATED (--all) ────────────────────────────────────────────────
+    # The whole value of the ungated step is that it fires where the scoped one
+    # is silent, so every case below is one the scoped rule already passes.
+    r6_all = [
+        ("R6 --all fires on a drifted row the diff does NOT touch",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"b.md"}, "R6 ROW DRIFT"),
+        ("R6 --all fires with NO --base at all (scope is None)",
+         [row("a.md", s="live")], {"a.md": "unknown"}, None, "R6 ROW DRIFT"),
+        ("R6 --all is SILENT when the row and the computation agree",
+         [row("a.md", s="live")], {"a.md": "live"}, None, None),
+        # ⚠️ THE ASYMMETRY WITH THE SCOPED RULE, ASSERTED. An ungated assertion
+        # that reports nothing when its own input could not be built reads
+        # byte-identically to a clean tree.
+        ("R6 --all FAILS on an uncomputable row set (the scoped rule does not)",
+         [row("a.md", s="live")], None, None, "R6 UNCOMPUTABLE"),
+    ]
+    for label, rws, computed, scope, expect in r6_all:
+        found = [f for f in evaluate({"a.md"}, rws, {"a.md": rws[0]["status"]},
+                                     set(), CATS, STS, computed=computed,
+                                     scope=scope, enforce_all=True)
+                 if f.startswith("R6")]
+        ok = (any(expect in f for f in found) if expect else not found)
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+        if not ok:
+            print(f"        got {found}")
+            failures += 1
+
+    # And the scoped rule must NOT have changed: the same uncomputable input
+    # that fails --all stays silent without it.
+    scoped_unc = [f for f in evaluate({"a.md"}, [row("a.md", s="live")],
+                                      {"a.md": "live"}, set(), CATS, STS,
+                                      computed=None, scope={"a.md"})
+                  if f.startswith("R6")]
+    if scoped_unc:
+        print(f"  FAIL  the SCOPED rule must stay silent on an uncomputable row "
+              f"set; got {scoped_unc}")
+        failures += 1
+    else:
+        print("  PASS  the scoped rule is unchanged — uncomputable is still "
+              "'we could not look' there, and only --all treats it as a finding")
+
+    # ── R1 names the ONE row when a stub is available ─────────────────────
+    stub = "| `b.md` | evidence | unknown | — | never | `x / y` | — |"
+    with_stub = [f for f in evaluate({"a.md", "b.md"}, [row("a.md")],
+                                     {"a.md": "historical", "b.md": None},
+                                     set(), CATS, STS, stubs={"b.md": stub})
+                 if f.startswith("R1")]
+    if not (with_stub and stub in with_stub[0]):
+        print(f"  FAIL  R1 must quote the generator's own stub verbatim; got {with_stub}")
+        failures += 1
+    else:
+        print("  PASS  R1 quotes the generator's own stub verbatim")
+    # ⚠️ AND IT MUST STILL NAME --write, because several unregistered documents
+    # at once is exactly the case the one-line remedy does NOT serve. Dropping
+    # it would trade one trap for another.
+    if not (with_stub and "--write" in with_stub[0]):
+        print("  FAIL  R1 must still name --write for the several-documents case")
+        failures += 1
+    else:
+        print("  PASS  R1 still names --write, with its blast radius stated")
+    # No stub available -> the old remedy, never a half-written one.
+    no_stub = [f for f in evaluate({"a.md", "b.md"}, [row("a.md")],
+                                   {"a.md": "historical", "b.md": None},
+                                   set(), CATS, STS, stubs={})
+               if f.startswith("R1")]
+    if not (no_stub and "--write" in no_stub[0] and "THIS ONE LINE" not in no_stub[0]):
+        print(f"  FAIL  with no stub R1 must fall back to the command, cleanly; got {no_stub}")
+        failures += 1
+    else:
+        print("  PASS  with no stub R1 falls back to the command rather than "
+              "promising a line it does not have")
+
     # The CENSUS must see what the scoped rule deliberately does not. Without
     # this, narrowing the rule to nothing would still read as a clean guard.
     _st, census = row_status_drift([row("a.md", s="live"), row("b.md", s="live")],
@@ -484,7 +612,7 @@ def self_test() -> int:
         print(f"document-index self-test: FAIL — {failures} check(s) did not "
               f"behave as declared. The guard cannot be trusted.")
         return 1
-    print(f"document-index self-test: OK — {len(cases) + len(r6) + 3} planted rule cases, "
+    print(f"document-index self-test: OK — {len(cases) + len(r6) + len(r6_all) + 8} planted rule cases, "
           f"every rule observed FIRING and every clean case observed SILENT; "
           f"plus 3 planted FILES proving the population builder sees a "
           f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
@@ -514,6 +642,12 @@ def _diff_scope(base: Optional[str]) -> Optional[Set[str]]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--all", dest="all_", action="store_true",
+                    help="UNGATED R6: report every drifted row, not only the "
+                         "ones this diff touches. Shippable because the "
+                         "residue is 0 (measured 2026-09-13; it was 46 at "
+                         "b209768c2). An uncomputable row set FAILS this step "
+                         "rather than printing nothing.")
     ap.add_argument("--base", default=None,
                     help="diff base for R6 scoping (e.g. origin/main). Without "
                          "it R6 produces no findings and only the census is "
@@ -554,9 +688,26 @@ def main() -> int:
               f"is 'we could not look' and not a clean reading.")
     scope = _diff_scope(a.base)
 
+    # The generator's OWN stub for each unregistered path, so R1 can name the
+    # one line to add instead of a command that rewrites the tree. Built only
+    # for the unregistered set (never for all 1073 rows) and best-effort: a
+    # builder that cannot produce one falls back to the old remedy text rather
+    # than failing the guard over its own help string.
+    stubs: Dict[str, str] = {}
+    for pth in sorted(population - {r["path"] for r in rows}):
+        try:
+            r = b.assess(pth, b._canonical_active_docs(), b._mi159_states(),
+                         datetime.date.today().isoformat())
+            stubs[pth] = (f"| `{pth}` | {r['category']} | {r['status']} | "
+                          f"{r['superseded_by'] or '—'} | {r['last_verified']} | "
+                          f"`{r['basis']}` | {r['note'] or '—'} |")
+        except Exception:  # noqa: BLE001
+            pass
+
     findings = evaluate(population, rows, headers, generated,
                         set(b.CATEGORIES) | {"unknown"}, set(b.STATUSES),
-                        computed=computed, scope=scope)
+                        computed=computed, scope=scope,
+                        enforce_all=a.all_, stubs=stubs)
 
     # ALWAYS STATE THE POPULATION — a guard reporting "no findings" without a
     # denominator is the clean-negative this repo has a rule about.
@@ -572,7 +723,9 @@ def main() -> int:
         print("document-index: row-drift census UNAVAILABLE — the fresh row set "
               "could not be computed. NOT 'no rows drifted'.")
     else:
-        scope_note = ("unscoped (no --base): R6 reports nothing"
+        scope_note = ("UNGATED (--all): every drifted row is a finding"
+                      if a.all_ else
+                      "unscoped (no --base): R6 reports nothing"
                       if scope is None else f"diff touches {len(scope)} path(s)")
         print(f"document-index: row-drift census = {len(drift)} committed row(s) "
               f"whose status a fresh build_rows() does not reproduce; {scope_note}.")

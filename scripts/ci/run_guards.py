@@ -198,6 +198,35 @@ GUARDS: List[Dict[str, Any]] = [
             # why the reason is written here rather than only in the script.
             ["python3", "scripts/ci/check_document_index.py",
              "--base", "origin/{base_ref}"],
+            # The whole-tree backstop, deliberately UNGATED — the
+            # `diagnostic-provenance-guard` / `api-tier-policy-guard` pattern,
+            # for the same reason and on the same evidence shape.
+            #
+            # ⚠️ THIS COULD NOT EXIST UNTIL 2026-09-13, and R6's own comment
+            # says why: "There are 47 standing disagreements on `main` today;
+            # an unscoped rule would fail every PR in the repo from the moment
+            # it merged, which is not a guard, it is an outage." MEASURED
+            # against a fresh `build_rows()`: **46 drifted rows at b209768c2
+            # and 0 at `origin/main`** — the residue was drained by the
+            # `document_index.py --write` that rode PR #12122. It is held at
+            # zero here rather than re-measured by hand and found unchanged.
+            #
+            # ⚠️ WHY UNGATED AND NOT ONLY DIFF-SCOPED: the scoped step cannot
+            # see a row drift that no PR touches, and that is the normal case
+            # — a row drifts when `status_for` or `ACTIVE_DOCS` changes, i.e.
+            # from a commit that touches neither the row nor its document. All
+            # 46 accumulated exactly that way, invisibly, under a guard that
+            # was reporting OK.
+            #
+            # ⚠️ THE COST IS REAL AND IS NOT HIDDEN: a change to `status_for`
+            # or to `ACTIVE_DOCS` now reds every PR until someone runs
+            # `--write`. That is the accepted trade in the two precedents
+            # above, and it is the correct direction — the alternative is what
+            # just happened, where the drift is discovered only when an
+            # unrelated PR happens to run the writer. Rollback is deleting
+            # this one step; the diff-scoped rule and the census are untouched
+            # and keep working.
+            ["python3", "scripts/ci/check_document_index.py", "--all"],
         ],
     },
     {
