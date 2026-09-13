@@ -1,6 +1,6 @@
 # A candidate class map for the 274 open `high` backlog rows
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-12` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **MI-279 (OPS lane, `/backlog-drain`), `session_013iSqp4LsU1eq8K326eUtgj`, 2026-09-12.**
 Produced as the opening move of U3 (class-first on the `high` rows) and handed
