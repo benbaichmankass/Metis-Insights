@@ -2429,7 +2429,19 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_priority_fallback_distribution.py", "--self-test"],
             ["python3", "scripts/ci/check_priority_fallback_distribution.py"],
         ],
-        "notify": True,
+        # ⚠️ DELIBERATELY **NOT** `notify: True`, for the reason already written
+        # down against `operator-owed` above: guards.yml's ping fires once per PR
+        # RUN, and every notify-class guard is DIFF-SCOPED — it trips on something
+        # the PR introduced, so the ping reaches the author who caused it. R1 and
+        # R2 here are the opposite shape: they report a STANDING condition that is
+        # violated on the current tree and that no PR introduced, so a ping would
+        # fire on every PR from every session about a finding nobody in that PR
+        # can act on. And the remedy is TIER-3 — an operator decision on the
+        # fallback value — so the ping could not be actioned by its recipient
+        # either. That is the desensitised-alarm shape this repo names as its own
+        # worst failure mode. `tests/ci/test_run_guards.py::test_notify_set_is_
+        # preserved` caught the original `notify: True` as an undeclared
+        # behaviour change, correctly; a red CI check is the right signal here.
     },
     {
         "name": "secret-scan",
