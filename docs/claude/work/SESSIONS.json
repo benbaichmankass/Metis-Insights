@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T04:58:30Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0452Z manager tick, all three lanes get_session'd live",
+  "updated_at": "2026-09-13T07:00:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z tick; observations are the 05:56 ones, explicitly not re-read",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4901,8 +4901,8 @@
       },
       "item": "MI-278",
       "lane": "research",
-      "last_observed_at": "2026-09-13T04:58Z",
-      "last_observation": "2026-09-13T04:57:45Z get_session: RUNNING/connected, 581406/1M (58%, unchanged for 2h), review_ready, branch claude/mi278-u38-order-package-id-is-not-a-fanout-key, task 'resolving #12175 merge conflict; analyzing fan-out patterns in API data'"
+      "last_observed_at": "2026-09-13T05:56Z",
+      "last_observation": "2026-09-13T05:56:04Z get_session (NOT re-read at 0652Z — this tick went on restoring the lapsed lease; the reading is 60 min old and labelled): RUNNING/connected, 581406/1M (58%), branch claude/mi278-u41-break-attribution-verdict"
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4927,8 +4927,8 @@
       },
       "item": "MI-279",
       "lane": "ops",
-      "last_observed_at": "2026-09-13T04:58Z",
-      "last_observation": "2026-09-13T04:58:21Z get_session: RUNNING/connected, 289732/1M (29%, unchanged), review_ready '5 PRs resynced & armed', branch claude/mi279-u13-oldest-high, task 'running e2e tests on temp backlog; mutation controls in flight'"
+      "last_observed_at": "2026-09-13T05:56Z",
+      "last_observation": "2026-09-13T05:56:12Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 289732/1M (29%), branch claude/mi279-u23-builder-latch"
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
@@ -4953,8 +4953,8 @@
       },
       "item": "MI-280",
       "lane": "engineering",
-      "last_observed_at": "2026-09-13T04:58Z",
-      "last_observation": "2026-09-13T04:58:14Z get_session: RUNNING/connected, 706997/1M (71%, unchanged since it compacted), review_ready '2 PRs armed + green; awaiting human merge on #12046', branch claude/mi280-u85-index-census-unavailable, 'U82 merged; U83/U84 in flight'"
+      "last_observed_at": "2026-09-13T05:56Z",
+      "last_observation": "2026-09-13T05:55:56Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 706997/1M (71%), #12189 merged"
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",

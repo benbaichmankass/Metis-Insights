@@ -40,7 +40,8 @@ THREE CHECKS, each mapping to one way an id collision reaches `main`
   `MI-86` next to the `MI-86` that was already there. Full coverage: every row
   carries its id field by definition, so there is nothing to grade `unknown`.
 
-* **R2 — identity immutability (diff-scoped against the merge base).** This is
+* **R2 — identity immutability (diff-scoped against the base ref AS GIVEN — the
+  TIP, deliberately; see the note below).** This is
   the *replace* spelling, and R1 is blind to it: the branch overwrote main's
   `MI-86`, so the branch's own file contains no duplicate at all. An id that
   exists in BOTH base and head whose **creation facts** changed is either an id
@@ -52,6 +53,28 @@ THREE CHECKS, each mapping to one way an id collision reaches `main`
   they were created, and today that share is **not** 100%. R3 is what makes it
   rise instead of staying where it is. Same shape as
   `check_backlog_criteria.py`: the past is grandfathered, the future is not.
+
+⚠️ **R2 READS THE BASE REF AS GIVEN — THE TIP — AND THAT IS CORRECT HERE. DO
+NOT "FIX" IT TO A MERGE BASE.** This line read *"diff-scoped against the merge
+base"* until 2026-09-13 and was simply false: `_load_at_base` does
+`git show {base}:{path}` on the ref it was handed. The code was right and its
+own documentation asserted the opposite, which is the dangerous direction —
+a reader trusting it would "correct" the code into a real defect.
+
+WHY THE TIP IS RIGHT FOR *THIS* GUARD, while it is wrong for its neighbours:
+R2 asks **"does my id collide with what main HAS?"**, not "did this diff change
+a row?". The fork point would MISS a collision with a row `main` gained after
+this branch was cut — which is the likeliest collision there is, since the
+window for two branches to pick the same id is exactly the window between the
+fork and the merge.
+
+The per-script audit this comes from lives in
+`scripts/ops/check_backlog_criteria.py::_load_at_ref`, which names this guard
+under **"RIGHT BY DESIGN, DO NOT 'FIX' THESE"** — and the whole reason this
+note exists locally is that a warning in another file does not reach someone
+reading this one. `scripts/ops/base_resolution_census.py` is the reader that
+counts the class; it reports this script under *"read at whatever ref was
+passed"*, which is a count of a PATTERN and not a list of defects.
 
 ⚠️ **R2's COVERAGE IS PARTIAL AND IS PRINTED, NEVER COLLAPSED.** A row with no
 creation-date field is graded `unassessable` — *we could not look* — and is

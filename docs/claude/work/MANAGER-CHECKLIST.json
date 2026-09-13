@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T04:58:30Z",
+  "updated_at": "2026-09-13T07:05:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T04:58:30Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0452Z manager tick",
+  "as_of": "2026-09-13T07:05:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z manager tick (branch restarted after #11875 squash-merged)",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5666,5 +5666,54 @@
       "decision 2 (arming breakout_1) still gated on a dispatchable round for a strategy NOT already holding that symbol",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
     ]
+  },
+  "manager_tick_2026_09_13T0552Z": {
+    "THE_PR_WENT_GREEN_AND_DIRTY_IN_THE_SAME_HOUR": {
+      "green": "all five checks on #11875 passed at 05:21Z, `guards` included — the artifact-validity fix worked.",
+      "dirty": "and main moved past it, so a local `git merge-tree --write-tree` graded the head CONFLICT. This is the case the tick prompt names: green on every check AND unmergeable, because the checks ran against a base main has since passed. mergeable_state alone tells them apart; four green checks do not.",
+      "resolved": "merged main in; the ONLY conflicted file was docs/claude/work/OPEN-PRS.json, whole-file, both sides rewritten."
+    },
+    "I_READ_THE_CONFLICT_INSTEAD_OF_RESOLVING_ON_REFLEX_AND_IT_MATTERED": {
+      "what_the_two_sides_held": "MINE: open_prs 9 / settled_prs 95. MAIN'S: open_prs 0 / settled_prs 104. On its face that reads as main having DELETED nine rows.",
+      "what_it_actually_was": "main MOVED all nine from open_prs to settled_prs — they merged. Checked by PR NUMBER across both sections rather than by section: the set of PRs present only on my side is EMPTY.",
+      "the_half_that_had_to_be_verified_field_by_field": "all three rows carrying a real operator verdict were compared literally, not assumed: #11817 `approved`, #11870 `not_required`, and #11903 `approved_with_conditions` WITH its condition and scope text intact. Losing that third one is the exact failure this register exists to prevent — a successor reading 'approved' without 'bybit_1 only, not fleet-wide' could merge a demo-only approval onto a real-money account. Nothing was lost, so the merge was resolved to MAIN deliberately.",
+      "what_is_still_wrong_and_is_NOT_fixed_here": "main's open_prs is EMPTY against roughly 27 PRs actually open on GitHub. An empty list is not the claim that nothing is open — it is nobody having re-derived it, which this register's own _doc calls its dangerous case. I added ONE row: #11875, the PR this session owns and can state facts about. A full re-derivation needs a live open-PR list and is a unit of work, not a tick. open_pr_record --strict now grades structural=well_formed, decisions=graded, settled=settled_graded, completeness=not_observed — and `not_observed` is WE DID NOT LOOK, never a pass."
+    },
+    "lanes_all_three_RUNNING_re_observed": {
+      "MI-278_research": "58% (flat 3h), merge-testing 3 branches",
+      "MI-279_ops": "29% (flat), e2e tests with mutation controls in flight",
+      "MI-280_engineering": "71% (flat since compaction), #12189 MERGED — 141 insertions, and it found THREE guard bugs by measurement plus planted defects, which is the lane doing exactly what it was dispatched for",
+      "no_spawns": "three lanes exactly, per the operator's rollback instruction."
+    },
+    "merge_queue": {
+      "mine": "#11875 re-merged onto main at 05:55Z and is CLEAN again; checks re-run on the new head.",
+      "still_needs_the_operator": "#12046 (MI-280) — `landing: hold` / `unvouchable_paths`, nothing armed, ONE human merge click. Third tick running. Reported, not re-asked.",
+      "lanes_are_self_serving": "MI-278 is merge-testing its own branches and MI-280 landed #12189 itself; no manager merge was needed or taken."
+    },
+    "next": [
+      "#12046 needs one operator merge click",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — a re-derivation is owed and is a unit of work, not a tick",
+      "decision 2 (arming breakout_1) still gated on a dispatchable round for a strategy NOT already holding that symbol",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow"
+    ]
+  },
+  "manager_tick_2026_09_13T0652Z": {
+    "THE_LEASE_LAPSED_AND_I_DID_NOT_NOTICE_FOR_TWO_HOURS": {
+      "what_happened": "PR #11875 SQUASH-MERGED at 2026-09-13T05:21:13Z, taking the branch's content up to 44ad69b35 onto main. I did not notice, because `git merge-base --is-ancestor <my head> origin/main` answered NO — which is TRUE of my head and says NOTHING about whether the PR merged, since a SQUASH merge puts the content on main under a commit that is an ancestor of nothing on the branch. I read a true answer to the wrong question and concluded the PR was still open.",
+      "the_consequence": "every commit I made after 05:21 — the 0552Z tick, the OPEN-PRS conflict resolution, two guard fixes, and the 05:53 and 06:52 lease HEARTBEATS — went onto a branch whose PR was already merged. No open PR meant no CI fired on any of them, which I noticed and misdiagnosed as a GitHub event problem. And the heartbeats never reached main, so main's lease read 04:53:35Z and EXPIRED at 06:23. `manager_lease.py heartbeat` refused with STAND DOWN, correctly.",
+      "the_lesson_that_generalises": "the rule is 'a claim you did not PUSH protects nothing'. This is one level deeper: A CLAIM PUSHED TO A BRANCH WHOSE PR HAS MERGED ALSO PROTECTS NOTHING, and it looks identical to a healthy push — the push succeeds, the commit exists, the file says what you meant. The check that would have caught it is reading the PR's OWN `state`/`merged` field, not deriving mergedness from ancestry.",
+      "also_caught_by_the_tool_as_predicted": "the branch restart refused while the heartbeat sat uncommitted — `git checkout` blocked it, which this tick's own prompt says in terms is 'the tool catching what you did not'. It was.",
+      "resolution": "branch restarted from origin/main per the standing rule that a merged PR is finished and must not be reused; the three stranded commits' CONTENT is carried forward here rather than discarded; lease RE-CLAIMED over its own expiry with the reason recorded. ⚠️ The claim could not verify main's CI — main's head reports ZERO check runs, so the `unrefreshable holder` case was not ruled out BY EVIDENCE. I am the holder and know it was not that, but the check could not run and the claim says so rather than implying it passed."
+    },
+    "what_the_0552Z_block_below_is": "REAL WORK THAT NEVER LANDED. It is carried forward verbatim, not re-derived: the OPEN-PRS whole-file conflict was read rather than resolved on reflex, and the finding — that main had MOVED all nine rows to settled with every operator_decision intact, including the approved_with_conditions one — stands and is worth keeping.",
+    "OPEN_PRS_row_for_11875_deliberately_NOT_carried": "that row recorded #11875 as OPEN. It merged at 05:21, so carrying it would put a false claim into the handoff record — the precise failure that register exists to prevent. main's own copy already has #11875 nowhere; the honest state is that open_prs is still empty against ~27 open PRs, which stays owed as its own unit of work.",
+    "lanes": "NOT re-observed this tick. The tick was spent establishing why the lease had lapsed and restoring it; the three lanes were get_session'd at 05:56 and all three were RUNNING (MI-278 58%, MI-279 29%, MI-280 71%). Saying so rather than carrying an hour-old reading as if it were fresh.",
+    "next": [
+      "re-observe the three lanes next tick — this tick's reading is 60 min old and is labelled as such",
+      "#12046 still needs one operator merge click",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
+    ],
+    "AND_A_PR_EXISTED_THE_WHOLE_TIME_WHICH_CORRECTS_MY_LAST_REPORT": "PR #12200 was opened AUTOMATICALLY by claude-pr-automerge at 05:59:33Z — the very first push after #11875 squash-merged — and its head tracked every commit I made afterwards. I never looked for it; I kept reading #11875. So last tick's report that 'no CI fired on my pushes, suspect a GitHub event problem' is WRONG and is corrected: CI was not firing ON #11875 because #11875 was merged, while a live PR carrying the same pushes sat beside it. 'No checks on the PR I am watching' is not 'no checks'. The arming file did exactly what it is for; what failed was that I did not ask which PR the branch actually had. #12200's body is rewritten to describe what it really carries."
   }
 }
