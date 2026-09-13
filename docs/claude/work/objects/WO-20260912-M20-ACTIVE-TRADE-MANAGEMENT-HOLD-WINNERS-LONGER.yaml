@@ -76,3 +76,38 @@ progress:
     family banked another 6 at 12-13% of declared target), so U3 tests target geometry and the
     trailing stop that precedes it. It must treat any live-population firing rate as a LOWER
     BOUND, because 43% of the window is unattributable or contaminated.
+  U31: >-
+    DELIVERED, PR pending. THE CYCLE PRIORITY APPLIED TO THIS OBJECT'S OWN EVIDENCE: repair the
+    measurement before acting on what it says. Working clause 1 of
+    BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY,
+    whose 21 named surfaces were 19 unpaid. The most load-bearing was
+    bleed_attribution_2026_09_11.py -- the script behind the -$38,851.81 figure the loud
+    OI-20260911 rests on -- which reads order_package_id ZERO times (positive control: account_id
+    twice) and, verified off the script rather than off prose, does NOT scope by account, so its
+    arms are POOLED. THE FINDING, and it is this row's first conclusion change: pooled, the e35
+    pre/post stop-rate Fisher goes p=8e-05 on ROWS to p=0.05703 on PACKAGES -- it crosses alpha and
+    is the ONLY arm in the table that changes; the other three are neither_significant on both.
+    !! THE MECHANISM IS NOT THE UNEQUAL INFLATION THIS ROW WAS FILED ABOUT: on this window the e35
+    arms inflate almost equally (1.444x / 1.471x). It is ~a third fewer independent observations
+    plus the post arm's stop-outs collapsing 15 rows -> 8 packages, 1.875x against its own 1.471x,
+    i.e. concentrated in fanned packages. !! AND THE USEFUL HALF: scoped to bybit_1 the inflation is
+    1.0581x and e35 is BYTE-IDENTICAL on both denominators, because FAN-OUT IS CROSS-ACCOUNT -- so a
+    per-account reading is immune and the whole exposure is in the pooled arms. That says WHICH
+    READING IS SAFE rather than passing verdict on the analysis.
+    !! pnl_sum IS DELIBERATELY NOT RE-DERIVED. It is an ACCOUNT fact; a package denominator would
+    UNDERSTATE money actually lost, and a session revising the headline DOWNWARD would commit the
+    row's error in the opposite direction -- the likelier mistake, because a package denominator
+    sounds uniformly more careful. The deliverable is the PARTITION (10 price_path / 9 account_fact
+    / 1 both_stated / 0 undeclared), completeness-checked by CALLING summarise, not reading it.
+    !! IT DOES NOT WEAKEN OI-20260911's HEADLINE and does not touch its clears_when. It narrows one
+    supporting claim -- the e35 contrast, the row's own leading candidate -- which makes the row's
+    existing framing MORE right: it already records that the bleed predates e35 by three days.
+    !! A MISLABEL OF MY OWN, caught by running on live data rather than reading: a single verdict
+    string returned `loses_significance` for an arm that was never significant (b4_geometry,
+    0.3043 -> 0.4643) and `strengthens` for two that stayed non-significant. Sub-class A
+    unprovenanced diagnostic output; fixed by branching on the actual condition -- two orthogonal
+    never-collapsed facts, `significance` and `strength` -- with both live mislabels pinned as
+    regression tests naming their own figures.
+    WHAT REMAINS: 17 of 21 surfaces, three of them the Tier-2 dashboard routes (no live figure was
+    re-graded -- that is a decision, not a side effect of a re-derivation).
+    Evidence: docs/research/m20-u31-bleed-record-package-denominator-2026-09-13.md
