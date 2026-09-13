@@ -2287,6 +2287,27 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_selftest_wiring.py"]],
     },
     {
+        "name": "diag-relay-render-guard",
+        # A guard that is TRUNCATED AWAY is not a guard. The relay cuts each
+        # path's JSON to a byte budget, and the db-explorer envelope orders
+        # `rows` BEFORE `total`/`filter_state`/`count` — so a head truncation
+        # kept the data and dropped the fields that invalidate it
+        # (BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE).
+        #
+        # The self-test runs on EVERY invocation, same reasoning as
+        # exit-mechanism-coverage-guard: it carries NEGATIVE CONTROLS asserting
+        # that the OLD head-truncation drops `filter_state` and the denominator,
+        # and a probe that cannot show the defect proves nothing about the fix.
+        #
+        # The workflow is globbed too: this logic was inline YAML python and
+        # therefore untestable, which is why it shipped wrong and stayed wrong.
+        "when": {"globs": ["scripts/ops/diag_relay_render.py",
+                           ".github/workflows/vm-diag-snapshot.yml"]},
+        "steps": [
+            ["python3", "scripts/ops/diag_relay_render.py", "--self-test"],
+        ],
+    },
+    {
         "name": "exit-mechanism-coverage-guard",
         # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
         # unit module never reads. Silently inert, and INVISIBLE to

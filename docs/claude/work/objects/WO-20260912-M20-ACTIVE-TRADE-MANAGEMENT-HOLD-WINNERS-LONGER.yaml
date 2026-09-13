@@ -111,6 +111,37 @@ progress:
     WHAT REMAINS: 17 of 21 surfaces, three of them the Tier-2 dashboard routes (no live figure was
     re-graded -- that is a decision, not a side effect of a re-derivation).
     Evidence: docs/research/m20-u31-bleed-record-package-denominator-2026-09-13.md
+  U32: >-
+    DELIVERED. scripts/research/e35_binomial_package_denominator.py re-derives
+    e35_break_attribution's one-sided binomial per ORDER PACKAGE. NOT A REPEAT OF U31: this
+    statistic takes TWO terms from row counts -- k,n from the E35 arm's POST rows AND the null p
+    from the family-matched CONTROL's own rows/rows rate -- so fan-out reaches the sample size
+    and the null hypothesis by different paths and one rows->packages swap cannot attribute the
+    move. Four cells, threshold-free attribution. MEASURED pooled bybit_*, 204 rows / 155
+    packages (1.3161x, 27 packages spanning >1 account, 4 packages disagreeing on win/loss, 0
+    straddling the deploy, 0 rows without a package id): the four cells span 0.0243-0.1779 and
+    ONE crosses alpha while both PURE bases read 0.0586 and 0.1010. Graded `offsetting` -- the
+    substitutions push OPPOSITE ways and cancel, so the published p is stable by coincidence, not
+    robustness; a plain rows-vs-packages re-derivation would have reported no change and been
+    wrong to stop. THE DESCRIPTION AND THE INFERENCE DO NOT MOVE TOGETHER: the e35 delta is
+    robust (-55.0 -> -57.6pp) while the FAMILY-MATCHED CONTROL'S DELTA FLIPS SIGN (+0.8 ->
+    -8.3pp) -- opposite conclusions about whether the break is e35-specific, on 3 pre packages,
+    which is a finding about that arm's fragility and NOT a new verdict. Per-account every cell
+    collapses to one number at inflation ~1.0, reproducing U31's transferable finding that
+    fan-out is CROSS-account and pooling is the exposure; bybit_1's residual 1.0362x is three
+    ict_scalp_* packages writing several rows on ONE account, lands entirely in control_other,
+    and is NOT fan-out. Carried a behaviour-preserving refactor of the subject (arm_of/ARMS
+    extracted from grade()), proven byte-identical on the real 1000-row pull.
+    !! THE UNIT'S OWN CORRECTION, and it corrects this object too: re-measured with U12's
+    instrument, price_path_not_deduped reads 21 -- UNCHANGED since U12 named it. U19, U31 and
+    U32 each built a re-derivation BESIDE the exposed surface rather than changing it, so
+    nothing has left the list. U31's board note said '17 of 21 remain' and U32's own START said
+    '16'; both are wrong and the true count has never moved. Filed as
+    BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED.
+    Population fingerprint is BYTE-IDENTICAL to U31's (rowset sha256:1752f298..., order
+    sha256:b073ee2c..., ids 5731->4732), so the two memos differ by method and never by pull --
+    U26's stanza paying off on its first re-use. Memo:
+    docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md
   U33: >-
     DELIVERED. Tested the candidate BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED named as untested
     and called 'a different unit'. CONFIRMED AT THE FIELD: _netting_rows_to_attribute computes
@@ -144,4 +175,3 @@ progress:
     and
     BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED.
     Memo: docs/research/m20-u33-netting-position-size-basis-2026-09-13.md
-
