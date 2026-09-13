@@ -740,6 +740,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u28-prioritisation-answered-and-the-ties-got-worse-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u2b-risk-denominator-ratchet-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u31-bleed-record-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u5-excursion-regime-instrument-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u9-netting-close-venue-adjudication-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-what-remains-2026-08-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
