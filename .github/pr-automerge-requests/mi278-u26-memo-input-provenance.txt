@@ -1,0 +1,7 @@
+MI-278 U26 — scripts/research/memo_input_provenance.py, its memo, one generated stub row in
+docs/DOCUMENT-INDEX.md, one row in the hand-maintained RESEARCH-CAPABILITY-INDEX, and two
+backlog rows (one performance, one health).
+
+Tier-1: docs/**, scripts/research/**, .github/**. No src/, no config/, no unit files, no
+order path. Landing declared in .github/pr-landing/mi278-u26-memo-input-provenance.json.
+PR #12131, opened by this session so CI fires on a real pull_request event.
