@@ -176,8 +176,10 @@ largest cell, six sevenths of the contradiction is two or more *separate
 re-entry trades* under one id disagreeing about their own separate outcomes,
 which is not a fan-out disagreement in any sense.
 
-The band's **width is mostly an artefact of the grouping key**: removing the
-non-fan-outs narrows it by **32%** while leaving all three other cells untouched.
+The band's **width is mostly an artefact of the grouping key**: over the same
+population of 110 multi-row packages, removing the non-fan-outs narrows the band
+from 3.8–29.6pp to 6.1–23.7pp — a width of **25.8pp → 17.6pp, i.e. 32% narrower**
+— while leaving all three other cells untouched.
 
 > ⚠️ **NO EXCLUSION IS PROPOSED AND THE INSTRUMENT REFUSES TO PROPOSE ONE** (a
 > planted "RECOMMENDATION: exclude…" line is caught by its own controls).
