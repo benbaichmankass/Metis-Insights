@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's `updates` field: re-reads a Tier-3 row at 34 days and records that the conflict branch was fixed while the reinforcement branch still leads its sort key with a permanently-zero term, narrows the outstanding decision to one term in one call, corrects the severity reading with the function's own measured basis, and records that the 2026-08-16 Tier-3 proposal reaches no decision surface. Register only, read-only on src/: no src/ edits, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted and no decision request originated — the routing is the manager's."
+}
