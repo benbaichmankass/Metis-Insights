@@ -195,7 +195,7 @@ non-fan-outs narrows it by **32%** while leaving all three other cells untouched
 
 ## 5. A second, unplanned finding: hypothesis (b) is observed
 
-`BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-…`
+`BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN`
 names two causes for a moving table — (a) reordering, (b) a row **re-stamped**
 between pulls — and records that they could not be told apart because U15's pull
 was not retained. U26 then observed a **third** (the window moved).

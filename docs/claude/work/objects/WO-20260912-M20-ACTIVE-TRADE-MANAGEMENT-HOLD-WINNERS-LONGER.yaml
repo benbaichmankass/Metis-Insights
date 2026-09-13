@@ -203,7 +203,7 @@ progress:
     SIGN SURVIVES BOTH, so U15/U19/U22 are not contradicted on direction. NO EXCLUSION IS PROPOSED and
     the instrument refuses to -- a planted 'RECOMMENDATION: exclude' line is caught by its own controls.
     !! A SECOND, UNPLANNED FINDING: hypothesis (b) of
-    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE is OBSERVED, not merely a
+    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN is OBSERVED, not merely a
     candidate -- and it needed no retained pull, only two DECLARED fingerprints. U31/U32 declared order
     sha256:b073ee2c... / rowset sha256:1752f298... over ids 5731->4732; U38's pull hours later the same
     day has the SAME ids, the SAME order digest and a DIFFERENT rowset digest (sha256:5b1cacd6...), so at
