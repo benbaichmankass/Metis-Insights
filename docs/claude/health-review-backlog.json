@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-13T02:15:00+00:00",
+  "updated_at": "2026-09-13T02:20:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -38312,24 +38312,6 @@
       ]
     },
     {
-      "id": "BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD",
-      "title": "--strict now fails a DECLARED triage shortfall, and an OMITTED count_untriaged still passes -- so the cheapest way past the new gate is to not state the number",
-      "area": "review-tooling",
-      "severity": "medium",
-      "tier": 1,
-      "status": "open",
-      "opened_at": "2026-09-12",
-      "opened_by": "MI-279 OPS lane session_013iSqp4LsU1eq8K326eUtgj (/backlog-drain U3)",
-      "detail": "FILED IN THE SAME CHANGE THAT BUILT THE GATE, as the half deliberately NOT built. BL-20260814-STRICT-GUARD-DOES-NOT-ENFORCE-THE-TRIAGE-GATE is resolved: render_system_report._validate_review_coverage now fails a run whose backlog_drive.<domain>.count_untriaged is > 0, or whose triaged != open_at_start, naming the domain, with --allow-partial-triage as an explicit opt-out that stamps a PARTIAL REVIEW banner. WHAT IS NOT ENFORCED: an ABSENT count_untriaged. It is 'we did not look', and the gate passes it. WHY IT WAS LEFT, and this is a measurement rather than a preference: `count_untriaged` is named FOUR times in .claude/skills/system-review/SKILL.md and was named ZERO times in comms/schema/system_report_response.template.json (measured 2026-09-12 by grep -c on both files). The field the gate is written against was not in the schema authors fill in -- which is ALSO the root cause of the original row, since --strict could hardly check a field the template never asked for. So EVERY report rendered from that template omits the count, and failing on absence would have redded every review run on day one. That is how a guard gets switched off rather than satisfied; the same argument is recorded in CLAUDE.md for the diagnostic-provenance guard, which only survived an ungated whole-tree step because its residue had already been drained to 0. WHAT THIS CHANGE DID ABOUT IT: the three counters (count_untriaged, triaged, open_at_start) are ADDED to the template with a _comment saying to state the count even when it is 0. That is the precondition for the tightening, not the tightening. !! THE EXPOSURE IS REAL AND SHOULD NOT BE READ AS THEORETICAL: a run that simply omits the key now renders GREEN under --strict while triaging nothing, which is the exact 'green is not evidence' shape the original row was filed against, one field over. The gate is strictly better than before -- an HONEST payload can no longer pass while declaring 201/39/26 -- and it is not yet a gate a dishonest or careless one cannot walk past. !! AND DO NOT CLOSE THIS BY TIGHTENING BLIND: check first that real reports carry the field. tests/test_review_coverage_triage_gate.py::test_an_absent_count_is_not_yet_refused_and_that_is_recorded PINS the current looseness, so a future tightening fails that test and sends its author here rather than leaving them to wonder whether the gap was deliberate.",
-      "resolution_criteria": "BOTH, and they are different facts -- say WHICH you cleared. (1) MEASURED: at least one report committed under comms/reports/ carries backlog_drive.<domain>.count_untriaged for all three domains, read off the committed JSON rather than from the template, so the field is demonstrably in use rather than merely available. (2) An absent count_untriaged on a domain block that EXISTS is a violation in _validate_review_coverage, with the pinning test updated in the same change rather than deleted. [!] NOT sufficient: adding the field to the template -- that is already done and is what made (1) possible. [!] NOT sufficient: a passing test alone; the point of (1) is that a real run writes the number. [!] AND IF THE OPERATOR DECIDES the triage gate should not be this strict, that is a legitimate decision and closes this row -- but it must be RECORDED as one rather than left looking like a tightening about to happen.",
-      "refs": [
-        "BL-20260814-STRICT-GUARD-DOES-NOT-ENFORCE-THE-TRIAGE-GATE",
-        "comms/schema/system_report_response.template.json",
-        "scripts/reports/render_system_report.py",
-        "tests/test_review_coverage_triage_gate.py"
-      ]
-    },
-    {
       "id": "BL-20260913-IB-TARGET-SIDE-EXCESS-IS-UNGRADED-SO-A-POSITION-CARRYING-DOUBLE-ITS-TAKE-PROFIT-QUANTITY-IN-DISJOINT-OCA-GROUPS-PAGES-NOBODY",
       "opened_at": "2026-09-13T01:05:00+00:00",
       "opened_by": "claude (MI-279 OPS lane, U9 class-first on the IB exit-coverage cluster), session_013iSqp4LsU1eq8K326eUtgj",
@@ -38356,6 +38338,24 @@
         "BL-20260816-IB-CANCEL-ACCEPTED-BUT-NEVER-COMPLETES-VENUE-CLOSED",
         "BL-20260816-NO-PER-ORDER-IB-CANCEL",
         "BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS"
+      ]
+    },
+    {
+      "id": "BL-20260913-A-DUPLICATE-ROW-ID-REACHED-MAIN-AND-TURNED-REGISTER-ID-GUARD-RED-FOR-EVERY-BACKLOG-TOUCHING-PR-IN-THE-REPO",
+      "opened_at": "2026-09-13T02:20:00+00:00",
+      "opened_by": "claude (MI-279 OPS lane, U15), session_013iSqp4LsU1eq8K326eUtgj",
+      "area": "registers / merge",
+      "severity": "high",
+      "tier": "1 (a register row; no runtime path)",
+      "status": "open",
+      "title": "A duplicate row id LANDED ON MAIN in health-review-backlog.json, so register-id-guard failed on every PR touching that file until it was removed -- and the guard's own message says the next merge could have silently deleted one of the pair",
+      "detail": "FOUND 2026-09-13 by a guard failing on an unrelated PR, which is the only reason anyone looked. `register-id-guard` reported: id 'BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD' appears at rows 1569 AND 1573.\n\nPOPULATION AND PROVENANCE, because 'is this mine?' was the first thing to settle and the answer changes what to do: measured on THREE trees -- origin/main, my branch's parent commit, and my working tree -- all three carry 1575 rows with exactly 1 duplicated id. So IT WAS ALREADY ON MAIN and no branch of mine introduced it. Every backlog-touching PR in the repo was failing this guard, not just one lane's.\n\nTHE TWO ROWS WERE BYTE-IDENTICAL -- asserted field by field (11 of 11 keys equal, `a == b` True) before anything was removed, because a surgical delete is only lossless if they genuinely are. So this is the BENIGN presentation of the class: the same row appended twice, not two different findings colliding on one id. The malign presentation is the one the guard's message warns about and is why this is `high` rather than cosmetic: 'to git a reused id is a changed value at the same key, so the merge silently deletes the row that was already there.' Had the two differed, a later union merge could have dropped one and nothing would have said so.\n\nREMOVED SURGICALLY rather than by re-serialising the file, with the assertions stated rather than implied: the two objects were equal; exactly one row was removed (1575 -> 1574); the id list is otherwise IDENTICAL IN ORDER to the original minus that index; and the surviving row is byte-equal to the FIRST occurrence. register-id-guard then reads OK.\n\n[!] THE CAUSE IS NOT ESTABLISHED AND I AM NOT GUESSING AT IT. The row was filed by PR #12057 (this lane's U3, merged 2026-09-13). A union-style register merge that re-appends an already-present row would produce exactly this, and the repo has a live family of rows about that machinery -- BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE and BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY are both open -- but I did not trace the merge that did it. Read this row as 'a duplicate landed and here is what it cost', not as an attribution.\n\n[!] AND THE DETECTOR WORKED. register-id-guard caught this on the first PR that touched the file after it landed. What is missing is not detection but PLACEMENT: the guard runs on PRs, so a duplicate that reaches main is discovered by failing somebody ELSE's unrelated change, and the session that finds it is never the session that caused it. That is the cost being recorded here.",
+      "resolution_criteria": "1. `register-id-guard` passes on main itself, not only on a PR -- i.e. something runs it against the default branch on a cadence, so a duplicate that lands is found by the repo rather than by the next unrelated PR author. 2. EITHER the merge path that can re-append an already-present row is identified and fixed, OR it is established that this instance came from a hand resolution and the machinery is exonerated -- those are opposite findings and this row must not be closed without saying which. [!] REMOVING THIS PARTICULAR DUPLICATE DOES NOT CLOSE IT: that is the instance, not the class, and the class is that a duplicate can reach main at all. [!] A GREEN GUARD ON A PR CLEARS NOTHING EITHER -- that is exactly the state that held while the duplicate sat on main, because the guard only ever ran where the duplicate was not yet visible as a change.",
+      "refs": [
+        "scripts/ci/check_register_ids.py",
+        "docs/claude/health-review-backlog.json",
+        "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+        "BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY"
       ]
     }
   ]
