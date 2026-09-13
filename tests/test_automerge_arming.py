@@ -154,11 +154,33 @@ def test_arm_is_true_for_exactly_one_state():
     assert got == [True, False, False, False]
 
 
-def test_all_three_states_are_reachable_so_none_is_decorative():
+def test_every_declared_state_is_reachable_so_none_is_decorative():
+    """⚠️ KEYED ON `ALL_STATES`, so a state added to the module without a way to
+    REACH it fails here. That is what happened when `opener_cannot_attach` was
+    added (2026-09-13): this test was the only thing in the repo that noticed,
+    and it noticed in CI rather than in the module's own self-test."""
     reached = {G.grade(REAL, checks_read_ok=True)["state"],
                G.grade(SELF, checks_read_ok=True)["state"],
-               G.grade(None, checks_read_ok=False)["state"]}
+               G.grade(None, checks_read_ok=False)["state"],
+               G.grade(REAL, checks_read_ok=True,
+                       opener_kind=G.OPENER_GITHUB_TOKEN)["state"]}
     assert reached == set(G.ALL_STATES)
+
+
+def test_an_unreadable_check_list_outranks_a_damning_opener():
+    """Both refuse, so nothing is less safe — what differs is the REASON given.
+    A read that FAILED is *we did not look*, and reporting the opener instead
+    would answer a question nobody asked."""
+    r = G.grade(None, checks_read_ok=False, opener_kind=G.OPENER_GITHUB_TOKEN)
+    assert r["state"] == G.UNREADABLE
+    assert r["arm"] is False
+
+
+def test_an_absent_opener_kind_grades_exactly_as_before():
+    """*We were not told* must not become a new refusal: a caller that has not
+    been updated would otherwise be stranded, which is worse than the defect."""
+    assert G.grade(REAL, checks_read_ok=True)["arm"] is True
+    assert G.grade(REAL, checks_read_ok=True, opener_kind=None)["arm"] is True
 
 
 def test_there_is_no_override_that_forces_arming():

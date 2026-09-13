@@ -82,7 +82,18 @@ SELF_JOB = "open-and-automerge"
 def grade(check_runs, *, checks_read_ok: bool, opener_kind=None) -> dict:
     """Pure. `check_runs` is whatever the API returned; nothing is trusted.
 
-    ⚠️ `opener_kind` IS CHECKED FIRST, AND THE COUNT CANNOT OVERTURN IT.
+    ⚠️ `opener_kind` IS CHECKED BEFORE ANY COUNT, AND NO COUNT CAN OVERTURN IT
+    — BUT `unreadable` STILL COMES FIRST, and that ordering is load-bearing
+    rather than cosmetic. Both states refuse, so there is no safety difference;
+    what differs is the REASON a reader is given. A check-run read that FAILED
+    is *we did not look*, which this repo puts above every other verdict, and
+    `tests/test_automerge_request_gate.py` asserts in terms that such a read is
+    "not filled in with a plausible answer". Grading it `opener_cannot_attach`
+    would answer a question we had not asked — the unprovenanced-diagnostic
+    shape, inside the module written to prevent its neighbour. So: could not
+    look → `unreadable`; looked, and the opener cannot attach →
+    `opener_cannot_attach`; looked, and nothing foreign is there →
+    `none_attached`.
     MEASURED 2026-09-13 on two live runs — #12087 (a PR this workflow CREATED
     under GITHUB_TOKEN, 2026-09-12T20:49:22Z) and #12211 (an ADOPTED PR,
     2026-09-13T07:17:44Z) — the gate graded `attached` on BOTH, with the same
@@ -118,20 +129,6 @@ def grade(check_runs, *, checks_read_ok: bool, opener_kind=None) -> dict:
     been updated. The workflow always passes it; a missing value keeps the old
     behaviour rather than a new failure.
     """
-    if opener_kind == OPENER_GITHUB_TOKEN:
-        return {
-            "state": OPENER_CANNOT_ATTACH, "arm": False,
-            "attached": None, "self_only": None,
-            "why": "this PR was just CREATED under GITHUB_TOKEN, so GitHub's "
-                   "recursion prevention suppressed the `pull_request` event "
-                   "and the required checks will NEVER be created on this "
-                   "head. No number of other runs sitting on it changes that — "
-                   "a non-required run (`watch` fires on every claude/** push) "
-                   "is not something auto-merge waits for. Refusing to arm. "
-                   "REMEDY: repair the PAT-authenticated open so the event "
-                   "fires, or push one ordinary commit from your own "
-                   "credentials and let the run fire again.",
-        }
     if not checks_read_ok:
         return {
             "state": UNREADABLE, "arm": False, "attached": None, "self_only": None,
@@ -146,6 +143,20 @@ def grade(check_runs, *, checks_read_ok: bool, opener_kind=None) -> dict:
                    "list, so no count can be taken from it. A non-array is "
                    "refused rather than read as a zero — the same false-zero "
                    "this repo already paid for once in the pr-queue watcher.",
+        }
+    if opener_kind == OPENER_GITHUB_TOKEN:
+        return {
+            "state": OPENER_CANNOT_ATTACH, "arm": False,
+            "attached": None, "self_only": None,
+            "why": "this PR was just CREATED under GITHUB_TOKEN, so GitHub's "
+                   "recursion prevention suppressed the `pull_request` event "
+                   "and the required checks will NEVER be created on this "
+                   "head. No number of other runs sitting on it changes that — "
+                   "a non-required run (`watch` fires on every claude/** push) "
+                   "is not something auto-merge waits for. Refusing to arm. "
+                   "REMEDY: repair the PAT-authenticated open so the event "
+                   "fires, or push one ordinary commit from your own "
+                   "credentials and let the run fire again.",
         }
     # An entry with no usable name is NOT an attachment. Caught by this module's
     # own self-test before it shipped: `[{}, {"name": ""}]` produced two empty
@@ -279,6 +290,17 @@ def _self_test(quiet: bool = False):
     check("a GITHUB_TOKEN-opened PR does not arm even when REQUIRED-looking "
           "checks are present, because the opener decides, not the count",
           r["state"] == OPENER_CANNOT_ATTACH and r["arm"] is False)
+
+    # ⚠️ AND `unreadable` OUTRANKS IT. Both refuse, so nothing is less safe —
+    # what is at stake is the REASON. A read that FAILED is *we did not look*,
+    # and answering it with a verdict about the opener would report a question
+    # we never asked. `test_a_check_read_that_THREW_is_not_filled_in_with_a_
+    # plausible_answer` in the request-gate suite asserts exactly this, and it
+    # caught the first ordering in CI rather than here.
+    r = grade(None, checks_read_ok=False, opener_kind=OPENER_GITHUB_TOKEN)
+    check("a FAILED check read grades UNREADABLE even when the opener is also "
+          "damning — 'we did not look' outranks every other reason",
+          r["state"] == UNREADABLE and r["arm"] is False)
 
     check("arm is True for exactly one state",
           [grade(x, checks_read_ok=k)["arm"]
