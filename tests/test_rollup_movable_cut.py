@@ -172,8 +172,28 @@ def test_measured_state_2026_08_17():
     # `no_sweep_path` is UNCHANGED at 4 — `bracket_geometry` has a driver, so it
     # never belonged in that bucket, and the fact that this number did not move
     # is the check that the new column was classified rather than just absorbed.
-    assert len(cut.get("movable", [])) == 7
-    assert {i[3] for i in cut["movable"]} == {"bracket_geometry"}
+    #
+    # RESTATED 2026-09-12 (MI-278 U3), and the docstring above says to say so.
+    #
+    # `movable` moved 7 -> 0, and this is the bucket EMPTYING BY BEING WORKED
+    # rather than by being reclassified. All 7 were `ict_scalp` legs pending
+    # against `bracket_geometry`; MI-278 U3 swept every one of them at live
+    # parity (`timeout_bars=100000`) with a yearly walk-forward and wrote the
+    # verdicts into the matrix — 6 `honest_negative`, 1 `passed_unshipped`
+    # (`ict_scalp_xrp_15m` `tp1.25R`, the single walk-forward survivor). The
+    # eighth `ict_scalp` leg, `ict_scalp_mgc_15m`, was never in this bucket:
+    # it reads `blocked:no_free_lane_candle_feed` for the reason the 2026-08-20
+    # note above records. Run ids and per-cell numbers:
+    # `docs/research/m20-u3-scalp-target-sweepable-2026-09-12.md` sections 4l/4n.
+    #
+    # ⚠️ THE `no_sweep_path` ASSERTION IS THE LOAD-BEARING HALF OF THIS UPDATE,
+    # not a leftover. `movable` reaching 0 is what a bucket looks like when the
+    # work is done AND what it looks like when cells are quietly reclassified as
+    # unreachable. Those are opposite facts. `no_sweep_path` holding at 4 on the
+    # SAME two levers is what separates them: nothing moved sideways. Do not
+    # relax it to `>= 4` when this test next needs updating.
+    assert len(cut.get("movable", [])) == 0
+    assert {i[3] for i in cut["movable"]} == set()
     assert len(cut.get("no_sweep_path", [])) == 4
     assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
 
@@ -193,7 +213,10 @@ def test_internal_keys_are_not_printed_as_buckets():
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
     # ...while the measured count IS rendered, and reads 0 rather than 4.
-    assert "MOVABLE BY A SESSION: 7" in text
+    # 7 -> 0 on 2026-09-12: MI-278 U3 swept all seven `bracket_geometry` cells.
+    # See `test_measured_state_2026_08_17` for why `no_sweep_path` staying at 4
+    # is what makes the zero readable as "worked" rather than "reclassified".
+    assert "MOVABLE BY A SESSION: 0" in text
     assert "NO SWEEP PATH AT ALL: 4" in text
 
 
