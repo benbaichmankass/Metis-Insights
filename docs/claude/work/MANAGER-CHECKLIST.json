@@ -5513,5 +5513,29 @@
       "the dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
       "watch for the sharpened fan-out condition"
     ]
+  },
+  "manager_tick_2026_09_13T0055Z": {
+    "POKE_CHAIN_CLOSED_FULLY": {
+      "12094": "MERGED 6f04d12e0",
+      "12095": "MERGED d86b5d442",
+      "the_loop": "2155Z refused the merge on measurement (dirty + no CI). 2245Z owner resolved, CI armed. 2348Z second base merge plus a scope reduction. Both landed by 0053Z. The manager merged NEITHER — the poke was the whole intervention.",
+      "MI-280_unblocked": "18 PRs merged, #12143 green, next unit moving."
+    },
+    "first_non_pairs_trade_since_the_deploy": {
+      "trade": "id 5730, ib_paper, mgc_pullback_1d, 2026-09-13T00:01:25Z",
+      "NOT_fanout_evidence": "ib_paper is an IB futures account; the fan-out allowlist holds bybit_1 only, so this cannot have routed through it. Stated rather than counted as progress — the same care the pairs legs needed at 2036Z."
+    },
+    "fleet_unchanged": "soak newest still 2026-09-12T17:34:01Z (7h19m), size flat at 584431. Decision 2 still gated with no evidence; condition unchanged.",
+    "R6_would_have_FAILED_and_was_caught_before_the_commit": "SESSIONS.json was 120 min stale against a 90-min TTL at the moment of this heartbeat. Observed all three lanes and landed the registry WITH the heartbeat, rather than discovering it in the guard afterwards as at 1855Z.",
+    "SPEND_FLAG_FOR_THE_OPERATOR": {
+      "observed_today": "MI-280 $1007.77 (was $565.60 at 16:54) · MI-278 $779.96 (was $440.89) · MI-283 $274.68 final · MI-286 $22.68 final = ~$2085 across four lanes",
+      "trend": "roughly DOUBLED in the 8 hours since the $1184 figure was surfaced at 16:55Z. All lanes still report seven_day rate-limit allowed_warning.",
+      "manager_position": "surfacing, not deciding. Two lanes at 76-78% context running overnight is where the cost is; whether that is worth it is the operator's call."
+    },
+    "next": [
+      "the dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
+      "watch for the sharpened fan-out condition",
+      "MI-279 has 5 armed PRs but set no needs_action; not treated as blocking"
+    ]
   }
 }

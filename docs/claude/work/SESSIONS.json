@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-12T22:53Z",
+  "updated_at": "2026-09-13T00:53:55Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4892,12 +4892,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi278-u17-arbitration-priority-detectors"
+        "claude/mi278-u23-tier3-proposal"
       ],
       "last_observed": {
-        "at": "2026-09-12T20:36:35Z",
+        "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
-        "note": "RUNNING. 247881 (25%) — COMPACTED from 769500; the past-threshold warning is STALE. U18 dose-response analysed (p=0.0486, overlapping imputation); U19 queued; self-scheduled check 21:08Z."
+        "note": "RUNNING. 780221 (78%). U26 merged; U27 discharge in progress; 2 PRs ready. Self-scheduled check-in 40m."
       }
     },
     {
@@ -4914,12 +4914,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi279-u3-next4"
+        "claude/mi279-u8-oldest-high"
       ],
       "last_observed": {
-        "at": "2026-09-12T20:36:35Z",
+        "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
-        "note": "RUNNING. 289732 (29%) — healthy."
+        "note": "RUNNING. 289732 (29%) — the only lane comfortably under threshold, unchanged for 4 ticks. 5 PRs resynced and armed; no needs_action set, so NOT treated as blocking."
       }
     },
     {
@@ -4936,12 +4936,12 @@
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-12T05:19:48Z",
       "branches": [
-        "claude/mi280-u52-shortcircuit-scan-blindspots"
+        "claude/mi280-u65-close-the-reserialization-row"
       ],
       "last_observed": {
-        "at": "2026-09-12T21:53:53Z",
+        "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
-        "note": "RUNNING. 780309 (78%) — STILL the only lane that has not compacted, 5 ticks running. Landed 11 PRs. needs_action \"merge #12094\" was ACTIONED-AS-REFUSED: #12094 is mergeable_state dirty AND has no CI (zero-check trap, only watch + open-and-automerge). Poked on the PR; both blockers clear with one conflict resolution on its side. Delivered #12098, the clause-(2) not-yet-observable finding."
+        "note": "RUNNING. 760945 (76%). 18 PRs merged; #12143 green. Its #12094 blocker is CLEARED — both #12094 and #12095 landed on main."
       }
     },
     {
