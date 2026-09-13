@@ -2325,9 +2325,27 @@ GUARDS: List[Dict[str, Any]] = [
         # lever-reachability-guard: a coverage probe that cannot find a known
         # positive proves nothing, and "no orphans" is exactly the answer a
         # reader acts on by not looking further.
+        # ⚠️ THE GLOBS MUST TRACK THE TOOL'S `_IMPL_DIRS`, NOT A SUBSET OF IT.
+        # `exit_mechanism_coverage.py` decides "does this leg's unit implement
+        # the lever?" by scanning `_IMPL_DIRS = (src/units/strategies,
+        # src/runtime)` — and it scans src/runtime WHOLESALE on purpose, its
+        # own comment saying an explicit module list "is exactly the move that
+        # broke the source-only greps in
+        # BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS".
+        # This trigger named ONE file out of that directory
+        # (strategy_signal_builders.py), so the guard fired on strictly LESS
+        # than its own input: measured 2026-09-13, none of the four shared
+        # modules the tool actually reads —
+        # `src/runtime/{exit_levers,exit_head_apply,trail_decay,exit_head_shadow}.py`
+        # — was selected by any glob here. Removing `exit_head_verdict` from
+        # `exit_head_apply.py` orphans every delegating leg's declare, and this
+        # guard would not have run on that PR. `src/runtime/*.py` restores the
+        # correspondence; an explicit four-module list would reproduce the very
+        # bug the tool's wholesale scan exists to avoid
+        # (BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP clause (a)).
         "when": {"globs": ["config/strategies.yaml",
                            "src/units/strategies/*.py",
-                           "src/runtime/strategy_signal_builders.py",
+                           "src/runtime/*.py",
                            "scripts/ops/exit_mechanism_coverage.py"]},
         "steps": [
             ["python3", "scripts/ops/exit_mechanism_coverage.py", "--self-test"],
