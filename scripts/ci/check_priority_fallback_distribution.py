@@ -340,8 +340,8 @@ def self_test() -> int:
     ok("an unreadable priority map is ungradeable too",
        coverage_state(None, ["a"])[0] == "ungradeable")
     ok("every coverage state is in the declared vocabulary",
-       all(coverage_state(m, l)[0] in COVERAGE_STATES
-           for m, l in (({"a": 0}, ["a"]), ({}, ["a"]), (None, ["a"]), ({"a": 0}, None))))
+       all(coverage_state(m, legs)[0] in COVERAGE_STATES
+           for m, legs in (({"a": 0}, ["a"]), ({}, ["a"]), (None, ["a"]), ({"a": 0}, None))))
 
     # --- R3 regression ------------------------------------------------------
     base = {"absent_legs": ["x", "y"], "absent_legs_on_real_money": ["x"]}
