@@ -238,3 +238,49 @@ progress:
     move no_offline_evidence -> hold and actionable stays 0. Stated in the memo and in both backlog
     rows so the label change is not read as progress. NO Tier-3 change is proposed; decide() is
     untouched. Memo: docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md
+  U38: >-
+    DELIVERED. Worked
+    BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION,
+    whose own text says an honest negative closes it. IT DOES, AND THAT WAS THE SMALL HALF.
+    !! THE TRUNCATION ANSWER IS A DERIVATION, NOT A RE-RUN (which the row rules out). /api/diag/journal
+    is ORDER BY id DESC LIMIT n with no offset and no filter, so a missing member has an id BELOW the
+    minimum; the pull is DENSE (0 gaps over 1000 ids) so it cannot be an interior row, and id order
+    agrees with created_at order (0 inversions over 999 adjacent pairs) so a member below the edge was
+    created no later than the edge row. On one live pull (ids 4732-5731, rowset sha256:5b1cacd6..., 793
+    packages): ONE package of 793 (0.13%) within reach, 776 beyond, 16 unbounded_class, 0 ungradeable.
+    Single-row packages are graded too and must be -- a truncated fan-out's remnant IS a single row; 0
+    of 683 were within reach. The state is named beyond_observed_reach, never complete: it is a bound
+    from an observed maximum (5.918s), not a proof.
+    !! THE BIG HALF: order_package_id IS NOT A FAN-OUT KEY. SIXTEEN of the 110 multi-row packages
+    (14.5%, 41 of 317 rows) repeat an account_id, and a package holding two rows for the SAME account
+    cannot be one cross-account fan-out -- they are one id REUSED across re-entries (pkg-4f8140865a9a4441
+    is four bybit_1/ict_scalp_sol_15m longs at 20:12, 05:05, 08:00, 11:07; pkg-4b0f61d469e64c00 is two
+    ib_paper/mgc_trend_1h shorts 4.1 DAYS apart). The classes separate with NO THRESHOLD TO CHOOSE: the
+    94 distinct-account packages max 5.918s spread (median 2.16s, zero above 60s) against 3907s-353436s
+    -- a 662x gap with nothing in between. CONTIGUITY IS NOT THE TEST: 12 of 16 are non-contiguous but
+    FOUR ARE CONTIGUOUS and one spans 105 ids.
+    !! AND IT MOVES A PUBLISHED CAUSAL NUMBER, ONE-SIDEDLY. Running U15's own arm builder and U22's own
+    band UNMODIFIED (positive control: 168 of 168 unit packages recognised), ALL TEN reuse units that
+    fall inside U15's cells are in control_post and NONE in the other three, carrying SIX OF THAT CELL'S
+    SEVEN disagreements (7 -> 1, n 71 -> 61). Band 3.8..29.6pp -> 6.1..23.7pp, WIDTH narrowing 32%. THE
+    SIGN SURVIVES BOTH, so U15/U19/U22 are not contradicted on direction. NO EXCLUSION IS PROPOSED and
+    the instrument refuses to -- a planted 'RECOMMENDATION: exclude' line is caught by its own controls.
+    !! A SECOND, UNPLANNED FINDING: hypothesis (b) of
+    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN is OBSERVED, not merely a
+    candidate -- and it needed no retained pull, only two DECLARED fingerprints. U31/U32 declared order
+    sha256:b073ee2c... / rowset sha256:1752f298... over ids 5731->4732; U38's pull hours later the same
+    day has the SAME ids, the SAME order digest and a DIFFERENT rowset digest (sha256:5b1cacd6...), so at
+    least one row was RE-STAMPED between them. It does NOT attribute the 30-vs-31 (digests cannot name
+    the changed rows) and must not be read as closing that row. This is U26's stanza paying off a second
+    time and the first time it discriminated anything.
+    !! THREE TRUNCATION DETECTORS TESTED, ALL FAIL, EACH WITH A POSITIVE CONTROL: linked_trade_id points
+    outside the observed member set 0 of 520 times; no order_packages field declares an expected fan-out
+    width; and GET /api/bot/db/table/trades?filter_col=order_package_id -- which COULD complete a package
+    -- carries Depends(require_session) and returns 401 to a DIAG_READ_TOKEN session (/api/diag/version
+    -> 200, same host, same bearer). So the row's 'pull by id range rather than tail limit' candidate is
+    NOT AVAILABLE to a research session.
+    Filed BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL.
+    Instrument scripts/research/package_fanout_integrity.py (68 self-test + 33 pytest controls; 19
+    defects planted and 19 caught -- two ESCAPED on the first pass and both were control gaps, not module
+    bugs, now closed; 4 no-op plants fired zero). Nothing in src/, config/ or any unit file is touched.
+    Memo: docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md
