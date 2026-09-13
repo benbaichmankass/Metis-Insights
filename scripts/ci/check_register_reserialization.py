@@ -61,12 +61,24 @@ import _git_base  # noqa: E402  -- the ONE owner of base resolution
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
-# ── the four states, never collapsed ────────────────────────────────────────
+# ── the five states, never collapsed ────────────────────────────────────────
 CLEAN = "clean"
 RESERIALIZED = "reserialized"
 UNREADABLE = "unreadable"          # we could not look — NOT a pass
 UNTOUCHED = "untouched"
-ALL_STATES = (CLEAN, RESERIALIZED, UNREADABLE, UNTOUCHED)
+# ⚠️ `NEW_REGISTER` AND `UNREADABLE` ARE THE SAME BYTES AND OPPOSITE FACTS, and
+# collapsing them is what this state was added to stop. `git show <ref>:<path>`
+# exits non-zero both when the path is absent from an existing ref (a register
+# this diff ADDS — there is nothing to have re-serialized, and the honest
+# verdict is that the question does not arise) and when the ref itself cannot
+# be resolved (*we could not look*). `_git_base.read_at` has always told them
+# apart; this guard threw the distinction away one layer up, so a PR that
+# legitimately adds a register FAILED — reproduced before the fix, `ok=False`
+# with the new file graded `unreadable`.
+# It is deliberately NOT folded into CLEAN: `clean` means we compared two
+# versions and the comparison held, and there was no base version to compare.
+NEW_REGISTER = "new_register"
+ALL_STATES = (CLEAN, RESERIALIZED, UNREADABLE, UNTOUCHED, NEW_REGISTER)
 
 ID_FIELDS = ("id", "session_id", "pr", "item_id", "key")
 
@@ -172,8 +184,28 @@ def _dump_lines(row: Any) -> int:
     return len(json.dumps(row, indent=2, ensure_ascii=False).splitlines())
 
 
-def grade(base_text: str | None, head_text: str | None, *, path: str) -> dict:
-    """Pure decision, so the policy is arguable in tests rather than on a PR."""
+def grade(base_text: str | None, head_text: str | None, *, path: str,
+          base_state: str | None = None) -> dict:
+    """Pure decision, so the policy is arguable in tests rather than on a PR.
+
+    *base_state* is `_git_base.read_at`'s verdict for the base side. Omitting it
+    means ``we were not told``, which grades UNREADABLE — the fail-safe
+    direction, and byte-for-byte the behaviour before the state existed. Only an
+    EXPLICIT `ABSENT_AT_BASE` buys the new-register verdict, so a caller cannot
+    reach it by forgetting to say anything.
+    """
+    if base_state == _git_base.ABSENT_AT_BASE and head_text is not None:
+        # `lost_lines` is 0 because there were no base lines to lose — a real
+        # reading. `lost_fraction` is 0/0, which is UNDEFINED, so it is None and
+        # never 0.0: a fraction of a file that does not exist is not "none of
+        # it", and a consumer must be able to tell those apart.
+        return {"path": path, "state": NEW_REGISTER, "lost_lines": 0,
+                "budget": 0, "rows_touched": None, "lost_fraction": None,
+                "why": "this register does not exist at the fork point, so this "
+                       "diff ADDS it — there is no earlier serialization for it "
+                       "to have destroyed. Reported rather than swallowed: a "
+                       "register newly bound to the merge driver is a thing a "
+                       "reviewer should see named."}
     if base_text is None or head_text is None:
         return {"path": path, "state": UNREADABLE, "lost_lines": None,
                 "budget": None, "rows_touched": None, "lost_fraction": None,
@@ -240,21 +272,22 @@ def grade(base_text: str | None, head_text: str | None, *, path: str) -> dict:
                     "conditions must hold, so this is clean")}
 
 
-def _base_text(ref: str, path: str, cwd: pathlib.Path = REPO) -> str | None:
-    """The register's bytes at *ref*, or None when they cannot be compared.
+def _base_read(ref: str, path: str,
+               cwd: pathlib.Path = REPO) -> tuple[str, str | None]:
+    """`read_at`'s verdict for the base side, forwarded WITHOUT collapsing it.
 
-    ⚠️ THIS COLLAPSES TWO OF `read_at`'s THREE STATES, DELIBERATELY AND
-    NARROWLY. `ABSENT_AT_BASE` (the register is NEW in this diff) and
-    `UNREADABLE` (*we could not look*) both return None here, which is exactly
-    what the old `_show` did -- so this change alters WHICH REF is read and
-    nothing else. Splitting them would change what happens to a PR that adds a
-    new register (today: graded UNREADABLE, which fails), and that is a separate
-    behavioural argument with its own control; bundling it here would leave the
-    planted-defect control below unable to say which change it was measuring.
-    Filed rather than silently folded in.
+    ⚠️ THIS USED TO COLLAPSE TWO OF `read_at`'s THREE STATES, and the collapse
+    was the defect. `_base_text` returned None for both `ABSENT_AT_BASE` (the
+    register is NEW in this diff) and `UNREADABLE` (*we could not look*), which
+    was exactly what the pre-#12138 `_show` did — deliberate at the time, so
+    that the fork-point change altered WHICH REF is read and nothing else, and
+    filed rather than silently folded in. That row is what this repays: a PR
+    that legitimately adds a register graded `unreadable` and FAILED.
+
+    Nothing is decided here. The two states are handed to `grade`, which is the
+    one place the policy lives and the one place it is argued in tests.
     """
-    state, text = _git_base.read_at(ref, path, repo=cwd)
-    return text if state == _git_base.READ else None
+    return _git_base.read_at(ref, path, repo=cwd)
 
 
 def check(base: str, *, root: pathlib.Path = REPO) -> dict:
@@ -282,12 +315,14 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
                          "lost_fraction": 0.0,
                          "why": "not changed by this diff"})
             continue
-        rows.append(grade(_base_text(resolved_base, rel, root),
+        base_state, base_text = _base_read(resolved_base, rel, root)
+        rows.append(grade(base_text,
                           (root / rel).read_text(encoding="utf-8")
                           if (root / rel).is_file() else None,
-                          path=rel))
+                          path=rel, base_state=base_state))
     bad = [r for r in rows if r["state"] == RESERIALIZED]
     unread = [r for r in rows if r["state"] == UNREADABLE]
+    fresh = [r for r in rows if r["state"] == NEW_REGISTER]
     return {
         "ok": not bad and not unread,
         "rows": rows,
@@ -296,6 +331,7 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
         "unmarked_candidates": len(unmarked_registers(root)),
         "reserialized": [r["path"] for r in bad],
         "unreadable": [r["path"] for r in unread],
+        "new_registers": [r["path"] for r in fresh],
     }
 
 
@@ -417,6 +453,44 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
         say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} {label} is "
             f"{UNREADABLE}")
 
+    # ── THE SPLIT: `new register` vs `we could not look` ────────────────────
+    # These two are the SAME `git show` failure and OPPOSITE facts, and until
+    # this state existed a PR that legitimately ADDED a register failed. Both
+    # directions are asserted here, because fixing only the first would turn
+    # every unreadable base into a pass — strictly worse than the bug.
+    v = grade(None, base, path="p", base_state=_git_base.ABSENT_AT_BASE)
+    if v["state"] != NEW_REGISTER:
+        fails.append(f"a register ABSENT at the fork point graded {v['state']},"
+                     f" not {NEW_REGISTER} — a PR that adds a register fails")
+    say(f"  {'ok ' if v['state'] == NEW_REGISTER else 'FAIL'} a register absent "
+        f"at the fork point is {NEW_REGISTER}, not a failure")
+
+    # THE OTHER DIRECTION, and it is the one that must not be lost.
+    v = grade(None, base, path="p", base_state=_git_base.UNREADABLE)
+    if v["state"] != UNREADABLE:
+        fails.append(f"an UNREADABLE base graded {v['state']} — the split "
+                     "turned 'we could not look' into a pass")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} an unreadable base "
+        f"is still {UNREADABLE}")
+
+    # AND THE DEFAULT IS FAIL-SAFE: a caller that says nothing about the base
+    # gets the strict verdict, so the permissive one cannot be reached by
+    # omission — only by an explicit ABSENT_AT_BASE.
+    v = grade(None, base, path="p")
+    if v["state"] != UNREADABLE:
+        fails.append(f"an unstated base_state graded {v['state']} — the "
+                     "permissive verdict is reachable by forgetting to say")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} an UNSTATED base "
+        f"state is {UNREADABLE} (the permissive verdict needs an explicit say)")
+
+    # A head that cannot be read is unreadable EVEN WHEN the base is absent —
+    # both sides gone is not a register being added, it is nothing to grade.
+    v = grade(None, None, path="p", base_state=_git_base.ABSENT_AT_BASE)
+    if v["state"] != UNREADABLE:
+        fails.append(f"absent base AND unreadable head graded {v['state']}")
+    say(f"  {'ok ' if v['state'] == UNREADABLE else 'FAIL'} absent base with an "
+        f"unreadable head is {UNREADABLE}, not {NEW_REGISTER}")
+
     v = grade(base, base, path="p")
     if v["state"] != UNTOUCHED:
         fails.append(f"identical bytes graded {v['state']}")
@@ -426,11 +500,13 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
     reached = {grade(base, base, path="p")["state"],
                grade(base, honest, path="p")["state"],
                grade(base, reser, path="p")["state"],
-               grade(None, base, path="p")["state"]}
+               grade(None, base, path="p")["state"],
+               grade(None, base, path="p",
+                     base_state=_git_base.ABSENT_AT_BASE)["state"]}
     if reached != set(ALL_STATES):
         fails.append(f"not every state is reachable: {sorted(reached)}")
-    say(f"  {'ok ' if reached == set(ALL_STATES) else 'FAIL'} all four states "
-        "are reachable, so none is decorative")
+    say(f"  {'ok ' if reached == set(ALL_STATES) else 'FAIL'} all "
+        f"{len(ALL_STATES)} states are reachable, so none is decorative")
 
     # The register set must come from .gitattributes and must not be empty —
     # an empty list would make every run vacuously green.
@@ -467,9 +543,19 @@ def main(argv: list[str] | None = None) -> int:
     for r in v["rows"]:
         if r["state"] != UNTOUCHED:
             print(f"  {r['state']:14} {r['path']} — {r['why']}")
+    if v["new_registers"]:
+        # A NOTICE, not an error: adding a register is legitimate. It is said
+        # out loud anyway, because the alternative to failing on it is not
+        # silence — a file newly bound to the merge driver changes how every
+        # other branch merges, and a reviewer should be told it happened.
+        print("::notice::this PR ADDS register(s) that do not exist at the fork "
+              "point, so there is no earlier serialization to compare against:")
+        for p_ in v["new_registers"]:
+            print(f"  - {p_}")
     if v["unreadable"]:
         print("::error::a register could not be READ, which is not the same as "
-              "a register that is fine:")
+              "a register that is fine, and not the same as one this diff ADDS "
+              "(that is `new_register`):")
         for p in v["unreadable"]:
             print(f"  - {p}")
     if v["reserialized"]:
