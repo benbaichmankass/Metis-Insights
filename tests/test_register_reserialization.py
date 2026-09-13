@@ -473,3 +473,92 @@ def test_check_still_FAILS_on_a_register_it_could_not_read():
         "parse it' must never read as fine")
     assert out["ok"] is False
     assert old in out["unreadable"]
+
+
+# ---------------------------------------------------------------------------
+# THE CENSUS MUST NAME WHAT IT DID NOT CHECK.
+# The guard printed "23 unmarked candidate(s) NOT checked" — true, honest about
+# its scope, and unactionable. Three of the four review backlogs were in that
+# 23, and on 2026-09-13 a hand-resolved conflict in one of them dropped a filed
+# row while every guard, including this one, read green.
+# ---------------------------------------------------------------------------
+
+
+def test_the_unmarked_candidates_are_NAMED_not_counted():
+    sample = ["docs/claude/performance-review-backlog.json",
+              "docs/claude/ml-review-backlog.json"]
+    out = "\n".join(G.render_unmarked(sample))
+    for path in sample:
+        assert path in out, f"{path} was counted but not named"
+
+
+def test_the_cap_truncates_the_LIST_and_never_the_COUNT():
+    """A census that capped its own total would be the unasserted denominator
+    one level up — the defect this renderer exists to fix, reintroduced by it."""
+    many = [f"docs/claude/f{i:03d}.json" for i in range(100)]
+    lines = G.render_unmarked(many, cap=10)
+    listed = [ln for ln in lines if ln.strip().startswith("docs/")]
+    assert len(listed) == 10
+    assert any("90 more" in ln for ln in lines), (
+        "the cap withheld 90 paths without saying so")
+
+
+def test_an_empty_unmarked_list_is_stated_in_words_not_silence():
+    """Otherwise 'every register is bound' and 'the probe stopped matching'
+    render identically — which is how a broken census reads as a clean one."""
+    lines = G.render_unmarked([])
+    assert lines and "none" in lines[0]
+
+
+def test_check_returns_the_list_and_it_agrees_with_the_count():
+    v = G.check("HEAD")
+    assert isinstance(v["unmarked_paths"], list)
+    assert len(v["unmarked_paths"]) == v["unmarked_candidates"], (
+        "the count and the list must be the same population, or the census "
+        "reports a number for one thing and names another")
+
+
+def test_no_BOUND_register_appears_in_the_unmarked_list():
+    """A list of gaps that includes the things that are not gaps is not a list
+    of gaps."""
+    bound = set(G.registers_from_gitattributes(REPO))
+    assert not (bound & set(G.check("HEAD")["unmarked_paths"]))
+
+
+# ---------------------------------------------------------------------------
+# AN UNRESOLVABLE BASE IS REFUSED, NOT GRADED CLEAN.
+# Measured before the fix: check("origin/does-not-exist") returned ok=True with
+# registers_in_diff=0 and every register UNTOUCHED — a verdict byte-identical to
+# a run that compared everything and found it clean. Both `git diff` calls fail,
+# `touched` is empty, and every register takes the `not in touched` branch.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unresolvable_base_is_refused_and_its_count_is_None_not_zero():
+    v = G.check("no-such-ref-anywhere-000-pytest")
+    assert v["ok"] is False
+    assert v["base_state"] == G._git_base.TIP_UNRESOLVABLE
+    assert v["rows"] == []
+    assert v["registers_in_diff"] is None, (
+        "0 is a real reading — 'this diff touched no register'. Nothing was "
+        "read here, and the two must not share a value.")
+
+
+def test_a_REAL_base_still_grades_so_the_refusal_is_not_refuse_everything():
+    v = G.check("HEAD")
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert isinstance(v["registers_in_diff"], int)
+
+
+def test_a_REAL_ref_with_an_EMPTY_diff_is_graded_not_refused():
+    """THE DISCRIMINATOR. A defect keying the refusal on the DIFF being empty
+    behaves identically to the correct one on a bogus ref, because a bogus ref
+    also yields an empty diff. An empty diff against a real base is the ordinary
+    case on most PRs here, and refusing it would fail all of them."""
+    head = _run(REPO, "rev-parse", "HEAD").stdout.strip()
+    assert head, "fixture is degenerate"
+    v = G.check(head)                       # a real ref, and no diff against it
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert v["registers_in_diff"] == 0
+    assert v["ok"] is True
+
