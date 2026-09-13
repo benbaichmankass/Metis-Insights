@@ -3073,8 +3073,13 @@ def counts_line(n_pass: int, n_fail: int, n_could_not_run: int,
     fixed is the SUMMARY claiming more than the run established.
 
     ⚠️ **`n_dirty_paths` IS A SECOND, DIFFERENT FACT AND IS NEVER FOLDED INTO
-    THE FIRST** (`BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-
-    TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE`).
+    THE FIRST.** The row is
+    `BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE`
+    -- kept on ONE line despite the width, because `artifact-validity-guard`
+    resolves ids by text and a WRAPPED id is a dangling reference. It caught
+    exactly that here, on the third variant of the same mistake in one session
+    (elided twice, then wrapped); an id reformatted for readability stops being
+    an id.
     `n_not_graded` counts GUARDS that relevance DROPPED; `n_dirty_paths` counts
     PATHS that no guard read. They are not the same set and neither implies the
     other — relevance is a UNION, so if any COMMITTED file already made a guard
