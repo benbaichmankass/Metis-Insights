@@ -32267,7 +32267,7 @@
     {
       "id": "BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE",
       "opened": "2026-09-03",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": 1,
       "area": "ci/guards",
@@ -32275,7 +32275,15 @@
       "why_it_matters": "`FAIL 0` is the string every reader and every session scans for, and here it is printed about a run the runner ITSELF knows was not a valid grading of the tree. This session nearly reported that 47/0 as a green result and caught it only by reading past the summary. It is the same defect class this repo files under collapsed states -- 'we did not look' rendered identically to 'nothing was wrong' -- and the runner is the single place every guard's verdict is summarised, so a misleading headline there mis-states every guard at once. ⚠️ NOTE THE ASYMMETRY THAT MAKES IT DANGEROUS: the incomplete run can only ever UNDER-report failures, never over-report them, so it always looks like good news.",
       "resolution_criteria": "The summary line must not read as a pass when the runner knows the run was incomplete. EITHER the headline carries the count inline (e.g. `PASS 47 · FAIL 0 · SKIP 38 · 17 NOT GRADED (uncommitted)`), OR a run with any not-selected-for-uncommitted guard prints a distinct non-pass state -- the `not_a_pr` / `unattributed` shape this repo already uses for 'nothing was graded here, and that is not a pass'. ⚠️ NOT resolved by exiting non-zero on uncommitted work: local iteration on a dirty tree is the normal way to use this script, and failing it would train people to ignore the runner. The fix is to stop the SUMMARY from claiming more than the run established. Add a self-test asserting the incomplete-run summary is distinguishable from a complete one.",
       "found_by": "session_017DxuurbMW5ex5Q1f7xATqW (MI-102)",
-      "basis": "MEASURED"
+      "basis": "MEASURED",
+      "resolved_at": "2026-09-13",
+      "updates": [
+        {
+          "at": "2026-09-13",
+          "by": "session_01BjTp5RYwedmpFfkEtkQo1j (MI-280 engineering lane, U80)",
+          "note": "RESOLVED via the criterion's FIRST alternative — the headline carries the count inline. Re-confirmed live on origin/main @15bb44021 before editing: a tree with one committed change and one uncommitted file printed 'PASS 67 . FAIL 1 . COULD-NOT-RUN 0 . SKIP 40' with 'NOT SELECTED because the work is UNCOMMITTED (1)' forty lines below it. WHY THE SECOND ALTERNATIVE WAS NOT TAKEN AS ALREADY-MET: the footer caveat ('All SELECTED guards passed - but ...') landed 2026-08-13 in #8948, THREE WEEKS BEFORE this row was filed, so the author saw that output and filed anyway. Treating it as satisfying the row would have closed it on the state that prompted it. `unchecked` moved above the counts line (it was computed ~40 lines below the print that needed it) and the line now renders through counts_line(), a PURE function, so what the headline CLAIMS is arguable in a test. It is a QUALIFIER, not a fifth bucket: those guards are already inside `skipped`, counting them twice would stop the line summing to the guards considered, and rendering it on every run would be the always-on decoration a reader learns to skip - so a clean run's line is byte-identical to what it always was. THE EXIT CODE IS UNCHANGED, as the row requires in terms. PROVEN both ways: same tree, OLD 'SKIP 1' vs NEW 'SKIP 1 . 1 NOT GRADED (uncommitted)'; 5 new controls with 4 planted defects each reddening their own - drop the qualifier (the original bug), render it ALWAYS (the decoration direction), fold it into SKIP (double-count), and keep counts_line while main prints its own f-string (the fix that changes no output). ONE CAVEAT STATED RATHER THAN HIDDEN: HARNESS_PATHS makes any change to run_guards.py set force_all, so THIS PR's own CI run cannot exercise the end-to-end path - under force_all `dirty` is empty by construction. That is why the row asked for a self-test and why the pure function is the right shape; the end-to-end A/B above was run in a worktree where the fixed script is present but UNCOMMITTED, which is what keeps force_all off."
+        }
+      ]
     },
     {
       "id": "BL-20260903-RELAY-OPENED-PRS-START-WITH-ZERO-CHECKS-AND-NEED-A-HAND-MADE-COMMIT",
