@@ -38389,6 +38389,24 @@
         "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
         "BL-20260821-BACKLOG-JSON-IS-A-SHARED-MUTABLE-ARRAY"
       ]
+    },
+    {
+      "id": "BL-20260913-THE-MARGIN-CEILING-RECORD-IS-WRITTEN-ONLY-ON-REFUSED-ORDERS-SO-A-PLACED-ORDER-CAN-NEVER-SHOW-THAT-ITS-SIZE-WAS-A-CEILING",
+      "title": "notes.margin_basis has one writer, execute.log_rejection_to_journal, so it is structurally impossible on a placed order — and it is an unprotected dict in notes, so dump_capped would shed it even if it were written there",
+      "severity": "high",
+      "tier": "1 for the measurement and this row; the three remedies are Tier-2 (src/units/accounts/{risk,execute}.py and src/utils/json_notes.py) and are PROPOSED, not applied.",
+      "status": "open",
+      "opened": "2026-09-13",
+      "source": "MI-278 U37",
+      "detail": "ESTABLISHED AT THE FIELD. notes.margin_basis -- the only record of what an order's size was computed from, and the only way to tell a risk-derived size from a margin ceiling -- has exactly one writer: execute.log_rejection_to_journal, whose own docstring says it exists to 'log a refusal event to the trade journal ... used by Coordinator.multi_account_execute from its except RiskBreach and generic exception blocks so every refusal lands a row'. A PLACED order can therefore never carry it. || MEASURED 2026-09-13 over /api/diag/journal?table=trades&limit=1000 (ids 5731->4732, rowset sha256:1752f298...): 208 of 1000 rows carry a margin_basis, and ALL 208 are rejected (181) or exchange_rejected (27). ZERO are closed or open. POSITIVE CONTROL, which is what makes the negative mean anything: there are 623 closed+open rows, ALL 623 carry a notes dict, and NONE carries the stamp -- so the absence is the write site and not missing notes. || WHY IT MATTERS, and it is PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK's own argument: that row's criterion requires that 'no ict_scalp_avax_5m order PLACES at a size equal to a ceiling', and its why_it_matters is entirely about the transition -- 'when the venue clamp is eventually fixed the order will be capped at 22,000 AVAX and will PLACE rather than be refused, so fixing the plumbing converts a loud refusal into a silent fill at a size no risk model chose.' THE EVIDENCE DISAPPEARS AT EXACTLY THAT MOMENT. The 21 refusals are visible BECAUSE they were refused. || A SECOND, INDEPENDENT HAZARD ON THE SAME FIELD, and it must not be folded into the first: margin_basis is a nested DICT in notes, written through json_notes.dump_capped(notes, 500), and it is NOT in _DEFAULT_PROTECTED. _shrink_dict trims STRINGS and sheds whole unprotected values it cannot trim -- a dict is exactly that, and typically the largest present. 138 of the 623 placed rows are ALREADY _truncated. So even if the stamp were written on the placement path it would be among the first things dropped. One is a write site and the other a cap; fixing either alone leaves the other. Same class as MI-278 U33's netting-attribution stamp (BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT).",
+      "resolution_criteria": "BOTH, and they are different fixes -- say which you did. (1) THE WRITE SITE: a ceiling record is written on the PLACEMENT path, verified by a closed or open trades row carrying a margin_basis with a max_qty_by_margin, read from the live journal. (2) THE CAP: margin_basis survives a full notes blob -- either added to json_notes._DEFAULT_PROTECTED or stored outside notes -- verified on a row whose notes read _truncated: true AND which still carries the record. !! (1) WITHOUT (2) IS A REGRESSION DRESSED AS PROGRESS: the stamp would be written on placed orders and shed on exactly the fullest ones, which is worse than absent because a partial population reads as a complete one. !! A PASSING TEST CLEARS NEITHER -- the write site is a runtime path and the cap fires on real notes volume. !! AND RE-RUNNING scripts/research/margin_ceiling_visibility.py CLEARS NOTHING: it will keep reporting placed_rows_with_a_ceiling_record 0 until the write site moves, which is the point. !! IF THE OPERATOR DECIDES the ceiling record is not wanted on the placement path, this row does NOT clear -- it CHANGES: PB-20260822's criterion is then unverifiable by design and must be rewritten to something the journal can answer, rather than left looking like a check that will one day pass.",
+      "refs": [
+        "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+        "src/units/accounts/execute.py",
+        "src/utils/json_notes.py",
+        "scripts/research/margin_ceiling_visibility.py",
+        "docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md"
+      ]
     }
   ]
 }
