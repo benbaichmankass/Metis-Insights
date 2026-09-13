@@ -38347,7 +38347,7 @@
       "id": "BL-20260912-DOCUMENT-INDEX-GUARD-REPORTS-OK-WHILE-ITS-OWN-ROW-DRIFT-CENSUS-IS-UNAVAILABLE",
       "opened_at": "2026-09-12",
       "opened_by": "claude (MI-279 OPS lane, session_013iSqp4LsU1eq8K326eUtgj)",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": "1 — scripts/ci/check_document_index.py; no live path",
       "area": "CI tooling",
@@ -38358,6 +38358,15 @@
       "refs": [
         "scripts/ci/check_document_index.py",
         "scripts/ops/document_index.py"
+      ],
+      "resolved_at": "2026-09-13",
+      "updates": [
+        {
+          "at": "2026-09-13",
+          "by": "claude (MI-280 engineering lane, U85)",
+          "disposition": "resolved",
+          "note": "RESOLVED IN TWO PARTS BY TWO DIFFERENT CHANGES, and they are different facts -- do not credit either with the other's half. REPRODUCED FIRST on origin/main with a plant CONFIRMED LIVE (a raise inserted at the top of build_rows, then asserted to raise before any verdict was read): `--all` rc=1 FAIL, `--base origin/main` rc=0 OK, unscoped rc=0 OK -- all three printing 'row-drift census UNAVAILABLE'. (1) THE UNGATED HALF WAS ALREADY FIXED, BY #12136 (2c6eacfde), which landed 2026-09-13 -- AFTER this row was filed -- and made an uncomputable census an `R6 UNCOMPUTABLE (--all)` FINDING with its own self-test case in the r6_all list. Since the guard registry runs a `--all` step, THE MODE CI RUNS ALREADY EXITED NON-ZERO. This row's `action` fallback ('must at minimum exit non-zero in --strict/CI') was therefore already satisfied before U85 touched anything, and U85 does not re-fix it. (2) WHAT WAS LEFT is the two modes a HUMAN runs locally -- diff-scoped and unscoped -- which still printed a bare `document-index: OK`. That is exactly where this row's author was standing when they found it. U85 extracts the verdict into a pure `verdict(n_findings, drift_state) -> (state, exit_code, line)` with THREE states never collapsed: fail / ok / ok_r6_blind. The blind verdict now reads 'OK -- but the R6 row-drift census was UNAVAILABLE, so this is NOT a clean R6 reading', naming that a tree where build_rows() raises is one where --write is broken too. [!] THE SCOPED EXIT CODE IS DELIBERATELY UNCHANGED AND THAT IS NOT TIMIDITY. #12136's own comment argues the asymmetry -- the scoped step is one check among many and can afford *we could not look*, while an UNGATED assertion that silently reports nothing reads byte-identically to a clean tree. That reasoning POSTDATES this row and was not overridden; a self-test case now PINS the scoped exit code at 0, so a later 'tighten it' has to argue with the comment rather than silently red every local run. THE CRITERIA, MET AS WRITTEN: the row rules out asserting on the message ('the message was already correct and the verdict was already wrong') and asks for the EXIT STATUS or a DISTINCT GRADED STATE. Six new controls in the guard's own --self-test assert the graded verdict triple: that a blind run does NOT return the clean verdict; that blind is its own state and is never folded into ok; that the scoped exit code is unchanged; that findings fail whatever the census did; that --all raises the finding END-TO-END through the real evaluate() AND that the finding reaches the verdict; and a vacuity control that a computable EMPTY register is silent, without which the four quiet assertions would pass against an evaluate() that finds something in everything. FOUR PLANTED DEFECTS, each observed reddening its own control: blind collapsed into the clean OK verdict (the original defect); scoped exit code tightened; findings no longer fail; and --all stopping to find an uncomputable census -- which reddened the PRE-EXISTING r6_all control as well as the new one, and is how the pre-existing control was discovered. The self-test's stated population moved 37 -> 43; its hand-written term is a named constant now, and the note says plainly that nothing computes it and that the original eight were taken on trust rather than re-audited."
+        }
       ]
     },
     {
