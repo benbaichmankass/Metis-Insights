@@ -347,3 +347,37 @@ progress:
     NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Nothing in src/, config/ or any unit
     file is touched. Memo:
     docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md
+  U30: >-
+    DELIVERED, PR pending. THE INSTRUMENT U3 NEEDS, and it did not exist. U3 reshaped itself
+    onto target geometry because U2 found no lever cutting winners short; U23 reached the same
+    place and could propose nothing because the walk-forward corpus is confounded. Working
+    BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET
+    established the gap was THREE DEEP,
+    not one: e35 excludes scalp by design (correctly -- its grid walks down from the 50.0
+    sentinel), the fleet sweep passed no target at all, and backtest_ict_scalp.py had NO
+    --tp-at-r flag, so the target moved only by editing config/strategies.yaml -- a Tier-3 live
+    file. BUILT: --tp-at-r injected into cfg so the LIVE unit computes the target (the harness
+    never re-derives one); a pre-registered SCALP_TP_AT_R_GRID = (1.0, 1.25, 2.0, 2.5, 3.0, 4.0,
+    6.0) bracketing the live 1.5 on BOTH sides so it can refute "the target is too near" as well
+    as confirm it; the scalp base passing each leg its OWN declared target instead of inheriting
+    the hardcoded ict_scalp_5m block; and three never-collapsed summary states
+    (tp_at_r_source / placeability_state / target_binding). All 7 cells RUN END TO END and the
+    axis moves the book monotonically -- but on a 4-trade smoke sample, which is evidence the
+    INSTRUMENT works and NOTHING about the target. VERIFIED with a positive control that
+    ict_scalp applies no venue TP clamp, which makes a wider target RISKIER than on a clamping
+    family (it is sent and refused, not clamped) -- hence the placeability census.
+    FOUND AND FIXED ON THE WAY: base + cell was emitting a duplicate flag, and already was --
+    ict_scalp_eth_15m declares stale_exit_bars 12 and the stale8 cell appends its own, so its
+    recorded argv has carried both all along. compose_cell_argv strips-then-appends; it changes
+    no number (verified empirically -- argparse already took the cell's value) and repairs the
+    RECORD. CORRECTED: 8 coverage-matrix bracket_geometry refs that blamed run scope and asserted
+    data coverage -- wrong in the dangerous direction, and it cost a dispatched run
+    (e35-bracket-sweep.yml 34677990760, "0 job(s); 7 not scheduled"). An assertion caught that the
+    8 did NOT share a cause: 7 crypto scalp legs plus fvg_range_15m, whose block is different and
+    still open (filed separately). ict_scalp_mgc_15m is correctly blocked on DATA and is NOT
+    unblocked, so the axis reaches 7 of 8 scalp legs.
+    !! THE ROW DOES NOT CLEAR. Its criteria need a tp_at_r cell carrying an IS/OOS verdict WITH a
+    yearly walk-forward at the exit-refinement gate. A harness existing is not a verdict; the 7
+    matrix cells move from a MIS-GRADED pending to a TRUE pending, which is the smaller and
+    honest claim. No parameter change is proposed and none may be -- that is Tier-3.
+    Evidence: docs/research/m20-u30-scalp-target-sweep-axis-2026-09-13.md

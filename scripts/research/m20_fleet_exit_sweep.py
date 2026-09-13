@@ -523,6 +523,22 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--htf-rule", "htf_filter_timeframe")
         opt("--htf-ema-period", "htf_filter_ema_period")
         opt("--min-confidence", "min_confidence")
+        # THE LEG'S OWN TARGET, PASSED EXPLICITLY (2026-09-13).
+        #
+        # The comment above says "tp_at_r / timeout come from YAML / harness
+        # defaults" and describes a premise that is LATENT rather than safe:
+        # `backtest_ict_scalp._load_yaml_params()` loads the `ict_scalp_5m`
+        # block — HARDCODED — for EVERY scalp leg. It holds only because all
+        # eight legs are config-exact copies (verified in MI-278 U1's inventory:
+        # every one declares `tp_at_r: 1.5`), and it is precisely what makes a
+        # PER-LEG target sweep structurally impossible, because varying the
+        # target per leg is the thing that breaks it.
+        #
+        # ⚠️ BYTE-EQUIVALENT TODAY, NOT COMMAND-IDENTICAL. Every leg declares
+        # 1.5, so the book is unchanged; the recorded argv is not, so a run
+        # before and after this change will not compare command-for-command
+        # even where it compares book-for-book. Stated rather than buried.
+        opt("--tp-at-r", "tp_at_r")
         declared_levers()
     else:
         # `trend_len` / `pullback_len` were keys NO strategy has ever declared
@@ -840,6 +856,96 @@ def inert_rr_floor_reason(fam: str | None, tp_cap_pct: float,
     return None
 
 
+# ---------------------------------------------------------------------------
+# THE SCALP TARGET AXIS — pre-registered, and NOT widened after seeing a result
+# (the same discipline `e35_bracket_geometry_sweep.TP_R_GRID` states).
+#
+# WHY IT EXISTS. MI-278 U2 attributed every winner since 2026-08-27 and found no
+# lever cutting them short (the lever family is 3 of 49); the only mechanism
+# with attributed mass is the TAKE-PROFIT — 18 of 49 winners ended exactly at
+# their declared target — and U2b measured ict_scalp winners landing just under
+# `tp_at_r: 1.5` (median R 1.216 pre / 1.353 post). So the counterfactual the
+# evidence points at is "would a further target have held winners longer", and
+# until 2026-09-13 NO harness could run it:
+#   * e35 sweeps `tp_r` and EXCLUDES scalp by design — its grid walks down from
+#     the 50.0 sentinel, which means something different against a real bracket.
+#     That exclusion is CORRECT and is not the bug.
+#   * this sweep covers scalp and its lever columns are all POST-ENTRY
+#     overrides; it passed no target at all.
+#   * and `backtest_ict_scalp.py` had no `--tp-at-r` flag, so the target could
+#     only be moved by editing config/strategies.yaml — a Tier-3 live file no
+#     research run may touch. That, not anyone's oversight, is why this was
+#     never swept.
+# BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET
+#
+# THE GRID IS e35's, with two deliberate differences:
+#   * 1.5 is DROPPED — it is what all 8 live scalp legs declare, so the cell
+#     would be byte-identical to the base. Dropped from the constant rather than
+#     filtered silently: see `inert_scalp_target_reason`, which removes whatever
+#     value a leg actually declares, so this stays correct if a leg ever moves.
+#   * 1.25 is ADDED — the measured winner mass sits at 1.216/1.353R, i.e. just
+#     BELOW the live target, and a grid that only widens cannot refute "the
+#     target is too near". Both directions or the sweep can only confirm.
+# Keeping the rest of e35's points is what makes a cross-family read possible.
+#
+# ⚠️ 4.0 AND 6.0 ARE EXPECTED TO TIME OUT ON A 5m BRACKET AND ARE KEPT ANYWAY.
+# A grid trimmed to the values thought likely to win is a grid that cannot
+# produce an honest negative, and the row's own resolution criteria say an
+# honest negative CLOSES it.
+SCALP_TP_AT_R_GRID = (1.0, 1.25, 2.0, 2.5, 3.0, 4.0, 6.0)
+
+# The matrix column these cells land in. `bracket_geometry` is the ENTRY BRACKET
+# TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) and the matrix's own legend
+# calls it "a new DIMENSION, not a ninth lever" — so a target cell is a slice of
+# THAT column, never a new lever beside the eight post-entry ones. Naming it
+# `tp_geometry` would have been the obvious mistake: that string is already
+# taken, and means something else entirely (whether a cell was measured at live
+# TP parity — `live_parity_capped` / `no_take_profit` / ...).
+SCALP_TARGET_MATRIX_LEVER = "bracket_geometry"
+
+
+def inert_scalp_target_reason(cfg: dict, tp_at_r: float, fam: str | None,
+                              harness: str | None = None) -> str | None:
+    """Why a scalp target cell CANNOT mean anything on this leg, or None.
+
+    Returns the REASON rather than a bool for the same purpose
+    `inert_giveback_reason` does — the cell is recorded as skipped-and-why, so
+    "not run" stays distinguishable from "run and flat". A cell equal to the
+    leg's own declared target is a PROVABLE no-op: the emitted argv would
+    reproduce the base exactly, and its measured 0.0 delta would read as
+    `tie_no_improvement`, i.e. "we measured it and it made no difference", when
+    it was never measurable (BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS).
+
+    THE NO-OP VALUE IS DERIVED FROM THE LEG, never hardcoded to 1.5. All eight
+    live legs declare 1.5 today; a hardcoded test would keep skipping 1.5 and
+    start emitting a real no-op the day one of them moves.
+    """
+    if fam != "scalp":
+        return f"not_the_scalp_family:{fam}"
+    # THE HARNESS MUST IMPLEMENT THE FLAG — three states, and `None` (the source
+    # could not be read) must not collapse into False. See
+    # `harness_implements_flag`; BL-20260820-SWEEP-EMITS-CELLS-FOR-FLAGS-THE-HARNESS-DOES-NOT-IMPLEMENT.
+    if harness is not None:
+        impl = harness_implements_flag(harness, "--tp-at-r")
+        if impl is False:
+            return f"harness_has_no_tp_at_r_flag:{harness.split('/')[-1]}"
+        if impl is None:
+            return f"harness_unreadable:{harness.split('/')[-1]}"
+    declared = cfg.get("tp_at_r")
+    try:
+        declared = float(declared) if declared is not None else None
+    except (TypeError, ValueError):
+        # WE COULD NOT READ THE LEG'S TARGET. Emitting the cell anyway would
+        # risk a silent no-op; withholding it silently would hide a config
+        # defect. Named, so the run reports which it was.
+        return "declared_tp_at_r_unreadable"
+    if declared is not None and abs(tp_at_r - declared) < 1e-9:
+        return (f"provable_noop: cell target {tp_at_r:g}R equals the leg's "
+                f"declared tp_at_r={declared:g}R, so the argv reproduces the "
+                "config-exact base")
+    return None
+
+
 def inert_giveback_reason(cfg: dict, min_mfe_r: float) -> str | None:
     """Why a giveback rung CANNOT fire on this leg, or None if it can.
 
@@ -913,6 +1019,58 @@ def shipped_lever_cells(cfg: dict,
     return out
 
 
+def compose_cell_argv(base: list[str], extra: list[str]) -> list[str]:
+    """Base argv + a cell's overrides, with any flag the cell sets STRIPPED
+    from the base first — so the recorded command says exactly one thing.
+
+    ⚠️ THIS CHANGES NO NUMBER, AND THAT IS THE POINT. Verified empirically
+    against the real harness parser 2026-09-13 (`--tp-at-r 1.5 --tp-at-r 3.0`
+    -> the summary reports 3.0): argparse already takes the LAST occurrence,
+    so every run to date measured the value the CELL asked for. What was wrong
+    was the RECORD. This file already states the rule, at the
+    `--min-confidence` override in `base_args`: *"the recorded command IS the
+    evidence for what a row measured, and a command carrying two contradictory
+    floors cannot be read back as a claim about either."* That reasoning was
+    applied to one flag and to nothing else.
+
+    ⚠️ IT REPAIRS A PRE-EXISTING DUPLICATE, not only the new target axis. A leg
+    declaring `stale_exit_bars` gets `--stale-exit-bars <declared>` from
+    `declared_levers()` in the base AND `--stale-exit-bars 8` from the
+    `stale8_lt0R` cell. Not hypothetical: `ict_scalp_eth_15m` declares
+    `stale_exit_bars: 12`. Its argv has carried both all along.
+
+    ARITY IS READ FROM THE CELL'S OWN USAGE, never from a table of flags —
+    a table here would be a second copy of the harnesses' parsers and would
+    drift from them. A token counts as a flag only when it starts with `--`,
+    which is what lets a negative numeric value (`-0.5`, single dash) be told
+    apart from the next flag. Every harness in `FAMILY_HARNESS` uses long
+    options only; a short option would break this and none exists.
+    """
+    valued: dict[str, bool] = {}
+    i = 0
+    while i < len(extra):
+        tok = extra[i]
+        if tok.startswith("--"):
+            nxt = extra[i + 1] if i + 1 < len(extra) else None
+            has_val = nxt is not None and not nxt.startswith("--")
+            valued[tok] = has_val
+            i += 2 if has_val else 1
+        else:
+            i += 1
+    if not valued:
+        return list(base) + list(extra)
+    out: list[str] = []
+    j = 0
+    while j < len(base):
+        tok = base[j]
+        if tok in valued:
+            j += 2 if valued[tok] else 1
+            continue
+        out.append(tok)
+        j += 1
+    return out + list(extra)
+
+
 def cells_for(cfg: dict, fam: str | None = None,
               skipped: list | None = None,
               *,
@@ -976,6 +1134,23 @@ def cells_for(cfg: dict, fam: str | None = None,
     # be_stop for -0.022R, which proves the lever is live and settles nothing.
     if fam == "scalp":
         out.append(("be_touch_arm", "stale_stop", ["--be-arm-on-touch"]))
+    # THE SCALP TARGET AXIS — see SCALP_TP_AT_R_GRID for why it exists and why
+    # the grid brackets the live value on BOTH sides. Emitted as
+    # `bracket_geometry`, the matrix's DIMENSION column, never as a ninth lever.
+    for _tp in SCALP_TP_AT_R_GRID:
+        _tag = f"tp{_tp:g}R"
+        _reason = inert_scalp_target_reason(cfg, _tp, fam, harness)
+        if _reason:
+            # A non-scalp family is not a finding — it is every other leg in the
+            # fleet, and recording it would put four skipped rows on every
+            # donchian leg. Every OTHER reason IS recorded.
+            if skipped is not None and not _reason.startswith("not_the_scalp_family"):
+                skipped.append({"cell": _tag,
+                                "lever": SCALP_TARGET_MATRIX_LEVER,
+                                "reason": _reason})
+            continue
+        out.append((_tag, SCALP_TARGET_MATRIX_LEVER,
+                    ["--tp-at-r", f"{_tp:g}"]))
     # M31 P5 rr_floor cells — close when the remaining upside to the capped TP
     # no longer justifies the give-back to the current stop. Added 2026-08-18.
     #
@@ -2855,7 +3030,11 @@ def main(argv: list[str]) -> int:
                 print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
                       flush=True)
         for tag, lever, extra in p["cells"]:
-            args = p["base"] + extra
+            # Strip-then-append, never bare concatenation — see
+            # `compose_cell_argv`. The numbers are unchanged (argparse already
+            # took the cell's value); the recorded argv stops contradicting
+            # itself.
+            args = compose_cell_argv(p["base"], extra)
             c_is = run_cell(p["harness"], args, end=leg_split)
             c_oos = run_cell(p["harness"], args, start=leg_split)
             log_result({"leg": leg, "cell": tag, "window": "IS", **c_is})

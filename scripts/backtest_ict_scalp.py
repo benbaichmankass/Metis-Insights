@@ -56,7 +56,16 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
-from src.units.strategies.ict_scalp import order_package  # noqa: E402
+from src.units.strategies.ict_scalp import (  # noqa: E402
+    _DEFAULTS as _SCALP_UNIT_DEFAULTS, order_package)
+# The venue distance the OTHER live families clamp their target to. Read
+# from the ONE owner rather than re-declared, so a change there reaches the
+# placeability census here. ict_scalp does NOT clamp (measured 2026-09-13:
+# `CLAMPING_FAMILIES` is {donchian, pullback, fade, squeeze} and
+# `_TP_SENTINEL_CAP_PCT` appears nowhere in ict_scalp.py, against
+# trend_donchian.py:393 which does), so a scalp target past this distance
+# is PLACED rather than clamped -- and refused at the venue instead.
+from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402
 from src.units.strategies import load_strategy_config  # noqa: E402
 
 # Execution-realism cost config (P1 § 3.B). ict_scalp previously had NO cost model
@@ -153,6 +162,118 @@ def _load_yaml_params() -> Dict[str, Any]:
     for k in ("enabled", "model", "signal_prefixes", "symbols", "risk_pct", "shadow_model_ids"):
         cfg.pop(k, None)
     return cfg
+
+
+# --------------------------------------------------------------------------
+# TARGET GEOMETRY — what bracket did this run actually measure?
+# --------------------------------------------------------------------------
+# FOUR SOURCE STATES, never collapsed, because "1.5 because the leg declares
+# it" and "1.5 because nobody said otherwise" are different facts and only the
+# first is evidence about the leg:
+#
+#   cli_flag      an explicit --tp-at-r; the swept axis.
+#   config        the leg's own declared tp_at_r, from config/strategies.yaml.
+#   unit_default  nobody declared one; ict_scalp._DEFAULTS decided.
+#   unknown       a value is present and will not parse as a number -- WE COULD
+#                 NOT ESTABLISH THE TARGET. Reported as None, never as the
+#                 default, because substituting the default here would state a
+#                 geometry nobody chose.
+#
+# The default is READ FROM THE UNIT rather than written as 1.5, so this cannot
+# drift from what order_package() will actually use (field beats comment).
+TP_AT_R_SOURCE_STATES = ("cli_flag", "config", "unit_default", "unknown")
+
+
+def _effective_tp_at_r(cfg: Dict[str, Any],
+                       source_hint: Optional[str] = None,
+                       ) -> tuple[Optional[float], str]:
+    """(target in R, source state). See TP_AT_R_SOURCE_STATES."""
+    if "tp_at_r" not in cfg:
+        try:
+            return float(_SCALP_UNIT_DEFAULTS["tp_at_r"]), "unit_default"
+        except (KeyError, TypeError, ValueError):
+            return None, "unknown"
+    try:
+        return float(cfg["tp_at_r"]), (source_hint or "config")
+    except (TypeError, ValueError):
+        return None, "unknown"
+
+
+PLACEABILITY_STATES = ("all_within_venue_cap", "some_beyond_venue_cap",
+                       "not_measured")
+
+# DID THE TARGET BIND AT ALL?
+#
+# Past some width no trade ever reaches the target and the book collapses to
+# whatever the stop and the timeout produce. Every wider cell then returns the
+# SAME book -- measured 2026-09-13 on a 4-trade BTC smoke sample, where 3.0R,
+# 4.0R and 6.0R are byte-identical (0 tp_hit, 3 timeout, 1 sl_hit, gross_r
+# 1.2672 for all three). Three identical rows in a verdict table read as three
+# data points about three targets; they are ONE observation, that the target
+# stopped binding. Stated on the summary so a reader cannot make that mistake
+# from the tag alone.
+#
+# ⚠️ `never_reached` IS A REAL AND USEFUL RESULT, not an error -- "a target this
+# wide is unreachable on this leg" is exactly what a sweep asking "would a
+# further target have held winners longer" needs to hear. It is not a reason to
+# withhold the cell, only a reason not to count it twice.
+# ⚠️ AND IT IS NOT `not_measured`: no trades means no target had the chance to
+# bind, which is a different fact from a target no trade could reach.
+TARGET_BINDING_STATES = ("binds", "never_reached", "not_measured")
+
+
+def _target_binding(trades: List["Trade"]) -> str:
+    if not trades:
+        return "not_measured"
+    return ("binds" if any(t.outcome == "tp_hit" for t in trades)
+            else "never_reached")
+
+
+def _placeability(trades: List["Trade"]) -> Dict[str, Any]:
+    """Would the venue take this target, or refuse the order outright?
+
+    ⚠️ THIS MATTERS **BECAUSE** ict_scalp DOES NOT CLAMP. The four clamping
+    families compute ``tp = min(entry * (1 + cap), entry + tp_r * risk)``, so a
+    too-far target there becomes a nearer one. ict_scalp computes
+    ``tp = entry ± tp_at_r * risk`` with no clamp anywhere in the unit
+    (measured 2026-09-13, positive control: trend_donchian.py:393 does clamp),
+    so a too-far target is SENT and the venue refuses the order. A swept cell
+    whose targets sit past the cap is therefore measuring trades that could not
+    have been placed -- which is not a wider bracket, it is a book of orders
+    that never existed.
+
+    ⚠️ AND IT IS A FLAG, NOT A PROOF OF REJECTION. ``TP_VENUE_CAP_PCT`` is the
+    distance the OTHER families' units clamp to; that those units clamp there
+    is measured, that a given venue rejects at exactly that distance is this
+    repo's standing claim about the venue and is not re-verified here. Read a
+    non-zero count as "these cells need a venue answer before their verdict is
+    actionable", never as "these orders were rejected".
+
+    Three states, never collapsed: ``not_measured`` means the run produced no
+    trades, so NO distance exists -- it is not the clean negative
+    ``all_within_venue_cap`` is.
+    """
+    dists = [abs(t.tp - t.entry) / t.entry
+             for t in trades if t.entry and t.tp is not None]
+    if not dists:
+        return {"venue_cap_pct": TP_VENUE_CAP_PCT,
+                "placeability_state": "not_measured",
+                "n_beyond_venue_cap": None,
+                "pct_beyond_venue_cap": None,
+                "max_target_distance_pct": None,
+                "unit_clamps": False}
+    beyond = [d for d in dists if d > TP_VENUE_CAP_PCT]
+    return {
+        "venue_cap_pct": TP_VENUE_CAP_PCT,
+        "placeability_state": ("some_beyond_venue_cap" if beyond
+                               else "all_within_venue_cap"),
+        "n_beyond_venue_cap": len(beyond),
+        "pct_beyond_venue_cap": round(100.0 * len(beyond) / len(dists), 2),
+        "max_target_distance_pct": round(100.0 * max(dists), 4),
+        # Stated on every row so a reader never has to remember which families
+        # clamp: for THIS harness the answer is always False.
+        "unit_clamps": False,
+    }
 
 
 def _simulate_exit(
@@ -429,7 +550,13 @@ def run_backtest(
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
     strategy_name: str = "ict_scalp_5m",
+    tp_at_r_source: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """``tp_at_r_source`` is provenance only and changes no geometry: the
+    target itself always arrives through ``cfg_overrides["tp_at_r"]`` and is
+    computed by the live unit. It exists so a summary can say WHY the target
+    was what it was -- an explicit sweep value and a leg's own declaration
+    produce identical books and are not the same claim."""
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
     # Align the HTF series onto the base index ONCE via merge_asof (most
@@ -644,6 +771,17 @@ def run_backtest(
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                          bank_frac=bank_frac, bank_at_r=bank_at_r)
+    # TARGET PROVENANCE, echoed on EVERY summary for the same reason `cost_cfg`
+    # and `lever_cfg` are: a sweep cell's JSON must state which bracket produced
+    # its r_multiple, never leave a reader to infer it from a tag. Without this
+    # a target cell and the base are indistinguishable in the output.
+    _eff_tp, _eff_src = _effective_tp_at_r(cfg, tp_at_r_source)
+    summary["target_cfg"] = {
+        "tp_at_r": _eff_tp,
+        "tp_at_r_source": _eff_src,
+        "target_binding": _target_binding(trades),
+        **_placeability(trades),
+    }
     if _collect_trades:
         # (confidence, r_multiple) per trade — lets the sweep filter by
         # threshold without re-walking the (expensive) 5m frame N times.
@@ -983,6 +1121,21 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Write summary to this JSON file. '-' means stdout.")
     p.add_argument("--ignore-yaml", action="store_true",
                    help="Ignore config/strategies.yaml; use unit defaults only.")
+    p.add_argument("--tp-at-r", type=float, default=None, metavar="R",
+                   help="TARGET GEOMETRY AXIS. Override the fixed-bracket "
+                        "target, in R. Injected into cfg so the LIVE unit "
+                        "computes it (ict_scalp.order_package: "
+                        "tp = entry +/- tp_at_r * risk) -- this harness never "
+                        "re-derives a target, so a swept cell measures the "
+                        "same geometry production would place. "
+                        "DEFAULT None = the leg's declared value, i.e. "
+                        "byte-identical to every caller written before this "
+                        "flag existed. Applies even under --ignore-yaml: an "
+                        "explicit request is not a YAML read. Must be > 0 -- a "
+                        "non-positive target sits at or behind the entry, "
+                        "which is not a wider bracket but a different trade. "
+                        "NOTE it moves the no-op boundary --bank-at-r and the "
+                        "giveback rung are measured against; see --bank-at-r.")
     p.add_argument("--min-confidence", type=float, default=0.0,
                    help="Skip entries whose live order_package() confidence is below this.")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
@@ -1033,9 +1186,15 @@ def build_parser() -> argparse.ArgumentParser:
                         "Mirrors backtest_trend.py / backtest_pullback.py.")
     p.add_argument("--bank-at-r", type=float, default=1.0, metavar="R",
                    help="Rung for --bank-frac, in R (default 1.0). MUST be "
-                        "strictly below the leg's tp_at_r (1.5R on every live "
-                        "ict_scalp leg) — at or above it the rung coincides "
-                        "with the fixed TP and the lever is a provable no-op.")
+                        "strictly below the EFFECTIVE target — at or above it "
+                        "the rung coincides with the fixed TP and the lever is "
+                        "a provable no-op. The effective target is the leg's "
+                        "declared tp_at_r (1.5R on every live ict_scalp leg as "
+                        "of 2026-09-13) UNLESS --tp-at-r moves it, so read "
+                        "`target_cfg.tp_at_r` in the summary rather than "
+                        "assuming 1.5. A rung that lands at or above it is "
+                        "REFUSED at parse time rather than run and reported "
+                        "as a flat result.")
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
@@ -1075,6 +1234,37 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    # TARGET GEOMETRY AXIS. Injected into cfg so the LIVE unit computes the
+    # target; the harness never re-derives one. Applied AFTER --ignore-yaml
+    # because an explicit flag is a request, not a YAML read -- the two mean
+    # different things and stacking them must not silently drop the request.
+    tp_at_r_source = None
+    if args.tp_at_r is not None:
+        if not (float(args.tp_at_r) > 0.0):
+            p_err = (f"--tp-at-r must be > 0 (got {args.tp_at_r:g}); a "
+                     "non-positive target sits at or behind the entry, which "
+                     "is a different trade rather than a different bracket.")
+            print(f"ERROR: {p_err}", file=sys.stderr)
+            return 2
+        cfg_overrides = {**cfg_overrides, "tp_at_r": float(args.tp_at_r)}
+        tp_at_r_source = "cli_flag"
+    # THE BANK RUNG'S NO-OP BOUNDARY MOVES WITH THE TARGET, so it is checked
+    # here against the EFFECTIVE target rather than against a 1.5 this flag can
+    # now change. Refused rather than run: a rung at or above the fixed TP
+    # returns on the same bar as the TP check, so the cell reports 0.0 on every
+    # metric and reads as "we measured it and it made no difference" when it was
+    # never measurable -- the cosmetic-cell anti-pattern
+    # (BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS). Only fires when the lever is
+    # actually armed (`--bank-frac > 0`); a default run is untouched.
+    _eff_tp, _ = _effective_tp_at_r(cfg_overrides, tp_at_r_source)
+    if float(args.bank_frac) > 0.0 and _eff_tp is not None \
+            and float(args.bank_at_r) >= _eff_tp:
+        print(f"ERROR: --bank-at-r {float(args.bank_at_r):g} is at or above the "
+              f"effective target tp_at_r={_eff_tp:g}R, so the rung coincides "
+              "with the fixed TP and the ladder lever is a provable no-op. "
+              "Lower the rung, or raise the target with --tp-at-r.",
+              file=sys.stderr)
+        return 2
     vol_spec = None
     if args.vol_spec_json:
         try:
@@ -1084,6 +1274,7 @@ def main(argv: List[str]) -> int:
                   "vol_regime will stamp as unknown", file=sys.stderr)
     bt_kwargs = dict(
         cfg_overrides=cfg_overrides,
+        tp_at_r_source=tp_at_r_source,
         timeframe=args.timeframe,
         symbol=args.symbol,
         warmup_bars=int(args.warmup_bars),
