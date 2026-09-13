@@ -166,6 +166,18 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # The SIBLING of `decision-answers-guard`. That one asks whether an
+        # answer a human WROTE will be READ; this asks whether a CONSUMER reads
+        # both shapes at all. They are different failures: the first strands an
+        # answer, the second reports a settled decision as open.
+        "name": "decision-answer-consumers",
+        "when": {"regex": r"^(src|scripts)/.*\.py$"},
+        "steps": [
+            ["python3", "scripts/ci/check_decision_answer_consumers.py", "--self-test"],
+            ["python3", "scripts/ci/check_decision_answer_consumers.py"],
+        ],
+    },
+    {
         # The document register must not silently stop being true.
         #
         # UNGATED (`when: None`) deliberately, for the reason the api-tier-policy
