@@ -727,6 +727,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u2-winner-close-attribution-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u21-fanout-exit-unit-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

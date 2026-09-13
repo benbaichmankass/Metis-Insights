@@ -163,13 +163,47 @@ def _added_after(rel: str, when: "_backlog.RowDate") -> bool | None:
     return first_day > when.day
 
 
+def criterion_context(crit: str, needle: str, width: int = 260) -> str:
+    """The sentence of *crit* that mentions *needle*, or "" if it does not.
+
+    WHY A SIGNAL CARRIES ITS OWN CONTEXT (2026-09-13). A signal that says only
+    `OK path_added_since_filing: scripts/research/m20_corpus_schema_census.py`
+    reads as evidence FOR closing. On
+    BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT
+    the criterion names that exact path in the clause *"DO NOT close it on the
+    census alone -- the census REPORTS the ambiguity, it does not remove it"*.
+    The path was added after filing, so the signal is literally true and points
+    the wrong way.
+
+    THIS IS NOT A CLASSIFIER AND DELIBERATELY DOES NOT TRY TO BE. Detecting
+    negation lexically would be a confident wrong answer of its own -- the
+    UNPROVENANCED DIAGNOSTIC class this repo has a guard for. It shows the
+    criterion's OWN WORDS beside the signal and lets the reader decide, which
+    is what the tool's docstring already promises: it shortlists, it never
+    decides.
+    """
+    if not needle or needle not in crit:
+        return ""
+    # Split on sentence-ish boundaries. `.` is deliberately NOT a boundary on
+    # its own: every path in these criteria contains one, so splitting on it
+    # would cut the needle in half and match nothing.
+    parts = re.split(r"(?<=[.;])\s+(?=[A-Z(\u26a0])|\n", crit)
+    for part in parts:
+        if needle in part:
+            out = " ".join(part.split())
+            return out if len(out) <= width else out[: width - 1] + "\u2026"
+    out = " ".join(crit.split())
+    return out if len(out) <= width else out[: width - 1] + "\u2026"
+
+
 def assess(row: dict[str, Any], diag_src: str) -> dict[str, Any]:
     crit = str(row.get("resolution_criteria") or "")
     signals: list[dict[str, Any]] = []
 
     for m in set(_LOGNAME.findall(crit)):
         signals.append({"kind": "diag_log_name", "needle": m,
-                        "ok": f'"{m}"' in diag_src})
+                        "ok": f'"{m}"' in diag_src,
+                        "context": criterion_context(crit, m)})
     for m in set(_PATH.findall(crit)):
         # A path merely EXISTING proves nothing -- most criteria name files that
         # already existed when the row was filed (docs/CLAUDE-RULES-CANONICAL.md
@@ -177,7 +211,9 @@ def assess(row: dict[str, Any], diag_src: str) -> dict[str, Any]:
         # CREATED AFTER the row was opened, i.e. something shipped since.
         exists = (ROOT / m).exists()
         added = _added_after(m, _backlog.row_date(row)) if exists else False
-        signals.append({"kind": "path_added_since_filing", "needle": m, "ok": added})
+        signals.append({"kind": "path_added_since_filing", "needle": m,
+                        "ok": added,
+                        "context": criterion_context(crit, m)})
     decidable = [s for s in signals if s["ok"] is not None]
     if not decidable:
         # Either nothing was extractable, or every extracted signal is
@@ -225,6 +261,11 @@ def main(argv: list[str]) -> int:
         for s in v["signals"]:
             mark = "?? " if s["ok"] is None else ("OK " if s["ok"] else "NO ")
             print(f"      {mark}{s['kind']}: {s['needle']}")
+            if s.get("context"):
+                # The criterion's OWN words about this needle, so an `OK`
+                # that the criterion itself calls insufficient cannot read
+                # as evidence for closing.
+                print(f"         criterion says: {s['context']}")
     return 0
 
 
