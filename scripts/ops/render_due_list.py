@@ -672,7 +672,7 @@ _PUSH_RUN_NOT_A_FINDING = (None, "success", "cancelled", "skipped")
 
 def src_red_main_runs(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
-    today: date,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     *,
     token: str | None = None,
 ) -> SourceResult:
