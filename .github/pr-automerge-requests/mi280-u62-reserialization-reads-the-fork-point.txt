@@ -1,0 +1,1 @@
+MI-280 U62: register-reserialization reads the fork point; planted-defect control asserts the number, not the exit code.

@@ -56,6 +56,9 @@ import subprocess
 import sys
 from typing import Any
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _git_base  # noqa: E402  -- the ONE owner of base resolution
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 # ── the four states, never collapsed ────────────────────────────────────────
@@ -237,13 +240,36 @@ def grade(base_text: str | None, head_text: str | None, *, path: str) -> dict:
                     "conditions must hold, so this is clean")}
 
 
-def _show(ref: str, path: str, cwd: pathlib.Path = REPO) -> str | None:
-    rc, out = _git("show", f"{ref}:{path}", cwd=cwd)
-    return out if rc == 0 else None
+def _base_text(ref: str, path: str, cwd: pathlib.Path = REPO) -> str | None:
+    """The register's bytes at *ref*, or None when they cannot be compared.
+
+    ⚠️ THIS COLLAPSES TWO OF `read_at`'s THREE STATES, DELIBERATELY AND
+    NARROWLY. `ABSENT_AT_BASE` (the register is NEW in this diff) and
+    `UNREADABLE` (*we could not look*) both return None here, which is exactly
+    what the old `_show` did -- so this change alters WHICH REF is read and
+    nothing else. Splitting them would change what happens to a PR that adds a
+    new register (today: graded UNREADABLE, which fails), and that is a separate
+    behavioural argument with its own control; bundling it here would leave the
+    planted-defect control below unable to say which change it was measuring.
+    Filed rather than silently folded in.
+    """
+    state, text = _git_base.read_at(ref, path, repo=cwd)
+    return text if state == _git_base.READ else None
 
 
 def check(base: str, *, root: pathlib.Path = REPO) -> dict:
     regs = registers_from_gitattributes(root)
+    # THE FORK POINT, NOT THE TIP. `git diff {base}...HEAD` is already
+    # three-dot (merge-base semantics), so the FILE LIST was always scoped
+    # correctly -- but the base CONTENT was read at `base` itself, i.e. the
+    # tip. Mixed basis: files graded at the fork point, bytes compared against
+    # a ref that has moved. Measured 2026-09-12 on a branch 25 register-commits
+    # behind: an honest ONE-ROW append reported "421 base line(s) lost" against
+    # 0 at the merge base, because rows OTHER SESSIONS added after the fork read
+    # as this diff's losses. The verdict happened to survive (a 75% floor, and a
+    # budget that inflates with the same contaminated input), so what was wrong
+    # was the number a human reads and acts on.
+    resolved_base, _base_state = _git_base.resolve_base(base, repo=root)
     rc, out = _git("diff", "--name-only", f"{base}...HEAD", cwd=root)
     if rc != 0:
         rc, out = _git("diff", "--name-only", base, cwd=root)
@@ -256,7 +282,7 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
                          "lost_fraction": 0.0,
                          "why": "not changed by this diff"})
             continue
-        rows.append(grade(_show(base, rel, root),
+        rows.append(grade(_base_text(resolved_base, rel, root),
                           (root / rel).read_text(encoding="utf-8")
                           if (root / rel).is_file() else None,
                           path=rel))
