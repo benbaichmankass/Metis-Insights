@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-12T04:55:00Z",
+  "updated_at": "2026-09-13T03:04:40Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-12T04:55:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager, 04:52Z tick)",
+  "as_of": "2026-09-13T03:04:40Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0255Z manager tick",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5557,6 +5557,57 @@
       "check the NEXT fan-out dispatch against the venue WHILE OPEN, to settle (a) vs (b)",
       "decision 2 still needs a dispatchable round on a strategy NOT already holding that symbol AND an account the global election would starve",
       "the dedupe row is LOUD and due 2026-09-14"
+    ]
+  },
+  "manager_tick_2026_09_13T0255Z": {
+    "CORRECTION_the_0155Z_anomaly_is_REFUTED_do_not_carry_it": {
+      "what_I_filed_last_tick": "that trade 5731 carries direction=SHORT while its own bracket is LONG-shaped, and that this might be an inverted side reaching a live order.",
+      "why_it_is_WRONG": "5731 is not an entry row. It carries setup_type='intent_reduce' and exit_reason='intent_reduce_executed'. src/units/accounts/execute.py:2339 writes `\"direction\": pkg.direction,  # the reduce side` and copies entry/sl/tp from the package verbatim. src/units/accounts/clients.py:837-843 states the contract outright: such a row's direction IS the close-order side and its entry_price is the primary leg's INTENDED entry, not the reduced position's actual entry. So I compared a close-side field against an intended-entry bracket and called the disagreement a defect. Both fields behaved exactly as documented.",
+      "the_evidence_that_settles_it": "5731.notes = {intent_action 'reduce', intent_current_qty 18377.1, intent_target_qty 3589.9, allocations [{parent_id 5688, consumed 14787.2, new_size 3589.9}]}. A SELL-to-reduce on a held LONG — direction 'short' is correct and the long-shaped bracket is the parent's. No inversion exists.",
+      "what_this_costs_the_fanout_claim": "the first fan-out dispatch did NOT open a position. It REDUCED one. So the fan-out has still never opened a new position on any account.",
+      "owed": "the backlog row BL-20260913-…-DIRECTION-FIELD-IS-OPPOSITE-TO-ITS-OWN-BRACKET-GEOMETRY must be dispositioned as not-a-defect with this citation. NOT done in this commit — see the sequencing note below."
+    },
+    "MI_227_CLAUSE_3_IS_OBSERVED_the_leg_was_read_back_off_the_venue": {
+      "row": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
+      "clause_3_asked_for": "a reduce fires on a Bybit account under BYBIT_TPSL_MODE=partial, and the SHRUNK row's tracked leg is read back off /api/diag/bybit_open_orders at the row's NEW position_size. Record the trade id, the order id, the size before and the size after.",
+      "trade": "5731 (reduce audit row), parent 5688, bybit_1 XRPUSDT, 2026-09-13T01:41:52Z",
+      "size_before": 18377.1,
+      "size_after": 3589.9,
+      "audit_row_says": "notes.intent_reduce_allocations[0].leg_resize = {sl: {state 'resized', order_id 2c52186a-ef90-4978-9e0d-68dd38502524, qty_sent '3589.9', error null}, tp: {state 'resized', order_id 461e1164-6910-4044-9173-bc9fb395c56d, qty_sent '3589.9', error null}} — the CHEAP half, which the row itself says is NOT the observation.",
+      "THE_VENUE_READ_the_observation_itself": "/api/diag/bybit_open_orders?account_id=bybit_1, captured_at 2026-09-13T02:59:09Z, read_state 'orders_read'. Position XRPUSDT Buy size 3589.9 position_idx 0. XRPUSDT resting orders: EXACTLY TWO, and they are the two named ids — 2c52186a… PartialStopLoss Sell qty 3589.9 trigger 1.3112 reduce_only true Untriggered, and 461e1164… PartialTakeProfit Sell qty 3589.9 trigger 1.5997 reduce_only true Untriggered. Both updated_time ≈1789263712xxx ms = 01:41:52Z, the reduce itself. Coverage is 1.00x. Before MI-227 those legs would have stayed at 18377.1 against a 3589.9 row — 5.12x, the F-36 shape.",
+      "and_it_settles_the_premise_the_builder_could_not_verify": "the row records that 'Bybit accepts qty on an amend of a Partial-tpsl conditional leg comes from the V5 API contract, not from a call — verifying it means placing one, which the building session was not permitted to do.' The venue has now answered: it accepts. state='resized' AND the leg reads back at the new qty.",
+      "state_the_population_and_the_caveat": "n = 1 reduce, on bybit_1, whose account_class is 'paper' (demo). Clause (3) does not require real money, so it clears — but a single demo reduce is what was observed and that is what is claimed. bybit_2 (real money) has not been observed doing this.",
+      "clauses_1_and_2": "entailed rather than separately checked: the behaviour is running on the fleet, which a merge alone and a deploy alone cannot produce.",
+      "owed": "write this into OPEN-ITEMS.json. NOT done in this commit — see the sequencing note."
+    },
+    "SEQUENCING_why_two_register_writes_are_deliberately_NOT_in_this_commit": "PR #12167 (MI-279 U16) is mid-CI right now with auto-merge armed and it edits docs/claude/OPEN-ITEMS.json. Pushing a competing OPEN-ITEMS edit from here is how a green PR goes dirty and restarts a ~19-minute CI run — the non-convergence class this manager already filed. The evidence above is durable on main in THIS commit; the two register writes follow once #12167 lands. Checked: #12167's OPEN-ITEMS hunk touches OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED ONLY and does not touch the MI-227 row, so there is no contradiction between what it lands and what I owe.",
+    "the_second_fanout_dispatch_and_why_DECISION_2_IS_STILL_GATED": {
+      "round": "arbitration_fanout_soak 2026-09-13T02:54:13.697785Z — fanout_schema 3, apply_state 'dispatchable', SOLUSDT, {strategy ict_scalp_sol_15m, accounts [bybit_1], side SHORT, entry 101.95, sl 102.20085714, tp 101.57371429}. Geometry is short-shaped and correct (sl above entry, tp below).",
+      "outcome": "NO trade row. Newest journal trade is still 5731 at 01:41:52Z, read at 03:00Z — six minutes after the round.",
+      "why_that_is_expected_not_a_defect": "bybit_1 holds an OPEN SOLUSDT LONG (trade 5728, pairs_sol_eth_a, and the venue shows SOLUSDT Buy 786.1). A short intent against a held long under FLIP_POLICY=hold is refused by design.",
+      "so_the_census_over_BOTH_dispatches": "2 dispatchable fan-out rounds since the projection fix landed; 0 new positions opened. Both were against a symbol already held. Neither had a starved account (starved_accounts [] on both, holds_winner true on both, one electing account on both), so the GLOBAL election would have produced the same outcome either time.",
+      "decision_2_criterion_UNCHANGED_and_now_better_evidenced": "arming breakout_1 in ARBITRATION_FANOUT_ACCOUNTS still needs a dispatchable round on a strategy that does NOT already hold that symbol AND on an account the global election would STARVE. Neither dispatch met it. This is NOT armed unilaterally and goes back to the operator with evidence."
+    },
+    "lanes_all_three_RUNNING_observed_live": {
+      "MI-278_research": "581k/1M (58%), review_ready, '2 PRs await merge click', $779.96",
+      "MI-279_ops": "290k/1M (29%), review_ready, '5 PRs resynced & armed'",
+      "MI-280_engineering": "761k/1M (76%), last unit completed, $1007.77 — ⚠️ approaching the 85% wrap trigger; its own task_summary already reads 'context window exhausted'. Watch it, do not spawn a replacement yet.",
+      "no_spawns": "three lanes exactly, per the operator's rollback instruction.",
+      "RATE_LIMIT_worth_the_operator_knowing": "all three report rate_limit_info {rateLimitType 'seven_day', status 'allowed_warning', isUsingOverage false, resetsAt 1789581600 ≈ 2026-09-16T18:00Z}. 'allowed_warning' means the seven-day window is being approached, not that anything is throttled today. Observed spend across the two lanes that report it: $1,787.73."
+    },
+    "merge_queue": {
+      "probe": "git merge-tree --write-tree against origin/main 7f832e8c0, all 16 open claude/* lane branches. API-free, no mergeable_state guess.",
+      "clean_9": "mi279-u16-open-items, mi278-u32-e35-binomial-package-denominator, mi279-u15-oldest-high, mi279-u14-oldest-high, mi279-u13-oldest-high, mi278-u29-bind-review-backlogs-to-merge-driver, mi279-u3-spawn-object-visibility, mi279-u3-symbol-binds-data, mi280-u35-status-enum-doc-drift",
+      "conflicted_7": "mi278-u30, mi278-u23, mi278-u5, mi278-u13, mi278-u8, mi278-u3, ops-probe-actions-log-reader — six of seven are MI-278's older units, i.e. that lane has a stale tail.",
+      "manager_action": "NONE taken, deliberately. #12167's CI started 03:01Z with open-and-automerge already green, so the clean ones land themselves; a manager merge adds nothing. And the conflicted seven are on worker paths (src/, scripts/, tests/) — a manager resolving those is a manager commit on a worker path, which check_manager_scope R2 fails and which is doing the item. Poked, not resolved.",
+      "this_branch": "NO merge-slot claim written. Recorded because I tried both documented routes and R2 closed both: (a) the per-branch claim .github/merge-slots/manager-tick-20260912-0610z.json — the remedy .github/merge-slots/README.md prescribes — was REFUSED by name at 03:07Z because .github/ is a worker path; (b) re-asserting the SHARED docs/claude/session-board.json::merge_slot was refused at 03:09Z because a naive JSON round-trip reserializes the whole file, and R2 permits a manager exactly one thing there — a merge_slot claim naming its own branch, nothing else. Resolution: take main's board file byte-for-byte and claim nothing. check_pr_landing still grades this branch declared_self_land off .github/pr-landing/, so R13 is satisfied without a slot. The conflict at 03:05Z was main's 15:36Z stale-automation-sweep claim over this branch's 06:09Z one; taking main's is correct — a 21-hour-old claim is spent."
+    },
+    "not_a_finding_checked_rather_than_alarmed": "trades 5726-5729 carry brackets at exactly +/-100% of entry (e.g. 5729 ETHUSDT short: entry 2519.33, sl 5038.66 = 2x, tp 1259.665 = 0.5x). Checked before raising it: all four are pairs-sleeve legs (strategy_name pairs_sol_eth_a/_b and pairs_bnb_btc pairs, opened within one second of each other), and that sleeve is the isolated 2-leg path that exits on the SPREAD, not on a per-leg stop. The +/-100% is its no-per-leg-stop sentinel, the same shape as the tp_r=50 sentinel elsewhere. Recording it so the next session that sees a 50%-wide stop on bybit_1 does not spend a tick re-deriving this.",
+    "next": [
+      "once #12167 lands: write the MI-227 clause-3 observation into OPEN-ITEMS.json, and disposition the 0155Z direction-anomaly backlog row as not-a-defect with the execute.py:2339 / clients.py:837 citation",
+      "decision 2 (arming breakout_1) still needs a dispatchable round on a strategy NOT already holding that symbol AND an account the global election would starve — back to the operator with evidence, never armed unilaterally",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
+      "watch MI-280 for the 85% wrap trigger (76% now)"
     ]
   }
 }

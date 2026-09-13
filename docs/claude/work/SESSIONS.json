@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T00:53:55Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "updated_at": "2026-09-13T03:04:40Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0255Z manager tick, all three lanes get_session'd live",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4898,7 +4898,11 @@
         "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
         "note": "RUNNING. 780221 (78%). U26 merged; U27 discharge in progress; 2 PRs ready. Self-scheduled check-in 40m."
-      }
+      },
+      "item": "MI-278",
+      "lane": "research",
+      "last_observed_at": "2026-09-13T03:00Z",
+      "last_observation": "2026-09-13T03:00:13Z get_session: RUNNING, connected, 581406/1000000 ctx (58%), status review_ready '2 PRs await merge click', branch claude/mi278-u33-netting-position-size-assigned, cost_usd 779.96"
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4920,7 +4924,11 @@
         "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
         "note": "RUNNING. 289732 (29%) — the only lane comfortably under threshold, unchanged for 4 ticks. 5 PRs resynced and armed; no needs_action set, so NOT treated as blocking."
-      }
+      },
+      "item": "MI-279",
+      "lane": "ops",
+      "last_observed_at": "2026-09-13T03:00Z",
+      "last_observation": "2026-09-13T03:00:24Z get_session: RUNNING, connected, 289732/1000000 ctx (29%), status review_ready '5 PRs resynced & armed; waiting on merge window or manual click', branch claude/mi279-u16-open-items"
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
@@ -4942,7 +4950,11 @@
         "at": "2026-09-13T00:53:55Z",
         "via": "get_session",
         "note": "RUNNING. 760945 (76%). 18 PRs merged; #12143 green. Its #12094 blocker is CLEARED — both #12094 and #12095 landed on main."
-      }
+      },
+      "item": "MI-280",
+      "lane": "engineering",
+      "last_observed_at": "2026-09-13T03:00Z",
+      "last_observation": "2026-09-13T03:00:40Z get_session: RUNNING, connected, 760945/1000000 ctx (76%), status completed 'main CI unblocked: removed duplicate merged row in collision resolution', branch claude/mi280-u75-register-id-guard-unparseable, cost_usd 1007.77. ⚠️ its own task_summary reads 'context window exhausted; unable to read user's full request' at 76% — the handoff trigger to watch, not yet crossed."
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
