@@ -272,6 +272,49 @@ def grade(base_text: str | None, head_text: str | None, *, path: str,
                     "conditions must hold, so this is clean")}
 
 
+#: How many unmarked candidates to NAME before summarising the rest. The list is
+#: 23 today; a cap exists so a future tree of 300 JSON files cannot turn a
+#: scope note into the page nobody reads. ⚠️ THE CAP TRUNCATES THE LIST, NEVER
+#: THE COUNT — a truncated census that also truncated its own total would be the
+#: unasserted denominator one level up, which is the defect this renderer exists
+#: to fix.
+UNMARKED_NAME_CAP = 40
+
+
+def render_unmarked(paths: list[str], cap: int = UNMARKED_NAME_CAP) -> list[str]:
+    """The unmarked candidates, NAMED — pure, so the cap is arguable in a test.
+
+    ⚠️ WHY NAMING THEM IS THE FIX AND COUNTING THEM WAS THE DEFECT. The old
+    output said *"23 unmarked candidate(s) NOT checked (so `clean` is a scope
+    result, not full coverage)"* — true, honest about its scope, and
+    unactionable: a reader could not tell that three of the four review
+    backlogs were among the 23. On 2026-09-13 a session hand-resolved a
+    conflict in `performance-review-backlog.json`, silently dropped a row that
+    had landed on `main` hours earlier, and every guard passed — including this
+    one, which knew the file was unbound and said only a number. Filed by the
+    MI-278 lane as the row about three of the four review backlogs never being
+    bound to the row-aware merge driver, and this is its `next_step` (1).
+
+    ⚠️ THAT ROW IS CITED BY DESCRIPTION AND NOT BY ID, DELIBERATELY. It is filed
+    on PR #12148, which is `landing: hold` awaiting a human read, so its id does
+    not yet resolve on `main` — and `check_backlog_refs` correctly refused this
+    file for naming it. A doc saying "tracked by BL-X" where BL-X was never
+    filed reads as tracked while being tracked by nobody. Put the id back once
+    that PR lands; do not file a second copy of the row to satisfy the guard.
+
+    This is the repo's unasserted-denominator class (sub-class C) applied to a
+    coverage census: the number was correct and told nobody anything.
+    """
+    if not paths:
+        return ["  (none — every register-shaped JSON under docs/claude is bound)"]
+    shown, rest = paths[:cap], len(paths) - min(len(paths), cap)
+    lines = [f"  {rel}" for rel in shown]
+    if rest:
+        lines.append(f"  ... and {rest} more (the COUNT above is complete; only "
+                     "this list is capped)")
+    return lines
+
+
 def _base_read(ref: str, path: str,
                cwd: pathlib.Path = REPO) -> tuple[str, str | None]:
     """`read_at`'s verdict for the base side, forwarded WITHOUT collapsing it.
@@ -292,6 +335,7 @@ def _base_read(ref: str, path: str,
 
 def check(base: str, *, root: pathlib.Path = REPO) -> dict:
     regs = registers_from_gitattributes(root)
+    unmarked = unmarked_registers(root)
     # THE FORK POINT, NOT THE TIP. `git diff {base}...HEAD` is already
     # three-dot (merge-base semantics), so the FILE LIST was always scoped
     # correctly -- but the base CONTENT was read at `base` itself, i.e. the
@@ -328,7 +372,10 @@ def check(base: str, *, root: pathlib.Path = REPO) -> dict:
         "rows": rows,
         "registers_checked": len(regs),
         "registers_in_diff": sum(1 for r in rows if r["state"] != UNTOUCHED),
-        "unmarked_candidates": len(unmarked_registers(root)),
+        "unmarked_candidates": len(unmarked),
+        # ⚠️ THE LIST, not only its length. A census that counts what it did not
+        # check, without saying WHAT, cannot be acted on — see render_unmarked.
+        "unmarked_paths": unmarked,
         "reserialized": [r["path"] for r in bad],
         "unreadable": [r["path"] for r in unread],
         "new_registers": [r["path"] for r in fresh],
@@ -508,6 +555,66 @@ def _selftest(quiet: bool = False) -> tuple[bool, list[str]]:
     say(f"  {'ok ' if reached == set(ALL_STATES) else 'FAIL'} all "
         f"{len(ALL_STATES)} states are reachable, so none is decorative")
 
+    # ── THE CENSUS MUST NAME WHAT IT DID NOT CHECK ──────────────────────────
+    # A count is true and unactionable. On 2026-09-13 this guard printed "23
+    # unmarked candidate(s) NOT checked" while three of the four review backlogs
+    # sat in that 23, and a hand-resolved conflict in one of them dropped a filed
+    # row with every guard green.
+    sample = ["docs/claude/performance-review-backlog.json",
+              "docs/claude/ml-review-backlog.json"]
+    out = "\n".join(render_unmarked(sample))
+    named = all(x in out for x in sample)
+    if not named:
+        fails.append("render_unmarked did not NAME the candidates it was given — "
+                     "a count is what this replaced")
+    say(f"  {'ok ' if named else 'FAIL'} the unmarked candidates are NAMED, not "
+        "counted")
+
+    # THE CAP TRUNCATES THE LIST AND NEVER THE COUNT. A census that capped its
+    # own total would be the unasserted denominator one level up — the exact
+    # defect this renderer exists to fix, reintroduced by the fix.
+    many = [f"docs/claude/f{i:03d}.json" for i in range(100)]
+    capped = render_unmarked(many, cap=10)
+    listed = [ln for ln in capped if ln.strip().startswith("docs/")]
+    says_rest = any("90 more" in ln for ln in capped)
+    cap_ok = len(listed) == 10 and says_rest
+    if not cap_ok:
+        fails.append(f"cap misbehaved: listed {len(listed)} line(s), "
+                     f"says_rest={says_rest} — it must show exactly `cap` and "
+                     "state how many it withheld")
+    say(f"  {'ok ' if cap_ok else 'FAIL'} the cap truncates the LIST and says "
+        "how many it withheld")
+
+    # AND AN EMPTY LIST MUST SAY SO IN WORDS. Rendering nothing would make "every
+    # register is bound" and "the probe stopped matching" the same output.
+    empty = render_unmarked([])
+    empty_ok = bool(empty) and "none" in empty[0]
+    if not empty_ok:
+        fails.append("an empty unmarked list rendered as nothing — silence "
+                     "cannot distinguish full coverage from a broken probe")
+    say(f"  {'ok ' if empty_ok else 'FAIL'} an empty list is stated in words, "
+        "not rendered as silence")
+
+    # THE LIST MUST REACH THE CALLER, not just exist. check() surfacing only a
+    # length is what main() could print nothing useful from.
+    v_chk = check("HEAD")
+    has_paths = isinstance(v_chk.get("unmarked_paths"), list) and \
+        len(v_chk["unmarked_paths"]) == v_chk["unmarked_candidates"]
+    if not has_paths:
+        fails.append("check() does not return unmarked_paths, or its length "
+                     "disagrees with unmarked_candidates — the count and the "
+                     "list must be the same population")
+    say(f"  {'ok ' if has_paths else 'FAIL'} check() returns the LIST and it "
+        f"agrees with the count ({v_chk.get('unmarked_candidates')})")
+
+    # AND THE LIST MUST EXCLUDE WHAT IS BOUND, or it is not a list of gaps.
+    bound = set(registers_from_gitattributes())
+    overlap = bound & set(v_chk.get("unmarked_paths") or [])
+    if overlap:
+        fails.append(f"bound register(s) appear as unmarked: {sorted(overlap)}")
+    say(f"  {'ok ' if not overlap else 'FAIL'} no bound register appears in the "
+        "unmarked list")
+
     # The register set must come from .gitattributes and must not be empty —
     # an empty list would make every run vacuously green.
     regs = registers_from_gitattributes()
@@ -540,6 +647,12 @@ def main(argv: list[str] | None = None) -> int:
           f"to the merge driver, {v['registers_in_diff']} in this diff; "
           f"{v['unmarked_candidates']} unmarked candidate(s) NOT checked "
           "(so `clean` is a scope result, not full coverage)")
+    # NAMED, not counted. The count alone was true and unactionable: it could
+    # not tell a reader that three of the four review backlogs were in it.
+    print("  not bound to the merge driver, so NOT graded by this run — this is "
+          "the scope of `clean`, not a list of faults:")
+    for line in render_unmarked(v["unmarked_paths"]):
+        print(line)
     for r in v["rows"]:
         if r["state"] != UNTOUCHED:
             print(f"  {r['state']:14} {r['path']} — {r['why']}")

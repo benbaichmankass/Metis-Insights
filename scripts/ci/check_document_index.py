@@ -62,7 +62,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 INDEX_REL = "docs/DOCUMENT-INDEX.md"
@@ -296,6 +296,68 @@ def evaluate(population: Set[str],
 # ---------------------------------------------------------------------------
 # Reading the live tree
 # ---------------------------------------------------------------------------
+# ── R7: the FILE must be well-formed before any rule about its CONTENT ──────
+# Three states, never collapsed.
+INDEX_CLEAN = "clean"
+INDEX_CONFLICTED = "conflicted"
+INDEX_UNREADABLE = "unreadable"          # we could not look — NOT a pass
+
+#: git writes exactly seven characters, at the start of a line, followed by a
+#: space and a label or nothing at all. Anchoring on that shape is what lets a
+#: TABLE ROW that merely mentions the markers pass: every row in this document
+#: begins with `|`, so a note quoting a conflict marker can never match.
+_CONFLICT_OPEN = re.compile(r"^<<<<<<<(?: .*)?$")
+_CONFLICT_CLOSE = re.compile(r"^>>>>>>>(?: .*)?$")
+#: Corroboration only, NEVER a trigger. A line of bare `=` is also a valid
+#: setext heading underline in markdown, so firing on it would invent findings
+#: in a document nobody conflicted.
+_CONFLICT_MID = re.compile(r"^=======$")
+
+
+def index_integrity(text: Optional[str]) -> Tuple[str, List[Tuple[int, str]]]:
+    """`(state, [(line_no, line), ...])` — is the index file itself intact?
+
+    ⚠️ WHY THIS IS A RULE ABOUT THE FILE AND NOT ABOUT ITS ROWS. Every other
+    rule here reads rows, and `parse_rows` skips anything that is not a row —
+    so the three marker lines of an unresolved conflict are NOISE to it, BOTH
+    conflicting copies of a row parse as ordinary registrations, and every rule
+    is satisfied. MEASURED 2026-09-13 by planting it: `--all` printed
+    `document-index: OK` and exited 0 on a file whose line 732 was
+    `<<<<<<< HEAD`. No rule was misbehaving; there was no rule about the file
+    being well-formed.
+
+    It matters more since R6 became ungated: that backstop now runs on every PR,
+    so a green document-index step reads as evidence the register is intact.
+
+    ⚠️ THE REPO ALREADY DECIDED THIS CLASS FOR THE JSON HALF.
+    `check_register_reserialization` carries an explicit conflict-markers case
+    and grades such a file UNREADABLE — *we could not look* — rather than clean.
+    It walks `docs/claude/**/*.json`, so this markdown register was outside it
+    entirely. This is the same verdict for the same condition on the other half.
+
+    ⚠️ DELIBERATELY SCOPED TO THIS ONE FILE. A repo-wide conflict-marker guard
+    is a bigger decision — which paths, and whether a marker inside a test
+    fixture or a doc ABOUT merge conflicts is a false positive — and the row
+    that asked for this says in terms that it must not be smuggled in as a
+    one-line fix. This module already scans exactly one file.
+    """
+    if text is None:
+        return INDEX_UNREADABLE, []
+    hits: List[Tuple[int, str]] = []
+    triggered = False
+    for i, line in enumerate(text.splitlines(), start=1):
+        if _CONFLICT_OPEN.match(line) or _CONFLICT_CLOSE.match(line):
+            triggered = True
+            hits.append((i, line))
+        elif _CONFLICT_MID.match(line) and triggered:
+            # Corroboration, NEVER a trigger — it is reported only once an
+            # unambiguous marker has already been seen, so a setext heading
+            # underline in an otherwise clean file can neither fire this nor
+            # appear in the output.
+            hits.append((i, line))
+    return (INDEX_CONFLICTED if triggered else INDEX_CLEAN), hits
+
+
 def parse_rows(text: str) -> List[Dict[str, str]]:
     if BEGIN not in text or END not in text:
         raise SystemExit(
@@ -603,6 +665,53 @@ def self_test() -> int:
         print("  PASS  an agreeing row set grades `computed`, which is a "
               "different fact from `uncomputable`")
 
+    # ── R7: THE FILE ITSELF ─────────────────────────────────────────────────
+    # The measured incident is the first case: a HALF-resolved conflict, with
+    # only the opener left behind. A control requiring the full three-marker
+    # block would have passed against the very file that produced this row.
+    real_row = ("| `docs/x.md` | instruction | live | — | 2026-09-13 | "
+                "`stamp` | — |\n")
+    r7 = [
+        ("a half-resolved conflict — ONLY the opener, the measured case",
+         "# Index\n<<<<<<< HEAD\n" + real_row, INDEX_CONFLICTED),
+        ("a full conflict block", "# Index\n<<<<<<< HEAD\n" + real_row
+         + "=======\n" + real_row + ">>>>>>> origin/main\n", INDEX_CONFLICTED),
+        ("only the CLOSER left behind", "# Index\n>>>>>>> origin/main\n",
+         INDEX_CONFLICTED),
+        # THE FALSE-POSITIVE CASE THE ROW ITSELF WARNS ABOUT. Every row in this
+        # document starts with `|`, so a note QUOTING the markers is not a
+        # conflict. Without this control the cheapest passing implementation is
+        # a substring search, which would fail the register for describing it.
+        ("a table row whose NOTE quotes the markers is NOT a conflict",
+         "# Index\n| `docs/y.md` | instruction | live | — | 2026-09-13 | "
+         "`stamp` | mentions <<<<<<< HEAD and >>>>>>> origin/main |\n",
+         INDEX_CLEAN),
+        # A bare `=======` is a valid setext heading underline. Firing on it
+        # would invent findings in a document nobody conflicted.
+        ("a setext heading underline is NOT a conflict",
+         "Some Heading\n=======\n" + real_row, INDEX_CLEAN),
+        ("an ordinary clean index", "# Index\n" + real_row, INDEX_CLEAN),
+        # `we could not look` is its own state and must never read as clean.
+        ("an unreadable file", None, INDEX_UNREADABLE),
+    ]
+    for label, text, want in r7:
+        got, _hits = index_integrity(text)
+        if got != want:
+            print(f"  FAIL  [R7] {label}: graded {got!r}, wanted {want!r}")
+            failures += 1
+        else:
+            print(f"  PASS  [R7] {label} -> {got}")
+
+    # AND THE MARKER LINES MUST BE NAMED, not merely counted — a guard that
+    # says "there is a conflict somewhere in a 1076-row file" is not actionable.
+    _st, hits = index_integrity("# Index\n<<<<<<< HEAD\n" + real_row)
+    if not (hits and hits[0][0] == 2 and "<<<<<<<" in hits[0][1]):
+        print("  FAIL  [R7] the marker line is not reported with its line number")
+        failures += 1
+    else:
+        print(f"  PASS  [R7] the marker is named with its line number "
+              f"(line {hits[0][0]})")
+
     # The rule engine is only half the guard. Grade the POPULATION BUILDER too —
     # the half that was defective while every case above passed.
     pop_failures = population_control()
@@ -612,7 +721,11 @@ def self_test() -> int:
         print(f"document-index self-test: FAIL — {failures} check(s) did not "
               f"behave as declared. The guard cannot be trusted.")
         return 1
-    print(f"document-index self-test: OK — {len(cases) + len(r6) + len(r6_all) + 8} planted rule cases, "
+    # ⚠️ `len(r7)` IS IN THIS SUM ON PURPOSE. The count is the self-test's own
+    # denominator, and eight cases that ran but were not counted would be the
+    # unasserted-denominator class inside the thing that exists to prevent it.
+    print(f"document-index self-test: OK — "
+          f"{len(cases) + len(r6) + len(r6_all) + len(r7) + 8} planted rule cases, "
           f"every rule observed FIRING and every clean case observed SILENT; "
           f"plus 3 planted FILES proving the population builder sees a "
           f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
@@ -664,8 +777,32 @@ def main() -> int:
               f"Run: python3 scripts/ops/document_index.py --write")
         return 1
 
+    # R7 FIRST, and it RETURNS rather than adding a finding. Grading the rows
+    # of a file carrying an unresolved conflict would emit confident verdicts
+    # about a corrupt register — both copies of a conflicted row parse as real
+    # registrations, so every other rule would be satisfied and say so.
+    try:
+        index_text: Optional[str] = index.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        index_text = None
+        print(f"document-index: FAIL — {INDEX_REL} could not be READ "
+              f"({type(exc).__name__}: {exc}). That is 'we could not look', "
+              "never 'the register is fine'.")
+    state, hits = index_integrity(index_text)
+    if state is not INDEX_CLEAN:
+        if state == INDEX_CONFLICTED:
+            print(f"::error::{INDEX_REL} carries an UNRESOLVED MERGE CONFLICT. "
+                  "Every rule below reads ROWS, and both copies of a conflicted "
+                  "row parse as ordinary registrations — so a corrupted register "
+                  "would otherwise read OK. Resolve it, then re-run.")
+            for n, line in hits[:20]:
+                print(f"    {INDEX_REL}:{n}: {line}")
+            if len(hits) > 20:
+                print(f"    ... and {len(hits) - 20} more marker line(s)")
+        return 1
+
     population = set(b.population())
-    rows = parse_rows(index.read_text(encoding="utf-8"))
+    rows = parse_rows(index_text)
     generated = set(b.verify_generated())
     headers = read_headers(population & {r["path"] for r in rows}, b.STAMP_RE)
 
