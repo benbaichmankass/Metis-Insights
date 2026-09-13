@@ -38208,7 +38208,7 @@
     {
       "id": "BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE",
       "title": "Diff-scoped guards read COMMITTED state, so running them on an uncommitted change grades a tree without it — rc=0 either way, and three sessions-worth of that happened in one evening",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": "1 — scripts/ci/run_guards.py and the diff-scoped guards it invokes; developer tooling, no runtime, no order path",
       "opened_at": "2026-09-13",
@@ -38217,6 +38217,15 @@
       "resolution_criteria": "scripts/ci/run_guards.py DETECTS that tracked files are dirty in the working tree when it starts, and SAYS SO prominently -- naming the dirty paths, and naming which of them are in the diff it is about to grade. !! IT MUST NOT SILENTLY FIX IT by stashing, committing, or grading the worktree instead: the guards' committed-state reading is correct and is what CI does, so changing it would make the local run disagree with CI, which is worse than the trap. !! AND IT MUST NOT BE A BARE WARNING LINE THAT SCROLLS PAST -- the output already runs to hundreds of lines; the notice has to survive being at the top of one, e.g. by being repeated in the final summary beside the PASS/FAIL counts, where the reader actually looks. THE CONTROL: a planted dirty tree must produce the notice, and a clean tree must NOT (or the notice becomes noise every run and is walked past, which is this repo's desensitised-alarm P1). Assert the NOTICE, not the exit code -- run_guards exits 0 in both cases and always will, since a dirty tree is not itself a guard failure.",
       "related": [
         "BL-20260912-REGISTER-RESERIALIZATION-READS-THE-BASE-TIP-SO-ITS-LOST-LINE-COUNT-IS-CONTAMINATED-BY-ROWS-OTHER-SESSIONS-ADDED"
+      ],
+      "resolved_at": "2026-09-13",
+      "updates": [
+        {
+          "at": "2026-09-13",
+          "by": "claude (MI-280 engineering lane, U83)",
+          "disposition": "resolved",
+          "note": "RESOLVED. The row's criteria were taken one at a time, and TWO GAPS WERE MEASURED FIRST on main @950244f87 rather than inferred from the code. (a) A FAILING run with a dirty tree printed `PASS 0 / FAIL 1 / COULD-NOT-RUN 0 / SKIP 0` and ZERO occurrences of the word 'uncommitted' anywhere in its output -- the notice was built inside the 'All SELECTED guards passed -- but ...' branch, which main() reaches only AFTER returning early on `failures` and again on `could_not_run`. So the one run where a stale verdict is most confusing said nothing about the tree. That is the direction that cost this session time twice: a red already fixed in the working tree, which cannot be cleared and sends you hunting a bug that is not there. (b) A PASSING run whose dirty file was ALSO in the graded diff printed `PASS 1 / FAIL 0 / COULD-NOT-RUN 0 / SKIP 0` with NO qualifier on the counts line, because relevance is a UNION -- a committed change to that path had already selected the guard, so it RAN, passed, was counted, and never entered the `unchecked` set that #12177's `NOT GRADED` qualifier reports. WHAT SHIPPED: a pure `dirty_tree_lines()` renderer printed in the COMMON summary block, before every early return, naming each dirty path and marking the ones ALSO in the graded diff as having had their guard run on the COMMITTED version; a SECOND, separate counts-line qualifier `N PATH(S) UNCOMMITTED`, never folded into `N NOT GRADED (uncommitted)` because they count different things and collapsing them would print `NOT GRADED 0` on a dirty tree -- wrong in the reassuring direction; and a start-of-run line naming the count, the consequence and up to five paths, which the row itself calls the non-load-bearing half since it scrolls. IT FIXES NOTHING FOR YOU, as the row instructs in terms: no stashing, no committing, no grading the worktree instead, and THE EXIT CODE IS UNCHANGED (rc=1 on the failing probe, rc=0 on the passing one) -- a dirty tree is not a guard failure. CONTROLS: a clean tree produces NOTHING new on either surface (A/B'd, header and summary both), and five planted defects were each observed reddening their own test -- notice never printed at all; notice fires on a clean tree (the decoration direction); every path marked as in-diff (the marker becomes decoration); the two counts collapsed into one qualifier; and a structural assertion that the call site precedes the failure early return, which is the invariant that actually regressed and which a renderer-only test would have passed against. [!] ONE CO-FAILURE IN EVERY PLANT IS NOT SIGNAL: test_only_a_guard_that_actually_runs_stays_quiet is pre-existing and dirty-tree-sensitive by construction -- verified with a positive control (passes on a clean tree, all 25 pass once committed)."
+        }
       ]
     },
     {
