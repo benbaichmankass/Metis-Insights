@@ -132,6 +132,14 @@ def canonical_items() -> list[dict[str, str]]:
 CREATION_KEYS = ("opened_at", "opened", "filed_at", "date")
 CLOSE_KEYS = ("resolved_at", "resolved", "resolved_on", "closed", "superseded_at")
 
+#: The statuses that mean a row is CLOSED. **This is the single owner**, and
+#: `scripts/ops/backlog_append.py` imports it rather than re-declaring it — so
+#: the writer stamps a close date for exactly the statuses this reader counts as
+#: closed, by construction rather than by coincidence. Two copies of "what
+#: counts as closed" is how the stamp and the count drift apart, which is the
+#: whole defect being fixed (see BL-20260913-…-CLOSE-DATE-…).
+CLOSED_STATUSES = frozenset({"resolved", "wont_fix", "invalid", "superseded"})
+
 
 def _row_month(row: dict[str, Any], keys: tuple[str, ...]) -> tuple[str, str]:
     """First key that yields a `YYYY-MM` prefix, and WHICH key it was.
@@ -200,7 +208,7 @@ def backlog_burndown() -> dict[str, Any]:
         "perf": ROOT / "docs/claude/performance-review-backlog.json",
         "ml": ROOT / "docs/claude/ml-review-backlog.json",
     }
-    CLOSED = {"resolved", "wont_fix", "invalid", "superseded"}
+    CLOSED = CLOSED_STATUSES
     opened: Any = collections.Counter()
     closed: Any = collections.Counter()
     spellings: Any = collections.Counter()
