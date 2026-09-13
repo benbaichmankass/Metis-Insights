@@ -652,6 +652,91 @@ def src_red_crons(
     return SourceResult("red_crons", "read", rows)
 
 
+#: Conclusions that are NOT a finding on a push-to-`main` run.
+#:
+#: ⚠️ `cancelled` IS IN HERE AND `src_red_crons` DELIBERATELY DOES NOT EXCLUDE
+#: IT, because the two sources watch different things. `guards.yml`'s
+#: concurrency group on a push is `guards-push-refs/heads/main` -- the SAME
+#: string for every commit -- with `cancel-in-progress: true`, so each merge
+#: cancels the previous commit's run. MEASURED 2026-09-13: 3 of the 15 most
+#: recent push-on-`main` guard runs concluded `cancelled`. Treating those as
+#: findings would put a row on the due list for ordinary merge traffic, which
+#: is the desensitised-alarm failure this repo calls its own worst.
+#:
+#: ⚠️ AND CANCELLING LOSES NO COVERAGE, which is why it is safe to ignore:
+#: `main` is linear, so a later commit's run grades the whole tree including
+#: the earlier commit's content. A cancelled run is a DELAY -- median
+#: inter-merge gap 2.7 min -- not a gap.
+_PUSH_RUN_NOT_A_FINDING = (None, "success", "cancelled", "skipped")
+
+
+def src_red_main_runs(
+    root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    today: date,
+    *,
+    token: str | None = None,
+) -> SourceResult:
+    """Push-to-`main` runs whose latest conclusion is a real failure.
+
+    ⚠️ WHY THIS EXISTS BESIDE `src_red_crons`, WHICH LOOKS LIKE IT ALREADY
+    COVERS IT. That source queries `?event=schedule` and nothing else; its own
+    docstring calls its class *"a nightly nobody is waiting on"*. A run on the
+    DEFAULT BRANCH is a different class and was read by nothing.
+
+    MEASURED 2026-09-13, every link:
+      * `main` at `2a6c1b24d` carried a duplicated register id -- 1575 rows,
+        one id twice.
+      * `check_register_ids.py` at that commit exits 1. R1 (whole-file
+        uniqueness) needs no `--base`, so a push run had everything it needed.
+      * `guards.yml` carries `push: branches: [main]` (1370 runs) and
+        `register-id-guard` is `when: None`, always-on.
+      * So `main` was red-capable, and the duplicate was nonetheless found by
+        an unrelated PR author tripping over it --
+        `BL-20260913-A-DUPLICATE-ROW-ID-REACHED-MAIN-AND-TURNED-REGISTER-ID-GUARD-RED-FOR-EVERY-BACKLOG-TOUCHING-PR-IN-THE-REPO`.
+
+    That row asks for a CADENCE against the default branch. The cadence was
+    already there; what was missing is that its RED reached nobody. Building a
+    cron would have added a mechanism beside a working one and left the gap
+    open -- the `RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED` shape.
+
+    ⚠️ NOT OBSERVED, AND SAID RATHER THAN IMPLIED: I did not enumerate
+    historical red push runs, so *that specific run went red rather than being
+    cancelled* is inferred. The gap holds either way -- a cancelled run is
+    superseded by the next, and nothing routed that one either.
+
+    ⚠️ LATEST PER WORKFLOW, NOT EVERY FAILURE. `main` takes hundreds of commits
+    a day; listing every historical red would be a backlog, not a signal. What
+    is actionable is whether the default branch is red NOW.
+    """
+    token = token if token is not None else os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return SourceResult("red_main_runs", "could_not_read",
+                            note="no GITHUB_TOKEN — cannot query the Actions API")
+    try:
+        data = _gh(f"/repos/{REPO}/actions/runs"
+                   f"?event=push&branch=main&per_page=100", token)
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return SourceResult("red_main_runs", "could_not_read",
+                            note=f"{type(exc).__name__}: {exc}")
+
+    latest: dict[str, dict] = {}
+    for run in data.get("workflow_runs", []):
+        if run.get("status") != "completed":
+            continue                      # still running is not yet an answer
+        name = run.get("name") or run.get("path", "?")
+        if name not in latest:            # the API returns newest-first
+            latest[name] = run
+    rows = []
+    for name, run in sorted(latest.items()):
+        if run.get("conclusion") not in _PUSH_RUN_NOT_A_FINDING:
+            rows.append(_row("red_main_runs", name, name,
+                             f"the latest push-to-main run of {name} concluded "
+                             f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
+                             f"red, and until 2026-09-13 nothing read this",
+                             loud=True, link=run.get("html_url", "")))
+    return SourceResult("red_main_runs", "read", rows)
+
+
 def src_unlanded_automation(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     today: date,
@@ -1457,7 +1542,7 @@ def src_manager_queue_watch(
 
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
-    src_red_crons, src_unlanded_automation, src_error_feed,
+    src_red_crons, src_red_main_runs, src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
     src_settled_disposition_owed, src_spent_decision_edges,
     src_manager_queue_watch,
@@ -1510,7 +1595,7 @@ def collect(root: Path, today: date, *, token: str | None = None) -> list[Source
     out = []
     for fn in SOURCES:
         try:
-            if fn in (src_red_crons, src_unlanded_automation):
+            if fn in (src_red_crons, src_red_main_runs, src_unlanded_automation):
                 out.append(fn(root, today, token=token))
             else:
                 out.append(fn(root, today))
@@ -1582,6 +1667,11 @@ def _self_test() -> int:
 
     # the GitHub sources must refuse rather than invent an empty answer
     assert src_red_crons(Path("."), today, token="").state == "could_not_read"
+    # The same contract for the default-branch source: without a token we say
+    # we could not look. It must NEVER report "main is green" from silence.
+    assert src_red_main_runs(Path("."), today, token="").state == "could_not_read"
+    assert src_red_main_runs in SOURCES, \
+        "src_red_main_runs is not registered in SOURCES — a source nothing calls"
     assert src_unlanded_automation(Path("."), today, token="").state == "could_not_read"
 
     # ── PROBE FRESHNESS: the gap this renderer shipped with ────────────────
