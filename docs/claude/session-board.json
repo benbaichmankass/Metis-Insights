@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
     "branch": "claude/manager-tick-20260912-0610z",
-    "claimed_at": "2026-09-13T03:09:33Z",
-    "purpose": "0255Z manager tick: lease heartbeat + sub-session registry + manager checklist. Overwrites the 15:36Z stale-automation-sweep claim, which is 21h old and spent."
+    "claimed_at": "2026-09-13T06:56:07Z",
+    "purpose": "0652Z manager tick on the RESTARTED branch (#11875 squash-merged 05:21Z; a merged PR is finished and must not be reused)."
   },
   "active_sessions": [
     {
