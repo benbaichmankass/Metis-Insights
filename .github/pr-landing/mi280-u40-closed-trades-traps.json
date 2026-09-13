@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/ only: one warning block in docs/reference/bot-api-reference.md and one row's observation/verified_at/last_checked in docs/claude/OPEN-ITEMS.json. NO CODE AT ALL. No src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Both paths are inside TIER1_SURFACE (docs/**) and neither is in check_pr_landing.LANDING_MACHINERY. It documents two measurement traps on an existing read route and changes NOTHING about the route's behaviour -- the route fixes are in src/web/api/routers/, which this lane is forbidden to touch, and the block states its own insufficiency so it cannot be mistaken for them. OPEN-ITEMS.json was edited as TEXT, never round-tripped, and verified row-by-row against origin/main: 85 rows both sides, none added, none removed, exactly one differing."
+}

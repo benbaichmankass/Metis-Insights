@@ -1,0 +1,4 @@
+Arm auto-merge: the guard report names the tree it graded (MI-279 OPS lane, U3).
+
+Tier-1: scripts/ci/run_guards.py header + docs/claude/health-review-backlog.json.
+GitHub still merges only on green required checks.

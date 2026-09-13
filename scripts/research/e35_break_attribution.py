@@ -94,6 +94,24 @@ def _is_family(name: str) -> bool:
             or name.startswith("htf_pullback"))
 
 
+#: The three arms, in the order `grade()` reports them.
+ARMS = ("e35", "control_same_family", "control_other")
+
+
+def arm_of(name: str) -> str:
+    """Which arm a leg belongs to. EXTRACTED so a re-derivation can import it.
+
+    It was inline in `grade()` until MI-278 U32 needed the same split under a
+    PACKAGE denominator. A second copy of the arm rule is exactly how two
+    analyses of one event come to disagree about which arm a leg is in, so the
+    rule has one owner and `grade()` is now its first caller rather than its
+    home. Behaviour is unchanged and a test pins that.
+    """
+    if name in E35_LEGS:
+        return "e35"
+    return "control_same_family" if _is_family(name) else "control_other"
+
+
 def population(rows: list[dict]) -> tuple[list[dict], dict]:
     """The graded population plus the census of what was dropped and why."""
     census = collections.Counter()
@@ -133,13 +151,9 @@ def _rate(rs):
 
 def grade(rows: list[dict]) -> dict:
     pop, census = population(rows)
-    arms = {
-        "e35": [r for r in pop if r["strategy_name"] in E35_LEGS],
-        "control_same_family": [r for r in pop if r["strategy_name"] not in E35_LEGS
-                                and _is_family(r["strategy_name"])],
-        "control_other": [r for r in pop if r["strategy_name"] not in E35_LEGS
-                          and not _is_family(r["strategy_name"])],
-    }
+    arms: dict[str, list[dict]] = {k: [] for k in ARMS}
+    for r in pop:
+        arms[arm_of(r["strategy_name"])].append(r)
     out = {"population_n": len(pop), "excluded": census, "deploy": DEPLOY.isoformat(),
            "arms": {}}
     for key, rs in arms.items():

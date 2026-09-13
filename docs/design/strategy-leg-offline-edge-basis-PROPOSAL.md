@@ -1,6 +1,6 @@
 # A strategy leg's edge verdict has no offline basis to rest on — what must exist before it can
 
-> **Doc status:** `live` · category `plan` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Status: PROPOSAL. Nothing here is enacted.** `scripts/ml/strategy_review_packet.py`
 is byte-identical to `main`. `MIN_CLOSED_FOR_ACTION` is unchanged at 20, the window is

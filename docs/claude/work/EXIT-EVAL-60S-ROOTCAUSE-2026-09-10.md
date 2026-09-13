@@ -1,6 +1,6 @@
 # The exit-eval 60 s breaches — root cause
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-10` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > Produced 2026-09-10 by `session_01Ww2pZVK5VUqV8xFFtTs9B1` under
 > `WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES` /
 > `IN-20260903-TRADING-SYSTEM-HEALTH` (cycle `CY-20260906-TRADING-TRUTH`).

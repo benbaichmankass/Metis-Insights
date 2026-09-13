@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one `updates` entry on one health-review backlog row; no code, config, workflow, or runtime touched"
+}

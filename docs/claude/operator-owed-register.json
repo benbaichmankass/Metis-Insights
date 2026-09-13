@@ -1,7 +1,7 @@
 {
   "_comment": "OPERATOR-OWED REGISTER — the durable record of work waiting on a human. Filed against BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION. Contract + why this shape: src/runtime/operator_owed.py (the pure grader) and docs/claude/operator-owed-register.md. Enforced by scripts/ci/check_operator_owed.py, which FAILS CI when an item is carried across register commits without a state change. THIS IS NOT A BACKLOG: the backlogs hold DEFECTS; this holds items whose next action belongs to a person. Every item carries an owner_class, and 'unclassified' is refused. ⚠️ SERIALIZATION: this file is written with json.dumps(indent=2, ensure_ascii=False) + a trailing newline. Re-dump it with EXACTLY those options — a different indent or ensure_ascii rewrites every line and buries a one-row change in a whole-file reformat (a 47,008-line diff for a 9-line change, reproduced twice in one day on the sibling backlog).",
   "schema_version": 1,
-  "updated_at": "2026-09-10T08:15:00+00:00",
+  "updated_at": "2026-09-13T00:15:45.201595+00:00",
   "carry_limit": 2,
   "items": [
     {
@@ -200,7 +200,7 @@
       "severity": "high",
       "severity_basis": "Not critical: no money is at risk, nothing is mis-trading, and the trader is untouched — these are Tier-1 CI and PR-plumbing diffs. High rather than medium because the blockage is repo-wide and self-reinforcing: with arming dead, every self-landing PR needs a human merge instead of none, which is the opposite of what the landing design bought, and the queue gets harder to clear the longer it holds.",
       "tier": "1 (CI tooling and PR plumbing; no src/, config/, deploy/ or order path)",
-      "status": "open",
+      "status": "resolved",
       "owner_class": "judgement",
       "owner_class_basis": "R12 exists precisely to put a person in the loop for a change to the landing machinery, so the click is not a lookup a session could perform — it is the human confirmation the rule was written to require. A session CAN prepare, validate and evidence the change, and all three are prepared; taking the merge itself would defeat the refusal rather than satisfy it. Deliberately NOT `defaulted_to_human`: there is no wire that could exist here without removing R12, which is a different decision and not one this row asks for.",
       "automation_path": null,
@@ -209,10 +209,10 @@
       "next_action": "Merge #11936 FIRST — it is independent of the other two and restores arming repo-wide. Then #11930, then #11958 once its CI is green. Each carries a hold_text naming what to check so the click is not a rubber stamp; #11958's is the one worth reading, because 27 workflows call the action it changes and a wrong claim step means every automation PR fails to open — loud and immediate rather than silent, but fleet-wide.",
       "carried_before_register": [],
       "carried_before_register_note": "Not carried before: all three PRs were opened 2026-09-12 and this row is filed the same day.",
-      "last_state_change_at": "2026-09-12T12:45:00+00:00",
-      "last_state_change_note": "Filed. Raised on the coordination board four times first; the board is a transient channel and this register is the durable one, which is what it says it is for.",
-      "resolved_at": null,
-      "resolution": null,
+      "last_state_change_at": "2026-09-13",
+      "last_state_change_note": "Resolved by the MI-279 OPS lane duty pass (session_013iSqp4LsU1eq8K326eUtgj). The operator's clicks landed 2026-09-12T12:56Z; this session verified the three merges on main's history and observed four auto-merges of its own the same night, which is the independent confirmation that arming works.",
+      "resolved_at": "2026-09-13",
+      "resolution": "DISCHARGED — ALL THREE PRs IN `refs` ARE MERGED, AND THE WHOLE OF `next_action` IS DONE. Verified on main's history rather than from the PR pages alone: f91db0070 (#11936), 2fe1b8700 (#11930), d466ebb5d (#11958) are all ancestors of origin/main. #11936 and #11930 were merged by `benbaichmankass` — a HUMAN click, which is exactly what R12 exists to require — at 2026-09-12T12:56:15Z and 12:56:54Z, ELEVEN MINUTES after this row was filed at 12:45Z. [!] AND THE CLAIM IS CONFIRMED INDEPENDENTLY BY LIVE BEHAVIOUR, not only by the merges. This row's stated consequence was 'with arming dead, every self-landing PR needs a human merge instead of none'. MEASURED by the MI-279 OPS lane on the night of 2026-09-12/13: FOUR PRs were auto-merged by github-actions[bot] with no human click — #12116 at 23:11:34Z, #12121 at 23:36:28Z, #12124, and #12126 at 23:49:40Z (that one four minutes from open to merge) — and `open-and-automerge` concluded `success` on every PR that lane opened. Arming is restored repo-wide and is observed working, which is the fact this row was actually about. [!] WHAT THIS DOES NOT CLOSE, stated so the resolution is not read as wider than it is: #11930's own criterion (an OBSERVED `event=schedule` constraint-readout run concluding success) and #11936's (which require incantation actually resolves on the runner) are BOTH still outstanding on their own rows. This row asked for the merge CLICKS and for arming to work again; both happened. The PRs' own done-conditions are not this row's to carry. [!] AND THE ROW STAYED OPEN FOR ELEVEN HOURS AFTER IT WAS SATISFIED, still instructing its reader to 'Merge #11936 FIRST'. That is the register's own failure class one level up — a discharged owed-row reads identically to a live one — and it is the same shape as BL-20260912-A-LANDED-FIX-LEAVES-ITS-BACKLOG-ROW-OPEN-SO-THE-ROW-RECRUITS-THE-NEXT-SESSION-INTO-REBUILDING-IT. Nothing here proposes a mechanism for it; it is recorded because the delay, not the merge, is the interesting part.",
       "snoozed_until": null,
       "snooze_trigger": null,
       "refs": [

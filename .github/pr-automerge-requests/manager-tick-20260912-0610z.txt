@@ -1,0 +1,1 @@
+PR for the 0610Z manager tick. Arms the self-land route (pr-landing R6).

@@ -66,11 +66,71 @@ _ROUTING = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
-def _load(p: Path) -> dict:
+#: How one of the brief's source registers read. THREE STATES, NEVER COLLAPSED.
+SRC_READ, SRC_ABSENT, SRC_UNREADABLE = "read", "absent", "unreadable"
+
+
+def _read(p: Path) -> tuple[str, dict]:
+    """`(state, doc)` for one source register.
+
+    ⚠️ **THIS WAS ONE STATE UNTIL 2026-09-13 AND THE COLLAPSE LANDED ON THE ONE
+    SURFACE THAT REACHES A SESSION BEFORE IT ACTS.** `_load` returned `{}` for a
+    parse failure exactly as for a missing file, and every section downstream
+    reads a missing key as *nothing to report*. MEASURED on `origin/main`
+    @`7f832e8c0`: with `THIS IS NOT JSON` inserted into
+    `docs/claude/OPEN-ITEMS.json`, the rendered brief went from **20 monitoring
+    rows to 0**, exit 0, and printed
+
+        **No monitoring item is due.** (The section is generated — an empty list
+        here means nothing is past its cadence, not that the renderer failed.)
+
+    — a sentence that is *itself* the falsehood, telling the reader in terms
+    that an empty list is not a renderer failure at the exact moment it is. The
+    rows that vanished include every `loud: true` row a session is obliged to
+    report on, among them the real-money `alpaca_live` and prop-account items.
+
+    ⚠️ `absent` IS NOT `unreadable`. A register that has never existed renders
+    nothing and that is correct; one that has been CORRUPTED must say so.
+    """
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+        raw = p.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return SRC_ABSENT, {}
+    except OSError:
+        return SRC_UNREADABLE, {}
+    try:
+        doc = json.loads(raw)
+    except json.JSONDecodeError:
+        return SRC_UNREADABLE, {}
+    return (SRC_READ, doc) if isinstance(doc, dict) else (SRC_UNREADABLE, {})
+
+
+def _load(p: Path) -> dict:
+    """Doc only. Callers that need to know WHETHER they looked use `_read`."""
+    return _read(p)[1]
+
+
+def _latest_sunset_with_state() -> tuple[dict | None, list[str]]:
+    """`(newest sunset index, paths that did not parse)`.
+
+    ⚠️ **A CORRUPT NEWEST PASS USED TO RENDER THE PREVIOUS DAY'S AS CURRENT.**
+    The loop takes the first truthy doc, and `_load` handed it `{}` for a parse
+    failure, so it silently fell through to an older directory and the brief
+    showed STALE candidates under today's heading — worse than showing none,
+    because nothing said the reading was old.
+    """
+    bad: list[str] = []
+    if not _SUNSET_ROOT.is_dir():
+        return None, bad
+    for day in sorted((p for p in _SUNSET_ROOT.iterdir() if p.is_dir()), reverse=True):
+        idx = day / "INDEX.json"
+        state, doc = _read(idx)
+        if state == SRC_UNREADABLE:
+            bad.append(str(idx))
+            continue
+        if doc:
+            return doc, bad
+    return None, bad
 
 
 def _latest_sunset() -> dict | None:
@@ -250,7 +310,8 @@ def render(today: date | None = None, *,
            priority: dict | None = None,
            constraint: dict | None = None,
            sunset: dict | None = None,
-           routing: dict | None = None) -> str:
+           routing: dict | None = None,
+           unreadable_out: list[str] | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -258,12 +319,35 @@ def render(today: date | None = None, *,
     cancel (see `check_verdict`).
     """
     today = today or datetime.now(timezone.utc).date()
-    oi = open_items if open_items is not None else _load(_OPEN_ITEMS)
-    rl = recurrence if recurrence is not None else _load(_RECURRENCE)
-    cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
-    cn = constraint if constraint is not None else _load(_CONSTRAINT)
-    sn = sunset if sunset is not None else _latest_sunset()
-    rt = routing if routing is not None else _load(_ROUTING)
+
+    # ⚠️ WHICH SOURCES COULD NOT BE READ IS TRACKED, NOT DISCARDED. An explicitly
+    # passed register is `read` by construction (the diff-scoped check supplies
+    # both sides itself); only the ones loaded from disk here can fail.
+    # ⚠️ AN OUT-PARAM, NOT A RE-READ IN `main`. A second list of "which files
+    # are sources" would be a second definition, and the two drift the moment a
+    # register is added — which is exactly how a newly rendered register ends up
+    # unwatched. What `main` exits on is what `render` actually read.
+    unreadable: list[str] = [] if unreadable_out is None else unreadable_out
+
+    def _src(explicit: dict | None, path: Path) -> dict:
+        if explicit is not None:
+            return explicit
+        state, doc = _read(path)
+        if state == SRC_UNREADABLE:
+            unreadable.append(str(path))
+        return doc
+
+    oi = _src(open_items, _OPEN_ITEMS)
+    rl = _src(recurrence, _RECURRENCE)
+    cp = _src(priority, _CYCLE_PRIORITY)
+    cn = _src(constraint, _CONSTRAINT)
+    rt = _src(routing, _ROUTING)
+    if sunset is not None:
+        sn = sunset
+    else:
+        sn, sunset_bad = _latest_sunset_with_state()
+        unreadable.extend(sunset_bad)
+    oi_unreadable = str(_OPEN_ITEMS) in unreadable
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -283,6 +367,24 @@ def render(today: date | None = None, *,
              "fire at merge, which is after the wrong work is already built. It lists only what is "
              "DUE or UNPREVENTED, so it shrinks as work lands.")
     L.append("")
+
+    # ⚠️ THE BANNER GOES FIRST, ABOVE EVERYTHING IT INVALIDATES. A session reads
+    # top-down and stops early, and every section below renders a missing key as
+    # "nothing to report" — so a source that could not be read has to be said
+    # before the reader has drawn that conclusion, not after.
+    if unreadable:
+        L.append(f"🛑 **{len(unreadable)} OF THIS BRIEF'S SOURCE REGISTERS COULD NOT BE "
+                 f"READ, so the sections below are INCOMPLETE — this is *we could not "
+                 f"look*, NOT 'nothing is due'.** Every section here renders an absent "
+                 f"key as nothing to report, so an unreadable source is silently "
+                 f"indistinguishable from a quiet one unless it is named:")
+        for rel in unreadable:
+            L.append(f"  - `{rel}` — present but did NOT parse")
+        L.append("")
+        L.append("Restore it (`git checkout` the last parseable copy, or resolve the "
+                 "conflict row-aware via `scripts/ops/merge_json_register.py`) and "
+                 "re-render. Do NOT act on the list below as if it were complete.")
+        L.append("")
 
     # A3 — the priority comes FIRST. A session reads top-down and stops early;
     # what steers the choice of work has to arrive before the list of work.
@@ -312,6 +414,15 @@ def render(today: date | None = None, *,
             L.append(f"  - Last observed: `{last}`. To clear for another cycle, set "
                      f"`verified_at` to today AND write what you saw into `observation` — "
                      f"a claim of progress is not an observation.")
+        L.append("")
+    elif oi_unreadable:
+        # ⚠️ NEVER the reassurance below. That sentence says in terms that an
+        # empty list is not a renderer failure, which is the one claim that is
+        # false in exactly this case — and it is the claim a reader acts on.
+        L.append("🛑 **MONITORING ITEMS: NOT LISTED — `docs/claude/OPEN-ITEMS.json` "
+                 "could not be read.** This is NOT 'no monitoring item is due'. "
+                 "Rows flagged `loud: true` are among the ones missing here, and a "
+                 "session is obliged to report on those.")
         L.append("")
     else:
         L.append("**No monitoring item is due.** (The section is generated — an empty list here "
@@ -368,6 +479,72 @@ def _git_show(ref: str, path: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout if out.returncode == 0 else None
+
+
+BASE_MERGE_BASE = "merge_base"
+BASE_TIP_UNRESOLVABLE = "tip_unresolvable"
+
+
+def resolve_base(ref: str, *, head: str = "HEAD") -> tuple[str, str]:
+    """Resolve *ref* to the FORK POINT, never to wherever the base is right now.
+
+    Returns `(ref_to_read, state)` with two states that are never collapsed:
+    `merge_base` (we found the fork point) and `tip_unresolvable` (**we could
+    not look** -- unrelated histories, a shallow clone, no `HEAD`), which falls
+    back to the tip.
+
+    ⚠️ **THE FALLBACK IS TO THE TIP, NOT TO SKIPPING THE CHECK**, and the
+    direction is deliberate: the tip is the pre-2026-09-12 behaviour, so an
+    unresolvable base can only produce the FALSE FAILURE described below --
+    never a false pass on a register change that really was unrendered. A
+    recoverable red beats a silent green.
+
+    === WHY THIS EXISTS (measured 2026-09-12, MI-280 U44) ===
+
+    `check_verdict` asks "did THIS DIFF change the registers?" and answers it as
+    `want_head != want_base`. That is only the diff's doing if `want_base` is
+    the branch's ANCESTOR. Read at the base TIP it also differs when the base
+    moved AHEAD -- which is the normal state of every working branch -- so the
+    guard blamed the diff for a register the diff never touched.
+
+    Reproduced against `origin/main` with two controls:
+
+      * a branch at an older commit with a **ZERO-FILE diff** -> `::error:: ...
+        THIS DIFF introduced it -- this diff changes the registers`, exit 1.
+        There is no diff at all, so the stated cause cannot be true.
+      * the same branch plus one unrelated test file, no register touched ->
+        the identical error.
+
+    ⚠️ **AND FOLLOWING THE PRINTED REMEDY MADE IT WORSE, WHICH IS WHY THIS IS A
+    FIX AND NOT A REWORDING.** The message says to run `--write`. Measured, as
+    CI sees it (the merge ref, i.e. the branch merged with main):
+
+      * IGNORE the advice -> `verdict=inherited`, **exit 0, the PR passes**.
+      * FOLLOW the advice -> `--write` bakes a brief rendered from the BRANCH's
+        older registers; merging main then **CONFLICTS in `CLAUDE.md`**, and the
+        guard grades `introduced_block_edited`, **exit 1**.
+
+    So the guard talked an author out of a green PR and into a conflicted red
+    one. That verdict is also what the constraint-readout cron dies on, per
+    `BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED`.
+
+    ⚠️ **THIS CHANGES NOTHING IN CI, BY CONSTRUCTION** -- do not read it as a
+    loosening. GitHub runs `pull_request` checks on the MERGE REF, where `HEAD`
+    already contains the base, so `merge-base(HEAD, base) == base` and both
+    readings are the same ref. What it fixes is the LOCAL run, which is where a
+    session meets this message and acts on it.
+    """
+    if not ref:
+        return ref, BASE_TIP_UNRESOLVABLE
+    try:
+        out = subprocess.run(["git", "merge-base", head, ref],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return ref, BASE_TIP_UNRESOLVABLE
+    sha = out.stdout.strip()
+    if out.returncode != 0 or not sha:
+        return ref, BASE_TIP_UNRESOLVABLE
+    return sha, BASE_MERGE_BASE
 
 
 def check_verdict(*, want_head: str, have_head: str | None,
@@ -428,9 +605,32 @@ def main(argv=None) -> int:
     if a.self_test:
         return _self_test()
 
-    want = render()
+    unreadable: list[str] = []
+    want = render(unreadable_out=unreadable)
     text = _CLAUDE_MD.read_text(encoding="utf-8")
     have = current_block(text)
+
+    if unreadable:
+        # ⚠️ LOUD *AND* NON-ZERO, AND THE BRIEF IS STILL WRITTEN. Writing it is
+        # deliberate: the rendered block now carries the banner, so the session
+        # that reads CLAUDE.md is TOLD. Refusing to write would leave the
+        # previous brief in place, which asserts a completeness that is no
+        # longer true and says nothing to anybody. The non-zero code is for the
+        # producing workflow, which is the only party that can fix the file.
+        print(f"::error::session-brief: {len(unreadable)} source register(s) are "
+              "PRESENT and do NOT parse, so the rendered brief is INCOMPLETE. It "
+              "carries a banner saying so; this exit code is for the workflow "
+              "that produced it.")
+        for rel in unreadable:
+            print(f"  - {rel}")
+        # ⚠️ `--check`'s OWN verdict is deliberately left alone. Its `inherited`
+        # and `base_unreadable` branches exist to avoid stranding a PR for a
+        # staleness it did not introduce, and a corrupt register on `main` is
+        # not this diff's doing either. It is not a silent pass: the line above
+        # prints on every path, and the rendered brief now carries a banner the
+        # committed block does not, so the comparison reads STALE and exits 1
+        # by the ordinary route. Changing that verdict would be a separate
+        # decision about who gets stranded, taken without a measurement.
 
     if a.check:
         # Render BOTH sides with ONE date, so the clock term cancels.
@@ -438,10 +638,16 @@ def main(argv=None) -> int:
         want = render(today)
         want_base = have_base = None
         base_readable = False
+        base_ref, base_state = resolve_base(a.base)
         if a.base:
-            oi_b = _git_show(a.base, str(_OPEN_ITEMS))
-            rl_b = _git_show(a.base, str(_RECURRENCE))
-            md_b = _git_show(a.base, str(_CLAUDE_MD))
+            if base_state == BASE_TIP_UNRESOLVABLE:
+                print("::notice::session-brief: could not resolve a merge-base for "
+                      f"{a.base}; comparing against its TIP instead. That is *we could "
+                      "not look*, not *they share no history* -- and it can mis-blame "
+                      "this diff for a register the BASE moved. See resolve_base().")
+            oi_b = _git_show(base_ref, str(_OPEN_ITEMS))
+            rl_b = _git_show(base_ref, str(_RECURRENCE))
+            md_b = _git_show(base_ref, str(_CLAUDE_MD))
             # ⚠️ The priority register MUST be read at the base too. If it fell
             # through to reading HEAD from disk, the priority term would be
             # identical on both sides and CANCEL — so changing the cycle priority
@@ -451,11 +657,11 @@ def main(argv=None) -> int:
             # A base that predates this file reads as `{}` (absent, not
             # unreadable): the register did not exist there, which is a fact we
             # CAN establish, unlike a git failure.
-            cp_b_raw = _git_show(a.base, str(_CYCLE_PRIORITY))
+            cp_b_raw = _git_show(base_ref, str(_CYCLE_PRIORITY))
             # Same argument for the routing register (MI-246): it IS rendered
             # into the brief, so it has to be diffed as well or a changed
             # reading would cancel on both sides and pass unrendered.
-            rt_b_raw = _git_show(a.base, str(_ROUTING))
+            rt_b_raw = _git_show(base_ref, str(_ROUTING))
             if oi_b is not None and rl_b is not None and md_b is not None:
                 try:
                     want_base = render(today, open_items=json.loads(oi_b),
@@ -510,10 +716,10 @@ def main(argv=None) -> int:
             return 1
         _CLAUDE_MD.write_text(text.replace(have, want), encoding="utf-8")
         print("session-brief: CLAUDE.md updated.")
-        return 0
+        return 2 if unreadable else 0
 
     print(want)
-    return 0
+    return 2 if unreadable else 0
 
 
 def _self_test() -> int:
@@ -659,8 +865,377 @@ def _self_test() -> int:
         ok &= good
         print(f"  self-test (verdict: {label}): {'PASS' if good else f'FAIL got={got}'}")
 
+    ok &= _self_test_resolve_base()
+    ok &= _self_test_check_uses_merge_base()
+    ok &= _self_test_unreadable_source()
+
     print("session-brief self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _self_test_unreadable_source() -> bool:
+    """A source register that is PRESENT and does not PARSE must be SAID.
+
+    MEASURED on `origin/main` @`7f832e8c0` before this existed: with
+    `THIS IS NOT JSON` inserted into `docs/claude/OPEN-ITEMS.json` the brief
+    rendered **0 monitoring rows instead of 20**, exit 0, and printed *"No
+    monitoring item is due. (…an empty list here means nothing is past its
+    cadence, not that the renderer failed.)"* — the reassurance being the
+    falsehood. Same shape for `CYCLE-PRIORITY.json`: the priority section simply
+    vanished.
+
+    Both directions are asserted. A guard that only ever demonstrates its
+    failures cannot show it is not simply always-red, and the over-refusal
+    direction is real here: an EMPTY but valid register must keep rendering the
+    reassurance, because then it IS true.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    ok = True
+    rows = [{"kind": "monitoring", "id": "OI-X", "summary": "s",
+             "clears_when": "c", "check_every_days": 1}]
+
+    def _render(**kw) -> tuple[str, list[str]]:
+        seen: list[str] = []
+        return render(date(2026, 9, 13), unreadable_out=seen, **kw), seen
+
+    # The renderer reads from CWD, so the controls need a tree of their own.
+    cwd0 = os.getcwd()
+    tmp = tempfile.mkdtemp(prefix="brief-src-")
+    try:
+        root = Path(tmp)
+        (root / "docs/claude").mkdir(parents=True)
+        os.chdir(root)
+
+        # (1) corrupt -> named, and the reassurance is GONE.
+        _OPEN_ITEMS.write_text("THIS IS NOT JSON")
+        text, seen = _render()
+        checks = [
+            ("an unreadable OPEN-ITEMS is NAMED in the brief",
+             str(_OPEN_ITEMS) in seen and "COULD NOT BE" in text, True),
+            ("...and the 'nothing is past its cadence' reassurance is NOT printed",
+             "No monitoring item is due" in text, False),
+            ("...and the brief says the items are NOT LISTED",
+             "MONITORING ITEMS: NOT LISTED" in text, True),
+        ]
+
+        # (2) POSITIVE CONTROL: valid and empty is a real reading, not a failure.
+        _OPEN_ITEMS.write_text(json.dumps({"items": []}))
+        text2, seen2 = _render()
+        checks += [
+            ("a VALID but EMPTY register is not reported unreadable", bool(seen2), False),
+            ("...and it still renders the 'no monitoring item is due' line",
+             "No monitoring item is due" in text2, True),
+        ]
+
+        # (3) POSITIVE CONTROL: a register with rows renders them, so the banner
+        #     is not simply always-on.
+        _OPEN_ITEMS.write_text(json.dumps({"items": rows}))
+        text3, seen3 = _render()
+        checks += [
+            ("a register WITH a due row renders it and raises no banner",
+             bool(seen3) is False and "OI-X" in text3, True),
+        ]
+
+        # (4) a NON-OPEN-ITEMS source fails independently — the banner is not
+        #     wired to one register.
+        _CYCLE_PRIORITY.write_text("{ NOT JSON")
+        _, seen4 = _render()
+        checks += [
+            ("an unreadable CYCLE-PRIORITY is named too",
+             str(_CYCLE_PRIORITY) in seen4, True),
+        ]
+
+        # (5) an ABSENT register is NOT unreadable — opposite facts.
+        _CYCLE_PRIORITY.unlink()
+        _OPEN_ITEMS.unlink()
+        _, seen5 = _render()
+        checks += [("an ABSENT register is not reported unreadable", bool(seen5), False)]
+
+        for label, got, want in checks:
+            good = got == want
+            ok &= good
+            print(f"  self-test (source: {label}): {'PASS' if good else 'FAIL'}")
+    finally:
+        os.chdir(cwd0)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return ok
+
+
+def _self_test_resolve_base() -> bool:
+    """Does the base resolve to the FORK POINT, or to wherever the base is now?
+
+    ⚠️ **THIS NEEDS A REAL REPOSITORY AND THAT IS THE WHOLE POINT.** The six
+    `check_verdict` cases above are pure-function cases, and the defect this
+    guards was invisible to every one of them: `check_verdict` was always
+    correct GIVEN its inputs, and the caller fed it the base TIP. A pure test
+    cannot see a plumbing bug, so this one builds a throwaway repo where the
+    base MOVES -- the condition under which the wrong ref gives the wrong answer.
+
+    The planted defect is the old behaviour itself: the test asserts that
+    reading at the tip and reading at the fork point give DIFFERENT content, so
+    a revert to `a.base` cannot leave this green.
+    """
+    import os
+    import pathlib
+    import shutil
+    import tempfile
+
+    if shutil.which("git") is None:
+        # *We could not look*, never a pass. Distinguished from PASS on purpose:
+        # a control that reports success when it could not run is how a guard
+        # rots into decoration.
+        print("  self-test (resolve_base): COULD-NOT-RUN -- no git on PATH")
+        return False
+
+    def run(*args, cwd):
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, timeout=30)
+
+    tmp = tempfile.mkdtemp(prefix="sbt-")
+    try:
+        run("init", "-q", "-b", "main", cwd=tmp)
+        run("config", "user.email", "t@t", cwd=tmp)
+        run("config", "user.name", "t", cwd=tmp)
+        reg = pathlib.Path(tmp, "register.json")
+        reg.write_text("R1\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "base: register R1", cwd=tmp)
+        fork = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+
+        run("checkout", "-q", "-b", "feature", cwd=tmp)
+        pathlib.Path(tmp, "unrelated.txt").write_text("nothing to do with registers\n",
+                                                      encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "feature: touches NO register", cwd=tmp)
+        head = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+
+        # The base moves AHEAD, changing the register. The branch did not.
+        run("checkout", "-q", "main", cwd=tmp)
+        reg.write_text("R2\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "base: register advanced to R2", cwd=tmp)
+        tip = run("rev-parse", "HEAD", cwd=tmp).stdout.strip()
+        run("checkout", "-q", "feature", cwd=tmp)
+
+        cwd0 = os.getcwd()
+        try:
+            os.chdir(tmp)
+            got_ref, got_state = resolve_base("main")
+        finally:
+            os.chdir(cwd0)
+
+        checks = []
+        checks.append(("state is merge_base", got_state == BASE_MERGE_BASE, got_state))
+        checks.append(("resolves to the FORK POINT, not the tip",
+                       got_ref == fork, f"{got_ref[:8]} (fork={fork[:8]} tip={tip[:8]})"))
+        checks.append(("and the tip is genuinely a DIFFERENT commit -- "
+                       "otherwise this control proves nothing",
+                       fork != tip and head != tip, f"fork={fork[:8]} tip={tip[:8]}"))
+
+        # THE PLANTED DEFECT: the old behaviour, asserted to give the WRONG
+        # register content. If someone routes the reads back at `a.base`, the
+        # branch's register reads R2 -- a change it never made -- and the guard
+        # blames the diff. Pinning both readings here is what makes that revert
+        # impossible to land quietly.
+        at_fork = _git_show_in(tmp, got_ref, "register.json")
+        at_tip = _git_show_in(tmp, "main", "register.json")
+        checks.append(("reading at the fork point gives the branch's OWN register",
+                       at_fork == "R1\n", repr(at_fork)))
+        checks.append(("reading at the tip gives a register the branch never touched "
+                       "(the defect, pinned)", at_tip == "R2\n", repr(at_tip)))
+
+        # THE UNRESOLVABLE PATH, which the happy path above can never reach.
+        # Without this, mislabelling `tip_unresolvable` as `merge_base` is a
+        # one-word edit that no control sees -- measured: it escaped the first
+        # draft of this battery.
+        cwd1 = os.getcwd()
+        try:
+            os.chdir(tmp)
+            bogus_ref, bogus_state = resolve_base("no-such-ref-anywhere")
+            empty_ref, empty_state = resolve_base("")
+        finally:
+            os.chdir(cwd1)
+        checks.append(("an unresolvable ref is tip_unresolvable, NOT merge_base",
+                       bogus_state == BASE_TIP_UNRESOLVABLE, bogus_state))
+        checks.append(("...and falls back to the ref itself, never to skipping",
+                       bogus_ref == "no-such-ref-anywhere", bogus_ref))
+        checks.append(("an empty base is tip_unresolvable too",
+                       empty_state == BASE_TIP_UNRESOLVABLE, empty_state))
+
+        # THE EXCEPT BRANCH. No git-based control can reach it -- it needs
+        # subprocess itself to raise -- so it is driven directly. Without this,
+        # mislabelling it `merge_base` is a one-word edit nothing sees, and the
+        # case it covers (no git on PATH -> FileNotFoundError) is precisely when
+        # a wrong label is most harmful.
+        real_run = subprocess.run
+        try:
+            def _boom(*_a, **_k):
+                raise OSError("planted: git could not be executed")
+            subprocess.run = _boom
+            raised_ref, raised_state = resolve_base("main")
+        finally:
+            subprocess.run = real_run
+        checks.append(("a subprocess failure is tip_unresolvable, NOT merge_base",
+                       raised_state == BASE_TIP_UNRESOLVABLE, raised_state))
+        checks.append(("...and returns the ref unchanged", raised_ref == "main", raised_ref))
+
+        good = True
+        for label, passed, detail in checks:
+            good &= passed
+            print(f"  self-test (resolve_base: {label}): "
+                  f"{'PASS' if passed else f'FAIL got={detail}'}")
+        return good
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _self_test_check_uses_merge_base() -> bool:
+    """END-TO-END: does `--check` actually READ at the fork point?
+
+    ⚠️ **THIS EXISTS BECAUSE A PLANT ESCAPED.** The `resolve_base` control above
+    tests the resolver in isolation, and routing `main()`'s five `_git_show`
+    calls back at the base TIP -- which is the entire defect -- left that
+    control GREEN. A resolver nothing is proven to USE is decoration, so this
+    drives the real `main(["--check", "--base", "main"])` in a repo where the
+    base moves, and the two readings give OPPOSITE exit codes.
+
+    The repo is built so that `inherited` is the only correct answer: the base
+    is ALREADY stale before the branch forks, so the branch inherits that
+    staleness and changes no register of its own.
+    """
+    import os
+    import pathlib
+    import shutil
+    import tempfile
+
+    if shutil.which("git") is None:
+        print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- no git on PATH")
+        return False
+
+    def run(*args, cwd):
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
+                              text=True, timeout=30)
+
+    def write_regs(root, oi, rl, cp, rt):
+        pathlib.Path(root, "docs/claude/work").mkdir(parents=True, exist_ok=True)
+        pathlib.Path(root, _OPEN_ITEMS).write_text(json.dumps(oi), encoding="utf-8")
+        pathlib.Path(root, _RECURRENCE).write_text(json.dumps(rl), encoding="utf-8")
+        pathlib.Path(root, _CYCLE_PRIORITY).write_text(json.dumps(cp), encoding="utf-8")
+        pathlib.Path(root, _ROUTING).write_text(json.dumps(rt), encoding="utf-8")
+
+    oi = json.loads(_OPEN_ITEMS.read_text(encoding="utf-8"))
+    rl = json.loads(_RECURRENCE.read_text(encoding="utf-8"))
+    cp = json.loads(_CYCLE_PRIORITY.read_text(encoding="utf-8")) if _CYCLE_PRIORITY.exists() else {}
+    rt = json.loads(_ROUTING.read_text(encoding="utf-8")) if _ROUTING.exists() else {}
+    items = oi["items"] if isinstance(oi, dict) and "items" in oi else oi
+
+    # Pick a row the RENDERER actually reads. ⚠️ Not any row: an earlier draft
+    # of this control mutated `title`, which reaches the brief for NO row, so
+    # the needle was invisible and the control graded a fix that did not exist.
+    today = date.today()
+    base_block = render(today, open_items=oi, recurrence=rl, priority=cp, routing=rt)
+    needle = None
+    for it in items:
+        if not isinstance(it, dict) or not isinstance(it.get("summary"), str):
+            continue
+        keep, it["summary"] = it["summary"], "NEEDLE-render-visible"
+        if render(today, open_items=oi, recurrence=rl, priority=cp, routing=rt) != base_block:
+            needle = it
+            it["summary"] = keep
+            break
+        it["summary"] = keep
+    if needle is None:
+        print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- no register row "
+              "reaches the rendered brief, so no needle this control could plant")
+        return False
+
+    tmp = tempfile.mkdtemp(prefix="sbe2e-")
+    cwd0 = os.getcwd()
+    try:
+        run("init", "-q", "-b", "main", cwd=tmp)
+        run("config", "user.email", "t@t", cwd=tmp)
+        run("config", "user.name", "t", cwd=tmp)
+
+        # 1. base: registers R1, brief rendered from R1 -> consistent.
+        write_regs(tmp, oi, rl, cp, rt)
+        pathlib.Path(tmp, _CLAUDE_MD).write_text(
+            f"# x\n\n{BEGIN}\n{base_block}\n{END}\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R1 + brief", cwd=tmp)
+
+        # 2. base goes stale ON ITS OWN: register -> R2, brief NOT re-rendered.
+        needle["summary"] = "NEEDLE-R2-inherited-staleness"
+        write_regs(tmp, oi, rl, cp, rt)
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R2, brief NOT re-rendered", cwd=tmp)
+
+        # 3. the branch forks HERE and touches no register at all.
+        run("checkout", "-q", "-b", "feature", cwd=tmp)
+        pathlib.Path(tmp, "unrelated.txt").write_text("no register here\n", encoding="utf-8")
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "unrelated", cwd=tmp)
+
+        # 4. the base moves AHEAD again, changing the register once more.
+        run("checkout", "-q", "main", cwd=tmp)
+        needle["summary"] = "NEEDLE-R3-base-moved-after-the-fork"
+        write_regs(tmp, oi, rl, cp, rt)
+        run("add", "-A", cwd=tmp)
+        run("commit", "-q", "-m", "R3", cwd=tmp)
+        run("checkout", "-q", "feature", cwd=tmp)
+
+        # ⚠️ POSITIVE CONTROL FIRST: the repo must actually DISCRIMINATE. If the
+        # needle does not move the rendered brief, `inherited` is the answer for
+        # every reading and an rc of 0 would grade a fix that is not there --
+        # measured: accepting an invisible needle escaped the first battery.
+        fork_sha = run("merge-base", "HEAD", "main", cwd=tmp).stdout.strip()
+        at_fork = _git_show_in(tmp, fork_sha, str(_OPEN_ITEMS))
+        at_tip = _git_show_in(tmp, "main", str(_OPEN_ITEMS))
+        if at_fork is None or at_tip is None:
+            print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- could not read "
+                  "the register at the fork point and/or the tip")
+            return False
+        # ⚠️ DISCRIMINATE ON THE RENDERED BRIEF, NOT ON THE RAW REGISTER BYTES.
+        # Comparing the JSON was the first attempt and it did NOT catch a plant
+        # that accepted an invisible needle: the bytes differ whenever any field
+        # is edited, while the guard only ever compares what `render()` EMITS.
+        # A control must discriminate on the same quantity the code under test
+        # reads, or it grades a condition nobody is in.
+        try:
+            brief_fork = render(today, open_items=json.loads(at_fork),
+                                recurrence=rl, priority=cp, routing=rt)
+            brief_tip = render(today, open_items=json.loads(at_tip),
+                               recurrence=rl, priority=cp, routing=rt)
+        except (ValueError, TypeError) as exc:
+            print(f"  self-test (check-uses-merge-base): COULD-NOT-RUN -- {exc}")
+            return False
+        if brief_fork == brief_tip:
+            print("  self-test (check-uses-merge-base): COULD-NOT-RUN -- the fork point "
+                  "and the base tip RENDER THE SAME BRIEF, so this control cannot tell "
+                  "the two readings apart and would pass for the wrong reason")
+            return False
+
+        os.chdir(tmp)
+        rc = main(["--check", "--base", "main"])
+        passed = rc == 0
+        print("  self-test (check-uses-merge-base: a branch that touched NO register is "
+              f"`inherited`, not blamed): {'PASS' if passed else f'FAIL rc={rc}'}")
+        return passed
+    finally:
+        os.chdir(cwd0)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _git_show_in(cwd: str, ref: str, path: str) -> str | None:
+    """`git show ref:path` inside *cwd*. None is *we could not look*."""
+    try:
+        out = subprocess.run(["git", "show", f"{ref}:{path}"], cwd=cwd,
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout if out.returncode == 0 else None
 
 
 if __name__ == "__main__":

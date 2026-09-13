@@ -1,0 +1,9 @@
+MI-278 U33 — position_size is ASSIGNED by netting attribution.
+Tier-1, landing: self. PR #12169, opened by this session so it carries a real
+pull_request event and CI fires normally.
+Guards on committed state: every step PASS except pr-landing R6, which is what
+this file satisfies. silent-empty-guard FAILED on an earlier commit and was
+FIXED, not annotated: pnl_provenance's two broad excepts collapsed 'module not
+importable' and 'the classifier raised' into one sentinel, which is the exact
+class this unit measures. Now ImportError vs a narrowed tuple, two named
+sentinels, and anything else propagates.

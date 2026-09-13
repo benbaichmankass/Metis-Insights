@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three backlog-row dispositions recording code reads with a positive control, narrowing a four-row class to one live row. docs/claude/health-review-backlog.json only — no src/, no ml/, no config, no scripts, no workflows, no order path. The remaining fix is Tier-2/3 in src/units/accounts/alpaca_client.py and is PROPOSED in the row, not taken."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ci/check_register_reserialization.py and its test file: the coverage census now NAMES the unmarked candidates instead of only counting them. No verdict changes — ok, the five states and every failure condition are untouched; only what the guard REPORTS about its own scope moved. Implements next_step (1) of the MI-278 row about the review backlogs never being bound to the row-aware merge driver, and deliberately does NOT close it (that row requires a check that FIRES on a planted row deletion; naming gaps is visibility, not detection). Tier-1 surface by the canonical list (scripts/ci/**, tests/**), and NOT landing machinery — verified against check_pr_landing.py::LANDING_MACHINERY, which does not list this file. Four planted defects shown to go red; self-test OK, 31 passed, ruff clean. No src/, no config/, no deploy/, no workflow, no register, no order path."
+}
