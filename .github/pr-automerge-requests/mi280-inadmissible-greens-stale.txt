@@ -1,0 +1,1 @@
+arm auto-merge for claude/mi280-inadmissible-greens-stale (PR #11965)

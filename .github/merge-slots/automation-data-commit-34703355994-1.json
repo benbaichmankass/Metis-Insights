@@ -1,0 +1,6 @@
+{
+  "held_by": "github-actions[bot] · pr-queue-watch run 34703355994",
+  "branch": "automation/data-commit-34703355994-1",
+  "claimed_at": "2026-09-12T15:51:09Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+}

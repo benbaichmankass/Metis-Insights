@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "removes [skip ci] from two commit-message strings in one .github/workflows/ file, plus the backlog row recording the measurement; CI-only, no src/, no config/, no VM, no order path"
+}

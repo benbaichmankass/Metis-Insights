@@ -70,7 +70,9 @@ from typing import Any, Iterable
 # is imported by a harness from elsewhere. Add it explicitly so the guard cannot
 # fail on an ImportError that depends on how it was invoked.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from _backlog import UnsupportedCriteriaShape, criteria_text  # noqa: E402
+from _backlog import (  # noqa: E402
+    DATE_FIELDS, DATE_STATED, UnsupportedCriteriaShape, criteria_text, row_date,
+)
 from accrual_clock import (  # noqa: E402
     ACCRUAL_LEGS_FIELD,
     CAN_RUN,
@@ -198,11 +200,54 @@ def _load(path: pathlib.Path) -> list[dict[str, Any]]:
     return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
 
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ci"))
+import _git_base  # noqa: E402  -- path shim above; ONE owner for base resolution
+
+
 def _load_at_ref(ref: str, rel: str) -> list[dict[str, Any]]:
-    """The file's rows as of *ref*. A file absent at the base is simply new."""
+    """The file's rows as of the FORK POINT with *ref*. Absent at base = new.
+
+    ⚠️ **THE FORK POINT, NOT THE TIP, AND THE DISTINCTION IS NOT COSMETIC.**
+    Both checks that use this ask *"did THIS DIFF do X?"*, which is only the
+    diff's doing when the comparison is against the branch's ANCESTOR. Read at
+    the base TIP it also differs when the BASE moved ahead -- the normal state
+    of every working branch -- and then:
+
+      * `_check_new_rows` grandfathers by id (`if rid in before: continue`), so
+        a larger `before` UNDER-enforces: a row this diff really did add is
+        skipped because main added one with the same id meanwhile.
+      * `_check_kept_open_transitions` FALSE-BLAMES: if main moved a row OUT of
+        `kept_open` after the fork, the base reads `resolved` while this
+        untouched branch still reads `kept_open`, so the branch is reported as
+        moving a row INTO `kept_open` that it never touched.
+
+    Two opposite failure directions from one wrong reference, which is why this
+    was worth fixing rather than tolerating.
+
+    ⚠️ **AND NOT EVERY GUARD THAT READS THE TIP IS WRONG — the audit matters
+    more than the count.** Measured 2026-09-12: 10 scripts read file content at
+    `--base`; 7 read the tip. Auditing those 7 INDIVIDUALLY rather than treating
+    the shape as a defect:
+
+      * WRONG (false blame): `check_backlog_unresolve.py`,
+        `render_session_brief.py`, and this file's kept-open half.
+      * WRONG but UNDER-enforcing: `check_claim_basis.py`, and this file's
+        new-rows half.
+      * **RIGHT BY DESIGN, DO NOT "FIX" THESE:** `check_register_ids.py` asks
+        *"does my id collide with what main HAS?"* -- the tip is exactly right,
+        and the fork point would MISS a collision with a row main gained after
+        the branch was cut, which is the likeliest collision there is.
+        `work_digest.py` and `work_phase_ping.py` take BOTH `--base` and
+        `--head` and compare two arbitrary refs over a WINDOW; they are not
+        diff-scopers and a merge base would be meaningless to them.
+
+    ⚠️ The fallback is to the ref AS GIVEN when no merge base can be computed --
+    i.e. today's behaviour -- so this can only ever remove a false failure.
+    """
+    base_ref, _state = _git_base.resolve_base(ref)
     try:
         out = subprocess.run(
-            ["git", "show", f"{ref}:{rel}"],
+            ["git", "show", f"{base_ref}:{rel}"],
             capture_output=True, text=True, check=False,
         )
         if out.returncode != 0:
@@ -290,6 +335,43 @@ def _verdict(row: dict[str, Any]) -> str | None:
     # its whole job is to drop the row out of review passes until then. An
     # unparseable value would silently either hide the row forever or not at all,
     # and the reader could not tell which.
+    # WHEN WAS THIS ROW OPENED? The fourth structural field, and the one that
+    # was missing until 2026-09-12 --
+    # BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS criterion 4.
+    # A row nobody can date cannot be AGED, so it never surfaces in a
+    # stale-work pass however long it sits: it is invisible in exactly the
+    # direction that matters.
+    #
+    # !! THIS IS GRANDFATHERED BY THE SAME ID-SCOPING AS EVERYTHING ELSE HERE,
+    #    AND THAT IS LOAD-BEARING, NOT TIMIDITY. MEASURED 2026-09-12 over the
+    #    982 LIVE rows across the three backlogs: 40 already carry no
+    #    recognised date key at all. A whole-tree gate would red every PR in
+    #    the repo on day one, which is how a guard gets switched off instead of
+    #    satisfied -- the position check_digest_liveness.py takes on
+    #    `never_ran` for precisely this reason. `_check_new_rows` holds only
+    #    NEW rows to the rule; `_census` keeps the standing 40 visible and
+    #    advisory, so the debt cannot be forgotten either.
+    #
+    # !! AND IT COSTS CURRENT PRACTICE NOTHING, measured rather than hoped:
+    #    of the 249 rows ADDED to the health backlog since origin/main~600,
+    #    ZERO would fail this clause. It is not enforcing a new convention, it
+    #    is making an existing habit checkable -- `backlog_append.py`, the
+    #    mandated filing path, neither stamps nor requires a date, so until now
+    #    nothing would have caught the first author who forgot.
+    when = row_date(row)
+    if when.state != DATE_STATED:
+        if when.field is not None:
+            return (
+                f"{when.field} is {str(when.raw)[:40]!r}, which will not parse as "
+                f"a date -- the row cannot be aged, so it never surfaces in a "
+                f"stale-work pass however long it sits"
+            )
+        return (
+            f"no date field -- none of {list(DATE_FIELDS)} is present, so nothing "
+            f"can tell how long this row has been waiting and it is invisible to "
+            f"every ageing pass"
+        )
+
     snooze = row.get("snoozed_until")
     if snooze is not None and str(snooze).strip():
         if not re.match(r"^\d{4}-\d{2}-\d{2}", str(snooze).strip()):
@@ -674,6 +756,12 @@ def _load_is_open_status():
 is_open_status = _load_is_open_status()
 
 
+#: A date every ACCEPT fixture below carries, because `_verdict` now also
+#: demands one. It is a fixture constant rather than inlined so the date
+#: clause has exactly one place to be turned off, and the reject case that
+#: omits it reads as deliberate rather than as an oversight.
+_GOOD_DATE = "2026-09-12"
+
 _GOOD_CRIT = ("Endpoint /api/bot/x returns field y for a rotated log, verified "
               "on the live fleet via the diag relay.")
 
@@ -726,10 +814,10 @@ def _self_test() -> int:
          True, "list whose PROSE is under the floor"),
         # ...and the list shape still passes on real prose, so the fix did not
         # simply outlaw the minority shape.
-        ({"id": "X", "resolution_criteria": [_GOOD_CRIT, "And a second one."],
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": [_GOOD_CRIT, "And a second one."],
           "severity": "high", "tier": 1},
          False, "LIST of real criteria is accepted"),
-        ({"id": "X", "resolution_criteria": [None, "", _GOOD_CRIT],
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": [None, "", _GOOD_CRIT],
           "severity": "high", "tier": 1},
          False, "list with empty/None entries dropped, real prose kept"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high"},
@@ -742,17 +830,34 @@ def _self_test() -> int:
          True, "tier from which no 1/2/3 can be read"),
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": "soon"}, True, "unparseable snoozed_until"),
-        # ── accepts ────────────────────────────────────────────────────────
+        # DATE CASES (added 2026-09-12, closing criterion 4 of
+        # BL-20260823-BACKLOG-TRIAGE-SEES-47-PERCENT-OF-THE-LIVE-ROWS). A row
+        # nobody can date cannot be AGED, so it never surfaces in a stale-work
+        # pass however long it sits.
         ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1},
+         True, "otherwise-complete row with NO date field at all"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "opened_at": "sometime last week"},
+         True, "date present but unparseable — we looked and it is broken"),
+        # The SECOND schema is accepted, not merely tolerated: 352 live rows key
+        # on `opened` and refusing them would be a migration disguised as a guard.
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "opened": "2026-09-12"},
+         False, "the `opened` key is a first-class date, not a typo"),
+        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+          "filed_at": "2026-09-12T08:00:00+00:00"},
+         False, "a long-tail key with a full ISO timestamp is accepted"),
+        # ── accepts ────────────────────────────────────────────────────────
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1},
          False, "complete row"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "MEDIUM", "tier": "Tier-2"},
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "MEDIUM", "tier": "Tier-2"},
          False, "case-insensitive severity + Tier- prefixed tier"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "low",
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "low",
           "tier": "1 (research; any promotion past candidate is Tier-3/operator)"},
          False, "trailing tier annotation is allowed — only unreadable is refused"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": "2026-09-30"}, False, "valid ISO snooze"),
-        ({"id": "X", "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
+        ({"id": "X", "opened_at": _GOOD_DATE, "resolution_criteria": _GOOD_CRIT, "severity": "high", "tier": 1,
           "snoozed_until": None}, False, "snoozed_until null is fine — the field is optional"),
     ]
     # ── the kept_open exit-condition predicate (criterion 3) ─────────────
@@ -798,6 +903,122 @@ def _self_test() -> int:
               f"expected {'reject' if should_fail else 'accept'}, got "
               f"{'reject' if got else 'accept'}")
         failures += 0 if ok else 1
+
+    # THE TWO DATE REASONS MUST BE TELLABLE APART IN THE OUTPUT, not just in
+    # the verdict. The case table above grades reject-vs-accept only, so a
+    # change that folded `unparseable` into `unstated` would keep every row
+    # rejected and slip through it -- MEASURED: a planted `pass` on the
+    # unparseable branch left all cases green because the outer `return` still
+    # fired. A reader told "no date field" about a row that HAS a broken date
+    # goes and adds a second one. `we looked and it is broken` and `we did not
+    # look` are different repairs, so they get different sentences.
+    _unstated = _verdict({"id": "X", "resolution_criteria": _GOOD_CRIT,
+                          "severity": "high", "tier": 1}) or ""
+    _unparseable = _verdict({"id": "X", "resolution_criteria": _GOOD_CRIT,
+                             "severity": "high", "tier": 1,
+                             "opened_at": "sometime last week"}) or ""
+    if "no date field" not in _unstated:
+        print(f"  [FAIL] a row with NO date key must SAY so; got {_unstated[:80]!r}")
+        failures += 1
+    if "will not parse" not in _unparseable or "no date field" in _unparseable:
+        print("  [FAIL] an UNPARSEABLE date must not be reported as an ABSENT one; "
+              f"got {_unparseable[:80]!r}")
+        failures += 1
+    if _unstated == _unparseable:
+        print("  [FAIL] the two date reasons are byte-identical — collapsed")
+        failures += 1
+
+    # ── THE BASE MUST BE RESOLVED BEFORE ANY ROW IS BLAMED ──────────────────
+    # Measured 2026-09-13: an unresolvable base produced 547 findings naming
+    # individual rows, under a headline about rows not being WORKABLE. The base
+    # was the whole cause and the headline never mentioned it.
+    import io
+    import contextlib
+    import os
+
+    _repo = pathlib.Path(__file__).resolve().parents[2]
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc_bad = main(["--base", "no-such-ref-anywhere-000-selftest"])
+    out_bad = buf.getvalue()
+    if rc_bad == 0:
+        print("  [FAIL] an unresolvable base returned 0 — a verdict over nothing")
+        failures += 1
+    if "could not be resolved" not in out_bad:
+        print("  [FAIL] an unresolvable base did not SAY the base was the cause; "
+              f"got {out_bad[:120]!r}")
+        failures += 1
+    # THE ONE THAT MATTERS: it must grade NOTHING, not grade everything badly.
+    blamed = [ln for ln in out_bad.splitlines()
+              if ln.startswith("  docs/claude/")]
+    if blamed:
+        print(f"  [FAIL] an unresolvable base still blamed {len(blamed)} row(s); "
+              "refusing means grading nothing, not failing everything")
+        failures += 1
+    if not failures:
+        print("  [ok]   an unresolvable base is REFUSED, names the ref, and "
+              "blames no row")
+
+    # POSITIVE CONTROL. Without it, a guard that refused EVERY base would pass
+    # all three assertions above and be strictly worse than the defect.
+    buf2 = io.StringIO()
+    with contextlib.redirect_stdout(buf2):
+        rc_ok = main(["--base", "HEAD"])
+    out_ok = buf2.getvalue()
+    if "could not be resolved" in out_ok:
+        print("  [FAIL] a REAL base was refused — the refusal is not keyed on "
+              "the ref being unresolvable")
+        failures += 1
+    elif rc_ok != 0:
+        print(f"  [FAIL] a real base did not grade cleanly (rc={rc_ok})")
+        failures += 1
+    else:
+        print("  [ok]   a REAL base still grades, so the refusal is not "
+              "'refuse everything'")
+
+    # AND THE TEST IS `ref_exists`, NOT "is the file there". A file absent at a
+    # REAL base is legitimately new and its rows MUST be graded — that is the
+    # case this whole guard exists for.
+    #
+    # ⚠️ THE FIRST VERSION OF THIS CONTROL ONLY EXERCISED THE PRIMITIVE, and a
+    # planted defect keying the refusal on `_load_at_ref(...)` being empty
+    # sailed past it: at HEAD the file is present so nothing refused, and at a
+    # bogus ref it is empty so the refusal fired — behaviour identical to the
+    # correct implementation, because no input told the two apart. Discriminating
+    # them needs a ref that EXISTS and genuinely lacks the file, so this builds
+    # one: a real commit over the EMPTY TREE.
+    empty_tree = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"],
+        capture_output=True, text=True, cwd=_repo)
+    empty_commit = subprocess.run(
+        ["git", "commit-tree", empty_tree.stdout.strip(), "-m", "selftest empty base"],
+        capture_output=True, text=True, cwd=_repo,
+        env={**os.environ,
+             "GIT_AUTHOR_NAME": "selftest", "GIT_AUTHOR_EMAIL": "s@invalid",
+             "GIT_COMMITTER_NAME": "selftest", "GIT_COMMITTER_EMAIL": "s@invalid"})
+    empty_ref = empty_commit.stdout.strip()
+    if not empty_ref:
+        print("  [FAIL] could not build an empty-tree commit, so the "
+              "ref-vs-file distinction is UNTESTED — not passed")
+        failures += 1
+    else:
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            main(["--base", empty_ref])
+        out_empty = buf3.getvalue()
+        # The ref EXISTS, so it must NOT be refused. Grading every row as new is
+        # the correct answer against a genuinely empty base, so the assertion is
+        # on the REFUSAL and deliberately not on the exit code.
+        if "could not be resolved" in out_empty:
+            print("  [FAIL] a REAL ref that merely lacks the file was refused — "
+                  "the refusal is keyed on the FILE, not the REF, and a "
+                  "genuinely new register would be rejected")
+            failures += 1
+        else:
+            print("  [ok]   a REAL ref lacking the file is GRADED, not refused "
+                  "— the refusal keys on the ref")
+
     if failures:
         print("self-test FAILED — the guard does not fail closed.")
         return 1
@@ -817,6 +1038,43 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.all:
         return _census()
     if args.base:
+        # ── THE BASE MUST BE RESOLVABLE BEFORE ANY ROW IS GRADED ────────────
+        # MEASURED 2026-09-13: `--base no-such-ref-anywhere-000` emitted **547
+        # findings**, each naming an individual backlog row, under the headline
+        # "backlog row(s) that are not WORKABLE — missing or unusable
+        # resolution_criteria / severity / tier". Not one word of that headline
+        # is about the base, and the base was the entire cause: `_load_at_ref`
+        # returns [] for an unresolvable ref exactly as it does for a file that
+        # is genuinely new, so every pre-existing row read as one this diff had
+        # just added.
+        #
+        # ⚠️ THIS IS UNPROVENANCED DIAGNOSTIC OUTPUT, SUB-CLASS A — a failure
+        # message naming a cause no code path tested. The repo's own remedy for
+        # it is to branch on the actual failure STAGE rather than reword the
+        # label, which is what this does: the ref is checked once, before
+        # anything is graded, and a bad one is REFUSED rather than described as
+        # 547 bad rows.
+        #
+        # ⚠️ `ref_exists` IS THE RIGHT TEST AND "the file is absent" IS NOT.
+        # A file absent at a REAL base is legitimately new, and grading its rows
+        # is correct — that is the case this guard exists for. Only an
+        # unresolvable REF means *we could not look*. `_git_base.read_at` keeps
+        # those two apart for the same reason.
+        #
+        # ⚠️ KNOWN, AND DELIBERATELY NOT FIXED HERE: `_load_at_ref` still
+        # collapses a JSON PARSE failure at a readable ref into the same empty
+        # list, which would reproduce this defect for a corrupted base file.
+        # That case has not been observed and has no measurement behind it;
+        # bundling an unmeasured fix with a measured one would leave the control
+        # below unable to say which it was proving.
+        if not _git_base.ref_exists(args.base):
+            print(f"::error::backlog-criteria: the base ref {args.base!r} could "
+                  "not be resolved, so NOTHING was graded. This is 'we could "
+                  "not look', not 'every row is fine' and not 'every row is "
+                  "broken' — without a base every existing row would read as "
+                  "one this diff just added.")
+            return 2
+
         # BOTH diff-scoped checks under one invocation, and the return codes are
         # OR-ed rather than short-circuited so a PR sees every failing row at
         # once instead of re-running to find the next one (the reason

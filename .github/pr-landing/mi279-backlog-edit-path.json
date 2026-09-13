@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "tooling under scripts/ops/ plus its tests and one backlog row closed through the new path; no src/, no config/, no VM, no order path"
+}

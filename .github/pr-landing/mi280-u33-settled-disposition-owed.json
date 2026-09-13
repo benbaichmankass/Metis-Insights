@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling: scripts/ops/render_due_list.py gains one registered due-list source that reports (never decides), reading open_pr_record.grade_settled rather than re-deriving it, plus one row's updates in docs/claude/health-review-backlog.json. It touches no order path, no runtime, no strategy config, no risk caps, no live-VM file, and it does not change what open_pr_record.py --strict refuses. Observability and read paths are Tier-1 by the canonical doc's own examples."
+}

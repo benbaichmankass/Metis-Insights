@@ -56,7 +56,7 @@ operator's flip.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,125 @@ WINNER_SCOPES = ("attributed", "no_winner", "unattributed")
 #: must branch on. **A row with no ``fanout_schema`` key is a pre-2026-08-30
 #: row and its ``starved_accounts`` CONFLATES starvation with no-winner ticks**
 #: — do not pool it with a v2 row's ``starved_count`` without saying so.
-FANOUT_SCHEMA = 2
+#:
+#: ⚠️ **v2 rows (2026-08-31 → 2026-09-12) carry an ``applied``/``rounds_applied``
+#: pair that is COSMETIC, and pooling them with v3 restates the defect in the
+#: analysis instead of the code.** On a v2 row ``applied`` was
+#: ``bool(apply_rounds)`` — set from what the WRITER produced, never from what
+#: the dispatcher accepted — while the writer's projection dropped the geometry
+#: the dispatcher requires. MEASURED on the live log (``/api/diag/log_file?
+#: name=arbitration_fanout_soak``, read 2026-09-12): **93 of 93**
+#: ``rounds_applied`` entries carry exactly ``('accounts', 'strategy')`` against
+#: **106 of 106** ``rounds_planned`` entries carrying the full seven-key form —
+#: i.e. **every v2 row reading ``applied: true`` dispatched nothing**. On a v3
+#: row ``rounds_applied`` is what :func:`accepted_rounds` passed and
+#: ``rounds_written`` is what the writer produced, so the two can never again be
+#: conflated by a reader.
+FANOUT_SCHEMA = 3
+
+#: The fields one dispatch round must carry for the pipeline to act on it.
+#: **This tuple is the CONTRACT, and it is deliberately in the pure module** so
+#: the writer (``intent_multiplexer._attach_fanout_plan``) and the reader
+#: (``pipeline._fanout_apply_rounds``) cannot hold two different opinions about
+#: it. They did, for twelve days, and nothing noticed: the writer rebuilt each
+#: round as a NEW dict carrying only ``strategy`` and ``accounts``, the reader
+#: refused every round missing ``side``/``entry``/``sl``/``tp``, and because
+#: the reader is fail-closed the fan-out degraded silently to the global
+#: dispatch on every tick since it shipped.
+ROUND_DISPATCH_FIELDS = ("strategy", "accounts", "side", "entry", "sl", "tp")
+
+#: Why the fan-out did or did not hand rounds to the dispatcher. Never
+#: collapsed — in particular ``refused_by_dispatcher`` is NOT a flavour of
+#: "nothing to apply": it is the writer producing rounds the reader throws
+#: away, which is the failure this vocabulary was added to make sayable.
+APPLY_STATES = (
+    "not_requested",          # mode is not `apply` — the shipped default
+    "no_allowlist",           # mode IS apply, allowlist EMPTY (= none, for this knob)
+    "no_allowlisted_account",  # allowlist set, but no round survived scoping this tick
+    "dispatchable",           # rounds written AND the dispatcher accepts every one
+    "refused_by_dispatcher",   # rounds written and the dispatcher accepts NONE — THE BUG
+)
+
+
+def scope_round_to_accounts(
+    round_: Mapping[str, Any], allow: Any
+) -> Optional[Dict[str, Any]]:
+    """Narrow one planned round to the allowlisted accounts, geometry intact.
+
+    Returns ``None`` when no account survives, so the caller drops the round.
+
+    ⚠️ **THE WHOLE ROUND IS CARRIED FORWARD (``dict(round_)``), NOT A HAND-PICKED
+    SUBSET OF ITS KEYS.** Enumerating the fields here is what caused the defect
+    this function exists to prevent: the projection listed ``strategy`` and
+    ``accounts``, the planner emitted five more, and the dispatcher required
+    four of those five. Copying the round wholesale means a field the planner
+    adds tomorrow reaches the dispatcher without anyone remembering to widen a
+    list — the drift is structurally impossible rather than merely discouraged.
+    Only ``accounts`` is replaced, because narrowing it is the entire purpose.
+    """
+    accounts = [a for a in (round_.get("accounts") or ()) if a in allow]
+    if not accounts:
+        return None
+    scoped = dict(round_)
+    scoped["accounts"] = accounts
+    return scoped
+
+
+def accepted_rounds(rounds: Any) -> List[Dict[str, Any]]:
+    """The rounds a dispatcher may act on. **ALL-OR-NOTHING and fail-closed.**
+
+    This is the single definition of *"will the pipeline dispatch this?"*.
+    ``pipeline._fanout_apply_rounds`` calls it to decide what to route, and the
+    writer calls it to decide what to REPORT — so the soak's ``applied`` can no
+    longer claim an effect the dispatcher refuses.
+
+    ⚠️ **One malformed round voids the WHOLE plan**, deliberately and unchanged:
+    a plan we cannot fully read is not a plan we should act on half of. That is
+    also why the writer must consult this rather than count what it wrote — a
+    single bad round means *nothing* dispatched, not *most of it* dispatched.
+
+    ⚠️ **Returning ``[]`` is never an error signal.** It is "no fan-out", which
+    the caller answers by taking the unchanged global-dispatch path. Losing the
+    fan-out costs a starved account one tick — the state the system is already
+    in — whereas acting on a plan we could not read is a live order on
+    unverified routing.
+    """
+    out: List[Dict[str, Any]] = []
+    try:
+        for r in rounds or ():
+            if not isinstance(r, Mapping):
+                return []
+            if not r.get("strategy") or not r.get("accounts"):
+                return []
+            if r.get("side") not in ("long", "short"):
+                return []
+            if r.get("entry") is None or r.get("sl") is None or r.get("tp") is None:
+                return []
+            out.append(dict(r))
+    except Exception:  # noqa: BLE001 — an unreadable plan is "no fan-out"
+        logger.debug("arbitration_fanout: rounds unreadable", exc_info=False)
+        return []
+    return out
+
+
+def apply_state_for(
+    mode: str, allow: Any, written: Any, accepted: Any
+) -> str:
+    """Which of :data:`APPLY_STATES` describes this tick. Pure.
+
+    ``written`` is what the writer put in ``apply_rounds``; ``accepted`` is what
+    :func:`accepted_rounds` returned for it. They are separate arguments rather
+    than one derived from the other inside here, because the caller has already
+    computed both and re-deriving would let the two drift apart in exactly the
+    way this whole change exists to stop.
+    """
+    if mode != "apply":
+        return "not_requested"
+    if not allow:
+        return "no_allowlist"
+    if not written:
+        return "no_allowlisted_account"
+    return "dispatchable" if accepted else "refused_by_dispatcher"
 
 
 def accounts_by_strategy(
@@ -457,6 +575,11 @@ __all__ = [
     "FANOUT_STATES",
     "WINNER_SCOPES",
     "FANOUT_SCHEMA",
+    "ROUND_DISPATCH_FIELDS",
+    "APPLY_STATES",
+    "scope_round_to_accounts",
+    "accepted_rounds",
+    "apply_state_for",
     "PLAN_STATES",
     "accounts_by_strategy",
     "winner_scope_for",

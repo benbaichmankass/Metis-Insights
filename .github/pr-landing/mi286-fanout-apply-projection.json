@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "TIER-2 ORDER PATH. This does not restore intended behaviour \u2014 it ARMS a dispatch path that has never executed. The live env is ARBITRATION_FANOUT_MODE=apply with bybit_1 allowlisted, and src/runtime/pipeline.py uses the rounds as `if _rounds: <fan-out> else: <global>`, so the fan-out REPLACES the global dispatch rather than supplementing it. The moment this lands and deploys, a never-exercised path becomes the SOLE dispatcher for every contested symbol on bybit_1 (demo, but live-mode). Approval is held by manager session_01HoFquGdTrD3TTGbMMRc43t on the operator's behalf; this lane (MI-286) was instructed to prepare and validate only, not to self-land and not to run any set-env. The diff touches no config, no risk caps, and does NOT add breakout_1 to ARBITRATION_FANOUT_ACCOUNTS \u2014 that is a separate, later, manager-owned step, deliberately sequenced after this one so the account is not reported as routed while it is still starved.",
+  "hold_text": "Manager spawn prompt to MI-286, verbatim: \"Tier-2. PREPARE AND VALIDATE ONLY. Open the PR READY (\\\"draft\\\": false) with \\\"landing\\\": \\\"hold\\\" and a hold_reason from the closed vocabulary. Do NOT arm auto-merge. Do NOT run any set-env. The manager holds the operator's approval and will land it.\" and \"Report back on the PR. Do not self-land.\" Approval is therefore sought from the operator, via manager session_01HoFquGdTrD3TTGbMMRc43t, who holds it. This lane did not seek and does not hold it."
+}

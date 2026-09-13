@@ -347,6 +347,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # REQUIRED by `.github/actions/commit-to-main` (its own line 12): the
+          # action pushes with a bare `git push origin`, so it uses whatever
+          # credential the CHECKOUT configured. Under the default GITHUB_TOKEN
+          # the PR it opens never receives the `on: pull_request` required
+          # checks — GitHub suppresses triggers for that token — so auto-merge
+          # waits for checks that never arrive. Passing the PAT to the action
+          # alone is NOT enough: that only authenticates `gh`.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

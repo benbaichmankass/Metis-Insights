@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "The diff contains automation/pr-requests/mi279-truncated-ids-draft-test.json and automation/pr-results/mi279-truncated-ids-draft-test.txt, which are outside TIER1_SURFACE. That is not incidental: this PR was opened THROUGH pr-opener.yml on purpose, to produce the observation BL-20260903's criterion demands, and those two files are how the relay works -- the caller commits the request, the workflow commits the result back onto the same branch. So they are in every relay-opened diff by construction. HELD RATHER THAN NARROWED: deleting them would have passed R5 and destroyed the evidence. Needs one human merge click; the underlying defect is filed as BL-20260912-A-PR-OPENED-THROUGH-PR-OPENER-CAN-NEVER-SELF-LAND-BECAUSE-ITS-OWN-REQUEST-AND-RESULT-FILES-ARE-OUTSIDE-THE-TIER-1-SURFACE.",
+  "why": "Two backlog rows amended and one filed, plus a corrected paragraph in .github/pr-landing/README.md. Everything else is on the Tier-1 surface; no src/, no config/, no deploy/, no workflow logic, no order path. The one live read was a GET on /api/diag/ib_open_orders, and the Tier-2 cancel-ib-order action is PROPOSED to the manager, not dispatched."
+}

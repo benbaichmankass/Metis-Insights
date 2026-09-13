@@ -1,0 +1,1 @@
+landing declaration for mi279-u3-live-latch-verification

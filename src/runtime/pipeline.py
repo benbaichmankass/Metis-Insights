@@ -69,22 +69,22 @@ def _fanout_apply_rounds(signal):
     global-winner dispatch. Losing the fan-out costs a starved account one
     tick — the state the system is already in — whereas acting on a plan we
     could not read is a live order on unverified routing.
+
+    ⚠️ **THE VALIDATION LIVES IN ``arbitration_fanout.accepted_rounds``, NOT
+    HERE, AND THAT IS THE POINT.** This function used to carry its own copy of
+    the field checks, so the reader's contract was stated in one module and the
+    writer's projection in another — and they disagreed, silently, from
+    2026-08-31 to 2026-09-12: the writer emitted ``{strategy, accounts}`` and
+    this reader demanded ``side``/``entry``/``sl``/``tp``, so it returned ``[]``
+    on **every** tick and the fan-out dispatched nothing on any account while
+    the soak recorded ``applied: true``. One shared validator, consulted by
+    both sides, is what makes that particular drift unrepresentable rather than
+    merely unlikely. The behaviour is unchanged — all-or-nothing, fail-closed.
     """
     try:
+        from src.runtime.arbitration_fanout import accepted_rounds
         plan = ((signal or {}).get("meta") or {}).get("arbitration_fanout") or {}
-        rounds = plan.get("apply_rounds") or []
-        out = []
-        for r in rounds:
-            if not isinstance(r, dict):
-                return []
-            if not r.get("strategy") or not r.get("accounts"):
-                return []
-            if r.get("side") not in ("long", "short"):
-                return []
-            if r.get("entry") is None or r.get("sl") is None or r.get("tp") is None:
-                return []
-            out.append(r)
-        return out
+        return accepted_rounds(plan.get("apply_rounds") or [])
     except Exception:  # noqa: BLE001 — an unreadable plan is "no fan-out"
         logger.debug("arbitration_fanout: apply_rounds unreadable", exc_info=False)
         return []

@@ -58,8 +58,23 @@ permissions:
 jobs:
   sunset:
     runs-on: ubuntu-latest
+    # Must outlast `commit-to-main`'s own merge wait plus slack, or the job is
+    # killed mid-poll and reports a timeout for a merge that was about to land
+    # (test_every_caller_budget_outlasts_the_merge_wait reads the wait from the
+    # action itself, so raising it there fails there rather than silently here).
+    # GitHub's default is 360m; declared explicitly so the dependency is visible.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ⚠️ REQUIRED BY `commit-to-main`, NOT DECORATION. That action pushes
+          # its branch with whatever credential the checkout configured, and a
+          # PR opened under `GITHUB_TOKEN` does NOT trigger the `on:
+          # pull_request` required checks — so auto-merge would wait forever.
+          # The action's own docstring states this as a requirement of calling
+          # it. Porting the push route WITHOUT this would swap a loud weekly
+          # failure for a silent permanent one, which is worse.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -93,22 +108,56 @@ jobs:
             python3 scripts/ops/sunset_pass.py --write
           fi
 
-      - name: Commit the artifact
-        run: |
-          set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add comms/sunset/
-          if git diff --cached --quiet; then
-            echo "no change to commit"
-            exit 0
-          fi
-          git commit -m "sunset-pass: E3 candidates for $(date -u +%F)"
-          for i in 1 2 3 4; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
-            sleep $((2 ** i))
-          done
-          echo "::error::could not push the sunset artifact"; exit 1
+      # THE PUSH TARGET WAS WRONG, AND IT COULD NEVER HAVE WORKED ON THE
+      # SCHEDULED PATH. This step used to `git push origin HEAD:main`, and `main`
+      # is protected: a direct workflow push is declined with GH006. MEASURED
+      # over this workflow's COMPLETE run history — there is exactly ONE
+      # scheduled run, 34110131942 (event=schedule, 2026-09-07T10:11:27Z, cron
+      # `10 5 * * 1`, so 5.0h late) — and it died at this step with
+      # `! [remote rejected] HEAD -> main (protected branch hook declined)`,
+      # twice, then `could not push the sunset artifact`. The four-attempt retry
+      # loop could not help: every attempt hits the same hook. Nothing about the
+      # run was unlucky, so it would have failed identically every Monday.
+      #
+      # `.github/actions/commit-to-main` exists precisely to absorb that
+      # (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN); `session-reaper.yml`
+      # and `replay-pregate-nightly.yml` were both ported off this identical
+      # pattern for this identical reason.
+      #
+      # ⚠️ AND THIS IS AN IMPROVEMENT, NOT A FIX OF THE LANDING LAYER — say it
+      # plainly rather than let the port read as one.
+      # `BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT`
+      # measured all 27 scheduled workflows and found the SHARED LANDING STEP —
+      # not the cron — is what loses work, via 30-minute no-merge timeouts and
+      # rate-limited PR opens. So this moves sunset-pass from NEVER LANDS onto a
+      # path that SOMETIMES lands. That trade is acceptable HERE specifically
+      # because the sunset artifact is RE-DERIVABLE: it is computed from current
+      # config plus lifetime data, so a missed Monday costs a recomputation, not
+      # evidence. It would NOT be acceptable for a forward-only stream like
+      # replay-pregate's nightly, where a lost run is a lost night.
+      #
+      # ⚠️ `verify-merged: "true"` IS NOT OPTIONAL, AND I FIRST GOT THIS WRONG.
+      # My initial port left it at the default and argued that a weekly artifact
+      # does not justify holding a runner for a 30-minute merge poll.
+      # `tests/test_commit_to_main_callers.py::test_every_caller_verifies_its_rows_merged`
+      # refused that, and it is right: without it the step exits 0 when the PR
+      # OPENS, so a push that NEVER MERGES reads as a success and the rows are
+      # unreadable. That is the green-over-nothing failure, and it is exactly
+      # the state this row exists to end — a workflow that reports fine while
+      # its artifact never lands. Field beats comment; the test is the rule.
+      - name: Land the sunset artifact on main (auto-merge PR)
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/sunset
+          message: "sunset-pass: E3 candidates"
+          pr-title: "chore(ops): sunset-pass E3 candidates (auto)"
+          pr-body: >
+            Automated weekly sunset pass (E3). Generated artifact only;
+            auto-merge. Ported off a direct push at protected `main`, which
+            declined its only scheduled run with GH006.
+          branch-prefix: automation/sunset-pass
+          verify-merged: "true"
 
       - name: Report
         run: |

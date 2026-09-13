@@ -96,6 +96,12 @@ jobs:
           # broken grader here would silently restore the blindness this step
           # exists to end.
           python3 scripts/ops/pr_mergeability.py --self-test
+          # The CI-SKIP-DIRECTIVE half. ⚠️ THIS ONE CANNOT BE A CI GUARD AND THAT
+          # IS WHY IT IS HERE: when a head commit carries the directive GitHub
+          # runs NO workflow for that push, so no `pull_request`- or `push`-
+          # triggered check ever executes on the one commit it exists to catch.
+          # A SCHEDULED reader is the only surface that can see it.
+          python3 scripts/ops/ci_skip_directive.py --self-test
           python3 scripts/ci/check_pr_queue_watch.py --self-test
           # The manager-state half and the Routine's liveness guard, same rule:
           # a watcher whose grading is broken must fail loudly, not write a
@@ -379,9 +385,31 @@ jobs:
         # workflow's own header warns about. Its findings are printed in the run and
         # annotated; wiring them into the latched channel is deliberately left as a
         # separate decision rather than smuggled in here.
+        #
+        # ⚠️ `always()` AND `continue-on-error` ARE DIFFERENT THINGS AND BOTH ARE
+        # NEEDED. `continue-on-error` stops THIS step's own failure failing the
+        # job; only `always()` makes it RUN when an EARLIER step failed. Without
+        # it this step was skipped by the same mechanism that swallowed the
+        # escalation -- `Land the receipt on main` fails when the queue is backed
+        # up, and this observation was lost on precisely those runs. That was
+        # recorded as the RESIDUAL of
+        # BL-20260912-THE-PR-QUEUE-ESCALATION-IS-SKIPPED-WHENEVER-THE-RECEIPT-STEP-FAILS-AND-FIVE-REAL-PAGES-WERE-SWALLOWED
+        # (9 of 38 scheduled runs), whose criteria require it fixed or given its
+        # own row before that row closes. This is the fix.
+        #
+        # ⚠️ AND `always()` MAKES A NEW STATE REACHABLE, so it is handled rather
+        # than left to fall through: the step can now run on a job whose CHECKOUT
+        # failed, where the watcher script does not exist. That is *we could not
+        # look*, and it must not read as an unexpected exit code from a watcher
+        # that in fact never ran.
+        if: always()
         continue-on-error: true
         run: |
           set +e
+          if [ ! -f scripts/ops/manager_state_watch.py ]; then
+            echo "::warning::MANAGER STATE NOT OBSERVED -- scripts/ops/manager_state_watch.py is absent from this checkout, so this step could not look. That is NOT a clean manager state, and it is NOT an unexpected exit code from the watcher: the watcher never ran."
+            exit 0
+          fi
           # ⚠️ THIS STEP DELIBERATELY DOES NOT SPELL THE ASSESS STEP'S CAPTURE
           # TOKEN, and neither does this comment.
           # `check_pr_queue_watch.py` asserts that token appears EXACTLY ONCE in
@@ -412,12 +440,45 @@ jobs:
         # latch decides that, so a standing backlog does not fail every 6h --
         # 202 of 376 CRITICALs in one measured window here were a single
         # un-latched alarm, and that trained the operator past the channel.
+        #
+        # ⚠️ `always()` BECAUSE THE ESCALATION CHANNEL MUST NOT SIT DOWNSTREAM OF
+        # HOUSEKEEPING. Without it this step is SKIPPED whenever an earlier step
+        # fails -- in practice `Land the receipt on main`, which opens its own PR
+        # and fails when that PR does not merge in time, i.e. exactly when the
+        # queue this watcher exists to report on is backed up. The escalation is
+        # then computed, printed into the digest, and never reported.
+        #
+        # MEASURED 2026-09-12 over the COMPLETE run history of this workflow --
+        # 38 scheduled runs, 2026-09-02 to 2026-09-12: `Report the verdict` was
+        # SKIPPED in 9 of them, and in 5 of those the digest carried a TRUE
+        # escalation that therefore never reached the channel. Four were latency
+        # escalations (09-08/09-09) and one was the conflict escalation on
+        # 2026-09-12T11:14:26Z, which named #11916 and #11919 as GREEN AND
+        # UNMERGEABLE.
+        #
+        # ⚠️ THE RUN STILL WENT RED IN ALL FIVE, AND THAT IS THE TRAP RATHER THAN
+        # THE MITIGATION: `claude-run-failure-alert.yml` reports a generic
+        # workflow failure, so a swallowed page and a failed receipt reach the
+        # operator as the SAME signal. Two different facts, one alarm -- which is
+        # the fatigue class the comment above already warns about.
+        #
+        # The sibling `Report the BLOCKED-LANE verdict` below has carried
+        # `always()` from the start, for a neighbouring reason. This mirrors it.
+        if: always()
         run: |
           cat /tmp/digest.txt
           case "${{ steps.assess.outputs.code }}" in
             0) echo "::notice::PR queue is quiet." ;;
             3) echo "::error::PR-QUEUE ESCALATION -- open PRs are waiting on a merge decision past the threshold. See the digest above and docs/claude/work/PR-QUEUE-WATCH.json."; exit 1 ;;
             4) echo "::error::PR-QUEUE WATCHER COULD NOT LOOK -- the open-PR list was unreadable. This is NOT an empty queue; the sensor is blind and that is a defect."; exit 1 ;;
+            # ⚠️ EMPTY IS NOT QUIET. With `always()` this step also runs when
+            # `Assess the queue` never produced a code -- it was skipped, or it
+            # died. That is *we did not look*, and it must not read as a clean
+            # queue. It warns rather than failing: the run is ALREADY red from
+            # whatever killed the assessment, and a second exit 1 would add a
+            # page without adding a fact. Mirrors the `""` arm the BLOCKED-LANE
+            # verdict below already carries.
+            "") echo "::warning::PR-QUEUE WATCHER DID NOT ASSESS -- the assess step was skipped or died before recording a code. That is 'we did not look', NOT a quiet queue." ;;
             *) echo "::error::unexpected exit code from pr_queue_latency.py"; exit 1 ;;
           esac
 

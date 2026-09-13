@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row filed recording a measured gap in the backlogs' own closure record, plus a landing declaration. docs/claude/health-review-backlog.json and .github/ only — no src/, no ml/, no config, no scripts, no workflows, no order path. The structural fix the row proposes (a diff-scoped clause in scripts/ci/) is NOT built here; the row says so and says why a whole-tree gate would be the wrong shape."
+}

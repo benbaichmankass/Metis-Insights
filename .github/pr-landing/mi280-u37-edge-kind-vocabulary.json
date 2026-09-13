@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A new CI guard at scripts/ci/check_edge_kind_vocabulary.py, its registration in scripts/ci/run_guards.py, a grading fix in scripts/ops/constraint_readout.py (a non-typed blocked_on entry grades `malformed` instead of being silently dropped into a false `declared_none`), and one row's `updates` in docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no .github/workflows/, no order path, no strategy config, no risk caps, no live-VM file. Every touched path is inside TIER1_SURFACE (scripts/ci/**, scripts/ops/**, docs/**) and none is in check_pr_landing.LANDING_MACHINERY -- verified against that list rather than assumed, so R12 does not apply. NO WORK OBJECT IS EDITED: re-shaping the one malformed entry would move its object from `malformed` to `blocked` and change what the WIP ceiling and the constraint readout compute over, which is the owner's or the manager's call; it is carried as a dated known-malformed entry instead. The guard is GREEN on the live store today -- the six undeclared kinds and the one malformed entry are dated, printed on every run, and a SEVENTH fails."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling and its record: scripts/ops/_backlog.py (a LIBRARY of read accessors), scripts/ops/backlog_drain_candidates.py (an offline candidate reporter), a new pytest file, and one in-place update to a backlog row. No runtime, no order path, no strategy config, no risk caps, no live-VM file, no workflow. NOT landing machinery: neither touched module is in check_pr_landing.LANDING_MACHINERY's twelve entries (verified by importing the module, not by eye), so R12 does not apply and this may self-land. The change removes a collapsed state -- _added_after returned a definite negative for a row whose date it had never established -- and ships a planted-defect test proven RED against two real file mutations before this was opened."
+}

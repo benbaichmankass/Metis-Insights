@@ -100,6 +100,23 @@ def branch_on_origin(branch: str, root: Path = Path(".")) -> Optional[bool]:
     return bool(res.stdout.strip())
 
 
+# A pull-request `state` that means the claim can no longer reach `main`.
+# `merged` is listed even though GitHub reports it via `merged`/`merged_at`,
+# because a caller hand-building a payload may spell it that way.
+_CLOSED_STATES = {"closed", "merged"}
+
+
+def _pr_label(pr: Dict[str, Any]) -> str:
+    """The PR's number, or a phrase that does not read like one.
+
+    `f"PR #{pr.get('number')}"` renders `PR #None` on a payload that names no
+    PR — which reads as a fact about a pull request rather than as the absence
+    of one.
+    """
+    n = pr.get("number")
+    return str(n) if isinstance(n, int) else "(no number in the payload)"
+
+
 def grade(claim: Optional[Dict[str, Any]],
           branch_present: Optional[bool] = None,
           pr: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -115,22 +132,41 @@ def grade(claim: Optional[Dict[str, Any]],
     branch = str(claim["branch"]).strip()
     holder = str(claim.get("held_by") or "").strip() or "(unattributed)"
 
+    unusable = ""
     if isinstance(pr, dict):
-        # AUTHORITATIVE. Asked and answered, rather than inferred from a proxy.
+        # AUTHORITATIVE — but ONLY when the payload actually answers. See
+        # `_pr_is_answerable`: a dict that carries no verdict is not a direct
+        # answer, and defaulting it to `open` invents one.
         if pr.get("merged") or pr.get("merged_at"):
             return _row(SPENT, claim,
-                        f"PR #{pr.get('number')} for {branch!r} is MERGED, so "
+                        f"PR #{_pr_label(pr)} for {branch!r} is MERGED, so "
                         f"{holder} has finished. Displace freely.")
-        state = str(pr.get("state") or "open").lower()
-        if state != "open":
+        state = str(pr.get("state") or "").strip().lower()
+        if state in _CLOSED_STATES:
             return _row(SPENT, claim,
-                        f"PR #{pr.get('number')} for {branch!r} is {state}, so "
+                        f"PR #{_pr_label(pr)} for {branch!r} is {state}, so "
                         f"the claim cannot still be on its way to `main`. "
                         f"Displace freely.")
-        return _row(LIVE, claim,
-                    f"PR #{pr.get('number')} for {branch!r} is OPEN, so {holder} "
-                    f"may be mid-merge. Displacing is permitted — R13 does not "
-                    f"serialize — but say so, because this one is NOT a ghost.")
+        if state == "open":
+            return _row(LIVE, claim,
+                        f"PR #{_pr_label(pr)} for {branch!r} is OPEN, so "
+                        f"{holder} may be mid-merge. Displacing is permitted — "
+                        f"R13 does not serialize — but say so, because this one "
+                        f"is NOT a ghost.")
+        # ⚠️ THE PAYLOAD DID NOT ANSWER, AND THAT IS NOT `open`.
+        # MEASURED 2026-09-12: `GET /repos/.../pulls/` with an empty number
+        # returns `{"message": "Request path could not be canonicalized."}` —
+        # a dict with no `merged`, no `merged_at` and no `state`. The old
+        # `str(pr.get("state") or "open")` turned that into LIVE, with a `why`
+        # reading "PR #None ... is OPEN": a definite answer the code never
+        # established, about a PR it never saw. It failed in the CAUTIOUS
+        # direction, so nothing unsafe happened — and it is still the exact
+        # collapse this module exists to refuse, one level in from the
+        # presence-is-not-liveness refusal it was written for.
+        unusable = (f" ⚠️ A pull-request payload WAS supplied and could not be "
+                    f"read ({_pr_label(pr)}): it carries no `merged`, no "
+                    f"`merged_at` and no recognised `state`, so it is NOT the "
+                    f"direct answer and was not treated as one.")
 
     if branch_present is False:
         return _row(SPENT, claim,
@@ -138,17 +174,19 @@ def grade(claim: Optional[Dict[str, Any]],
                     f"nothing can still be merging from it and {holder} has "
                     f"finished. Displace freely. (This is the common case: "
                     f"`commit-to-main` takes the slot on every automated commit "
-                    f"and those branches are reaped on merge.)")
+                    f"and those branches are reaped on merge.)" + unusable)
     if branch_present is True:
         return _row(UNDECIDABLE, claim,
                     f"the claiming branch {branch!r} is still on `origin`, which "
                     f"is NOT evidence that {holder} is live — merged lane "
                     f"branches are not reliably pruned here (measured: 4 of 4 "
                     f"sampled branches merged four days earlier were still "
-                    f"present). Read the claiming PR's state to settle it.")
+                    f"present). Read the claiming PR's state to settle it."
+                    + unusable)
     return _row(UNDECIDABLE, claim,
                 f"could not reach `origin` to see whether {branch!r} still "
-                f"exists — WE DID NOT LOOK. This is not 'the slot is free'.")
+                f"exists — WE DID NOT LOOK. This is not 'the slot is free'."
+                + unusable)
 
 
 def _row(state: str, claim: Optional[Dict[str, Any]], why: str) -> Dict[str, Any]:

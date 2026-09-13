@@ -15,6 +15,7 @@ now two surfaces confidently contradict each other. So:
     R1  a document exists in the population and is NOT registered
     R2  a registered row names a file that NO LONGER EXISTS
     R3  a file's own header status DISAGREES with its index row
+    R6  a committed row's status is NOT what a fresh build_rows() computes
     R4  a row is `superseded` without naming a `superseded_by`
     R5  a row uses a category/status outside the closed sets
 
@@ -54,12 +55,14 @@ Run:
 from __future__ import annotations
 
 import argparse
+import datetime
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 INDEX_REL = "docs/DOCUMENT-INDEX.md"
@@ -82,6 +85,50 @@ def _builder():
 
 
 # ---------------------------------------------------------------------------
+# R6 — the row itself, against the computation that is supposed to produce it
+# ---------------------------------------------------------------------------
+DRIFT_COMPUTED, DRIFT_UNCOMPUTABLE = "computed", "uncomputable"
+
+
+def row_status_drift(rows: List[Dict[str, str]],
+                     computed: Optional[Dict[str, str]]) -> tuple:
+    """`[(path, committed_status, computed_status)]` where the two disagree.
+
+    ⚠️ WHY R3 CANNOT SEE THIS, which is the whole reason R6 exists. R3 compares
+    a file's HEADER against its ROW IN THE COMMITTED INDEX, and both surfaces
+    are written by the same run of `--write`. So they agree with each other and
+    can BOTH disagree with `build_rows()`, which is the computation that is
+    supposed to produce them. Measured on a clean `origin/main`, 2026-09-12:
+    **47 rows** (39 when the finding was filed hours earlier — the population
+    GREW while the row sat open) say `live` where a fresh build computes
+    `unknown`, and `document-index: OK` printed on that same tree. `unknown` is
+    `status_for`'s rung 7, *"nobody has checked"*, and it carries a rendered
+    warning telling a reader not to act on the document as current — so those
+    documents present as `live` while the register's own computation says
+    nobody established that.
+
+    Returns `(state, rows)` where state is `computed` or `uncomputable`.
+
+    ⚠️ THE STATE IS A RETURN VALUE AND NOT A BARE EMPTY LIST, AND A PLANTED
+    DEFECT IS WHY. The first version returned `[]` for BOTH "nothing drifted"
+    and "the fresh row set could not be built", and a mutation replacing
+    `computed is None` with `computed = {}` passed the whole self-test —
+    because at that point the two are behaviourally identical. That is this
+    repo's own collapsed-states defect, committed inside the check written to
+    catch a different one. `uncomputable` is *we could not look*; it is never
+    "no rows drifted", and `evaluate` must not raise a finding from it.
+    """
+    if computed is None:
+        return (DRIFT_UNCOMPUTABLE, [])
+    out = []
+    for r in rows:
+        p = r["path"]
+        if p in computed and r["status"] != computed[p]:
+            out.append((p, r["status"], computed[p]))
+    return (DRIFT_COMPUTED, sorted(out))
+
+
+# ---------------------------------------------------------------------------
 # THE RULE ENGINE — pure
 # ---------------------------------------------------------------------------
 def evaluate(population: Set[str],
@@ -89,7 +136,11 @@ def evaluate(population: Set[str],
              headers: Dict[str, Optional[str]],
              generated: Set[str],
              categories: Set[str],
-             statuses: Set[str]) -> List[str]:
+             statuses: Set[str],
+             computed: Optional[Dict[str, str]] = None,
+             scope: Optional[Set[str]] = None,
+             enforce_all: bool = False,
+             stubs: Optional[Dict[str, str]] = None) -> List[str]:
     """Return a list of findings. Empty list = the register is true.
 
     `headers[path]` is the status token read from that file's own stamp, or
@@ -100,11 +151,98 @@ def evaluate(population: Set[str],
     findings: List[str] = []
     registered = {r["path"] for r in rows}
 
-    # R1 — a document exists and is not registered.
-    for p in sorted(population - registered):
+    # R6 — DIFF-SCOPED, and the wider number is CENSUSED by the caller.
+    #
+    # ⚠️ THE SCOPING IS NOT TIMIDITY, IT IS THE ONLY SHIPPABLE SHAPE. There are
+    # 47 standing disagreements on `main` today; an unscoped rule would fail
+    # every PR in the repo from the moment it merged, which is not a guard, it
+    # is an outage. `session-registry-guard` is the precedent named in
+    # CLAUDE.md: enforce narrowly, CENSUS everything else so the narrow
+    # enforcement cannot hide the wider number.
+    #
+    # ⚠️ `scope is None` means *we could not establish what this diff touched*
+    # — no `--base` — and it produces NO findings. That is deliberately not the
+    # same as an empty scope (a diff that touched nothing relevant), and the
+    # caller says which it had.
+    #
+    # ⚠️ THE MESSAGE STATES WHAT WAS MEASURED AND NAMES NO CAUSE. Why the
+    # committed row says what it says is not established here — a row written
+    # when the document was in ACTIVE_DOCS, a hand-edit, and a `--write` that
+    # predates a change to `status_for` are all consistent with the same
+    # evidence, and asserting one would be the unprovenanced-diagnostic class.
+    #
+    # ⚠️ `enforce_all=True` DROPS THE SCOPING, and it is shippable ONLY because
+    # the residue is gone. R6's comment above recorded 47 standing
+    # disagreements as the reason it could not be unscoped; MEASURED
+    # 2026-09-13 against a fresh `build_rows()` the count is **46 at
+    # b209768c2 and 0 at `origin/main`** — drained by the
+    # `document_index.py --write` that rode PR #12122. This is the
+    # `diagnostic-provenance-guard` shape exactly: a diff-scoped step plus an
+    # ungated one, the ungated one added only once the residue reads zero, so
+    # nothing is grandfathered and there is no standing audit for anyone to
+    # forget to run.
+    #
+    # ⚠️ UNDER `enforce_all` AN UNCOMPUTABLE ROW SET IS A FINDING, and under
+    # the scoped rule it is not. That asymmetry is deliberate: the scoped step
+    # is one check among many and can afford *we could not look*, but an
+    # UNGATED assertion that silently reports nothing when its own input could
+    # not be built reads byte-identically to a clean tree — which is the
+    # unasserted-denominator defect this repo files as sub-class C.
+    drift_state, drifted = row_status_drift(rows, computed)
+    if enforce_all and drift_state == DRIFT_UNCOMPUTABLE:
         findings.append(
-            f"R1 UNREGISTERED: {p} is in the document population but has no row "
-            f"in {INDEX_REL}. Run: python3 scripts/ops/document_index.py --write")
+            "R6 UNCOMPUTABLE (--all): a fresh build_rows() could not be "
+            "computed, so the ungated drift assertion could not run. This is "
+            "*we could not look*, NOT a clean register, and the ungated step "
+            "fails rather than printing a reassuring nothing.")
+    if (enforce_all or scope is not None) and drift_state == DRIFT_COMPUTED:
+        in_scope = ({p for p, _c, _f in drifted}
+                    if enforce_all else {p for p, _c, _f in drifted} & (scope or set()))
+        for p, committed, fresh in drifted:
+            if p not in in_scope:
+                continue
+            findings.append(
+                f"R6 ROW DRIFT: {INDEX_REL} records status '{committed}' for {p}, "
+                f"but a fresh build_rows() computes '{fresh}'. "
+                + ("The ungated step reports every drifted row, so this one is "
+                   "not necessarily yours — but the register is not coherent "
+                   "until it is gone. "
+                   if enforce_all and p not in (scope or set())
+                   else "This diff touches that document, so it is yours to "
+                        "reconcile. ")
+                + "R3 cannot see this: "
+                "the header and the row were written by the same run and agree "
+                "with each other. Run: python3 scripts/ops/document_index.py "
+                "--write, then READ what it changed before committing.")
+
+    # R1 — a document exists and is not registered.
+    # ⚠️ THE REMEDY NAMES THE ROW, because the old one named a COMMAND whose
+    # diff is two orders of magnitude larger than the finding. MEASURED
+    # 2026-09-13: on a tree one document ahead of the last `--write`,
+    # `document_index.py --write` changed 65 files — 3 real and 62 one-line
+    # `Doc status:` header rewrites in documents the change never touched —
+    # and one of those runs erased the hand-written basis on 35 rows. This is
+    # the same trap `document_index.py::carry_last_verified` already names for
+    # the DATE ("the guard prescribed it, which made it a trap rather than a
+    # footgun"); that fix carried the date and left the status surface moving.
+    # The stub below is the generator's OWN output for this path, so pasting
+    # it cannot drift from what `--write` would produce, and R6 checks that.
+    for p in sorted(population - registered):
+        stub = (stubs or {}).get(p)
+        if stub:
+            findings.append(
+                f"R1 UNREGISTERED: {p} is in the document population but has "
+                f"no row in {INDEX_REL}. Add THIS ONE LINE, in sorted position "
+                f"(it is the generator's own output for this path, so R6 will "
+                f"agree with it):\n      {stub}\n      Running "
+                f"`document_index.py --write` also works and is what you want "
+                f"if several documents are unregistered — but on a tree behind "
+                f"the last write it re-decides every other document's status "
+                f"too, so READ its diff before committing.")
+        else:
+            findings.append(
+                f"R1 UNREGISTERED: {p} is in the document population but has no row "
+                f"in {INDEX_REL}. Run: python3 scripts/ops/document_index.py --write")
 
     # R2 — a row names a file that no longer exists.
     for p in sorted(registered - population):
@@ -158,6 +296,68 @@ def evaluate(population: Set[str],
 # ---------------------------------------------------------------------------
 # Reading the live tree
 # ---------------------------------------------------------------------------
+# ── R7: the FILE must be well-formed before any rule about its CONTENT ──────
+# Three states, never collapsed.
+INDEX_CLEAN = "clean"
+INDEX_CONFLICTED = "conflicted"
+INDEX_UNREADABLE = "unreadable"          # we could not look — NOT a pass
+
+#: git writes exactly seven characters, at the start of a line, followed by a
+#: space and a label or nothing at all. Anchoring on that shape is what lets a
+#: TABLE ROW that merely mentions the markers pass: every row in this document
+#: begins with `|`, so a note quoting a conflict marker can never match.
+_CONFLICT_OPEN = re.compile(r"^<<<<<<<(?: .*)?$")
+_CONFLICT_CLOSE = re.compile(r"^>>>>>>>(?: .*)?$")
+#: Corroboration only, NEVER a trigger. A line of bare `=` is also a valid
+#: setext heading underline in markdown, so firing on it would invent findings
+#: in a document nobody conflicted.
+_CONFLICT_MID = re.compile(r"^=======$")
+
+
+def index_integrity(text: Optional[str]) -> Tuple[str, List[Tuple[int, str]]]:
+    """`(state, [(line_no, line), ...])` — is the index file itself intact?
+
+    ⚠️ WHY THIS IS A RULE ABOUT THE FILE AND NOT ABOUT ITS ROWS. Every other
+    rule here reads rows, and `parse_rows` skips anything that is not a row —
+    so the three marker lines of an unresolved conflict are NOISE to it, BOTH
+    conflicting copies of a row parse as ordinary registrations, and every rule
+    is satisfied. MEASURED 2026-09-13 by planting it: `--all` printed
+    `document-index: OK` and exited 0 on a file whose line 732 was
+    `<<<<<<< HEAD`. No rule was misbehaving; there was no rule about the file
+    being well-formed.
+
+    It matters more since R6 became ungated: that backstop now runs on every PR,
+    so a green document-index step reads as evidence the register is intact.
+
+    ⚠️ THE REPO ALREADY DECIDED THIS CLASS FOR THE JSON HALF.
+    `check_register_reserialization` carries an explicit conflict-markers case
+    and grades such a file UNREADABLE — *we could not look* — rather than clean.
+    It walks `docs/claude/**/*.json`, so this markdown register was outside it
+    entirely. This is the same verdict for the same condition on the other half.
+
+    ⚠️ DELIBERATELY SCOPED TO THIS ONE FILE. A repo-wide conflict-marker guard
+    is a bigger decision — which paths, and whether a marker inside a test
+    fixture or a doc ABOUT merge conflicts is a false positive — and the row
+    that asked for this says in terms that it must not be smuggled in as a
+    one-line fix. This module already scans exactly one file.
+    """
+    if text is None:
+        return INDEX_UNREADABLE, []
+    hits: List[Tuple[int, str]] = []
+    triggered = False
+    for i, line in enumerate(text.splitlines(), start=1):
+        if _CONFLICT_OPEN.match(line) or _CONFLICT_CLOSE.match(line):
+            triggered = True
+            hits.append((i, line))
+        elif _CONFLICT_MID.match(line) and triggered:
+            # Corroboration, NEVER a trigger — it is reported only once an
+            # unambiguous marker has already been seen, so a setext heading
+            # underline in an otherwise clean file can neither fire this nor
+            # appear in the output.
+            hits.append((i, line))
+    return (INDEX_CONFLICTED if triggered else INDEX_CLEAN), hits
+
+
 def parse_rows(text: str) -> List[Dict[str, str]]:
     if BEGIN not in text or END not in text:
         raise SystemExit(
@@ -337,6 +537,181 @@ def self_test() -> int:
             print(f"        {detail}")
             failures += 1
 
+    # ── R6 — its own block, because it needs `computed` and `scope`. ───────
+    #
+    # ⚠️ THE SECOND CASE IS THE LOAD-BEARING ONE. R6 is diff-scoped over 47
+    # standing disagreements, so a rule that quietly fired on all of them would
+    # break every PR in the repo, and one that quietly fired on none would be
+    # decoration. Both directions are pinned.
+    r6 = [
+        ("R6 fires on a drifted row THIS DIFF touches",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"a.md"}, "R6 ROW DRIFT"),
+        ("R6 is SILENT on a drifted row the diff does NOT touch (census only)",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"b.md"}, None),
+        ("R6 is SILENT with no --base — 'we could not look', not a pass",
+         [row("a.md", s="live")], {"a.md": "unknown"}, None, None),
+        ("R6 is SILENT when the fresh row set could not be computed",
+         [row("a.md", s="live")], None, {"a.md"}, None),
+        ("R6 does NOT fire when the row and the computation agree",
+         [row("a.md", s="live")], {"a.md": "live"}, {"a.md"}, None),
+    ]
+    for label, rws, computed, scope, expect in r6:
+        found = [f for f in evaluate({"a.md"}, rws, {"a.md": rws[0]["status"]},
+                                     set(), CATS, STS,
+                                     computed=computed, scope=scope)
+                 if f.startswith("R6")]
+        ok = (any(expect in f for f in found) if expect else not found)
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+        if not ok:
+            print(f"        got {found}")
+            failures += 1
+
+    # ── R6 UNGATED (--all) ────────────────────────────────────────────────
+    # The whole value of the ungated step is that it fires where the scoped one
+    # is silent, so every case below is one the scoped rule already passes.
+    r6_all = [
+        ("R6 --all fires on a drifted row the diff does NOT touch",
+         [row("a.md", s="live")], {"a.md": "unknown"}, {"b.md"}, "R6 ROW DRIFT"),
+        ("R6 --all fires with NO --base at all (scope is None)",
+         [row("a.md", s="live")], {"a.md": "unknown"}, None, "R6 ROW DRIFT"),
+        ("R6 --all is SILENT when the row and the computation agree",
+         [row("a.md", s="live")], {"a.md": "live"}, None, None),
+        # ⚠️ THE ASYMMETRY WITH THE SCOPED RULE, ASSERTED. An ungated assertion
+        # that reports nothing when its own input could not be built reads
+        # byte-identically to a clean tree.
+        ("R6 --all FAILS on an uncomputable row set (the scoped rule does not)",
+         [row("a.md", s="live")], None, None, "R6 UNCOMPUTABLE"),
+    ]
+    for label, rws, computed, scope, expect in r6_all:
+        found = [f for f in evaluate({"a.md"}, rws, {"a.md": rws[0]["status"]},
+                                     set(), CATS, STS, computed=computed,
+                                     scope=scope, enforce_all=True)
+                 if f.startswith("R6")]
+        ok = (any(expect in f for f in found) if expect else not found)
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+        if not ok:
+            print(f"        got {found}")
+            failures += 1
+
+    # And the scoped rule must NOT have changed: the same uncomputable input
+    # that fails --all stays silent without it.
+    scoped_unc = [f for f in evaluate({"a.md"}, [row("a.md", s="live")],
+                                      {"a.md": "live"}, set(), CATS, STS,
+                                      computed=None, scope={"a.md"})
+                  if f.startswith("R6")]
+    if scoped_unc:
+        print(f"  FAIL  the SCOPED rule must stay silent on an uncomputable row "
+              f"set; got {scoped_unc}")
+        failures += 1
+    else:
+        print("  PASS  the scoped rule is unchanged — uncomputable is still "
+              "'we could not look' there, and only --all treats it as a finding")
+
+    # ── R1 names the ONE row when a stub is available ─────────────────────
+    stub = "| `b.md` | evidence | unknown | — | never | `x / y` | — |"
+    with_stub = [f for f in evaluate({"a.md", "b.md"}, [row("a.md")],
+                                     {"a.md": "historical", "b.md": None},
+                                     set(), CATS, STS, stubs={"b.md": stub})
+                 if f.startswith("R1")]
+    if not (with_stub and stub in with_stub[0]):
+        print(f"  FAIL  R1 must quote the generator's own stub verbatim; got {with_stub}")
+        failures += 1
+    else:
+        print("  PASS  R1 quotes the generator's own stub verbatim")
+    # ⚠️ AND IT MUST STILL NAME --write, because several unregistered documents
+    # at once is exactly the case the one-line remedy does NOT serve. Dropping
+    # it would trade one trap for another.
+    if not (with_stub and "--write" in with_stub[0]):
+        print("  FAIL  R1 must still name --write for the several-documents case")
+        failures += 1
+    else:
+        print("  PASS  R1 still names --write, with its blast radius stated")
+    # No stub available -> the old remedy, never a half-written one.
+    no_stub = [f for f in evaluate({"a.md", "b.md"}, [row("a.md")],
+                                   {"a.md": "historical", "b.md": None},
+                                   set(), CATS, STS, stubs={})
+               if f.startswith("R1")]
+    if not (no_stub and "--write" in no_stub[0] and "THIS ONE LINE" not in no_stub[0]):
+        print(f"  FAIL  with no stub R1 must fall back to the command, cleanly; got {no_stub}")
+        failures += 1
+    else:
+        print("  PASS  with no stub R1 falls back to the command rather than "
+              "promising a line it does not have")
+
+    # The CENSUS must see what the scoped rule deliberately does not. Without
+    # this, narrowing the rule to nothing would still read as a clean guard.
+    _st, census = row_status_drift([row("a.md", s="live"), row("b.md", s="live")],
+                                   {"a.md": "unknown", "b.md": "live"})
+    if census != [("a.md", "live", "unknown")]:
+        print(f"  FAIL  the census must find a drift the scoped rule skips; got {census}")
+        failures += 1
+    else:
+        print("  PASS  the census finds a drift the scoped rule skips")
+    # ⚠️ ASSERT THE STATE, NOT THE EMPTINESS. A planted `computed = {}` in place
+    # of the None guard passed this check while it only tested for `[]`, because
+    # "we could not look" and "nothing drifted" were the same value. That is the
+    # collapsed state this guard's own repo has a rule about, committed here.
+    if row_status_drift([row("a.md", s="live")], None) != (DRIFT_UNCOMPUTABLE, []):
+        print("  FAIL  an uncomputable row set must be NAMED uncomputable, not "
+              "returned as an empty census")
+        failures += 1
+    else:
+        print("  PASS  an uncomputable row set is NAMED, so it cannot read as "
+              "'nothing drifted'")
+    if row_status_drift([row("a.md", s="live")], {"a.md": "live"}) != (DRIFT_COMPUTED, []):
+        print("  FAIL  an agreeing row set must grade `computed` with no rows")
+        failures += 1
+    else:
+        print("  PASS  an agreeing row set grades `computed`, which is a "
+              "different fact from `uncomputable`")
+
+    # ── R7: THE FILE ITSELF ─────────────────────────────────────────────────
+    # The measured incident is the first case: a HALF-resolved conflict, with
+    # only the opener left behind. A control requiring the full three-marker
+    # block would have passed against the very file that produced this row.
+    real_row = ("| `docs/x.md` | instruction | live | — | 2026-09-13 | "
+                "`stamp` | — |\n")
+    r7 = [
+        ("a half-resolved conflict — ONLY the opener, the measured case",
+         "# Index\n<<<<<<< HEAD\n" + real_row, INDEX_CONFLICTED),
+        ("a full conflict block", "# Index\n<<<<<<< HEAD\n" + real_row
+         + "=======\n" + real_row + ">>>>>>> origin/main\n", INDEX_CONFLICTED),
+        ("only the CLOSER left behind", "# Index\n>>>>>>> origin/main\n",
+         INDEX_CONFLICTED),
+        # THE FALSE-POSITIVE CASE THE ROW ITSELF WARNS ABOUT. Every row in this
+        # document starts with `|`, so a note QUOTING the markers is not a
+        # conflict. Without this control the cheapest passing implementation is
+        # a substring search, which would fail the register for describing it.
+        ("a table row whose NOTE quotes the markers is NOT a conflict",
+         "# Index\n| `docs/y.md` | instruction | live | — | 2026-09-13 | "
+         "`stamp` | mentions <<<<<<< HEAD and >>>>>>> origin/main |\n",
+         INDEX_CLEAN),
+        # A bare `=======` is a valid setext heading underline. Firing on it
+        # would invent findings in a document nobody conflicted.
+        ("a setext heading underline is NOT a conflict",
+         "Some Heading\n=======\n" + real_row, INDEX_CLEAN),
+        ("an ordinary clean index", "# Index\n" + real_row, INDEX_CLEAN),
+        # `we could not look` is its own state and must never read as clean.
+        ("an unreadable file", None, INDEX_UNREADABLE),
+    ]
+    for label, text, want in r7:
+        got, _hits = index_integrity(text)
+        if got != want:
+            print(f"  FAIL  [R7] {label}: graded {got!r}, wanted {want!r}")
+            failures += 1
+        else:
+            print(f"  PASS  [R7] {label} -> {got}")
+
+    # AND THE MARKER LINES MUST BE NAMED, not merely counted — a guard that
+    # says "there is a conflict somewhere in a 1076-row file" is not actionable.
+    _st, hits = index_integrity("# Index\n<<<<<<< HEAD\n" + real_row)
+    if not (hits and hits[0][0] == 2 and "<<<<<<<" in hits[0][1]):
+        print("  FAIL  [R7] the marker line is not reported with its line number")
+        failures += 1
+    else:
+        print(f"  PASS  [R7] the marker is named with its line number "
+              f"(line {hits[0][0]})")
+
     # The rule engine is only half the guard. Grade the POPULATION BUILDER too —
     # the half that was defective while every case above passed.
     pop_failures = population_control()
@@ -346,16 +721,50 @@ def self_test() -> int:
         print(f"document-index self-test: FAIL — {failures} check(s) did not "
               f"behave as declared. The guard cannot be trusted.")
         return 1
-    print(f"document-index self-test: OK — {len(cases)} planted rule cases, "
+    # ⚠️ `len(r7)` IS IN THIS SUM ON PURPOSE. The count is the self-test's own
+    # denominator, and eight cases that ran but were not counted would be the
+    # unasserted-denominator class inside the thing that exists to prevent it.
+    print(f"document-index self-test: OK — "
+          f"{len(cases) + len(r6) + len(r6_all) + len(r7) + 8} planted rule cases, "
           f"every rule observed FIRING and every clean case observed SILENT; "
           f"plus 3 planted FILES proving the population builder sees a "
           f"top-level `docs/*.md`, a nested one, and no non-markdown file.")
     return 0
 
 
+def _diff_scope(base: Optional[str]) -> Optional[Set[str]]:
+    """Repo-relative paths this diff touches, or None — *we could not look*.
+
+    None and an EMPTY set are different facts and are never collapsed: the
+    first is "no --base was given, so scoping is impossible", the second is
+    "this diff touches no registered document". R6 fires on neither, but only
+    one of them is a clean reading, and `main` prints which it had.
+    """
+    if not base:
+        return None
+    try:
+        r = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"],
+                           cwd=REPO, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    return {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--all", dest="all_", action="store_true",
+                    help="UNGATED R6: report every drifted row, not only the "
+                         "ones this diff touches. Shippable because the "
+                         "residue is 0 (measured 2026-09-13; it was 46 at "
+                         "b209768c2). An uncomputable row set FAILS this step "
+                         "rather than printing nothing.")
+    ap.add_argument("--base", default=None,
+                    help="diff base for R6 scoping (e.g. origin/main). Without "
+                         "it R6 produces no findings and only the census is "
+                         "printed — that is 'we could not look', not a pass.")
     a = ap.parse_args()
 
     if a.self_test:
@@ -368,8 +777,32 @@ def main() -> int:
               f"Run: python3 scripts/ops/document_index.py --write")
         return 1
 
+    # R7 FIRST, and it RETURNS rather than adding a finding. Grading the rows
+    # of a file carrying an unresolved conflict would emit confident verdicts
+    # about a corrupt register — both copies of a conflicted row parse as real
+    # registrations, so every other rule would be satisfied and say so.
+    try:
+        index_text: Optional[str] = index.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        index_text = None
+        print(f"document-index: FAIL — {INDEX_REL} could not be READ "
+              f"({type(exc).__name__}: {exc}). That is 'we could not look', "
+              "never 'the register is fine'.")
+    state, hits = index_integrity(index_text)
+    if state is not INDEX_CLEAN:
+        if state == INDEX_CONFLICTED:
+            print(f"::error::{INDEX_REL} carries an UNRESOLVED MERGE CONFLICT. "
+                  "Every rule below reads ROWS, and both copies of a conflicted "
+                  "row parse as ordinary registrations — so a corrupted register "
+                  "would otherwise read OK. Resolve it, then re-run.")
+            for n, line in hits[:20]:
+                print(f"    {INDEX_REL}:{n}: {line}")
+            if len(hits) > 20:
+                print(f"    ... and {len(hits) - 20} more marker line(s)")
+        return 1
+
     population = set(b.population())
-    rows = parse_rows(index.read_text(encoding="utf-8"))
+    rows = parse_rows(index_text)
     generated = set(b.verify_generated())
     headers = read_headers(population & {r["path"] for r in rows}, b.STAMP_RE)
 
@@ -379,13 +812,65 @@ def main() -> int:
     # builder to invent a category to satisfy the guard, which is precisely the
     # "an invented status reads as checked" failure this whole register exists
     # to stop. It is admitted deliberately, not overlooked.
+    # A fresh computation of every row's status — what `--write` WOULD record.
+    # Cheap (measured 0.12s over 1063 documents), and it is the only thing that
+    # can see a row and its own header drift together.
+    try:
+        computed = {r["path"]: r["status"]
+                    for r in b.build_rows(datetime.date.today().isoformat())}
+    except Exception as exc:  # noqa: BLE001
+        computed = None
+        print(f"document-index: WARNING — could not compute a fresh row set "
+              f"({type(exc).__name__}: {exc}); R6 is reporting NOTHING, which "
+              f"is 'we could not look' and not a clean reading.")
+    scope = _diff_scope(a.base)
+
+    # The generator's OWN stub for each unregistered path, so R1 can name the
+    # one line to add instead of a command that rewrites the tree. Built only
+    # for the unregistered set (never for all 1073 rows) and best-effort: a
+    # builder that cannot produce one falls back to the old remedy text rather
+    # than failing the guard over its own help string.
+    stubs: Dict[str, str] = {}
+    for pth in sorted(population - {r["path"] for r in rows}):
+        try:
+            r = b.assess(pth, b._canonical_active_docs(), b._mi159_states(),
+                         datetime.date.today().isoformat())
+            stubs[pth] = (f"| `{pth}` | {r['category']} | {r['status']} | "
+                          f"{r['superseded_by'] or '—'} | {r['last_verified']} | "
+                          f"`{r['basis']}` | {r['note'] or '—'} |")
+        except Exception:  # noqa: BLE001
+            pass
+
     findings = evaluate(population, rows, headers, generated,
-                        set(b.CATEGORIES) | {"unknown"}, set(b.STATUSES))
+                        set(b.CATEGORIES) | {"unknown"}, set(b.STATUSES),
+                        computed=computed, scope=scope,
+                        enforce_all=a.all_, stubs=stubs)
 
     # ALWAYS STATE THE POPULATION — a guard reporting "no findings" without a
     # denominator is the clean-negative this repo has a rule about.
     print(f"document-index: population={len(population)} registered={len(rows)} "
           f"headers_read={len(headers)} generated_waived={len(generated)}")
+
+    # THE CENSUS. Printed on every run, including a clean one, so the narrow
+    # (diff-scoped) enforcement can never hide the standing number — the
+    # `session-registry-guard` discipline. A guard that enforced on 1 row and
+    # said nothing about the other 46 would read as "the register is coherent".
+    drift_state, drift = row_status_drift(rows, computed)
+    if drift_state == DRIFT_UNCOMPUTABLE:
+        print("document-index: row-drift census UNAVAILABLE — the fresh row set "
+              "could not be computed. NOT 'no rows drifted'.")
+    else:
+        scope_note = ("UNGATED (--all): every drifted row is a finding"
+                      if a.all_ else
+                      "unscoped (no --base): R6 reports nothing"
+                      if scope is None else f"diff touches {len(scope)} path(s)")
+        print(f"document-index: row-drift census = {len(drift)} committed row(s) "
+              f"whose status a fresh build_rows() does not reproduce; {scope_note}.")
+        for pth, committed_st, fresh_st in drift[:5]:
+            print(f"    census(not a finding): {pth} row='{committed_st}' "
+                  f"computed='{fresh_st}'")
+        if len(drift) > 5:
+            print(f"    ... and {len(drift) - 5} more (census only)")
 
     if findings:
         for f in findings[:60]:

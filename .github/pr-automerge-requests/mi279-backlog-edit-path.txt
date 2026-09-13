@@ -1,0 +1,5 @@
+Tier-1 self-land. PR #11931.
+
+scripts/ops/backlog_append.py gains update_row (+ CLI), its tests, and
+one backlog row closed through the new path. Declaration:
+.github/pr-landing/mi279-backlog-edit-path.json

@@ -1,0 +1,7 @@
+Arm auto-merge for the CI-skip-directive detector (MI-279 OPS lane, U3).
+
+Tier-1: scripts/ops/ci_skip_directive.py (new, pure), scripts/ops/pr_queue_latency.py
+(a third orthogonal dimension + self-tests), .github/workflows/pr-queue-watch.yml
+(one self-test line), and the health backlog.
+
+GitHub still merges only on green required checks.

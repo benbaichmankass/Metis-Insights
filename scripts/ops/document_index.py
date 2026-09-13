@@ -46,7 +46,7 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 INDEX_PATH = REPO / "docs" / "DOCUMENT-INDEX.md"
@@ -62,6 +62,80 @@ STAMP_SENTINEL = "**Doc status:**"
 STAMP_RE = re.compile(
     r"^>\s*\*\*Doc status:\*\*\s*`(?P<status>[a-z_]+)`", re.MULTILINE
 )
+# The SAME line, read for everything it asserts rather than only its status.
+# `check_document_index.py`'s R3 needs the status alone; the WRITER needs the
+# date, because the date is a claim about a human act and must not be reissued
+# by a tool that did not perform it.
+STAMP_FULL_RE = re.compile(
+    r"^>\s*\*\*Doc status:\*\*\s*`(?P<status>[a-z_]+)`\s*·\s*"
+    r"category\s*`(?P<category>[a-z_-]+)`\s*·\s*"
+    r"last verified\s*`(?P<last_verified>[^`]*)`",
+    re.MULTILINE,
+)
+
+
+def existing_stamp(rel: str) -> Optional[Dict[str, str]]:
+    """What this document's own header currently asserts, or ``None``.
+
+    ``None`` is "there is no stamp to preserve" and is NOT the same as a stamp
+    reading `never` — the first means a date must be minted, the second is an
+    existing, deliberate claim that nobody has assessed it.
+    """
+    try:
+        text = (REPO / rel).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = STAMP_FULL_RE.search(text)
+    return m.groupdict() if m else None
+
+
+def carry_last_verified(rel: str,
+                        computed: Dict[str, str]) -> Tuple[str, str]:
+    """The date to stamp, and WHY — never `today` by default.
+
+    ⚠️ THIS IS THE WHOLE FIX, AND IT IS A REFUSAL RATHER THAN A WARNING.
+    `last verified` is the field a session reads to decide whether a document
+    can be trusted. Re-stamping it asserts a verification that did not happen,
+    at a scale no session could perform: MEASURED on a clean tree at
+    `origin/main` on 2026-09-12, `--write` changed 471 files and **425 of them
+    differed ONLY by that date** — `CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md`
+    and `docs/ARCHITECTURE-CANONICAL.md` among them, i.e. levels 1, 2 and 6 of
+    the instruction hierarchy.
+
+    It also destroyed the signal in the direction that cannot be recovered: a
+    document last genuinely assessed in May became indistinguishable from one
+    assessed today, with no record of which was which.
+
+    ⚠️ AND THE GUARD PRESCRIBED IT, which made it a trap rather than a footgun —
+    `document-index-guard`'s R1 failure names ONE unregistered file and hands
+    you a command whose diff is three orders of magnitude larger. The precedent
+    followed here is `backlog_append`, fixed by making the helper REFUSE rather
+    than by documenting the hazard.
+
+    So the date is CARRIED unless the assessment actually changed. Returns
+    ``(date, basis)`` with basis in
+    ``carried`` / ``assessment_changed`` / ``new`` / ``restamped``.
+
+    ⚠️ THERE IS DELIBERATELY NO `today` PARAMETER, AND ADDING ONE WOULD BE A
+    BUG RATHER THAN A TIDY-UP. It had one until `diagnostic-provenance-guard`
+    caught it accepted-and-never-read (D/inert-parameter). The mint paths must
+    keep reading ``computed["last_verified"]``, which `assess` sets to
+    **`never`** when the status basis is `not-assessed` and to `today` only
+    otherwise — so substituting `today` would stamp a real date on a document
+    nobody has assessed, which is the precise claim this function exists to
+    refuse, reintroduced through the parameter meant to serve it.
+    """
+    prev = existing_stamp(rel)
+    if prev is None:
+        return computed["last_verified"], "new"
+    same = (prev.get("status") == computed["status"]
+            and prev.get("category") == computed["category"])
+    if not same:
+        return computed["last_verified"], "assessment_changed"
+    carried = (prev.get("last_verified") or "").strip()
+    if not carried:
+        return computed["last_verified"], "new"
+    return carried, "carried"
 
 # ---------------------------------------------------------------------------
 # THE POPULATION
@@ -233,11 +307,47 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
     # rather than its replacement, and nothing supersedes it. It shipped
     # carrying `unknown` only because it was written minutes before this index
     # landed, so no rule had yet been able to see it.
+    # Written 2026-09-12 by MI-279, the same session that took every measurement
+    # in it, so the status is ESTABLISHED rather than inferred: each figure was
+    # read this session against a stated population, with a positive control on
+    # every negative (the date probe returns 39/348/65/312 on four other days
+    # and only 2026-08-16 is zero; the `log_file` route returns content for a
+    # real name and NOTHING for a bogus one). No other rung can see it -- rule 1
+    # does not import it, rule 2's ACTIVE_DOCS does not enforce it, it is not a
+    # skill, not `history`, and declares itself neither dead nor superseded --
+    # so without this entry it reads `unknown`, which is the one thing it is NOT.
+    # ⚠️ It goes `historical` if the corpus stamp it points at ever lands: from
+    # that moment its central claim (a corpus row records no dispatched sha) is
+    # a statement about the past, and leaving it `live` would make it a trap for
+    # exactly the reader it was written for.
+    "docs/research/corpus-schema-degradation-2026-09-12.md": (
+        "live",
+        "read:MI-279-authored-and-measured-it-2026-09-12",
+        "evidence closing BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR; "
+        "goes historical once the dispatched-sha stamp lands",
+    ),
     "docs/claude/TASK-PRIORITY-2026-09-07.md": (
         "live",
         "read:MI-162-opened-it-anchored-to-the-current-cycle-priority",
         "ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live "
         "work plan WORKPLAN-2026-08-29.md, not a replacement for it",
+    ),
+    # Written 2026-09-12 by MI-283, which is also the session that authored the
+    # change it documents, so the status is ESTABLISHED rather than inferred: it
+    # is the evidence doc for PR #11903, that PR is open and unmerged, and every
+    # measurement in it was taken this session against a stated population.
+    # It carried `unknown` for the same reason TASK-PRIORITY-2026-09-07 did --
+    # written after the rules that could have seen it, so no rule can derive a
+    # status from anything but its own self-declared header, which this register
+    # deliberately refuses to trust.
+    # ⚠️ It goes `historical` the moment #11903 is merged or rejected: it is
+    # evidence for a DECISION, and once the decision is taken the doc records
+    # something that happened rather than something pending.
+    "docs/claude/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md": (
+        "live",
+        "read:MI-283-authored-it-this-session-evidence-for-open-PR-11903",
+        "evidence for the Tier-2 ask in PR #11903, which is open and unmerged; "
+        "goes historical when that PR is decided",
     ),
 }
 
@@ -629,14 +739,38 @@ def stamp_for(rel: str, today: str) -> str:
     the producer would reintroduce it one level up.
     """
     r = assess(rel, _canonical_active_docs(), _mi159_states(), today)
+    # Carry here too. A generator that rewrites its own document wholesale must
+    # emit the SAME date the index row carries, or it reintroduces the churn
+    # one file at a time.
+    r["last_verified"], _ = carry_last_verified(rel, r)
     return stamp_line(rel, r["status"], r["category"],
                       r["superseded_by"], r["last_verified"])
 
 
-def build_rows(today: str) -> List[Dict[str, str]]:
+def build_rows(today: str, *, restamp: bool = False) -> List[Dict[str, str]]:
+    """Every row, with `last_verified` CARRIED from each document's own header.
+
+    ⚠️ THE CARRY HAPPENS HERE, NOT IN THE STAMPER, so the INDEX ROW and the
+    HEADER get the same date from one computation. R3 compares those two
+    surfaces; a carry applied to only one of them would be the
+    two-surfaces-two-answers defect that rule exists to catch.
+
+    `restamp=True` is the deliberate re-verification path, reachable ONLY via
+    `--restamp`, and deliberately NOT what the guard's remedy line tells a
+    session to run.
+    """
     active = _canonical_active_docs()
     mi159 = _mi159_states()
-    return [assess(rel, active, mi159, today) for rel in population()]
+    rows = []
+    for rel in population():
+        r = assess(rel, active, mi159, today)
+        if restamp:
+            r["verified_basis"] = "restamped"
+        else:
+            r["last_verified"], r["verified_basis"] = carry_last_verified(
+                rel, r)
+        rows.append(r)
+    return rows
 
 
 def render_index(rows: List[Dict[str, str]], today: str, generated: Dict[str, str]) -> str:
@@ -888,10 +1022,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="rebuild index and stamp headers")
     ap.add_argument("--census", action="store_true", help="report only; no writes")
+    ap.add_argument(
+        "--restamp", action="store_true",
+        help="RE-DATE every document's `last verified` to today. Only run this "
+             "if you have ACTUALLY re-verified them — it asserts a human act. "
+             "Deliberately NOT what the guard's remedy line tells you to run; "
+             "--write carries each document's existing date instead.")
     a = ap.parse_args()
 
     today = date.today().isoformat()
-    rows = build_rows(today)
+    rows = build_rows(today, restamp=a.restamp)
     generated = verify_generated()
 
     if a.census or not a.write:
@@ -913,8 +1053,18 @@ def main() -> int:
                 r["path"], r["status"], r["category"],
                 r["superseded_by"], r["last_verified"])):
             changed += 1
+    import collections as _c
+    basis = _c.Counter(r.get("verified_basis", "carried") for r in rows)
     print(f"stamped {changed} document header(s); "
           f"{len(generated)} generated document(s) exempt from R3")
+    print("  `last verified` basis: "
+          + " · ".join(f"{k} {v}" for k, v in sorted(basis.items())))
+    if a.restamp:
+        print("  ⚠️ --restamp RE-DATED every document. That asserts a human "
+              "verification of each one. If you did not perform it, revert.")
+    else:
+        print("  carried dates are NOT a claim that anything was verified "
+              "today — they are the previous claim, left alone.")
     print()
     print(census(rows))
     return 0

@@ -190,7 +190,43 @@ GUARDS: List[Dict[str, Any]] = [
             # and the job fails unless the rule fires; clean inputs must stay
             # silent, so a rule that always fires is caught too.
             ["python3", "scripts/ci/check_document_index.py", "--self-test"],
-            ["python3", "scripts/ci/check_document_index.py"],
+            # ⚠️ `--base` is what makes R6 a RULE rather than a census. Without
+            # it the guard cannot tell which rows this diff is responsible for,
+            # so R6 reports nothing and only the standing count is printed —
+            # which is "we could not look", not a pass. The census prints either
+            # way, so dropping this flag degrades the guard silently; that is
+            # why the reason is written here rather than only in the script.
+            ["python3", "scripts/ci/check_document_index.py",
+             "--base", "origin/{base_ref}"],
+            # The whole-tree backstop, deliberately UNGATED — the
+            # `diagnostic-provenance-guard` / `api-tier-policy-guard` pattern,
+            # for the same reason and on the same evidence shape.
+            #
+            # ⚠️ THIS COULD NOT EXIST UNTIL 2026-09-13, and R6's own comment
+            # says why: "There are 47 standing disagreements on `main` today;
+            # an unscoped rule would fail every PR in the repo from the moment
+            # it merged, which is not a guard, it is an outage." MEASURED
+            # against a fresh `build_rows()`: **46 drifted rows at b209768c2
+            # and 0 at `origin/main`** — the residue was drained by the
+            # `document_index.py --write` that rode PR #12122. It is held at
+            # zero here rather than re-measured by hand and found unchanged.
+            #
+            # ⚠️ WHY UNGATED AND NOT ONLY DIFF-SCOPED: the scoped step cannot
+            # see a row drift that no PR touches, and that is the normal case
+            # — a row drifts when `status_for` or `ACTIVE_DOCS` changes, i.e.
+            # from a commit that touches neither the row nor its document. All
+            # 46 accumulated exactly that way, invisibly, under a guard that
+            # was reporting OK.
+            #
+            # ⚠️ THE COST IS REAL AND IS NOT HIDDEN: a change to `status_for`
+            # or to `ACTIVE_DOCS` now reds every PR until someone runs
+            # `--write`. That is the accepted trade in the two precedents
+            # above, and it is the correct direction — the alternative is what
+            # just happened, where the drift is discovered only when an
+            # unrelated PR happens to run the writer. Rollback is deleting
+            # this one step; the diff-scoped rule and the census are untouched
+            # and keep working.
+            ["python3", "scripts/ci/check_document_index.py", "--all"],
         ],
     },
     {
@@ -431,11 +467,86 @@ GUARDS: List[Dict[str, Any]] = [
         # ⚠️ `when: None` — it runs on EVERY diff. The comparison is per-register
         # and skips the ones a diff does not touch, so scoping the GUARD would
         # only add a way for it not to run.
+        "name": "spec-carrier-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_spec_carrier.py", "--self-test"],
+            # BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK.
+            # ⚠️ DIFF-SCOPED ON ADDED FILES, DELIBERATELY. Measured 2026-09-12:
+            # 42 of 87 spec-shaped artifacts are ALREADY un-carried, so a
+            # whole-tree gate would fail on day one and get switched off — the
+            # same reasoning that keeps check_backlog_criteria diff-scoped.
+            {
+                "argv": ["python3", "scripts/ci/check_spec_carrier.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+            # The standing population REPORTED rather than gated, because the
+            # row's own criterion says a mechanism covering only NEW artifacts
+            # leaves the existing one unaddressed — and a number nobody prints
+            # is a number nobody acts on.
+            {
+                "argv": ["python3", "scripts/ci/check_spec_carrier.py", "--census"],
+                "allow_fail": True,
+                "hint": "the standing un-carried population is advisory, not gating",
+            },
+        ],
+    },
+    {
+        # The map from an exit-relevant HARNESS FLAG to a matrix LEVER COLUMN.
+        # BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED asks that every such
+        # flag map to a column OR carry a recorded n/a with a reason; that
+        # answer was re-derived by hand three times and the three answers
+        # disagree, because each used a different harness population without
+        # saying so. This grades the recorded map for COMPLETENESS.
+        #
+        # `when` is scoped, unlike the unresolve guard's `when: None`: a new
+        # flag can only appear by editing a harness, the map, or the matrix, so
+        # there is nothing a broader scope would catch.
+        #
+        # ⚠️ It deliberately does NOT fail on `needs_column`. The criterion asks
+        # that every flag have a RECORDED verdict, and "this needs a column" is
+        # one. Failing on it would pressure the next session into re-labelling a
+        # real gap as an n/a to get green — the guard-cheaper-to-lie-to-than-to-
+        # satisfy shape this repo already paid for with `new-table-wiring-guard`.
+        "name": "exit-lever-map-guard",
+        "when": {"globs": ["scripts/backtest_*.py",
+                           "docs/research/exit-lever-map.json",
+                           "docs/research/exit-refinement-coverage.json",
+                           "scripts/ops/exit_lever_map.py"]},
+        "steps": [
+            ["python3", "scripts/ops/exit_lever_map.py", "--self-test"],
+            ["python3", "scripts/ops/exit_lever_map.py"],
+        ],
+    },
+    {
         "name": "register-field-loss-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/ci/check_register_field_loss.py", "--self-test"],
             ["python3", "scripts/ci/check_register_field_loss.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
+        # The STATUS half of the sibling above. `check_register_field_loss.py`
+        # grades a field DISAPPEARING; this grades a field's VALUE regressing —
+        # a row whose `status` moves from terminal back to live, or whose
+        # populated `resolved_at` is emptied. Neither is a field loss, so the
+        # sibling is structurally blind to both, and the incident that motivated
+        # this one (six hand-resolved rows silently reverted by a merge,
+        # BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION)
+        # went unnoticed precisely because the row COUNT was unchanged.
+        #
+        # `when: None` for the sibling's reason: a regression is written by
+        # whoever last touches a backlog file, and the whole run costs ~1.0s
+        # (measured 2026-09-12: 749ms self-test + 268ms base run), so there is
+        # nothing to buy by scoping it.
+        "name": "backlog-unresolve-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_backlog_unresolve.py", "--self-test"],
+            ["python3", "scripts/ci/check_backlog_unresolve.py",
              "--base", "origin/{base_ref}"],
         ],
     },
@@ -579,6 +690,52 @@ GUARDS: List[Dict[str, Any]] = [
         "when": None,
         "steps": [
             ["python3", "scripts/ops/checklist_routing_age.py", "--self-test"],
+        ],
+    },
+    {
+        # A SPEC THIS DIFF ADDS THAT NOTHING CARRIES FAILS THE PR.
+        #
+        # Closes clause (2) of OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING:
+        # "A MECHANISM makes an un-carried spec visible WITHOUT a session
+        # thinking of it ... and it has been run over the EXISTING tree, not
+        # only armed for new artifacts." Clause (1), the count, was delivered by
+        # MI-152 -- scripts/ops/uncarried_specs.py, its report, and the
+        # per-artifact baseline. NOTHING RAN IT: measured before building, it
+        # appeared in no guard list and no workflow, which
+        # docs/claude/work/RETIRED-MIRRORS-2026-09-11.md had independently
+        # recorded. An instrument nobody runs measures nothing.
+        #
+        # ⚠️ THE CENSUS IS REPORTED AND NEVER GATES. 103 of 124 specs are
+        # un-carried today; a guard that failed on that would red every PR on
+        # day one, and this repo has written down what happens next. What fails
+        # is narrow: a file this diff ADDS that classifies as a spec and that
+        # nothing carries -- the one moment the author can cheaply fix it.
+        #
+        # ⚠️ AND IT DOES NOT DIFF AGAINST THE COMMITTED BASELINE, deliberately.
+        # That file is a snapshot at 817a5a5f and says so in its own `_doc`;
+        # differencing a live census against it blames whichever PR runs the
+        # guard for six days of tree drift. The first draft did exactly that and
+        # reported dozens of untouched docs/research/* files as this diff's
+        # doing -- the same stale-reference blame MI-280 U44 had just fixed in
+        # session-brief-guard, written twice in one session.
+        # ⚠️ COST, STATED RATHER THAN DISCOVERED LATER: these three steps take
+        # ~37s (measured), because the census walks 402 artifacts and reads 1068
+        # register surfaces, and it runs twice -- once as the instrument's own
+        # control and once for the live gate. That is ~17% on top of a ~3.5min
+        # guards job. The duplicate census is the price of the probe being SHOWN
+        # to discriminate rather than assumed to; if that trade is ever revisited
+        # it should be revisited deliberately, not by quietly deleting the
+        # instrument's self-test step.
+        "name": "uncarried-spec-guard",
+        "when": None,
+        "steps": [
+            # The INSTRUMENT's own controls first, then this guard's, then the
+            # live gate. A guard whose probe is never shown to discriminate is
+            # indistinguishable from one that always passes.
+            ["python3", "scripts/ops/uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py", "--self-test"],
+            ["python3", "scripts/ci/check_uncarried_specs.py",
+             "--base", "origin/main"],
         ],
     },
     {
@@ -866,6 +1023,81 @@ GUARDS: List[Dict[str, Any]] = [
         # for the reason the pr-queue-watch guard above records: failing on it
         # would red every PR the day this merges, which is how a guard gets
         # disabled instead of fixed.
+        # THE DETECTOR, WIRED. THE REPORT, STILL NOT.
+        #
+        # check_guard_glob_coverage.py asks whether each guard is TRIGGERED by
+        # every file its check actually reads -- the 2026-08-23 defect where
+        # `exit-coverage-matrix-guard` joined config/strategies.yaml and did not
+        # list it, so the one edit that could stale the matrix was the one edit
+        # that would not run the guard.
+        #
+        # ⚠️ ONLY `--self-test` RUNS HERE, AND THAT IS THE WHOLE DESIGN. Its
+        # report emits LEADS, not verdicts, and exits 1 on any un-triaged one --
+        # its author declared it manual-only for exactly that reason, and was
+        # right: a build failing on unconfirmed leads trains everyone to walk
+        # past it, the desensitised-alarm P1. That reasoning is about the
+        # REPORT. It was never an argument for leaving the DETECTOR unproven,
+        # and the two were bundled.
+        #
+        # MEASURED 2026-09-12: `guard-selftest-coverage` graded this file
+        # `none` -- "no failure-path evidence anywhere", the only one of 89 in
+        # that bucket -- while its --self-test plants the real 2026-08-23 defect
+        # (dropping config/strategies.yaml from that guard's globs) and requires
+        # the audit to flag it, AND asserts the real table still reads clean. A
+        # positive and a negative control, run by nothing. 0.4s, stdlib, no
+        # network, no diff needed.
+        #
+        # `when: None`: the input it grades is the GUARDS table in this very
+        # file plus the paths other guards' scripts open, so a PR that breaks it
+        # need not touch anything a `when:` could name.
+        #
+        # ⚠️ THE LEADS STILL DO NOT GATE. Nothing here runs the report, so the
+        # one live lead (exit-mechanism-coverage-guard reading
+        # config/lever_reachability.json, re-confirmed non-verdict-bearing by
+        # perturbation on 2026-09-12) cannot red a PR. If someone ever wires the
+        # report too, that is a different decision and needs its own argument.
+        "name": "guard-glob-coverage-detector",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_glob_coverage.py", "--self-test"],
+        ],
+    },
+    {
+        # THE WORK DIGEST'S OWN SELF-TEST, RUN ON A PR FOR THE FIRST TIME.
+        #
+        # scripts/ops/work_digest.py::_self_test check 11 GLOBS the real
+        # docs/claude/ for `*-review-backlog.json` and asserts every one on disk
+        # is in SOURCES -- the LIVE_BACKLOGS lesson, that a hand-maintained
+        # coverage list which can fall behind unnoticed IS the defect. It was a
+        # correct check with no PR-time carrier: work-digest.yml runs it on
+        # `schedule`, `push: [main]` and `workflow_dispatch`, and NOT on
+        # `pull_request`. So a PR adding a review backlog was graded by nobody
+        # before the merge and first failed on MAIN -- the PR #9208 shape
+        # (merge green, leave main red) with a longer fuse.
+        #
+        # ⚠️ AND pytest-run CANNOT COVER IT, which is why this entry exists
+        # rather than another line in that filter. The property depends on
+        # WHICH FILES EXIST under docs/claude/, so covering it there means
+        # matching the whole tree -- measured 2026-09-12 at 330 committed files
+        # that a backlog append touches on very many PRs. `guards` does not
+        # short-circuit, so the exclusion's long-standing "guards owns it"
+        # premise becomes TRUE here instead of assumed. BL-20260814 is the row
+        # that recorded that premise had never been checked per-file.
+        #
+        # `when: None` deliberately: the diff that breaks it ADDS a file the
+        # digest does not read, and such a PR need touch neither the digest nor
+        # any path a `when:` could name.
+        #
+        # No second implementation of the property -- the existing self-test is
+        # the one owner, invoked. A copy here would be the mechanism-that-
+        # already-existed class, and the two would drift.
+        "name": "work-digest-source-coverage",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/work_digest.py", "--self-test"],
+        ],
+    },
+    {
         "name": "digest-liveness-guard",
         "when": None,
         "steps": [
@@ -978,6 +1210,18 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_soak_registered.py", "--self-test"],
             ["python3", "scripts/ci/check_soak_registered.py"],
+        ],
+    },
+    {
+        # The typed-edge contract the work store's README declares and nothing
+        # enforced. Its self-test proves BOTH verdicts and BOTH ways the check
+        # could stop looking (an unreadable vocabulary, an unparseable object) —
+        # a guard that silently disables itself reports exactly like a clean one.
+        "name": "edge-kind-vocabulary-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_edge_kind_vocabulary.py", "--self-test"],
+            ["python3", "scripts/ci/check_edge_kind_vocabulary.py"],
         ],
     },
     {
@@ -1481,6 +1725,44 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_unwired_artifacts.py", "--self-test"],
             ["python3", "scripts/ci/check_unwired_artifacts.py",
              "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
+        "name": "workflow-push-target-guard",
+        # WHY THIS IS A GUARD AND NOT A NINTH CAREFUL FIX. `main` is
+        # branch-protected, so a workflow's `git push origin HEAD:main` is
+        # declined (GH006) and the run's entire artifact is discarded while the
+        # job can still read green. This repo has fixed that ONE WORKFLOW AT A
+        # TIME eight times — session-reaper, research-queue-dispatch,
+        # gpu-burst-train, reconcile-open-prs, m20-exit-lever-sweep,
+        # trainer-offload-train, replay-pregate-nightly, and sunset-pass.
+        #
+        # ⚠️ AND TWO HAND-WRITTEN CENSUSES OF THE CLASS WERE ALREADY WRONG,
+        # which is the real argument: session-reaper.yml's own comment calls
+        # itself "the ONLY workflow in the repo pushing straight to main"
+        # (2026-09-02) while replay-pregate was doing it for ten more days, and
+        # BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+        # classifies training-rerun-5m as one that LANDS, on a predicate that
+        # matches the PRESENCE of a push idiom. A census re-measured every PR
+        # cannot go stale between being written and being quoted.
+        #
+        # UNGATED WHOLE-TREE, the api-tier-policy-guard / diagnostic-provenance
+        # pattern — and it could only be ungated because the class is already
+        # drained to ZERO. ⚠️ THIS GUARD DID NOT DRAIN IT AND MUST NOT BE READ
+        # AS HAVING DONE SO: the last instance, sunset-pass.yml, was fixed by
+        # #11900 (ce6f16b83) days before this landed, and re-measuring here is
+        # what established that — `always_default 0, ungradeable 0` over 142
+        # workflow files. An ungated guard landed over a live finding fails
+        # every PR on day one and gets switched off, which is what the
+        # diagnostic-provenance entry below records; this one lands green and
+        # can therefore only ever catch a NEW violation.
+        # The `conditional_default` rows are REPORTED and never fail: the relay
+        # workflows' ordinary path is a feature branch where the push is
+        # correct, and failing correct code is how a guard loses its reviewers.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_push_target.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_push_target.py"],
         ],
     },
     {
@@ -2582,6 +2864,114 @@ def worktree_files() -> List[str]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# ARM THE REGISTER MERGE DRIVER — for a session that never thought to
+# ---------------------------------------------------------------------------
+# BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS
+# asks for the driver to be "ARMED BY DEFAULT for a session that did not think
+# to arm it", and its criterion (a) is "a repo bootstrap step runs
+# install_merge_driver.sh, so a fresh container arms itself".
+#
+# ⚠️ WHY HERE AND NOT IN A HOOK OR A DOC. Project hooks DO NOT RUN on Claude
+# Code on the web (CLAUDE.md records the measurement), so a SessionStart hook
+# arms nothing in exactly the containers that are freshest. And the row itself
+# forbids the doc answer: "DO NOT CLOSE THIS BY ADDING A REMINDER TO A DOC
+# NOBODY READS MID-TASK -- that is the 'reminder is not a mechanism' non-fix
+# this repo has already paid for on MI-15 (twice)." What every session DOES run,
+# worker and manager alike, is this file, before every push.
+#
+# ⚠️ `manager_preflight.py` ALREADY GRADES THIS and is not duplicated: it FAILS
+# an un-armed clone with three never-collapsed states. But only a MANAGER runs
+# it, and the eleven hand-resolutions were paid by a worker. This reuses that
+# module's `merge_driver_installed()` rather than re-deriving the read, because
+# two answers to "is this clone armed?" are free to drift.
+#
+# ⚠️ IT NEVER FAILS THE RUN AND IT NEVER TOUCHES CI. A guard run that went red
+# over a client-side convenience would be a red nobody can act on from a PR, and
+# a CI clone is thrown away after one job -- arming it is a side effect with no
+# beneficiary. `skipped_ci` is therefore its own state, not a silent no-op.
+#
+# ⚠️ AND IT CHANGES NOTHING ABOUT GITHUB. Custom merge drivers are client-side;
+# a conflicted register PR still reports `dirty`. What this removes is the cost
+# of resolving that BY HAND.
+ARM_SKIPPED_CI = "skipped_ci"
+ARM_ALREADY = "already_armed"
+ARM_ARMED = "armed"
+ARM_FAILED = "arm_failed"
+ARM_UNKNOWN = "could_not_look"
+ARM_NO_INSTALLER = "no_installer"
+
+INSTALL_MERGE_DRIVER = REPO / "scripts" / "ops" / "install_merge_driver.sh"
+
+
+def arm_decision(in_ci: bool, installed: Optional[bool],
+                 installer_exists: bool) -> str:
+    """PURE — what SHOULD happen. The doing is separate, so the policy is
+    arguable in a test rather than against a real clone's git config.
+
+    ⚠️ `installed is None` is *we could not read this clone's git config* and
+    grades `could_not_look`. It must never be folded into `already_armed` (which
+    would bank a claim nobody checked) nor into "arm it" (which would run an
+    installer over a state we could not see).
+    """
+    if in_ci:
+        return ARM_SKIPPED_CI
+    if installed is None:
+        return ARM_UNKNOWN
+    if installed:
+        return ARM_ALREADY
+    return ARM_ARMED if installer_exists else ARM_NO_INSTALLER
+
+
+def arm_register_merge_driver() -> str:
+    """Best-effort. Returns the state; prints one line; never raises."""
+    in_ci = bool(os.environ.get("GITHUB_ACTIONS"))
+    installed: Optional[bool] = None
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "ops"))
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_mp_arm", REPO / "scripts" / "ops" / "manager_preflight.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        installed = mod.merge_driver_installed()
+    except Exception:  # noqa: BLE001 — any failure is `we could not look`
+        installed = None
+
+    state = arm_decision(in_ci, installed, INSTALL_MERGE_DRIVER.exists())
+    if state == ARM_ARMED:
+        try:
+            rc = subprocess.run(["bash", str(INSTALL_MERGE_DRIVER)],
+                                capture_output=True, text=True, timeout=60,
+                                cwd=str(REPO)).returncode
+        except (OSError, subprocess.SubprocessError):
+            rc = 1
+        if rc != 0:
+            state = ARM_FAILED
+
+    if state == ARM_SKIPPED_CI:
+        return state
+    msg = {
+        ARM_ALREADY: "register merge driver: already armed in this clone.",
+        ARM_ARMED: ("register merge driver: ARMED this clone "
+                    "(scripts/ops/install_merge_driver.sh). Sibling register "
+                    "appends now merge row-aware instead of by line. "
+                    "Client-side only — GitHub still reports a conflicted PR "
+                    "as dirty."),
+        ARM_FAILED: ("register merge driver: could NOT be armed — "
+                     "install_merge_driver.sh exited non-zero. Register "
+                     "conflicts will need hand resolution."),
+        ARM_NO_INSTALLER: ("register merge driver: scripts/ops/"
+                           "install_merge_driver.sh is MISSING, so this clone "
+                           "cannot be armed."),
+        ARM_UNKNOWN: ("register merge driver: this clone's git config could NOT "
+                      "be read, so whether it is armed is UNESTABLISHED — that "
+                      "is `we did not look`, not `it is fine`."),
+    }[state]
+    print(msg)
+    return state
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-ref", default=os.environ.get("GUARDS_BASE_REF", "main"))
@@ -2592,6 +2982,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--list", action="store_true", help="print the registry and exit")
     ap.add_argument("--notify-file", default=os.environ.get("GUARDS_NOTIFY_FILE"))
     args = ap.parse_args(argv)
+
+    # Before anything else, and never fatal. See `arm_register_merge_driver`.
+    arm_register_merge_driver()
 
     if args.list:
         for g in GUARDS:
@@ -2663,8 +3056,37 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # byte-identical that run.
     tree_dirty_at_start = sorted(worktree_files())
 
+    # ⚠️ NAME THE TREE WE ARE GRADING, IN THE OUTPUT ITSELF.
+    # Every line below this is a verdict ABOUT a commit, and until 2026-09-12
+    # not one line said WHICH — the header carried `event` and `base` and
+    # nothing identifying HEAD. A saved run therefore could not be attributed,
+    # and a run whose tree MOVED under it (a background run while the session
+    # checks out another branch) produced a confident verdict for a branch it
+    # had not finished reading. MEASURED: a `pr-landing-guard` FAIL was
+    # recorded against PR #11928 by exactly that route, and reproducing it by
+    # hand on a stable tree returned OK. That is the implicit-input-selection
+    # shape `check_diagnostic_provenance.py` exists to catch, in the harness
+    # that runs it.
+    #
+    # Read from git rather than from the environment, so it is right when run
+    # locally too; `unknown` when git cannot answer -- WE COULD NOT LOOK, never
+    # a fabricated sha.
+    def _git_say(*argv: str) -> str:
+        try:
+            r = subprocess.run(["git", *argv], capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return "unknown"
+        out = (r.stdout or "").strip()
+        return out if (r.returncode == 0 and out) else "unknown"
+
+    head_sha = _git_say("rev-parse", "HEAD")
+    head_branch = _git_say("rev-parse", "--abbrev-ref", "HEAD")
+    head_dirty = "dirty" if tree_dirty_at_start else "clean"
+
     print("=" * 72)
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
+    print(f"grading {head_branch} @ {head_sha[:12] if head_sha != 'unknown' else 'unknown'} "
+          f"· worktree {head_dirty} at start")
     if force_all:
         why = "--all" if args.all else "the guard harness itself changed"
         print(f"relevance DISABLED ({why}) — running every guard")

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 audit tooling (the backlog row declares this tier): scripts/ops/exit_path_coverage.py stops keeping a second copy of the lever vocabulary and reads the one in exit_mechanism_coverage, a new pytest file, and one in-place update to a backlog row. Both audits are READ-ONLY reporters -- no src/, no config/, no deploy/, no order path, no workflow. NOT landing machinery: neither file is in check_pr_landing.LANDING_MACHINERY's twelve entries (verified by importing the module), so R12 does not apply. The change REMOVES a measured false negative on two live families rather than altering any trading behaviour; both audits' own self-tests are unchanged at 19/19 and 12/12."
+}

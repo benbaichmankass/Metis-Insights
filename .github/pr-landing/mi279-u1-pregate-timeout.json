@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one .github/workflows/ job budget raised to a derived value, plus the backlog row recording the measurement; CI-only, no src/, no config/, no VM, no order path"
+}

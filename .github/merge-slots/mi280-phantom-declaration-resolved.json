@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
+  "branch": "claude/mi280-phantom-declaration-resolved",
+  "claimed_at": "2026-09-12T14:13:13Z",
+  "purpose": "MI-280: close the phantom-declaration CRITICAL on a measured A/B (#11975)"
+}

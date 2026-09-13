@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One row's `updates` in docs/claude/health-review-backlog.json: the measured state of BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS, recorded so the next session does not re-derive it. No code at all. No runtime, no order path, no strategy config, no risk caps, no live-VM file. Recording a finding into a review backlog is Tier-1 by the canonical doc's own examples."
+}

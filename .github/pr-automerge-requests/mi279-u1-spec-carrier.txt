@@ -1,0 +1,6 @@
+Tier-1 self-land. PR #11949.
+
+scripts/ci/check_spec_carrier.py + its run_guards registration + one
+backlog row carrying the measured count (42 of 87 un-carried). Diff-scoped
+on added files; the standing population is advisory. Declaration:
+.github/pr-landing/mi279-u1-spec-carrier.json

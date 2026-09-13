@@ -1,0 +1,18 @@
+MI-280 U18 — arm the landing route for claude/mi280-backlog-date-accessor.
+
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. One owner for "when was this backlog row opened?" —
+scripts/ops/_backlog.py::row_date, with three never-collapsed states, plus
+the removal of a collapsed state in backlog_drain_candidates._added_after
+(a definite negative for a row whose date was never established).
+
+PR #11981 was opened BY THIS SESSION before this file was pushed, so it
+carries a real pull_request event and CI fired normally. That ordering is
+deliberate: claude-pr-automerge adopts an existing open PR rather than
+creating one, and a PR the workflow opens itself is born with no
+pull_request event and exactly one check run.
+
+⚠️ NOTHING ELSE GOES ON THIS BRANCH AFTER THIS PUSH. A commit pushed while
+CI runs on the previous head can miss the squash entirely — auto-merge
+takes the PR the moment the earlier head goes green.

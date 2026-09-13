@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one CI guard (scripts/ci/check_register_reserialization.py) and its test file, splitting ABSENT_AT_BASE from UNREADABLE so a PR that legitimately ADDS a register stops failing. Tier-1 surface by the canonical list (scripts/ci/**, tests/**), and NOT landing machinery: verified against check_pr_landing.py::LANDING_MACHINERY, which does not list this file, so R12 does not apply. Both directions carry planted-defect controls shown to go red (5 and 6 failures respectively) with a positive control at 26 passed. No src/, no config/, no deploy/, no workflow, no register touched, no order path, nothing enacted."
+}

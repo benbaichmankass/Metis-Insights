@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/health-review-backlog.json only, plus this declaration, its arming file and a per-branch merge-slot claim. Three backlog rows dispositioned from read-only live diag pulls (/api/diag/venue_session, /api/diag/broker_account_status, /api/diag/journal) and from reading the tree. No src/, no ml/, no config/, no scripts/, no .github/workflows/, no order path, nothing enacted."
+}

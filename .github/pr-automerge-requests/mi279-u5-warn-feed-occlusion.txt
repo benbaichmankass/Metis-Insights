@@ -1,0 +1,7 @@
+Tier-1 self-land. PR #11928.
+
+Register annotations only: docs/claude/health-review-backlog.json (three
+existing rows updated, none filed), docs/claude/OPEN-ITEMS.json (a
+mis-filed note moved to its correct row, two observations), and the
+GENERATED CLAUDE.md SESSION-BRIEF re-render. Declaration:
+.github/pr-landing/mi279-u5-warn-feed-occlusion.json

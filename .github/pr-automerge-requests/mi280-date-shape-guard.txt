@@ -1,0 +1,12 @@
+MI-280 U19 — arm the landing route for claude/mi280-date-shape-guard.
+The PATH is the signal; these contents are for a human reading the diff.
+
+Tier 1, landing: self. check_backlog_criteria gains a date clause, held to
+NEW rows only. Measured: 40 of 982 live rows already carry no date key, so a
+whole-tree gate would red every PR on day one; and 0 of the last 249 added
+rows would fail, so it costs current practice nothing.
+
+PR #11987 was opened BY THIS SESSION before this file was pushed, so it
+carries a real pull_request event and CI fired normally.
+
+⚠️ NOTHING ELSE GOES ON THIS BRANCH AFTER THIS PUSH.
