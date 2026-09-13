@@ -1,6 +1,6 @@
 {
   "_doc": "THE RECORDED MAP from exit-relevant harness FLAG to M20 coverage-matrix LEVER COLUMN. It exists to satisfy BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED's first criterion -- 'every exit-relevant harness flag maps to a matrix column OR a recorded n/a with a reason' -- and it is checked, not merely written: scripts/ops/exit_lever_map.py re-enumerates the harnesses and FAILS on any candidate flag this file does not cover, so it cannot silently go stale as flags are added. ⚠️ THREE STATES, NEVER COLLAPSED. `mapped_to_column` is a lever the matrix already grades. `recorded_na` is a flag that is NOT an exit lever, with the reason stated -- the criterion's own escape hatch. `needs_column` is the finding: an exit lever the matrix CANNOT express, which is neither of the other two and must not be filed as either. Collapsing needs_column into recorded_na would make the gap disappear by wording.",
-  "updated_at": "2026-09-12",
+  "updated_at": "2026-09-13",
   "population": {
     "harnesses": {
       "donchian": "scripts/backtest_trend.py",
@@ -24,7 +24,8 @@
     "trail_decay",
     "regime_flip_exit",
     "vol_trail",
-    "bracket_geometry"
+    "bracket_geometry",
+    "stop_geometry"
   ],
   "flags": {
     "--trail-mult": {
@@ -135,6 +136,16 @@
     "--be-arm-on-touch": {
       "state": "needs_column",
       "reason": "ict_scalp only. Its own help says it is 'only meaningful with --sim-breakeven', so it is arguably a SUB-KNOB of that lever rather than a column of its own -- recorded here as needs_column so the decision is made explicitly rather than by omission. Whoever adds the breakeven column should decide whether the arming rule is a second cell or a parameter of the first."
+    },
+    "--tp-at-r": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "MI-278 U3/U4. The matrix's own legend_bracket_geometry defines the column as the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) and names tp_at_r as one of its three terms, so this is the column that grades it -- not a new lever. The flag exists because until backtest_ict_scalp.py gained it the scalp target was not sweepable at all, which is why e35 excluded the family."
+    },
+    "--atr-sl-buffer-mult": {
+      "state": "mapped_to_column",
+      "column": "stop_geometry",
+      "note": "MI-278 U3/U4. Routed to stop_geometry by the sweep itself (scripts/research/m27/ict_scalp_exit_sweep.py), and the matrix grades that column on all 53 legs. NOT recorded_na: the ict_scalp stop buffer is a genuine exit lever, and U6 measured the column's n/a verdict for THIS family separately -- an n/a on a leg is a graded answer, not an absent column."
     }
   },
   "summary_2026_09_12": {
