@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T03:04:40Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0255Z manager tick, all three lanes get_session'd live",
+  "updated_at": "2026-09-13T04:00:30Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0352Z manager tick, all three lanes get_session'd live",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4901,8 +4901,8 @@
       },
       "item": "MI-278",
       "lane": "research",
-      "last_observed_at": "2026-09-13T03:00Z",
-      "last_observation": "2026-09-13T03:00:13Z get_session: RUNNING, connected, 581406/1000000 ctx (58%), status review_ready '2 PRs await merge click', branch claude/mi278-u33-netting-position-size-assigned, cost_usd 779.96"
+      "last_observed_at": "2026-09-13T04:00Z",
+      "last_observation": "2026-09-13T04:00:06Z get_session: RUNNING/connected, 581406/1M (58%, unchanged), review_ready, branch claude/mi278-u34-disposition-surface-cannot-grade, task 'resolving merge conflict on #12169; CI checks pending', cost_usd 779.96"
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4927,8 +4927,8 @@
       },
       "item": "MI-279",
       "lane": "ops",
-      "last_observed_at": "2026-09-13T03:00Z",
-      "last_observation": "2026-09-13T03:00:24Z get_session: RUNNING, connected, 289732/1000000 ctx (29%), status review_ready '5 PRs resynced & armed; waiting on merge window or manual click', branch claude/mi279-u16-open-items"
+      "last_observed_at": "2026-09-13T04:00Z",
+      "last_observation": "2026-09-13T04:00:14Z get_session: RUNNING/connected, 289732/1M (29%, unchanged), review_ready '5 PRs resynced & armed', branch claude/mi279-u19-high-class, task 'checking in-flight PRs; running e2e tests with mutation control'"
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
@@ -4953,8 +4953,8 @@
       },
       "item": "MI-280",
       "lane": "engineering",
-      "last_observed_at": "2026-09-13T03:00Z",
-      "last_observation": "2026-09-13T03:00:40Z get_session: RUNNING, connected, 760945/1000000 ctx (76%), status completed 'main CI unblocked: removed duplicate merged row in collision resolution', branch claude/mi280-u75-register-id-guard-unparseable, cost_usd 1007.77. ⚠️ its own task_summary reads 'context window exhausted; unable to read user's full request' at 76% — the handoff trigger to watch, not yet crossed."
+      "last_observed_at": "2026-09-13T04:00Z",
+      "last_observation": "2026-09-13T04:00:21Z get_session: RUNNING/connected, 706997/1M (71%) — DOWN from 760945 an hour ago, i.e. it COMPACTED; the 03:00 'approaching the 85% wrap trigger' note is stale in the reassuring direction and is corrected rather than carried. branch claude/mi280-u80-guards-headline-not-graded, '#12177 armed; #12046 awaits human merge', cost_usd 1138.76 (+130.98 in the hour)"
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",

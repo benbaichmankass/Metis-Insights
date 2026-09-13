@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T03:04:40Z",
+  "updated_at": "2026-09-13T04:00:30Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T03:04:40Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0255Z manager tick",
+  "as_of": "2026-09-13T04:00:30Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0352Z manager tick",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5608,6 +5608,36 @@
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
       "watch MI-280 for the 85% wrap trigger (76% now, and its own task_summary already reads 'context window exhausted')",
       "MI-278 has a stale tail: 6 of its 7 conflicted branches are its own older units — poke it to resync or close them"
+    ]
+  },
+  "manager_tick_2026_09_13T0352Z": {
+    "THE_TICK_BRANCH_WAS_RED_AND_I_HAD_NOT_LOOKED": {
+      "what": "#11875 did not merge after the 0255Z push. mergeable_state read `unknown` (GitHub computes lazily) and a local `git merge-tree --write-tree origin/main <head>` graded it CLEAN — so it was not a conflict. The `guards` CHECK had FAILED at 03:16:42Z and I had not read it, because at 0255Z I ran FOUR guards and the CI job runs the whole set.",
+      "the_two_real_failures_both_MINE": [
+        "register-id-guard: the backlog row I filed at 08:54Z in the ETH-incident commit carried `filed_on` but neither creation key the guard reads (`opened_at`/`opened`), so nothing could later tell it apart from a different item filed under the same id. Fixed: added `opened`, one line, surgically.",
+        "stale-in-flight-guard: WO-20260912-UNBLOCK-THE-MERGE-QUEUE-… claimed `in_flight` under session_013njtHZThET6vgiGMdHZPiz, which SESSIONS.json records as completed. Corrected to `waiting` with the owner cleared — NOT closed, because the guard's own text forbids auto-closing and the done_condition's second half is genuinely unmet."
+      ],
+      "a_third_failure_I_CAUSED_WHILE_FIXING_THE_FIRST_TWO": "check_backlog_refs then failed on `BL-20260913-THE-FIRST-EVER-FANOUT-DISPATCH` — a TRUNCATED id I had written with an ellipsis into the 0255Z entry, in the very sentence explaining that the row had been WITHDRAWN. The extractor cannot tell a citation from a post-mortem, so the note explaining a dead row re-created a dangling reference to it. This tick's own prompt warns about exactly this and I did it anyway. Fixed by DESCRIBING the row instead of naming it.",
+      "two_false_alarms_I_nearly_reported": "my first local guard sweep grepped for the string 'FAIL' and caught (a) `api-tier-policy guard: FAIL`, which is a SELF-TEST asserting the guard fails closed — it reads OK on both my tree and clean main, and (b) `pytest-skip-attribution-guard: FAIL`, which is that guard correctly refusing to claim a pass when it cannot run pytest in this sandbox. Reading the label rather than the field, in a sweep written to catch exactly that.",
+      "state_now": "eight guards green ON COMMITTED STATE: backlog_refs, register_ids, stale_in_flight, manager_scope, pr_landing, claim_basis, wip_ceiling, open_items."
+    },
+    "lanes_all_three_RUNNING": {
+      "MI-278_research": "58% (unchanged), resolving a merge conflict on #12169, 2 PRs awaiting a merge click",
+      "MI-279_ops": "29% (unchanged), 5 PRs resynced and armed, waiting on CI or a click",
+      "MI-280_engineering": "71% — DOWN from 76%: it COMPACTED. My 03:00 note that it was approaching the 85% wrap trigger is now STALE IN THE REASSURING DIRECTION and is withdrawn, not carried. Spend +$130.98 in the hour ($1138.76 total).",
+      "no_spawns": "three lanes exactly, per the operator's rollback instruction."
+    },
+    "merge_queue": {
+      "mine": "#11875 was red on guards, is now fixed and re-pushed; auto-merge stays armed so it lands on green.",
+      "ONE_PR_GENUINELY_NEEDS_THE_OPERATOR": "#12046 (MI-280, U35 — the backlog status vocabulary) is `landing: hold` / `hold_reason: unvouchable_paths`. pr-landing R5 refused the self-land CORRECTLY: two of its added lines are in scripts/check_claim_basis.py, which sits outside the guard's TIER1_SURFACE globs (scripts/ci/**, scripts/ops/**, …) and so cannot be certified. Nothing is armed — the arming file and merge-slot claim were withdrawn in the same commit. It needs ONE human merge click.",
+      "why_I_did_NOT_merge_it_myself": "the diff is arguably Tier-1 by the tier table (a CI guard script), so the hold is a GLOB GAP rather than a tier finding — but the PR's author wrote that it needs a human read, and the one hold I have lifted in this window (#11870) was lifted because its premise had EVAPORATED, which is not the case here. Reporting it is the action; re-asking for an approval nobody withheld is not.",
+      "everything_else": "armed and landing itself on green. No manager merge taken."
+    },
+    "next": [
+      "#12046 needs one operator merge click — nothing else is blocked on a decision",
+      "decision 2 (arming breakout_1) still needs a dispatchable round on a strategy NOT already holding that symbol AND an account the global election would starve",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — re-observe, do not carry",
+      "MI-280 compacted; re-read its context every tick rather than carrying the old warning"
     ]
   }
 }
