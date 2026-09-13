@@ -928,6 +928,97 @@ def _self_test() -> int:
         print("  [FAIL] the two date reasons are byte-identical — collapsed")
         failures += 1
 
+    # ── THE BASE MUST BE RESOLVED BEFORE ANY ROW IS BLAMED ──────────────────
+    # Measured 2026-09-13: an unresolvable base produced 547 findings naming
+    # individual rows, under a headline about rows not being WORKABLE. The base
+    # was the whole cause and the headline never mentioned it.
+    import io
+    import contextlib
+    import os
+
+    _repo = pathlib.Path(__file__).resolve().parents[2]
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc_bad = main(["--base", "no-such-ref-anywhere-000-selftest"])
+    out_bad = buf.getvalue()
+    if rc_bad == 0:
+        print("  [FAIL] an unresolvable base returned 0 — a verdict over nothing")
+        failures += 1
+    if "could not be resolved" not in out_bad:
+        print("  [FAIL] an unresolvable base did not SAY the base was the cause; "
+              f"got {out_bad[:120]!r}")
+        failures += 1
+    # THE ONE THAT MATTERS: it must grade NOTHING, not grade everything badly.
+    blamed = [ln for ln in out_bad.splitlines()
+              if ln.startswith("  docs/claude/")]
+    if blamed:
+        print(f"  [FAIL] an unresolvable base still blamed {len(blamed)} row(s); "
+              "refusing means grading nothing, not failing everything")
+        failures += 1
+    if not failures:
+        print("  [ok]   an unresolvable base is REFUSED, names the ref, and "
+              "blames no row")
+
+    # POSITIVE CONTROL. Without it, a guard that refused EVERY base would pass
+    # all three assertions above and be strictly worse than the defect.
+    buf2 = io.StringIO()
+    with contextlib.redirect_stdout(buf2):
+        rc_ok = main(["--base", "HEAD"])
+    out_ok = buf2.getvalue()
+    if "could not be resolved" in out_ok:
+        print("  [FAIL] a REAL base was refused — the refusal is not keyed on "
+              "the ref being unresolvable")
+        failures += 1
+    elif rc_ok != 0:
+        print(f"  [FAIL] a real base did not grade cleanly (rc={rc_ok})")
+        failures += 1
+    else:
+        print("  [ok]   a REAL base still grades, so the refusal is not "
+              "'refuse everything'")
+
+    # AND THE TEST IS `ref_exists`, NOT "is the file there". A file absent at a
+    # REAL base is legitimately new and its rows MUST be graded — that is the
+    # case this whole guard exists for.
+    #
+    # ⚠️ THE FIRST VERSION OF THIS CONTROL ONLY EXERCISED THE PRIMITIVE, and a
+    # planted defect keying the refusal on `_load_at_ref(...)` being empty
+    # sailed past it: at HEAD the file is present so nothing refused, and at a
+    # bogus ref it is empty so the refusal fired — behaviour identical to the
+    # correct implementation, because no input told the two apart. Discriminating
+    # them needs a ref that EXISTS and genuinely lacks the file, so this builds
+    # one: a real commit over the EMPTY TREE.
+    empty_tree = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"],
+        capture_output=True, text=True, cwd=_repo)
+    empty_commit = subprocess.run(
+        ["git", "commit-tree", empty_tree.stdout.strip(), "-m", "selftest empty base"],
+        capture_output=True, text=True, cwd=_repo,
+        env={**os.environ,
+             "GIT_AUTHOR_NAME": "selftest", "GIT_AUTHOR_EMAIL": "s@invalid",
+             "GIT_COMMITTER_NAME": "selftest", "GIT_COMMITTER_EMAIL": "s@invalid"})
+    empty_ref = empty_commit.stdout.strip()
+    if not empty_ref:
+        print("  [FAIL] could not build an empty-tree commit, so the "
+              "ref-vs-file distinction is UNTESTED — not passed")
+        failures += 1
+    else:
+        buf3 = io.StringIO()
+        with contextlib.redirect_stdout(buf3):
+            main(["--base", empty_ref])
+        out_empty = buf3.getvalue()
+        # The ref EXISTS, so it must NOT be refused. Grading every row as new is
+        # the correct answer against a genuinely empty base, so the assertion is
+        # on the REFUSAL and deliberately not on the exit code.
+        if "could not be resolved" in out_empty:
+            print("  [FAIL] a REAL ref that merely lacks the file was refused — "
+                  "the refusal is keyed on the FILE, not the REF, and a "
+                  "genuinely new register would be rejected")
+            failures += 1
+        else:
+            print("  [ok]   a REAL ref lacking the file is GRADED, not refused "
+                  "— the refusal keys on the ref")
+
     if failures:
         print("self-test FAILED — the guard does not fail closed.")
         return 1
@@ -947,6 +1038,43 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.all:
         return _census()
     if args.base:
+        # ── THE BASE MUST BE RESOLVABLE BEFORE ANY ROW IS GRADED ────────────
+        # MEASURED 2026-09-13: `--base no-such-ref-anywhere-000` emitted **547
+        # findings**, each naming an individual backlog row, under the headline
+        # "backlog row(s) that are not WORKABLE — missing or unusable
+        # resolution_criteria / severity / tier". Not one word of that headline
+        # is about the base, and the base was the entire cause: `_load_at_ref`
+        # returns [] for an unresolvable ref exactly as it does for a file that
+        # is genuinely new, so every pre-existing row read as one this diff had
+        # just added.
+        #
+        # ⚠️ THIS IS UNPROVENANCED DIAGNOSTIC OUTPUT, SUB-CLASS A — a failure
+        # message naming a cause no code path tested. The repo's own remedy for
+        # it is to branch on the actual failure STAGE rather than reword the
+        # label, which is what this does: the ref is checked once, before
+        # anything is graded, and a bad one is REFUSED rather than described as
+        # 547 bad rows.
+        #
+        # ⚠️ `ref_exists` IS THE RIGHT TEST AND "the file is absent" IS NOT.
+        # A file absent at a REAL base is legitimately new, and grading its rows
+        # is correct — that is the case this guard exists for. Only an
+        # unresolvable REF means *we could not look*. `_git_base.read_at` keeps
+        # those two apart for the same reason.
+        #
+        # ⚠️ KNOWN, AND DELIBERATELY NOT FIXED HERE: `_load_at_ref` still
+        # collapses a JSON PARSE failure at a readable ref into the same empty
+        # list, which would reproduce this defect for a corrupted base file.
+        # That case has not been observed and has no measurement behind it;
+        # bundling an unmeasured fix with a measured one would leave the control
+        # below unable to say which it was proving.
+        if not _git_base.ref_exists(args.base):
+            print(f"::error::backlog-criteria: the base ref {args.base!r} could "
+                  "not be resolved, so NOTHING was graded. This is 'we could "
+                  "not look', not 'every row is fine' and not 'every row is "
+                  "broken' — without a base every existing row would read as "
+                  "one this diff just added.")
+            return 2
+
         # BOTH diff-scoped checks under one invocation, and the return codes are
         # OR-ed rather than short-circuited so a PR sees every failing row at
         # once instead of re-running to find the next one (the reason
