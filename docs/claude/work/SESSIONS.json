@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T07:00:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z tick; observations are the 05:56 ones, explicitly not re-read",
+  "updated_at": "2026-09-13T08:10:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — OPERATOR-DIRECTED PAUSE, all three lanes sent a close-out directive",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4881,7 +4881,7 @@
     {
       "session_id": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
       "registry_key": "pending-20260912T051723Z",
-      "state": "working",
+      "state": "pausing",
       "title": "RESEARCH LANE MI-278 — M20 Active Trade Management: why winners stopped running, and what holds them",
       "owns_object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
       "checklist_item": "MI-278",
@@ -4901,13 +4901,13 @@
       },
       "item": "MI-278",
       "lane": "research",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:04Z get_session (NOT re-read at 0652Z — this tick went on restoring the lapsed lease; the reading is 60 min old and labelled): RUNNING/connected, 581406/1M (58%), branch claude/mi278-u41-break-attribution-verdict"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:07Z get_session: IDLE/review_ready (between units — the safest moment to pause), 764506/1M (76%), branch claude/mi278-u44-union-driver-on-work-objects-is-unsafe. PAUSE DIRECTIVE DELIVERED via trigger trig_01WcbCeED49HJjS4XGA84bFg, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
       "registry_key": "pending-20260912T051723Z-2",
-      "state": "working",
+      "state": "pausing",
       "title": "OPS LANE MI-279 — drive the health backlog down by class, critical first",
       "owns_object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
       "checklist_item": "MI-279",
@@ -4927,13 +4927,13 @@
       },
       "item": "MI-279",
       "lane": "ops",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:12Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 289732/1M (29%), branch claude/mi279-u23-builder-latch"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:08Z get_session: RUNNING, 745508/1M (75%), branch claude/mi279-u28-pat-open-and-arming-gate, mid-analysis of register arithmetic + a workflow PAT client. PAUSE DIRECTIVE DELIVERED via trigger trig_018pdd8tpTLhCWZyVqteaGPY, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
       "registry_key": "pending-20260912T051805Z",
-      "state": "working",
+      "state": "pausing",
       "title": "ENGINEERING LANE MI-280 — stop the landing and register machinery losing work",
       "owns_object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
       "checklist_item": "MI-280",
@@ -4953,8 +4953,8 @@
       },
       "item": "MI-280",
       "lane": "engineering",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:55:56Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 706997/1M (71%), #12189 merged"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:08Z get_session: RUNNING, 729747/1M (73%), branch claude/mi280-u91-red-main-runs-unproven, mid-way wiring self-test cases into main(). PAUSE DIRECTIVE DELIVERED via trigger trig_01MiaVcTHroUPhGafB5pAf8j, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",

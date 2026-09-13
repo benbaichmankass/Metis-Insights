@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T07:05:00Z",
+  "updated_at": "2026-09-13T08:10:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T07:05:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z manager tick (branch restarted after #11875 squash-merged)",
+  "as_of": "2026-09-13T08:10:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — operator-directed pause",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5715,5 +5715,53 @@
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
     ],
     "AND_A_PR_EXISTED_THE_WHOLE_TIME_WHICH_CORRECTS_MY_LAST_REPORT": "PR #12200 was opened AUTOMATICALLY by claude-pr-automerge at 05:59:33Z — the very first push after #11875 squash-merged — and its head tracked every commit I made afterwards. I never looked for it; I kept reading #11875. So last tick's report that 'no CI fired on my pushes, suspect a GitHub event problem' is WRONG and is corrected: CI was not firing ON #11875 because #11875 was merged, while a live PR carrying the same pushes sat beside it. 'No checks on the PR I am watching' is not 'no checks'. The arming file did exactly what it is for; what failed was that I did not ask which PR the branch actually had. #12200's body is rewritten to describe what it really carries."
+  },
+  "manager_tick_2026_09_13T0752Z": {
+    "LOUD_ALL_THREE_LANES_ARE_RATE_LIMIT_REJECTED": {
+      "measured": "2026-09-13T07:53:53Z / 07:54:25Z / 07:54:28Z, get_session on all three lanes. EVERY ONE reports rate_limit_info {rateLimitType 'seven_day', isUsingOverage TRUE, status 'REJECTED', resetsAt 1789581600}.",
+      "what_changed": "one hour ago all three read status 'allowed_warning' with isUsingOverage FALSE. The seven-day window has crossed from approaching-the-cap into OVERAGE AND REJECTING.",
+      "reset": "1789581600 = 2026-09-16T18:00:00Z — 82.1 hours from this reading. Computed, not estimated; the earlier '~09-16 18:00' guess happens to have been right and is now confirmed arithmetically.",
+      "what_it_means_and_what_it_does_NOT": "'rejected' is what the API reports about the ACCOUNT's seven-day window, and all three lanes still read session_status RUNNING and connection_status connected. I have NOT established what a rejected request does to a lane in practice — whether it retries, stalls, or fails a turn. Do not report throughput as stopped; report that the limit is rejecting and that the effect on the lanes is UNMEASURED.",
+      "the_consequence_that_IS_established": "SPAWNING A REPLACEMENT LANE CANNOT HELP. Every lane runs on the same account and the same seven-day window, so a fresh session inherits the same rejection. The usual remedy for a lane that is stuck or full — spawn a successor — is unavailable for the next ~82 hours. That is the operator's call, not mine, and it is the reason this is LOUD rather than a checklist line.",
+      "operator_decision_this_raises_without_pre_empting": "whether to (a) let the three lanes run down and accept reduced throughput until 09-16T18:00Z, (b) stop one or two lanes deliberately to concentrate the remaining budget, or (c) something about the account's limit itself, which is entirely outside what a session can touch. NOT proposed, NOT acted on."
+    },
+    "TWO_OF_THREE_LANES_ARE_PAST_THE_HANDOFF_THRESHOLD": {
+      "MI-279_ops": "745508/1M (75%) — UP from 289732 an hour ago. It did NOT compact; it grew 456k in one hour. Past the ~600k threshold at which the standing guidance says a lane should close out and hand off rather than start anything new.",
+      "MI-280_engineering": "729747/1M (73%) — also past it, having compacted to 707k earlier and grown again.",
+      "MI-278_research": "581406/1M (58%) — flat for four hours and below the threshold.",
+      "why_I_am_NOT_acting_on_it": "the standing remedy is to have the lane close out and hand off to a FRESH session, and a fresh session is exactly what the rate limit makes unavailable. So the two facts interact: the normal response to a full lane is blocked by the other finding. Recorded together for that reason rather than as two independent lines.",
+      "also_noted_not_interpreted": "MI-279's post_turn_summary is ABSENT on this read where it was present an hour ago. I do not know what that means and am not guessing."
+    },
+    "the_branch_restart_is_now_a_PER_TICK_STEP": {
+      "what": "#12200 MERGED at 07:18:27Z at head e337116d5 — the 0652Z tick landed. That is the SECOND consecutive tick whose PR auto-merged within the hour, leaving the branch finished.",
+      "the_procedure_that_follows": "at the START of every tick, read the branch's PR STATE (not ancestry) and, if it merged, restart the branch from origin/main BEFORE doing anything else. Done this tick: restarted at 475495155, then heartbeated on the fresh base. This is the system working as designed — the arming file opens a new PR on the first push — and the failure at 0552Z/0652Z was mine for not checking.",
+      "cheap_check": "`git merge-base --is-ancestor` is the WRONG probe and answers a different question under squash merges. Read the PR's own `merged` field."
+    },
+    "lanes_are_landing_their_own_work": "MI-278 merged #12212 and has #12148 awaiting a click; MI-280 merged the diagnostic-provenance-guard and armed duplicate detection (U89; register 1586 rows, 0 duplicates). No manager merge was needed or taken.",
+    "next": [
+      "the rate-limit rejection is the operator's to decide on — it is LOUD and it blocks the normal remedy for a full lane",
+      "#12046 still needs one operator merge click (fourth tick)",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — TOMORROW",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit"
+    ]
+  },
+  "OPERATOR_DIRECTED_PAUSE_2026_09_13T0808Z": {
+    "the_directive": "Operator, 2026-09-13: \"we're out of tokens for this week, so we need to pause all lanes as soon as possible (they should close up whatever they're working on so no work is lost and we can pick up again in a few days)\".",
+    "corroborated_independently": "all three lanes' own get_session reports rate_limit_info {rateLimitType seven_day, isUsingOverage TRUE, status REJECTED, resetsAt 1789581600 = 2026-09-16T18:00:00Z}. The operator's statement and the API's agree.",
+    "HOW_the_directive_was_delivered_because_the_obvious_channel_does_not_exist": "A manager CANNOT message a running cloud sub-session — ListAgents returns no reachable agents, re-confirmed at 08:08Z. The channel that DOES reach one is create_trigger with persistent_session_id, which fires a prompt INTO the named live session. Three one-shot triggers created, all firing 2026-09-13T08:12:00Z: trig_01WcbCeED49HJjS4XGA84bFg (MI-278), trig_018pdd8tpTLhCWZyVqteaGPY (MI-279), trig_01MiaVcTHroUPhGafB5pAf8j (MI-280). ⚠️ RECORD THIS: the standing note that a manager cannot reach a sub-session is true of SendMessage and FALSE of this route. It is the first time in this run that a directive has been pushed to a lane rather than left in a register and hoped for.",
+    "what_each_lane_was_told": "In this order, because a turn may be refused mid-way and the early steps are the ones that preserve work: (1) PUSH FIRST, PROSE SECOND — commit and push every branch, arming a PR if the unit is complete and committing with a 'WIP (paused 2026-09-13):' subject if it is not, because an unpushed container is lost when it is reclaimed; (2) write a RESUMPTION NOTE into their OWN work object under docs/claude/work/objects/ — explicitly NOT into this checklist or SESSIONS.json, since a second writer corrupts them; (3) list every branch and open PR they leave behind; (4) stop and go idle. And: if a step fails because a request is refused, skip it and SAY SO — a partial close-out that is honest about its gaps beats a complete-looking one that is not.",
+    "state_at_the_moment_of_pausing": {
+      "MI-278_research": "IDLE / review_ready at 08:07Z — BETWEEN units, which is the safest possible moment to stop. 764506/1M (76%). Its own stated next action was to pick up another research unit; the directive supersedes that explicitly.",
+      "MI-279_ops": "RUNNING, 745508/1M (75%), mid-analysis of register arithmetic and a workflow PAT client. The most perishable of the three — that analysis may exist only in its context.",
+      "MI-280_engineering": "RUNNING, 729747/1M (73%), mid-way wiring self-test cases into main(). Told to leave it RECOVERABLE rather than finish it."
+    },
+    "what_is_NOT_established": "whether a rate-limit-REJECTED session can serve the close-out turn at all. The directive is delivered; the lanes acting on it is UNOBSERVED. Do not report the pause as complete until each lane's own push and resumption note are visible on origin. ⚠️ And the trigger tool warned that fired sessions carry no MCP connector tools — for a persistent session that warning is written for the fresh-session case and may not apply, but if a lane cannot reach mcp__github__* it can still git-push and use the arming-file route, which is what the directive asks for.",
+    "the_manager_session_itself_is_NOT_covered_by_this": "the operator said 'all lanes'. This session is the manager, and its hourly tick keeps firing and keeps spending. That is a real question and it is being put to the operator rather than decided here — disabling my own wake-up is not a call I should make unilaterally.",
+    "next": [
+      "VERIFY the pause rather than assume it: re-read all three at ~08:20Z and confirm each pushed and wrote a resumption note",
+      "record what each lane left behind into OPEN-PRS once they report it",
+      "#12046 still needs one operator merge click",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow, and there may be no lane running to observe it"
+    ]
   }
 }
