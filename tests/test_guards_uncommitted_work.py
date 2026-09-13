@@ -152,3 +152,82 @@ def test_only_a_guard_that_actually_runs_stays_quiet():
     assert "YOU ASKED FOR THESE BY NAME" not in p.stdout, p.stdout[-800:]
     assert "All relevant guards passed." in p.stdout, p.stdout[-800:]
     assert p.returncode == 0
+
+
+# --------------------------------------------------------------------------
+# The THIRD route to the same false green, and the one the footer did not
+# close: the HEADLINE. BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-
+# WAS-INCOMPLETE.
+#
+# The caveat block asserted above landed 2026-08-13 (#8948). The row was filed
+# 2026-09-03 — THREE WEEKS LATER, by an author reading that very output — and
+# reproduced on origin/main on 2026-09-13: a tree with one committed change
+# and one uncommitted file printed
+#
+#     PASS 67 · FAIL 1 · COULD-NOT-RUN 0 · SKIP 40
+#     ...
+#     NOT SELECTED because the work is UNCOMMITTED (1) — ...
+#
+# The count of guards the script KNEW it had not graded appears nowhere on the
+# line a reader scans. `counts_line` is a pure function precisely so what the
+# headline CLAIMS is arguable here rather than only against an 8-minute run.
+# --------------------------------------------------------------------------
+
+def test_the_headline_names_what_was_not_graded():
+    line = run_guards.counts_line(47, 0, 0, 38, 17)
+    assert "17 NOT GRADED (uncommitted)" in line, line
+    # It must be findable by a reader scanning ONE line, which is the whole
+    # point — a footer under a 38-name skip list was already there and did not
+    # close this.
+    assert line.startswith("PASS 47 · FAIL 0"), line
+
+
+def test_a_COMPLETE_run_headline_is_byte_identical_to_before():
+    """THE POSITIVE CONTROL, and it is the one that matters here.
+
+    A qualifier that renders on every run is a decoration a reader learns to
+    skip — the desensitised-alarm shape this repo calls its own worst failure
+    mode. The clean-run line must be exactly what it has always been.
+    """
+    assert (run_guards.counts_line(64, 0, 0, 38)
+            == "PASS 64 · FAIL 0 · COULD-NOT-RUN 0 · SKIP 38")
+    assert "NOT GRADED" not in run_guards.counts_line(64, 0, 0, 38)
+
+
+def test_the_two_headlines_are_DISTINGUISHABLE():
+    """The row's own criterion, stated as one assertion.
+
+    Same pass/fail/skip counts, different completeness — the lines must differ.
+    """
+    complete = run_guards.counts_line(47, 0, 0, 38, 0)
+    incomplete = run_guards.counts_line(47, 0, 0, 38, 17)
+    assert complete != incomplete, (complete, incomplete)
+
+
+def test_the_not_graded_count_is_not_folded_into_the_other_buckets():
+    """`unchecked` is a SUBSET of `skipped`, not a fifth bucket.
+
+    If a fix added it to SKIP as well, the counts would stop summing to the
+    guards considered and the line would double-count. Pin the buckets.
+    """
+    line = run_guards.counts_line(47, 0, 0, 38, 17)
+    assert "SKIP 38" in line, line
+    assert "SKIP 55" not in line, line
+
+
+def test_main_renders_the_headline_through_this_function():
+    """Otherwise the pure function is a decoration nothing prints.
+
+    A fix that added `counts_line` and left `main` formatting its own string
+    would pass every assertion above while the real run stayed unchanged —
+    the shape the register-parse fixes this session kept meeting.
+    """
+    src = (REPO / "scripts" / "ci" / "run_guards.py").read_text(encoding="utf-8")
+    assert "print(counts_line(" in src, (
+        "main() must print through counts_line(); a second inline f-string "
+        "would drift from the function these tests grade")
+    # EXACTLY ONE author of this line: the one inside `counts_line` itself.
+    # Two would drift, and the second would be the one `main` actually prints.
+    assert src.count('f"PASS {') == 1, (
+        f"expected exactly one PASS-line f-string (the one inside "
+        f"counts_line); found {src.count(chr(102) + chr(34) + 'PASS {')}")

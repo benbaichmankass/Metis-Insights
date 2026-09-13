@@ -142,3 +142,36 @@ progress:
     sha256:b073ee2c..., ids 5731->4732), so the two memos differ by method and never by pull --
     U26's stanza paying off on its first re-use. Memo:
     docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md
+  U33: >-
+    DELIVERED. Tested the candidate BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED named as untested
+    and called 'a different unit'. CONFIRMED AT THE FIELD: _netting_rows_to_attribute computes
+    take = min(qty, remaining) from excess = journal_qty - backed -- a subtraction of two
+    AGGREGATES distributed by a leg_gone/FIFO heuristic, with no venue fill anywhere. That
+    explains U16's sum_matched_unique = 0 of 12 in one line. !! AND THE FIELD SAYS THREE THINGS
+    THE CANDIDATE DID NOT. (1) _netting_apply_close's PARTIAL branch does NOT close the row: it
+    writes position_size = qty - take and leaves status='open', so the row closes LATER as sl /
+    sl_cross / reconciler_filled -- and MI-277 annex A6, U9 and U16 ALL scope this contamination
+    by exit_reason == 'netting_attributed', a filter structurally unable to see it. (2) The notes
+    stamp that would reveal it is DROPPABLE: neither netting_attribution_basis nor
+    netting_attributed_qty is in json_notes._DEFAULT_PROTECTED, whose own comments record THREE
+    prior instances of exactly this cap shedding a load-bearing key. (3) src/runtime/provenance.py
+    has NO QUANTITY AXIS -- position_size 0, quantity 0, size 0 against exit_price_source 12 --
+    so classify_pnl grades the PRICE and is_measured() returns True for a row whose quantity was
+    manufactured. MEASURED over 765 bybit rows of the same pull U31/U32 used (rowset
+    sha256:1752f298...): filter matches 50, stamp census 52, filter misses 2, and 111 ungradeable
+    from the journal. JOINED AGAINST A SECOND INDEPENDENT SOURCE -- the attribution soak, written
+    before the DB is touched and not subject to the cap -- 4 of its 29 applied trades carry NO
+    stamp at all, every one labelled with an ordinary exit reason. TOTAL INVISIBLE, BOTH SOURCES:
+    6; the journal alone sees 2, so a journal-only audit under-counts 3x. ada_pullback_2h is an
+    E35 LEG, so one lands in the e35 arm U32 measured; trend_donchian_eth and eth_pullback_2h in
+    control_same_family; three of the six are ict_scalp_*, MI-277's own subject; and 5404 is on
+    bybit_portfolio, which mirrors real-money bybit_2 by an enforced invariant. !! NO PUBLISHED
+    FIGURE IS RESTATED and six rows will not move a headline -- what changes is the SCOPING RULE.
+    !! NO CLOSE IS CLAIMED FALSE: option (b) of the parent row stays exhausted and was not
+    re-attempted. !! THE 111 ARE BOUNDED, NOT RESOLVED -- the soak is itself a 1000-line tail of a
+    3,879,840-byte file. !! NOTHING IS FIXED: order_monitor.py and json_notes.py are Tier-2 and
+    untouched; two remedies are named in the backlog and neither is applied. Filed
+    BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT
+    and
+    BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED.
+    Memo: docs/research/m20-u33-netting-position-size-basis-2026-09-13.md
