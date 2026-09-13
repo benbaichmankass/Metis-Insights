@@ -47,6 +47,125 @@ def _active_files() -> list[Path]:
     return [f for f in files if f.exists()]
 
 
+# ---------------------------------------------------------------------------
+# Is the FILE itself intact? (2026-09-13)
+# ---------------------------------------------------------------------------
+# Three states, never collapsed. This repo has already ruled on this class
+# TWICE, and both rulings stopped short of the canonical prose docs:
+#   * `check_register_reserialization.py` grades a JSON register carrying
+#     conflict markers UNREADABLE — *we could not look* — rather than clean.
+#     It walks `docs/claude/**/*.json`.
+#   * `check_document_index.py` R7 (#12156) refuses `docs/DOCUMENT-INDEX.md`
+#     for the same condition.
+# Neither reaches CLAUDE.md.
+CONFLICT_CLEAN = "clean"
+CONFLICT_FOUND = "conflicted"
+CONFLICT_UNREADABLE = "unreadable"       # we could not look — NOT a pass
+
+#: git writes exactly seven characters at the START of a line, followed by a
+#: space and a label or nothing. Anchoring on that shape is what makes this
+#: safe to run over prose that TALKS about merge conflicts: a mention inside a
+#: sentence, a table cell or a backtick span is indented or preceded by other
+#: text and can never match. MEASURED 2026-09-13 — a naive substring test would
+#: misfire today: `docs/claude/health-review-backlog.json` mentions the string
+#: on 4 lines, all of them row prose, while NO file in this corpus carries a
+#: line-anchored marker.
+_CONFLICT_OPEN = re.compile(r"^<<<<<<<(?: .*)?$")
+_CONFLICT_CLOSE = re.compile(r"^>>>>>>>(?: .*)?$")
+#: Corroboration only, NEVER a trigger. A line of bare `=` is also a valid
+#: setext heading underline in markdown, so firing on it alone would invent
+#: findings in a document nobody ever conflicted.
+_CONFLICT_MID = re.compile(r"^=======$")
+
+
+def _conflict_corpus() -> list[Path]:
+    """`_active_files()` plus `ROADMAP.md`.
+
+    ⚠️ THIS CHECK DELIBERATELY READS ONE MORE FILE THAN THE OTHERS, and the
+    asymmetry is the point rather than an oversight. `ROADMAP.md` is third in
+    the instruction hierarchy and is edited by many sessions, so it carries the
+    same merge-resolution exposure as the rest — but putting it in
+    `ACTIVE_DOCS` would change what FIVE content checks read, which is a
+    separate decision with its own blast radius. MEASURED 2026-09-13: adding it
+    there is clean today (0 issues across all checks), so that decision is
+    available and cheap; it is simply not this one.
+
+    The direction matters. This file's own header warns that DROPPING a file
+    from the scanned set silently retires a check by moving the text it reads.
+    Adding one file to one check is the opposite of that.
+    """
+    files = _active_files()
+    roadmap = ROOT / "ROADMAP.md"
+    if roadmap.exists():
+        files = files + [roadmap]
+    return files
+
+
+def file_integrity(text: str | None) -> tuple[str, list[tuple[int, str]]]:
+    """`(state, [(line_no, line), ...])` — is this file free of conflict markers?
+
+    Pure, so what the guard CLAIMS is arguable in a test rather than only
+    against a real merge.
+    """
+    if text is None:
+        return CONFLICT_UNREADABLE, []
+    hits: list[tuple[int, str]] = []
+    triggered = False
+    for i, line in enumerate(text.splitlines(), start=1):
+        if _CONFLICT_OPEN.match(line) or _CONFLICT_CLOSE.match(line):
+            triggered = True
+            hits.append((i, line))
+        elif _CONFLICT_MID.match(line) and triggered:
+            hits.append((i, line))
+    return (CONFLICT_FOUND if triggered else CONFLICT_CLEAN), hits
+
+
+def check_conflict_markers() -> list[str]:
+    """No governance doc may carry an UNRESOLVED MERGE CONFLICT.
+
+    ⚠️ WHY THIS IS A RULE ABOUT THE FILE AND NOT ABOUT ITS CONTENT. Every other
+    check here is a line-level scan for a stale CLAIM; none of them asks whether
+    the document is well-formed. MEASURED 2026-09-13 by planting a committed
+    conflict block in `CLAUDE.md` and running the FULL guard registry against
+    it: 68 guards passed and the single failure was `pr-landing-guard`, for the
+    unrelated reason that the probe branch carried no landing record. Nothing in
+    the repo graded the corruption. `docs/DOCUMENT-INDEX.md`, planted the same
+    way, was caught — by the R7 rule added the same day for that one file.
+
+    ⚠️ IT DOES NOT SHORT-CIRCUIT THE OTHER CHECKS, deliberately. A conflict
+    block CAN distort them — `check_hierarchy_mirror` would read both copies of
+    a contested list — but this returning a finding already makes the run exit
+    non-zero, so the conflicted file cannot ride a green out. Suppressing the
+    remaining output would hide findings that are still true.
+
+    ⚠️ AN UNREADABLE FILE IS A FINDING, never a pass: *we could not look* and
+    *we looked and it was fine* are different facts.
+    """
+    fails: list[str] = []
+    for f in _conflict_corpus():
+        rel = f.relative_to(ROOT)
+        try:
+            text: str | None = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            text = None
+            reason = f"{type(exc).__name__}: {exc}"
+        state, hits = file_integrity(text)
+        if state == CONFLICT_UNREADABLE:
+            fails.append(
+                f"{rel}: could not be READ ({reason}). That is 'we could not "
+                "look', never 'the document is intact'."
+            )
+        elif state == CONFLICT_FOUND:
+            where = ", ".join(f"line {n}: {ln}" for n, ln in hits[:6])
+            more = f" (+{len(hits) - 6} more)" if len(hits) > 6 else ""
+            fails.append(
+                f"{rel}: UNRESOLVED MERGE CONFLICT — {where}{more}. "
+                "Resolve it; a governance doc carrying both sides of a "
+                "contested edit is not a document anyone can follow."
+            )
+    return fails
+
+
 def _iter_windows(files: list[Path], radius: int = 2):
     """Yield (rel, lineno, line, context) where context is the line plus
     `radius` neighbours on each side joined — so a historical/removal marker
@@ -516,6 +635,10 @@ def check_env_knob_live_values() -> list[str]:
 
 
 CHECKS = [
+    # FIRST, because the checks below read these files' CONTENT and a
+    # conflicted file makes some of their verdicts untrustworthy. It does
+    # not short-circuit them — see `check_conflict_markers` for why.
+    ("governance docs carry no unresolved merge conflict", check_conflict_markers),
     ("dead VM IP single-source", check_dead_vm_ip),
     ("removed gates not described as live", check_removed_gates),
     ("no 7-stage ML ladder in catalog", check_seven_stage_ladder),
