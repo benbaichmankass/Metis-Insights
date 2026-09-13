@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's `updates` field: re-verifies at 45 days that regime_debt_matrix.py still has no vol axis (positive control stated), and corrects the row's audit population — 5 coordinate pairs / 6 (trend,vol,strategy) cells / 8 (trend,vol,strategy,direction) OFF switches — so a six-verdict audit does not leave two live OFF gates ungraded. Register only: no src/, no ml/, no config/, no .github/workflows/, no order path. Nothing built, nothing enacted, no config value read as a proposal."
+}
