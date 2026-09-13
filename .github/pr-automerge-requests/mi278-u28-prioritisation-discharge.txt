@@ -1,0 +1,7 @@
+MI-278 U28 — scripts/research/prioritisation_row_discharge.py, its memo, one generated stub row
+in docs/DOCUMENT-INDEX.md, one row in the hand-maintained RESEARCH-CAPABILITY-INDEX, and three
+backlog edits (one row closed on its own text, one advanced, one new).
+
+Tier-1: docs/**, scripts/research/**, .github/**. No src/, no config/, no unit files, no order
+path. Landing declared in .github/pr-landing/mi278-u28-prioritisation-discharge.json.
+PR #12145, opened by this session so CI fires on a real pull_request event.
