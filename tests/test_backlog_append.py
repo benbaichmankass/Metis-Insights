@@ -348,3 +348,122 @@ def test_cli_update_appends_from_a_file(tmp_path):
     assert row["detail"].startswith("alpha")
     assert row["detail"].endswith("ADDENDUM — measured ⚠️ today")
     assert "\\u2014" not in p.read_text()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The CLOSE DATE stamp (2026-09-13)
+#
+# `backlog_burndown()` buckets a closed row by its close date, so a closed row
+# carrying NONE falls out of every month's closed count and the operator's
+# headline metric — "is the backlog growing?" — reads worse than it is.
+# `backlog_append` never stamped one; the spelling was left to whoever happened
+# to be writing, and the register accumulated five spellings plus an absence.
+#
+# MEASURED 2026-09-13 over all 1826 rows in the three backlogs, bucketing CLOSED
+# rows by the month they were OPENED, the share closed with NO close date runs:
+#     Jun 9.9%  ->  Jul 6.9%  ->  Aug 19.3%  ->  Sep 43.2%
+# A growing undercount does not cancel out of a trend, and it is worst on the
+# newest rows — exactly where a reader looks.
+#
+# Every "it stamps" test below is paired with a NEGATIVE CONTROL asserting an
+# ABSENCE, because a stamp that fired unconditionally would satisfy the positive
+# tests while fabricating dates on rows closed weeks ago.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CLOSE_KEY_NAMES = ("resolved_at", "superseded_at", "resolved", "resolved_on", "closed")
+
+
+def _closing_backlog(tmp_path: pathlib.Path) -> pathlib.Path:
+    """Two rows: one OPEN, one ALREADY CLOSED and deliberately undated."""
+    p = tmp_path / "b.json"
+    p.write_text(json.dumps({"updated_at": "x", "items": [
+        {"id": "BL-OPEN", "title": "t", "status": "open", "tier": 1,
+         "detail": "d — em dash", "resolution_criteria": "c"},
+        {"id": "BL-CLOSED-UNDATED", "title": "t", "status": "resolved", "tier": 1,
+         "detail": "d", "resolution_criteria": "c"},
+    ]}, indent=2, ensure_ascii=False))
+    return p
+
+
+def _row(path: pathlib.Path, rid: str) -> dict:
+    return [r for r in json.loads(path.read_text())["items"] if r["id"] == rid][0]
+
+
+def test_closing_a_row_stamps_a_date(tmp_path):
+    p = _closing_backlog(tmp_path)
+    update_row(p, "BL-OPEN", fields={"status": "resolved"})
+    assert isinstance(_row(p, "BL-OPEN").get("resolved_at"), str)
+
+
+def test_superseded_gets_its_own_key_not_resolved_at(tmp_path):
+    p = _closing_backlog(tmp_path)
+    update_row(p, "BL-OPEN", fields={"status": "superseded"})
+    row = _row(p, "BL-OPEN")
+    assert isinstance(row.get("superseded_at"), str)
+    assert "resolved_at" not in row
+
+
+def test_a_row_filed_already_closed_is_stamped(tmp_path):
+    p = _closing_backlog(tmp_path)
+    append_row(p, {"id": "BL-NEW", "title": "t", "status": "wont_fix", "tier": 1,
+                   "detail": "d", "resolution_criteria": "c"}, similar_ok=True)
+    assert isinstance(_row(p, "BL-NEW").get("resolved_at"), str)
+
+
+def test_an_ordinary_edit_on_an_open_row_stamps_nothing(tmp_path):
+    """NEGATIVE CONTROL. Without this, an unconditional stamp passes above."""
+    p = _closing_backlog(tmp_path)
+    update_row(p, "BL-OPEN", fields={"detail": "changed"})
+    assert not any(k in _row(p, "BL-OPEN") for k in _CLOSE_KEY_NAMES)
+
+
+def test_an_already_closed_row_is_never_back_dated(tmp_path):
+    """NEGATIVE CONTROL, and the one that matters most.
+
+    A row closed weeks ago and merely APPENDED to today must not acquire
+    today's date — a fabricated close date is worse than the missing one it
+    replaces, because it reads as a statement.
+    """
+    p = _closing_backlog(tmp_path)
+    update_row(p, "BL-CLOSED-UNDATED", append={"detail": " more"})
+    assert not any(k in _row(p, "BL-CLOSED-UNDATED") for k in _CLOSE_KEY_NAMES)
+
+
+def test_a_stated_close_date_is_never_overwritten(tmp_path):
+    p = _closing_backlog(tmp_path)
+    doc = json.loads(p.read_text())
+    doc["items"][0]["resolved_at"] = "2026-01-02T00:00:00+00:00"
+    p.write_text(json.dumps(doc, indent=2, ensure_ascii=False))
+    update_row(p, "BL-OPEN", fields={"status": "resolved"})
+    assert _row(p, "BL-OPEN")["resolved_at"] == "2026-01-02T00:00:00+00:00"
+
+
+def test_the_stamp_does_not_break_the_byte_round_trip(tmp_path):
+    """The module exists to refuse reformatting; a new write must not weaken it."""
+    p = _closing_backlog(tmp_path)
+    before = json.dumps(_row(p, "BL-CLOSED-UNDATED"), ensure_ascii=False)
+    update_row(p, "BL-OPEN", fields={"status": "resolved"})
+    assert json.dumps(_row(p, "BL-CLOSED-UNDATED"), ensure_ascii=False) == before
+    assert "—" in p.read_text()      # ensure_ascii=False still honoured
+
+
+def test_every_stamp_key_is_one_the_READER_actually_consults():
+    """The selection rule, asserted rather than trusted.
+
+    A semantically prettier key the reader does not consult (`wont_fix_at`,
+    say) would build the mechanism and have it not work — this repo's
+    written-and-never-read class, inside the fix for it.
+    """
+    from scripts.ops.backlog_append import _CLOSE_STAMP_DEFAULT, _CLOSE_STAMP_KEY
+    from scripts.ops.system_review_checklist import CLOSE_KEYS, CLOSED_STATUSES
+
+    for status in CLOSED_STATUSES:
+        assert _CLOSE_STAMP_KEY.get(status, _CLOSE_STAMP_DEFAULT) in CLOSE_KEYS
+
+
+def test_the_writer_and_the_reader_share_one_closed_vocabulary():
+    """Two copies of "what counts as closed" is how stamp and count drift."""
+    import scripts.ops.backlog_append as ba
+    from scripts.ops.system_review_checklist import CLOSED_STATUSES
+
+    assert ba.CLOSED_STATUSES is CLOSED_STATUSES
