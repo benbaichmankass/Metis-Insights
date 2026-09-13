@@ -1012,6 +1012,16 @@ def cmd_register(a) -> int:
     if verdict["state"] != spawn_gate.PERMITTED:
         print(f"session-registry: spawn-gate [{verdict['state'].upper()}] "
               f"{verdict['reason']}")
+    # ⚠️ PRINTED, NOT JUST COMPUTED. `advisory` says the named parent is not on
+    # the base ref the SPAWNED session will read — permitted, because authoring
+    # the object in the branch you spawn from is legitimate, but never silent
+    # (BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED). A
+    # signal that is computed and discarded is worse than a missing one: a
+    # reviewer sees the field and assumes something acts on it.
+    if verdict.get("advisory"):
+        print(f"session-registry: spawn-gate ⚠️  "
+              f"[{str(verdict.get('base_visibility', '?')).upper()}] "
+              f"{verdict['advisory']}", file=sys.stderr)
     if verdict["state"] == spawn_gate.REFUSED:
         print("session-registry: NOTHING WAS WRITTEN and no spawn prompt was "
               "produced. Fix the above, or file the exception, then re-run.")
