@@ -1,6 +1,8 @@
 # What is due right now
 
-_Generated 2026-09-13T04:43:35+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-13T05:20:13+00:00 · verdict **partial**_
+
+> ⚠️ **This list is a LOWER BOUND.** Could not read: `spent_decision_edges`. An empty section below may mean nothing is due, or may mean nobody looked.
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 13d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -20,7 +22,7 @@ _Generated 2026-09-13T04:43:35+00:00 · verdict **all_sources_read**_
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
 - 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 10d) — monitoring row 10d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
-- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 10d) — armed 254.8h ago, on the order of 254 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
+- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 10d) — armed 255.4h ago, on the order of 255 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
   - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 8d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
@@ -159,7 +161,7 @@ _Generated 2026-09-13T04:43:35+00:00 · verdict **all_sources_read**_
 - 🔔 **OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED** (open_items · 1d) — loud row — must be reported on every session
   - MI-277 (docs/research/winner-size-collapse-2026-09-12.md, WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE) decomposed MI-271's avg-win collapse on the identity mean(pnl|win) = mean(risk_usd) 
 - 🔔 **checklist-register-stale** (checklist_unrouted · 1d) — docs/claude/work/CHECKLIST-ROUTING-AGE.json was generated at 2026-09-11T10:39:09+00:00, and `.github/workflows/constraint-readout.yml` writes it on a DAILY cron. ⚠️ EVERY ROW BELOW IS THAT READING, NOT TODAY'S: anything that crossed the threshold since is absent, and a row listed as newly stalled may since have been routed. This is not the same fact as `history_state` — that grades whether the ages could be DERIVED; this says the derivation succeeded and nobody re-ran it. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.
-  - the unrouted-row register is 42h old — its producer has not run
+  - the unrouted-row register is 43h old — its producer has not run
 - 🔔 **OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED** (open_items · 0d) — loud row — must be reported on every session
   - ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n
 - 🔔 **OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED** (open_items · 0d) — loud row — must be reported on every session
@@ -188,14 +190,6 @@ _Generated 2026-09-13T04:43:35+00:00 · verdict **all_sources_read**_
   - probes
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'cancelled'
   - replay-pregate-nightly
-- 🔔 **spent-edge-WO-20260901-PHASE-F** (spent_decision_edges) — Its `blocked_on` names DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which carries a readable answer (2026-09-09T09:30:00Z) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.
-  - WO-20260901-PHASE-F is `waiting` on an answered decision
-- 🔔 **spent-edge-WO-20260902-DECISION-REVIEW-PACKET-POPULATION** (spent_decision_edges) — Its `blocked_on` names DEC-20260902-REVIEW-PACKET-POPULATION, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.
-  - WO-20260902-DECISION-REVIEW-PACKET-POPULATION is `waiting` on an answered decision
-- 🔔 **spent-edge-WO-20260903-SUNSET-DISPOSITIONS-OWED** (spent_decision_edges) — Its `blocked_on` names DEC-20260903-SUNSET-DISPOSITION-POLICY, which carries a readable answer (2026-09-03) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.
-  - WO-20260903-SUNSET-DISPOSITIONS-OWED is `waiting` on an answered decision
-- 🔔 **stranded-edge-WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE** (spent_decision_edges) — Its `blocked_on` ref is 'originate JWT_SIGNING_KEY + WEBAPP_PASSWORD_SHA256, then a Tier-2 set-env', graded unresolvable — no decision request in the store declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE OPPOSITE: a spent edge is discharged by re-pointing or re-grading it, while nothing matching on ids can ever discharge this one, so the object is parked with no way out and no consumer can say what it is waiting for. A typed edge whose ref is prose is untyped. ⚠️ Fixing it is the object owner's or the manager's call.
-  - WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE is `waiting` on an UNRESOLVABLE edge
 - 🔔 **strategy-review-packets** (red_crons) — latest scheduled run concluded 'failure'
   - strategy-review-packets
 - **OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT** (soaks · 11d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: verdicts_differ=true. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
@@ -222,16 +216,16 @@ _Generated 2026-09-13T04:43:35+00:00 · verdict **all_sources_read**_
   - The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze
 - **OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES** (soaks · 4d) — soak UNKNOWN — NO PROBE IS DECLARED for this soak, so nothing is reading it. Ready means: dropped_symbol_dedupe_count>=1. This is a KNOWN, DECLARED gap (`probe_absent_reason` says why) — it is NOT evidence the soak is empty, and it is not evidence it is accruing either. Nobody has looked.
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
-- **ERRFEED-9da85381** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 57 rows 2026-09-10T09:07:19 → 2026-09-12T23:43:20 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
-  - [error] x57 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
+- **ERRFEED-9da85381** (error_feed · 3d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 58 rows 2026-09-10T09:07:19 → 2026-09-13T04:13:49 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
+  - [error] x58 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
 - **OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES** (open_items · 3d) — monitoring row 3d since last observation (cadence 3d)
   - MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer
 - **OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING** (open_items · 2d) — monitoring row 2d since last observation (cadence 2d)
   - MI-246 (Tier-1, PR #11787) gave a FILED-but-never-ROUTED manager-checklist row an AGE, derived from the git history of docs/claude/work/MANAGER-CHECKLIST.json because items[] carries no `state_since` 
 - **ERRFEED-0aa1e4e0** (error_feed · 1d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 3 rows 2026-09-12T05:05:31 → 2026-09-12T11:07:25 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog
   - [error] x3 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: SOLUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Re
-- **ERROR-FEED-SUMMARY** (error_feed) — 33 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-12T21:48:53.302854+00:00`.
-  - 68 cause groups over 1331 rows (43 error-level, 25 warn-level, 0 new since the last digest)
+- **ERROR-FEED-SUMMARY** (error_feed) — 33 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-12T23:44:26.958724+00:00`.
+  - 68 cause groups over 1332 rows (43 error-level, 25 warn-level, 0 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
