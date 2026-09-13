@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T08:10:00Z",
+  "updated_at": "2026-09-13T08:45:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4117,7 +4117,7 @@
     }
   ],
   "as_of": "2026-09-13T08:10:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — operator-directed pause",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5762,6 +5762,51 @@
       "record what each lane left behind into OPEN-PRS once they report it",
       "#12046 still needs one operator merge click",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow, and there may be no lane running to observe it"
+    ]
+  },
+  "FINAL_STATE_2026_09_13T0845Z_MANAGER_STANDING_DOWN": {
+    "what_this_is": "The manager's LAST write of this run. Operator directed a full pause 2026-09-13 (weekly token budget spent). The operator was then asked whether the hourly manager tick should also stop and chose 'Stop the hourly tick too' — one verification pass, write the final state here, go quiet. This is that write. THE HOURLY TICK ROUTINE IS BEING DISABLED IN THE SAME PASS, so nothing will update this page until a human starts a new manager.",
+    "resumes": "2026-09-16T18:00:00Z — the seven_day rate window reset, read off all three lanes' own rate_limit_info.resetsAt (1789581600), not assumed.",
+    "LANE_CLOSE_OUT_VERIFICATION": {
+      "how_it_was_verified": "Not by asking the lanes and believing the answer: by reading origin for a push, and reading the pushed diff. A lane reporting it closed out is a claim; a commit on origin carrying a resumption note is the observation.",
+      "MI-278_RESEARCH": {
+        "verdict": "CLOSED OUT CLEANLY",
+        "evidence": "origin/claude/mi278-u45-avax-risk-qty-reconstruction, pushed 2026-09-13T08:40:57Z, subject 'WIP (paused 2026-09-13): U45 resumption note — AVAX scalp sizing, measured but uncommitted'. One file, +76 lines, all of it into its OWN work object WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER.yaml — exactly the shape the directive asked for (WIP prefix for an incomplete unit; note in the lane's own object, never in this checklist or SESSIONS.json, so there is no second writer).",
+        "quality_of_the_note": "High, and it is not a summary — it is measurement that exists nowhere else. It carries the population (a 1000-row journal tail, ids 4772-5736, 76 ict_scalp_avax_5m rows), CORRECTS TWO OF ITS OWN FALSE NEGATIVES in writing (a 1e-6 tolerance that made an exact match read as 'differs'; a wrong config key name), and lands a NEW finding: PB-20260822's stated blocker is real but MISDIAGNOSED — the pre-clamp risk qty is already written to account_context_snapshots and simply has no read surface, so adding that table to diag's _JOURNAL_TABLES is a far cheaper fix than the Tier-2 risk.py stamp the backlog row proposes."
+      },
+      "MI-279_OPS": {
+        "verdict": "CLOSED OUT CLEANLY, and reports NOTHING unpushed",
+        "evidence": "origin/claude/mi279-closeout-pause, two commits (08:18:13Z close-out note, 08:38:09Z arming). Resumption note into its own WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN.yaml; object deliberately left in_flight because this is a pause, not a completion.",
+        "what_it_hands_forward": "#12211 (U27) merged as 475495155. #12213 (U28) Tier-1 but landing:hold — NEEDS A HUMAN MERGE CLICK. #12216 (U29) Tier-1 self, armed, four required checks green at 08:10Z.",
+        "⚠️_a_CI_anomaly_it_flagged_that_a_successor_must_not_read_as_green": "#12213's head carries ONLY the `watch` check — no pull_request-event run has ever fired on that branch (it measured 5 runs, all push or pull_request_target), while the identical route on #12216 produced all four required checks twice. It dispatched guards.yml / pytest-run.yml / pytest-collect.yml by workflow_dispatch. VERIFY THOSE THREE ARE GREEN BEFORE MERGING #12213. total_count 1 is not green.",
+        "⚠️_the_loud_row_it_opened": "A real-money bybit_2 hedge book that no surface in this repo can fetch, so no surface can say whether the position is still there — and every surface reads through the same defective path, which means their silence is NOT evidence it closed. It is in OPEN-ITEMS as a loud row; it is the single most important thing this lane produced."
+      },
+      "MI-280_ENGINEERING": {
+        "verdict": "⚠️ COULD NOT SERVE ITS CLOSE-OUT TURN — a different fact from the other two, and it must not be reported as 'all three paused cleanly'.",
+        "evidence": "get_session at 08:28:09Z: status_bucket FAILED, post_turn_summary status_detail \"You've hit your weekly limit · resets Sep 16, 6pm (UTC)\". Its rate_limit_info reads isUsingOverage FALSE with status REJECTED, where MI-278 and MI-279 both read isUsingOverage TRUE — i.e. this lane is past the HARD stop and not on the overage path, so it could not take a turn at all. The pause trigger fired at 08:12:00Z into a session that could not answer it.",
+        "what_is_at_risk": "Its working branch claude/mi280-u92-malformed-removal-declaration is NOT on origin (measured 08:40:56Z with a positive control — eleven other mi280-* branches resolve). Whatever U92 contains exists only in that container. Whether it survives to 2026-09-16T18:00Z is UNKNOWN — that is 'we did not look', not 'it is safe'.",
+        "what_is_NOT_at_risk": "Everything else. 11 mi280-* branches are on origin, including #12217 (U91) and #12214 (U90), both pushed before the limit hit.",
+        "what_the_manager_did_about_it": "Nothing, deliberately. The operator was asked in advance what to do if a lane could not serve its turn and chose 'Report it and leave the lane alone'. So: recorded here, no re-trigger, no push on the lane's behalf, no archive."
+      }
+    },
+    "⚠️_A_CORRECTION_TO_THIS_MANAGERS_OWN_PAUSE_BLOCK_READ_IT_BEFORE_REUSING_THE_ROUTE": {
+      "what_the_earlier_block_claimed": "OPERATOR_DIRECTED_PAUSE_2026_09_13T0808Z states that create_trigger with persistent_session_id is the channel that reaches a running sub-session, and calls it 'the first time in this run that a directive has been pushed to a lane rather than left in a register and hoped for'.",
+      "what_the_evidence_now_says": "THAT IS UNPROVEN AND ONE LANE CONTRADICTS IT. MI-279's own close-out note states plainly: 'I NEVER RECEIVED THAT DIRECTIVE IN MY OWN CHANNEL. The manager delivered it via create_trigger into live sessions ... no such prompt reached this session, and I am acting on the commit-message relay' — it read the directive out of the commit message on PR #12215 and acted on that. MI-278's note names no channel at all.",
+      "so_what_is_actually_established": "Two of three lanes closed out. ZERO of them is confirmed to have closed out BECAUSE of the trigger. The one lane that says how it learned of the pause says it learned from a COMMIT MESSAGE. A trigger firing is a delivery receipt for a prompt, not evidence a rate-limited session served the turn it opened.",
+      "why_this_is_recorded_rather_than_quietly_dropped": "Because the earlier block reads as a proven capability, and a successor manager would reach for it in an emergency and believe the lane had been reached. The honest state is: the route is available and UNVERIFIED, and the cheap thing that demonstrably worked was writing the directive into a commit message on a PR the lanes were already watching. Do both next time; trust neither alone.",
+      "the_second_order_point": "This is the same class as everything else in this register — a mechanism that SHIPPED is not a mechanism that RAN, and a receipt is not an observation."
+    },
+    "WHAT_THE_MANAGER_DID_IN_ITS_LAST_HOUR": {
+      "merged_12046": "Tier-1 (scripts/check_claim_basis.py binds one more backlog file; .github/workflows/pytest-run.yml makes CI run MORE often). Merged as d2c55e2994b74a348ebc5f3261541e6ba1dce0fc under an operator-authorised MANAGER RULING — the operator authorised the ROUTE for a green Tier-1 PR whose owning lane is rate-limited, NOT this PR's content. Recorded in OPEN-PRS.json with the caveat that only the manager read the diff, and with the fact that the manager's first description of the PR to the operator was incomplete and was corrected before the merge.",
+      "MI-227_clause_3_observed": "The intent-reduce leg resize was read back off the venue and OPEN-ITEMS updated: trade 5731 (parent 5688), bybit_1 XRPUSDT, 18,377.1 -> 3,589.9, with BOTH tracked legs re-reading at qty 3589.9 against a 3589.9 position — coverage 1.00x where the F-36 defect would have left 5.12x. n=1, and bybit_1 is account_class paper. Stated, not buried.",
+      "a_false_anomaly_the_manager_filed_and_withdrew": "The manager filed a row claiming trade 5731's direction opposed its bracket. It was WRONG and is withdrawn as status 'invalid': an intent_reduce row's `direction` is the CLOSE-ORDER side by documented contract (src/units/accounts/clients.py:837-843), and the venue confirms bybit_1 holds XRPUSDT Buy 3589.9. Left in the register as an invalid row rather than deleted, because the withdrawal is the useful artifact."
+    },
+    "WHAT_A_RESUMING_MANAGER_SHOULD_DO_FIRST": [
+      "1. Read this block and the CORRECTION above it before trusting the trigger route.",
+      "2. Check whether MI-280's container survived and whether claude/mi280-u92-malformed-removal-declaration ever reached origin. If it did not, U92 is gone and the unit is re-doable from its work object, not lost work in the sense that matters.",
+      "3. Give #12213 the three dispatched checks a look BEFORE merging it — MI-279's flagged anomaly. total_count 1 is not green.",
+      "4. Pick up MI-279's loud OPEN-ITEMS row on the unfetchable bybit_2 hedge book. It is real money and no surface can currently answer it.",
+      "5. Re-claim the lease with a reason (this manager's expires 2026-09-13T10:12:00Z and will be long stale)."
     ]
   }
 }
