@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/check_backlog_criteria.py only: a precondition refusing an unresolvable --base ref before any row is graded, replacing 547 findings that blamed individual backlog rows for what was entirely a base-resolution failure (measured; unprovenanced diagnostic output sub-class A). No verdict on any REAL base changes — rc=0 and all three sub-checks report OK against origin/main, and a real ref that merely lacks the file is still GRADED rather than refused, proven by a control that builds a commit over the empty tree. Three planted defects, each caught by its own control; ruff clean. Tier-1 surface by the canonical list (scripts/ops/**), and NOT landing machinery — verified against check_pr_landing.py::LANDING_MACHINERY, which does not list this file. No src/, no config/, no deploy/, no workflow, no register, no order path."
+}
