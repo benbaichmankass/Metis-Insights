@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "HELD ON PATH VOUCHABILITY, NOT ON DOUBT ABOUT THE CHANGE. scripts/backtest_ict_scalp.py is outside TIER1_SURFACE (which covers scripts/ci/**, scripts/ops/**, scripts/research/** and scripts/reports/**, but not scripts/backtest_*.py), so check_pr_landing cannot vouch for it and R-self-land correctly refuses. The change is research tooling and touches no live unit, no config, no order path: the target override is injected into cfg and computed by the existing src/units/strategies/ict_scalp.order_package, which is unmodified. Needs a human merge click.",
+  "hold_text": "scripts/backtest_ict_scalp.py is outside TIER1_SURFACE, which covers scripts/ci/**, scripts/ops/**, scripts/research/** and scripts/reports/** but not scripts/backtest_*.py. check_pr_landing therefore cannot vouch for the path and R-self-land correctly refuses. HELD ON PATH VOUCHABILITY, NOT ON DOUBT ABOUT THE CHANGE: it is research tooling and touches no live unit, no config, no order path -- the target override is injected into cfg and computed by the existing src/units/strategies/ict_scalp.order_package, which is unmodified. Needs a human merge click."
+}
