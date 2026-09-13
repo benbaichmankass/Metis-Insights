@@ -42,6 +42,68 @@ to `comms/strategy_evidence/` (216 KB, Tier-1 surface).
 **19 measured** (12 `faithful`, 7 `approximate`) · **10 `no_harness`** ·
 **23 `harness_failed`**.
 
+### ⚠️ WHAT `net_r_oos` IS, BEFORE ANY OF THESE NUMBERS ARE READ
+
+**It is the POOLED total over the whole 365-day window, not a held-out result**,
+and the number below is quoted throughout this memo on that understanding.
+Verified against the records rather than assumed: on **all 19 measured records,
+without exception**, `net_r_oos` equals the exact sum of every entry in
+`fold_detail` and `n_trades_oos` equals the sum of every fold's `trades`. There
+are 4 folds and **none is withheld**.
+
+**The builder says so itself and is not at fault** — it discloses this in the
+plainest terms and its field names are accurate:
+
+- `basis` is **`harness_timefolds`, never `purged_walkforward`** — its own
+  docstring refuses that term as *"exactly the unprovenanced-diagnostic failure
+  this repo has a guard family for"*.
+- *"The folds are out-of-sample with respect to EACH OTHER. If a leg's
+  parameters were tuned on this same history, **the pooled number is
+  optimistic** and no field here can detect that."*
+- Every record carries `param_selection_provenance: not_established` —
+  recording that it was not established rather than implying it was.
+
+So a positive `net_r_oos` is **not** evidence a leg's edge survives out of
+sample. It is a whole-window total on a harness whose fidelity is stated
+per leg. Read it beside `fidelity`, `basis` and `param_selection_provenance`,
+never alone.
+
+### ⚠️ AND A `critical` OPEN ROW MEASURED SIX OF THESE LEGS AND GOT THE OPPOSITE SIGN
+
+`BL-20260818-EVERY-CRYPTO-PULLBACK-LEG-IS-OOS-UNPROFITABLE` (severity
+**critical**, open) reports **five of six crypto pullback legs OOS-negative**.
+Every one of those six is positive here:
+
+| leg | `BL-20260818` OOS net_R (n) | this unit's `net_r_oos` (n) |
+|---|--:|--:|
+| `htf_pullback_trend_2h` | −14.6089 (48) | **+2.7261** (79) |
+| `eth_pullback_2h` | −6.8043 (49) | **+1.1402** (53) |
+| `eth_pullback_prop_2h` | −11.7846 (49) | **+0.5087** (62) |
+| `sol_pullback_2h` | −2.5783 (49) | **+8.7755** (16) |
+| `xrp_pullback_2h` | −0.5915 (48) | **+21.3820** (45) |
+| `ada_pullback_2h` | +3.4926 (49) | **+21.5841** (42) |
+
+**NEITHER REFUTES THE OTHER AND THIS MEMO DOES NOT CLAIM IT DOES.** They are
+different measurements of different things:
+
+| | `BL-20260818` | this unit |
+|---|---|---|
+| window | 2023-08-14 → 2026-08-18, 13,206 bars (**~3 years**) | **365 days**, 2025-09-13 → 2026-09-13 |
+| basis | per-leg derived IS/OOS split, a **held-out** arm | `harness_timefolds`, **4 folds pooled, none held out** |
+| take-profit | `--tp-cap-pct 0.099` imposed | live declared params |
+| corpus | trainer 2h corpora | `data.binance.vision` |
+
+A three-year window with a genuine held-out arm and a one-year pooled total are
+not the same quantity, and the shorter window is the more recent regime. **The
+`critical` row's verdict stands; this unit's records do not overturn it.**
+
+⚠️ **But the disagreement matters for the decision below.** If `decide()` is
+re-pointed at these records — option 1 — it would grade six legs on a 365-day
+pooled figure while a `critical` open row holds the opposite sign from a longer
+window with a real held-out arm. **Whichever record the gate reads, it must
+read the other one too.** Filed as
+`BL-20260913-TWO-OFFLINE-EDGE-MEASUREMENTS-OF-THE-SAME-SIX-LEGS-DISAGREE-IN-SIGN-AND-THE-M7-GATE-WOULD-CONSUME-ONLY-ONE`.
+
 | leg | fidelity | `net_r_oos` | n_oos | folds+ |
 |---|---|--:|--:|--:|
 | `trend_donchian` | approximate | -7.1079 | 75 | 1/4 |
