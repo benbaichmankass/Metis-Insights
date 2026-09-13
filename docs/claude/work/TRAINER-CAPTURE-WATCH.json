@@ -3,7 +3,7 @@
   "capture_state": "fresh",
   "controls_ok": true,
   "freshness_threshold_seconds": 1800,
-  "generated_at": "2026-09-13T16:28:06Z",
-  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34768645356",
-  "summary": "capture [fresh] age=185s path=/home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl"
+  "generated_at": "2026-09-13T20:57:13Z",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34782314278",
+  "summary": "capture [fresh] age=133s path=/home/ubuntu/ict-trading-bot/datasets-out/market_microstructure/BTCUSDT/5m/v001/data.jsonl"
 }
