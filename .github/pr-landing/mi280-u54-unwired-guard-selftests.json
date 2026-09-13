@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One file, scripts/ci/check_guard_selftest_coverage.py, plus one backlog row. Both inside TIER1_SURFACE and neither in check_pr_landing.py::LANDING_MACHINERY -- verified by importing the list, not by reading prose. No src/, no config/, no deploy/, no workflow, no runtime, no order path. ⚠️ DIRECTION OF THE CHANGE, STATED: it only splits an EXISTING report line into two, and adds no new failure condition -- the guard's exit code and its coverage floor are untouched, so it cannot red a PR that was green. It can only make an already-printed list read correctly. ⚠️ AND IT WIRES NOTHING: both scripts named in that line stay outside run_guards.py, which is the deliberate state their own `# wiring:` declarations record and which a perturbation re-confirmed here. Six planted controls cover all three states in both directions, and reverting the scan to a header window reds a control AND visibly regresses the live report."
+}
