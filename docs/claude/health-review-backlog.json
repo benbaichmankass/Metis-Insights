@@ -1,7 +1,7 @@
 {
   "_comment": "Health-review backlog — the parking lot for MINOR SYSTEM / PIPELINE / DOC issues a session noticed but did not fix (a stale comment, a small wiring gap, a doc that needs a touch, a flaky test). Per docs/CLAUDE-RULES-CANONICAL.md the session-end routine appends here instead of letting small issues rot. The autonomous /health-review skill drains this list every run: it triages each open item, fixes what it can, and marks it resolved. Do NOT use this for live-trading incidents or anything Tier-2/3 that needs immediate attention — raise those with the operator in chat. Three-way split (2026-05-26): STRATEGY / TRADING follow-ups go in docs/claude/performance-review-backlog.json; AI/ML EXPERIMENT follow-ups go in docs/claude/ml-review-backlog.json. Item ids here: BL-YYYYMMDD-NNN.",
   "schema_version": 1,
-  "updated_at": "2026-09-13T01:20:00+00:00",
+  "updated_at": "2026-09-13T02:00:00+00:00",
   "generated_at": "2026-08-18T09:35:00+00:00",
   "items": [
     {
@@ -21351,13 +21351,19 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-08-29T16:55:45+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: `done ->` plus a verdicts.json plus exit 0 after measuring 0 of 0 cells. A run that measured nothing reporting success is the unasserted-denominator shape, and it is HIGH severity because downstream consumers read that verdicts.json as evidence."
+        },
+        {
+          "at": "2026-09-13T02:00:00+00:00",
+          "by": "claude (MI-279 OPS lane, U14 class-first on the sweep-harness reporting class), session_013iSqp4LsU1eq8K326eUtgj",
+          "disposition": "resolved",
+          "note": "RESOLVED -- all three of the criterion's asks are built, including the 'better' option it offered.\n\nThe criterion: 'Exit non-zero when cells_measured == 0, and make the banner state the count: `done (0 cells measured) ->` rather than `done ->`. Better: refuse to write a verdicts.json at all for a zero-cell run, or write one whose top level carries an explicit `run_state: no_cells_measured` that consumers must branch on.'\n\nWHAT SHIPPED, all three:\n  1. THE BANNER STATES THE COUNT, on both paths. A measured run prints `done (N of M cells measured) -> <dir>`; a zero-cell run prints `done (0 of M cells measured -- NOTHING WAS MEASURED, this is not a result) -> <dir>`.\n  2. THE EXIT CODE IS NON-ZERO -- `return 2` when `measured` is empty, so the shell sees it and a wrapper cannot read success. It was `return 0` unconditionally.\n  3. THE ARTIFACT CARRIES AN EXPLICIT STATE -- verdicts.json gains a top-level `grading_census` whose `run_state` is one of THREE never-collapsed values: `no_cells` (the run produced nothing -- not a result), `all_ungraded` (cells exist, none reached a verdict -- *we could not look*) and `graded`. That is the 'better' branch the criterion offered, and it is strictly more informative than refusing to write the file, because a refusal leaves a reader with nothing to branch on at all.\n\nWHY A TOP-LEVEL STATE RATHER THAN ONLY THE COUNT: the denominator ALREADY EXISTED -- capital_distribution.json has carried `cells_total`/`cells_measured`/`cells_unmeasured` throughout, under a comment that says 'ALWAYS STATE THE POPULATION'. Nothing made a top-level reader look at it, and the row's own cost record is a session reading such a run as a result. A number in a sibling artifact is not a branchable state.\n\nThe row's framing that this is `silent-empty-guard`'s class one level up is carried into the code comment verbatim, so the next reader of that branch gets the reasoning and not just the behaviour.\n\nVERIFICATION SHARED BY ALL THREE ROWS. 13 tests pass in tests/test_fleet_sweep_split.py, and they are MUTATION-CHECKED rather than merely green: restoring origin/main's m20_fleet_exit_sweep.py under the SAME tests fails SIX of them (the cause-naming test and all five census tests) and passes 7; restoring the fix returns 13/13. One test passes in BOTH arms and that is deliberate -- test_a_clean_split_line_carries_no_cause is the CONTROL, asserting an ABSENCE, so it must pass either way; without it the cause assertion could pass for the wrong reason. ruff on the sweep: 22 findings BEFORE and 22 AFTER, identical, none introduced (pre-existing on main); the test file is clean in both arms. `ruff --select F821` passes, and _census's scope was checked by line order rather than assumed: main() at 2245, assigned 3136, read 3482-3491, SUMMARY written 3497.\n\n[!] WHAT IS NOT CLAIMED, and it is the same gap on all three. I did NOT run a deliberately-broken END-TO-END sweep -- that needs the real harness, pandas and a live backtest, which this lane cannot run. What is verified is the DECISION (pure functions, unit-tested with a mutation control) and the wiring (read in the source, with scope and ordering checked). So: shipped and unit-proven, NOT observed on a real broken run. A future session that does run one should record it."
         }
       ]
     },
@@ -21379,13 +21385,19 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-08-29T16:55:45+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: collapsing any harness failure to `harness_rc` cost a separate relay round-trip to see a plain ImportError. Same class as the trainer relay's error-stage collapse."
+        },
+        {
+          "at": "2026-09-13T02:00:00+00:00",
+          "by": "claude (MI-279 OPS lane, U14 class-first on the sweep-harness reporting class), session_013iSqp4LsU1eq8K326eUtgj",
+          "disposition": "resolved",
+          "note": "RESOLVED -- the captured cause now reaches both surfaces a human reads.\n\nThe criterion: 'Propagate the harness's captured stderr tail into the split-resolution failure message and into the run log ... DONE when a deliberately-broken harness invocation names its own cause in the sweep's stdout.'\n\n[!] HALF OF THIS WAS ALREADY DONE AND THE ROW DID NOT SAY SO -- worth recording, because a session reading the row would have gone looking for the capture. `resolve_split` ALREADY stored the tail: `meta.update(split=fixed_split, split_fallback='harness_rc', split_detail=(p.stderr or p.stdout)[-200:])`. The cause was captured and then dropped by every READER. So this was a reporting defect at the consumer, not a capture defect at the producer -- the same shape the row itself names in BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED.\n\nWHAT SHIPPED: `summary_split_line()` (the pure SUMMARY builder) and the per-leg stdout print in main() both now append `; cause: <split_detail>` when a fallback carries one. A fallback with no detail is unchanged, so nothing gains a dangling label.\n\nEXERCISED ON THE ROW'S OWN EXAMPLE: the test drives rc=1 with stderr `ModuleNotFoundError: No module named 'pandas'` -- the literal cause from relay #9940 -- and asserts the rendered line contains both `harness_rc` AND `ModuleNotFoundError` AND `pandas`. Before the fix that test fails; the stage token alone was all the line carried.\n\n[!] ONE ASYMMETRY, STATED: the test asserts the SUMMARY line, because `summary_split_line` is pure and directly callable. The stdout print builds the same string inside main() and is NOT directly asserted -- main() is not reachable from a test here, which is the same limitation `summary_split_line`'s own docstring records as the reason it was extracted. So stdout is verified by reading, SUMMARY by test.\n\nVERIFICATION SHARED BY ALL THREE ROWS. 13 tests pass in tests/test_fleet_sweep_split.py, and they are MUTATION-CHECKED rather than merely green: restoring origin/main's m20_fleet_exit_sweep.py under the SAME tests fails SIX of them (the cause-naming test and all five census tests) and passes 7; restoring the fix returns 13/13. One test passes in BOTH arms and that is deliberate -- test_a_clean_split_line_carries_no_cause is the CONTROL, asserting an ABSENCE, so it must pass either way; without it the cause assertion could pass for the wrong reason. ruff on the sweep: 22 findings BEFORE and 22 AFTER, identical, none introduced (pre-existing on main); the test file is clean in both arms. `ruff --select F821` passes, and _census's scope was checked by line order rather than assumed: main() at 2245, assigned 3136, read 3482-3491, SUMMARY written 3497.\n\n[!] WHAT IS NOT CLAIMED, and it is the same gap on all three. I did NOT run a deliberately-broken END-TO-END sweep -- that needs the real harness, pandas and a live backtest, which this lane cannot run. What is verified is the DECISION (pure functions, unit-tested with a mutation control) and the wiring (read in the source, with scope and ordering checked). So: shipped and unit-proven, NOT observed on a real broken run. A future session that does run one should record it."
         }
       ]
     },
@@ -21467,13 +21479,19 @@
       },
       "opened_at": "2026-08-18T09:35:00+00:00",
       "opened_by": "claude (system-review + trade-mechanics session, 2026-08-18)",
-      "status": "open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-08-29T16:55:45+00:00",
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: a cell that hit the OOS floor reads as MEASURED at the fleet level. Same family as BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED — roll-ups that count ungraded as graded."
+        },
+        {
+          "at": "2026-09-13T02:00:00+00:00",
+          "by": "claude (MI-279 OPS lane, U14 class-first on the sweep-harness reporting class), session_013iSqp4LsU1eq8K326eUtgj",
+          "disposition": "resolved",
+          "note": "RESOLVED -- the ungraded count now surfaces at all three levels the criterion named, and `insufficient_base` is untouched as a per-cell state.\n\nThe criterion: 'Surface an ungraded count in SUMMARY.md and in the sweep's stdout per leg -- e.g. `xrp_pullback_2h: 14 cells, 4 UNGRADED (insufficient_base)` -- and carry it in the fleet `selection` block beside `cells_tried`. A leg whose cells are majority-ungraded should not be reportable as assessed. DONE when a run containing an insufficient_base cell says so without opening the JSON.'\n\nALL THREE SURFACES:\n  1. STDOUT, per leg, in the criterion's own format: `    xrp_pullback_2h: 14 cells, 4 UNGRADED (insufficient_base)`, plus a fleet line `!! fleet run_state=... -- N of M cells graded. This run is NOT a measurement.` when the run is not graded.\n  2. SUMMARY.md gains a `## Grading census` section carrying run_state, the graded/ungraded counts, the per-leg breakdown, and a sentence saying in terms that `insufficient_base` is the HONEST state and that a majority-ungraded leg must NOT be reported as assessed -- the criterion's own words, in the human artifact, so it is read by the person rather than enforced against them.\n  3. THE `selection` BLOCK gains `cells_ungraded` immediately beside `cells_tried`, with a comment saying TRIED IS NOT GRADED. That pairing is the point: `cells_tried` alone is exactly the number that made 'we tested it' and 'we could not test it' identical.\n\nTHE THREE RUN STATES ARE NEVER COLLAPSED, and each is a different fact: `no_cells` (nothing produced), `all_ungraded` (cells exist and none reached a verdict -- *we could not look*), `graded`. A dedicated mutation test (`test_the_census_can_fail`) pins that they are genuinely distinct, because a census that returned `graded` for everything would otherwise pass three of the other tests.\n\n[!] `insufficient_base` ITSELF IS UNCHANGED, deliberately, and the row insists on this: it is the honest state and the defect was only ever that nothing rolled it up. No cell's grading moved.\n\nA HARNESS-ERROR LEG IS ITS OWN BUCKET (`legs_harness_error`, `per_leg[leg].harness_error`) and contributes ZERO cells rather than counting as graded -- otherwise a leg that never ran would improve the fleet ratio.\n\nVERIFICATION SHARED BY ALL THREE ROWS. 13 tests pass in tests/test_fleet_sweep_split.py, and they are MUTATION-CHECKED rather than merely green: restoring origin/main's m20_fleet_exit_sweep.py under the SAME tests fails SIX of them (the cause-naming test and all five census tests) and passes 7; restoring the fix returns 13/13. One test passes in BOTH arms and that is deliberate -- test_a_clean_split_line_carries_no_cause is the CONTROL, asserting an ABSENCE, so it must pass either way; without it the cause assertion could pass for the wrong reason. ruff on the sweep: 22 findings BEFORE and 22 AFTER, identical, none introduced (pre-existing on main); the test file is clean in both arms. `ruff --select F821` passes, and _census's scope was checked by line order rather than assumed: main() at 2245, assigned 3136, read 3482-3491, SUMMARY written 3497.\n\n[!] WHAT IS NOT CLAIMED, and it is the same gap on all three. I did NOT run a deliberately-broken END-TO-END sweep -- that needs the real harness, pandas and a live backtest, which this lane cannot run. What is verified is the DECISION (pure functions, unit-tested with a mutation control) and the wiring (read in the source, with scope and ordering checked). So: shipped and unit-proven, NOT observed on a real broken run. A future session that does run one should record it."
         }
       ]
     },
