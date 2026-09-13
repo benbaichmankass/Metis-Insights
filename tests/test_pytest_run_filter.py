@@ -116,6 +116,25 @@ COVERED = {
         "spawn edits this file) and included anyway: a register write-back IS the "
         "diff that can revert a field, so excluding it would exempt exactly the "
         "change the guard exists for",
+    "docs/claude/work/objects/WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS.yaml":
+        "test_decision_subject reads this REAL object AND globs the whole "
+        "objects/ directory, asserting no live decision_request declares a "
+        "`subject.kind` outside SUBJECT_KINDS. Declaring one IS an object-only "
+        "diff, so the assertion is falsifiable by exactly the change that would "
+        "short-circuit past it. ⚠️ COSTLY AND MEASURED RATHER THAN GUESSED: 11 "
+        "of the last 200 commits on main (5.5%) touch this tree, against 1.0% "
+        "for docs/claude/work/SESSIONS.json, which is covered above on the same "
+        "reasoning -- a write to the register IS the diff the assertion is "
+        "about, so excluding it would exempt precisely that change. ⚠️ THE "
+        "CHEAPER FIX IS NOT TAKEN HERE AND IS NOT PRETENDED AWAY: give the "
+        "subject-kind property a guard-side owner (as "
+        "`work-digest-source-coverage` does for the digest glob) and this tree "
+        "could be excluded with a TRUE premise instead of covered. Nothing in "
+        "scripts/ validates SUBJECT_KINDS today -- verified by grepping for the "
+        "symbol, which appears only in src/runtime/decision_subject.py and this "
+        "one test -- so excluding it now would be the assumed premise "
+        "BL-20260814 was filed about. Filed as the follow-up rather than "
+        "half-built here",
     "docs/claude/SUNSET-DISPOSITIONS.json":
         "test_phase_g_sunset_and_pull::test_the_live_register_and_the_live_pass_agree "
         "runs check_sunset_dispositions.audit over the REAL register. A row claiming "
@@ -186,6 +205,36 @@ DELIBERATELY_EXCLUDED = {
     # premise genuinely holds HERE. It did NOT hold for the exit-coverage
     # matrix, which is why that file moved to COVERED above; the premise is
     # per-file and re-checking it is the point of this table.
+    # ⚠️ THE KEY IS THE DIRECTORY, AND THAT IS THE WHOLE POINT — it excuses the
+    # DIRECTORY-LEVEL read and nothing under it. `_scan_excluded` matches
+    # DELIBERATELY_EXCLUDED by EXACT key, so every per-file read beneath this
+    # stays graded.
+    #
+    # The first draft of this change put `docs/claude` in EXCLUDED_TREES
+    # instead, and a planted revert caught it: dropping
+    # docs/claude/system-review-checklist.json from the grep reddened NOTHING,
+    # because the tree exclusion had silently excused every per-file read under
+    # docs/claude/ — re-creating, for that tree, the exact blind spot the
+    # file/tree split was built to close, in the change that built it.
+    #
+    # What is excused: tests/test_work_digest.py GLOBS this directory for
+    # `*-review-backlog.json` and asserts every one on disk is declared in
+    # work_digest.SOURCES, so its dependency is WHICH FILES EXIST here, not any
+    # file's contents. The filter matches on PATH and cannot tell an ADD from an
+    # EDIT, so covering that dependency means matching the whole tree — measured
+    # 2026-09-12 at 330 committed files, touched by every backlog append.
+    #
+    # ⚠️ THE "guards OWNS IT" PREMISE IS TRUE HERE AND WAS MADE TRUE IN THE SAME
+    # CHANGE, not assumed. The property's one owner — work_digest.py's own
+    # self-test check 11 — is now a step in the `work-digest-source-coverage`
+    # guard, and `guards` does not short-circuit. Before that it ran only on
+    # schedule / push-to-main / dispatch, so a PR adding a review backlog was
+    # graded by nobody until after it merged. BL-20260814 is the row recording
+    # that this premise had never been checked per-file; this is the check.
+    "docs/claude":
+        "the DIRECTORY-level glob read only (see above) — per-file reads under "
+        "it are still graded, and `work-digest-source-coverage` in the guards "
+        "job carries the property this excuses",
     "docs/claude/health-review-backlog.json": "guards job owns doc coherence",
     "data/some_fixture.csv": "bulk data, not asserted structurally by pytest",
     # The rest of docs/research/ stays excluded: the matrix is the one file
@@ -375,7 +424,26 @@ def _committed_docs_readers() -> dict[str, set[str]]:
 # trustworthy.
 # ---------------------------------------------------------------------------
 
-_PATH_ROOTS = {"REPO", "REPO_ROOT", "_REPO_ROOT"}
+# ⚠️ MEASURED FROM THE TREE, NOT GUESSED, AND IT WAS THREE NAMES UNTIL
+# 2026-09-12. A test module binds its repo root to whatever name it likes, and
+# this set decides which of those the AST walk can even see — so a name missing
+# here is not a narrower scan, it is a silently blind one. Census over the 1145
+# files under tests/, counting module-level assignments of a `__file__`-derived
+# path: REPO 139, _REPO_ROOT 44, REPO_ROOT 38 (the three that were here), and
+# then ROOT 17, _ROOT 14, _REPO 7 and REAL 1 — 39 files whose every committed
+# read was invisible. Adding them surfaced FOUR more live short-circuits.
+#
+# ⚠️ THE SET IS NO LONGER MAINTAINED BY HAND ALONE. A census asserts it
+# against the tree — see `test_every_repo_root_binding_name_is_recognised`
+# below — because a name missing here is invisible from a green run, which
+# is how six of them went unnoticed.
+#
+# The remaining names in that census (_SPEC, SCRIPT, OPS, WORKFLOW, ...) are
+# NOT repo roots — they point at a specific script or workflow — so they are
+# deliberately absent rather than forgotten, and `_chain` would resolve them to
+# wrong paths if added.
+_PATH_ROOTS = {"REPO", "REPO_ROOT", "_REPO_ROOT", "ROOT", "_ROOT", "_REPO",
+                "REAL"}
 
 
 def _tracked() -> set:
@@ -657,3 +725,146 @@ def test_the_two_scans_agree_on_the_live_tree():
     assert not missing, (
         "the AST scan no longer sees docs/ paths the line scan does, so it is "
         f"blind again over part of that tree: {missing}")
+
+
+# ---------------------------------------------------------------------------
+# THE ROOT-NAME CENSUS, 2026-09-12. `_PATH_ROOTS` decides which modules the AST
+# walk can see at all, and it was three names against a tree that uses seven —
+# 39 test files whose every committed read was invisible, four of them genuinely
+# short-circuiting. A hand-maintained set that can fall behind unnoticed is the
+# same defect this whole file exists to stop, one level up.
+# ---------------------------------------------------------------------------
+
+_ROOT_BINDING = re.compile(r"\.parents\[(\d+)\]$")
+
+
+def _repo_root_binding_names() -> dict[str, set[str]]:
+    """{name -> {test files}} for every module-level binding of the REPO ROOT.
+
+    A binding counts only when the assigned expression is EXACTLY
+    `...__file__....parents[N]` with N equal to the file's own depth below the
+    repo. Both halves are load-bearing and were measured:
+
+      * requiring the expression to END at `parents[N]` is what separates a
+        repo root from a path to a specific file — without it `_SPEC`,
+        `SCRIPT`, `OPS` and `WORKFLOW` (all `parents[1] / "scripts" / ...`)
+        come back as roots, and adding them to `_PATH_ROOTS` would make
+        `_chain` resolve real reads to fabricated paths;
+      * requiring N to equal the file's depth is what stops a deliberate
+        parent-of-the-repo or subdirectory handle counting as the root.
+    """
+    found: dict[str, set[str]] = {}
+    for path in sorted((REPO / "tests").rglob("*.py")):
+        depth = len(path.relative_to(REPO).parts) - 1
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            src = ast.unparse(node.value)
+            if "__file__" not in src:
+                continue
+            m = _ROOT_BINDING.search(src)
+            if not m or int(m.group(1)) != depth:
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    found.setdefault(target.id, set()).add(
+                        path.relative_to(REPO).as_posix())
+    return found
+
+
+def test_every_repo_root_binding_name_is_recognised():
+    """PLANTED: a root name the AST walk cannot see makes it silently blind.
+
+    Not narrow — BLIND. Every committed path a module reads through an
+    unrecognised root is absent from the scan's output, and absence renders
+    exactly like coverage. Measured 2026-09-12 before this control existed:
+    `_PATH_ROOTS` held three names, the tree used seven, and the four missing
+    ones hid 39 files and four live short-circuits.
+    """
+    census = _repo_root_binding_names()
+    assert len(census) >= 3, (
+        f"the census found almost nothing ({sorted(census)}) — the detector is "
+        "broken, and this control proves nothing in that state")
+    # Positive control: the name the scan has always used must be found, and
+    # found in bulk, or the discriminator has stopped discriminating.
+    assert len(census.get("REPO", ())) > 50, (
+        f"'REPO' should be the dominant root binding: {len(census.get('REPO', ()))}")
+    # Negative control: a path to a SPECIFIC FILE must not read as a root.
+    assert "_SPEC" not in census, (
+        "`_SPEC` is `parents[N] / 'scripts' / ...`, a path to one script. If it "
+        "reads as a repo root the expression-end rule has been dropped, and "
+        "adding such names to _PATH_ROOTS makes _chain resolve to fabricated "
+        "paths")
+
+    unrecognised = {n: sorted(f)[:3] for n, f in census.items()
+                    if n not in _PATH_ROOTS}
+    assert not unrecognised, (
+        "these module-level REPO-ROOT bindings are not in _PATH_ROOTS, so every "
+        "committed path the modules below read is INVISIBLE to the general "
+        f"scan: {unrecognised}. Add the name — do not narrow this census.")
+
+
+def test_the_work_digest_source_coverage_runs_on_a_pr():
+    """PLANTED: the premise behind excluding the `docs/claude` tree.
+
+    That exclusion is only honest because `guards` grades the property instead,
+    and `guards` does not short-circuit. Before 2026-09-12 it did not: the
+    property's owner (work_digest's own self-test) ran on schedule, push-to-main
+    and dispatch, never on `pull_request` — so a PR adding a review backlog was
+    graded by nobody until after it had merged.
+
+    Two halves, because either alone is worth nothing: the guard must be
+    REGISTERED, and the property it runs must actually DISCRIMINATE.
+    """
+    import importlib.util as _ilu
+
+    # Half 1 — registered, and pointed at the one owner rather than a copy.
+    spec = _ilu.spec_from_file_location(
+        "_rg", REPO / "scripts" / "ci" / "run_guards.py")
+    rg = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(rg)
+    entries = [g for g in rg.GUARDS if g.get("name") == "work-digest-source-coverage"]
+    assert len(entries) == 1, (
+        "the work-digest source-coverage guard is not registered, so nothing "
+        "grades the docs/claude glob dependency before a merge — and that "
+        "dependency is why the tree may be excluded from pytest-run at all")
+    steps = [" ".join(s) for s in entries[0]["steps"]]
+    assert any("scripts/ops/work_digest.py" in s and "--self-test" in s
+               for s in steps), (
+        f"the guard no longer invokes the property's owner: {steps}. A second "
+        "implementation here would drift from the one in work_digest.py")
+    assert entries[0]["when"] is None, (
+        "the guard is path-scoped, but the diff that breaks it ADDS a backlog "
+        "file and need touch nothing a `when:` could name")
+
+    # Half 2 — the property discriminates. Asserted against a PLANTED tree, not
+    # the live one: a property that happens to hold today passes either way.
+    spec = _ilu.spec_from_file_location(
+        "_wd", REPO / "scripts" / "ops" / "work_digest.py")
+    wd = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(wd)
+
+    def unread_backlogs(root: pathlib.Path) -> set[str]:
+        declared = {s.path for s in wd.SOURCES}
+        on_disk = {f"docs/claude/{p.name}"
+                   for p in (root / "docs" / "claude").glob("*-review-backlog.json")}
+        return on_disk - declared
+
+    assert not unread_backlogs(REPO), (
+        f"a review backlog on disk is not read by the digest: "
+        f"{sorted(unread_backlogs(REPO))}")
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        planted = pathlib.Path(td)
+        (planted / "docs" / "claude").mkdir(parents=True)
+        (planted / "docs" / "claude" / "planted-review-backlog.json").write_text(
+            "[]", encoding="utf-8")
+        assert unread_backlogs(planted) == {
+            "docs/claude/planted-review-backlog.json"}, (
+            "a review backlog the digest does not declare read as COVERED — the "
+            "property cannot fail, so registering it in guards buys nothing")
