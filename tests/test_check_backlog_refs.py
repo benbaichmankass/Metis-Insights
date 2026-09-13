@@ -298,3 +298,90 @@ class TestFollowUpsRegisterResolves:
         assert "FU-20260511-001" in filed, "a filed FU- id must resolve"
         assert "FU-20260519-003" not in filed, \
             "an unfiled FU- id must still dangle; if it was filed, update this test"
+
+
+class TestUnreadableRegisterIsNotAnEmptyOne:
+    """A register that does not PARSE shrinks the universe of filed ids silently.
+
+    MEASURED on `origin/main` @`eb606713d`, one `THIS IS NOT JSON` line inserted
+    into `docs/claude/health-review-backlog.json` (1574 rows): `--all` went from
+
+        1874 filed ids; 86 dangling references repo-wide
+    to
+        299 filed ids; 1660 dangling references repo-wide
+
+    exit 0 both times. Every one of the added 1574 is a confident claim that a
+    row which exists does not, and 1660 lines of it buries the 86 real findings
+    — the desensitised alarm this repo calls its own worst failure mode.
+
+    Both directions are asserted. The over-reporting case is real: an ABSENT
+    optional register, and a register that is merely EMPTY, must NOT be called
+    unreadable, or the banner fires on trees that are perfectly fine.
+    """
+
+    def test_a_corrupt_register_is_NAMED_not_silently_skipped(self, tmp_path):
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        bad = tmp_path / "docs" / "claude" / "ml-review-backlog.json"
+        bad.write_text("THIS IS NOT JSON", encoding="utf-8")
+        filed, unreadable = cbr.filed_ids_with_state(tmp_path)
+        assert unreadable == ["docs/claude/ml-review-backlog.json"], (
+            "a register that is present and does not parse must be REPORTED; "
+            "skipping it silently is what turned 86 danglers into 1660")
+        assert "BL-20260101-REAL" in filed, (
+            "the registers that DO parse must still contribute their ids")
+
+    def test_an_EMPTY_but_valid_register_is_not_unreadable(self, tmp_path):
+        _backlog(tmp_path, [])
+        assert cbr.filed_ids_with_state(tmp_path) == (set(), []), (
+            "empty is a real reading; calling it unreadable would fire the "
+            "banner on a tree that is fine")
+
+    def test_an_ABSENT_optional_register_is_not_unreadable(self, tmp_path):
+        # comms/follow_ups.json is optional. A tree without it is not a tree
+        # whose universe is incomplete — opposite facts.
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        assert cbr.filed_ids_with_state(tmp_path)[1] == []
+
+    def test_the_sweep_REFUSES_rather_than_stating_a_count_it_cannot_stand_behind(
+            self, tmp_path, capsys):
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        (tmp_path / "docs" / "claude" / "ml-review-backlog.json").write_text(
+            "{ NOT JSON", encoding="utf-8")
+        rc = cbr.main(["--repo-root", str(tmp_path), "--all"])
+        out = capsys.readouterr().out
+        assert rc != 0, "a sweep that cannot establish its own denominator must not exit 0"
+        assert "universe of FILED ids is INCOMPLETE" in out
+        assert "ml-review-backlog.json" in out
+        # ⚠️ THE BANNER MUST PRECEDE THE LIST. A reader who has already read the
+        # dangling lines has drawn the conclusion before any footnote lands.
+        assert out.index("INCOMPLETE") < out.index("dangling references")
+        assert "OVER-COUNTED" in out, (
+            "the count line itself has to carry the caveat — the banner scrolls away")
+
+    def test_a_clean_tree_still_exits_0_and_raises_no_banner(self, tmp_path, capsys):
+        # THE POSITIVE CONTROL. A guard that only ever demonstrates its failures
+        # cannot show it is not simply always-red.
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        rc = cbr.main(["--repo-root", str(tmp_path), "--all"])
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "INCOMPLETE" not in out
+        assert "OVER-COUNTED" not in out
+
+    def test_the_gating_mode_WARNS_and_keeps_its_verdict(self, tmp_path, capsys):
+        """Measured: the gate cannot false-fail on a real id, so it does not refuse.
+
+        `_refs_anywhere_at` exempts any id already cited at the base, and every
+        real row id is cited at base in its own register row. A refusal nothing
+        can reach is the decorative branch `collapsed-state-guard` refuses — so
+        the gating path gets the banner and keeps its answer.
+        """
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        (tmp_path / "docs" / "claude" / "ml-review-backlog.json").write_text(
+            "nope", encoding="utf-8")
+        rc = cbr.main(["--repo-root", str(tmp_path), "--base", "no-such-ref-000"])
+        out = capsys.readouterr().out
+        assert "universe of FILED ids is INCOMPLETE" in out
+        assert rc in (0, 1), (
+            "the gating verdict is unchanged by an unreadable register — see the "
+            "measurement in filed_ids_with_state's docstring")

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/diag_relay_render.py (new, self-tested, reporting only), scripts/ci/run_guards.py (registers its self-test as diag-relay-render-guard), .github/workflows/vm-diag-snapshot.yml (the relay's comment renderer calls the module instead of slicing the pretty-printed JSON), and docs/claude/health-review-backlog.json. All in TIER1_SURFACE (scripts/**, .github/**, docs/**). This changes only what a diag COMMENT shows and in what order — no VM command, no query, no src/, no ml/, no config/, no order path, nothing enacted. Also removes a byte-identical DUPLICATE row id that was already on origin/main and was failing register-id-guard for every backlog-touching PR in the repo; removal asserted lossless (objects equal, one row removed, id order otherwise identical, survivor byte-equal to the first occurrence)."
+}

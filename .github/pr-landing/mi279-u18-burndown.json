@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tooling and observability: scripts/ops/backlog_append.py stamps a close date on a WITNESSED close (never back-dating, never overwriting a stated date), the closed-status vocabulary is hoisted to one owner in scripts/ops/system_review_checklist.py and imported rather than re-declared, 9 new tests with mutation controls both ways, and one backlog row updated to record the fix and that neither of its clauses clears. No src/, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted, nothing back-filled."
+}
