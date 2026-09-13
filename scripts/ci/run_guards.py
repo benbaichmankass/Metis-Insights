@@ -2287,6 +2287,27 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_selftest_wiring.py"]],
     },
     {
+        "name": "diag-relay-render-guard",
+        # A guard that is TRUNCATED AWAY is not a guard. The relay cuts each
+        # path's JSON to a byte budget, and the db-explorer envelope orders
+        # `rows` BEFORE `total`/`filter_state`/`count` — so a head truncation
+        # kept the data and dropped the fields that invalidate it
+        # (BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE).
+        #
+        # The self-test runs on EVERY invocation, same reasoning as
+        # exit-mechanism-coverage-guard: it carries NEGATIVE CONTROLS asserting
+        # that the OLD head-truncation drops `filter_state` and the denominator,
+        # and a probe that cannot show the defect proves nothing about the fix.
+        #
+        # The workflow is globbed too: this logic was inline YAML python and
+        # therefore untestable, which is why it shipped wrong and stayed wrong.
+        "when": {"globs": ["scripts/ops/diag_relay_render.py",
+                           ".github/workflows/vm-diag-snapshot.yml"]},
+        "steps": [
+            ["python3", "scripts/ops/diag_relay_render.py", "--self-test"],
+        ],
+    },
+    {
         "name": "exit-mechanism-coverage-guard",
         # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
         # unit module never reads. Silently inert, and INVISIBLE to
@@ -2972,6 +2993,44 @@ def arm_register_merge_driver() -> str:
     return state
 
 
+def counts_line(n_pass: int, n_fail: int, n_could_not_run: int,
+                n_skip: int, n_not_graded: int = 0) -> str:
+    """The headline. A PURE function, so what it CLAIMS is arguable in a test.
+
+    ⚠️ **THE NOT-GRADED COUNT BELONGS HERE, NOT ONLY IN A FOOTER**
+    (`BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE`).
+    Guard relevance is computed from a COMMIT RANGE, so a run started with
+    uncommitted work silently drops every guard gated on those paths. The
+    script DETECTS that and says so — under a skip list dozens of lines long,
+    below the one line a reader actually scans for green.
+
+    ⚠️ **THE FOOTER CAVEAT WAS ALREADY THERE AND WAS NOT ENOUGH.** "All
+    SELECTED guards passed — but …" landed 2026-08-13 (#8948); the row was
+    filed **2026-09-03, three weeks later**, by an author looking at that
+    output. MEASURED then, same tree back to back: uncommitted 47 pass / 17 not
+    selected, committed 64 pass / 0 not selected — and the seventeen included
+    `canonical-doc-coherence`, `ruff-lint` and `collapsed-state-guard`,
+    precisely the guards with something to say about that diff.
+
+    ⚠️ **NOT a fifth bucket beside PASS/FAIL/SKIP.** These guards are ALREADY
+    counted in `skipped`; adding them again would stop the counts summing to
+    the number of guards considered. It is a QUALIFIER, and it renders only
+    when there is something to qualify — a clean run's line is byte-identical
+    to what it has always been, so this cannot become an always-on decoration
+    a reader learns to skip past.
+
+    ⚠️ **AND IT DOES NOT CHANGE THE EXIT CODE, deliberately.** The row says so
+    in terms: local iteration on a dirty tree is the normal way to use this
+    script, and failing it would train people to ignore the runner. What is
+    fixed is the SUMMARY claiming more than the run established.
+    """
+    line = (f"PASS {n_pass} · FAIL {n_fail} · "
+            f"COULD-NOT-RUN {n_could_not_run} · SKIP {n_skip}")
+    if n_not_graded:
+        line += f" · {n_not_graded} NOT GRADED (uncommitted)"
+    return line
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-ref", default=os.environ.get("GUARDS_BASE_REF", "main"))
@@ -3147,9 +3206,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 notify.append(name)
             print(f"--- {name}: FAIL ({dt:.1f}s) — {reason}", flush=True)
 
+    # ── COMPUTED BEFORE THE HEADLINE, BECAUSE THE HEADLINE IS WHAT IS READ ──
+    # Guards that WOULD have been relevant to the working tree and were not
+    # selected, because relevance is computed from a COMMIT RANGE. This was
+    # computed ~40 lines below, after the counts line had already printed
+    # `FAIL 0` over a run the script itself knew was incomplete
+    # (`BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE`).
+    #
+    # ⚠️ THE FOOTER CAVEAT WAS ALREADY THERE AND WAS NOT ENOUGH. "All SELECTED
+    # guards passed — but …" landed 2026-08-13 (#8948); the row was filed
+    # 2026-09-03, THREE WEEKS LATER, by an author looking at that output. The
+    # truth was in a footer under a 38-line skip list, and the counts line —
+    # the thing a reader scans for green — said `FAIL 0` and nothing else.
+    # MEASURED then, same tree back to back: uncommitted 47 pass / 17 not
+    # selected, committed 64 pass / 0 not selected, and the seventeen included
+    # canonical-doc-coherence, ruff-lint and collapsed-state-guard — precisely
+    # the ones with something to say about that diff.
+    unchecked = sorted({g["name"] for g in selected
+                        if g["name"] in skipped and is_relevant(g["when"], dirty)})
+
     print("\n" + "=" * 72)
-    print(f"PASS {len(passed)} · FAIL {len(failures)} · "
-          f"COULD-NOT-RUN {len(could_not_run)} · SKIP {len(skipped)}")
+    print(counts_line(len(passed), len(failures), len(could_not_run),
+                      len(skipped), len(unchecked)))
     if could_not_run:
         print()
         print("COULD NOT RUN — these guards CHECKED NOTHING. This is the "
@@ -3186,8 +3264,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {item}")
         print("  A guard needing real push-time coverage must carry an UNGATED "
               "whole-tree step (see api-tier-policy-guard).")
-    unchecked = sorted({g["name"] for g in selected
-                        if g["name"] in skipped and is_relevant(g["when"], dirty)})
+    # `unchecked` is computed ABOVE, before the counts line — see the note there.
     # A guard named in --only that relevance then skipped. Distinct from
     # `unchecked`: nothing is dirty and no commit is missing — the caller
     # ASKED FOR THIS GUARD BY NAME and it did not run. `PASS 0` is printed,
