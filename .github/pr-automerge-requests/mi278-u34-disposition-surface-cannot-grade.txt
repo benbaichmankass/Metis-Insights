@@ -1,0 +1,7 @@
+MI-278 U34 — the M7 gate reads the offline edge record and still cannot act on it.
+Tier-1, landing: self. PR #12175, opened by this session so it carries a real
+pull_request event and CI fires normally.
+Guards on committed state: every step PASS except pr-landing R6, which this file
+satisfies. document-index-guard FAILED on an earlier commit and was FIXED: a
+merge conflict was committed with its markers because I read the merge output
+with tail -4 and missed the second conflicted file.

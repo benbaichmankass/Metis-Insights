@@ -201,3 +201,40 @@ progress:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
 
+  U34: >-
+    DELIVERED. Worked PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13's next_action, which THREE prior
+    sessions re-measured around without ever running. !! THE PACKETS ALREADY EXISTED AND NOBODY
+    READ THEM: a daily cron has committed one index per day to comms/strategy_reviews/ since
+    2026-09-01 -- ELEVEN of them -- and every one reads actionable: 0 over graded: 52. RAN THE
+    PRODUCER FOR THE FLEET: scripts/ops/build_strategy_evidence.py over all 52 enabled legs, 52
+    records committed to comms/strategy_evidence/ -- 19 MEASURED (12 faithful, 7 approximate), 10
+    no_harness, 23 harness_failed, against a prior coverage of ONE (the builder's own verification
+    case). That discharges the precondition
+    BL-20260909-STRATEGY-REVIEW-PACKET-GRADES-EDGE-OFF-A-LIVE-WINDOW-WHICH-THE-PROMOTION-EVIDENCE-RULE-FORBIDS
+    named in its own progress note.
+    !! AND IT CHANGES NO VERDICT, PROVEN BY RUNNING IT RATHER THAN READING IT: with the records in
+    place, htf_pullback_trend_2h (FAITHFUL, net_r_oos +2.7261, n=79) grades hold, and
+    trend_donchian (net_r_oos -7.1079, n=75) ALSO grades hold. decide() consults the offline record
+    only to choose between NO_OFFLINE_EVIDENCE and 'hold'; the KILL/DEMOTE matrix begins at
+    `elif n < 30` and is gated on n_closed >= 20 LIVE closes -- the calendar-time accrual
+    docs/CLAUDE-RULES-CANONICAL.md's promotion-evidence rule forbids. MI-216 shipped the producer
+    with 'the producer comes FIRST'; the consumer was never re-pointed.
+    !! TWO OF PB-20260821'S FOUR LEGS ARE ON REAL MONEY AND THAT ROW HAS NEVER SAID SO --
+    eth_pullback_2h on bybit_2 and tlt_pullback_1h on alpaca_live, both execution: live -- while the
+    row singles out slv_trend_1h, which is paper-only and already in shadow.
+    !! AND BOTH LEGS THAT CAN BE GRADED SHOW A POSITIVE OFFLINE EDGE, the opposite of the row's
+    premise; htf_pullback_trend_2h's +2.73 at n=79 FAITHFUL is the first evidence the mechanism has
+    ever offered about a leg it demoted to shadow on 2026-08-23. NOT a promotion proposal -- Tier-3,
+    not made here.
+    !! SHADOW IS A ONE-WAY DOOR: both shadow legs grade horizon_class structurally_ungradeable with
+    days_to_floor NULL, so the remedy that row proposes removes a leg from the surface that would
+    ratify it.
+    !! A NEW BLOCKER ON THE PRODUCER HALF: 13 of the 23 harness_failed are a FEED. Positive control
+    -- data.binance.vision HTTP 200 while Yahoo returns 429 / SSLError -- so 19 equity/ETF and 5
+    futures legs are unbuildable here, and yfinance is in requirements-backtest.txt but NOT
+    requirements.txt. Filed as
+    BL-20260913-THE-OFFLINE-EDGE-BUILDER-CANNOT-GRADE-ANY-EQUITY-OR-FUTURES-LEG-BECAUSE-YFINANCE-IS-NOT-IN-REQUIREMENTS-TXT.
+    !! COMMITTING THE RECORDS MAKES THE NEXT INDEX LOOK HEALTHIER WHILE CHANGING NOTHING -- 18 legs
+    move no_offline_evidence -> hold and actionable stays 0. Stated in the memo and in both backlog
+    rows so the label change is not read as progress. NO Tier-3 change is proposed; decide() is
+    untouched. Memo: docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md
