@@ -443,6 +443,28 @@ progress:
     defects planted and 19 caught -- two ESCAPED on the first pass and both were control gaps, not module
     bugs, now closed; 4 no-op plants fired zero). Nothing in src/, config/ or any unit file is touched.
     Memo: docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md
+  U23: >-
+    DELIVERED as the object's own done_condition deliverable -- a Tier-3 PROPOSAL, PR pending.
+    IT PROPOSES CHANGING NO TARGET PARAMETER. U2 established the brief's premise is false (no exit
+    lever is cutting winners short; the lever family is 3 of 49 winners and giveback_stop's two
+    fires BANKED +$2,471.70), so the take-profit is the only lever with attributed mass -- 18 of 49
+    winners ended exactly there. The M20 walk-forward arm set then STRUCTURALLY CANNOT grade it:
+    measured over the complete 246 arms / 33 legs / 3 families, tp_geometry is PERFECTLY CONFOUNDED
+    with family AND block_unit (uncapped <=> scalp <=> per_leg; capped <=> {donchian,pullback} <=>
+    family_pooled), NO family carries both geometries, all 246 arms share tp_cap_pct 0.099 so there
+    is no dose, and verdict tracks data volume (candidate median 23 folds / 288 OOS vs 16 / 222).
+    The seductive 75%-vs-30% candidate-rate gap IS the scalp-vs-others gap -- the same 28 arms.
+    THE ASK: two named research arms (a within-family geometry contrast, and a cap dose), with the
+    acceptance criterion stated in advance so it cannot be chosen afterwards. Neither touches live
+    money, config/ or the order path.
+    !! THIS DOES NOT SATISFY done_condition AND SAYS SO: that condition requires a lever with IS/OOS
+    + walk-forward BEHIND it, and the finding is that the walk-forward cannot support the lever.
+    THE OBJECT STAYS in_flight. Closing it on this would be marking my own homework.
+    !! It also WITHDRAWS a claim this session repeated in several board posts and PR bodies -- 'three
+    decision requests on the work object are unanswered'. The object file contains the string
+    'decision' ZERO times; the claim is unsupported and its origin is unknown.
+    Memo: docs/research/m20-u23-tier3-proposal-target-geometry-2026-09-12.md.
+    Audit: scripts/research/m20_target_geometry_evidence_audit.py (19 controls, 4 planted defects).
   U1: 'DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map IMPORTED
     from pipeline.monitor_unit_for; every call site ASSERTED against the unit source; cross-checked against
     1000 journal rows, 24 pairs confirmed, 0 contradictions. giveback_stop -- the only lever that by construction
