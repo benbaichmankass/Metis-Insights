@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row moved open -> resolved plus one `updates` entry, after its fix landed in #12138 and was verified on main (resolve_base at line 272, resolved_base passed at line 285, both controls present, 19 tests pass against main's copy). No code, config, workflow or runtime."
+}
