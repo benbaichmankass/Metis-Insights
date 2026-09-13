@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T07:55:00Z",
+  "updated_at": "2026-09-13T08:10:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T07:55:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0752Z manager tick",
+  "as_of": "2026-09-13T08:10:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — operator-directed pause",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5743,6 +5743,25 @@
       "#12046 still needs one operator merge click (fourth tick)",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — TOMORROW",
       "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit"
+    ]
+  },
+  "OPERATOR_DIRECTED_PAUSE_2026_09_13T0808Z": {
+    "the_directive": "Operator, 2026-09-13: \"we're out of tokens for this week, so we need to pause all lanes as soon as possible (they should close up whatever they're working on so no work is lost and we can pick up again in a few days)\".",
+    "corroborated_independently": "all three lanes' own get_session reports rate_limit_info {rateLimitType seven_day, isUsingOverage TRUE, status REJECTED, resetsAt 1789581600 = 2026-09-16T18:00:00Z}. The operator's statement and the API's agree.",
+    "HOW_the_directive_was_delivered_because_the_obvious_channel_does_not_exist": "A manager CANNOT message a running cloud sub-session — ListAgents returns no reachable agents, re-confirmed at 08:08Z. The channel that DOES reach one is create_trigger with persistent_session_id, which fires a prompt INTO the named live session. Three one-shot triggers created, all firing 2026-09-13T08:12:00Z: trig_01WcbCeED49HJjS4XGA84bFg (MI-278), trig_018pdd8tpTLhCWZyVqteaGPY (MI-279), trig_01MiaVcTHroUPhGafB5pAf8j (MI-280). ⚠️ RECORD THIS: the standing note that a manager cannot reach a sub-session is true of SendMessage and FALSE of this route. It is the first time in this run that a directive has been pushed to a lane rather than left in a register and hoped for.",
+    "what_each_lane_was_told": "In this order, because a turn may be refused mid-way and the early steps are the ones that preserve work: (1) PUSH FIRST, PROSE SECOND — commit and push every branch, arming a PR if the unit is complete and committing with a 'WIP (paused 2026-09-13):' subject if it is not, because an unpushed container is lost when it is reclaimed; (2) write a RESUMPTION NOTE into their OWN work object under docs/claude/work/objects/ — explicitly NOT into this checklist or SESSIONS.json, since a second writer corrupts them; (3) list every branch and open PR they leave behind; (4) stop and go idle. And: if a step fails because a request is refused, skip it and SAY SO — a partial close-out that is honest about its gaps beats a complete-looking one that is not.",
+    "state_at_the_moment_of_pausing": {
+      "MI-278_research": "IDLE / review_ready at 08:07Z — BETWEEN units, which is the safest possible moment to stop. 764506/1M (76%). Its own stated next action was to pick up another research unit; the directive supersedes that explicitly.",
+      "MI-279_ops": "RUNNING, 745508/1M (75%), mid-analysis of register arithmetic and a workflow PAT client. The most perishable of the three — that analysis may exist only in its context.",
+      "MI-280_engineering": "RUNNING, 729747/1M (73%), mid-way wiring self-test cases into main(). Told to leave it RECOVERABLE rather than finish it."
+    },
+    "what_is_NOT_established": "whether a rate-limit-REJECTED session can serve the close-out turn at all. The directive is delivered; the lanes acting on it is UNOBSERVED. Do not report the pause as complete until each lane's own push and resumption note are visible on origin. ⚠️ And the trigger tool warned that fired sessions carry no MCP connector tools — for a persistent session that warning is written for the fresh-session case and may not apply, but if a lane cannot reach mcp__github__* it can still git-push and use the arming-file route, which is what the directive asks for.",
+    "the_manager_session_itself_is_NOT_covered_by_this": "the operator said 'all lanes'. This session is the manager, and its hourly tick keeps firing and keeps spending. That is a real question and it is being put to the operator rather than decided here — disabling my own wake-up is not a call I should make unilaterally.",
+    "next": [
+      "VERIFY the pause rather than assume it: re-read all three at ~08:20Z and confirm each pushed and wrote a resumption note",
+      "record what each lane left behind into OPEN-PRS once they report it",
+      "#12046 still needs one operator merge click",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow, and there may be no lane running to observe it"
     ]
   }
 }
