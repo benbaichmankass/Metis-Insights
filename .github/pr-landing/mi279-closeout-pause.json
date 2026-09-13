@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Close-out note for the MI-279 OPS lane, appended to its own work object, acting on the operator pause directive relayed by the manager on #12215. docs/claude/work/objects/** only -- one file, one field, no code, no config, no workflows. The object STAYS lifecycle: in_flight because this is a pause, not a completion. It records that nothing is unpushed (#12211 merged; #12213 held for a human merge click; #12216 armed and green), the CI anomaly on #12213 that a successor must not read as green (only `watch` has ever attached; no pull_request-event run has fired on that branch at all, measured over its 5 runs, while the identical route produced all four required checks twice on #12216), the three workflow_dispatch runs queued to supply those required checks, and what is left in the order I would take it."
+}
