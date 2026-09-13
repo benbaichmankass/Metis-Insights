@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "duty pass: adds the missing decision_requests block to docs/claude/work/objects/WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE.yaml so its stranded blocked_on edge resolves and the operator can actually be asked the question the object has been waiting on, plus the regenerated DUE.json/DUE.md. Work store and generated registers only: no src/, no ml/, no config/, no .github/workflows/, no order path. Nothing decided, no row's loud flag touched, nothing re-measured."
+}

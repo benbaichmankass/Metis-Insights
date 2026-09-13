@@ -2993,8 +2993,56 @@ def arm_register_merge_driver() -> str:
     return state
 
 
+def dirty_tree_lines(tree_dirty: List[str], changed: List[str]) -> List[str]:
+    """The uncommitted-work notice, as lines. PURE, so it is testable.
+
+    ⚠️ WHY THIS IS NOT ONLY IN THE ALL-PASSED FOOTER. Until 2026-09-13 the
+    notice was built inside the `All SELECTED guards passed — but …` branch,
+    which `main()` reaches only after returning early on `failures` and on
+    `could_not_run`. So the ONE run where a stale verdict is most confusing —
+    a red you have already fixed in the working tree and cannot clear — printed
+    NOTHING about the tree. MEASURED that day on `main` @`950244f87`: a failing
+    guard with a dirty tree produced `PASS 0 · FAIL 1 · COULD-NOT-RUN 0 ·
+    SKIP 0` and **zero** occurrences of the word "uncommitted" anywhere in the
+    output.
+
+    ⚠️ IT DOES NOT FIX ANYTHING FOR YOU, and that is the row's instruction in
+    terms: no stashing, no committing, no grading the worktree instead. The
+    guards' committed-state reading is what CI does, and changing it would make
+    the local run disagree with CI — worse than the trap.
+
+    ⚠️ THE SPLIT IS THE POINT. A dirty path that is ALSO in the graded diff is
+    the dangerous one: its guard RAN, passed, and was counted, having read the
+    committed version rather than yours. A dirty path outside the diff at least
+    tends to drop its guard from selection, which the `NOT GRADED` qualifier
+    already reports.
+
+    Returns `[]` for a clean tree — a notice that fires every run is walked
+    past, which is this repo's own stated P1.
+    """
+    if not tree_dirty:
+        return []
+    in_diff = [f for f in tree_dirty if f in set(changed)]
+    outside = [f for f in tree_dirty if f not in set(changed)]
+    out = [
+        "",
+        f"UNCOMMITTED WORK ({len(tree_dirty)} path(s)) — every guard above is "
+        f"scoped to a COMMIT RANGE, so NOTHING here read your working tree:",
+    ]
+    for f in in_diff:
+        out.append(f"  - {f}  ← ALSO in the graded diff: its guard RAN and "
+                   f"PASSED on the COMMITTED version, not on this one")
+    for f in outside:
+        out.append(f"  - {f}")
+    out.append("  Commit them and re-run. This does NOT change the exit code — "
+               "a dirty tree is not a guard failure, it is a verdict about a "
+               "different tree than the one you are looking at.")
+    return out
+
+
 def counts_line(n_pass: int, n_fail: int, n_could_not_run: int,
-                n_skip: int, n_not_graded: int = 0) -> str:
+                n_skip: int, n_not_graded: int = 0,
+                n_dirty_paths: int = 0) -> str:
     """The headline. A PURE function, so what it CLAIMS is arguable in a test.
 
     ⚠️ **THE NOT-GRADED COUNT BELONGS HERE, NOT ONLY IN A FOOTER**
@@ -3023,11 +3071,33 @@ def counts_line(n_pass: int, n_fail: int, n_could_not_run: int,
     in terms: local iteration on a dirty tree is the normal way to use this
     script, and failing it would train people to ignore the runner. What is
     fixed is the SUMMARY claiming more than the run established.
+
+    ⚠️ **`n_dirty_paths` IS A SECOND, DIFFERENT FACT AND IS NEVER FOLDED INTO
+    THE FIRST.** The row is
+    `BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE`
+    -- kept on ONE line despite the width, because `artifact-validity-guard`
+    resolves ids by text and a WRAPPED id is a dangling reference. It caught
+    exactly that here, on the third variant of the same mistake in one session
+    (elided twice, then wrapped); an id reformatted for readability stops being
+    an id.
+    `n_not_graded` counts GUARDS that relevance DROPPED; `n_dirty_paths` counts
+    PATHS that no guard read. They are not the same set and neither implies the
+    other — relevance is a UNION, so if any COMMITTED file already made a guard
+    relevant it RUNS, passes, is counted, and never appears in `n_not_graded`,
+    while still having scanned a range without your edits.
+
+    MEASURED 2026-09-13 on `main` @`950244f87`, one committed edit plus an
+    UNCOMMITTED edit to the SAME file: `PASS 1 · FAIL 0 · COULD-NOT-RUN 0 ·
+    SKIP 0` — no qualifier of any kind — while the footer did carry the caveat.
+    Collapsing the two would have printed `NOT GRADED 0` there and been wrong
+    in the reassuring direction.
     """
     line = (f"PASS {n_pass} · FAIL {n_fail} · "
             f"COULD-NOT-RUN {n_could_not_run} · SKIP {n_skip}")
     if n_not_graded:
         line += f" · {n_not_graded} NOT GRADED (uncommitted)"
+    if n_dirty_paths:
+        line += f" · {n_dirty_paths} PATH(S) UNCOMMITTED"
     return line
 
 
@@ -3146,6 +3216,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
     print(f"grading {head_branch} @ {head_sha[:12] if head_sha != 'unknown' else 'unknown'} "
           f"· worktree {head_dirty} at start")
+    # ⚠️ SAY IT AT THE START AS WELL AS AT THE END. The word "dirty" above is
+    # a state, not a consequence, and a reader who does not already know that
+    # guards read a COMMIT RANGE has no reason to act on it. This names the
+    # count and what it costs them, at the first point they could still fix it
+    # — before an eight-minute run, rather than after.
+    #
+    # ⚠️ IT IS NOT THE LOAD-BEARING HALF, and the row that asked for this says
+    # so in terms: the output runs to hundreds of lines, so anything here
+    # scrolls away. The half that survives is the UNCOMMITTED WORK block and
+    # the counts-line qualifier in the summary. This is the cheap early warning
+    # on top of it, never a substitute for it.
+    #
+    # Nothing prints on a clean tree — an alarm that fires every run is walked
+    # past, which is this repo's own stated P1.
+    if tree_dirty_at_start:
+        shown = ", ".join(tree_dirty_at_start[:5])
+        more = f" (+{len(tree_dirty_at_start) - 5} more)" if len(tree_dirty_at_start) > 5 else ""
+        print(f"⚠️  {len(tree_dirty_at_start)} path(s) UNCOMMITTED — guards are "
+              f"scoped to a COMMIT RANGE, so nothing below will read them: "
+              f"{shown}{more}")
     if force_all:
         why = "--all" if args.all else "the guard harness itself changed"
         print(f"relevance DISABLED ({why}) — running every guard")
@@ -3227,7 +3317,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     print("\n" + "=" * 72)
     print(counts_line(len(passed), len(failures), len(could_not_run),
-                      len(skipped), len(unchecked)))
+                      len(skipped), len(unchecked),
+                      len(tree_dirty_at_start)))
     if could_not_run:
         print()
         print("COULD NOT RUN — these guards CHECKED NOTHING. This is the "
@@ -3281,6 +3372,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {name}")
         print(f"  {len(dirty)} dirty path(s) drove this; commit them (or use "
               f"--all) for real coverage.")
+    for line in dirty_tree_lines(tree_dirty_at_start, changed):
+        print(line)
     if asked_but_skipped:
         print(f"\nYOU ASKED FOR THESE BY NAME AND THEY DID NOT RUN "
               f"({len(asked_but_skipped)}) — --only selects, it does not "
@@ -3344,10 +3437,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # developer.
     tree_dirty = tree_dirty_at_start
     if tree_dirty:
+        # The paths themselves are NAMED in the UNCOMMITTED WORK block above,
+        # which prints on every return path. Repeating the list here would be
+        # the same information twice in ten lines; repeating the FACT is the
+        # point, since this is the sentence a reader takes as the verdict.
         caveats.append(f"{len(tree_dirty)} path(s) are UNCOMMITTED and every "
                        f"guard is scoped to a commit range, so nothing here "
-                       f"scanned them ({', '.join(tree_dirty[:5])}"
-                       f"{' …' if len(tree_dirty) > 5 else ''})")
+                       f"scanned them (named above)")
     if unchecked:
         caveats.append(f"{len(unchecked)} guard(s) were not selected because "
                        f"your work is uncommitted")
