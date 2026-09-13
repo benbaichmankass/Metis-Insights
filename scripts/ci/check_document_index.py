@@ -344,14 +344,18 @@ def index_integrity(text: Optional[str]) -> Tuple[str, List[Tuple[int, str]]]:
     if text is None:
         return INDEX_UNREADABLE, []
     hits: List[Tuple[int, str]] = []
+    triggered = False
     for i, line in enumerate(text.splitlines(), start=1):
         if _CONFLICT_OPEN.match(line) or _CONFLICT_CLOSE.match(line):
+            triggered = True
             hits.append((i, line))
-        elif _CONFLICT_MID.match(line) and hits:
-            hits.append((i, line))          # corroboration, never a trigger
-    return (INDEX_CONFLICTED if any(
-        _CONFLICT_OPEN.match(l) or _CONFLICT_CLOSE.match(l) for _n, l in hits
-    ) else INDEX_CLEAN), hits
+        elif _CONFLICT_MID.match(line) and triggered:
+            # Corroboration, NEVER a trigger — it is reported only once an
+            # unambiguous marker has already been seen, so a setext heading
+            # underline in an otherwise clean file can neither fire this nor
+            # appear in the output.
+            hits.append((i, line))
+    return (INDEX_CONFLICTED if triggered else INDEX_CLEAN), hits
 
 
 def parse_rows(text: str) -> List[Dict[str, str]]:
