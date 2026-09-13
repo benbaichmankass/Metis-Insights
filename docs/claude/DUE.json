@@ -1,11 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-13T00:16:53+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "spent_decision_edges"
-  ],
+  "generated_at": "2026-09-13T04:43:35+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
@@ -19,7 +17,7 @@
     },
     "operator_owed": {
       "state": "read",
-      "rows": 1,
+      "rows": 0,
       "note": ""
     },
     "research_queue": {
@@ -30,7 +28,7 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=7.8h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=12.2h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
@@ -39,13 +37,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 10,
+      "rows": 9,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-13T00:16:49+00:00, age 0.0h"
+      "note": "digest 2026-09-13T00:16:49+00:00, age 4.4h"
     },
     "sunset": {
       "state": "read",
@@ -68,9 +66,9 @@
       "note": "settled record grades settled_graded (94 settled row(s))"
     },
     "spent_decision_edges": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "scripts/ci/check_decision_answers.py: ModuleNotFoundError: No module named 'yaml'"
+      "state": "read",
+      "rows": 4,
+      "note": "181 object(s) read, 0 unparseable; 12 reported edge(s): 11 spent, 1 unresolvable; 4 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -79,8 +77,8 @@
     }
   },
   "counts": {
-    "due": 121,
-    "loud": 96
+    "due": 123,
+    "loud": 98
   },
   "rows": [
     {
@@ -168,7 +166,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 250.3h ago, on the order of 250 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 254.8h ago, on the order of 254 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 10,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -274,33 +272,6 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
-      "title": "A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now inherits the cycle's ",
-      "why_due": "monitoring row 4d since last observation (cadence 3d)",
-      "age_days": 4,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
-      "title": "alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and ",
-      "why_due": "monitoring row 3d since last observation (cadence 3d)",
-      "age_days": 3,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED",
-      "title": "⚠️ CORRECTED 2026-09-10T11:46Z -- MERGED AND DEPLOYED ARE NOW BOTH TRUE AND THE TEXT BELOW STILL SAYS THEY ARE NOT. Do not re-quote its 'NOT MERGED, NOT DEPLOYED AND NOT OBSERVED' framing, and do not ",
-      "why_due": "monitoring row 3d since last observation (cadence 3d)",
-      "age_days": 3,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
       "id": "OI-20260910-EXIT-EVAL-NEAR-MISS-BAND-AND-RESTART-GAP-SHIPPED-AND-NEITHER-HAS-GRADED-A-LIVE-BOUNDARY",
       "title": "MI-230 built the two halves the operator chose on 2026-09-09 (WO-20260909-DECISION-M20-EXIT-EVAL-MARGIN-COLLAPSED, chosen: near_miss_and_restart_gap; audit F-50). (a) exit_loop_health.requirement_stat",
       "why_due": "loud row — must be reported on every session",
@@ -323,15 +294,6 @@
       "title": "MI-238, operator-directed 2026-09-10: the manager checklist became a live Workflow page on the SPA with collapsible rows and the open-decision list, so the operator can track session progress without ",
       "why_due": "monitoring row 3d since last observation (cadence 3d)",
       "age_days": 3,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
-      "title": "⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n",
-      "why_due": "monitoring row 2d since last observation (cadence 2d)",
-      "age_days": 2,
       "loud": true,
       "link": ""
     },
@@ -402,15 +364,6 @@
       "source": "open_items",
       "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
       "title": "Two facts, and the SECOND is the urgent one. (1) SHIPPED, NOT PROVEN: AlpacaClient.protection_coverage plus the sweep's covered/partially_naked/coverage_ungradeable/coverage_read_failed counters and t",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 2,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
-      "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
       "why_due": "loud row — must be reported on every session",
       "age_days": 2,
       "loud": true,
@@ -571,6 +524,15 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
+      "title": "A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now inherits the cycle's ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
       "title": "Operating-layer PHASE H (the control half) shipped the DECISION ROUND-TRIP as a draft PR (#10705 bot, ict-trader-dashboard#211 SPA): a work object may declare answerable `decision_requests[]`, `GET /a",
       "why_due": "loud row — must be reported on every session",
@@ -697,6 +659,15 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
+      "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 1,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
       "title": "MI-227 (Tier-2, operator-approved 2026-09-09, WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG, chosen: resize_and_invariant) makes an intent-reduce resize the SHRUNK parent row's OWN track",
       "why_due": "loud row — must be reported on every session",
@@ -726,15 +697,6 @@
       "source": "open_items",
       "id": "OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED",
       "title": "MI-229 deleted pipeline._STRATEGY_BUILDERS -- the SECOND strategy->builder registry -- and routed multiplexed_signal_builder + monitor_unit_for through the intent layer's roster (audit F-28; operator-",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 1,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
-      "title": "MI-240 (Tier-2, operator-approved as DEC-20260910-EXIT-EVAL-60S-REMEDY, chosen `r2_only`, 2026-09-10T07:52Z) arms R2: once ONE IB-routed fetch in an exit-evaluation pass returns a pinned-thread QUEUE ",
       "why_due": "loud row — must be reported on every session",
       "age_days": 1,
       "loud": true,
@@ -822,31 +784,31 @@
       "link": ""
     },
     {
-      "source": "operator_owed",
-      "id": "OO-20260912-LANDING-MACHINERY-PRS-ARE-GREEN-AND-CANNOT-SELF-LAND-SO-ARMING-IS-DEAD-REPO-WIDE",
-      "title": "Three Tier-1 landing-machinery PRs are green and mergeable and R12 refuses to let any of them self-land — one is the arming relay, and until it merges every self-landing PR in the repo must be merged ",
-      "why_due": "owed to the operator, status='open'",
-      "age_days": 1,
-      "loud": true,
-      "link": ""
-    },
-    {
       "source": "checklist_unrouted",
       "id": "checklist-register-stale",
-      "title": "the unrouted-row register is 38h old — its producer has not run",
+      "title": "the unrouted-row register is 42h old — its producer has not run",
       "why_due": "docs/claude/work/CHECKLIST-ROUTING-AGE.json was generated at 2026-09-11T10:39:09+00:00, and `.github/workflows/constraint-readout.yml` writes it on a DAILY cron. ⚠️ EVERY ROW BELOW IS THAT READING, NOT TODAY'S: anything that crossed the threshold since is absent, and a row listed as newly stalled may since have been routed. This is not the same fact as `history_state` — that grades whether the ages could be DERIVED; this says the derivation succeeded and nobody re-ran it. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.",
       "age_days": 1,
       "loud": true,
       "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"
     },
     {
-      "source": "unlanded_automation",
-      "id": "#12133",
-      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
-      "why_due": "producer output opened a PR that has not landed",
+      "source": "open_items",
+      "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+      "title": "⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n",
+      "why_due": "loud row — must be reported on every session",
       "age_days": 0,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12133"
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
+      "title": "alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
     },
     {
       "source": "probes",
@@ -894,6 +856,24 @@
       "link": ""
     },
     {
+      "source": "open_items",
+      "id": "OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED",
+      "title": "⚠️ CORRECTED 2026-09-10T11:46Z -- MERGED AND DEPLOYED ARE NOW BOTH TRUE AND THE TEXT BELOW STILL SAYS THEY ARE NOT. Do not re-quote its 'NOT MERGED, NOT DEPLOYED AND NOT OBSERVED' framing, and do not ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+      "title": "MI-240 (Tier-2, operator-approved as DEC-20260910-EXIT-EVAL-60S-REMEDY, chosen `r2_only`, 2026-09-10T07:52Z) arms R2: once ONE IB-routed fetch in an exit-evaluation pass returns a pinned-thread QUEUE ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
       "source": "red_crons",
       "id": "constraint-readout",
       "title": "constraint-readout",
@@ -937,6 +917,42 @@
       "age_days": null,
       "loud": true,
       "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34683288123"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260901-PHASE-F",
+      "title": "WO-20260901-PHASE-F is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which carries a readable answer (2026-09-09T09:30:00Z) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260901-PHASE-F.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260902-DECISION-REVIEW-PACKET-POPULATION",
+      "title": "WO-20260902-DECISION-REVIEW-PACKET-POPULATION is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260902-REVIEW-PACKET-POPULATION, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260902-DECISION-REVIEW-PACKET-POPULATION.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260903-SUNSET-DISPOSITIONS-OWED",
+      "title": "WO-20260903-SUNSET-DISPOSITIONS-OWED is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260903-SUNSET-DISPOSITION-POLICY, which carries a readable answer (2026-09-03) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260903-SUNSET-DISPOSITIONS-OWED.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "stranded-edge-WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE",
+      "title": "WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE is `waiting` on an UNRESOLVABLE edge",
+      "why_due": "Its `blocked_on` ref is 'originate JWT_SIGNING_KEY + WEBAPP_PASSWORD_SHA256, then a Tier-2 set-env', graded unresolvable — no decision request in the store declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE OPPOSITE: a spent edge is discharged by re-pointing or re-grading it, while nothing matching on ids can ever discharge this one, so the object is parked with no way out and no consumer can say what it is waiting for. A typed edge whose ref is prose is untyped. ⚠️ Fixing it is the object owner's or the manager's call.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE.yaml"
     },
     {
       "source": "red_crons",
