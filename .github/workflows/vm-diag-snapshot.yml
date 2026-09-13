@@ -654,6 +654,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import sys
 
           # Shared 55 KB budget (same cap the single-path comment always
           # used — GitHub caps comments at ~65 KB, this leaves headroom
@@ -688,25 +689,36 @@ jobs:
           n = max(len(chunks), 1)
           per_path_budget = max(1500, MAX_TOTAL // n)
 
+          # ⚠️ TRUNCATION MUST NOT REMOVE THE FIELDS THAT CERTIFY THE
+          # RESPONSE. This used to be `pretty[:per_path_budget]` — a HEAD cut
+          # of the pretty-printed JSON. The db-explorer envelope orders its
+          # keys {table, db, columns, rows, total, limit, offset,
+          # filter_state, order_state} and /api/bot/order-packages puts
+          # `count` after `rows`, so on any over-budget response the
+          # certification fields were the FIRST casualties while `rows` — the
+          # part that LOOKS like data — survived intact.
+          #
+          # Measured 2026-08-16: #9753 ran UNFILTERED on an unknown
+          # filter_col, and the `filter_state: ignored_unknown_column` that
+          # would have said so was truncated away, leaving well-formed rows of
+          # a different strategy; #9755 lost `count`, leaving 7 visible rows
+          # and no denominator against a true total of 37.
+          # BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE.
+          # BL-20260813-DB-EXPLORER-SILENTLY-IGNORES-UNKNOWN-FILTER-COLUMN
+          # added `filter_state` as the remedy; this is that remedy defeated by
+          # TRANSPORT. A guard that is truncated away is not a guard.
+          #
+          # The renderer hoists the scalar/certification fields ahead of the
+          # containers, so what gets cut is the bulk. It is a separate,
+          # self-tested module rather than more inline YAML python precisely
+          # because the old version could not be tested at all.
+          sys.path.insert(0, os.getcwd())
+          from scripts.ops.diag_relay_render import render_section
+
           sections = []
           for display, payload in chunks:
-              try:
-                  data = json.loads(payload)
-                  pretty = json.dumps(data, indent=2, default=str)
-              except Exception:
-                  pretty = payload  # not JSON (e.g. a curl-level error string) — show raw
-              if len(pretty) > per_path_budget:
-                  shown = pretty[:per_path_budget]
-                  note = (
-                      f"\n_(truncated, {len(pretty) - per_path_budget} more bytes of "
-                      f"{len(pretty)} total not shown — this path's share of the "
-                      f"{MAX_TOTAL}-byte combined comment budget was used up; "
-                      f"re-request just this path alone for the full result)_"
-                  )
-              else:
-                  shown = pretty
-                  note = ""
-              sections.append(f"## `{display}`\n```json\n{shown}\n```{note}")
+              shown = render_section(payload, per_path_budget)
+              sections.append(f"## `{display}`\n```json\n{shown}\n```")
 
           dropped = int(os.environ.get("DROPPED_COUNT", "0") or "0")
           extra = ""

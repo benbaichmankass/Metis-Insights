@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's detail + updates: records the live read that settles clause 4's dated prediction (close_wedge_standing ledger + alpaca_open_orders, read together on the live VM) and corrects the row's own stale mechanism statement — observe() now gates on is_unclearable(), a set of two states, and the live entry is in it, so the frozen last_seen belongs to the market-hours row instead. Register only, read-only diag: no src/, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted."
+}

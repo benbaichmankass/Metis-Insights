@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "strategy": "trend_donchian_sol_4h",
+  "symbol": "SOLUSDT",
+  "timeframe": "4h",
+  "config_fingerprint": "sha256:93c9bf843731352f5722009cbf59154f",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 8.9882,
+  "expectancy_r_oos": 0.2724,
+  "n_trades_oos": 33,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 8,
+      "net_r": 3.3504,
+      "expectancy_r": 0.4188,
+      "start": "2025-09-22 00:00:00+00:00",
+      "end": "2025-12-09 16:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 8,
+      "net_r": 6.8732,
+      "expectancy_r": 0.8592,
+      "start": "2025-12-18 16:00:00+00:00",
+      "end": "2026-02-23 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 8,
+      "net_r": -0.0067,
+      "expectancy_r": -0.0008,
+      "start": "2026-02-25 16:00:00+00:00",
+      "end": "2026-05-16 04:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 9,
+      "net_r": -1.2287,
+      "expectancy_r": -0.1365,
+      "start": "2026-06-14 20:00:00+00:00",
+      "end": "2026-08-22 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-13T03:35:42.191109+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/trend_donchian_sol_4h__trades.jsonl",
+  "error": null,
+  "harness": "trend"
+}

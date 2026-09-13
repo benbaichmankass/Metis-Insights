@@ -1,0 +1,1 @@
+arm auto-merge for PR #12201 (claude/mi280-u87-write-refuses-silent-basis-reset)

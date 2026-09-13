@@ -1728,6 +1728,44 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "workflow-push-target-guard",
+        # WHY THIS IS A GUARD AND NOT A NINTH CAREFUL FIX. `main` is
+        # branch-protected, so a workflow's `git push origin HEAD:main` is
+        # declined (GH006) and the run's entire artifact is discarded while the
+        # job can still read green. This repo has fixed that ONE WORKFLOW AT A
+        # TIME eight times — session-reaper, research-queue-dispatch,
+        # gpu-burst-train, reconcile-open-prs, m20-exit-lever-sweep,
+        # trainer-offload-train, replay-pregate-nightly, and sunset-pass.
+        #
+        # ⚠️ AND TWO HAND-WRITTEN CENSUSES OF THE CLASS WERE ALREADY WRONG,
+        # which is the real argument: session-reaper.yml's own comment calls
+        # itself "the ONLY workflow in the repo pushing straight to main"
+        # (2026-09-02) while replay-pregate was doing it for ten more days, and
+        # BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
+        # classifies training-rerun-5m as one that LANDS, on a predicate that
+        # matches the PRESENCE of a push idiom. A census re-measured every PR
+        # cannot go stale between being written and being quoted.
+        #
+        # UNGATED WHOLE-TREE, the api-tier-policy-guard / diagnostic-provenance
+        # pattern — and it could only be ungated because the class is already
+        # drained to ZERO. ⚠️ THIS GUARD DID NOT DRAIN IT AND MUST NOT BE READ
+        # AS HAVING DONE SO: the last instance, sunset-pass.yml, was fixed by
+        # #11900 (ce6f16b83) days before this landed, and re-measuring here is
+        # what established that — `always_default 0, ungradeable 0` over 142
+        # workflow files. An ungated guard landed over a live finding fails
+        # every PR on day one and gets switched off, which is what the
+        # diagnostic-provenance entry below records; this one lands green and
+        # can therefore only ever catch a NEW violation.
+        # The `conditional_default` rows are REPORTED and never fail: the relay
+        # workflows' ordinary path is a feature branch where the push is
+        # correct, and failing correct code is how a guard loses its reviewers.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_workflow_push_target.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_push_target.py"],
+        ],
+    },
+    {
         "name": "diagnostic-provenance-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan itself is skipped — because a guard whose failure path is
@@ -2249,6 +2287,27 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_selftest_wiring.py"]],
     },
     {
+        "name": "diag-relay-render-guard",
+        # A guard that is TRUNCATED AWAY is not a guard. The relay cuts each
+        # path's JSON to a byte budget, and the db-explorer envelope orders
+        # `rows` BEFORE `total`/`filter_state`/`count` — so a head truncation
+        # kept the data and dropped the fields that invalidate it
+        # (BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE).
+        #
+        # The self-test runs on EVERY invocation, same reasoning as
+        # exit-mechanism-coverage-guard: it carries NEGATIVE CONTROLS asserting
+        # that the OLD head-truncation drops `filter_state` and the denominator,
+        # and a probe that cannot show the defect proves nothing about the fix.
+        #
+        # The workflow is globbed too: this logic was inline YAML python and
+        # therefore untestable, which is why it shipped wrong and stayed wrong.
+        "when": {"globs": ["scripts/ops/diag_relay_render.py",
+                           ".github/workflows/vm-diag-snapshot.yml"]},
+        "steps": [
+            ["python3", "scripts/ops/diag_relay_render.py", "--self-test"],
+        ],
+    },
+    {
         "name": "exit-mechanism-coverage-guard",
         # Catches the ORPHANED DECLARE: a leg declares an exit lever its own
         # unit module never reads. Silently inert, and INVISIBLE to
@@ -2266,9 +2325,27 @@ GUARDS: List[Dict[str, Any]] = [
         # lever-reachability-guard: a coverage probe that cannot find a known
         # positive proves nothing, and "no orphans" is exactly the answer a
         # reader acts on by not looking further.
+        # ⚠️ THE GLOBS MUST TRACK THE TOOL'S `_IMPL_DIRS`, NOT A SUBSET OF IT.
+        # `exit_mechanism_coverage.py` decides "does this leg's unit implement
+        # the lever?" by scanning `_IMPL_DIRS = (src/units/strategies,
+        # src/runtime)` — and it scans src/runtime WHOLESALE on purpose, its
+        # own comment saying an explicit module list "is exactly the move that
+        # broke the source-only greps in
+        # BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS".
+        # This trigger named ONE file out of that directory
+        # (strategy_signal_builders.py), so the guard fired on strictly LESS
+        # than its own input: measured 2026-09-13, none of the four shared
+        # modules the tool actually reads —
+        # `src/runtime/{exit_levers,exit_head_apply,trail_decay,exit_head_shadow}.py`
+        # — was selected by any glob here. Removing `exit_head_verdict` from
+        # `exit_head_apply.py` orphans every delegating leg's declare, and this
+        # guard would not have run on that PR. `src/runtime/*.py` restores the
+        # correspondence; an explicit four-module list would reproduce the very
+        # bug the tool's wholesale scan exists to avoid
+        # (BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP clause (a)).
         "when": {"globs": ["config/strategies.yaml",
                            "src/units/strategies/*.py",
-                           "src/runtime/strategy_signal_builders.py",
+                           "src/runtime/*.py",
                            "scripts/ops/exit_mechanism_coverage.py"]},
         "steps": [
             ["python3", "scripts/ops/exit_mechanism_coverage.py", "--self-test"],
@@ -2934,6 +3011,114 @@ def arm_register_merge_driver() -> str:
     return state
 
 
+def dirty_tree_lines(tree_dirty: List[str], changed: List[str]) -> List[str]:
+    """The uncommitted-work notice, as lines. PURE, so it is testable.
+
+    ⚠️ WHY THIS IS NOT ONLY IN THE ALL-PASSED FOOTER. Until 2026-09-13 the
+    notice was built inside the `All SELECTED guards passed — but …` branch,
+    which `main()` reaches only after returning early on `failures` and on
+    `could_not_run`. So the ONE run where a stale verdict is most confusing —
+    a red you have already fixed in the working tree and cannot clear — printed
+    NOTHING about the tree. MEASURED that day on `main` @`950244f87`: a failing
+    guard with a dirty tree produced `PASS 0 · FAIL 1 · COULD-NOT-RUN 0 ·
+    SKIP 0` and **zero** occurrences of the word "uncommitted" anywhere in the
+    output.
+
+    ⚠️ IT DOES NOT FIX ANYTHING FOR YOU, and that is the row's instruction in
+    terms: no stashing, no committing, no grading the worktree instead. The
+    guards' committed-state reading is what CI does, and changing it would make
+    the local run disagree with CI — worse than the trap.
+
+    ⚠️ THE SPLIT IS THE POINT. A dirty path that is ALSO in the graded diff is
+    the dangerous one: its guard RAN, passed, and was counted, having read the
+    committed version rather than yours. A dirty path outside the diff at least
+    tends to drop its guard from selection, which the `NOT GRADED` qualifier
+    already reports.
+
+    Returns `[]` for a clean tree — a notice that fires every run is walked
+    past, which is this repo's own stated P1.
+    """
+    if not tree_dirty:
+        return []
+    in_diff = [f for f in tree_dirty if f in set(changed)]
+    outside = [f for f in tree_dirty if f not in set(changed)]
+    out = [
+        "",
+        f"UNCOMMITTED WORK ({len(tree_dirty)} path(s)) — every guard above is "
+        f"scoped to a COMMIT RANGE, so NOTHING here read your working tree:",
+    ]
+    for f in in_diff:
+        out.append(f"  - {f}  ← ALSO in the graded diff: its guard RAN and "
+                   f"PASSED on the COMMITTED version, not on this one")
+    for f in outside:
+        out.append(f"  - {f}")
+    out.append("  Commit them and re-run. This does NOT change the exit code — "
+               "a dirty tree is not a guard failure, it is a verdict about a "
+               "different tree than the one you are looking at.")
+    return out
+
+
+def counts_line(n_pass: int, n_fail: int, n_could_not_run: int,
+                n_skip: int, n_not_graded: int = 0,
+                n_dirty_paths: int = 0) -> str:
+    """The headline. A PURE function, so what it CLAIMS is arguable in a test.
+
+    ⚠️ **THE NOT-GRADED COUNT BELONGS HERE, NOT ONLY IN A FOOTER**
+    (`BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE`).
+    Guard relevance is computed from a COMMIT RANGE, so a run started with
+    uncommitted work silently drops every guard gated on those paths. The
+    script DETECTS that and says so — under a skip list dozens of lines long,
+    below the one line a reader actually scans for green.
+
+    ⚠️ **THE FOOTER CAVEAT WAS ALREADY THERE AND WAS NOT ENOUGH.** "All
+    SELECTED guards passed — but …" landed 2026-08-13 (#8948); the row was
+    filed **2026-09-03, three weeks later**, by an author looking at that
+    output. MEASURED then, same tree back to back: uncommitted 47 pass / 17 not
+    selected, committed 64 pass / 0 not selected — and the seventeen included
+    `canonical-doc-coherence`, `ruff-lint` and `collapsed-state-guard`,
+    precisely the guards with something to say about that diff.
+
+    ⚠️ **NOT a fifth bucket beside PASS/FAIL/SKIP.** These guards are ALREADY
+    counted in `skipped`; adding them again would stop the counts summing to
+    the number of guards considered. It is a QUALIFIER, and it renders only
+    when there is something to qualify — a clean run's line is byte-identical
+    to what it has always been, so this cannot become an always-on decoration
+    a reader learns to skip past.
+
+    ⚠️ **AND IT DOES NOT CHANGE THE EXIT CODE, deliberately.** The row says so
+    in terms: local iteration on a dirty tree is the normal way to use this
+    script, and failing it would train people to ignore the runner. What is
+    fixed is the SUMMARY claiming more than the run established.
+
+    ⚠️ **`n_dirty_paths` IS A SECOND, DIFFERENT FACT AND IS NEVER FOLDED INTO
+    THE FIRST.** The row is
+    `BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE`
+    -- kept on ONE line despite the width, because `artifact-validity-guard`
+    resolves ids by text and a WRAPPED id is a dangling reference. It caught
+    exactly that here, on the third variant of the same mistake in one session
+    (elided twice, then wrapped); an id reformatted for readability stops being
+    an id.
+    `n_not_graded` counts GUARDS that relevance DROPPED; `n_dirty_paths` counts
+    PATHS that no guard read. They are not the same set and neither implies the
+    other — relevance is a UNION, so if any COMMITTED file already made a guard
+    relevant it RUNS, passes, is counted, and never appears in `n_not_graded`,
+    while still having scanned a range without your edits.
+
+    MEASURED 2026-09-13 on `main` @`950244f87`, one committed edit plus an
+    UNCOMMITTED edit to the SAME file: `PASS 1 · FAIL 0 · COULD-NOT-RUN 0 ·
+    SKIP 0` — no qualifier of any kind — while the footer did carry the caveat.
+    Collapsing the two would have printed `NOT GRADED 0` there and been wrong
+    in the reassuring direction.
+    """
+    line = (f"PASS {n_pass} · FAIL {n_fail} · "
+            f"COULD-NOT-RUN {n_could_not_run} · SKIP {n_skip}")
+    if n_not_graded:
+        line += f" · {n_not_graded} NOT GRADED (uncommitted)"
+    if n_dirty_paths:
+        line += f" · {n_dirty_paths} PATH(S) UNCOMMITTED"
+    return line
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base-ref", default=os.environ.get("GUARDS_BASE_REF", "main"))
@@ -3049,6 +3234,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"guards — {len(GUARDS)} registered · event={args.event_name} · base={args.base_ref}")
     print(f"grading {head_branch} @ {head_sha[:12] if head_sha != 'unknown' else 'unknown'} "
           f"· worktree {head_dirty} at start")
+    # ⚠️ SAY IT AT THE START AS WELL AS AT THE END. The word "dirty" above is
+    # a state, not a consequence, and a reader who does not already know that
+    # guards read a COMMIT RANGE has no reason to act on it. This names the
+    # count and what it costs them, at the first point they could still fix it
+    # — before an eight-minute run, rather than after.
+    #
+    # ⚠️ IT IS NOT THE LOAD-BEARING HALF, and the row that asked for this says
+    # so in terms: the output runs to hundreds of lines, so anything here
+    # scrolls away. The half that survives is the UNCOMMITTED WORK block and
+    # the counts-line qualifier in the summary. This is the cheap early warning
+    # on top of it, never a substitute for it.
+    #
+    # Nothing prints on a clean tree — an alarm that fires every run is walked
+    # past, which is this repo's own stated P1.
+    if tree_dirty_at_start:
+        shown = ", ".join(tree_dirty_at_start[:5])
+        more = f" (+{len(tree_dirty_at_start) - 5} more)" if len(tree_dirty_at_start) > 5 else ""
+        print(f"⚠️  {len(tree_dirty_at_start)} path(s) UNCOMMITTED — guards are "
+              f"scoped to a COMMIT RANGE, so nothing below will read them: "
+              f"{shown}{more}")
     if force_all:
         why = "--all" if args.all else "the guard harness itself changed"
         print(f"relevance DISABLED ({why}) — running every guard")
@@ -3109,9 +3314,29 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 notify.append(name)
             print(f"--- {name}: FAIL ({dt:.1f}s) — {reason}", flush=True)
 
+    # ── COMPUTED BEFORE THE HEADLINE, BECAUSE THE HEADLINE IS WHAT IS READ ──
+    # Guards that WOULD have been relevant to the working tree and were not
+    # selected, because relevance is computed from a COMMIT RANGE. This was
+    # computed ~40 lines below, after the counts line had already printed
+    # `FAIL 0` over a run the script itself knew was incomplete
+    # (`BL-20260903-RUN-GUARDS-PRINTS-FAIL-0-ON-A-RUN-IT-KNOWS-WAS-INCOMPLETE`).
+    #
+    # ⚠️ THE FOOTER CAVEAT WAS ALREADY THERE AND WAS NOT ENOUGH. "All SELECTED
+    # guards passed — but …" landed 2026-08-13 (#8948); the row was filed
+    # 2026-09-03, THREE WEEKS LATER, by an author looking at that output. The
+    # truth was in a footer under a 38-line skip list, and the counts line —
+    # the thing a reader scans for green — said `FAIL 0` and nothing else.
+    # MEASURED then, same tree back to back: uncommitted 47 pass / 17 not
+    # selected, committed 64 pass / 0 not selected, and the seventeen included
+    # canonical-doc-coherence, ruff-lint and collapsed-state-guard — precisely
+    # the ones with something to say about that diff.
+    unchecked = sorted({g["name"] for g in selected
+                        if g["name"] in skipped and is_relevant(g["when"], dirty)})
+
     print("\n" + "=" * 72)
-    print(f"PASS {len(passed)} · FAIL {len(failures)} · "
-          f"COULD-NOT-RUN {len(could_not_run)} · SKIP {len(skipped)}")
+    print(counts_line(len(passed), len(failures), len(could_not_run),
+                      len(skipped), len(unchecked),
+                      len(tree_dirty_at_start)))
     if could_not_run:
         print()
         print("COULD NOT RUN — these guards CHECKED NOTHING. This is the "
@@ -3148,8 +3373,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {item}")
         print("  A guard needing real push-time coverage must carry an UNGATED "
               "whole-tree step (see api-tier-policy-guard).")
-    unchecked = sorted({g["name"] for g in selected
-                        if g["name"] in skipped and is_relevant(g["when"], dirty)})
+    # `unchecked` is computed ABOVE, before the counts line — see the note there.
     # A guard named in --only that relevance then skipped. Distinct from
     # `unchecked`: nothing is dirty and no commit is missing — the caller
     # ASKED FOR THIS GUARD BY NAME and it did not run. `PASS 0` is printed,
@@ -3166,6 +3390,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {name}")
         print(f"  {len(dirty)} dirty path(s) drove this; commit them (or use "
               f"--all) for real coverage.")
+    for line in dirty_tree_lines(tree_dirty_at_start, changed):
+        print(line)
     if asked_but_skipped:
         print(f"\nYOU ASKED FOR THESE BY NAME AND THEY DID NOT RUN "
               f"({len(asked_but_skipped)}) — --only selects, it does not "
@@ -3229,10 +3455,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # developer.
     tree_dirty = tree_dirty_at_start
     if tree_dirty:
+        # The paths themselves are NAMED in the UNCOMMITTED WORK block above,
+        # which prints on every return path. Repeating the list here would be
+        # the same information twice in ten lines; repeating the FACT is the
+        # point, since this is the sentence a reader takes as the verdict.
         caveats.append(f"{len(tree_dirty)} path(s) are UNCOMMITTED and every "
                        f"guard is scoped to a commit range, so nothing here "
-                       f"scanned them ({', '.join(tree_dirty[:5])}"
-                       f"{' …' if len(tree_dirty) > 5 else ''})")
+                       f"scanned them (named above)")
     if unchecked:
         caveats.append(f"{len(unchecked)} guard(s) were not selected because "
                        f"your work is uncommitted")
