@@ -313,6 +313,67 @@ def selftest_diagnostic_provenance() -> None:
     print("self-test OK — the guard still fails closed (exit 1 on a known-bad input).")
 
 
+def selftest_canonical_doc_conflict_markers() -> None:
+    """A governance doc carrying an UNRESOLVED MERGE CONFLICT must be caught.
+
+    WHY THIS CONTROL EXISTS AT ALL. The repo had already ruled on this class
+    twice — `check_register_reserialization` grades a conflicted JSON register
+    UNREADABLE, and `check_document_index` R7 refuses a conflicted
+    `docs/DOCUMENT-INDEX.md` — and neither ruling reached the canonical prose.
+    MEASURED 2026-09-13 by committing a conflict block into `CLAUDE.md` and
+    running the FULL guard registry over it: 68 guards passed and the only
+    failure was `pr-landing-guard`, for the unrelated reason that the probe
+    branch carried no landing record. Nothing graded the corruption.
+
+    THE FALSE-POSITIVE HALF IS THE HARDER ONE and is asserted here too. This
+    corpus is prose ABOUT merge conflicts among other things, so a substring
+    test would misfire — measured the same day,
+    `docs/claude/health-review-backlog.json` mentions the marker on four lines,
+    all row prose. The check anchors on the seven characters at the START of a
+    line, which is what git writes, so an inline mention, a table cell and an
+    INDENTED marker all stay quiet. A bare `=======` is corroboration only and
+    never a trigger, because it is also a setext heading underline.
+    """
+    planted = REPO / ".claude" / "skills" / "_selftest_doc_conflict" / "SKILL.md"
+
+    real = ("# selftest\n"
+            "<<<<<<< HEAD\n"
+            "the left side of a contested edit\n"
+            "=======\n"
+            "the right side of a contested edit\n"
+            ">>>>>>> origin/main\n")
+    with _planted(planted, real):
+        rc = _rc(["python3", "scripts/ci/check_canonical_doc_coherence.py"])
+    if rc == 0:
+        raise SystemExit(
+            "::error::SELF-TEST FAILED — canonical-doc-coherence returned 0 on a "
+            "governance doc carrying an unresolved merge conflict. A register that "
+            "can hold both sides of a contested edit and still read OK is exactly "
+            "what R7 was added to `check_document_index` to stop; its PASS here "
+            "means nothing until this fires."
+        )
+
+    mention = ("# selftest\n"
+               "Resolving a merge leaves `<<<<<<< HEAD` and `>>>>>>> origin/main` "
+               "behind.\n"
+               "| `stamp` | a cell mentioning <<<<<<< HEAD and >>>>>>> origin/main |\n"
+               "    <<<<<<< HEAD\n"
+               "Some Heading\n"
+               "=======\n")
+    with _planted(planted, mention):
+        rc_quiet = _rc(["python3", "scripts/ci/check_canonical_doc_coherence.py"])
+    if rc_quiet != 0:
+        raise SystemExit(
+            "::error::SELF-TEST FAILED — canonical-doc-coherence flagged a doc that "
+            "merely MENTIONS conflict markers (inline, in a table cell, indented, and "
+            "a bare `=======` setext underline). A guard that fires on prose about "
+            "merge conflicts cannot live in a corpus that documents them, and would "
+            "be silenced wholesale."
+        )
+    print("self-test OK — an unresolved conflict block is caught; prose that merely "
+          "mentions the markers is not.")
+
+
 def selftest_canonical_doc_values() -> None:
     """A doc asserting a live gate's WRONG value must be caught.
 
@@ -369,6 +430,13 @@ def selftest_canonical_doc_values() -> None:
         )
     print("self-test OK — declared-values drift is caught (incl. on a long single "
           "line), corrected prose is not.")
+
+    # Called from here rather than registered as its own guard step: the
+    # registry entry for this guard lives in `run_guards.py`, which has an
+    # open PR against it, and a second step there would collide with it for
+    # no benefit. One entry point, two independent controls, each raising
+    # its own message.
+    selftest_canonical_doc_conflict_markers()
 
 
 def selftest_api_tier_policy() -> None:
