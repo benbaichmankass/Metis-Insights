@@ -38847,6 +38847,19 @@
         "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
         "BL-20260913-THE-ROW-AWARE-MERGE-DRIVER-REFUSES-A-SAME-ID-EDIT-EVEN-WHEN-THE-TWO-SIDES-TOUCHED-DISJOINT-FIELDS"
       ]
+    },
+    {
+      "id": "BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT",
+      "tier": "1 — it is a CI guard (scripts/ci/), no src/, no config/, no order path",
+      "opened": "2026-09-13",
+      "severity": "medium",
+      "status": "open",
+      "area": "ci/landing",
+      "title": "The per-branch merge-slot route is unvouchable by check_manager_scope R2, so a manager is forced back onto the shared field the route exists to replace",
+      "detail": "MEASURED 2026-09-13T08:47Z on branch claude/manager-tick-20260912-0610z. `python3 scripts/ops/claim_merge_slot.py --branch-claim` writes `.github/merge-slots/<slug>.json`, which is the route CLAUDE.md now recommends over the shared `docs/claude/session-board.json::merge_slot` field, on measured grounds: 39 of the last 40 commits touching that file moved `merge_slot.branch`, median gap 11.5 minutes, so every armed branch conflicts with main and resolving faster does not help (the resolution pushes a new head and RESTARTS CI). scripts/ci/check_manager_scope.py R2 FAILED that file for a manager commit: '.github/merge-slots/manager-tick-20260912-0610z.json is not on the manager surface this guard can vouch for. A manager session that writes this is doing an item instead of managing.' The guard has a deliberate, well-reasoned special case for the SHARED key -- `merge_slot_claim_only` decides per COMMIT that the only top-level key changed is `merge_slot` and that its `branch` is the branch being graded, and its own comment explains why the path is NOT simply listed in MANAGER_SURFACE (listing it would let a manager write anything else in that file). The per-branch route was added later and that reasoning was never carried across to it. CONSEQUENCE, and it is the wrong direction: a manager self-landing a registers-only PR must abandon the conflict-free route and take the guaranteed-conflict one. That is what this session did -- dropped the per-branch file and re-claimed the shared field -- purely to satisfy the guard.",
+      "resolution_criteria": "check_manager_scope.py vouches for `.github/merge-slots/<slug>.json` on a manager commit under the SAME per-commit discipline the shared field already gets, i.e. verified rather than path-listed: the file's basename slug must equal the branch being graded, and the commit must change no OTHER file under .github/merge-slots/. DONE when a manager commit carrying ONLY a per-branch claim for its own branch passes R2, AND a planted negative -- a manager commit claiming a slot for a DIFFERENT branch -- still FAILS it. A guard that accepts the first without rejecting the second has been widened, not taught. NOT done by adding the path to MANAGER_SURFACE: that is precisely the shortcut the existing comment in check_manager_scope.py rejects for the shared file, and it would let a manager write any other branch's claim.",
+      "evidence": "Guard output on this branch, both routes tried in sequence: the per-branch file failed R2; after `git rm` of it plus a shared-field claim, R2 read 'ok ... a LANDING act, not an item' and the run exited 0.",
+      "filed_by": "session_01HoFquGdTrD3TTGbMMRc43t"
     }
   ]
 }

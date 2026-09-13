@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T08:10:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — OPERATOR-DIRECTED PAUSE, all three lanes sent a close-out directive",
+  "updated_at": "2026-09-13T08:45:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4881,7 +4881,7 @@
     {
       "session_id": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
       "registry_key": "pending-20260912T051723Z",
-      "state": "pausing",
+      "state": "paused_closing_out",
       "title": "RESEARCH LANE MI-278 — M20 Active Trade Management: why winners stopped running, and what holds them",
       "owns_object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
       "checklist_item": "MI-278",
@@ -4895,9 +4895,13 @@
         "claude/mi278-u23-tier3-proposal"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:39:03Z",
         "via": "get_session",
-        "note": "RUNNING. 780221 (78%). U26 merged; U27 discharge in progress; 2 PRs ready. Self-scheduled check-in 40m."
+        "state_read": "RUNNING",
+        "note": "RECEIVED THE PAUSE AND IS SERVING IT. task_summary 'Inspecting the unpushed commits on each branch', i.e. working the close-out directive's step (1), push-first. ⚠️ ITS CURRENT BRANCH claude/mi278-u45-avax-risk-qty-reconstruction WAS NOT ON ORIGIN at 08:40:56Z — measured, not inferred (git rev-parse --verify origin/<branch> failed while five other mi278-* branches resolved, so the probe can find a positive). rate_limit_info {seven_day, isUsingOverage TRUE, status REJECTED}: it is running on OVERAGE, so any turn may be refused mid-way. context 273080/1000000.",
+        "unpushed_at_last_read": [
+          "claude/mi278-u45-avax-risk-qty-reconstruction"
+        ]
       },
       "item": "MI-278",
       "lane": "research",
@@ -4907,7 +4911,7 @@
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
       "registry_key": "pending-20260912T051723Z-2",
-      "state": "pausing",
+      "state": "paused_closing_out",
       "title": "OPS LANE MI-279 — drive the health backlog down by class, critical first",
       "owns_object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
       "checklist_item": "MI-279",
@@ -4921,9 +4925,13 @@
         "claude/mi279-u8-oldest-high"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:38:48Z",
         "via": "get_session",
-        "note": "RUNNING. 289732 (29%) — the only lane comfortably under threshold, unchanged for 4 ticks. 5 PRs resynced and armed; no needs_action set, so NOT treated as blocking."
+        "state_read": "RUNNING",
+        "note": "RECEIVED THE PAUSE AND IS SERVING IT. task_summary 'Arm the close-out branch' and its current branch is claude/mi279-closeout-pause — a branch created FOR the close-out, which did not exist before the directive. That is the clearest positive evidence any lane acted on it. ⚠️ NOT ON ORIGIN at 08:40:56Z. rate_limit_info {seven_day, isUsingOverage TRUE, status REJECTED} — on overage. context 656521/1000000.",
+        "unpushed_at_last_read": [
+          "claude/mi279-closeout-pause"
+        ]
       },
       "item": "MI-279",
       "lane": "ops",
@@ -4933,7 +4941,7 @@
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
       "registry_key": "pending-20260912T051805Z",
-      "state": "pausing",
+      "state": "paused_could_not_close_out",
       "title": "ENGINEERING LANE MI-280 — stop the landing and register machinery losing work",
       "owns_object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
       "checklist_item": "MI-280",
@@ -4947,9 +4955,15 @@
         "claude/mi280-u65-close-the-reserialization-row"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:28:09Z",
         "via": "get_session",
-        "note": "RUNNING. 760945 (76%). 18 PRs merged; #12143 green. Its #12094 blocker is CLEARED — both #12094 and #12095 landed on main."
+        "state_read": "IDLE / status_bucket FAILED",
+        "note": "⚠️ THIS LANE COULD NOT SERVE ITS CLOSE-OUT TURN, AND THAT IS A DIFFERENT FACT FROM THE OTHER TWO — do not report all three as paused cleanly. post_turn_summary reads status_category 'failed', status_detail \"You've hit your weekly limit · resets Sep 16, 6pm (UTC)\". ⚠️ AND ITS rate_limit_info READS isUsingOverage FALSE with status REJECTED, where MI-278/279 read isUsingOverage TRUE: this lane is past the HARD stop, not on the overage path, so it cannot take a turn at all until 2026-09-16T18:00:00Z. The pause trigger trig_01MiaVcTHroUPhGafB5pAf8j fired at 08:12:00Z into a session that could not answer it.",
+        "unpushed_at_last_read": [
+          "claude/mi280-u92-malformed-removal-declaration"
+        ],
+        "⚠️_what_is_at_risk": "Its working branch claude/mi280-u92-malformed-removal-declaration is NOT on origin (measured 08:40:56Z). Whatever U92 contains exists only in that container. If the container is reclaimed before 2026-09-16T18:00Z the work is gone; if it survives, the lane can push on resume. WE DO NOT KNOW WHICH — that is 'we did not look', not 'it is safe'. ⚠️ ITS LANDED WORK IS NOT AT RISK: 11 mi280-* branches ARE on origin, including claude/mi280-u91-red-main-runs-unproven (PR #12217) and claude/mi280-u90-open-items-observation-loss (PR #12214), both pushed before the limit hit.",
+        "⚠️_operator_decision_governing_this": "Operator was asked 2026-09-13 what to do if a lane could not serve its close-out turn and chose 'Report it and leave the lane alone'. The manager therefore RECORDED this and touched nothing — no re-trigger, no attempt to push on the lane's behalf, no archive."
       },
       "item": "MI-280",
       "lane": "engineering",

@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
     "branch": "claude/manager-tick-20260912-0610z",
-    "claimed_at": "2026-09-13T07:55:36Z",
-    "purpose": "0752Z manager tick on the branch restarted after #12200 merged at 07:18Z."
+    "claimed_at": "2026-09-13T08:48:07Z",
+    "purpose": ""
   },
   "active_sessions": [
     {
