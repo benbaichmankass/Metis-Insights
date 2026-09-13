@@ -200,4 +200,52 @@ progress:
     src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
-
+  U39: >-
+    DELIVERED. Worked
+    BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING
+    and found its cause had stopped binding two weeks before it was filed.
+    !! THE CAUSE CHANGED FOUR TIMES AND THE ROW REPORTS THE MODAL ONE. Bucketed into contiguous
+    ERAS rather than censused, over 33 live alpaca_live rows (rowset sha256:5b1cacd6...):
+    sizing_refused at balance=0.10 (13, 08-18->08-25) -> account_mode_dry_run (4) -> sizing (1) ->
+    account_mode_dry_run (5) -> sizing at balance=200.10 (3, last 2026-08-28T16:11:34Z) ->
+    account_mode_dry_run (3) -> dry_run_no_order_placed (4, 2026-09-01 -> 2026-09-11). Window
+    census sizing 17 / account_mode 12 / dry_fold 4. FUNDING THE ACCOUNT TODAY WOULD CHANGE
+    NOTHING: the four current rows never reach sizing. Two further claims in that row are stale --
+    'its only routed real-money leg' (the roster went 1 -> FIVE on 2026-09-10, Option A) and the
+    200.10 balance (the 13 oldest refusals quote 0.10; the account was funded 08-21..08-25).
+    !! THE CURRENT CONDITION IS ALREADY FILED AND I DID NOT RE-FILE IT.
+    BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE is
+    open since 09-06 and MI-200 reproduced it on 09-08. My duplicate check caught it at 0.61
+    overlap; without it I would have filed a second row for a week-old finding. What this unit adds
+    is TWO MORE ROWS -- 5558 (09-08) and 5686 (09-11), taking it to four signals over ten days,
+    all account_class real_money / is_demo 0 / notes is_dry true -- with BOTH declared gates
+    verified permissive at every timestamp against GIT HISTORY, not against today's file.
+    !! I ALSO CONFIRMED ONE OF MI-200's ELIMINATIONS AND WITHDREW ONE OF ITS CORROBORATIONS.
+    account_state.yaml was my own leading hypothesis and it is refuted the same way MI-200 refuted
+    it -- the repo file declares only bybit_1 and bybit_2, so the accessor returns None. But
+    'Runtime view agrees: /api/bot/config live_per_account = True', cited by BOTH the row and
+    MI-200 as a confirming surface, IS NOT INDEPENDENT EVIDENCE: runtime_status.
+    _read_live_per_account reads accounts.yaml::mode and nothing else, folding neither
+    account_state.yaml nor execution: shadow, so it restates a gate already counted and can never
+    show a dry fold. Two of the three 'declared surfaces' that search rests on are one surface read
+    twice. Filed as
+    BL-20260913-LIVE-PER-ACCOUNT-IS-A-PROJECTION-OF-ACCOUNTS-YAML-MODE-WHILE-ITS-OWN-NOTE-CALLS-IT-THE-PIPELINES-RUNTIME-VIEW
+    (Tier-2, fleet-wide, not applied).
+    !! A DOC-vs-CODE GAP RECORDED AS THAT AND NOT AS A CAUSE: the executor folds THREE dry terms and
+    CLAUDE.md says 'there is no third gate'. account_state.yaml is not the Prime Directive's hidden
+    default-off flag -- it is declared, dry-only, with a sanctioned write path -- but it is not one
+    of the two, and a session reading the canonical doc eliminates two gates and has nowhere left
+    to look. The remaining candidate is unchanged and is MI-200's: the dry_run= parameter at
+    coordinator.py:1314. The decisive read (get-env on /proc/<MainPID>/environ) is still owed and a
+    research container cannot make it.
+    !! TWO LOUD OPEN ITEMS ARE BLOCKED, NOT PENDING, and both are annotated:
+    OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED and
+    OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED,
+    whose own text says 'the strategies: list is the ENTIRE execution gate ... the merge IS the
+    arming' -- contradicted by the journal. NEITHER IS CLEARED. Instrument
+    scripts/research/declared_vs_effective_dry.py (56 self-test + 26 pytest controls; 11 defects
+    planted and 11 caught; TWO PLANTS WERE MALFORMED on the first pass -- one literal backslash-n,
+    one inconsistent rename that CRASHED and so scored zero FAIL lines in a grep-based counter --
+    both re-run correctly and recorded rather than counted; 2 no-op plants fired zero). Nothing in
+    src/, config/ or any unit file is touched. Memo:
+    docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md
