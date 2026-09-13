@@ -200,4 +200,44 @@ progress:
     src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
-
+  U40: >-
+    DELIVERED. Worked
+    BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE,
+    whose remedy is Tier-3 but whose BOTH resolution halves are Tier-1 CI work.
+    !! THE DIRECTION IS VERIFIED IN CODE, NOT TAKEN FROM THE ROW: _election_sort_key carries
+    -intent.effective_priority() and the aggregator does sorted(...) ascending taking ordered[0],
+    so a HIGHER priority WINS and an absent leg taking the fallback beats everything below it.
+    RE-MEASURED 2026-09-13: fallback 10, 50 mapped legs, min mapped 0, 45 STRICTLY BELOW -- the
+    row's figures reproduce exactly. My live-leg count is 44, not the row's 45; one gate changed
+    since 09-09 and I state my own denominator.
+    !! THE ESCALATION, AND IT IS THE POINT: the row says 'The contended accounts are paper-class
+    today'. NO LONGER TRUE. alpaca_live (mode: live, account_class: real_money) routes TWO of the
+    five uncovered legs -- iaum_pullback_1d and slv_pullback_1d -- added by the Option-A roster
+    change e88ef612a on 2026-09-10, ONE DAY AFTER the row was filed.
+    !! SHIPPED scripts/ci/check_priority_fallback_distribution.py, registered in run_guards.py (37
+    self-test + 25 pytest controls). R1 is the row's 'transferable half' verbatim -- STRICTLY below
+    min(DEFAULT_PRIORITIES.values()), with a control proving `<=` is caught. R2 is per-leg coverage
+    with the legs NAMED. R3 is the enforcing rule: a worsening against a committed seed, INCLUDING
+    a seeded leg moving onto real money with no new leg -- which is exactly what Option A did. Both
+    R3 shapes proved END TO END, not only through the pure function.
+    !! R1/R2 REPORT AND DO NOT ENFORCE, DELIBERATELY: both are violated today, the remedy is
+    TIER-3, and failing would red every PR in the repo -- check_pr_queue_watch.py's own reasoning
+    about never_ran. --strict arms them once the operator decides; no flag to unset. SEEDING IS NOT
+    A DISPOSITION.
+    !! A DIVERGENCE FROM THE ROW'S LETTER, STATED: it asks that scripts/check_strategy_coverage.py
+    gain a fourth invariant, but that path is outside check_pr_landing.TIER1_SURFACE so it cannot
+    self-land. Both invariants are hosted in the new scripts/ci/ guard; that file is untouched.
+    !! HONEST ABOUT COVERAGE: 11 defects planted, NINE caught by a named control and TWO caught
+    only as a ValueError/TypeError -- recorded as a weaker form rather than counted as clean,
+    because a traceback does not say which invariant broke. AND ONE OF MY OWN CONTROLS WAS WRONG
+    and a plant found it: 'a real-money exposure is called out loudly' keyed on a string the
+    per-account line already contains, so deleting the warning passed; re-keyed, the plant now
+    fires 2. 3 no-op plants fired zero.
+    !! ALSO RECORDED TWO ALREADY-DISCHARGED ROWS I NEARLY REBUILT, which is the cheap half of not
+    wasting the next session: the scalp-target sweep row's fully-specified build was done by U30
+    (PR #12158, landing: hold, awaiting a human merge click -- and that row does NOT clear on the
+    merge, since its criterion is a SWEEP RUN), and PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13's
+    next_action was worked by U34.
+    NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Nothing in src/, config/ or any unit
+    file is touched. Memo:
+    docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md

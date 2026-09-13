@@ -2416,6 +2416,22 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["ruff", "check", "."]],
     },
     {
+        # R3 (a WORSENING against the committed seed) is the enforcing rule and
+        # can fail today. R1/R2 are VIOLATED on the current tree and are
+        # REPORTED, not enforced: their remedy is Tier-3 and failing here would
+        # red every PR in the repo, which is how a guard gets disabled instead
+        # of fixed (the reasoning check_pr_queue_watch.py already writes down).
+        # `--strict` arms them once the operator's change lands; there is no
+        # flag to unset.
+        "name": "priority-fallback-distribution",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py", "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py"],
+        ],
+        "notify": True,
+    },
+    {
         "name": "secret-scan",
         "when": None,
         "steps": [["python3", "scripts/secret_scan.py"]],
