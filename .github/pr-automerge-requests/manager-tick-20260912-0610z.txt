@@ -1,1 +1,7 @@
 PR for the 0610Z manager tick. Arms the self-land route (pr-landing R6).
+
+Re-armed 2026-09-13T06:00Z. The file had become byte-identical to the
+copy on origin/main, so R6 read it as "unchanged from origin/main" —
+i.e. not armed BY THIS DIFF — and graded the branch `undeclared` even
+though the file was present. Arming is a property of the diff, not of
+the file existing.
