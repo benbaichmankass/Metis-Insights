@@ -1,0 +1,152 @@
+# Filed by session_013iSqp4LsU1eq8K326eUtgj (MI-279, OPS lane, /backlog-drain U5) on
+# 2026-09-12 to CARRY a proposal that this session itself wrote and then left carried by
+# nothing. Every figure below is TRANSCRIBED from
+# docs/design/open-items-loud-triage-PROPOSAL-2026-09-12.md (landed on main as 20e0b68cc,
+# PR #11885). No measurement is re-run here.
+#
+# !! WHY THIS OBJECT EXISTS AT ALL, AND IT IS NOT FLATTERING. Re-running
+# scripts/ops/uncarried_specs.py at HEAD on 2026-09-12, the census's `uncarried` bucket --
+# artifacts named NOWHERE outside themselves -- contained EXACTLY ONE row over a 400-file
+# corpus, and it was that proposal, written by this session eight hours earlier. A session
+# measuring "finished specs that nothing points at" was, at that moment, the sole author of
+# the only fully-un-carried one. That is the defect reproducing inside the work that
+# diagnoses it, which is the whole subject of
+# OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING.
+id: WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE
+type: decision
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  `loud` is set on 84.5% of OPEN-ITEMS rows and has stopped selecting anything - a triage is
+  proposed and needs an operator decision
+stage: DECISION
+lifecycle: waiting
+owner: operator
+opened_at: '2026-09-12'
+closed_at: null
+
+review_trigger: >-
+  FILED AS A CARRIER, NOT AS NEW WORK. The proposal is written, landed and unchanged; what
+  this object adds is an address for it. !! DO NOT READ `waiting` AS "someone is working on
+  this" -- nobody is, and nobody should until the operator answers, because the proposal's
+  own first rule is that nothing was re-flagged and no row's `loud` was touched. !! AND DO
+  NOT RE-DERIVE THE MEASUREMENT: the 84.5% figure and the option list are in the proposal
+  and were produced with a stated denominator. An eighth document restating the diagnosis
+  is the failure mode the parent OI row names in terms.
+
+done_condition: >-
+  The operator answers, and the answer is RECORDED here -- adopt the proposed triage, adopt
+  a variant, or decline it. !! DECLINING IS A REAL ANSWER AND CLOSES THIS OBJECT: if the
+  operator decides `loud` should stay set on 84.5% of rows, that is a legitimate decision
+  about how they want the register to read, and it must be written down rather than left
+  looking like a change about to happen. !! WHAT DOES NOT CLOSE IT: a session re-measuring
+  the percentage, or a later proposal covering the same ground. The blocker is a DECISION,
+  not evidence.
+
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260912-LOUD-FLAG-TRIAGE
+    since: '2026-09-12'
+blocked_on_basis: >-
+  ASSESSED 2026-09-12 by this session against the proposal's own text. The proposal is
+  complete, landed and Tier-1 in what it changed (nothing); what it asks for is a judgement
+  about which rows deserve to page a reader, and that is the operator's to make. Nothing
+  technical blocks it -- the edit would be a field flip per row.
+
+captured_by: session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane, backlog-drain U5)
+
+# ── THE DECISION REQUEST ITSELF, added 2026-09-13 by the same session, U20 ──────
+# !! WHY IT WAS MISSING, STATED RATHER THAN QUIETLY REPAIRED. This object was filed
+# on 2026-09-12 with a `blocked_on` edge of kind operator_decision naming
+# DEC-20260912-LOUD-FLAG-TRIAGE, and NO decision request anywhere in the store
+# declared that id. render_due_list.py graded it `stranded-edge-...` -- "no decision
+# request in the store declares that id" -- so the object sat `waiting: operator`
+# on a question the operator was never actually asked, and every decision surface
+# (the /decisions pull, the Telegram sweep, the SPA inbox) reads the store, so none
+# of them could ever have shown it. An object blocked on an unasked question is
+# indistinguishable from one blocked on an unanswered one, and only the second is
+# the operator's to move.
+# !! THIS IS THE DEFECT REPRODUCING INSIDE THE WORK THAT DIAGNOSES IT, AGAIN. The
+# header above already records that this object's own proposal was the single
+# fully-uncarried artifact in a 400-file census. The carrier it then got pointed at
+# a decision that did not exist.
+# !! NOTHING IS RE-MEASURED HERE and no row's `loud` is touched. The options below
+# are transcribed from the proposal and from the two backlog rows named in
+# `refs`; the only NEW material is the 2026-09-13 context paragraph, which is
+# measurement this session took in U17/U19 and which bears on option B.
+decision_requests:
+- id: DEC-20260912-LOUD-FLAG-TRIAGE
+  question: >-
+    `loud: true` is set on 72 of 85 OPEN-ITEMS rows (84.7%), while the register's own rule is
+    that EVERY loud row must be reported on in a session's closing summary. At that size the
+    instruction cannot be followed, so in practice it is followed for none. How should the
+    reporting duty be defined?
+  urgency: blocking
+  asked_on: '2026-09-13'
+  asked_by:
+    session_id: session_013iSqp4LsU1eq8K326eUtgj
+    recorded_at: '2026-09-13T05:00:00Z'
+    note: >-
+      Filed to DISCHARGE a stranded blocked_on edge this same session created on 2026-09-12
+      (MI-279 OPS lane, U4) and left pointing at nothing. The proposal it rests on is
+      docs/design/open-items-loud-triage-PROPOSAL-2026-09-12.md, landed as 20e0b68cc (PR
+      #11885). No figure here is newly derived except where the 2026-09-13 context paragraph
+      says so explicitly.
+  context: >-
+    MEASURED over the whole register on three dates, same basis each time: 34 of 45 = 75.6%
+    (2026-09-02), 61 of 72 = 84.7% (2026-09-10), 72 of 85 = 84.7% (2026-09-12). The COUNT has
+    more than doubled while the SHARE rose ~9 points, which is the backlog row's own prediction
+    ("every new row is filed by someone who thinks their row is important") observed rather than
+    argued. || THE DECIDING ARITHMETIC: render_session_brief.py::due_items -- what the CLAUDE.md
+    session brief actually serves -- selects on kind==monitoring AND cadence and IGNORES `loud`
+    entirely. `due` is a STRICT SUBSET of `loud` today: due-but-not-loud 0, loud-but-not-due 56.
+    So 56 rows the rule demands a session report are not in front of that session at all, and
+    narrowing the duty to `due` would lose NOTHING a session can currently see. || NEW CONTEXT
+    MEASURED 2026-09-13 (U17/U19) AND IT BEARS ON OPTION B: `loud` is enforced by NO guard --
+    check_open_items.py removed it on 2026-08-26 recording in its own comment that it "enforced
+    nothing, it was an adjective" -- is ignored by the session brief, and its ONE remaining
+    rendering consumer (render_daily_brief.py::loud_open_items) is an unbounded filter producing
+    72 rows / 146 lines / 36,001 BYTES under a header reading "must be REPORTED ON, not silently
+    carried". That consumer has produced ONE artifact in its lifetime (comms/briefs/2026-09-02.md,
+    eleven days ago). So wiring it up AS IS would put 36 KB in front of a manager every morning.
+    || INDEPENDENT CORROBORATION FROM A SECOND SURFACE, same day: render_due_list.py returns 124
+    due rows of which 99 are loud (79.8%), and the `duty` skill carries the identical
+    report-on-every-loud-row rule. The saturation is not an artifact of one register.
+  options:
+  - key: derive_from_due
+    label: Make the reporting duty the DERIVED due set and retire `loud` as a reporting trigger
+    implication: >-
+      RECOMMENDED in the proposal. Needs no new code -- due_items already computes it and the
+      brief already renders it -- it satisfies the backlog row's criterion ("smaller than the
+      register and derivable rather than authored") by construction, and unlike `loud` it SHRINKS
+      as work lands, which is the property the flag was supposed to have. COST, stated: 1 of the
+      26 rows in the derived set is not loud today, and 3 of 6 NEVER-OBSERVED rows are loud:FALSE
+      -- so `loud` is not merely noisy, it also misses; the derived set would catch those three
+      and drop any author-driven emphasis on the one.
+  - key: budget_with_guard
+    label: Keep `loud` but give it a BUDGET a guard enforces
+    implication: >-
+      NOT the cap that was tried and reversed: that capped how many BUGS may be TRACKED, which
+      the operator rightly refused; this caps how many rows one closing summary must RECITE -- a
+      different quantity with a different reason. Weakened by the 2026-09-13 measurement above:
+      the flag has no guard and one barely-run renderer, so a budget would be enforced against a
+      surface almost nobody reads.
+  - key: derive_from_severity
+    label: Derive `loud` from severity plus dueness instead of declaring it
+    implication: >-
+      Strictly more machinery than derive_from_due for the same output. Listed because it is the
+      option a reader will think of, not because it is recommended.
+  - key: decline_keep_as_is
+    label: Decline -- `loud` stays as it is, and that is recorded as the decision
+    implication: >-
+      A REAL ANSWER THAT CLOSES THIS OBJECT. If the register reading this way is what is wanted,
+      it must be written down rather than left looking like a change about to happen. The cost is
+      stated rather than argued: the closing-summary rule then remains one no session can follow,
+      and should probably be softened in CLAUDE.md so the repo is not carrying an instruction it
+      knows is unfollowable.
+  allows_free_text: true
+  answer: null
+
+refs:
+  - docs/design/open-items-loud-triage-PROPOSAL-2026-09-12.md
+  - https://github.com/benbaichmankass/Metis-Insights/pull/11885
+  - OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING

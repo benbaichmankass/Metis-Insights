@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three OPEN-ITEMS monitoring rows re-observed on their own cadence (observation + verified_at only; no row cleared, no clears_when asserted met), plus the regenerated CLAUDE.md SESSION-BRIEF block that session-brief-guard requires because this diff changes the register the brief renders from. Registers and generated prose only: no src/, no ml/, no config/, no .github/workflows/, no order path, nothing enacted."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/health-review-backlog.json only, plus this declaration, its arming file and a per-branch merge-slot claim. Two rows updated from reading the tree (src/runtime/order_monitor.py, scripts/ops/bybit_bracket_audit.py) and from this session's own PR check-run history. No src/, no ml/, no config/, no scripts/, no .github/workflows/, no order path, nothing enacted. The one code nit found (a comment in scripts/ops/bybit_bracket_audit.py naming a target_state value the code never assigns) is FILED with file and line rather than fixed here, deliberately, so this stays a backlog-only diff."
+}

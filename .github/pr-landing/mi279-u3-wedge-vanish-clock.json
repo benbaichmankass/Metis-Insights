@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row's `updates` entry recording a live diag measurement. docs/claude/health-review-backlog.json only — no src/, no config, no scripts, no order path. The fix the row asks for is Tier-2 and is explicitly NOT applied here."
+}

@@ -1,0 +1,11 @@
+MI-283 — Tier-1, registers only. Arms auto-merge on PR #12069.
+
+Records the post-merge fleet-observation pass for
+OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP
+after #11903 merged and deployed: clauses (1) and (2) MET with their method,
+clause (3) recorded as NOT SATISFIABLE TODAY with the measured reason, clause (4)
+probe built with a passing positive control. Plus three corrections to the row's
+own text and one new backlog row.
+
+No src/, no tests/, no config, no workflow. Tier-1 self-lands per
+docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers.

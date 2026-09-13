@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three existing backlog rows' updates: (a) records a fresh instance of the two-schemas decision-answer defect against my own probe, which published '4 unanswered decision requests' when the correct figure under both schemas is 1; (b) corrects that number in place on the row where I had written it; (c) records a hypothesis about Tier-2/3 routing tested with a comparison arm and REFUTED (12.1% vs 16.1% work-store coverage, so tier makes no difference). Register only, read-only on the work store: no src/, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted, no row closed, no new backlog id spent."
+}

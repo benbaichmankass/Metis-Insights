@@ -99,8 +99,28 @@ def test_audit_log_failure_reports_warn():
                          "reason": reason})
         return {}
 
+    # ⚠️ THE GATE IS ON THE TEST, NOT THE MODULE, AND THAT IS DELIBERATE: only
+    # this one test imports `src.runtime.pipeline` (which needs numpy transitively,
+    # via src/runtime/regime/detector.py), so a module-level `importorskip` would
+    # skip the five sibling tests that neither need numpy nor ever touch it.
+    pytest.importorskip("numpy")
+
+    # ⚠️ `numpy` IS DELIBERATELY ABSENT FROM THIS TUPLE. A MagicMock in
+    # `sys.modules["numpy"]` makes `np.bool_` a MagicMock — not a type — so
+    # `_pytest.python_api.is_bool`'s `isinstance(val, np.bool_)` raises TypeError
+    # and breaks `pytest.approx` for the WHOLE session, surfacing four frames down
+    # as an ordinary assertion failure on a value that is in fact correct.
+    # tests/conftest.py pre-imports the real numpy so it wins this slot, but that
+    # remedy is a documented no-op where numpy is ABSENT — which is exactly the
+    # lean `guards` CI job.
+    # BL-20260902-FIVE-TEST-MODULES-STUB-NUMPY-AND-BREAK-PYTEST-APPROX-WHERE-NUMPY-IS-ABSENT
+    # ⚠️ AND THIS ONE WAS THE SIXTH, MISSED BY A ROW THAT SAID FIVE. The other five
+    # stub at IMPORT time; this one stubs inside a TEST BODY, which is worse in two
+    # ways a module-level scan does not see — it fires after collection has already
+    # succeeded, and it never restores, so every test that runs AFTER this one in
+    # the same session inherits the poisoned slot.
     # Stub heavy deps so pipeline imports cleanly
-    for mod in ("pandas", "matplotlib", "matplotlib.pyplot", "numpy", "scipy", "sklearn"):
+    for mod in ("pandas", "matplotlib", "matplotlib.pyplot", "scipy", "sklearn"):
         sys.modules.setdefault(mod, MagicMock())
 
     from src.runtime import pipeline as pl

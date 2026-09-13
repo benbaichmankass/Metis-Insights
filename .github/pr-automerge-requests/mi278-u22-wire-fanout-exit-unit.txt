@@ -1,0 +1,4 @@
+MI-278 / U22 — wire both callers to the declared fan-out exit rule.
+PR #12106, retargeted to main after #12103 merged; hold spent.
+Tier-1: two scripts/research/ modules (proven additive), one memo,
+two register rows, one backlog edit. Nothing enacted.

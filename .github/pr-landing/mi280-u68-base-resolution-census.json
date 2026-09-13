@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "adds scripts/ops/base_resolution_census.py (a read-only measurement instrument, declared `# wiring: manual-only` with a reason after unwired-artifact-guard correctly caught it) and corrects a stale frozen measurement in scripts/ci/_git_base.py's DOCSTRING. No executable line of _git_base.py changes, so no guard's behaviour changes: check_register_reserialization --self-test and check_backlog_unresolve --self-test both still pass, as does ruff check .. Tier-1 surface by the canonical list (scripts/ops/**, scripts/ci/**), and NOT landing machinery — verified against check_pr_landing.py::LANDING_MACHINERY, which lists neither file. Three planted defects shown to go red. No src/, no config/, no deploy/, no workflow, no register, no order path."
+}

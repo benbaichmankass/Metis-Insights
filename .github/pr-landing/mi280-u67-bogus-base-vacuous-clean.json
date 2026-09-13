@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one appended backlog row in docs/claude/health-review-backlog.json plus this declaration, its arming file and a per-branch merge-slot claim. A byte-exact append through backlog_append.py — 11 insertions, 0 deletions, and register-reserialization grades it 0 base lines lost. Recording a measured defect in a CI guard's verdict on an unresolvable base ref; nothing is fixed or enacted here. No src/, no config/, no deploy/, no scripts/, no .github/workflows/, no order path."
+}

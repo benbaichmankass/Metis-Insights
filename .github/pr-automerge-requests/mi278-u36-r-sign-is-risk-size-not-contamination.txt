@@ -1,0 +1,12 @@
+MI-278 U36 — expectancyR disagreeing with totalPnl is R working, not R broken.
+Tier-1, landing: self. PR #12179, opened by this session so it carries a real
+pull_request event and CI fires normally.
+
+Two guards FAILED on earlier commits and both were FIXED, not annotated:
+ - diagnostic-provenance-guard, sub-class C: the self-test printed "every state
+   returned is in its declared tuple" over a population it did not state — in
+   the one module whose subject is unprovenanced diagnostic output. Now prints
+   the denominator and requires it.
+ - collapsed-state-guard: the module read rProvenance.contaminated and none of
+   confirmed_initial / unverified / no_basis. Now reports all four, with None
+   (never 0) for an omitted state.

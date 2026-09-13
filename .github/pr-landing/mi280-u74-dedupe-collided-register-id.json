@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "removes ONE byte-identical duplicate row from docs/claude/health-review-backlog.json, which is failing register-id-guard on origin/main and therefore reddening every PR in the repo. The two copies were asserted byte-identical before either was touched and the script refuses to drop anything if they are not; the FIRST is kept at its original position. Measured after: distinct ids 1574 -> 1574, ids lost entirely 0, rows whose content changed 0, duplicates remaining 0 — register-field-loss, the guard whose job is catching a lost row, reports OK, as do register-id, backlog-unresolve, register-reserialization, backlog-refs and claim-basis on committed state. Another lane's row, whose content is untouched. No code, no config, no workflow, no runtime, no order path."
+}
