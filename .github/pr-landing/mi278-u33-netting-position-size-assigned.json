@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-278 U33, RESEARCH lane. Tests the candidate BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED named as untested and called a different unit: a new manual-only audit module, its pytest surface, a research memo, two index registrations, two backlog rows plus an update to the parent, and the work-object progress entry. src/runtime/order_monitor.py, src/utils/json_notes.py and src/runtime/provenance.py are READ ONLY and unmodified — the diff contains no src/ path at all. Every path is inside TIER1_SURFACE: docs/**, tests/**, scripts/research/**, .github/**. NO config/, NO unit file, NO order path. It changes no published figure and restates none: the finding is that the exit_reason='netting_attributed' scope used by MI-277 A6, U9 and U16 cannot see a row whose position_size was rewritten by the partial branch, and the two remedies it names are Tier-2 and deliberately NOT applied."
+}

@@ -1,0 +1,1 @@
+U43 — drop numpy from six test-module MagicMock stub tuples; guard a seventh.

@@ -307,11 +307,47 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
     # rather than its replacement, and nothing supersedes it. It shipped
     # carrying `unknown` only because it was written minutes before this index
     # landed, so no rule had yet been able to see it.
+    # Written 2026-09-12 by MI-279, the same session that took every measurement
+    # in it, so the status is ESTABLISHED rather than inferred: each figure was
+    # read this session against a stated population, with a positive control on
+    # every negative (the date probe returns 39/348/65/312 on four other days
+    # and only 2026-08-16 is zero; the `log_file` route returns content for a
+    # real name and NOTHING for a bogus one). No other rung can see it -- rule 1
+    # does not import it, rule 2's ACTIVE_DOCS does not enforce it, it is not a
+    # skill, not `history`, and declares itself neither dead nor superseded --
+    # so without this entry it reads `unknown`, which is the one thing it is NOT.
+    # ⚠️ It goes `historical` if the corpus stamp it points at ever lands: from
+    # that moment its central claim (a corpus row records no dispatched sha) is
+    # a statement about the past, and leaving it `live` would make it a trap for
+    # exactly the reader it was written for.
+    "docs/research/corpus-schema-degradation-2026-09-12.md": (
+        "live",
+        "read:MI-279-authored-and-measured-it-2026-09-12",
+        "evidence closing BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR; "
+        "goes historical once the dispatched-sha stamp lands",
+    ),
     "docs/claude/TASK-PRIORITY-2026-09-07.md": (
         "live",
         "read:MI-162-opened-it-anchored-to-the-current-cycle-priority",
         "ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live "
         "work plan WORKPLAN-2026-08-29.md, not a replacement for it",
+    ),
+    # Written 2026-09-12 by MI-283, which is also the session that authored the
+    # change it documents, so the status is ESTABLISHED rather than inferred: it
+    # is the evidence doc for PR #11903, that PR is open and unmerged, and every
+    # measurement in it was taken this session against a stated population.
+    # It carried `unknown` for the same reason TASK-PRIORITY-2026-09-07 did --
+    # written after the rules that could have seen it, so no rule can derive a
+    # status from anything but its own self-declared header, which this register
+    # deliberately refuses to trust.
+    # ⚠️ It goes `historical` the moment #11903 is merged or rejected: it is
+    # evidence for a DECISION, and once the decision is taken the doc records
+    # something that happened rather than something pending.
+    "docs/claude/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md": (
+        "live",
+        "read:MI-283-authored-it-this-session-evidence-for-open-PR-11903",
+        "evidence for the Tier-2 ask in PR #11903, which is open and unmerged; "
+        "goes historical when that PR is decided",
     ),
 }
 
@@ -982,6 +1018,82 @@ def census(rows: List[Dict[str, str]]) -> str:
     return "\n".join(out)
 
 
+# Three states, never collapsed. An index that is ABSENT has nothing to lose;
+# one we could not READ is *we did not look*, and the two must not share a
+# value -- returning `{}` for both would make an unreadable index authorise the
+# very overwrite this reader exists to gate.
+BASES_READ, BASES_ABSENT, BASES_UNREADABLE = "read", "absent", "unreadable"
+
+
+def committed_bases(index_text: Optional[str] = None
+                    ) -> Tuple[str, Dict[str, str]]:
+    """`(state, {path: basis})` read back from the table this module WROTE.
+
+    A reader for our own output, so `--write` can tell what it is about to
+    replace.
+
+    ⚠️ ABSENT AND UNREADABLE ARE DIFFERENT ANSWERS. A missing index is the
+    first-run case and genuinely has nothing at risk. An index that exists and
+    cannot be read tells us nothing about what it holds, and `--write` refuses
+    on it -- the alternative is that a permissions error or a decode failure
+    silently green-lights replacing every recorded basis in the file.
+    """
+    if index_text is None:
+        try:
+            index_text = INDEX_PATH.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return BASES_ABSENT, {}
+        except (OSError, UnicodeDecodeError):
+            return BASES_UNREADABLE, {}
+    out: Dict[str, str] = {}
+    for line in index_text.splitlines():
+        if not line.startswith("| `"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 6:
+            continue
+        path = cells[0].strip().strip("`")
+        if "/" not in path:          # the summary tables at the top of the file
+            continue
+        out[path] = cells[5].strip().strip("`")
+    return BASES_READ, out
+
+
+def unowned_bases(committed: Dict[str, str],
+                  rows: List[Dict[str, str]]) -> List[Tuple[str, str, str]]:
+    """`[(path, committed_basis, computed_basis)]` -- rows whose recorded basis
+    this generator did NOT produce and is about to overwrite.
+
+    ⚠️ DERIVED, NEVER PATTERN-MATCHED, and that is the whole design. The
+    motivating convention is `<mi-id>:self-measured-<date> / ...`, and matching
+    THAT string would catch one habit and miss every other -- while this repo's
+    own rule is that a probe must be shown able to find a positive. Comparing
+    against what `build_rows()` computes for the same path finds any basis this
+    module did not write, whatever convention produced it.
+
+    MEASURED 2026-09-13 over all 1081 committed rows on `main`: exactly ONE
+    differs, and it is the hand-written one. So the test is precise rather than
+    noisy -- a check that flagged hundreds would be walked past, which is this
+    repo's stated P1.
+
+    ⚠️ WHAT IT DOES NOT DO. It does not judge which basis is BETTER, and it
+    never carries the committed one forward: `STATUS_EXPLICIT`'s docstring
+    forbids this generator asserting what it cannot derive, and the row that
+    recorded the 35 erased bases REFUSED restoring them on exactly that
+    reasoning. This makes the replacement VISIBLE and DELIBERATE; it does not
+    reverse that decision, and doing so would be a separate one.
+    """
+    out: List[Tuple[str, str, str]] = []
+    for r in rows:
+        was = committed.get(r["path"])
+        if was is None:                     # a new document has nothing to lose
+            continue
+        now = r.get("basis", "")
+        if was and now and was != now:
+            out.append((r["path"], was, now))
+    return sorted(out)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="rebuild index and stamp headers")
@@ -992,6 +1104,12 @@ def main() -> int:
              "if you have ACTUALLY re-verified them — it asserts a human act. "
              "Deliberately NOT what the guard's remedy line tells you to run; "
              "--write carries each document's existing date instead.")
+    ap.add_argument(
+        "--reset-unowned-bases", action="store_true",
+        help="Replace `basis` values this generator did not produce. Without "
+             "it --write REFUSES rather than silently erasing what a session "
+             "recorded about a document. Deliberately NOT what the guard's "
+             "remedy line tells you to run.")
     a = ap.parse_args()
 
     today = date.today().isoformat()
@@ -1005,8 +1123,43 @@ def main() -> int:
             print(f"\n⚠️ generated-waiver DID NOT VERIFY (waiver refused): {sorted(unverified)}")
         return 0
 
+    # ⚠️ REFUSE BEFORE WRITING, NOT AFTER. A warning printed alongside a diff
+    # that already happened is the shape this repo has paid for: the hazard was
+    # documented in `carry_last_verified`'s docstring and still erased 35
+    # recorded bases across two PRs. The precedent it cites is `backlog_append`,
+    # fixed by making the helper REFUSE.
+    bases_state, committed = committed_bases()
+    if bases_state == BASES_UNREADABLE and not a.reset_unowned_bases:
+        print(f"REFUSING to write: {INDEX_PATH.relative_to(REPO)} exists and "
+              f"could not be READ, so this run cannot tell which rows carry a "
+              f"`basis` it did not produce. That is 'we could not look', never "
+              f"'nothing is at risk'. Fix the file, or re-run with "
+              f"--reset-unowned-bases to overwrite it regardless.")
+        return 1
+    at_risk = unowned_bases(committed, rows)
+    if at_risk and not a.reset_unowned_bases:
+        print(f"REFUSING to write: {len(at_risk)} row(s) carry a `basis` this "
+              f"generator did not produce, and --write would replace them.")
+        for pth, was, now in at_risk:
+            print(f"  {pth}")
+            print(f"      recorded : {was}")
+            print(f"      would be : {now}")
+        print("These record what a session ESTABLISHED about a document; this "
+              "module cannot derive them, so it cannot carry them either "
+              "(STATUS_EXPLICIT's own rule). Either move the determination into "
+              "STATUS_EXPLICIT in this file, or re-run with "
+              "--reset-unowned-bases to replace them deliberately.")
+        return 1
+
     INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     INDEX_PATH.write_text(render_index(rows, today, generated), encoding="utf-8")
+    if at_risk:
+        # Deliberate is not the same as unrecorded: name them in the run output
+        # so the erasure appears in whatever log or transcript carries it.
+        print(f"--reset-unowned-bases: REPLACED {len(at_risk)} recorded "
+              f"basis(es) that this generator did not produce:")
+        for pth, was, _now in at_risk:
+            print(f"  {pth}: {was}")
     print(f"wrote {INDEX_PATH.relative_to(REPO)} ({len(rows)} rows)")
 
     changed = 0

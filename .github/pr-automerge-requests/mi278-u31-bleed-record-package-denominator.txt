@@ -1,0 +1,6 @@
+MI-278 U31 — re-derive the bleed record's own rates per order package.
+Tier-1: a new scripts/research/ module, its tests, a memo, a backlog-row update,
+a work-object progress entry, and two index registrations. Every path is inside
+TIER1_SURFACE. Imports bleed_attribution_2026_09_11.py and
+package_denominator_rederive.py unmodified and edits neither; re-grades no live
+figure; proposes no parameter change.

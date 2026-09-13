@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-278 U36, RESEARCH lane. Adjudicates the open high row PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG against a live read of /api/bot/performance and corrects it: a new manual-only module, its pytest surface, a research memo, two index registrations, one new Tier-3-flagged backlog row that PROPOSES NOTHING, corrections appended to two existing rows, and the work-object progress entry. NO code is modified — /api/bot/performance is src/web/, Tier-2, and is one of the three dashboard routes MI-278 U12 named as untouchable by a research unit; it was READ over HTTPS and never edited, and the diff contains no src/ path at all. Every path is inside TIER1_SURFACE: docs/**, tests/**, scripts/research/**, .github/**. NO config/, NO unit file, NO order path. The finding is that the row's resolution criterion is unsound — requiring expectancyR to agree in sign with totalPnl would require R to stop being risk-normalised — and that the mechanism it root-caused is provably not operating, since rBasis reads 41/41 declaredInitial with storedStop 0 on every leg."
+}

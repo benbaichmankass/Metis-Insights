@@ -52,17 +52,40 @@ or exit code move. `exit-coverage-matrix-guard` passed that bar the hard way —
 CI went red. `exit-mechanism-coverage-guard` failed it and is recorded as
 cosmetic-for-now rather than "fixed" with a glob.
 
-⚠️ This is a REPORT, not a guard, deliberately. Wiring it into `run_guards.py`
-would mean a build that fails on unconfirmed leads.
+⚠️ THE REPORT is a REPORT, not a guard, deliberately: wiring IT into
+`run_guards.py` would mean a build that fails on unconfirmed leads, and that
+is still true and still the reason it is not wired.
+
+⚠️ THE DETECTOR IS A DIFFERENT QUESTION AND IS NOW WIRED (2026-09-12). The
+`--self-test` below runs as the `guard-glob-coverage-detector` guard; it plants
+the real 2026-08-23 defect, requires the audit to flag it, and asserts the live
+table still reads clean. It cannot fail on a lead, because it never invokes
+`audit()` over the live table for VERDICTS -- only for that one negative
+control. Until then this file was the ONLY one of 89 that
+`guard-selftest-coverage` graded `none`: "no failure-path evidence anywhere",
+with a genuine planted-defect control sitting in it, run by nothing.
 
 Exit 0 clean / 1 findings to triage / 2 could not measure at all.
 """
-# wiring: manual-only - this reports LEADS, not verdicts. Its one live finding
-# is measured cosmetic (perturbing config/lever_reachability.json moves neither
-# of exit-mechanism-coverage-guard's steps), so wiring it into run_guards.py
-# would fail builds on unconfirmed leads and train everyone to walk past it --
-# the desensitized-alarm P1. Run it by hand after editing the GUARDS table; its
-# --self-test plants a real defect and is what proves it still detects one.
+# wiring: split - `--self-test` is a step of the `guard-glob-coverage-detector`
+# guard in run_guards.py; THE REPORT is still manual-only and gates nothing.
+#
+# The original declaration read `manual-only` for the whole file, and its
+# reasoning was right about the REPORT: it emits LEADS, not verdicts, its one
+# live finding is measured cosmetic (perturbing config/lever_reachability.json
+# moves neither of exit-mechanism-coverage-guard's steps -- re-confirmed
+# independently 2026-09-12), and a build failing on unconfirmed leads trains
+# everyone to walk past it, the desensitized-alarm P1.
+#
+# ⚠️ THAT ARGUMENT WAS NEVER ABOUT THE DETECTOR, AND THE TWO WERE BUNDLED.
+# Measured 2026-09-12: `guard-selftest-coverage` graded this file `none` --
+# "no failure-path evidence anywhere", the only one of 89 in that bucket --
+# while the --self-test below plants the real 2026-08-23 defect and requires
+# the audit to flag it, then asserts the live table still reads clean. A
+# positive and a negative control, run by nothing at all. Running them costs
+# 0.4s and cannot fail on a lead, because the report is not invoked.
+#
+# Run the REPORT by hand after editing the GUARDS table.
 
 from __future__ import annotations
 
@@ -299,6 +322,42 @@ def _self_test():
         print(f"self-test: FAIL — live guard should be clean, got {live}")
         return 1
     print("  self-test ok: the real table's entry reads clean")
+
+    # ── THE WIRING CONTRACT, ASSERTED BY THE THING THE WIRING RUNS ──────────
+    # This file is wired into run_guards.py for its --self-test ONLY. That
+    # split is the entire reason it can be wired at all: the REPORT exits 1 on
+    # any un-triaged LEAD, and a build failing on unconfirmed leads trains
+    # everyone to walk past it. Adding the bare report as a second step would
+    # look like a one-line improvement and would quietly make leads gate.
+    #
+    # Asserted HERE, not in a test file, because this is the code the wiring
+    # actually executes -- a contract checked somewhere the contract's own
+    # carrier does not run is a contract nothing proves.
+    rg = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "ci" / "run_guards.py"
+    try:
+        rg_src = rg.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"self-test: FAIL — could not read run_guards.py ({exc}); the "
+              "wiring contract is UNVERIFIED, which is not the same as met")
+        return 1
+    me = pathlib.Path(__file__).name
+    invocations = [ln for ln in rg_src.splitlines() if me in ln and "python3" in ln]
+    if not invocations:
+        print(f"self-test: FAIL — {me} is not invoked by run_guards.py at all. "
+              "Its --self-test was wired on 2026-09-12 precisely because this "
+              "file was the only one of 89 graded `none` (no failure-path "
+              "evidence anywhere). Re-register it, do not delete this check.")
+        return 1
+    bare = [ln for ln in invocations if "--self-test" not in ln]
+    if bare:
+        print("self-test: FAIL — run_guards.py invokes this file WITHOUT "
+              f"--self-test: {bare}. That runs the REPORT, which exits 1 on any "
+              "un-triaged LEAD, so an unconfirmed lead would red every PR -- "
+              "the desensitized-alarm P1 this file's own header argues against. "
+              "Only the --self-test step belongs in run_guards.py.")
+        return 1
+    print("  self-test ok: run_guards.py invokes ONLY --self-test, never the report")
+
     print("self-test: PASS")
     return 0
 

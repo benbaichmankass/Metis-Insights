@@ -1,0 +1,1 @@
+MI-280 U64: guards read committed state, so a pre-commit run passes vacuously; reproduced, n=3 in one session.

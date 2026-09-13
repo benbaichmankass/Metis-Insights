@@ -5,8 +5,12 @@ worth having is that it does NOT do what every other Bybit position reader does.
 So every test here asserts an ABSENCE of reduction, plus the state distinctions
 that absence buys.
 
-WHY IT EXISTS. ``account_open_positions._emit`` skips ``size <= 0`` and dedupes
-by SYMBOL; ``account_bybit_open_orders`` does the same. So three different facts
+WHY IT EXISTS. ``account_open_positions._emit`` skips ``size <= 0``;
+``account_bybit_open_orders`` does the same. (⚠️ Both ALSO deduped by SYMBOL
+until 2026-09-12, when MI-283 re-keyed them to ``(symbol, position_idx)``
+because that dropped a hedge symbol's second LIVE book. The ``size <= 0``
+reduction is unchanged, so nothing this file tests is weakened.) So three
+different facts
 — *the venue is genuinely flat*, *the venue returned a ZERO-SIZE row* (the
 hedge-mode sibling book, routine since ``BYBIT_HEDGE_MODE_SYMBOLS`` was armed
 2026-08-30) and *the venue returned no row at all* — are ONE observation to
@@ -159,9 +163,17 @@ def test_zero_size_rows_are_returned_not_skipped(monkeypatch):
 
 
 def test_rows_are_not_deduped_by_symbol(monkeypatch):
-    """Both hedge books of one symbol must BOTH appear. `_emit`'s
-    `if sym in seen: return` keeps only the first, which is how a live long can
-    be hidden behind a flat short."""
+    """Both hedge books of one symbol must BOTH appear.
+
+    ⚠️ The rationale MOVED on 2026-09-12 (MI-283) and the test did not. It read
+    "`_emit`'s `if sym in seen: return` keeps only the first, which is how a
+    live long can be hidden behind a flat short" — true then, and `_emit` now
+    keys on `(symbol, position_idx)` so it no longer drops the sibling.
+
+    This assertion is KEPT and is still load-bearing, for the reduction that did
+    NOT change: `_emit` skips `size <= 0`, so the flat sibling listed FIRST here
+    is invisible to it either way. Only this raw sweep can show that the venue
+    returned a zero-size row rather than nothing at all."""
     fake = _FakeBybit(settle_rows={"USDT": [
         _pos("ETHUSDT", "0", 2, "Sell"),      # flat sibling, listed FIRST
         _pos("ETHUSDT", "0.04", 1, "Buy"),    # the live book
