@@ -38169,7 +38169,7 @@
     {
       "id": "BL-20260913-A-PR-THAT-ADDS-A-REGISTER-FAILS-REGISTER-RESERIALIZATION-BECAUSE-A-NEW-FILE-GRADES-UNREADABLE",
       "title": "register-reserialization grades a NEWLY ADDED register `unreadable` and fails the build — a latent false positive on the one PR shape that cannot possibly be re-serialized",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 — scripts/ci/check_register_reserialization.py; a CI guard's verdict, no runtime, no order path",
       "opened_at": "2026-09-13",
@@ -38178,6 +38178,14 @@
       "resolution_criteria": "`_base_text` (or its caller) distinguishes read_at's ABSENT_AT_BASE from UNREADABLE, and a register that is NEW in the diff is graded as something other than UNREADABLE -- it cannot have been re-serialized, so it must not fail the guard. !! THE CONTROL MUST BUILD THE REPRO ABOVE, a temp repo whose branch adds a register, and assert the guard's `ok` is True AND that the new register's state is NOT unreadable; asserting only `ok` would pass if the row vanished from the report entirely. !! AND IT MUST KEEP THE OTHER DIRECTION: a genuinely UNREADABLE base -- a ref that does not exist -- must still fail, or the fix has traded a false positive for a false negative, which is worse. Both directions in the same change, or neither.",
       "related": [
         "BL-20260912-REGISTER-RESERIALIZATION-READS-THE-BASE-TIP-SO-ITS-LOST-LINE-COUNT-IS-CONTAMINATED-BY-ROWS-OTHER-SESSIONS-ADDED"
+      ],
+      "resolved_at": "2026-09-13",
+      "updates": [
+        {
+          "at": "2026-09-13",
+          "by": "claude (MI-280 engineering lane, U71)",
+          "note": "RESOLVED by #12146 (squashed as 02512e3d3) and VERIFIED ON MAIN'S OWN COPY, not from the PR. Read back from main at ba7664e39: `NEW_REGISTER = \"new_register\"` at line 80, the ABSENT_AT_BASE branch in grade() at line 197, and check() forwarding the state at line 318 via `base_state, base_text = _base_read(...)`. 26 tests pass against main's copy (was 19) and the guard's own --self-test reports OK with all 5 states reachable.\n\nTHE ORIGINAL REPRODUCTION, re-run against main: a temp repo whose branch adds a register bound to the merge driver now grades `ok = True` with that file `new_register` and `unreadable: []`. Before the fix the same script printed `ok = False` with the file `unreadable`.\n\nTHIS ROW'S OWN CRITERION WAS MET AS WRITTEN, and it was the one that mattered: it required a control that builds the repro AND asserts the new register's state is not `unreadable`, because 'asserting only `ok` would pass if the row vanished'. test_a_PR_that_ADDS_a_register_passes_AND_the_row_is_still_NAMED (line 424 on main) asserts the row EXISTS, asserts its state BY NAME, asserts ok, and asserts the path appears in the new `new_registers` list — a fix that passed by dropping the register from the scope would have satisfied `ok` and been a worse bug.\n\nBOTH DIRECTIONS LANDED, which the criterion also required. An omitted base_state grades UNREADABLE, so the permissive verdict costs an explicit say and cannot be reached by forgetting; base absent AND head unreadable is UNREADABLE, not a new register; and test_check_still_FAILS_on_a_register_it_could_not_read (line 454) keeps a conflict-markered register failing through check(). Planted defects were shown to go red in both directions — the collapse reinstated fails 5, the over-permissive variant fails 6.\n\nNOT CLAIMED: this did not touch the sibling defect found while writing these controls — an unresolvable base still grades vacuously clean — which is filed separately as its own row and merged in #12149."
+        }
       ]
     },
     {
