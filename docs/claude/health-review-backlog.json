@@ -38822,6 +38822,24 @@
         "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
         "BL-20260913-THE-ROW-AWARE-MERGE-DRIVER-REFUSES-A-SAME-ID-EDIT-EVEN-WHEN-THE-TWO-SIDES-TOUCHED-DISJOINT-FIELDS"
       ]
+    },
+    {
+      "id": "BL-20260913-RANKING-KEY-AB-CONCLUDES-FAILURE-INSTANTLY-ON-EVERY-PUSH-INCLUDING-MAIN-AND-NOTHING-HAS-NOTICED",
+      "opened_at": "2026-09-13T08:50:00+00:00",
+      "opened_by": "claude (MI-278 research lane, session_01Wv1BdfEUnmCBZrhvUjeBzb) — noticed incidentally while closing out under the operator-directed pause",
+      "severity": "medium",
+      "tier": "1 (CI workflow)",
+      "status": "open",
+      "area": "ci",
+      "source": "incidental observation while reading actions_list for PR #12219",
+      "title": ".github/workflows/ranking-key-ab.yml concludes `failure` INSTANTLY on every push, on main as well as on branches, and nothing reports it",
+      "description": "!! NOT A DUPLICATE OF BL-20260730-PR-CI-NOT-ATTACHING, and the append tool flagged it at 0.67 LEXICAL overlap, which is shared CI vocabulary and not the same claim. That row (status resolved) asks whether `pull_request` check runs ATTACH to a PR at all, and was refuted on 2026-08-10. Attachment is fine here and I verified it in the same read: four required workflows fired on PR #12219's head as `event: pull_request`. This row is one NON-REQUIRED workflow failing at STARTUP. Different mechanism, different surface, different fix. Filed with similar_ok=True after reading the candidate.\n\nMEASURED 2026-09-13T08:5xZ via actions_list. POPULATION, because it bounds the claim: the 5 most recent runs on `main` (run_numbers 2814, 2836, 2839, 2917, 2919) plus the 2 on branch claude/mi278-u45-avax-risk-qty-reconstruction (2920, 2923). ALL SEVEN conclude `failure`. The workflow reports total_count 224; I did NOT read all 224, so the LIFETIME rate is UNMEASURED and 'it has never worked' is NOT claimed.\n\nTHE SHAPE IS THE DIAGNOSTIC: all seven have `created_at == updated_at == run_started_at` to the second (run 34747542844: all three 2026-09-13T08:22:59Z). A run that starts and concludes within one second executed no job body — a workflow-level/startup failure, NOT a test or guard failing.\n\n!! I DID NOT READ THE CAUSE. I have not opened the workflow file or a run log, so the specific defect is UNKNOWN and is deliberately not guessed at. What IS established is the pattern and that it reproduces on the BASE BRANCH — the control that makes it nobody's individual PR.\n\n!! IT IS NOT A REQUIRED CHECK: absent from `pull_request_read method=get_check_runs` on #12219, so it blocks no PR and no merge. That is almost certainly WHY it has gone unremarked, and it is the finding rather than a mitigation.",
+      "why_it_matters": "A workflow that fails instantly on every push is indistinguishable, on every surface a human reads, from one that works: nobody is paged, no PR is blocked, and one perpetually-red row is invisible in a long Actions list. Whatever ranking-key-ab.yml produces, it produced NOTHING across the 7 runs measured, so any consumer is reading a stale artifact or none. This is the 'shipped and working are different states' class the repo keeps paying for (cf. the probes.yml and session-reaper cron findings): installed, registered, inert.",
+      "next_action": "TIER-1. (1) Read the workflow and ONE run log (e.g. 34747542844) to establish the real cause — do not assume YAML; a startup failure has several causes with different fixes. (2) Establish what CONSUMES its output; if nothing does, the right disposition may be RETIREMENT rather than repair, which is a sunset decision. (3) Measure the failure rate over all 224 runs, not the 7 here, so 'has it ever worked' gets a denominator. (4) Fix or retire, and if repaired, say what its output changes.",
+      "resolution_criteria": "EITHER the workflow is OBSERVED concluding `success` on a real push with its output landing where a consumer reads it, OR it is retired and its absence verified. !! A GREEN RUN ALONE DOES NOT CLOSE THIS if nothing consumes the output — that is a producer with no reader, the adjacent defect this repo has a guard family for. !! AND A DIAGNOSIS IS NOT A REPAIR: reading the workflow file closes nothing.",
+      "related": [
+        "BL-20260730-PR-CI-NOT-ATTACHING"
+      ]
     }
   ]
 }
