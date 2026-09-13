@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "strategy": "trend_donchian",
+  "symbol": "BTCUSDT",
+  "timeframe": "1h",
+  "config_fingerprint": "sha256:d176feae1394beb1d9cbeaa26f552a86",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "exit_head_action",
+    "exit_head_model",
+    "exit_head_threshold"
+  ],
+  "net_r_oos": -7.1079,
+  "expectancy_r_oos": -0.0948,
+  "n_trades_oos": 75,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 18,
+      "net_r": 8.1646,
+      "expectancy_r": 0.4536,
+      "start": "2025-09-15 05:00:00+00:00",
+      "end": "2025-12-07 17:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 18,
+      "net_r": -6.2091,
+      "expectancy_r": -0.3449,
+      "start": "2025-12-09 15:00:00+00:00",
+      "end": "2026-03-02 15:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 18,
+      "net_r": -5.5331,
+      "expectancy_r": -0.3074,
+      "start": "2026-03-04 08:00:00+00:00",
+      "end": "2026-06-22 13:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 21,
+      "net_r": -3.5303,
+      "expectancy_r": -0.1681,
+      "start": "2026-07-03 20:00:00+00:00",
+      "end": "2026-09-11 12:00:00+00:00"
+    }
+  ],
+  "folds_positive": 1,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-13T03:32:42.623653+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/trend_donchian__trades.jsonl",
+  "error": null,
+  "harness": "trend"
+}
