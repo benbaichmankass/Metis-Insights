@@ -1789,7 +1789,32 @@
    "PR-11903"
   ]
  },
- {
+  {
+   "id": "OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
+   "opened": "2026-09-13",
+   "kind": "monitoring",
+   "probe": {
+     "cmd": [
+       "python3",
+       "scripts/ops/probe_file.py",
+       "--file",
+       "docs/claude/DUE.json",
+       "--require",
+       "sources.red_main_runs.state=read",
+       "--positive-control",
+       "sources.red_crons.state=read"
+     ],
+     "is_not": "A PASS ESTABLISHES ONLY THAT THE SOURCE WAS CALLED AND HAD A TOKEN. It does NOT establish that the source is CORRECT: `state: read` with zero rows is equally consistent with the default branch being green and with the filter being wrong, and this probe cannot tell those apart -- `event=push&branch=main`, the completed-only status gate and the not-a-finding conclusion set are all unexercised against a real red run either way. It does NOT establish that a genuine red on `main` would be REPORTED, which needs a run that actually failed. And it does NOT establish that anybody READS docs/claude/DUE.md -- routing a signal onto a page is not the same as the signal reaching a session, which is the gap the parent backlog row was filed about in the first place. Treat a pass as 'the wiring carries current', never as 'the default branch is watched'.",
+     "checks": "The committed due-list envelope carries a `red_main_runs` entry whose state is `read` -- i.e. the source was CALLED and had a token. THE POSITIVE CONTROL IS THE SIBLING SOURCE `red_crons`, chosen because it needs the SAME GITHUB_TOKEN in the SAME workflow: if it reads, the token half works and a quiet `red_main_runs` is this source's gap rather than an unread. If the control stops firing the verdict becomes could_not_look, never a negative. !! `red_main_runs` ABSENT from `sources` and `red_main_runs` reading `could_not_read` are DIFFERENT FACTS -- absent means collect() never called it (a wiring defect), could_not_read means it was called with no token -- and this probe distinguishes neither; it only ever says the clearing condition is unmet. Read the entry itself before concluding which."
+   },
+   "loud": false,
+   "check_every_days": 3,
+   "verified_at": "2026-09-13",
+   "summary": "scripts/ops/render_due_list.py gained `src_red_main_runs` (MI-280 U90 lane, PR #12209, merged 4f3e0c388): the latest COMPLETED push-to-`main` run of each workflow whose conclusion is a real failure, rendered on docs/claude/DUE.md. It exists because `src_red_crons` queries `?event=schedule` and nothing else, so a red on the DEFAULT BRANCH was read by no source at all -- measured: `main` at 2a6c1b24d genuinely carried a duplicated register id, check_register_ids.py exits 1 at that commit with no --base needed, guards.yml carries `push: branches: [main]` with register-id-guard always-on, and the duplicate was nonetheless found by an unrelated PR author tripping over it. !! IT HAS NEVER RUN AGAINST THE REAL ACTIONS API. Its only caller is .github/workflows/due-list.yml on a `50 5 * * *` cron, and it needs a GITHUB_TOKEN; tokenless it returns `could_not_read` by design. 17 tests pass and a harness cannot reach api.github.com.",
+   "observation": "MEASURED 2026-09-13 on the committed artifacts, with a positive control so the silence has a denominator. docs/claude/DUE.json (generated_at 2026-09-13T05:20:13+00:00, verdict `partial`, unreadable_sources ['spent_decision_edges']) carries a per-source envelope, and `red_main_runs` is ABSENT FROM IT ENTIRELY -- not `read` with zero rows, absent -- while its sibling `red_crons`, which needs the SAME token, reads `state: read` with 6 rows in that same run. So the token half demonstrably works in that workflow and the gap is this source's, which did not exist when that render was taken: #12209 opened at 07:11Z and merged after, i.e. roughly two hours AFTER the last cron. The string `red_main_runs` appears 0 times in docs/claude/DUE.md. Verified on MAIN's own copy after the merge rather than on the branch: `def src_red_main_runs` is present once, it is registered in SOURCES (between src_red_crons and src_unlanded_automation) and in collect()'s token dispatch, the query string is `event=push&branch=main`, its 17 tests pass from a worktree at origin/main, and calling it with token=None from main's blob returns state `could_not_read` with the note naming the missing GITHUB_TOKEN. That is the CORRECT tokenless answer and is NOT evidence the source works.",
+   "clears_when": "A RENDER PRODUCED BY THE CRON, WITH A TOKEN, IS OBSERVED GRADING IT -- i.e. docs/claude/DUE.json on `main` carries a `red_main_runs` entry whose `state` is `read`, and EITHER it names at least one workflow (the source found a positive) OR it reports zero rows, which is then a genuine clean negative because the token half is established by the entry existing at all. Record WHICH, and the run that produced it. !! `red_main_runs` STILL ABSENT FROM THE sources ENVELOPE DOES NOT CLEAR THIS AND IS ITSELF THE FINDING: absent means collect() never called it, which is a wiring defect, and it is a DIFFERENT fact from `could_not_read`, which means it was called and had no token. !! A `could_not_read` ENTRY CLEARS NOTHING EITHER -- that is the source correctly saying it could not look, and a due-list that renders it forever is a source deployed into a workflow that cannot feed it. !! THE MERGE CLEARS NOTHING: a merge is not a deploy and a deploy is not a run, and 4f3e0c388 is what OPENED this row. !! A GREEN TEST SUITE CLEARS NOTHING: 17 tests pass in a harness and a harness cannot reach api.github.com -- which is the whole reason this row exists rather than a line in the PR body. !! AND IF THE FIRST REAL RUN NAMES A WORKFLOW THAT IS RED ON THE DEFAULT BRANCH, that is not a defect in this source: it is the condition it was built to route, and the row clears on the OBSERVATION while the red itself becomes somebody's work."
+ },
+  {
   "id": "OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
   "kind": "monitoring",
   "loud": true,
