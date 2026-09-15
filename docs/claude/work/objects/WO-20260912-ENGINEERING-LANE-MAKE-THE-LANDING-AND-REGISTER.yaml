@@ -46,7 +46,51 @@ source: >-
   spawn-priority exception filed under the 2026-09-12 block of
   docs/claude/work/spawn-priority-exception.yaml
 
-blocked_on: []
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260913-WHAT-BOUNDS-AN-OPEN-ITEMS-OBSERVATION
+    since: '2026-09-13'
+    question: >-
+      The observation-preservation rule shipped in #12214 makes SHORTENING a row's
+      `observation` a declared act. It does not decide how LONG one may get, and the two
+      pull against each other: the cheap way to satisfy the rule is to APPEND, and one
+      field already reached 16,989 characters before somebody cut it. A 17k-character
+      field in the register CLAUDE.md tells every session to read FIRST is itself a way
+      for the register to stop being read -- the failure check_open_items.py exists to
+      prevent one level up. MEASURED over all 233 commits touching the register on main
+      (232 pairs gradeable): base observation text was lost in 38 of 232 commits (16.4%)
+      across 82 rows, 73 of which kept under 200 characters of the base (median longest
+      surviving block 32 chars) and only 7 of which said anything about superseding;
+      largest single drop 15,720 characters. So the cutting is real and mostly
+      undeclared -- AND some of those cuts were probably right.
+    options:
+      - key: nothing_bounds_it
+        text: >-
+          Nothing bounds an observation; appending forever is accepted, and the register
+          brief gets longer. A LEGITIMATE OUTCOME, and it must be RECORDED as a decision
+          rather than left looking like a policy about to be written.
+      - key: compaction_idiom
+        text: >-
+          Define a compaction idiom the rule RECOGNISES -- e.g. the prose convention this
+          repo already uses, keeping the prior text below a dated separator -- so a
+          session compacting a long observation does so without the supersession
+          declaration and WITHOUT the compaction being silent.
+      - key: explicit_ceiling
+        text: >-
+          Set a length or retained-reading ceiling, with the consequence stated: past it,
+          a cut is expected rather than declared.
+    is_not: >-
+      [!] THIS DOES NOT HOLD UP ANY OTHER WORK IN THIS OBJECT and must not be read as a
+      chain-blocker -- every unit this lane ran proceeded without it, and the rule that
+      raises the question is already merged and working. It is recorded here ONLY because
+      the operator asked (2026-09-13) that carried questions be written down so "the next
+      session that picks up knows to take into account. We don't lose those questions
+      because they were never answered." A false blocker is worse than a missing one, so
+      the scope is stated rather than implied: this edge blocks the COMPACTION POLICY, not
+      the lane. [!] AND DO NOT 'RESOLVE' IT BY LOOSENING THE RULE -- a ceiling enforced by
+      permitting silent truncation would be strictly worse than either horn.
+    filed_as: >-
+      BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET
 blocked_on_basis: >-
   TWO ASSESSMENTS, BOTH KEPT, because they are different observations and neither
   substitutes for the other. ⚠️ This field is itself an instance of U4, the failure this
