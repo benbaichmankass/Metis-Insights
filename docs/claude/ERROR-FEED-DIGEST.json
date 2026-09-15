@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-13T05:20:09+00:00",
-  "covers_since": "2026-09-12T23:44:26.958724+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-12T23:44:26.958724+00:00",
+  "generated_at": "2026-09-15T01:53:00+00:00",
+  "covers_since": "2026-09-13T04:13:49.648924+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-13T04:13:49.648924+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 332,
+        "rows_returned": 396,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-09T06:44:24.244346+00:00",
-        "newest_ts": "2026-09-13T04:13:49.648924+00:00",
+        "newest_ts": "2026-09-14T23:58:24.684103+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-09-12T08:57:55.773954+00:00",
-        "newest_ts": "2026-09-13T04:13:21.384295+00:00",
+        "oldest_ts": "2026-09-12T09:11:53.310024+00:00",
+        "newest_ts": "2026-09-15T01:23:47.462304+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 332,
-      "rows_after_watermark": 1,
+      "rows_considered": 396,
+      "rows_after_watermark": 64,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-12T23:44:26.958724+00:00"
+      "watermark_applied": "2026-09-13T04:13:49.648924+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 1,
+      "rows_after_watermark": 55,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-12T23:44:26.958724+00:00"
+      "watermark_applied": "2026-09-13T04:13:49.648924+00:00"
     }
   },
   "account_roster": {
@@ -67,24 +67,276 @@
     ]
   },
   "counts": {
-    "groups": 68,
-    "new_groups": 0,
-    "error_groups": 43,
-    "rows_grouped": 1332
+    "groups": 82,
+    "new_groups": 14,
+    "error_groups": 55,
+    "rows_grouped": 1396
   },
   "watermark": {
-    "next_since": "2026-09-13T04:13:49.648924+00:00",
-    "note": "advanced to the newest row read (2026-09-13T04:13:49.648924+00:00)"
+    "next_since": "2026-09-15T01:23:47.462304+00:00",
+    "note": "advanced to the newest row read (2026-09-15T01:23:47.462304+00:00)"
   },
   "groups": [
     {
       "feed": "operator_alerts",
       "level": "error",
+      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: bybit_N Symbol: AVAXUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: not_classified Nobody",
+      "count": 2,
+      "is_new": true,
+      "first_seen": "2026-09-14T02:27:19.890041+00:00",
+      "last_seen": "2026-09-14T12:23:47.743162+00:00",
+      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: long | Qty: 5163.5\nConsecutive close failures: 3\nshare_hold: not_classified\nNobody classified this failure \u2014 a non-Alpaca venue, or a path that never reached the classifying branch. WE DID NOT LOOK; treat the cause as unknown.\nLast error: InvalidRequestError: current position is zero, cannot fix reduce-only order qty (ErrCode: 110017) (ErrTime: 02:27:19).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"AVAXUSDT\", \"side\": \"Sell\", \"orderType\": \"Market\", \"qty\": \"5163.5\",",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "alpaca_partial_stop_coverage detected: alpaca_paper/QQQ: position N carries a resting stop for only N \u2014 N unprotected. The netted position is shared by more jou",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T16:08:45.042243+00:00",
+      "last_seen": "2026-09-14T16:08:45.042243+00:00",
+      "sample": "alpaca_partial_stop_coverage detected: alpaca_paper/QQQ: position 8.0 carries a resting stop for only 0.0 \u2014 8 unprotected. The netted position is shared by more journal trades than have a bracket resting.",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "alpaca_partial_stop_coverage detected: alpaca_portfolio/QQQ: position N carries a resting stop for only N \u2014 N unprotected. The netted position is shared by more",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T16:08:46.725965+00:00",
+      "last_seen": "2026-09-14T16:08:46.725965+00:00",
+      "sample": "alpaca_partial_stop_coverage detected: alpaca_portfolio/QQQ: position 82.0 carries a resting stop for only 0.0 \u2014 82 unprotected. The netted position is shared by more journal trades than have a bracket resting.",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "alpaca_partial_stop_coverage detected: alpaca_portfolio/TLT: position N carries a resting stop for only N \u2014 N unprotected. The netted position is shared by more",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T15:56:44.659136+00:00",
+      "last_seen": "2026-09-14T15:56:44.659136+00:00",
+      "sample": "alpaca_partial_stop_coverage detected: alpaca_portfolio/TLT: position 815.0 carries a resting stop for only 0.0 \u2014 815 unprotected. The netted position is shared by more journal trades than have a bracket resting.",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "alpaca_target_naked detected: alpaca_portfolio/TLT: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T15:56:44.829493+00:00",
+      "last_seen": "2026-09-14T15:56:44.829493+00:00",
+      "sample": "alpaca_target_naked detected: alpaca_portfolio/TLT: position 815.0 has 0.0 of take-profit coverage against a declared TP of 73.228775 \u2014 the position can only stop out or run",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83c\udfaf Stop-loss exit detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: sl No",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-13T08:34:25.001724+00:00",
+      "last_seen": "2026-09-13T08:34:25.001724+00:00",
+      "sample": "\ud83c\udfaf Stop-loss exit detected by reconciler\nAccount: bybit_2\nSymbol: ETHUSDT | Side: long\nDB trade id: 5682\nPackage: pkg-5b1bf6bd0c244401\nReason: reconciler\nClassification: sl\nNote: Bybit SL bracket fired; detected at next reconcile tick",
+      "symbols": [
+        "ETHUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_2"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83c\udfaf Take-profit exit detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: tp",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T12:25:02.598738+00:00",
+      "last_seen": "2026-09-14T12:25:02.598738+00:00",
+      "sample": "\ud83c\udfaf Take-profit exit detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: long\nDB trade id: 5751\nPackage: pkg-066907c1af474a91\nReason: reconciler\nClassification: tp\nNote: Bybit TP bracket fired; detected at next reconcile tick",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83c\udfaf Take-profit exit detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: t",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T09:20:41.888237+00:00",
+      "last_seen": "2026-09-14T09:20:41.888237+00:00",
+      "sample": "\ud83c\udfaf Take-profit exit detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: short\nDB trade id: 5749\nPackage: pkg-9eb60e7fddbf403d\nReason: reconciler\nClassification: tp\nNote: Bybit TP bracket fired; detected at next reconcile tick",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: XRPUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T18:21:48.731607+00:00",
+      "last_seen": "2026-09-14T18:21:48.731607+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_2\nSymbol: XRPUSDT | Side: short\nDB trade id: 5697\nPackage: pkg-8e0f370d61b8470b\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_2"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_portfolio Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification:",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-13T08:34:26.457938+00:00",
+      "last_seen": "2026-09-13T08:34:26.457938+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_portfolio\nSymbol: ETHUSDT | Side: long\nDB trade id: 5683\nPackage: pkg-5b1bf6bd0c244401\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "ETHUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_portfolio Symbol: XRPUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T18:21:50.613809+00:00",
+      "last_seen": "2026-09-14T18:21:50.613809+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_portfolio\nSymbol: XRPUSDT | Side: short\nDB trade id: 5698\nPackage: pkg-8e0f370d61b8470b\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_portfolio"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: bybit_N Symbol: SOLUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T06:08:22.150681+00:00",
+      "last_seen": "2026-09-14T06:08:22.150681+00:00",
+      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: bybit_1\nSymbol: SOLUSDT | Side: short | Qty: 999.6\nConsecutive close failures: 3\nshare_hold: not_classified\nNobody classified this failure \u2014 a non-Alpaca venue, or a path that never reached the classifying branch. WE DID NOT LOOK; treat the cause as unknown.\nLast error: InvalidRequestError: current position is zero, cannot fix reduce-only order qty (ErrCode: 110017) (ErrTime: 06:08:22).\nRequest \u2192 POST https://api-demo.bybit.com/v5/order/create: {\"category\": \"linear\", \"symbol\": \"SOLUSDT\", \"side\": \"Buy\", \"orderType\": \"Market\", \"qty\": \"999.6\", \"re",
+      "symbols": [
+        "SOLUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_unavailable (for N c",
-      "count": 58,
+      "count": 63,
       "is_new": false,
       "first_seen": "2026-09-10T09:07:19.410872+00:00",
-      "last_seen": "2026-09-13T04:13:49.648924+00:00",
+      "last_seen": "2026-09-14T06:29:52.314802+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-fedb7e59f3a34d9f\nStrategy: ict_scalp_mgc_15m | Symbol: MGC\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MGC"
@@ -103,10 +355,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N ",
-      "count": 51,
+      "count": 56,
       "is_new": false,
       "first_seen": "2026-09-09T16:16:17.159897+00:00",
-      "last_seen": "2026-09-12T22:59:19.453313+00:00",
+      "last_seen": "2026-09-14T23:58:24.684103+00:00",
       "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-1d9598b29f38440c\nStrategy: mes_trend_long_1d | Symbol: MES\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
       "symbols": [
         "MES"
@@ -121,33 +373,11 @@
     {
       "feed": "operator_alerts",
       "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co",
-      "count": 51,
-      "is_new": false,
-      "first_seen": "2026-09-09T16:16:17.435098+00:00",
-      "last_seen": "2026-09-12T22:59:19.747385+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-146883bacb8743be\nStrategy: mhg_pullback_1d | Symbol: MHG\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "MHG"
-      ],
-      "strategies": [
-        "mhg_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
       "cause": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca",
-      "count": 42,
+      "count": 56,
       "is_new": false,
       "first_seen": "2026-09-09T10:03:15.361800+00:00",
-      "last_seen": "2026-09-11T23:15:47.459088+00:00",
+      "last_seen": "2026-09-14T23:12:03.223122+00:00",
       "sample": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: cancel_accepted_ineffective\nCANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these orders, it returned a SUCCESS code, and the orders are still resting with canceled_at null \u2014 not even moved to pending_cancel. Re-issuing the same cancel is exactly what has already failed, so no app-level retry and no cancel_orders=true liquidation will release these shares. This needs OPERATOR or VENUE action.\nStanding: carried in the diges",
       "symbols": [
         "GLD"
@@ -159,6 +389,28 @@
       "accounts_state": "matched",
       "facets_found": [
         "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_unavailable (for N co",
+      "count": 52,
+      "is_new": false,
+      "first_seen": "2026-09-09T16:16:17.435098+00:00",
+      "last_seen": "2026-09-14T00:45:02.288772+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-146883bacb8743be\nStrategy: mhg_pullback_1d | Symbol: MHG\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "MHG"
+      ],
+      "strategies": [
+        "mhg_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
         "symbols"
       ]
     },
@@ -187,11 +439,33 @@
     {
       "feed": "operator_alerts",
       "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
+      "count": 6,
+      "is_new": false,
+      "first_seen": "2026-09-10T07:23:53.005707+00:00",
+      "last_seen": "2026-09-14T05:30:58.968636+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: long\nDB trade id: 5633\nPackage: pkg-b3b052da0b684de8\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
       "cause": "\ud83e\uddf9 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat",
-      "count": 5,
+      "count": 6,
       "is_new": false,
       "first_seen": "2026-09-09T15:42:30.931533+00:00",
-      "last_seen": "2026-09-11T13:55:56.223146+00:00",
+      "last_seen": "2026-09-13T08:38:35.444030+00:00",
       "sample": "\ud83e\uddf9 Stuck linked-package sweep fired\nForce-closed 1 order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gate would otherwise stay blocked).\nThis is the second-line self-heal \u2014 a non-zero count means a primary cascade path missed; worth a look.",
       "symbols": [],
       "strategies": [],
@@ -203,10 +477,10 @@
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_",
-      "count": 4,
+      "count": 5,
       "is_new": false,
       "first_seen": "2026-09-09T12:04:19.986616+00:00",
-      "last_seen": "2026-09-12T02:07:14.949099+00:00",
+      "last_seen": "2026-09-14T13:39:29.429852+00:00",
       "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: SOLUSDT | Side: long\nDB trade id: 5586\nPackage: pkg-401593d9b4974f16\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
       "symbols": [
         "SOLUSDT"
@@ -214,6 +488,29 @@
       "strategies": [],
       "accounts": [
         "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_",
+      "count": 4,
+      "is_new": false,
+      "first_seen": "2026-09-09T09:48:24.051387+00:00",
+      "last_seen": "2026-09-14T04:03:36.904280+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: BTCUSDT | Side: long\nDB trade id: 5590\nPackage: pkg-fcf6c7c1584a4531\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1",
+        "bybit_2"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -247,19 +544,128 @@
     {
       "feed": "operator_alerts",
       "level": "error",
-      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_",
-      "count": 3,
+      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: broker_cancel_wedged ",
+      "count": 4,
       "is_new": false,
-      "first_seen": "2026-09-09T09:48:24.051387+00:00",
-      "last_seen": "2026-09-11T15:57:45.925576+00:00",
-      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: BTCUSDT | Side: long\nDB trade id: 5590\nPackage: pkg-fcf6c7c1584a4531\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "first_seen": "2026-09-09T08:01:22.114859+00:00",
+      "last_seen": "2026-09-14T08:01:34.298844+00:00",
+      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: broker_cancel_wedged\nWEDGED BROKER-SIDE: an order sits in pending_cancel/pending_replace. Our cancel was ACCEPTED and the venue never completed it, so no further app-level cancel and no cancel_orders=true liquidation can release these shares. This needs OPERATOR or VENUE action.\nLast error: extended-hours limit close rejected: insufficient qty available for order (requested: 39, available: 0) [share_hold=broker_cancel_wedged: 2 order(s) wedged broker-sid",
       "symbols": [
-        "BTCUSDT"
+        "GLD"
       ],
       "strategies": [],
       "accounts": [
-        "bybit_1",
-        "bybit_2"
+        "alpaca_paper"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: cancel_accepted_ineff",
+      "count": 4,
+      "is_new": false,
+      "first_seen": "2026-09-09T09:01:54.887471+00:00",
+      "last_seen": "2026-09-14T09:02:03.956357+00:00",
+      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 4\nshare_hold: cancel_accepted_ineffective\nCANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these orders, it returned a SUCCESS code, and the orders are still resting with canceled_at null \u2014 not even moved to pending_cancel. Re-issuing the same cancel is exactly what has already failed, so no app-level retry and no cancel_orders=true liquidation will release these shares. This needs OPERATOR or VENUE action.\nLast error: extended-hours limit close rejected: ",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [],
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_unavailable (for N co",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:02.082744+00:00",
+      "last_seen": "2026-09-13T07:02:00.845289+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-a1416c2b99e84fc8\nStrategy: gld_pullback_1d | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_unavailable (for N co",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-11T16:18:08.975421+00:00",
+      "last_seen": "2026-09-13T07:02:11.134527+00:00",
+      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-6a8e3fb325464be3\nStrategy: gld_pullback_1h | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
+      "symbols": [
+        "GLD"
+      ],
+      "strategies": [
+        "gld_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broke",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-10T10:36:36.725248+00:00",
+      "last_seen": "2026-09-13T06:58:07.913309+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: short\nDB trade id: 5636\nPackage: pkg-bd07145c1f9a4ab5\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "AVAXUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
+      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-11T12:39:21.718481+00:00",
+      "last_seen": "2026-09-14T06:10:03.475305+00:00",
+      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: SOLUSDT | Side: short\nDB trade id: 5646\nPackage: pkg-42db589bb07a4027\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
+      "symbols": [
+        "SOLUSDT"
+      ],
+      "strategies": [],
+      "accounts": [
+        "bybit_1"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -282,50 +688,6 @@
       "strategies": [],
       "accounts": [
         "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: broker_cancel_wedged ",
-      "count": 3,
-      "is_new": false,
-      "first_seen": "2026-09-09T08:01:22.114859+00:00",
-      "last_seen": "2026-09-11T08:01:24.048228+00:00",
-      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: broker_cancel_wedged\nWEDGED BROKER-SIDE: an order sits in pending_cancel/pending_replace. Our cancel was ACCEPTED and the venue never completed it, so no further app-level cancel and no cancel_orders=true liquidation can release these shares. This needs OPERATOR or VENUE action.\nLast error: extended-hours limit close rejected: insufficient qty available for order (requested: 39, available: 0) [share_hold=broker_cancel_wedged: 2 order(s) wedged broker-sid",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [],
-      "accounts": [
-        "alpaca_paper"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: cancel_accepted_ineff",
-      "count": 3,
-      "is_new": false,
-      "first_seen": "2026-09-09T09:01:54.887471+00:00",
-      "last_seen": "2026-09-11T09:01:52.898109+00:00",
-      "sample": "\ud83d\uded1 Position CLOSE failing \u2014 won't flatten\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 4\nshare_hold: cancel_accepted_ineffective\nCANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these orders, it returned a SUCCESS code, and the orders are still resting with canceled_at null \u2014 not even moved to pending_cancel. Re-issuing the same cancel is exactly what has already failed, so no app-level retry and no cancel_orders=true liquidation will release these shares. This needs OPERATOR or VENUE action.\nLast error: extended-hours limit close rejected: ",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [],
-      "accounts": [
-        "alpaca_paper"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -369,50 +731,6 @@
       ],
       "strategies": [
         "gdx_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nd | Symbol: GLD Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-11T16:18:02.082744+00:00",
-      "last_seen": "2026-09-11T16:31:49.825634+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-a1416c2b99e84fc8\nStrategy: gld_pullback_1d | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit Order package: pkg-<hex> Strategy: gld_pullback_Nh | Symbol: GLD Reason: candles_unavailable (for N co",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-11T16:18:08.975421+00:00",
-      "last_seen": "2026-09-11T16:31:56.610689+00:00",
-      "sample": "\u26a0\ufe0f MONITOR BLIND \u2014 open position has no live dynamic exit\nOrder package: pkg-6a8e3fb325464be3\nStrategy: gld_pullback_1h | Symbol: GLD\nReason: candles_unavailable (for 3 consecutive ticks)\nBroker SL/TP backstop (if any) still holds, but monitor()-driven exits are NOT running.\nAction: check the strategy module / candle feed for this symbol.",
-      "symbols": [
-        "GLD"
-      ],
-      "strategies": [
-        "gld_pullback_1h"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -534,50 +852,6 @@
     {
       "feed": "operator_alerts",
       "level": "error",
-      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-10T07:23:53.005707+00:00",
-      "last_seen": "2026-09-11T15:57:42.713361+00:00",
-      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: long\nDB trade id: 5633\nPackage: pkg-b3b052da0b684de8\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
-      "symbols": [
-        "AVAXUSDT"
-      ],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broke",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-10T10:36:36.725248+00:00",
-      "last_seen": "2026-09-10T19:03:30.797615+00:00",
-      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: AVAXUSDT | Side: short\nDB trade id: 5636\nPackage: pkg-bd07145c1f9a4ab5\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
-      "symbols": [
-        "AVAXUSDT"
-      ],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
       "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker_",
       "count": 2,
       "is_new": false,
@@ -586,28 +860,6 @@
       "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: ETHUSDT | Side: long\nDB trade id: 5659\nPackage: pkg-ba398eb4a2f84016\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
       "symbols": [
         "ETHUSDT"
-      ],
-      "strategies": [],
-      "accounts": [
-        "bybit_1"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-11T12:39:21.718481+00:00",
-      "last_seen": "2026-09-12T08:02:25.066804+00:00",
-      "sample": "\ud83d\udd14 Broker close detected by reconciler\nAccount: bybit_1\nSymbol: SOLUSDT | Side: short\nDB trade id: 5646\nPackage: pkg-42db589bb07a4027\nReason: reconciler\nClassification: broker_close_unclassified\nNote: Closed via Trade order at exchange; exit price not at SL/TP levels \u2014 manual close or untracked stop",
-      "symbols": [
-        "SOLUSDT"
       ],
       "strategies": [],
       "accounts": [
@@ -1033,10 +1285,54 @@
     {
       "feed": "bot_logs",
       "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_Nd: no candle data returned for symbol=TLT timeframe=Nd. Check that the Alpaca conne",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T15:44:27.671365+00:00",
+      "last_seen": "2026-09-14T15:44:27.671365+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: tlt_pullback_1d: no candle data returned for symbol=TLT timeframe=1d. Check that the Alpaca connection is configured and the symbol is valid.",
+      "symbols": [
+        "TLT"
+      ],
+      "strategies": [
+        "tlt_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: qqq_pullback_Nh | Symbol: QQQ Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timefr",
+      "count": 1,
+      "is_new": true,
+      "first_seen": "2026-09-14T19:03:49.384981+00:00",
+      "last_seen": "2026-09-14T19:03:49.384981+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: qqq_pullback_1h | Symbol: QQQ\nPackage: pkg-836f6be5a1924f52\nDB trade id: 5763\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "QQQ"
+      ],
+      "strategies": [
+        "qqq_pullback_1h"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
       "cause": "position_read_state hedge_book_dropped",
-      "count": 207,
+      "count": 186,
       "is_new": false,
-      "first_seen": "2026-09-12T08:58:35.102292+00:00",
+      "first_seen": "2026-09-12T09:11:53.310024+00:00",
       "last_seen": "2026-09-12T11:05:29.593930+00:00",
       "sample": "position_read_state hedge_book_dropped",
       "symbols": [],
@@ -1049,10 +1345,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 167,
+      "count": 180,
       "is_new": false,
-      "first_seen": "2026-09-12T08:57:55.773954+00:00",
-      "last_seen": "2026-09-13T04:13:21.384295+00:00",
+      "first_seen": "2026-09-12T09:13:51.285481+00:00",
+      "last_seen": "2026-09-15T01:23:47.462304+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1070,33 +1366,11 @@
     {
       "feed": "bot_logs",
       "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 160,
-      "is_new": false,
-      "first_seen": "2026-09-12T08:57:56.251281+00:00",
-      "last_seen": "2026-09-12T23:44:26.568592+00:00",
-      "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
-      "symbols": [
-        "MGC"
-      ],
-      "strategies": [
-        "mgc_pullback_1d"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
-      "count": 160,
+      "count": 165,
       "is_new": false,
-      "first_seen": "2026-09-12T08:57:56.730522+00:00",
-      "last_seen": "2026-09-12T23:44:26.958724+00:00",
+      "first_seen": "2026-09-12T09:13:52.060113+00:00",
+      "last_seen": "2026-09-15T00:01:05.096177+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1114,11 +1388,33 @@
     {
       "feed": "bot_logs",
       "level": "warn",
-      "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 153,
+      "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
+      "count": 159,
       "is_new": false,
-      "first_seen": "2026-09-12T09:00:17.896373+00:00",
-      "last_seen": "2026-09-12T22:58:39.869788+00:00",
+      "first_seen": "2026-09-12T09:13:51.672587+00:00",
+      "last_seen": "2026-09-14T13:30:55.068454+00:00",
+      "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
+      "symbols": [
+        "MGC"
+      ],
+      "strategies": [
+        "mgc_pullback_1d"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "warn",
+      "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
+      "count": 152,
+      "is_new": false,
+      "first_seen": "2026-09-12T09:13:49.673465+00:00",
+      "last_seen": "2026-09-15T00:01:02.662215+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MES"
@@ -1136,8 +1432,8 @@
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
       "count": 152,
       "is_new": false,
-      "first_seen": "2026-09-12T08:57:59.925389+00:00",
-      "last_seen": "2026-09-12T22:58:43.735180+00:00",
+      "first_seen": "2026-09-12T09:13:53.584848+00:00",
+      "last_seen": "2026-09-15T00:01:06.732714+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MHG"
@@ -1155,39 +1451,17 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_sol_eth_a | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 6,
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its",
+      "count": 11,
       "is_new": false,
-      "first_seen": "2026-09-09T08:04:42.949292+00:00",
-      "last_seen": "2026-09-12T23:01:33.147690+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_sol_eth_a | Symbol: SOLUSDT\nPackage: pkg-401593d9b4974f16\nDB trade id: 5586\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-10T10:09:23.612270+00:00",
+      "last_seen": "2026-09-14T21:33:00.944551+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_avax_5m | Symbol: AVAXUSDT\nPackage: pkg-bd07145c1f9a4ab5\nDB trade id: 5636\nHeld for: 30 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "SOLUSDT"
+        "AVAXUSDT"
       ],
       "strategies": [
-        "pairs_sol_eth_a"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_sol_eth_b | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 6,
-      "is_new": false,
-      "first_seen": "2026-09-09T08:04:43.034515+00:00",
-      "last_seen": "2026-09-12T23:01:33.140520+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_sol_eth_b | Symbol: ETHUSDT\nPackage: pkg-7f4593b2e55045d0\nDB trade id: 5587\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "ETHUSDT"
-      ],
-      "strategies": [
-        "pairs_sol_eth_b"
+        "ict_scalp_avax_5m"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -1200,10 +1474,10 @@
       "feed": "operator_alerts",
       "level": "warn",
       "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_bnb_btc_a | Symbol: BNBUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 5,
+      "count": 7,
       "is_new": false,
       "first_seen": "2026-09-09T17:01:27.636417+00:00",
-      "last_seen": "2026-09-12T15:01:41.175679+00:00",
+      "last_seen": "2026-09-13T22:03:50.277003+00:00",
       "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_bnb_btc_a | Symbol: BNBUSDT\nPackage: pkg-74cc792fcfb84c8b\nDB trade id: 5600\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
         "BNBUSDT"
@@ -1222,10 +1496,10 @@
       "feed": "operator_alerts",
       "level": "warn",
       "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_bnb_btc_b | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
-      "count": 5,
+      "count": 7,
       "is_new": false,
       "first_seen": "2026-09-09T17:01:27.628546+00:00",
-      "last_seen": "2026-09-12T15:01:41.184201+00:00",
+      "last_seen": "2026-09-13T22:03:50.269674+00:00",
       "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_bnb_btc_b | Symbol: BTCUSDT\nPackage: pkg-62881e6cdc7e4522\nDB trade id: 5601\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
         "BTCUSDT"
@@ -1243,17 +1517,39 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its",
-      "count": 4,
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_sol_eth_a | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
+      "count": 7,
       "is_new": false,
-      "first_seen": "2026-09-10T10:09:23.612270+00:00",
-      "last_seen": "2026-09-12T01:45:35.987549+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_avax_5m | Symbol: AVAXUSDT\nPackage: pkg-bd07145c1f9a4ab5\nDB trade id: 5636\nHeld for: 30 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-09T08:04:42.949292+00:00",
+      "last_seen": "2026-09-14T17:03:28.392459+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_sol_eth_a | Symbol: SOLUSDT\nPackage: pkg-401593d9b4974f16\nDB trade id: 5586\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "AVAXUSDT"
+        "SOLUSDT"
       ],
       "strategies": [
-        "ict_scalp_avax_5m"
+        "pairs_sol_eth_a"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: pairs_sol_eth_b | Symbol: ETHUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its ti",
+      "count": 7,
+      "is_new": false,
+      "first_seen": "2026-09-09T08:04:43.034515+00:00",
+      "last_seen": "2026-09-14T17:03:28.400803+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: pairs_sol_eth_b | Symbol: ETHUSDT\nPackage: pkg-7f4593b2e55045d0\nDB trade id: 5587\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "ETHUSDT"
+      ],
+      "strategies": [
+        "pairs_sol_eth_b"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -1276,6 +1572,51 @@
       ],
       "strategies": [
         "ict_scalp_mgc_15m"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-11T10:30:59.936370+00:00",
+      "last_seen": "2026-09-13T23:04:07.958580+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_sol_15m | Symbol: SOLUSDT\nPackage: pkg-0566bb4192914e54\nDB trade id: 5671\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "SOLUSDT"
+      ],
+      "strategies": [
+        "ict_scalp_sol_15m"
+      ],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": [
+        "strategies",
+        "symbols"
+      ]
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "warn",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "count": 3,
+      "is_new": false,
+      "first_seen": "2026-09-11T01:10:31.853415+00:00",
+      "last_seen": "2026-09-14T10:22:26.733211+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_xrp_15m | Symbol: XRPUSDT\nPackage: pkg-ae075ee8b3cf4736\nDB trade id: 5664\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "symbols": [
+        "XRPUSDT"
+      ],
+      "strategies": [
+        "ict_scalp_xrp_15m",
+        "ict_scalp_xrp_5m"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -1331,39 +1672,17 @@
     {
       "feed": "operator_alerts",
       "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
+      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: tlt_pullback_Nh | Symbol: TLT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timefr",
       "count": 2,
       "is_new": false,
-      "first_seen": "2026-09-11T10:30:59.936370+00:00",
-      "last_seen": "2026-09-11T20:57:37.524740+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_sol_15m | Symbol: SOLUSDT\nPackage: pkg-0566bb4192914e54\nDB trade id: 5671\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
+      "first_seen": "2026-09-11T16:56:57.006126+00:00",
+      "last_seen": "2026-09-14T19:03:49.083261+00:00",
+      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: tlt_pullback_1h | Symbol: TLT\nPackage: pkg-e0b8541892e341bd\nDB trade id: 5685\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
       "symbols": [
-        "SOLUSDT"
+        "TLT"
       ],
       "strategies": [
-        "ict_scalp_sol_15m"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its t",
-      "count": 2,
-      "is_new": false,
-      "first_seen": "2026-09-11T01:10:31.853415+00:00",
-      "last_seen": "2026-09-11T14:47:01.690225+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: ict_scalp_xrp_15m | Symbol: XRPUSDT\nPackage: pkg-ae075ee8b3cf4736\nDB trade id: 5664\nHeld for: 45 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "XRPUSDT"
-      ],
-      "strategies": [
-        "ict_scalp_xrp_15m"
+        "tlt_pullback_1h"
       ],
       "accounts": [],
       "accounts_state": "matched",
@@ -1475,28 +1794,6 @@
       ],
       "strategies": [
         "spy_pullback_1h"
-      ],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": [
-        "strategies",
-        "symbols"
-      ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "warn",
-      "cause": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action) Strategy: tlt_pullback_Nh | Symbol: TLT Package: pkg-<hex> DB trade id: N Held for: N min (\u2265 N\u00d7 its timefr",
-      "count": 1,
-      "is_new": false,
-      "first_seen": "2026-09-11T16:56:57.006126+00:00",
-      "last_seen": "2026-09-11T16:56:57.006126+00:00",
-      "sample": "\ud83d\udd0e Stuck-strategy watchdog (informational \u2014 no action)\nStrategy: tlt_pullback_1h | Symbol: TLT\nPackage: pkg-e0b8541892e341bd\nDB trade id: 5685\nHeld for: 180 min (\u2265 3\u00d7 its timeframe)\nStatus: position CONFIRMED ALIVE on the exchange \u2014 the strategy is patiently holding it. The watchdog deferred and did NOT touch the trade; it exits on its SL/TP or an opposing signal. No reconciler issue.",
-      "symbols": [
-        "TLT"
-      ],
-      "strategies": [
-        "tlt_pullback_1h"
       ],
       "accounts": [],
       "accounts_state": "matched",
