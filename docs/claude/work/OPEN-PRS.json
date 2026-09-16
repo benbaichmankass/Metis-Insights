@@ -40,10 +40,91 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-12T14:1xZ",
+  "as_of": "2026-09-16T19:1xZ",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
-  "open_prs": [],
+  "open_prs": [
+    {
+      "pr": 12346,
+      "title": "record the four operator answers of 2026-09-16, and route the first lane",
+      "owning_session_or_lane": "manager session_01HoFquGdTrD3TTGbMMRc43t",
+      "disposition": "self-landing; armed; opened by claude-pr-automerge so it needed an ordinary commit to arm CI — this reconciliation IS that commit.",
+      "operator_decision": {
+        "verdict": "not_required",
+        "text": "None required — Tier-1 register/record work. Recorded as not_required rather than left blank so the row cannot read as an unexamined approval."
+      }
+    },
+    {
+      "pr": 12224,
+      "title": "record the carried operator question as a typed edge, not as context",
+      "owning_session_or_lane": "MI-280 (session archived at the 2026-09-13 pause)",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13. This is MI-280's close-out. The work is on the branch and is NOT lost; it is simply not landed. Needs CI re-checked and a merge decision.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12223,
+      "title": "MI-280 lane: the resumption note for the operator-directed pause",
+      "owning_session_or_lane": "MI-280 (session archived at the 2026-09-13 pause)",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13. The lane's own resumption note — the thing a successor reads to pick it up — is itself unlanded, so it is reachable only from this row.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12222,
+      "title": "file: ranking-key-ab.yml concludes failure instantly on every push, main included",
+      "owning_session_or_lane": "MI-280 lane",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13, AND STILL TRUE — re-measured 2026-09-16 on main @ 398fe70d9: ranking-key-ab concluded `failure` with created_at == updated_at, i.e. it died before running a step. See BL-20260916-THE-LEASE-GRADES-MAIN-RED-... which is a DIFFERENT defect that this one's symptom triggers.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12219,
+      "title": "WIP (paused 2026-09-13): U45 resumption note — AVAX scalp sized off margin, not risk",
+      "owning_session_or_lane": "MI-278 lane (session archived at the pause)",
+      "disposition": "DRAFT, open since 2026-09-13. Deliberately a draft: it is a paused-WIP note, not a landing candidate. Do NOT un-draft it to 'clear the queue'.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12217,
+      "title": "the default-branch red reader is deployed and has never queried the API",
+      "owning_session_or_lane": "MI-280 lane",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12214,
+      "title": "a splice that shortens a row's observation is no longer silent",
+      "owning_session_or_lane": "MI-280 lane",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    },
+    {
+      "pr": 12213,
+      "title": "U28: the PAT-open path has never once run, and the gate meant to catch that was defeated by its own sibling PR",
+      "owning_session_or_lane": "MI-279 lane",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13.",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
+      }
+    }
+  ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
   "recently_merged_pruned_from_this_record": [
     {
@@ -2402,8 +2483,10 @@
       "settled_by": "session_01HoFquGdTrD3TTGbMMRc43t"
     }
   ],
-  "last_reconciled_at": "2026-09-13T05:24:46Z",
+  "last_reconciled_at": "2026-09-16T19:1xZ (live list of 40 via mcp__github__list_pull_requests; strict grade recorded/graded)",
   "last_reconciled_sha": "f9c2705acb6a1366ae5c910df55fe53bfa07a533",
   "updated_at": "2026-09-13T08:45:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t"
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "⚠️_THIS_RECONCILIATION_IS_PARTIAL_AND_SAYS_SO": "MEASURED 2026-09-16 via mcp__github__list_pull_requests(state=open, perPage=40): FORTY PRs are open and this file recorded ZERO, with as_of 2026-09-12T14:1xZ. That is the completeness half of the staleness the _doc warns about, at its maximum: an empty record and a full queue read identically to a cold manager, and only one of them is true. ⚠️ ROWS ARE WRITTEN FOR THE 8 NON-AUTOMATION PRs ONLY. The other 32 are automation landing PRs (automation/error-feed-digest ×18, automation/constraint-readout ×4, automation/probes ×4, automation/replay-pregate ×4, automation/session-reaper ×1, automation/... ×1) which open_pr_record.py::is_automation_landing_pr already classifies; they are NOT hand-rowed here, and if the strict checker still grades `unrecorded` because of them, that is the finding and not a reason to paste 32 rows. ⚠️ EVERY operator_decision ON A CARRIED LANE PR READS `unknown`, DELIBERATELY. The manager listed the queue; it did NOT open each PR to read whether a verdict was given. `unknown` is 'we did not look'. Writing `not_required` would be the exact failure the _doc calls WORSE THAN A MISSING ROW -- a row recording a verdict nobody established reads as complete. ⚠️ CI STATE IS NOT RECORDED AND MUST NOT BE INFERRED FROM THESE ROWS. GitHub stays the source of truth for mergeability; these rows carry ownership and disposition only.",
+  "⚠️_WHAT_THIS_MEANS_FOR_THE_PAUSED_LANES": "The 2026-09-13 close-out DID happen at the branch level and did NOT happen at the merge level. MI-280's #12223 and #12224, MI-279's #12213 and MI-280's #12214/#12217/#12222 are all still OPEN. So 'the work was lost' is FALSE and 'the work landed' is also FALSE -- it is committed, pushed, and sitting in an unworked merge queue, which is the third state. Each needs CI re-checked on its current head and a merge decision; none should be merged blind, since main has moved 3 days."
 }

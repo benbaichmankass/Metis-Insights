@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the four operator answers of 2026-09-16 into docs/claude/work/objects/, adds the chosen first lane as a checklist row, and narrows one OPEN-ITEMS observation. Registers and records only — no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}

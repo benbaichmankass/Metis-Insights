@@ -4114,6 +4114,20 @@
       "manager_note_2026_09_12T0152Z": "DELIVERED. PR #11848 (Tier-1, self-landing, armed): guards + pytest-collect + repo-inventory GREEN, pytest-run finishing. VERDICT: the winner-size collapse is an R COLLAPSE and every in-system mechanism tests NEGATIVE -- size REFUTED (median risk over the full book ROSE $303.60 -> $438.10; the winners-only halving is a selection effect the lane says it first misread), venue clamp REFUTED (cap_r unmoved, winners near the cap 16.7% -> 0.0%), exit levers REFUTED for this account/window, composition REFUTED (all 7 common legs fell, exact p=0.0156). Regime SUPPORTED on PRICE-FREE evidence: winner hold 5.17h -> 1.90h while LOSER hold rose, losers unchanged at ~1R, volatility +29%. !! MAGNITUDE NOT ESTABLISHED and the lane says so: -72.3% all-provenance vs -38.5% on broker-measured rows vs -81.4% standardised, n=15 pre-era measured winners, and the largest single share is netting_attributed which is 100% ESTIMATED over 39 rows -- OI-20260908's own population. It did NOT adjudicate those rows and did not advance that row's verified_at.",
       "owner_observed": "get_session 01:52Z: IDLE / review_ready, context 547623/1000000",
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
+    },
+    {
+      "id": "MI-287",
+      "added": "2026-09-16",
+      "lane": "research",
+      "state": "ready",
+      "owner": null,
+      "title": "Fix the 23 failing strategy-evidence harnesses so the offline edge basis exists for the fleet",
+      "owns_object": "WO-20260901-PHASE-F",
+      "why": "OPERATOR-CHOSEN as the first lane on resume (DEC-20260916-FIRST-LANE-AFTER-THE-PAUSE, recorded in docs/claude/work/objects/WO-20260916-OPERATOR-DIRECTION.yaml). MEASURED 2026-09-16 over all 52 files in comms/strategy_evidence/: 33 legs carry NO offline edge evidence -- coverage_state harness_failed 23, no_harness 10. That is why the 2026-09-16 strategy-review index reads proposed_action {hold: 20, no_offline_evidence: 32} with actionable 0: the gate is working and has nothing to read for most of the fleet.",
+      "manager_note": "THE CAP IS THE POINT AND IT IS BINDING (DEC-20260916-PACING-RULES): 8-12 units, then REPORT BACK -- do not continue, ask. The deliverable is SPECIFIC and finishable: diagnose WHY the 23 harness_failed legs fail (one root cause or several -- say which, with the population), fix what is Tier-1, and file the rest. It is NOT 'get all 52 to faithful' and it is NOT a drain-the-queue mandate; those are the shape that cost $1,309 and $1,138 last week. ALSO BINDING: this lane MUST NOT propose a geometry change -- DEC-20260916-E35-GEOMETRY defers every per-leg target/stop decision until the MFE distribution exists, and producing that distribution is downstream of this lane, not part of it.",
+      "blocked_on": [],
+      "blocked_on_basis": "ASSESSED 2026-09-16 by the manager. Nothing blocks the START of this lane: the evidence files, the harnesses and the gate are all on main and readable. What it is waiting on is a SPAWN, which is the manager's act.",
+      "tier": "1 -- scripts/ and comms/ evidence artifacts; no src/, no config/, no order path. A harness fix that turned out to need an order-path change would STOP and report, not proceed."
     }
   ],
   "as_of": "2026-09-13T08:10:00Z",
@@ -5817,5 +5831,19 @@
       "why_this_is_recorded_rather_than_just_fixed": "It is a SECOND live instance, on a different PR, of the class MI-279 flagged on #12213 two hours earlier — and the two have DIFFERENT causes (that one had no pull_request-event run at all across 5 runs; this one had a partial delivery). One is an anecdote, two on one morning is a pattern, and the pattern is that `total_count > 0` says nothing about whether the REQUIRED set ran. Read the required contexts out of branch-protection-sync.yml and check them BY NAME.",
       "the_scope_overlap_audit_on_this_PR_needed_no_action_and_here_is_why": "The bot flagged 3 paths against 226 declared. `.github/pr-automerge-requests/manager-tick-20260912-0610z.txt` and `.github/pr-landing/manager-tick-20260912-0610z.json` both carry THIS BRANCH'S SLUG in their own filenames, so no other branch writes them — the match is against a broad `.github/` declaration, not a real contender. `docs/claude/health-review-backlog.json` was matched to a LIVE declaration by session_01BjTp5RYwedmpFfkEtkQo1j — which is MI-280, the lane that hit its hard weekly limit and CANNOT push (see its row above), so the collision cannot occur; and the write was a single append through scripts/ops/backlog_append.py, which round-trips the file's exact serialisation rather than reformatting it. Recorded because 'I looked and it was fine' and 'I did not look' are different facts."
     }
+  },
+  "OPERATOR_DIRECTION_2026_09_16": {
+    "recorded_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager)",
+    "recorded_at": "2026-09-16",
+    "durable_record": "docs/claude/work/objects/WO-20260916-OPERATOR-DIRECTION.yaml -- four decisions, machine-readable. READ IT rather than this summary.",
+    "four_answers": {
+      "first_lane": "fix_the_23_failing_harnesses -- the manager recommended the loud-flag diagnosis and was OVERRULED. The loud-flag work is SECOND, not cancelled.",
+      "e35_geometry": "do_not_touch_until_the_harnesses_are_fixed (Tier-3). BOTH revert options were offered and BOTH were declined -- atr_stop_mult STAYS AT 2.0 on all 9 legs.",
+      "pacing_rules": "hard unit cap 8-12 per lane + no open-ended drain mandates + manager ticks every 2h. 'One lane at a time' was OFFERED and NOT selected -- concurrency is still permitted.",
+      "bybit_2_real_money": "'No open position on real money' -- the hedge-book flat-read defect had no live real-money position to act on when asked. A POINT-IN-TIME reading, not a standing fact, and it retires nothing."
+    },
+    "what_the_pacing_rules_bind": "Every spawn prompt from here carries an explicit unit cap and a specific finishable deliverable, and the lane REPORTS BACK at the cap instead of continuing. Basis: 40 sessions / $5,896.30 last week, of which MI-280 $1,309.24 (22%) and MI-278 $1,138.06 (19%) -- 41.5% in two lanes, both on open-ended drain mandates with no cap, while MI-279 did comparable ops work for $69.",
+    "the_R7_collision_that_must_be_settled_before_a_lease_lapses": "check_manager_scope.py R7 fails a heartbeat more than one lease TTL (90 min) after the previous one, and the operator's chosen tick cadence is 2h. Those disagree. Either the lease keeps advancing inside 90 min while the OPERATOR-FACING tick is 2-hourly, or R7 is what must change -- and changing a guard is a code change, not a manager act. Settle it deliberately; do not discover it at a red PR.",
+    "resolved_by_the_bybit_2_answer": "The 'still_the_operator_s.naked_eth_short' item carried from the 2026-09-13 pause is ANSWERED for urgency: the operator has looked and reports no open real-money position. The underlying defect (BL-20260908 hedge-book flat read / WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT) is UNCHANGED and still owed."
   }
 }
