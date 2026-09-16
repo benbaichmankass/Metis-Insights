@@ -286,6 +286,66 @@ def resolve_feed(symbol: str, timeframe: str) -> dict:
             "interval": _TF_TO_YF_INT.get(timeframe, "1d"), "resample": timeframe}
 
 
+#: A liquid, continuously-listed ETF used ONLY as a positive control when a
+#: Yahoo fetch comes back empty. It is never written to a CSV and never enters
+#: any harness — it exists to supply a denominator.
+_YF_CONTROL_TICKER = "SPY"
+
+
+def _yahoo_empty_reason(ticker: str, yf) -> str:
+    """Say WHICH empty this is: the venue refused us, or it has no such data.
+
+    ⚠️ THIS EXISTS BECAUSE THE COLLAPSED MESSAGE COST A SESSION, NOT AS POLISH.
+    The old text was `yfinance returned no rows for {ticker}`, which is true of
+    two states that want opposite responses:
+
+      * **the venue refused US** — Yahoo answers a plain-`requests` User-Agent
+        with HTTP 429 and serves the byte-identical request with a browser UA,
+        so an old (0.2.x, requests-backed) yfinance gets nothing for EVERY
+        ticker. That is *we could not look*, and the remedy is our dependency.
+      * **the venue has no rows for THIS ticker** — a delisting, a re-listing
+        with a short history, an unmapped symbol. That is *we looked*, and the
+        remedy is the symbol or the window.
+
+    MEASURED 2026-09-16 (MI-287): 23 of 52 strategy-evidence legs carried the
+    collapsed message, 22 of them from the first state and 1 (`SPLG`) from the
+    second — indistinguishable from the record, so the whole class read as
+    "23 broken harnesses" until someone re-derived it by hand.
+
+    The discriminator is a POSITIVE CONTROL, which is this repo's standing rule
+    for a negative result: a silent probe is only evidence once it is shown it
+    can return a positive. If the control is ALSO empty the venue is refusing
+    us; if the control returns rows, the venue is up and this ticker is the
+    problem. A control that itself RAISES leaves us unable to say which — and
+    that third state is reported as `undetermined`, never folded into either.
+    """
+    ver = getattr(yf, "__version__", "unknown")
+    base = f"yfinance returned no rows for {ticker} (yfinance=={ver})"
+    if ticker.upper() == _YF_CONTROL_TICKER:
+        # The control IS the ticker; a second call would prove nothing new.
+        return (f"{base}; venue_state=undetermined -- the requested ticker is "
+                f"the control itself, so no independent probe is available.")
+    try:
+        ctl = yf.download(_YF_CONTROL_TICKER, period="5d", interval="1d",
+                          auto_adjust=False, progress=False, threads=False)
+    except Exception as e:  # noqa: BLE001 - the control must never mask the real error
+        return (f"{base}; venue_state=undetermined -- the {_YF_CONTROL_TICKER} "
+                f"control probe raised {type(e).__name__}: {e}. We could not "
+                f"establish whether the venue is refusing us.")
+    if ctl is None or len(ctl) == 0:
+        return (f"{base}; venue_state=refusing_us -- the {_YF_CONTROL_TICKER} "
+                f"control is ALSO empty, so this is not about {ticker}. Yahoo "
+                f"answers a plain-requests User-Agent with HTTP 429 and serves "
+                f"the same request with a browser UA; the 0.2.x line is "
+                f"requests-backed and the 1.x line impersonates via curl_cffi. "
+                f"Check the installed version against requirements "
+                f"(yfinance>=1.7.0).")
+    return (f"{base}; venue_state=serving -- the {_YF_CONTROL_TICKER} control "
+            f"returned {len(ctl)} rows, so the venue is up and this is specific "
+            f"to {ticker} (delisting, a short listing history, or a wrong "
+            f"symbol map). NOT a dependency problem.")
+
+
 def _fetch_csv(feed: dict, days: int, out: str) -> None:
     """Populate `out` with a timestamp,open,high,low,close,volume CSV."""
     if feed["source"] == "binance":
@@ -306,7 +366,7 @@ def _fetch_csv(feed: dict, days: int, out: str) -> None:
     df = yf.download(feed["ticker"], period=period, interval=feed["interval"],
                      auto_adjust=False, progress=False, threads=False)
     if df is None or len(df) == 0:
-        raise RuntimeError(f"yfinance returned no rows for {feed['ticker']}")
+        raise RuntimeError(_yahoo_empty_reason(feed["ticker"], yf))
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.rename(columns=str.lower).reset_index()
