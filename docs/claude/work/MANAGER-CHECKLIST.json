@@ -4119,15 +4119,20 @@
       "id": "MI-287",
       "added": "2026-09-16",
       "lane": "research",
-      "state": "ready",
-      "owner": null,
+      "state": "landed_unproven",
+      "owner": "session_017RdHjT8D9JoRfskvFY8Srb",
       "title": "Fix the 23 failing strategy-evidence harnesses so the offline edge basis exists for the fleet",
       "owns_object": "WO-20260901-PHASE-F",
       "why": "OPERATOR-CHOSEN as the first lane on resume (DEC-20260916-FIRST-LANE-AFTER-THE-PAUSE, recorded in docs/claude/work/objects/WO-20260916-OPERATOR-DIRECTION.yaml). MEASURED 2026-09-16 over all 52 files in comms/strategy_evidence/: 33 legs carry NO offline edge evidence -- coverage_state harness_failed 23, no_harness 10. That is why the 2026-09-16 strategy-review index reads proposed_action {hold: 20, no_offline_evidence: 32} with actionable 0: the gate is working and has nothing to read for most of the fleet.",
       "manager_note": "THE CAP IS THE POINT AND IT IS BINDING (DEC-20260916-PACING-RULES): 8-12 units, then REPORT BACK -- do not continue, ask. The deliverable is SPECIFIC and finishable: diagnose WHY the 23 harness_failed legs fail (one root cause or several -- say which, with the population), fix what is Tier-1, and file the rest. It is NOT 'get all 52 to faithful' and it is NOT a drain-the-queue mandate; those are the shape that cost $1,309 and $1,138 last week. ALSO BINDING: this lane MUST NOT propose a geometry change -- DEC-20260916-E35-GEOMETRY defers every per-leg target/stop decision until the MFE distribution exists, and producing that distribution is downstream of this lane, not part of it.",
       "blocked_on": [],
       "blocked_on_basis": "ASSESSED 2026-09-16 by the manager. Nothing blocks the START of this lane: the evidence files, the harnesses and the gate are all on main and readable. What it is waiting on is a SPAWN, which is the manager's act.",
-      "tier": "1 -- scripts/ and comms/ evidence artifacts; no src/, no config/, no order path. A harness fix that turned out to need an order-path change would STOP and report, not proceed."
+      "tier": "1 -- scripts/ and comms/ evidence artifacts; no src/, no config/, no order path. A harness fix that turned out to need an order-path change would STOP and report, not proceed.",
+      "outcome": "DELIVERED AND MERGED as #12348 (0be1980a2). ROOT CAUSE was ONE thing, not 23: requirements pinned yfinance>=0.2.0, a floor that admits a version whose plain-requests User-Agent Yahoo answers with HTTP 429. MEASURED with a discriminating test on one machine in one minute -- 0.2.40 returns 0 rows for SPY/GDX/ES=F, 1.7.0 (curl_cffi, impersonates a browser) returns 365/365/302 -- and with a POSITIVE CONTROL for egress (data.binance.vision 200, the feed the 19 already-measured legs use), so it was never a sandbox block. Census over all 52 records: measured 19 -> 41, harness_failed 23 -> 1. 22 of 23 recovered.",
+      "cap_held": "STOPPED AT THE CAP AND REPORTED BACK, which is the pacing rule working rather than a lane running out of things to do: it declared landing: hold with hold_reason operator_asked_to_hold on a Tier-1 diff that would otherwise self-land. Cost $20.93 against last week's $1,309 and $1,138 uncapped lanes.",
+      "landed_by": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-16. Verified the three REQUIRED contexts green on head 846c6a7ac and mergeable_state clean BEFORE merging, rather than taking the lane's own 'CI green' summary.",
+      "⚠️_why_this_is_landed_unproven_and_not_done": "The census was re-run by the LANE in its own container. Nothing has yet re-run build_strategy_evidence.py on a RUNNER or regenerated the strategy-review index off the 41 measured legs, so the gate's actionable count is still the old 0 of 52 until a scheduled run proves otherwise. done means MERGED AND OBSERVED.",
+      "what_is_NOT_fixed": "The 10 no_harness legs (a missing regime_debt_matrix.classify() branch -- a different problem), and splg_trend_long_1d, which the lane's new three-state venue discriminator PROVED is not this class: the SPY control returned rows while SPLG serves no 1y daily bars at all (meta.firstTradeDate 2026-07-14). Both filed, not fixed."
     }
   ],
   "as_of": "2026-09-13T08:10:00Z",
@@ -5845,5 +5850,18 @@
     "what_the_pacing_rules_bind": "Every spawn prompt from here carries an explicit unit cap and a specific finishable deliverable, and the lane REPORTS BACK at the cap instead of continuing. Basis: 40 sessions / $5,896.30 last week, of which MI-280 $1,309.24 (22%) and MI-278 $1,138.06 (19%) -- 41.5% in two lanes, both on open-ended drain mandates with no cap, while MI-279 did comparable ops work for $69.",
     "the_R7_collision_that_must_be_settled_before_a_lease_lapses": "check_manager_scope.py R7 fails a heartbeat more than one lease TTL (90 min) after the previous one, and the operator's chosen tick cadence is 2h. Those disagree. Either the lease keeps advancing inside 90 min while the OPERATOR-FACING tick is 2-hourly, or R7 is what must change -- and changing a guard is a code change, not a manager act. Settle it deliberately; do not discover it at a red PR.",
     "resolved_by_the_bybit_2_answer": "The 'still_the_operator_s.naked_eth_short' item carried from the 2026-09-13 pause is ANSWERED for urgency: the operator has looked and reports no open real-money position. The underlying defect (BL-20260908 hedge-book flat read / WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT) is UNCHANGED and still owed."
+  },
+  "MANAGER_TICK_2026_09_16T2015Z": {
+    "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+    "merged_this_tick": [
+      "#12347 (registry + lease re-claim)",
+      "#12348 (MI-287, the harness fix)"
+    ],
+    "open": [
+      "#12346 — the four operator answers + OPEN-PRS reconciliation; conflict on the shared merge slot RESOLVED, CI re-running"
+    ],
+    "the_pacing_rules_have_their_first_measurement": "MI-287 cost $20.93 and stopped at its cap. Last week's two uncapped lanes cost $1,309.24 and $1,138.06. One data point, not a trend -- but it is the first lane run under DEC-20260916-PACING-RULES and it behaved exactly as the rule specifies, including declining to land its own green Tier-1 diff because the cap had been reached.",
+    "⚠️_the_merge_slot_defect_demonstrated_itself_this_tick": "#12346 and #12347 both had to claim the SHARED session-board merge_slot because manager-scope R2 refuses the per-branch route on a manager commit. They duly conflicted the moment #12347 merged, and the conflict cost a resolve plus a full CI restart. That is BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT occurring for the third and fourth time, with the cost now measured rather than predicted.",
+    "next": "The 6 carried lane PRs from before the pause (#12213, #12214, #12217, #12222, #12223, #12224) are open and unmerged three days on; each needs CI re-checked on its current head and a merge decision. That is the queue duty and it is the highest-value work available, since the work is already done and merely unlanded."
   }
 }
