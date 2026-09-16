@@ -328,7 +328,17 @@ def _yahoo_empty_reason(ticker: str, yf) -> str:
     try:
         ctl = yf.download(_YF_CONTROL_TICKER, period="5d", interval="1d",
                           auto_adjust=False, progress=False, threads=False)
-    except Exception as e:  # noqa: BLE001 - the control must never mask the real error
+    # allow-silent: this is the INVERSE of the silent-empty class, not an instance of it.
+    # The probe is a DIAGNOSTIC running inside an already-failed fetch, and its failure
+    # yields the explicit `undetermined` state -- reported to the caller, never folded
+    # into `serving` or `refusing_us` -- so it cannot produce a clean-looking read. The
+    # except is broad because yfinance raises an open-ended, version-dependent set here
+    # (network, HTTP, parse, curl_cffi), and a narrowed list would let an unanticipated
+    # type escape a diagnostic and REPLACE the genuine fetch failure the caller is about
+    # to raise -- losing the real error to a secondary one. Same shape as
+    # scripts/ops/strategy_liveness.py:43 ("unreachable API is 'unknown', reported by
+    # the caller"). Re-raising is the wrong fix here for exactly that reason.
+    except Exception as e:  # noqa: BLE001  # allow-silent: probe failure is reported as `undetermined`, never as an answer
         return (f"{base}; venue_state=undetermined -- the {_YF_CONTROL_TICKER} "
                 f"control probe raised {type(e).__name__}: {e}. We could not "
                 f"establish whether the venue is refusing us.")
