@@ -191,6 +191,40 @@ decision_requests:
     committed_by: session_01HrmZ1RRNM4UnEUaFdrPEjj
     submission_id: null
 - id: DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR
+  superseded_by: DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS
+  superseded_on: '2026-09-09'
+  status: superseded_do_not_re_ask
+  '⚠️_THIS_ROW_WAS_RE_ASKED_ON_2026_09_16_AND_SHOULD_NOT_HAVE_BEEN': >-
+    MEASURED 2026-09-16: a manager pending-decision probe reported this row as UNANSWERED and put
+    it to the operator as a popup. That was WRONG and is recorded rather than quietly fixed. The
+    row was superseded on 2026-09-09 -- the supersession is stated in the CONTEXT PROSE of
+    DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS and in NO machine-readable field on this row, so
+    every probe keyed on answer-shape reads it as open. That is the same class as the operator's
+    standing loud-flag concern: the register cannot tell a reader what is still live. The
+    machine-readable fields above are added so the third re-ask cannot happen.
+    ⚠️ AND THE POPUP QUOTED A STALE MEASUREMENT: it said "52 of 52 hold", which was the 2026-09-08
+    reading. MEASURED on comms/strategy_reviews/2026-09-16/INDEX.json the packet reads
+    proposed_action {hold: 20, no_offline_evidence: 32} -- the fourth state the operator approved
+    on 09-09 is LIVE, so the premise the popup was built on had already been fixed.
+  '⚠️_WHAT_THE_OPERATOR_SAID_ON_2026_09_16_AND_WHY_IT_IS_NOT_A_NEW_ANSWER': >-
+    Verbatim: "Basically 2, but that doesn't mean it's not a decision surface, - it's an honest
+    decision surface. And I still don't understand how this matches our infra for backtesting".
+    Read against the record this is NOT a fresh answer -- it is the SAME objection that caused the
+    supersession ("all four options assumed live closes grade strategies"), restated. Both halves
+    are already settled policy: the packet REMAINS a decision surface (it now emits a real
+    no_offline_evidence verdict rather than a blanket hold), and the backtesting link is the
+    approved design (chosen: build_producer). Nothing here reopens the window/floor question.
+  '⚠️_THE_OPERATORS_BACKTESTING_QUESTION_IS_ANSWERED_AND_HERE_IS_THE_ANSWER': >-
+    MEASURED 2026-09-16. The per-leg edge is ALREADY sourced from the backtest harnesses, not from
+    live closes: comms/strategy_evidence/ holds 52 files, one per enabled leg, carrying
+    basis: harness_timefolds. The gate reads them -- 2026-09-16 packet shows offline_evidence_state
+    {faithful: 12, approximate: 7, absent: 33}. So MI-216 (producer) and MI-217 (fourth verdict
+    state) both SHIPPED. ⚠️ THE REMAINING GAP IS NOT A NAME-JOIN BUG AND MUST NOT BE FILED AS ONE:
+    all 52 filenames match leg names exactly (0 missing, 0 orphans). The 33 absent legs have files
+    that honestly report WHY they carry no edge -- coverage_state is `harness_failed` on 23 and
+    `no_harness` on 10. So the single thing standing between the backtest infra and an actionable
+    review gate is 23 FAILING HARNESS RUNS plus 10 legs with no harness at all. That is the work
+    item, and it is concrete.
   question: >-
     The daily strategy-review packet has graded 52 of 52 legs `hold` on eight consecutive days and
     has never proposed a single action. At a 7-day window with a floor of n>=20 closes, NO leg is
