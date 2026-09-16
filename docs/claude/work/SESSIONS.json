@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T08:45:00Z",
+  "updated_at": "2026-09-16T19:07:57Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -5073,6 +5073,20 @@
         "via": "get_session",
         "note": "IDLE / review_ready at 14:48:37Z. DELIVERED: #11970 merged (1baff7a1f) and DEPLOYED — /api/diag/version git_sha reads 1baff7a1f. Work complete; archiving. NOT respawned, per the operator lane-rollback directive."
       }
+    },
+    {
+      "session_id": "session_017RdHjT8D9JoRfskvFY8Srb",
+      "registry_key": "pending-20260916T190712Z",
+      "state": "working",
+      "title": "MI-287: fix the 23 failing strategy-evidence harnesses (ONE root cause: yfinance returns no rows)",
+      "owns_object": "WO-20260901-PHASE-F",
+      "checklist_item": "MI-287",
+      "spawned_at": "2026-09-16T19:07:12Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-chosen first lane on resume (DEC-20260916-FIRST-LANE-AFTER-THE-PAUSE). 33 of 52 strategy legs carry no offline edge evidence; the review gate therefore proposes no_offline_evidence on 32 legs with actionable 0.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-16T19:07:57Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
