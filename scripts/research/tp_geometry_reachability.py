@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot audit answering "can a labelled axis VARY inside
+# the unit it is compared across", i.e. whether a prescribed remedy for a confound is
+# even runnable. It grades the PRODUCERS (tp_geometry_for, base_args) rather than a
+# live feed, so its answer changes only when they do; a cadence would re-derive the
+# same verdict on every run and train a reader past it. Re-run it by hand when a
+# family, a clamping set, or the label owner changes. Registered in
+# docs/research/RESEARCH-CAPABILITY-INDEX.md.
 """Can `tp_geometry` ever VARY inside one family — and is the prescribed remedy runnable?
 
 MI-278 U48. Works
