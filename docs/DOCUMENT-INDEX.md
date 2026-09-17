@@ -412,6 +412,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/MGC-REMEDIATION-ABORT-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/MI-222-ROSTER-SWEEP-ALREADY-EXISTS-THE-GAP-IS-THE-COLLAPSED-READ-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md` | unknown | unknown | — | 2026-09-17 | `not-assessed / read:engineering-lane-authored-it-this-session-evidence-for-open-PR` | evidence for the landing-machinery fix (conflict census + the 33-branch replay) and the research/testing/ML infra verdict; goes historical when that PR is decided |
 | `docs/claude/work/RETIRED-MIRRORS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/SYSTEM-REVIEW-2026-09-17.md` | unknown | live | — | 2026-09-17 | `not-assessed / read:MI-294-authored-it-this-session-review-record` | the 2026-09-17 review record, weighted to performance-7d and soak monitoring; goes historical at the next system review |
@@ -738,6 +739,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/mi295-active-management-focus-2026-09-17.md` | plan | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

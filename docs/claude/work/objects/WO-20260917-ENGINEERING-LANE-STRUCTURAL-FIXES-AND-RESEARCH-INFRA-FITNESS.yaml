@@ -24,6 +24,25 @@ why: >-
   THEN the research/testing/ML infra: replay-pregate cannot finish (trainer OOM), the Actions-log probe reader
   has never read a job log, the scalp exit head has no artifact, and MI-287's 23 strategy-evidence harnesses
   are UNVERIFIED — DEC-20260917-E35-GATE says verify they actually pass before deciding on e35.
+  ⚠️ CORRECTED 2026-09-17 BY THE LANE (session_01SzoZAiXJibakevDU9pbwxm). THE THREE FIGURES ABOVE ARE
+  UNDERSTATED AND ONE NAMES THE WRONG FILE — the text is preserved as the record of what was believed at
+  spawn, but do NOT re-quote it. MEASURED over the COMPLETE population of 70 open PRs (both API pages) at
+  origin/main 19e59662, probed with `git merge-tree --write-tree` on an unshallowed clone, BOTH controls
+  passing: (1) it is 12 of 14 substantive, not 9 of 14; (2) the AUTOMATION half is absent from the brief
+  entirely and is four times larger — 44 conflicted of 56, for 56 of 70 (80.0%) overall, with 23
+  error-feed-digest PRs stacked since 2026-09-13; (3) health-review-backlog.json is NOT the dominant
+  blocker — it blocks 8, against 28 for docs/claude/DUE.json + DUE.md and 23 for ERROR-FEED-DIGEST.json +
+  .md. THAT THIRD ONE CHANGES THE DIAGNOSIS AND IS WHY IT IS CORRECTED RATHER THAN ANNOTATED: those are
+  FULLY GENERATED files, so a cron that opens a PR per run conflicts with every previous unmerged run OF
+  ITSELF. That is one deterministic renderer racing itself, not register contention between authors, and it
+  is 51 of the 56. The brief's central claim — ZERO conflicts in src/, tests/, scripts/, config/ — is
+  CONFIRMED. Also settled: MI-287's harnesses are no longer UNVERIFIED. Measured by RUNNING all 23 (not by
+  reading MI-287's lifecycle state, which DEC-20260917-E35-GATE's own note warns is indistinguishable
+  between a session that fixed everything and one that fixed nothing): 22 PASS / 0 FAIL / 1 COULD_NOT_RUN
+  (splg — the venue serves no rows for SPLG, with the SPY/GDX/ES=F control returning 252 each). ⚠️ The
+  premise was also wrong: there were never 23 broken harnesses, there was ONE dependency floor. ⚠️ AND THIS
+  DOES NOT OPEN THE GATE — MI-292 records actionable 0 / below_evidence_floor 51 of 52. Evidence:
+  docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md.
 done_condition: >-
   A register/landing change OBSERVED to stop a real conflict or a wrong verdict — not a passing self-test — and
   a stated, measured verdict on whether the research/testing/ML infra is fit for purpose, naming what was fixed

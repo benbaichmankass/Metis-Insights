@@ -168,3 +168,13 @@ jobs:
             (digest + the due-list rendered over it); auto-merge.
           branch-prefix: automation/error-feed-digest
           verify-merged: "true"
+          # RECOMPUTE, so a conflict on a generated artifact is resolvable.
+          # Every path above is rendered by these two commands, so when a
+          # merge of `main` conflicts there is no side to take -- the correct
+          # merge is to re-run the renderer over the merged inputs. Without
+          # this the action ABORTS and the branch strands: 23 of these PRs
+          # had stacked up unmerged since 2026-09-13, each an hourly run
+          # conflicting with every earlier unmerged run of ITSELF.
+          refresh-command: >-
+            python3 scripts/ops/error_feed_digest.py --write
+            && python3 scripts/ops/render_due_list.py --write
