@@ -1,1 +1,1 @@
-manager lease claim; Tier-1 registers only; see .github/pr-landing/wonderful-bardeen-ofg7um.json
+observation PR: record the detector clauses met, 2026-09-17T17:3xZ
