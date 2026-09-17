@@ -1,0 +1,2 @@
+U96 — a directory declaration no longer collides a branch with its own per-branch slug file;
+the true positive is preserved three ways and five planted defects were verified red.

@@ -290,6 +290,23 @@ def _load_at_ref(ref: str, rel: str) -> tuple[str, list[dict[str, Any]]]:
         `work_digest.py` and `work_phase_ping.py` take BOTH `--base` and
         `--head` and compare two arbitrary refs over a WINDOW; they are not
         diff-scopers and a merge base would be meaningless to them.
+        `check_backlog_refs.py` -- classified 2026-09-17, the last of the five
+        tip-readers to be graded either way. Its base read is
+        `_refs_anywhere_at`, a FALLBACK that fires only for a path ABSENT at the
+        base, and it asks *"is this id cited anywhere in the tree I am merging
+        INTO?"* The tree being merged into is the TIP, so the tip is the
+        question's own subject rather than an approximation of it. MEASURED on
+        `origin/main` 2026-09-17: 1,856 ids cited at the tip, 86 of them
+        dangling -- and of the ids cited ONLY in the last 6 / 20 / 60 commits,
+        i.e. the whole population where tip and fork point can disagree, **0
+        are dangling at every window.** The choice has therefore changed no
+        finding. ⚠️ AND THE DIRECTION MATTERS MORE THAN THE COUNT: switching it
+        to the fork point would make a guard that runs on EVERY PR blame a diff
+        for a dangling id a CONCURRENT branch introduced -- false blame, the
+        direction this repo has just paid for. The reverse error, under-
+        enforcing when both branches cite the same dangling id, routes that id
+        to `BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS`, which this guard's own
+        docstring names as the declared home for pre-existing debt.
 
     ⚠️ The fallback is to the ref AS GIVEN when no merge base can be computed --
     i.e. today's behaviour -- so this can only ever remove a false failure.

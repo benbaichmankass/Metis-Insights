@@ -1,0 +1,2 @@
+U98 — decide the conflict-marker scan's scope: every prose doc a session reads, with a verified
+override; code and config stop out because a marker there self-reports.
