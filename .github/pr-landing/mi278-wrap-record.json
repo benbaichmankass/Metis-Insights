@@ -1,0 +1,9 @@
+{
+  "branch": "claude/mi278-wrap-record",
+  "tier": 1,
+  "landing": "self",
+  "why": "Record-only wrap of the MI-278 research lane on the manager's directive of 2026-09-17. Two files, both registers this lane owns content in: docs/claude/OPEN-ITEMS.json gains ONE row carrying U52's dated soak (the standing operator rule that anything soaking is logged with a timer, so somebody comes back when the n arrives), and the MI-278 work object gains the five unit records that were missing plus a wrap block stating what is NOT done. No src/, no config/, no workflow, no order path, no strategy parameter, no tier-2 or tier-3 surface is touched. Nothing here changes behaviour anywhere: it changes what a successor reads. The OPEN-ITEMS append is textual rather than a json round-trip, so the file's serialisation is preserved -- 12 insertions and 1 deletion against a 1800-line file -- and every pre-existing row was asserted byte-identical in value before the write.",
+  "works": [
+    "BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED"
+  ]
+}
