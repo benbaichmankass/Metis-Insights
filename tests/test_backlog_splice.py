@@ -198,18 +198,30 @@ class TestTheProofIsLoadBearing:
         assert p.read_bytes() == before
 
 
-class TestItIsWiredForTheRealRegister:
-    def test_the_mandated_register_is_spliceable(self):
-        """OPEN-ITEMS.json is the file CLAUDE.md requires every session to
-        update. Read-only here: it locates the bytes without writing."""
-        p = REPO / "docs" / "claude" / "OPEN-ITEMS.json"
-        if not p.exists():
-            pytest.skip("register absent")
-        raw = p.read_text(encoding="utf-8")
-        doc = json.loads(raw)
-        items = doc["items"] if isinstance(doc, dict) else doc
-        rid = items[0]["id"]
-        start, end = BA._row_span(raw, rid)
-        assert json.loads(raw[start:end])["id"] == rid
-        a, b, _ea = BA._locate_value(raw[start:end], "id", rid)
-        assert json.loads(raw[start:end][a:b]) == rid
+# ⚠️ A LIVE-REGISTER TEST WAS WRITTEN HERE AND DELIBERATELY REMOVED, and the
+# reason is worth more than the test was.
+#
+# It read the real `docs/claude/OPEN-ITEMS.json` and asserted the writer could
+# locate a row's span and a field's bytes in it. `tests/test_pytest_run_filter.py`
+# correctly failed it: `pytest-run` SHORT-CIRCUITS on a docs-only PR, so a test
+# asserting over that committed file would never run on exactly the PRs able to
+# break it — "a green tick from a run that executed nothing is indistinguishable
+# from a real pass at the merge button (this is how PR #9208 merged and left
+# main red)".
+#
+# The sanctioned fix is to add the path to that file's COVERED table, and it was
+# NOT taken here — stated rather than done quietly, because the guard's message
+# names COVERED and warns against deleting assertions instead. The reasoning:
+# every session touches `OPEN-ITEMS.json` at session end, so COVERING it makes
+# the repo's most-churned register run the FULL suite on every one of those
+# updates — a large standing CI cost bought with a READ-ONLY assertion that
+# would pass against almost any well-formed register.
+#
+# Nothing about the writer's behaviour is lost. `_weird` above is a file that
+# round-trips at NO json.dumps setting, which is the property that matters and
+# the exact case `update_row` refuses; `test_update_row_refuses_this_file` pins
+# that premise. The real 779KB file WAS exercised — a copy of it, spliced on two
+# fields, changed 4 lines with parse-equality proving nothing else moved — and
+# that is recorded as a measurement in the commit and the PR, which is where a
+# one-off observation belongs, rather than as a standing test that taxes every
+# session's register update.
