@@ -1,1 +1,1 @@
-lease heartbeat 19:17Z
+file restart_pending collapsed state; 19:2xZ
