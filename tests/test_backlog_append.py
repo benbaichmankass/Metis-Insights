@@ -467,3 +467,98 @@ def test_the_writer_and_the_reader_share_one_closed_vocabulary():
     from scripts.ops.system_review_checklist import CLOSED_STATUSES
 
     assert ba.CLOSED_STATUSES is CLOSED_STATUSES
+
+
+# --------------------------------------------------------------------------- #
+# The CREATION stamp — the write end of the creation-date defect.
+#   BL-20260912-BACKLOG-APPEND-STAMPS-NO-CREATION-KEY-SO-THE-ONLY-WRITER-LEAVES-THE-FIELD-EVERY-READER-NEEDS-TO-THE-CALLER
+#   BL-20260903-THREE-CREATION-DATE-KEYS-IN-ONE-BACKLOG-AND-THE-NEW-GUARD-ACCEPTS-ONLY-ONE
+#
+# These live here as well as in `--self-test` because `run_guards.py` runs the
+# self-test and `pytest-run` runs this file, and the two are different required
+# contexts. Each assertion reads the row back OFF THE FILE, never off the return
+# value: the claim is about what was WRITTEN.
+# --------------------------------------------------------------------------- #
+def _seed_creation_backlog(tmp_path):
+    import json as _json
+    p = tmp_path / "creation-backlog.json"
+    p.write_text(_json.dumps(
+        {"schema_version": 1, "items": [{"id": "BL-SEED", "title": "seed — ünicode"}]},
+        indent=2, ensure_ascii=False) + "\n")
+    return p
+
+
+def _last_creation_row(p):
+    import json as _json
+    return _json.loads(p.read_text())["items"][-1]
+
+
+def test_append_row_stamps_a_creation_key_when_the_caller_omits_one(tmp_path):
+    from scripts.ops.backlog_append import _CREATION_STAMP_KEY, append_row
+
+    p = _seed_creation_backlog(tmp_path)
+    append_row(p, {"id": "BL-NODATE", "title": "no date supplied"})
+    row = _last_creation_row(p)
+    stamped = row.get(_CREATION_STAMP_KEY)
+    assert isinstance(stamped, str) and len(stamped) >= 7, (
+        "a row filed with no creation key came back undated — the guard rejects "
+        f"exactly this row at the PR. got: {row!r}")
+
+
+def test_the_stamped_key_is_one_the_guard_accepts_and_the_reader_consults(tmp_path):
+    """Pinned against BOTH other modules' own tables, never a third copy.
+
+    Two hardcoded tuples in two files is how the writer and the guard drifted
+    apart in the first place, which is the defect these rows record.
+    """
+    from scripts.ci.check_register_ids import REGISTERS
+    from scripts.ops.backlog_append import _CREATION_STAMP_KEY
+    from scripts.ops.system_review_checklist import CREATION_KEYS
+
+    health = [r for r in REGISTERS
+              if r.path == "docs/claude/health-review-backlog.json"]
+    assert len(health) == 1, "the guard's table no longer names the health backlog once"
+    assert _CREATION_STAMP_KEY in health[0].creation_fields, (
+        "the writer stamps a key the GUARD does not accept — the sanctioned path "
+        "would produce a rejected row, which is the whole defect")
+    assert _CREATION_STAMP_KEY in CREATION_KEYS, (
+        "the writer stamps a key the burn-down READER does not consult — the "
+        "row would be dated and still invisible to the count")
+
+
+def test_a_caller_supplied_creation_date_survives_under_every_spelling(tmp_path):
+    """THE control that matters: the failure mode is clobbering a stated value.
+
+    Run for all four spellings the reader consults, because suppressing on only
+    the stamp key would silently overwrite the other three.
+    """
+    from scripts.ops.backlog_append import _CREATION_STAMP_KEY, append_row
+    from scripts.ops.system_review_checklist import CREATION_KEYS
+
+    for spelling in CREATION_KEYS:
+        p = _seed_creation_backlog(tmp_path)
+        append_row(p, {"id": f"BL-{spelling.upper()}", "title": "caller dated it",
+                       spelling: "2026-01-02T03:04:05+00:00"})
+        row = _last_creation_row(p)
+        assert row.get(spelling) == "2026-01-02T03:04:05+00:00", (
+            f"the stamp clobbered a caller-supplied {spelling!r}")
+        if spelling != _CREATION_STAMP_KEY:
+            assert _CREATION_STAMP_KEY not in row, (
+                f"a second creation key was added beside {spelling!r} — the same "
+                "fact twice is the spelling sprawl these rows are about")
+        p.unlink()
+
+
+def test_stamping_still_leaves_pre_existing_rows_byte_identical(tmp_path):
+    import json as _json
+
+    from scripts.ops.backlog_append import append_row
+
+    p = _seed_creation_backlog(tmp_path)
+    before = _json.loads(p.read_text())["items"][0]
+    append_row(p, {"id": "BL-ADDONLY", "title": "x"})
+    after = _json.loads(p.read_text())["items"][0]
+    assert (_json.dumps(after, indent=2, ensure_ascii=False)
+            == _json.dumps(before, indent=2, ensure_ascii=False)), (
+        "the creation stamp broke the addition-only property — a diff-scoped "
+        "guard would re-attribute the pre-existing row to this change")
