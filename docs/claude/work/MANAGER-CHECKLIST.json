@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-17T15:15:00Z",
+  "updated_at": "2026-09-17T17:05:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4165,9 +4165,69 @@
       "⚠️_THE_HOLDER_IS_NOT_DEAD": "It is this session. The heartbeat is stale because a heartbeat commit is a register append and register appends have not been landing — not because supervision stopped. A successor reading `expired` must not infer the manager died.",
       "blocked_on": [],
       "⚠️_THE_BACKLOG_ROW_FOR_THIS_IS_DESCRIBED_AND_NOT_NAMED_ON_PURPOSE": "A row for this class WAS filed — on the branch of #12346, which has not landed — so on `main` its id resolves to NOTHING and artifact-validity-guard correctly failed this PR for naming it (scripts/ops/check_backlog_refs.py --base origin/main, exit 1). Per CLAUDE.md a dangling id may only be DESCRIBED, never copied, because 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. THE ROW IS NOT RE-FILED HERE, deliberately: health-review-backlog.json is a second shared register, and adding it would destroy the one property that lets this commit land first time (see MI-288). WHAT IT SAYS, so a successor can find or re-file it: manager_lease.py grades `main` red off EVERY check run rather than the three REQUIRED contexts (pytest-collect, pytest-run, guards), so two non-required workflows that are routinely red make the lease read `expired_unverified` / `main_ci=unknown` permanently. Severity medium, tier 1. It lands with #12346, or is re-filed by whoever picks this up."
+    },
+    {
+      "id": "MI-290",
+      "title": "CANONIZE the session-receipt format — one shape for every session, and render it on the Workflow page",
+      "state": "filed",
+      "owner": "unassigned — needs a session; the operator asked for it to be QUEUED, not built now",
+      "opened": "2026-09-17",
+      "operator_directive": "2026-09-17: \"i want this format of summary cannonized so that this is what i get whenever i ask a session for a 'session receipt', and this is what should be presented on the web page (don't start now, just add it to the to-do list for the next sessions)\".",
+      "⚠️_THE_TRIGGER_PHRASE_IS_PART_OF_THE_ASK": "The operator named the phrase 'session receipt'. Asking any session for a session receipt must produce THIS shape, so the format needs a home a session reads — a skill under .claude/skills/, not prose in a doc nobody opens. A doc-only version reproduces the exact failure OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD watches: reference material moved somewhere nobody looks is not a win.",
+      "the_format_as_delivered_2026_09_17": [
+        "A. DECISIONS — any operator decisions taken this session, with the answer recorded verbatim, and an explicit note where the operator OVERRULED the session's recommendation.",
+        "B. SESSIONS SPAWNED — every session this one spawned, itemized. Per row: session id · checklist item · lane · spawn time · lifecycle state · WHAT IT WAS SET TO DO (the mandate, not a paraphrase) · WHAT ACTUALLY LANDED (PR numbers, measured) · which ROADMAP milestone / backlog row / ad-hoc investigation / regular-ops cadence it maps to. Aborted and respawned sessions are listed, never silently dropped.",
+        "C. THE SESSION'S OWN WORK — PRs merged with their commit shas, registers repaired, findings measured.",
+        "D. TOTALS — sessions spawned, PRs landed by spawned sessions, PRs landed by this session, and the attributed share of a STATED commit population.",
+        "E. ERRORS — what this session got wrong and how it was corrected. Not optional; a receipt with no errors section reads as a claim of none."
+      ],
+      "⚠️_EVERY_NUMBER_CARRIES_ITS_POPULATION": "The 2026-09-17 delivery read '349 attributed of 545 commits on origin/main since 2026-09-11'. A receipt that says '349 commits' without the denominator is the exact thing CLAUDE.md's top-level ALWAYS STATE THE POPULATION rule forbids, and the format must make the denominator structural rather than a habit.",
+      "⚠️_LANDED_IS_MEASURED_NOT_RECALLED": "Section B's 'what actually landed' is produced by attributing commits on origin/main through their Claude-Session trailer, and section C's PR list is verified by grepping origin/main for each PR number. Both were done that way on 2026-09-17 and BOTH caught errors: the ancestry probe misreported a landed squash, and the 'three edits still owed on #12346' claim was two.",
+      "what_this_item_owes": [
+        "1. A skill (.claude/skills/session-receipt/SKILL.md) that OWNS the format, so 'session receipt' resolves to it via the binding skill-first lookup.",
+        "2. The generator: the attribution query (commit trailers) and the PR-verification query, as a script rather than as steps a session retypes — a format kept as prose drifts per session, which is the whole reason this is being canonized.",
+        "3. The web surface: render it on the Workflow page beside the checklist. GET /api/bot/work/checklist already serves the VM's working tree of main, so the receipt needs a durable artifact for the page to read — decide whether that is a per-session file or a register, and say which.",
+        "4. A decision that is NOT pre-made here: whether the receipt is generated on demand or written at session end. On demand can measure a live session; at session end survives the session's death. Both were true of the 2026-09-17 delivery and it did not have to choose."
+      ],
+      "⚠️_DO_NOT_BUILD_THIS_WITHOUT_READING_THE_2026_09_17_DELIVERY": "The shape above is a summary of it, not a substitute. The delivered receipt is in this manager session's transcript and is the reference artifact.",
+      "blocked_on": []
+    },
+    {
+      "id": "MI-291",
+      "title": "Four operator decisions of 2026-09-17, and what each one still owes",
+      "state": "in_flight",
+      "owner": "manager",
+      "opened": "2026-09-17",
+      "decisions": {
+        "DEC-20260917-12346-DISPOSITION": {
+          "asked": "#12346 is superseded in content; what happens to it?",
+          "answered": "Salvage the remaining edits onto a fresh branch, then close it.",
+          "⚠️_CORRECTED_AFTER_MEASURING": "The question said THREE edits. Measured against main afterwards, only TWO are genuinely owed: the OPEN-ITEMS journal-trust re-observation (verified_at 2026-08-26 -> 2026-09-17) and the BL-20260917 lease-grading backlog row. Its MANAGER-CHECKLIST.json and OPEN-PRS.json edits are SUPERSEDED by #12412 and #12428, which landed today; its CLAUDE.md delta is the generated session-brief hour counter (142h -> 143h) and is noise. Salvaging all three would have re-landed stale content.",
+          "status": "salvage in flight; #12346 to be closed once the two edits land"
+        },
+        "DEC-20260917-MANAGER-TICK-CADENCE": {
+          "asked": "check_manager_scope R7 fails a heartbeat gap > 90min while the operator chose 2h ticks. Which gives?",
+          "answered": "TIGHTEN THE TICKS BACK TO 90 MINUTES. R7 is unchanged.",
+          "⚠️_THE_MANAGER_RECOMMENDED_THE_OTHER_ONE_AND_WAS_OVERRULED": "The manager recommended widening R7 to match the 2h cadence, arguing the 90 came from the lease TTL rather than from evidence about check-in intervals. The operator chose to tighten the cadence instead. RECORDED SO A SUCCESSOR DOES NOT RE-PROPOSE WIDENING R7 as though it were an open question — it was asked and answered.",
+          "consequence_stated": "The 2026-09-16 pacing decision's 'manager ticks every 2h, not hourly' is SUPERSEDED for the tick interval. The rest of that decision (hard unit cap per lane ~8-12, no open-ended drain mandates) is untouched.",
+          "status": "recorded; the 2026-09-16 pacing row needs its tick clause corrected so the two do not disagree"
+        },
+        "DEC-20260917-LANES-AFTER-WRAP": {
+          "asked": "What happens to the three lanes after they report their wrap?",
+          "answered": "Stay stopped; hand off to a new manager.",
+          "status": "wrap directives delivered to all three (confirmed SUCCEEDED); no lane has returned a final summary yet; no new lane may be spawned"
+        },
+        "DEC-20260917-E35-GATE": {
+          "asked": "MI-287 (fix the 23 failing strategy-evidence harnesses) landed one PR and the platform reports it COMPLETED while the registry says working. How is e35 handled?",
+          "answered": "Verify MI-287's harnesses actually pass first, then decide. The gate stays shut until that is established either way.",
+          "⚠️_THE_SESSION_ENDING_IS_NOT_THE_EVIDENCE": "What is owed is a measurement of the 23 harnesses, not a reading of MI-287's lifecycle state. A completed session that fixed nothing and a completed session that fixed everything are indistinguishable from the session state alone.",
+          "status": "NOT YET MEASURED"
+        }
+      },
+      "blocked_on": []
     }
   ],
-  "as_of": "2026-09-17T15:15:00Z",
+  "as_of": "2026-09-17T17:05:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
