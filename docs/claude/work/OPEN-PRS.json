@@ -81,7 +81,7 @@
       "pr": 12222,
       "title": "file: ranking-key-ab.yml concludes failure instantly on every push, main included",
       "owning_session_or_lane": "MI-280 lane",
-      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13, AND STILL TRUE — re-measured 2026-09-16 on main @ 398fe70d9: ranking-key-ab concluded `failure` with created_at == updated_at, i.e. it died before running a step. See BL-20260916-THE-LEASE-GRADES-MAIN-RED-OFF-EVERY-CHECK-RUN-SO-TWO-NON-REQUIRED-WORKFLOWS-MAKE-IT-PERMANENTLY-UNCLAIMABLE... which is a DIFFERENT defect that this one's symptom triggers.",
+      "disposition": "OPEN AND UNMERGED SINCE 2026-09-13, AND STILL TRUE — re-measured 2026-09-16 on main @ 398fe70d9: ranking-key-ab concluded `failure` with created_at == updated_at, i.e. it died before running a step. See BL-20260917-THE-LEASE-GRADES-MAIN-RED-OFF-EVERY-CHECK-RUN-SO-TWO-NON-REQUIRED-WORKFLOWS-MAKE-IT-PERMANENTLY-UNCLAIMABLE... which is a DIFFERENT defect that this one's symptom triggers.",
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
