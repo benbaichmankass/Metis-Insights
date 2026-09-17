@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-17T10:09:12+00:00",
+  "generated_at": "2026-09-17T10:27:45+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,27 +28,27 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.3h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 7,
+      "rows": 6,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
-      "rows": 2,
+      "rows": 1,
       "note": ""
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 52,
+      "rows": 51,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 12,
-      "note": "digest 2026-09-13T05:20:09+00:00, age 100.8h"
+      "note": "digest 2026-09-13T05:20:09+00:00, age 101.1h"
     },
     "sunset": {
       "state": "read",
@@ -82,8 +82,8 @@
     }
   },
   "counts": {
-    "due": 190,
-    "loud": 149
+    "due": 187,
+    "loud": 146
   },
   "rows": [
     {
@@ -171,7 +171,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 356.2h ago, on the order of 356 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 356.5h ago, on the order of 356 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 14,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -863,7 +863,7 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-DIGEST-STALE",
-      "title": "error-feed digest is 100.8h old — expected hourly",
+      "title": "error-feed digest is 101.1h old — expected hourly",
       "why_due": "EVERY group below was observed at 2026-09-13T05:20:09+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
       "age_days": 4,
       "loud": true,
@@ -1222,15 +1222,6 @@
     },
     {
       "source": "unlanded_automation",
-      "id": "#12382",
-      "title": "chore(m7): strategy review packets (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12382"
-    },
-    {
-      "source": "unlanded_automation",
       "id": "#12385",
       "title": "chore(ml): replay pre-gate fleet report (auto)",
       "why_due": "producer output opened a PR that has not landed",
@@ -1245,7 +1236,7 @@
       "why_due": "the latest push-to-main run of .github/workflows/ranking-key-ab.yml concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35205258456"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35209523479"
     },
     {
       "source": "probes",
@@ -1311,15 +1302,6 @@
       "link": ""
     },
     {
-      "source": "red_main_runs",
-      "id": "branch-protection-sync",
-      "title": "branch-protection-sync",
-      "why_due": "the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35205259672"
-    },
-    {
       "source": "red_crons",
       "id": "constraint-readout",
       "title": "constraint-readout",
@@ -1327,15 +1309,6 @@
       "age_days": null,
       "loud": true,
       "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35089998947"
-    },
-    {
-      "source": "red_crons",
-      "id": "due-list",
-      "title": "due-list",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35084299042"
     },
     {
       "source": "red_crons",
