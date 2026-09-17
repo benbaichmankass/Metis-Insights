@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BjTp5RYwedmpFfkEtkQo1j",
+  "branch": "claude/mi280-u97-classify-backlog-refs-base-read",
+  "claimed_at": "2026-09-17T07:39:38Z",
+  "purpose": "U97 / PR #12370: classify check_backlog_refs's base read"
+}

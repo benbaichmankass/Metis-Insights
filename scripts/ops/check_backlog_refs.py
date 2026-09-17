@@ -25,6 +25,35 @@ guard checks only ids the diff *introduces*, the same scoping `silent-empty-guar
 pre-existing debt is measured and attributed in `BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS`
 rather than hidden behind a suppression.
 
+THE BASE IS READ AT THE TIP, AND THAT IS RIGHT BY DESIGN
+--------------------------------------------------------
+Classified 2026-09-17 (``BL-20260913-CHECK-BACKLOG-REFS-READS-THE-BASE-TIP-AND-IS-THE-ONE-MEMBER-OF-THE-BASE-VS-TIP-CLASS-THE-PER-SCRIPT-AUDIT-NEVER-COVERED``),
+the last
+of the five tip-readers the base-vs-tip census counts to be graded either way. The reason
+lives HERE as well as in the audit in `scripts/ops/check_backlog_criteria.py::_load_at_ref`,
+because that row's whole finding was that **a warning in another file does not reach someone
+reading this one.**
+
+This module's base read is :func:`_refs_anywhere_at`, a FALLBACK that fires only for a path
+ABSENT at the base. It asks *"is this id cited anywhere in the tree I am merging INTO?"* —
+and the tree being merged into is the TIP. The tip is the question's own subject, not an
+approximation of it, which is the same reason `check_register_ids.py` reads the tip.
+
+⚠️ **THE DIRECTION MATTERS MORE THAN THE COUNT.** Switching to the fork point would make a
+guard that runs on EVERY PR blame a diff for a dangling id a CONCURRENT branch introduced —
+false blame, and the guard would red PRs for what the base did. The reverse error is real and
+is stated rather than hidden: when this diff and a concurrent branch independently cite the
+same DANGLING id, the tip read exempts it here. That id is not lost — it lands in
+``BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS``, which this docstring already names as the
+declared home for pre-existing debt, and the ``--all`` sweep still reports it.
+
+MEASURED on ``origin/main`` 2026-09-17: **1,856** ids cited at the tip, **86** of them
+dangling. Of the ids cited ONLY in the last **6 / 20 / 60** commits — the entire population
+where tip and fork point can disagree — **0 are dangling, at every window.** So the choice
+has changed no finding to date. That is a measurement over a window, not a proof for all
+time; ``tests/test_backlog_refs_base_is_the_tip.py`` pins the classification so a later
+change to a merge base has to be a decision rather than a tidy-up.
+
 Stdlib-only.
 
 Usage:
