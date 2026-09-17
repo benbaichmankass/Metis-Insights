@@ -1,0 +1,2 @@
+U99 — record the live before/after observation of U96's render field; the row stays open because
+the suppression branch has not yet been reached.
