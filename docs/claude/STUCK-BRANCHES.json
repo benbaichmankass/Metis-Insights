@@ -1,16 +1,16 @@
 {
   "schema": 1,
-  "generated_at": "2026-09-12T16:30:59.812487+00:00",
+  "generated_at": "2026-09-13T10:25:45.961260+00:00",
   "prefix": "automation/",
   "shared_ref": "origin/main",
   "stale_hours": 6.0,
-  "population": 193,
+  "population": 195,
   "refetch": "not_needed",
   "read_state": "complete",
   "read_note": "every branch in the population was graded",
   "counts": {
-    "stuck": 184,
-    "in_flight": 6,
+    "stuck": 190,
+    "in_flight": 2,
     "landed": 3,
     "no_remote": 0,
     "unknown": 0
@@ -28,6 +28,7 @@
     "automation/constraint-readout-34344242030-1",
     "automation/constraint-readout-34469714512-1",
     "automation/constraint-readout-34592532948-1",
+    "automation/constraint-readout-34688895522-1",
     "automation/data-commit-33666645309-1",
     "automation/data-commit-33807313584-1",
     "automation/data-commit-34222223698-1",
@@ -38,6 +39,8 @@
     "automation/data-commit-34404456923-1",
     "automation/data-commit-34623006745-1",
     "automation/data-commit-34623771514-1",
+    "automation/data-commit-34690525619-1",
+    "automation/data-commit-34702814871-1",
     "automation/disarm-10788",
     "automation/due-list-33742487046-1",
     "automation/due-list-34213610709-1",
@@ -60,6 +63,7 @@
     "automation/error-feed-digest-34365903617-1",
     "automation/error-feed-digest-34463759065-1",
     "automation/error-feed-digest-34586914743-1",
+    "automation/error-feed-digest-34690463223-1",
     "automation/gld-compat-verdicts-34455459855-1",
     "automation/gld-compat-verdicts-34456190565-1",
     "automation/gld-compat-verdicts-34456197195-1",
@@ -166,6 +170,7 @@
     "automation/valuation-snapshots-33628408500-1",
     "automation/valuation-snapshots-34224748936-1",
     "automation/valuation-snapshots-34475833176-1",
+    "automation/valuation-snapshots-34691618167-1",
     "automation/work-decision-commit-33638151107-1",
     "automation/work-digest-33602234950-1",
     "automation/work-digest-33726116576-1",
@@ -199,12 +204,20 @@
     "automation/work-digest-34454581128-1",
     "automation/work-digest-34464052253-1",
     "automation/work-digest-34477580639-1",
-    "automation/work-digest-34558618505-1"
+    "automation/work-digest-34558618505-1",
+    "automation/work-digest-34689384886-1"
   ],
   "last_transition": {
-    "state": "first_run",
-    "added": [],
+    "state": "changed",
+    "added": [
+      "automation/constraint-readout-34688895522-1",
+      "automation/data-commit-34690525619-1",
+      "automation/data-commit-34702814871-1",
+      "automation/error-feed-digest-34690463223-1",
+      "automation/valuation-snapshots-34691618167-1",
+      "automation/work-digest-34689384886-1"
+    ],
     "cleared": [],
-    "note": "no baseline receipt yet; recording 184 stuck branch(es) as the first one. This is NOT a claim that nothing changed."
+    "note": "6 newly stranded, 0 cleared (count 184 -> 190)"
   }
 }
