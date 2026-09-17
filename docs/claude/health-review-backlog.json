@@ -39378,6 +39378,20 @@
       "found_by": "session_01GHpyXT2qssLJsrvXBQRkQF (manager)"
     },
     {
+      "id": "BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES",
+      "title": "pr-landing R5 refuses runtime_logs/ so replay-pregate can never land a report, even if a run ever completes",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "detail": "MEASURED 2026-09-17. `git log origin/main -- runtime_logs/replay_pregate/` is EMPTY: zero fleet pre-gate reports have ever reached main. The open item OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY names only the RUN half. There is a SECOND, INDEPENDENT blocker it does not carry, and it would bite a COMPLETE run identically: PR #12385 fails `guards` with PASS 67 / FAIL 1, the one failure being pr-landing-guard R5 -- `state=undeclared`, because runtime_logs/replay_pregate/*.partial.json is outside TIER1_SURFACE (docs/** tests/** comms/** .github/** scripts/{ci,ops,research,reports}/** *.md; runtime_logs absent). Reproduced directly: `python3 scripts/ci/check_pr_landing.py --base origin/main --branch automation/replay-pregate-35204197736-1` exits 1 naming that path. POSITIVE CONTROL that this is NOT a general automation outage: docs/claude/PROBES.json on origin/main carries generated_at 2026-09-17T10:07:08Z, i.e. the probes cron lands same-day -- because its artifact is under docs/**. The failure is specific to callers whose artifact lives under runtime_logs/. The open item's own `detail` blames the landing failure on .gitignore + `git add` (fixed with `git add -f`); THAT FIX WORKED -- the commits exist on the branches -- and a DIFFERENT gate now stops them one step later. 6 open PRs: #12385 #12328 #12297 #12265 #12228 #11916.",
+      "resolution_criteria": "EITHER runtime_logs/replay_pregate/** is added to TIER1_SURFACE in scripts/ci/check_pr_landing.py and a replay-pregate PR is OBSERVED passing pr-landing-guard, OR the generator declares `landing: hold` so the refusal is a deliberate human-read rather than an accident. !! A COMPLETED RUN DOES NOT CLEAR THIS and is the trap: the two blockers are independent, so a run that finally scores 22 heads would still be refused here. !! AND A GREEN `guards` ON SOME OTHER PR CLEARS NOTHING -- R5 keys on the PATH, so only a PR carrying a runtime_logs/ artifact exercises it.",
+      "reported_by": "engineering-lane session_01SzoZAiXJibakevDU9pbwxm",
+      "refs": [
+        "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY"
+      ],
+      "opened_at": "2026-09-17T19:34:08.803330+00:00"
+    },
+    {
       "id": "BL-20260917-RESTART-PENDING-COLLAPSES-STALE-RUNTIME-CODE-AND-DOCS-LANDED-SINCE-BOOT-SO-THE-HEALTHY-STATE-IS-INDISTINGUISHABLE-FROM-AN-INCIDENT",
       "opened": "2026-09-17",
       "severity": "medium",

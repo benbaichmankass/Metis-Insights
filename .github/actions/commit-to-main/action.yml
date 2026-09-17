@@ -530,6 +530,31 @@ runs:
                   # two runs disagree about DATA, which no rule here can settle,
                   # so it still aborts.
                   CONFLICTED="$(git diff --name-only --diff-filter=U | tr '\n' ' ' | sed 's/ *$//')"
+                  # Which conflicted paths did this caller NOT declare in PATHS?
+                  # Computed here, before any branch, because the recompute arm
+                  # below is gated on it being EMPTY — a conflicted path the
+                  # caller does not produce means two runs disagree about data
+                  # this action cannot settle, and that still aborts.
+                  #
+                  # ⚠️ PURE SHELL, NO HEREDOC. A `<<'PY'` body must sit at column
+                  # zero, which terminates this YAML block scalar and makes the
+                  # whole action file unparseable — caught by
+                  # tests/test_commit_to_main_callers.py, which yaml-loads it.
+                  UNDECLARED=""
+                  for c in ${CONFLICTED}; do
+                    hit=""
+                    for d in ${PATHS}; do
+                      d="${d%/}"
+                      # exact match, or the conflicted path sits UNDER a declared
+                      # DIRECTORY. A declared directory covers what is beneath it;
+                      # nothing else does, so a declared `docs/claude/DUE` could
+                      # never silently swallow `docs/claude/DUE-OTHER.md`.
+                      if [ "${c}" = "${d}" ] || [ "${c#"${d}"/}" != "${c}" ]; then
+                        hit=1; break
+                      fi
+                    done
+                    [ -n "${hit}" ] || UNDECLARED="${UNDECLARED} ${c}"
+                  done
                   if [ "${CONFLICTED}" = "docs/claude/session-board.json" ] \
                      && git checkout --theirs -- docs/claude/session-board.json \
                      && python3 scripts/ops/claim_merge_slot.py \
@@ -543,6 +568,83 @@ runs:
                       DEADLINE=$(( $(date +%s) + MINS * 60 ))
                     else
                       REFRESH_STATE="failed_push"
+                    fi
+                  # ── A GENERATED ARTIFACT IS RECOMPUTED, NEVER SIDED ─────────
+                  # The block above resolves ONE hardcoded path and its own
+                  # comment records that it is now unreachable. Everything else
+                  # aborted — and for a GENERATED file that abort is the wrong
+                  # answer, because there is no side to take: its content is a
+                  # pure function of its inputs, so the correct merge is to
+                  # RECOMPUTE it over the merged inputs.
+                  #
+                  # MEASURED 2026-09-17 against `origin/main` 19e59662, over the
+                  # COMPLETE population of 70 open PRs (both API pages), probed
+                  # with `git merge-tree --write-tree` on an unshallowed clone
+                  # and with BOTH controls passing (positive: a whole-file
+                  # rewrite off an old commit -> conflicted, rc=1; negative:
+                  # main vs main -> clean):
+                  #
+                  #   56 of 70 open PRs (80.0%) are merge-conflicted
+                  #   44 of those are `automation/**` — this action's own PRs
+                  #   ZERO conflicts anywhere in src/, tests/, scripts/, config/
+                  #
+                  # and the blocked paths are led, by a wide margin, by files
+                  # that HAVE a generator in `scripts/ops/`:
+                  #
+                  #   28  docs/claude/DUE.json   28  docs/claude/DUE.md
+                  #   23  docs/claude/ERROR-FEED-DIGEST.json / .md
+                  #
+                  # 23 `error-feed-digest` PRs had stacked up since 2026-09-13,
+                  # each an hourly run that regenerated the same two artifacts
+                  # wholesale and therefore conflicted with every previous
+                  # unmerged run OF ITSELF. That is not two runs disagreeing
+                  # about data; it is one deterministic renderer racing itself.
+                  #
+                  # ⚠️ WHY THE EXISTING `refresh-command` COULD NOT REACH THIS.
+                  # The re-derive lives in the `else` arm below — it runs only
+                  # when the merge SUCCEEDS. A merge that CONFLICTS skipped
+                  # straight to the abort, so the one remedy that fits a
+                  # generated file was unreachable in exactly the case that
+                  # needed it. (And it was unused besides: MEASURED over all 27
+                  # call sites, 1 sets `refresh-command` and 27 set
+                  # `verify-merged` — the latter is the positive control that
+                  # the probe can see a real input.)
+                  #
+                  # ⚠️ THREE CONDITIONS, ALL REQUIRED — this can never resolve a
+                  # file the caller does not own:
+                  #   1. a `refresh-command` is set, i.e. the caller has
+                  #      DECLARED it can recompute its own output;
+                  #   2. EVERY conflicted path is one the caller named in
+                  #      `PATHS`. One path outside that list means two runs
+                  #      disagree about data this caller does not produce, which
+                  #      no rule here can settle — it still aborts;
+                  #   3. the recompute SUCCEEDS. A failing command is its own
+                  #      state and aborts; "we recomputed" and "we tried and
+                  #      could not" are opposite facts about the head we are
+                  #      about to push, and neither may be silent.
+                  #
+                  # We take MAIN's side first (`--theirs`, as the block above
+                  # does) so nothing already on main is lost and any declared
+                  # path the command does not rewrite keeps main's content, and
+                  # THEN recompute over it.
+                  elif [ -n "${REFRESH_COMMAND:-}" ] && [ -n "${CONFLICTED}" ] \
+                       && [ -z "${UNDECLARED}" ]; then
+                    # shellcheck disable=SC2086 — CONFLICTED is a pathspec list.
+                    if git checkout --theirs -- ${CONFLICTED} \
+                       && git add -- ${CONFLICTED} \
+                       && bash -c "${REFRESH_COMMAND}"; then
+                      # shellcheck disable=SC2086 — PATHS is a pathspec list.
+                      git add -f -- ${PATHS} || true
+                      if git commit -q --no-edit \
+                         && git push origin "HEAD:refs/heads/${BR}"; then
+                        REFRESH_STATE="refreshed_after_generated_conflict"
+                        DEADLINE=$(( $(date +%s) + MINS * 60 ))
+                      else
+                        REFRESH_STATE="failed_push"
+                      fi
+                    else
+                      git merge --abort || true
+                      REFRESH_STATE="failed_conflict_rederive"
                     fi
                   else
                     git merge --abort || true
