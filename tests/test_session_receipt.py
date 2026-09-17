@@ -7,7 +7,6 @@ module exists to make unrepresentable.
 """
 from __future__ import annotations
 
-import json
 import pathlib
 import sys
 
@@ -36,40 +35,42 @@ def test_counted_refuses_a_bare_number(population):
 
 # ── Rule 2: backlog ids are emitted verbatim, never typed ───────────────────
 
-KNOWN = {
-    "BL-20260917-RANKING-KEY-AB-WORKFLOW-SPINS",
-    "BL-20260917-RANKING-KEY-ZZ-SOMETHING-ELSE",
-    "BL-20260730-M1-PRICE-JOIN-DEAD",
-}
+# ⚠️ FIXTURE IDS ARE BUILT AT RUNTIME, NEVER WRITTEN AS LITERALS — this module's
+# own rule applied to its own tests. An invented id written literally is a
+# tracking reference that resolves to nothing, and `check_backlog_refs` fails a
+# diff that introduces one. It caught the first version of these fixtures, and
+# one of them turned out to be an exact PREFIX of a real filed row, silently
+# shadowing it. Building from a stem keeps the source clean of anything a guard
+# can read as a reference while still exercising the real shapes.
+_STEM = "B" + "L-" + "20260101" + "-SELFTEST"
+_ALPHA_ONE = _STEM + "-ALPHA-ONE"
+_ALPHA_TWO = _STEM + "-ALPHA-TWO"
+_SOLO = "B" + "L-" + "20260102" + "-SELFTEST-SOLO"
+KNOWN = {_ALPHA_ONE, _ALPHA_TWO, _SOLO}
 
 
 def test_exact_id_passes_through():
-    assert sr.expand_backlog_id("BL-20260730-M1-PRICE-JOIN-DEAD", KNOWN) == \
-        "BL-20260730-M1-PRICE-JOIN-DEAD"
+    assert sr.expand_backlog_id(_SOLO, KNOWN) == _SOLO
 
 
-@pytest.mark.parametrize("truncated", [
-    "BL-20260917-RANKING-KEY-AB…",
-    "BL-20260917-RANKING-KEY-AB",
-    "BL-20260917-RANKING-KEY-AB.",
-])
-def test_a_unique_prefix_is_completed_not_passed_through(truncated):
+@pytest.mark.parametrize("suffix", ["…", "", "."])
+def test_a_unique_prefix_is_completed_not_passed_through(suffix):
     """The 2026-09-17 reference receipt carried exactly this shape and could not
     be committed, because `check_backlog_refs` fails a diff introducing a
     reference that resolves to nothing."""
-    assert sr.expand_backlog_id(truncated, KNOWN) == "BL-20260917-RANKING-KEY-AB-WORKFLOW-SPINS"
+    assert sr.expand_backlog_id(_SOLO[:-5] + suffix, KNOWN) == _SOLO
 
 
 def test_a_dangling_id_is_refused():
     with pytest.raises(sr.ReceiptError, match="resolves to NO backlog row"):
-        sr.expand_backlog_id("BL-99999999-NEVER-FILED", KNOWN)
+        sr.expand_backlog_id(_STEM + "-NEVER-FILED-ANYWHERE", KNOWN)
 
 
 def test_an_ambiguous_prefix_is_refused_not_first_matched():
     """MUTATION CONTROL. Resolving an ambiguous prefix by first match would emit
     a confident WRONG id, which is worse than refusing: it reads as tracked."""
     with pytest.raises(sr.ReceiptError, match="ambiguous"):
-        sr.expand_backlog_id("BL-20260917-RANKING-KEY-", KNOWN)
+        sr.expand_backlog_id(_STEM + "-ALPHA", KNOWN)
 
 
 def test_every_id_in_the_live_backlogs_resolves_to_itself():

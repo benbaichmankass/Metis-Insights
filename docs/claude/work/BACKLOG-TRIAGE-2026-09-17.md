@@ -1,6 +1,6 @@
 # Health-backlog triage — 2026-09-17
 
-> **Doc status:** `live` · category `record` · produced by the OPS lane
+> **Doc status:** `live` · category `evidence` · produced by the OPS lane
 > (`session_0178pRo8ZxrnrREzDzDzb9Zk`, MI-294) · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 **This is a TRIAGE, not a drain.** The deliverable is named chunks a later

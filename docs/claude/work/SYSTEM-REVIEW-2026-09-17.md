@@ -1,6 +1,6 @@
 # System review — 2026-09-17, weighted to performance (7d) and soak monitoring
 
-> **Doc status:** `live` · category `record` · produced by the OPS lane
+> **Doc status:** `live` · category `evidence` · produced by the OPS lane
 > (`session_0178pRo8ZxrnrREzDzDzb9Zk`, MI-294) · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 ## ⚠️ COVERAGE — READ THIS BEFORE QUOTING ANYTHING BELOW

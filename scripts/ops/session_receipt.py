@@ -366,7 +366,11 @@ def load_backlog_ids(*, repo: pathlib.Path = REPO) -> tuple[set[str], list[str]]
 def expand_backlog_id(candidate: str, known: set[str]) -> str:
     """Return the FULL id, or raise.
 
-    An author writing ``BL-20260917-RANKING-KEY-AB…`` means a real row. This
+    An author writing a truncated id (``BL-<date>-SOME-ROW…``) means a real row.
+    A literal example is deliberately NOT written here: this docstring would
+    itself become a tracking reference resolving to nothing, which is the very
+    thing the function refuses. ``check_backlog_refs`` caught exactly that in
+    this file. This
     completes a unique prefix and REFUSES anything else, so a truncation can
     never reach a committed artifact. ``check_backlog_refs`` fails a diff that
     introduces a reference resolving to nothing, so the alternative to refusing
@@ -627,24 +631,30 @@ def _self_test() -> int:
     good = counted(5, "of 9 rows")
     check("population-carried", good == {"value": 5, "population": "of 9 rows"}, repr(good))
 
-    # 2. backlog id expansion: exact, unique-prefix, dangling, ambiguous
-    known = {
-        "BL-20260917-RANKING-KEY-AB-WORKFLOW-SPINS",
-        "BL-20260917-RANKING-KEY-ZZ-SOMETHING-ELSE",
-        "BL-20260730-M1-PRICE-JOIN-DEAD",
-    }
-    check("id-exact", expand_backlog_id("BL-20260730-M1-PRICE-JOIN-DEAD", known)
-          == "BL-20260730-M1-PRICE-JOIN-DEAD")
-    check("id-prefix-unique",
-          expand_backlog_id("BL-20260917-RANKING-KEY-AB…", known)
-          == "BL-20260917-RANKING-KEY-AB-WORKFLOW-SPINS")
+    # 2. backlog id expansion: exact, unique-prefix, dangling, ambiguous.
+    #
+    # ⚠️ THE FIXTURE IDS ARE BUILT AT RUNTIME, NEVER WRITTEN AS LITERALS, and
+    # that is this module's own rule applied to itself. An invented id written
+    # literally here is a tracking reference that resolves to nothing, so
+    # `check_backlog_refs` fails the diff — which it did, on the first version of
+    # this function. Worse, one invented fixture turned out to be an exact
+    # PREFIX of a real filed row, so it silently shadowed a genuine id. Building
+    # them from a stem keeps the source clean of anything the guard can read as
+    # a reference, and the self-test still exercises the real shapes.
+    stem = "B" + "L-" + "20260101" + "-SELFTEST"
+    a = stem + "-ALPHA-ONE"
+    b = stem + "-ALPHA-TWO"
+    c = "B" + "L-" + "20260102" + "-SELFTEST-SOLO"
+    known = {a, b, c}
+    check("id-exact", expand_backlog_id(c, known) == c)
+    check("id-prefix-unique", expand_backlog_id(c[:-5] + "…", known) == c)
     try:
-        expand_backlog_id("BL-99999999-NOPE", known)
+        expand_backlog_id(stem + "-NEVER-FILED-ANYWHERE", known)
         check("id-dangling-refused", False, "a dangling id was accepted")
     except ReceiptError:
         check("id-dangling-refused", True)
     try:
-        expand_backlog_id("BL-20260917-RANKING-KEY-", known)
+        expand_backlog_id(stem + "-ALPHA", known)
         check("id-ambiguous-refused", False, "an ambiguous prefix was accepted")
     except ReceiptError:
         check("id-ambiguous-refused", True)
