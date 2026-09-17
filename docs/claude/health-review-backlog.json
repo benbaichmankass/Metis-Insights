@@ -39508,6 +39508,7 @@
     },
     {
       "id": "BL-20260917-THE-BREAK-VERDICT-CONSUMES-A-HAND-TYPED-STOP-DID-SCALAR-WHOSE-POPULATION-AND-PROVENANCE-ITS-OWN-ARTIFACT-NEVER-STATE",
+      "status": "open",
       "severity": "high",
       "tier": "1 — scripts/research/ only; the fix is to an instrument, not to any live path",
       "opened_at": "2026-09-17",
@@ -39520,6 +39521,7 @@
     },
     {
       "id": "BL-20260917-E35-BREAK-ATTRIBUTION-POPULATION-NAMES-A-CENSUS-BUCKET-FABRICATED-CLOSE-WHILE-TESTING-ONE-EXIT-REASON",
+      "status": "open",
       "severity": "medium",
       "tier": "1 — scripts/research/ only; a rename plus an optional canonical-module call",
       "opened_at": "2026-09-17",
@@ -39532,6 +39534,7 @@
     },
     {
       "id": "BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME",
+      "status": "open",
       "severity": "high",
       "tier": "2 — src/web/api/routers/diag.py, a read-only query param; observability in kind but it ships to the VM and needs a deploy",
       "opened_at": "2026-09-17",
