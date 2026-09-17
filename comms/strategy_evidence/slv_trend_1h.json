@@ -5,21 +5,54 @@
   "timeframe": "1h",
   "config_fingerprint": "sha256:59088dab140e8d29120cf266c7b08ed3",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 62.2867,
+  "expectancy_r_oos": 1.0927,
+  "n_trades_oos": 57,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 14,
+      "net_r": 8.1517,
+      "expectancy_r": 0.5823,
+      "start": "2025-04-11 14:00:00+00:00",
+      "end": "2025-08-19 15:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 14,
+      "net_r": 23.0197,
+      "expectancy_r": 1.6443,
+      "start": "2025-08-22 14:00:00+00:00",
+      "end": "2025-12-17 15:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 14,
+      "net_r": 22.7088,
+      "expectancy_r": 1.6221,
+      "start": "2025-12-22 15:00:00+00:00",
+      "end": "2026-05-06 14:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 15,
+      "net_r": 8.4065,
+      "expectancy_r": 0.5604,
+      "start": "2026-05-15 14:00:00+00:00",
+      "end": "2026-09-10 14:00:00+00:00"
+    }
+  ],
+  "folds_positive": 4,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:28:58.077552+00:00",
+  "generated_at": "2026-09-16T19:14:27.480870+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for SLV",
+  "source_run": "/tmp/strategy_evidence_omm3li18/slv_trend_1h__trades.jsonl",
+  "error": null,
   "harness": "trend"
 }
