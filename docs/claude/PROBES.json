@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-12T16:29:18.870030+00:00",
+  "generated_at": "2026-09-17T10:07:08.510898+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 65,
+  "monitoring_rows": 68,
   "rows_with_a_probe": 15,
-  "rows_without_a_probe": 50,
+  "rows_without_a_probe": 53,
   "counts": {
-    "pass": 7,
-    "fail": 4,
+    "pass": 6,
+    "fail": 5,
     "source_empty": 0,
-    "could_not_run": 54
+    "could_not_run": 57
   },
   "results": [
     {
@@ -74,10 +74,10 @@
         "decision~stray_unkeyed,no_strays,could_not_look"
       ],
       "matched": 5,
-      "scanned": 24,
+      "scanned": 127,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=5 scanned=24\nprobe: PASS — 5 of 24 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 24 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 24)"
+      "detail": "probe-counts: matched=5 scanned=127\nprobe: PASS — 5 of 127 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 127 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 127)"
     },
     {
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
@@ -129,11 +129,11 @@
         "--positive-control",
         "pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h"
       ],
-      "matched": 5,
+      "matched": 6,
       "scanned": 200,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=5 scanned=200\nprobe: PASS — 5 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 44)"
+      "detail": "probe-counts: matched=6 scanned=200\nprobe: PASS — 6 of 200 row(s) match ['accountClass=real_money', 'openedAt>2026-08-30T14:05:00+00:00', 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h', 'pnlProvenance~measured,estimated'] (read 200 row(s) from /api/bot/trades/closed?limit=200 [shape=list, https://ict-bot.duckdns.org]; positive control 'pattern~trend_donchian,htf_pullback_trend_2h,ada_pullback_2h,avax_pullback_2h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_xrp_4h,trend_donchian_ada_4h,trend_donchian_avax_4h' matched 45)"
     },
     {
       "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 411,
-      "scanned": 533,
+      "matched": 536,
+      "scanned": 691,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=411 scanned=533\nprobe: PASS — 411 of 533 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 533 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=536 scanned=691\nprobe: PASS — 536 of 691 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 691 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -174,10 +174,10 @@
         "would_have_capped=true"
       ],
       "matched": 0,
-      "scanned": 2,
+      "scanned": 4,
       "state": "fail",
       "reason": "exit_1",
-      "detail": "probe-counts: matched=0 scanned=2\nprobe: FAIL — 0 of 2 row(s) match ['global_mode=enforce', 'state=exceeds_cushion', 'would_have_capped=true'] (read 2 row(s) from /api/diag/log_file?name=prop_ticket_risk_soak&lines=1000)"
+      "detail": "probe-counts: matched=0 scanned=4\nprobe: FAIL — 0 of 4 row(s) match ['global_mode=enforce', 'state=exceeds_cushion', 'would_have_capped=true'] (read 4 row(s) from /api/diag/log_file?name=prop_ticket_risk_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
@@ -253,7 +253,7 @@
       "scanned": null,
       "state": "could_not_run",
       "reason": "exit_2",
-      "detail": "probe: COULD NOT LOOK — [due-list.yml] due-list.yml: 20 run(s) listed but NONE had readable logs (20 unread). That is an unread population, not an absent line."
+      "detail": "probe: COULD NOT LOOK — [guards.yml] guards.yml: 20 run(s) listed but NONE had readable logs (20 unread). That is an unread population, not an absent line."
     },
     {
       "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 0.6h ago, inside the 30.0h window.\n  queue at last run: 4 PR(s) waiting on a merge decision, worst 6.8h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 12.3h ago, inside the 30.0h window.\n  queue at last run: 59 PR(s) waiting on a merge decision, worst 108.7h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -484,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 40,
+      "matched": 83,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=40 scanned=1000\nprobe: PASS — 40 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=83 scanned=1000\nprobe: PASS — 83 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -505,28 +505,6 @@
       "detail": "NO PROBE EXISTS AND ONE CANNOT BE WRITTEN THAT WOULD CLEAR THIS ROW, and that is a property of the three conditions rather than of the effort available. (1) is an OPERATOR DECISION on a held Tier-3 PR — approve or reject, plus a stated choice between IB_CLOSE_CONFIRM_PARTIAL strict and reduction. CI cannot read a verdict that has not been given, and a probe that graded 'PR still open' would be rep",
       "checks": null,
       "is_not": null
-    },
-    {
-      "id": "OI-20260907-TELEMETRY-HOOK-IS-APPROVED-AND-GREEN-IN-AN-UNMERGED-PR-AND-OBSERVED-ON-NOTHING",
-      "checks": "A /api/diag/position_telemetry row exists whose `strategy` is one of the NINE legs MI-163 measured as structurally invisible (the 8 ict_scalp_* legs + squeeze_breakout_4h, ENUMERATED rather than pattern-matched so a leg added or renamed later cannot silently widen the predicate) AND whose `peak_state` is `measured`. Both are required and they are different facts: the first says the hook sits on a path that trades, the second says the row carries a REAL peak_r rather than a named absence. A row reading `unanchored` or `no_risk` is turtle_soup/vwap behaving correctly and says nothing about these nine. The positive control (`peak_state` present with ANY of its four values) separates 'the nine have not emitted yet' from 'the endpoint is unreadable or empty' -- it should match today on trend_donchian / htf_pullback_trend_2h rows, which have carried the hook all along, so a control that does NOT match means the probe is blind, not that the nine are silent.",
-      "is_not": "A PASS DOES NOT CLEAR THIS ROW, and establishes less than it looks like. (1) It is ONE row, not a corpus: MI-163's own gradeability floor is n=30 pooled, so a single measured peak makes the nine VISIBLE without making the ict_scalp one-shot mechanism MEASURED -- which was the point of hooking them. (2) peak_r is a LOWER BOUND by construction (peak_provenance: estimated); a bar-extreme peak cannot see an intrabar excursion. (3) It reads the telemetry table, never the venue, so it cannot say the peak matches what the position actually did. (4) It says nothing about Proposal B, which stays unbuilt and un-numbered.",
-      "cmd": [
-        "python3",
-        "scripts/ops/probe_soak.py",
-        "--path",
-        "/api/diag/position_telemetry?limit=1000",
-        "--require",
-        "strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h",
-        "--require",
-        "peak_state=measured",
-        "--positive-control",
-        "peak_state~measured,unanchored,thin_window,no_risk"
-      ],
-      "matched": 31,
-      "scanned": 246,
-      "state": "pass",
-      "reason": "exit_0",
-      "detail": "probe-counts: matched=31 scanned=246\nprobe: PASS — 31 of 246 row(s) match ['strategy~ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,squeeze_breakout_4h', 'peak_state=measured'] (read 246 row(s) from /api/diag/position_telemetry?limit=1000; positive control 'peak_state~measured,unanchored,thin_window,no_risk' matched 246)"
     },
     {
       "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
@@ -728,11 +706,55 @@
         "--positive-control",
         "fanout_schema~2,3"
       ],
-      "matched": 4,
-      "scanned": 533,
+      "matched": 129,
+      "scanned": 691,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=4 scanned=533\nprobe: PASS — 4 of 533 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 533 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 520)"
+      "detail": "probe-counts: matched=129 scanned=691\nprobe: PASS — 129 of 691 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 691 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 678)"
+    },
+    {
+      "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No probe. Clause (3) needs a soak row whose `emitted` is read AGAINST a two-sided venue state, and clause (4) needs a journal join reported with its pre-deploy positive control -- neither is a threshold a predicate can express without re-deriving the denominator this row exists to insist on.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "No probe. The question is whether the venue holds a book the reader never asked for, and every read surface this repo ships goes through that same reader — so a predicate over them would return the defect's own answer. It needs a symbol-scoped venue read that does not exist yet, which is why that missing parameter is named in clears_when rather than left implicit.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
+      "checks": "The committed due-list envelope carries a `red_main_runs` entry whose state is `read` -- i.e. the source was CALLED and had a token. THE POSITIVE CONTROL IS THE SIBLING SOURCE `red_crons`, chosen because it needs the SAME GITHUB_TOKEN in the SAME workflow: if it reads, the token half works and a quiet `red_main_runs` is this source's gap rather than an unread. If the control stops firing the verdict becomes could_not_look, never a negative. !! `red_main_runs` ABSENT from `sources` and `red_main_runs` reading `could_not_read` are DIFFERENT FACTS -- absent means collect() never called it (a wiring defect), could_not_read means it was called with no token -- and this probe distinguishes neither; it only ever says the clearing condition is unmet. Read the entry itself before concluding which.",
+      "is_not": "A PASS ESTABLISHES ONLY THAT THE SOURCE WAS CALLED AND HAD A TOKEN. It does NOT establish that the source is CORRECT: `state: read` with zero rows is equally consistent with the default branch being green and with the filter being wrong, and this probe cannot tell those apart -- `event=push&branch=main`, the completed-only status gate and the not-a-finding conclusion set are all unexercised against a real red run either way. It does NOT establish that a genuine red on `main` would be REPORTED, which needs a run that actually failed. And it does NOT establish that anybody READS docs/claude/DUE.md -- routing a signal onto a page is not the same as the signal reaching a session, which is the gap the parent backlog row was filed about in the first place. Treat a pass as 'the wiring carries current', never as 'the default branch is watched'.",
+      "cmd": [
+        "python3",
+        "scripts/ops/probe_file.py",
+        "--file",
+        "docs/claude/DUE.json",
+        "--require",
+        "sources.red_main_runs.state=read",
+        "--positive-control",
+        "sources.red_crons.state=read"
+      ],
+      "matched": 0,
+      "scanned": 1,
+      "state": "fail",
+      "reason": "exit_1",
+      "detail": "probe-counts: matched=0 scanned=1\nprobe: FAIL — 0 of 1 row(s) match ['sources.red_main_runs.state=read'] (read 1 row(s) from 1 file(s) [docs/claude/DUE.json:1]; positive control 'sources.red_crons.state=read' matched 1)"
+    },
+    {
+      "id": "OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "THE CLEARING CONDITION IS A CRON THAT FIRES AND LANDS, AND NO FILE-SHAPED PROBE CAN EXPRESS IT. A static `generated_at` match goes stale-TRUE the moment it passes once, which is the opposite of what is wanted here. The obvious substitute is worse than useless and is named so a successor does not reach for it: `probe_file.py --require sources.spent_decision_edges.state=read` CANNOT DISTINGUISH A WO",
+      "checks": null,
+      "is_not": null
     }
   ]
 }
