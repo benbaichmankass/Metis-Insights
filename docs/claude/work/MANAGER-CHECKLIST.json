@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T09:00:00Z",
+  "updated_at": "2026-09-17T06:55:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4133,9 +4133,40 @@
       "landed_by": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-16. Verified the three REQUIRED contexts green on head 846c6a7ac and mergeable_state clean BEFORE merging, rather than taking the lane's own 'CI green' summary.",
       "⚠️_why_this_is_landed_unproven_and_not_done": "The census was re-run by the LANE in its own container. Nothing has yet re-run build_strategy_evidence.py on a RUNNER or regenerated the strategy-review index off the 41 measured legs, so the gate's actionable count is still the old 0 of 52 until a scheduled run proves otherwise. done means MERGED AND OBSERVED.",
       "what_is_NOT_fixed": "The 10 no_harness legs (a missing regime_debt_matrix.classify() branch -- a different problem), and splg_trend_long_1d, which the lane's new three-state venue discriminator PROVED is not this class: the SPY control returned rows while SPLG serves no 1y daily bars at all (meta.firstTradeDate 2026-07-14). Both filed, not fixed."
+    },
+    {
+      "id": "MI-288",
+      "added": "2026-09-17",
+      "lane": "manager",
+      "state": "in_flight",
+      "owner": "manager",
+      "tier": 1,
+      "title": "Drain the carried merge queue: 13 lane PRs refreshed against today's main",
+      "why": "The 2026-09-13 close-out happened at the BRANCH level, not the MERGE level. Running the merge queue is a manager base duty, and this queue had not been worked in four days.",
+      "⚠️_I_UNDERCOUNTED_THIS_IN_MY_LAST_STATUS": "I reported SIX carried lane PRs. MEASURED via list_pull_requests(state=open): the queue is SEVENTEEN non-automation PRs plus mine. The six I named are the MI-280/MI-279 subset; ten MI-278/MI-279 research PRs (#11976 #12007 #12072 #12090 #12148 #12158 #12181 #12205 #12208) were never in the count.",
+      "⚠️_WHY_NONE_OF_THEM_COULD_BE_MERGED": "GitHub graded them `dirty` while they merge CLEAN locally. The repo's row-aware merge driver resolves register appends and GITHUB CANNOT RUN IT, so a PR the repo considers mergeable is un-mergeable through the merge button until someone merges main into the branch by hand. Already filed and open as BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY, root cause BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE. NO DUPLICATE FILED -- this is another occurrence of a known-open class.",
+      "done_this_tick": "#12223 MERGED (5a07c6510) -- the MI-280 resumption note, the artifact a successor reads to pick the lane up, was itself unlanded. 13 lane branches refreshed against today's main and pushed: 8 merged clean under the driver, 5 needed hand resolution (2 DOCUMENT-INDEX.md rows, 3 work-object notes), every one a keep-both of DISTINCT appends, verified as 13 raw = 13 unique keys with each lane's own note present.",
+      "⚠️_A_SEQUENCING_FACT_THAT_COSTS_ANOTHER_REFRESH": "open-items-guard started failing on CLEAN MAIN today: OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT crossed its 21-day reaffirm limit, which reds EVERY PR in the repo. All 13 lane branches were refreshed BEFORE that fix, so they will each fail guards until #12346 lands and they are refreshed again. The fix is in #12346.",
+      "not_done": "#12072 cannot be auto-resolved -- the row-aware driver REFUSED it (both sides edited BL-20260730-2D-VOL-CELLS-UNAUDITABLE differently), which is the driver working. It needs a content decision, not a merge. #12219 and #12070 are DRAFTS ON PURPOSE and must not be un-drafted to clear the queue.",
+      "blocked_on": [],
+      "blocked_on_basis": "NOT_ASSESSED"
+    },
+    {
+      "id": "MANAGER_TICK_2026_09_17T0655Z",
+      "added": "2026-09-17",
+      "lane": "manager",
+      "state": "note",
+      "owner": "manager",
+      "tier": 1,
+      "title": "Manager tick 2026-09-17 06:55Z (2h cadence, per DEC-20260916-PACING-RULES)",
+      "why": "Recording the tick so the cadence is auditable rather than asserted.",
+      "recently_done": "MI-287 landed (#12348). #12223 landed. 13 lane branches refreshed. 4 guard failures on #12346 diagnosed WITH CONTROLS: 2 mine (a truncated backlog id in OPEN-PRS -- a shortened id stops being an id -- and missing opened_at on 8 rows), 1 repo-wide (the reaffirm-limit row, affirmed with a real live read, not a stamped date), 1 offline-only (digest-liveness could_not_look with no GITHUB_TOKEN).",
+      "next": "Land #12346, then re-refresh the 13 lane branches onto it and merge them as they go green. Then the loud-flag diagnosis (DEC-20260912-LOUD-FLAG-TRIAGE), which the operator put second.",
+      "blocked_on": [],
+      "blocked_on_basis": "NOT_ASSESSED"
     }
   ],
-  "as_of": "2026-09-13T08:10:00Z",
+  "as_of": "2026-09-17",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
