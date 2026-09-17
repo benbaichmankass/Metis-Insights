@@ -38,8 +38,10 @@ already answerable by re-running and seeing a different number. It cannot separa
 
   same rowset, same order  -> `reproduces`
   same rowset, diff order  -> `reordered`         <- hypothesis (a), and ONLY (a)
-  diff rowset              -> `content_changed`   <- hypothesis (b), with the
-                                                     changed rows NAMED
+  diff rowset              -> `content_changed`   <- hypothesis (b), and the
+                                                     changed rows are NAMED **only
+                                                     if both sides carry per-row
+                                                     digests** (see below)
 
 ⚠️ **A MULTISET, NOT A SET.** Deduplicating per-row digests would make a pull that
 lost a duplicate row hash identically to one that did not — the failure mode is
@@ -58,6 +60,23 @@ digest (its content is still content) but cannot be localised or ordered, so
 
 STATES, NEVER COLLAPSED
 -------------------------
+⚠️ **NAMING THE ROWS IS A SEPARATE CAPABILITY FROM DETECTING THE CHANGE, AND THE
+STANZA DID NOT CARRY IT.** `render_stanza` emitted no per-row digests, so a
+`content_changed` graded against a MEMO -- the only comparison a later session can
+make, and the one this module exists for -- derived its per-row answer from a map
+that was not there. MEASURED on two real declared memos (U32 and U38, a genuine
+re-stamp: same ids, same `order_digest`, different `rowset_digest`) it reported
+`rows_changed/added/removed` all `[]` beside `rows_not_localisable: 0`; against a
+live pull it reported the ENTIRE population as `rows_added`. Both are confident
+falsehoods and they point at OPPOSITE causes. `compare()` now returns `None` with a
+`localisation` state, and `render_stanza(include_row_digests=True)` is what buys
+the naming back (MI-278 U51).
+
+Localisation: `localised` · `declared_carries_no_row_digests` ·
+`observed_carries_no_row_digests` · `neither_side_carries_row_digests`. On
+`reproduces` and `reordered` the empty row lists are ENTAILED by `rowset_digest`
+equality and need no per-row map, so `rows_basis` says which produced them.
+
 Comparison: `reproduces` · `reordered` · `content_changed` ·
 `undecidable_field_sets_differ` · **`no_declared_input`** (*we could not look* —
 the memo declares nothing, which is the CURRENT state of every memo in the repo).
@@ -276,6 +295,54 @@ def _shared_order_preserved(declared: dict, observed: dict) -> bool | None:
 
 GROUP_STATES = ("compared", "not_declared", "undecidable_group_fields_differ")
 
+# Can a `content_changed` verdict NAME the rows, or only assert that some row
+# changed? Four states, never collapsed -- because the two sides fail
+# independently and the remedy differs (re-render the memo's stanza vs re-take
+# the pull).
+LOCALISATION_STATES = (
+    "localised",
+    "declared_carries_no_row_digests",
+    "observed_carries_no_row_digests",
+    "neither_side_carries_row_digests",
+)
+
+# How many hex characters of each row digest a stanza carries. Full digests are
+# 64 hex; a memo declaring 1000 rows at full length adds ~77 KB of HTML comment,
+# which is why the length is a CHOICE and is DECLARED rather than assumed.
+DEFAULT_ROW_DIGEST_PREFIX = 16
+
+
+def _prefix_of(digest: str, n: int | None) -> str:
+    """Trim a `sha256:<hex>` digest to `n` hex characters. `None` means full."""
+    if n is None:
+        return digest
+    body = digest.split(":", 1)[1] if ":" in digest else digest
+    return body[:n]
+
+
+def _row_digest_maps(declared: dict, observed: dict) -> tuple[dict, dict, str, int | None]:
+    """The two per-row digest maps, brought onto ONE basis, plus the verdict.
+
+    ⚠️ **THE DECLARED SIDE SETS THE PRECISION AND THE OBSERVED SIDE IS TRIMMED TO
+    IT.** A stanza carrying 16-hex prefixes compared against full observed digests
+    would differ on EVERY row -- which is not a milder version of the right answer,
+    it is the fabricated total-turnover this function exists to stop.
+    """
+    dd = declared.get("row_digests") or {}
+    od = observed.get("row_digests") or {}
+    if not dd and not od:
+        return {}, {}, "neither_side_carries_row_digests", None
+    if not dd:
+        return {}, {}, "declared_carries_no_row_digests", None
+    if not od:
+        return {}, {}, "observed_carries_no_row_digests", None
+
+    n = declared.get("row_digest_prefix")
+    n = None if n in ("full", None) else int(n)
+    return ({k: _prefix_of(v, n) for k, v in dd.items()},
+            {k: _prefix_of(v, n) for k, v in od.items()},
+            "localised", n)
+
 
 def _group_verdict(declared: dict | None, observed: dict) -> dict:
     """Did any GROUP's membership change — the third mechanism, observed live.
@@ -322,6 +389,8 @@ def compare(declared: dict | None, observed: dict) -> dict:
             "rows_removed": None,
             "also_reordered": None,
             "shared_order_preserved": None,
+            "localisation": "neither_side_carries_row_digests",
+            "rows_basis": "not_compared",
             **_group_verdict(declared, observed),
         }
 
@@ -339,6 +408,8 @@ def compare(declared: dict | None, observed: dict) -> dict:
             "rows_removed": None,
             "also_reordered": None,
             "shared_order_preserved": None,
+            "localisation": "neither_side_carries_row_digests",
+            "rows_basis": "not_compared",
             **_group_verdict(declared, observed),
         }
 
@@ -353,6 +424,8 @@ def compare(declared: dict | None, observed: dict) -> dict:
             "rows_added": [],
             "rows_removed": [],
             "also_reordered": False,
+            "rows_basis": "rowset_digest_equality",
+            "localisation": _row_digest_maps(declared, observed)[2],
             "shared_order_preserved": _shared_order_preserved(declared, observed),
             **_group_verdict(declared, observed),
         }
@@ -367,35 +440,62 @@ def compare(declared: dict | None, observed: dict) -> dict:
             "rows_added": [],
             "rows_removed": [],
             "also_reordered": True,
+            "rows_basis": "rowset_digest_equality",
+            "localisation": _row_digest_maps(declared, observed)[2],
             "shared_order_preserved": _shared_order_preserved(declared, observed),
             **_group_verdict(declared, observed),
         }
 
-    dd = declared.get("row_digests") or {}
-    od = observed.get("row_digests") or {}
-    changed = sorted(k for k in (set(dd) & set(od)) if dd[k] != od[k])
-    added = sorted(set(od) - set(dd))
-    removed = sorted(set(dd) - set(od))
+    dd, od, localisation, prefix = _row_digest_maps(declared, observed)
 
-    unlocalisable = int(declared.get("n_rows_without_id") or 0) + int(
-        observed.get("n_rows_without_id") or 0
-    )
-    return {
+    base = {
         "state": "content_changed",
         "why": "the row multiset differs -- hypothesis (b): a field was re-stamped, or the "
                "population moved. Content dominates order deliberately: a reordering "
                "reported instead of a re-stamp would be the reassuring answer.",
-        "rows_changed": changed,
-        "rows_added": added,
-        "rows_removed": removed,
         "also_reordered": not same_order,
         "shared_order_preserved": _shared_order_preserved(declared, observed),
-        "rows_not_localisable": unlocalisable,
+        "localisation": localisation,
+        "row_digest_prefix": prefix,
+        "rows_basis": "row_digests" if localisation == "localised" else "not_localisable",
         **_group_verdict(declared, observed),
     }
 
+    if localisation != "localised":
+        # ⚠️ **`None`, NEVER `[]`, AND NEVER A DERIVED LIST.** Deriving the lists
+        # from a side that carries no row digests produces a confident falsehood
+        # in whichever direction the missing side happens to be: an absent
+        # DECLARED map makes `set(od) - set(dd)` the ENTIRE observed population,
+        # so a one-field re-stamp renders as total turnover; an absent OBSERVED
+        # map makes both intersections empty, so a genuine re-stamp renders as
+        # `nothing changed` beside a `content_changed` state. Both were MEASURED
+        # on real declared memos before this branch existed (MI-278 U51).
+        base["rows_changed"] = None
+        base["rows_added"] = None
+        base["rows_removed"] = None
+        base["rows_not_localisable"] = None
+        base["why"] += (
+            " ⚠️ THE CHANGED ROWS CANNOT BE NAMED: " + localisation + ". Some row differs "
+            "and WHICH is unknown -- re-render the memo's stanza with "
+            "`include_row_digests=True`, or compare against a retained pull."
+        )
+        return base
 
-def render_stanza(fp: dict, *, include_order: bool = False) -> str:
+    base["rows_changed"] = sorted(k for k in (set(dd) & set(od)) if dd[k] != od[k])
+    base["rows_added"] = sorted(set(od) - set(dd))
+    base["rows_removed"] = sorted(set(dd) - set(od))
+    base["rows_not_localisable"] = int(declared.get("n_rows_without_id") or 0) + int(
+        observed.get("n_rows_without_id") or 0
+    )
+    return base
+
+
+def render_stanza(
+    fp: dict,
+    *,
+    include_order: bool = False,
+    include_row_digests: bool | int = False,
+) -> str:
     """The declarable block. An HTML comment: invisible when rendered, greppable on disk.
 
     ⚠️ **`include_order=False` IS A REAL LOSS AND IS NAMED RATHER THAN HIDDEN.**
@@ -406,6 +506,22 @@ def render_stanza(fp: dict, *, include_order: bool = False) -> str:
     for an id-ordered tail bounds the window cheaply, but they are a summary and
     not the sequence. Pass `include_order=True` when full attributability matters
     more than a few KB in the memo.
+
+    ⚠️ **`include_row_digests=False` IS THE LOSS THAT MADE THIS MODULE'S OWN HEADLINE
+    PROMISE FALSE, AND IT IS NOW NAMED RATHER THAN DISCOVERED.** The module docstring
+    says a `content_changed` verdict arrives "with the changed rows NAMED". Without
+    per-row digests it can name none -- `compare()` now returns `None` and a
+    `localisation` state instead of a derived list, which is honest and is still not
+    an answer. Pass `include_row_digests=True` on any memo whose table a later
+    session may need to ATTRIBUTE rather than merely re-run.
+
+    The prefix length is a real trade and is therefore DECLARED in the stanza as
+    `row_digest_prefix`, never assumed. At the default 16 hex characters 1000 rows
+    cost ~23 KB against ~77 KB at full length, and the collision exposure over 1000
+    rows is a birthday bound of about 1000**2 / 2 / 2**64 = 2.7e-14 -- so a MISSED
+    change is possible in principle and vanishing in practice. `rowset_digest` and
+    `order_digest` are always full length and are unaffected. `True` means the
+    default prefix; an int means that many hex characters; >= 64 means full.
     """
     lines = [STANZA_OPEN]
     for k in ("source", "pulled_at"):
@@ -425,6 +541,14 @@ def render_stanza(fp: dict, *, include_order: bool = False) -> str:
             lines.append(f"{k}: {fp[k]}")
     if include_order and fp.get("id_order"):
         lines.append("id_order: " + ",".join(fp["id_order"]))
+    if include_row_digests and fp.get("row_digests"):
+        n = DEFAULT_ROW_DIGEST_PREFIX if include_row_digests is True else int(include_row_digests)
+        n = None if n >= 64 else n
+        lines.append(f"row_digest_prefix: {'full' if n is None else n}")
+        lines.append(
+            "row_digests: "
+            + ",".join(f"{k}={_prefix_of(v, n)}" for k, v in fp["row_digests"].items())
+        )
     lines.append(f"n_rows_without_id: {fp['n_rows_without_id']}")
     lines.append(f"n_duplicate_ids: {fp['n_duplicate_ids']}")
     lines.append(STANZA_CLOSE)
@@ -453,7 +577,24 @@ def parse_stanza(text: str) -> dict | None:
         k, _, v = line.partition(":")
         k = k.strip()
         v = v.strip()
-        if k in ("fields_covered", "fields_present_not_covered", "id_order"):
+        if k == "row_digests":
+            # `id=digest` pairs. A malformed entry is DROPPED and COUNTED rather
+            # than guessed: a silently shortened map would make `rows_added` name
+            # rows that were never missing.
+            m: dict[str, str] = {}
+            bad = 0
+            for part in v.split(","):
+                if not part:
+                    continue
+                rid, sep, dig = part.partition("=")
+                if not sep or not rid.strip() or not dig.strip():
+                    bad += 1
+                    continue
+                m[rid.strip()] = dig.strip()
+            out["row_digests"] = m
+            if bad:
+                out["row_digests_malformed_entries"] = bad
+        elif k in ("fields_covered", "fields_present_not_covered", "id_order"):
             out[k] = [x for x in v.split(",") if x]
         elif k in ("n_rows", "n_rows_without_id", "n_duplicate_ids"):
             try:
@@ -732,6 +873,70 @@ def _selftest() -> int:
     }
     check("all five compare states are reachable", seen == set(COMPARE_STATES))
 
+    # ------------------------------------------------------------------
+    # LOCALISATION -- the defect these exist for (MI-278 U51).
+    # Every control above compares two LIVE fingerprint dicts, which always
+    # carry `row_digests`; the one that touched the stanza path checked the
+    # IDENTITY case, where the lists are empty either way. So a suite of 64
+    # controls was green while the module's headline promise was false on the
+    # only path a later session can use. These compare through a STANZA on a
+    # case where the answer differs.
+    # ------------------------------------------------------------------
+    restamped_one = [dict(r) for r in _rows_a()]
+    restamped_one[1]["pnl"] = -999.0
+    f_re = fingerprint(restamped_one)
+    st_plain = parse_stanza(render_stanza(fa))
+
+    v_sl = compare(st_plain, f_re)
+    check("stanza-vs-live on a re-stamp still grades `content_changed`",
+          v_sl["state"] == "content_changed")
+    check("stanza-vs-live names the MISSING SIDE, not a row list",
+          v_sl["localisation"] == "declared_carries_no_row_digests")
+    check("stanza-vs-live returns rows_added None -- NOT the whole population",
+          v_sl["rows_added"] is None)
+    check("stanza-vs-live returns rows_changed None -- NOT []",
+          v_sl["rows_changed"] is None and v_sl["rows_removed"] is None)
+    check("rows_not_localisable is None when nothing could be localised, never 0",
+          v_sl["rows_not_localisable"] is None)
+    check("the `why` carries the localisation state, so a printed verdict cannot hide it",
+          "CANNOT BE NAMED" in v_sl["why"] and "declared_carries_no_row_digests" in v_sl["why"])
+
+    v_ss = compare(st_plain, parse_stanza(render_stanza(f_re)))
+    check("stanza-vs-stanza on a re-stamp reports NEITHER side, not agreement",
+          v_ss["localisation"] == "neither_side_carries_row_digests"
+          and v_ss["rows_changed"] is None)
+
+    # the capability that buys the naming back
+    st_full = parse_stanza(render_stanza(fa, include_row_digests=True))
+    v_ok = compare(st_full, f_re)
+    check("a stanza WITH row digests localises against a live pull",
+          v_ok.get("localisation") == "localised" and v_ok.get("rows_basis") == "row_digests")
+    check("...and NAMES exactly the re-stamped row",
+          v_ok.get("rows_changed") == [str(restamped_one[1]["id"])]
+          and v_ok.get("rows_added") == [] and v_ok.get("rows_removed") == [])
+    check("the declared prefix is carried in the stanza and parsed back as an int",
+          st_full.get("row_digest_prefix") == str(DEFAULT_ROW_DIGEST_PREFIX)
+          and v_ok.get("row_digest_prefix") == DEFAULT_ROW_DIGEST_PREFIX)
+    check("the OBSERVED side is trimmed to the DECLARED prefix, so a 16-hex stanza "
+          "against full observed digests does not report every row changed",
+          len(v_ok.get("rows_changed") or []) == 1)
+    check("a full-length stanza (>=64) declares `full` and still localises",
+          parse_stanza(render_stanza(fa, include_row_digests=64)).get("row_digest_prefix") == "full"
+          and compare(parse_stanza(render_stanza(fa, include_row_digests=64)), f_re).get("rows_changed")
+              == [str(restamped_one[1]["id"])])
+    check("a stanza WITHOUT row digests on the OBSERVED side is its own state",
+          compare(st_full, st_plain)["localisation"] == "observed_carries_no_row_digests")
+    check("a malformed row_digests entry is COUNTED, never guessed",
+          parse_stanza(render_stanza(fa, include_row_digests=True)
+                       .replace("row_digests: ", "row_digests: junkwithoutequals,"))
+          .get("row_digests_malformed_entries") == 1)
+    check("`reproduces` still reports [] with no row digests -- entailed by digest equality",
+          compare(st_plain, fingerprint(_rows_a()))["rows_changed"] == []
+          and compare(st_plain, fingerprint(_rows_a()))["rows_basis"] == "rowset_digest_equality")
+    check("every localisation state is reachable -- a state nothing produces is decoration",
+          {v_ok["localisation"], v_sl["localisation"], v_ss["localisation"],
+           compare(st_full, st_plain)["localisation"]} == set(LOCALISATION_STATES))
+
     # 42 the historical question stays open, in the module's own output
     check("the module does not claim to attribute the 30-vs-31",
           "DOES NOT ATTRIBUTE THE 30-vs-31" in (__doc__ or ""))
@@ -750,6 +955,9 @@ def main() -> int:
     ap.add_argument("--source", help="the pull URL, recorded verbatim in the stanza")
     ap.add_argument("--pulled-at", help="ISO timestamp of the pull")
     ap.add_argument("--against", help="a memo (or stanza file) to COMPARE the pull against")
+    ap.add_argument("--include-row-digests", action="store_true",
+                    help="emit per-row digests in the stanza so a later comparison can NAME "
+                         "the changed rows (without them it can only say that some row changed)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -788,14 +996,22 @@ def main() -> int:
             else:
                 print(f"state: {verdict['state']}")
                 print(f"why:   {verdict['why']}")
+                print(f"localisation: {verdict.get('localisation')} "
+                      f"(rows_basis={verdict.get('rows_basis')})")
                 for k in ("rows_changed", "rows_added", "rows_removed"):
-                    if verdict.get(k):
-                        print(f"{k}: {verdict[k][:20]}{' …' if len(verdict[k]) > 20 else ''}")
+                    v = verdict.get(k)
+                    # `None` is printed, never skipped. A falsy-only printer is how
+                    # "we could not look" and "we looked and found none" became one
+                    # line of output (MI-278 U51).
+                    if v is None:
+                        print(f"{k}: NOT LOCALISABLE -- {verdict.get('localisation')}")
+                    elif v:
+                        print(f"{k}: {v[:20]}{' …' if len(v) > 20 else ''}")
             return 0
         if args.json:
             print(json.dumps({k: v for k, v in fp.items() if k != "row_digests"}, indent=2))
         else:
-            print(render_stanza(fp))
+            print(render_stanza(fp, include_row_digests=args.include_row_digests))
         return 0
 
     ap.print_help()
