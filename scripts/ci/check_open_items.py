@@ -56,8 +56,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _git_base  # noqa: E402  — the ONE owner of "resolve a base ref honestly"
 
 _REGISTER = Path("docs/claude/OPEN-ITEMS.json")
 
@@ -222,26 +227,237 @@ def check(path: Path, today: date | None = None) -> list[str]:
     return problems
 
 
+# ── Does THIS DIFF shorten a row's own observation? ───────────────────────
+#
+# WHY THIS EXISTS, and why it is a guard rather than a note. On 2026-09-11 a
+# session intending to APPEND a third reading to one row's `observation`
+# REPLACED it: 3377 characters became 2628 with ZERO characters of the prior
+# text surviving, and what was destroyed included ANOTHER session's correction
+# whose own first sentence said it must be read before the text under it.
+# `BL-20260911-AN-OPEN-ITEMS-SPLICE-CAN-REPLACE-THE-OBSERVATION-IT-MEANT-TO-EXTEND-AND-EVERY-PROOF-THE-REPO-HAS-PASSES-OVER-IT`
+#
+# ⚠️ THE FINDING IS THE VERIFICATION, NOT THE WRITE. All three instruments a
+# session is told to use reported CLEAN over that diff: the id-set fingerprint
+# proof ("80 other rows verified byte-identical, 81 items" — true, and by
+# construction excluding the one row being edited), `run_guards --base main`
+# (PASS 58 / FAIL 0), and this very guard ("every one workable and affirmed"),
+# because an overwritten observation is still a NON-EMPTY observation. The id
+# cardinality was 81 on both sides, so nothing keyed on ids or counts could see
+# it either.
+#
+# ⚠️ NOT A ONE-OFF, MEASURED RATHER THAN ASSUMED. Population: all 233 commits
+# touching the register on `main` as of 2026-09-13, of which 232 parent/child
+# pairs were gradeable (1 unreadable), comparing every row present on BOTH
+# sides. Base observation text was lost in **38 of 232 commits (16.4%)**,
+# affecting **82 rows**; 36 of those were a net shrink, the largest dropping
+# **15,720 characters** (16,989 → 1,269, at `566c0ff4c`) — an observation
+# carrying several sessions' dated addenda replaced by one fresh reading.
+#
+# ⚠️ THIS IS NOT `register-field-loss-guard`, AND I CHECKED BEFORE BUILDING IT.
+# `scripts/ci/check_register_field_loss.py` already grades the shared registers
+# for a DISAPPEARED field, row or top-level key — and its own docstring rules
+# this case out in as many words: *"A CHANGED VALUE IS NOT A LOSS AND IS NOT
+# GRADED. Editing a field is ordinary work. Only DISAPPEARANCE is the signature
+# of a merge that dropped somebody's write-back."* That is the right line for
+# that guard to draw; the 2026-09-11 splice is the case on the other side of
+# it, where the key survives and its CONTENT does not. The two overlap on
+# exactly one input — deleting `observation` outright — and both catch it,
+# which is cheap insurance rather than duplication.
+#
+# ⚠️ AN APPEND-ONLY RULE WOULD BE WRONG and this is not one. Rows legitimately
+# get corrected and superseded in place all over this file. What is refused is
+# a SILENT loss: say so in the text and it passes.
+#
+# ⚠️ WHAT THIS DOES NOT DECIDE, SAID RATHER THAN LEFT TO BE DISCOVERED: how
+# LONG an observation may get. Preferring the append leaves the field growing,
+# and one already reached 16,989 characters before somebody cut it. That is a
+# real tension and this rule does not resolve it — it only makes the cut a
+# DECLARED act instead of an invisible one. A compaction policy is a decision,
+# not a guard.
+# `BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET`
+OBS_PRESERVED = "preserved"
+OBS_LOST = "lost"
+OBS_SUPERSEDED = "superseded_declared"
+#: The row is not in the base at all, or carried no observation there — there
+#: is nothing to lose. NOT the same as "we compared and it was fine".
+OBS_NOTHING_TO_LOSE = "nothing_to_lose"
+
+MARKER_NONE = "none"
+MARKER_STALE = "stale"
+MARKER_THIN = "thin"
+MARKER_DECLARED = "declared"
+
+#: The declaration. VERIFIED, never presence-only — the `# inert:` and
+#: `# provenance:` markers in this repo both had to name what they excused
+#: before they were worth anything, and a marker cheaper to lie to than to
+#: satisfy is worse than no marker (the `new-table-wiring-guard` lesson).
+_MARKER_RE = re.compile(
+    r"SUPERSEDES-OBSERVATION\s+(\d{4}-\d{2}-\d{2})\s*:\s*(\S[^\n]*)")
+#: How old the marker's own date may be. A PR can legitimately sit a day or
+#: two; what this stops is a marker written weeks ago silently licensing
+#: today's deletion, which is how an override becomes ambient.
+_MARKER_FRESH_DAYS = 3
+#: A reason short enough to be a shrug is not a reason.
+_MARKER_MIN_REASON = 24
+
+
+def _norm(text: object) -> str:
+    """Whitespace-collapsed comparison form.
+
+    ⚠️ Deliberately NOT byte-exact. Preserved text that was re-wrapped or
+    re-indented is still preserved, and failing on that would train sessions to
+    reach for the marker to silence a non-finding. Collapsing whitespace cannot
+    hide a DELETION: removed words are still removed.
+    """
+    if not isinstance(text, str):
+        return ""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def marker_state(text: object, today: date) -> tuple[str, str]:
+    """`(state, detail)` for the supersession declaration in `text`."""
+    hits = _MARKER_RE.findall(text if isinstance(text, str) else "")
+    if not hits:
+        return MARKER_NONE, ""
+    stale: list[str] = []
+    for raw_day, reason in hits:
+        day = _parse_day(raw_day)
+        if day is None or abs((today - day).days) > _MARKER_FRESH_DAYS:
+            stale.append(raw_day)
+            continue
+        if len(reason.strip()) < _MARKER_MIN_REASON:
+            return MARKER_THIN, reason.strip()
+        return MARKER_DECLARED, f"{raw_day}: {reason.strip()[:80]}"
+    return MARKER_STALE, ", ".join(stale)
+
+
+def observation_delta(base_row: object, head_row: object,
+                      today: date) -> tuple[str, str]:
+    """`(state, detail)` — did the head row keep the base row's observation?"""
+    base_obs = _norm((base_row or {}).get("observation") if isinstance(base_row, dict) else None)
+    if not base_obs:
+        return OBS_NOTHING_TO_LOSE, ""
+    head_raw = (head_row or {}).get("observation") if isinstance(head_row, dict) else None
+    head_obs = _norm(head_raw)
+    if base_obs in head_obs:
+        return OBS_PRESERVED, ""
+    state, detail = marker_state(head_raw, today)
+    if state == MARKER_DECLARED:
+        return OBS_SUPERSEDED, detail
+    return OBS_LOST, (f"{len(base_obs)} → {len(head_obs)} chars; "
+                      f"declaration: {state}"
+                      + (f" ({detail})" if detail else ""))
+
+
+def check_observation_loss(base_items: object, head_items: object,
+                           today: date | None = None) -> list[str]:
+    """Rows whose observation lost base text with nothing declaring it.
+
+    Pure — it takes two parsed registers, so the rule is arguable in tests
+    rather than only against a live branch.
+    """
+    today = today or datetime.now(timezone.utc).date()
+    if not isinstance(base_items, list) or not isinstance(head_items, list):
+        return []
+    base_by_id = {r.get("id"): r for r in base_items
+                  if isinstance(r, dict) and r.get("id")}
+    problems: list[str] = []
+    for row in head_items:
+        if not isinstance(row, dict):
+            continue
+        rid = row.get("id")
+        if rid not in base_by_id:
+            continue
+        state, detail = observation_delta(base_by_id[rid], row, today)
+        if state != OBS_LOST:
+            continue
+        problems.append(
+            f"{rid}: this diff DROPS text that its 'observation' carried at "
+            f"the merge base ({detail}). That field is where sessions leave "
+            f"corrections for each other, and a splice that replaces it "
+            f"instead of extending it is invisible to every id-based or "
+            f"count-based proof. Either keep the prior text (append below it), "
+            f"or declare the removal in the observation itself as "
+            f"'SUPERSEDES-OBSERVATION {today.isoformat()}: <why the prior "
+            f"reading no longer holds>'."
+        )
+    return problems
+
+
+def observation_loss_against_base(path: Path, base_ref: str,
+                                  repo: Path | None = None,
+                                  today: date | None = None
+                                  ) -> tuple[str, list[str], str]:
+    """`(state, problems, note)` — the git half, kept out of the pure rule.
+
+    ⚠️ THE FORK POINT, NOT THE TIP, and the distinction is the whole question
+    here: "did THIS DIFF shorten a row" is only answerable against the branch's
+    ANCESTOR. Read at a moved-ahead tip, another session's legitimate edit to
+    the same row lands in this diff's lap. Resolution is delegated to
+    `_git_base`, which owns it repo-wide.
+    """
+    resolved, how = _git_base.resolve_base(base_ref, repo=repo)
+    rel = str(path)
+    read_state, text = _git_base.read_at(resolved, rel, repo=repo)
+    if read_state == _git_base.UNREADABLE:
+        return ("unreadable", [],
+                f"could not read {rel} at {base_ref} — NOTHING was compared "
+                f"here; this is not a pass")
+    if read_state == _git_base.ABSENT_AT_BASE:
+        return ("absent_at_base", [],
+                f"{rel} does not exist at {base_ref} — no prior observation "
+                f"exists to lose")
+    try:
+        base_items = json.loads(text or "")["items"]
+        head_items = json.loads(path.read_text(encoding="utf-8"))["items"]
+    except (json.JSONDecodeError, OSError, KeyError, TypeError) as exc:
+        return ("unreadable", [],
+                f"{type(exc).__name__} parsing one side — NOTHING was "
+                f"compared; this is not a pass")
+    return ("read", check_observation_loss(base_items, head_items, today),
+            f"compared against {how} of {base_ref}")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--path", default=str(_REGISTER))
     ap.add_argument("--self-test", action="store_true")
+    # ⚠️ `--base` is what makes the observation-preservation rule a RULE rather
+    # than a census. WITHOUT it the diff-scoped half DOES NOT RUN, and the
+    # summary says so — an absent comparison must never read as a clean one.
+    ap.add_argument("--base", default="",
+                    help="base ref; its MERGE BASE with HEAD is what is read")
     args = ap.parse_args(argv)
 
     if args.self_test:
         return _self_test()
 
     problems = check(Path(args.path))
+
+    if args.base:
+        obs_state, obs_problems, obs_note = observation_loss_against_base(
+            Path(args.path), args.base)
+        problems.extend(obs_problems)
+    else:
+        obs_state, obs_note = "not_graded", (
+            "no --base given, so the observation-preservation rule DID NOT "
+            "RUN — that is 'we did not look', not 'nothing was dropped'")
+
     if problems:
         print("::error::docs/claude/OPEN-ITEMS.json is the register EVERY "
               "session reads at start. It is not workable as it stands:")
         for p in problems:
             print(f"  - {p}")
+        print(f"  (observation-preservation {obs_state} — {obs_note})")
         return 1
     items = json.loads(Path(args.path).read_text(encoding="utf-8"))["items"]
     mon = sum(1 for i in items if i.get("kind") == "monitoring")
     print(f"open-items-guard: OK — {len(items)} items ({mon} monitoring), every one "
           f"workable and affirmed within {_STALE_DAYS} days.")
+    # Printed on the PASS path too, and named rather than implied: a reader
+    # must be able to tell "no row dropped its observation" from "nobody
+    # compared". They are different facts and only one of them is a pass.
+    print(f"open-items-guard: observation-preservation {obs_state} — {obs_note}")
     return 0
 
 
@@ -315,6 +531,66 @@ def _self_test() -> int:
              run_raw(_single_row), False),
             ("a missing register is a finding",
              check(Path(d) / "nope.json"), True),
+        ]
+
+        # ── The observation-preservation rule ─────────────────────────────
+        # Planted defects and their positive controls. The pure function is
+        # what is exercised here; the git half has its own tests, and the
+        # REAL instance (the 2026-09-11 splice) is replayed there against
+        # actual history rather than a fixture.
+        TODAY = date(2026, 9, 13)
+        was = {"id": "OI-OBS", "opened": "2026-09-01", "kind": "monitoring",
+               "check_every_days": 2, "verified_at": "2026-09-13",
+               "summary": "s", "clears_when": "a named observable thing happens",
+               "observation": "session A measured 47 rows and 6 were real"}
+
+        def obs(head_observation, base=None, today=TODAY):
+            head = dict(was)
+            if head_observation is None:
+                head.pop("observation", None)
+            else:
+                head["observation"] = head_observation
+            return check_observation_loss([base or was], [head], today)
+
+        kept = was["observation"]
+        cases += [
+            ("REPLACING an observation is a finding — the 2026-09-11 shape",
+             obs("session B measured something else entirely"), True),
+            ("APPENDING to it is not",
+             obs(kept + " || session B adds a second reading"), False),
+            ("PREPENDING to it is not either — order is not the question",
+             obs("session B adds a correction above || " + kept), False),
+            ("re-wrapping the same text is not a finding: whitespace is "
+             "collapsed before comparing, so a reflow cannot manufacture one",
+             obs(kept.replace(" ", "\n   ")), False),
+            ("DELETING the field outright is a finding, not an exemption",
+             obs(None), True),
+            ("emptying the field is a finding",
+             obs("   "), True),
+            ("a row that had NO observation at the base cannot lose one",
+             obs("a brand new reading",
+                 base={k: v for k, v in was.items() if k != "observation"}), False),
+            ("a FRESH, REASONED declaration permits the replacement — rows do "
+             "get legitimately superseded and this rule is not append-only",
+             obs("SUPERSEDES-OBSERVATION 2026-09-13: the endpoint it measured "
+                 "was retired, so that reading cannot be reproduced"), False),
+            ("a STALE declaration does NOT — otherwise one marker licenses "
+             "every future deletion of that row",
+             obs("SUPERSEDES-OBSERVATION 2026-08-01: reasons given long ago "
+                 "and far away, no longer about this edit"), True),
+            ("a declaration with a shrug for a reason does not",
+             obs("SUPERSEDES-OBSERVATION 2026-09-13: stale"), True),
+            ("the marker without a date does not",
+             obs("SUPERSEDES-OBSERVATION: it was wrong, here is the new one"),
+             True),
+            ("a row only in the HEAD is not graded — it has no base to lose",
+             check_observation_loss([], [was], TODAY), False),
+            ("a row DROPPED from the head is not graded here either: removing "
+             "a row is a different act with its own surfaces, and grading it "
+             "as a lost observation would misname it",
+             check_observation_loss([was], [], TODAY), False),
+            ("a non-list on either side grades nothing rather than crashing",
+             check_observation_loss(None, [was], TODAY), False),
         ]
         for label, problems, want_problem in cases:
             got = bool(problems)
