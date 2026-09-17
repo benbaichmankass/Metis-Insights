@@ -13,6 +13,7 @@ has to argue with it.
 from __future__ import annotations
 
 import json
+import subprocess
 import os
 import sys
 
@@ -300,6 +301,42 @@ class TestFollowUpsRegisterResolves:
             "an unfiled FU- id must still dangle; if it was filed, update this test"
 
 
+def _as_repo_citing(root, cited_id):
+    """Make `root` a real git repo whose HEAD ADDS a line citing `cited_id`.
+
+    Returns the base sha, so the caller can pass a `--base` that RESOLVES.
+
+    ⚠️ ADDED 2026-09-17 BECAUSE THE TEST BELOW WAS GREEN THROUGH THE DEFECT IT
+    SHOULD HAVE CAUGHT. It used to pass ``--base no-such-ref-000`` into a
+    directory that is not a repo, and assert the verdict was 0 or 1. It was —
+    but not for the stated reason: ``_git`` discarded git's ``returncode``, so
+    an unresolvable base produced an EMPTY diff, zero introduced references and
+    a clean ``OK``. The test never exercised the gating path it names; it
+    exercised the blindness, and would have gone on passing however wrong the
+    gate became. See
+    ``BL-20260917-CHECK-BACKLOG-REFS-REPORTS-EVERY-ID-RESOLVES-WHEN-IT-COULD-NOT-READ-THE-DIFF-AT-ALL``.
+    """
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
+           "PATH": os.environ.get("PATH", "")}
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(root), *a],
+                              capture_output=True, text=True, env=env, check=True)
+
+    git("init", "-q", "-b", "main")
+    git("add", "-A")
+    git("commit", "-q", "-m", "base")
+    base = git("rev-parse", "HEAD").stdout.strip()
+
+    (root / "docs").mkdir(parents=True, exist_ok=True)
+    (root / "docs" / "note.md").write_text(
+        "tracked by " + cited_id + "\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "cite")
+    return base
+
+
 class TestUnreadableRegisterIsNotAnEmptyOne:
     """A register that does not PARSE shrinks the universe of filed ids silently.
 
@@ -375,16 +412,48 @@ class TestUnreadableRegisterIsNotAnEmptyOne:
         real row id is cited at base in its own register row. A refusal nothing
         can reach is the decorative branch `collapsed-state-guard` refuses — so
         the gating path gets the banner and keeps its answer.
+
+        ⚠️ The base here RESOLVES, which it did not before 2026-09-17 — see
+        `_as_repo_citing`. A nonexistent base made this assert nothing.
         """
         _backlog(tmp_path, ["BL-20260101-REAL"])
         (tmp_path / "docs" / "claude" / "ml-review-backlog.json").write_text(
             "nope", encoding="utf-8")
-        rc = cbr.main(["--repo-root", str(tmp_path), "--base", "no-such-ref-000"])
+        base = _as_repo_citing(tmp_path, "BL-20260101-REAL")
+        rc = cbr.main(["--repo-root", str(tmp_path), "--base", base])
         out = capsys.readouterr().out
         assert "universe of FILED ids is INCOMPLETE" in out
         assert rc in (0, 1), (
             "the gating verdict is unchanged by an unreadable register — see the "
             "measurement in filed_ids_with_state's docstring")
+
+    def test_the_gating_mode_STILL_CATCHES_a_dangling_id(self, tmp_path, capsys):
+        """THE CONTROL for the test above: the gate must still be able to fail.
+
+        Without it, "the verdict is unchanged" is equally satisfied by a gate
+        that can never say anything — which is exactly the state an
+        unresolvable base used to put it in.
+        """
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        base = _as_repo_citing(tmp_path, "BL-20260101-NEVER-FILED")
+        rc = cbr.main(["--repo-root", str(tmp_path), "--base", base])
+        out = capsys.readouterr().out
+        assert rc == 1, (rc, out[-400:])
+        assert "BL-20260101-NEVER-FILED" in out
+
+    def test_an_unresolvable_base_REFUSES_rather_than_reporting_OK(
+            self, tmp_path, capsys):
+        """The defect itself, pinned where it lived.
+
+        This is the invocation the test above used to make, and it must now be
+        a refusal: "we did not look" is not "nothing dangles".
+        """
+        _backlog(tmp_path, ["BL-20260101-REAL"])
+        _as_repo_citing(tmp_path, "BL-20260101-REAL")
+        rc = cbr.main(["--repo-root", str(tmp_path), "--base", "no-such-ref-000"])
+        out = capsys.readouterr().out
+        assert rc == 2, (rc, out[-400:])
+        assert "OK —" not in out
 
 
 # ---------------------------------------------------------------------------

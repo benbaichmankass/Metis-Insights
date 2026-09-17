@@ -509,26 +509,49 @@ def check(root: Path, base: Optional[str] = None,
             continue
         junk = f", {skipped} non-dict entr(y/ies) SKIPPED" if skipped else ""
 
-        problems += check_uniqueness(reg, head_rows)
+        # ⚠️ THE VERDICT IS DERIVED, NOT ASSERTED — this used to read
+        # `problems += check_uniqueness(...)` and then print the literal word
+        # "unique" on every line below, whatever that call returned. So a
+        # register carrying a COLLISION was censused as
+        #     docs/claude/health-review-backlog.json::items[id]: 1600 rows, unique
+        # in the same run whose error block named the two colliding rows. The
+        # census is the part a reader skims; it asserted the property the guard
+        # was simultaneously failing on.
+        #
+        # OBSERVED 2026-09-17, not constructed: that exact pair of lines came
+        # out of a real run against `main` while it carried a duplicate id
+        # (fixed by PR #12381). UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A —
+        # a label naming a quantity no code path established for that file.
+        #
+        # ⚠️ AND THIS FILE ALREADY FIXED THE SIBLING. `_rows`'s docstring
+        # records that an absent array once reported "0 rows, unique", and
+        # calls it the collapsed-state defect the repo keeps a guard for. That
+        # repair made the ROW COUNT honest and left the word "unique" a
+        # literal, so the same sentence kept lying about the other half.
+        dupe_problems = check_uniqueness(reg, head_rows)
+        problems += dupe_problems
+        verdict = ("unique" if not dupe_problems
+                   else f"⚠️ {len(dupe_problems)} UNIQUENESS PROBLEM(S) "
+                        f"— see the error block below, NOT unique")
 
         if base is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} "
                           f"(R2/R3 skipped — no base given)")
             continue
 
         base_state, base_doc, base_detail = _load_at_base(reg.path, base)
         if base_state == UNPARSEABLE:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (the copy at {base} {base_detail}) — a "
                           f"CORRUPT base, not a missing one")
             continue
         if base_doc is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (no readable base at {base})")
             continue
         base_rows, base_state, _ = _rows(base_doc, reg.array)
         if base_state != "present":
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (array {base_state} on {base})")
             continue
 
@@ -538,7 +561,7 @@ def check(root: Path, base: Optional[str] = None,
 
         pct = (100.0 * cov["assessed"] / cov["shared"]) if cov["shared"] else 100.0
         report.append(
-            f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
             f"R2a (creation-fact) assessed {cov['assessed']}/{cov['shared']} "
             f"shared ids ({pct:.0f}%), {cov['unassessable']} unassessable · "
             f"R2b (replacement) {cov['shared']}/{cov['shared']} (100%), "

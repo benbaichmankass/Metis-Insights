@@ -161,9 +161,55 @@ def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
     return filed_ids_with_state(repo)[0]
 
 
+class GitRead(RuntimeError):
+    """`git` did not answer — *we did not look*, which is NOT "nothing found".
+
+    ⚠️ THIS EXISTS BECAUSE THE ONE READ THAT MATTERS WAS THE ONE THAT COLLAPSED.
+    Two of the three reads in this file were already careful about exactly this
+    distinction, and both are FALLBACK reads:
+
+    * :func:`_refs_in_file_at` returns ``None`` for *the file did not exist*
+      rather than ``set()``, citing the Collapsed-states rule by name;
+    * :func:`_refs_anywhere_at` RAISES above rc 1, with the note that reading a
+      git failure as "nothing was cited at base" *"would silently restore the
+      blindness this function removes"*.
+
+    :func:`_git`, which computes **the diff itself** — the primary input that
+    decides whether this guard looks at anything at all — did the thing they
+    both refuse. It returned ``.stdout`` and discarded ``returncode``, so a base
+    ref that does not resolve produced an empty diff, zero introduced refs, and
+    the message ``OK — every tracking id this change introduces resolves``.
+    A guard that reports a clean bill of health when it could not read its own
+    input is worse than no guard: it is read as evidence.
+
+    MEASURED 2026-09-17 while investigating the four-day due-list outage. The
+    same commit, graded twice against byte-identical base trees:
+
+        --base origin/histbase   -> exit 1, names the dangling fragment
+        --base hb12245           -> exit 0, "OK — every tracking id ... resolves"
+
+    ``hb12245`` was a remote-tracking ref spelled without its ``origin/``
+    prefix, so ``git diff hb12245...HEAD`` died with ``fatal: bad revision`` and
+    this guard called it clean — for all four PRs in the sample. The only
+    reason a false all-clear was not published is that the run included a
+    known-positive control, which also came back clean and gave the typo away.
+    """
+
+
 def _git(args: list[str], repo: pathlib.Path) -> str:
-    return subprocess.run(["git", "-C", str(repo)] + args,
-                          capture_output=True, text=True).stdout
+    """Run `git`, and REFUSE rather than pass off a failure as empty output.
+
+    Every current caller runs a plain ``git diff``, which exits 0 whether or not
+    there are differences (only ``--exit-code``/``--quiet`` change that), so a
+    non-zero status here is always a real error and never "no changes".
+    """
+    proc = subprocess.run(["git", "-C", str(repo)] + args,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GitRead(
+            f"`git {' '.join(args)}` exited {proc.returncode}: "
+            f"{proc.stderr.strip()[:300] or '(no stderr)'}")
+    return proc.stdout
 
 
 def _refs_in_file_at(ref: str, path: str, repo: pathlib.Path) -> set[str] | None:
@@ -440,7 +486,24 @@ def main(argv: list[str] | None = None) -> int:
         print("::error::--base <ref> or --all required")
         return 1
 
-    bad = dangling(refs_in_added_lines(args.base, repo), filed)
+    try:
+        introduced = refs_in_added_lines(args.base, repo)
+    except GitRead as exc:
+        # ⚠️ NOT `return 0`. An unreadable base is *we did not look*, and the
+        # whole point of this guard is that a reference nobody can resolve must
+        # not read as resolved. Exit 2 rather than 1 so the two are legible
+        # apart: 1 is "I looked and found dangling refs", 2 is "I could not
+        # look at all". Same split the `--all` path above already makes for an
+        # unreadable register.
+        print(f"::error::could not read the diff against base {args.base!r} — "
+              f"WE DID NOT LOOK, which is not the same as 'nothing dangles'. "
+              f"{exc}")
+        print("Fix: pass a base that resolves. A remote-tracking ref needs its "
+              "remote prefix (`origin/main`, not `main`, unless a local branch "
+              "of that name exists).")
+        return 2
+
+    bad = dangling(introduced, filed)
     if not bad:
         print("OK — every tracking id this change introduces resolves to a filed "
               "backlog row.")
