@@ -74,11 +74,35 @@ permissions:
 
 # THE STACKING FIX. Without this, a re-run of a PR whose jobs are still queued
 # leaves the old batch queued too, and both compete for the same scarce runners.
-# Superseding is always what we want here: only the newest commit's verdict is
-# meaningful. Never group `push`/`merge_group` by ref alone without the event —
-# cancelling a main-branch run would lose the post-merge signal.
+# Superseding is what we want ON A PULL REQUEST: only the newest commit's verdict
+# is meaningful there, because the older one is about a head nobody will merge.
+#
+# ⚠️ IT IS NOT WHAT WE WANT ON A PUSH TO `main`, AND THE LINE ABOVE USED TO SAY SO
+# WHILE THE EXPRESSION BELOW IT DID THE OPPOSITE. The comment read "Never group
+# `push`/`merge_group` by ref alone without the event — cancelling a main-branch
+# run would lose the post-merge signal", and the group did include the event — so
+# a push could not cancel a PR run. But it keyed the rest on `github.ref`, which
+# is the SAME value for every push to `main`, so one push to main cancelled the
+# previous one. The stated harm was left in place by the fix that named it.
+#
+# On `main` each commit is a DISTINCT state that nothing else will ever grade: a
+# PR's checks ran on the merge REF, not on the commit the squash produced, so
+# this run is the only thing that ever looks at what actually landed. Cancelling
+# it discards that one look.
+#
+# MEASURED 2026-09-17 over 54 consecutive pushes to `main` (2026-09-13T12:09:52Z
+# to 2026-09-17T10:43:40Z, both ends inside the run page so an absent run is
+# meaningful): 24 graded, 6 CANCELLED, 24 with no run at all. Keying the push arm
+# on `github.sha` recovers the 6.
+#
+# ⚠️ IT DOES NOT RECOVER THE 24, and this comment must not be read as claiming it
+# does — those are a separate and larger defect, filed as
+# BL-20260917-THE-POST-MERGE-GUARD-RUN-COVERS-44-PERCENT-OF-PUSHES-TO-MAIN-AND-AN-AUTO-MERGED-PR-GETS-NONE.
+#
+# The PR arm is deliberately UNCHANGED (`pull_request.number`), so the 2026-08-06
+# stacking fix this block exists for is untouched.
 concurrency:
-  group: guards-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: guards-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
