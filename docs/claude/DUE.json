@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-17T10:27:45+00:00",
+  "generated_at": "2026-09-17T12:46:17+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 81,
+      "rows": 80,
       "note": ""
     },
     "soaks": {
@@ -28,27 +28,27 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=0.3h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=2.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 6,
+      "rows": 3,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
-      "rows": 1,
+      "rows": 2,
       "note": ""
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 51,
+      "rows": 52,
       "note": ""
     },
     "error_feed": {
       "state": "read",
-      "rows": 12,
-      "note": "digest 2026-09-13T05:20:09+00:00, age 101.1h"
+      "rows": 11,
+      "note": "digest 2026-09-17T12:46:13+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -57,8 +57,8 @@
     },
     "checklist_unrouted": {
       "state": "read",
-      "rows": 2,
-      "note": "register_freshness=stale"
+      "rows": 9,
+      "note": "register_freshness=fresh"
     },
     "stuck_branches": {
       "state": "read",
@@ -73,7 +73,7 @@
     "spent_decision_edges": {
       "state": "read",
       "rows": 4,
-      "note": "183 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 4 on a `waiting` object"
+      "note": "184 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 4 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -82,8 +82,8 @@
     }
   },
   "counts": {
-    "due": 187,
-    "loud": 146
+    "due": 191,
+    "loud": 142
   },
   "rows": [
     {
@@ -171,7 +171,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 356.5h ago, on the order of 356 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 358.8h ago, on the order of 358 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 14,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -771,15 +771,6 @@
       "link": ""
     },
     {
-      "source": "checklist_unrouted",
-      "id": "checklist-register-stale",
-      "title": "the unrouted-row register is 144h old — its producer has not run",
-      "why_due": "docs/claude/work/CHECKLIST-ROUTING-AGE.json was generated at 2026-09-11T10:39:09+00:00, and `.github/workflows/constraint-readout.yml` writes it on a DAILY cron. ⚠️ EVERY ROW BELOW IS THAT READING, NOT TODAY'S: anything that crossed the threshold since is absent, and a row listed as newly stalled may since have been routed. This is not the same fact as `history_state` — that grades whether the ages could be DERIVED; this says the derivation succeeded and nobody re-ran it. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.",
-      "age_days": 5,
-      "loud": true,
-      "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"
-    },
-    {
       "source": "unlanded_automation",
       "id": "#12225",
       "title": "chore(ops): session-reaper observations (auto)",
@@ -859,15 +850,6 @@
       "age_days": 4,
       "loud": true,
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12253"
-    },
-    {
-      "source": "error_feed",
-      "id": "ERROR-FEED-DIGEST-STALE",
-      "title": "error-feed digest is 101.1h old — expected hourly",
-      "why_due": "EVERY group below was observed at 2026-09-13T05:20:09+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.",
-      "age_days": 4,
-      "loud": true,
-      "link": ""
     },
     {
       "source": "open_items",
@@ -1230,13 +1212,22 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12385"
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12420",
+      "title": "chore(m28): valuation snapshots (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12420"
+    },
+    {
       "source": "red_main_runs",
       "id": ".github/workflows/ranking-key-ab.yml",
       "title": ".github/workflows/ranking-key-ab.yml",
       "why_due": "the latest push-to-main run of .github/workflows/ranking-key-ab.yml concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35209523479"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34749573813"
     },
     {
       "source": "probes",
@@ -1293,22 +1284,13 @@
       "link": ""
     },
     {
-      "source": "open_items",
-      "id": "OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET",
-      "title": "TWO INDEPENDENT CAUSES left docs/claude/DUE.json -- the surface that answers 'what is due right now?' -- four days stale at generated_at 2026-09-13T05:20:13Z, and fixing either alone would not have mo",
-      "why_due": "loud row — must be reported on every session",
-      "age_days": 0,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
+      "source": "red_main_runs",
+      "id": "branch-protection-sync",
+      "title": "branch-protection-sync",
+      "why_due": "the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35089998947"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34749574267"
     },
     {
       "source": "red_crons",
@@ -1321,30 +1303,21 @@
     },
     {
       "source": "red_crons",
-      "id": "error-feed-digest",
-      "title": "error-feed-digest",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35190585909"
-    },
-    {
-      "source": "red_crons",
       "id": "pr-queue-watch",
       "title": "pr-queue-watch",
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35185407037"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35219044215"
     },
     {
       "source": "red_crons",
-      "id": "session-reaper",
-      "title": "session-reaper",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35183490770"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35204197736"
     },
     {
       "source": "spent_decision_edges",
@@ -1390,15 +1363,6 @@
       "age_days": null,
       "loud": true,
       "link": "docs/claude/STUCK-BRANCHES.json"
-    },
-    {
-      "source": "red_crons",
-      "id": "trainer-capture-watch",
-      "title": "trainer-capture-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35184094134"
     },
     {
       "source": "sunset",
@@ -1527,78 +1491,6 @@
       "link": ""
     },
     {
-      "source": "error_feed",
-      "id": "ERRFEED-585012de",
-      "title": "[error] x4 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 4 rows 2026-09-09T12:04:19 → 2026-09-12T02:07:14 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-6f2d9848",
-      "title": "[error] x4 🔔 Broker close detected by reconciler Account: bybit_N Symbol: XRPUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 4 rows 2026-09-09T09:38:26 → 2026-09-11T09:38:06 · accounts=bybit_1,bybit_2 symbols=XRPUSDT — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-72e2ad1e",
-      "title": "[error] x42 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 42 rows 2026-09-09T10:03:15 → 2026-09-11T23:15:47 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-831dac68",
-      "title": "[error] x3 🔔 Broker close detected by reconciler Account: bybit_N Symbol: BTCUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cla",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 3 rows 2026-09-09T09:48:24 → 2026-09-11T15:57:45 · accounts=bybit_1,bybit_2 symbols=BTCUSDT — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-a46d2970",
-      "title": "[error] x51 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 51 rows 2026-09-09T16:16:17 → 2026-09-12T22:59:19 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-c8553cf1",
-      "title": "[error] x5 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the ",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-09T15:42:30 → 2026-09-11T13:55:56 — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-f754bb5d",
-      "title": "[error] x11 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_trend_Nh | Symbol: MGC Reason: candles_unav",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 11 rows 2026-09-09T06:44:24 → 2026-09-10T05:45:10 · symbols=MGC strategies=mgc_trend_1h — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-fa77ad80",
-      "title": "[error] x51 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 51 rows 2026-09-09T16:16:17 → 2026-09-12T22:59:19 · symbols=MES — decide: fix now, or file to a backlog",
-      "age_days": 8,
-      "loud": false,
-      "link": ""
-    },
-    {
       "source": "soaks",
       "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
       "title": "The closed->exchange-flat invariant -- THE ONE MECHANISM that can independently contradict 'this trade is closed' -- was silent for four independent reasons, each alone sufficient, and its 14.7-day ze",
@@ -1617,15 +1509,6 @@
       "link": ""
     },
     {
-      "source": "error_feed",
-      "id": "ERRFEED-9da85381",
-      "title": "[error] x58 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 58 rows 2026-09-10T09:07:19 → 2026-09-13T04:13:49 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
-      "age_days": 7,
-      "loud": false,
-      "link": ""
-    },
-    {
       "source": "open_items",
       "id": "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
       "title": "MI-222 Tier-2 (operator-approved observable-first, 2026-09-09) made the collapsed position read at src/units/accounts/clients.py COUNTABLE without changing what any caller receives: three venue answer",
@@ -1633,6 +1516,42 @@
       "age_days": 7,
       "loud": false,
       "link": ""
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-243-SWEEP-THE-623-DORMANT-WORK-OBJECTS-AND-GIVE-SOAK-BOUND-WORK-ITS-OWN-STATUS",
+      "title": "Sweep the 623 dormant work objects — close or queue each, and add a lifecycle value for work that is genuinely waiting on a soak or observat",
+      "why_due": "FILED AND NEVER ROUTED — 149.3h with owner `unassigned — the retirement needs a session; MI-243's sweep half is delivered` and status `ready`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 6,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-257-THE-CHECKLIST-CARRIES-TWO-COMPETING-STATUS-FIELDS-AND-38-OFF-VOCABULARY-VALUES",
+      "title": "12 checklist items have `state` and `status` disagreeing, and 38 carry values outside the declared vocabulary — on the page the operator rea",
+      "why_due": "FILED AND NEVER ROUTED — 167.1h with owner `unassigned — route when a lane frees; the 3-lane cap is holding` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 6,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-263-REGISTRATION-IS-NOT-ATOMIC-WITH-THE-SPAWN-SO-A-COLD-LANE-MEASURES-ITS-OWN-RECORDS-ABSENT",
+      "title": "A spawned lane can correctly measure its own pre-spawn registry row as ABSENT, because the manager registers locally and pushes later",
+      "why_due": "FILED AND NEVER ROUTED — 157.1h with owner `unassigned — needs a session` and status `ready`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 6,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-264-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-THE-COMMONEST-BLOCKER-ITS-OWN-REGISTRY-ROW",
+      "title": "Add a sixth blocked-on kind, registry_confirmed — the class that accounts for 2 of the 5 recorded instances and which the watcher cannot exp",
+      "why_due": "FILED AND NEVER ROUTED — 147.1h with owner `unassigned — small, well-specified, belongs with whoever next touches blocked_la` and status `ready`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 6,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
     },
     {
       "source": "open_items",
@@ -1644,13 +1563,40 @@
       "link": ""
     },
     {
-      "source": "error_feed",
-      "id": "ERRFEED-0aa1e4e0",
-      "title": "[error] x3 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: bybit_N Symbol: SOLUSDT | Side: long Trade id: N Origin: reverse_reconciler_adopt Re",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 3 rows 2026-09-12T05:05:31 → 2026-09-12T11:07:25 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
+      "source": "checklist_unrouted",
+      "id": "MI-270-THE-CONSTRAINT-READOUT-CRON-REGENERATES-THE-SESSION-BRIEF-AND-SESSION-BRIEF-GUARD-REJECTS-ITS-OWN-OUTPUT",
+      "title": "The constraint-readout cron regenerates the session brief, and session-brief-guard fails its own output",
+      "why_due": "FILED AND NEVER ROUTED — 139.7h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
       "age_days": 5,
       "loud": false,
-      "link": ""
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-271-ATTRIBUTE-THE-2026-08-30-REGIME-BREAK-E35-GEOMETRY-OR-MARKET",
+      "title": "Attribute the 2026-08-30 regime break — e35 bracket geometry, or a market regime change?",
+      "why_due": "FILED AND NEVER ROUTED — 138.3h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 5,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-272-FULL-SYSTEM-REVIEW-THE-BIGGER-PICTURE-BEHIND-THE-BLEED",
+      "title": "Full /system-review — the bigger picture around the bleed",
+      "why_due": "FILED AND NEVER ROUTED — 138.3h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 5,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-273-LET-AN-APPROVED-PR-SELF-LAND-SO-THE-OPERATOR-NEVER-HAS-TO-CLICK",
+      "title": "Let a Tier-2 PR self-land when a typed operator approval is already recorded against it",
+      "why_due": "FILED AND NEVER ROUTED — 138.3h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 5,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
     },
     {
       "source": "open_items",
@@ -1690,9 +1636,99 @@
     },
     {
       "source": "error_feed",
+      "id": "ERRFEED-897ca384",
+      "title": "[error] NEW x3 alpaca_partial_stop_coverage detected: alpaca_portfolio/TLT: position N carries a resting stop for only N — N unprotected. The netted positi",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 3 rows 2026-09-14T15:56:44 → 2026-09-16T15:26:16 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-99d11bfe",
+      "title": "[error] NEW x3 🔔 Broker close detected by reconciler Account: bybit_N Symbol: XRPUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 3 rows 2026-09-14T18:21:48 → 2026-09-17T12:19:39 · accounts=bybit_1,bybit_2 symbols=XRPUSDT — decide: fix now, or file to a backlog",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-b5d578c3",
+      "title": "[error] NEW x3 alpaca_target_naked detected: alpaca_portfolio/TLT: position N has N of take-profit coverage against a declared TP of N — the position can o",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 3 rows 2026-09-14T15:56:44 → 2026-09-16T18:01:09 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-e8051e62",
+      "title": "[error] NEW x3 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: AVAXUSDT | Side: long | Qty: N Consecutive close failures: N share_hold: n",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 3 rows 2026-09-14T02:27:19 → 2026-09-16T13:05:16 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
+      "age_days": 3,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-22c7c0be",
+      "title": "[error] NEW x14 👁 Exchange-side orphan position — policy=detect_only Account: ib_paper Symbol: MES | Side: long | Size: N Entry (Bybit avgPrice): N Note: re",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 14 rows 2026-09-16T19:29:11 → 2026-09-16T19:56:10 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-3dedafaf",
+      "title": "[error] NEW x2 ib_target_naked detected: ib_paper/MES: position N has N of take-profit coverage against a declared TP of N — the position can only stop out",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 2 rows 2026-09-16T19:16:11 → 2026-09-16T19:33:11 · accounts=ib_paper — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-517c57ac",
+      "title": "[error] NEW x4 🪝 Exchange-side orphan position — policy=adopt Account: ib_paper Symbol: MES | Side: short | Size: N Entry (Bybit avgPrice): N DB trade id (",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 4 rows 2026-09-16T19:11:59 → 2026-09-17T01:27:21 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-5402e495",
+      "title": "[error] NEW x47 👁 Exchange-side orphan position — policy=detect_only Account: ib_paper Symbol: MES | Side: short | Size: N Entry (Bybit avgPrice): N Note: r",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 47 rows 2026-09-16T23:54:03 → 2026-09-17T01:25:29 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-995168ec",
+      "title": "[error] NEW x2 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: ib_paper Symbol: MES | Side: long Trade id: N Origin: reverse_reconciler_adopt Reaso",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 2 rows 2026-09-16T19:27:21 → 2026-09-16T19:58:07 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-fb05a6fc",
+      "title": "[error] NEW x4 🚩🚩 ORPHAN TRADE CREATED — needs reconciliation Account: ib_paper Symbol: MES | Side: short Trade id: N Origin: reverse_reconciler_adopt Reas",
+      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 4 rows 2026-09-16T19:11:59 → 2026-09-17T01:27:21 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "68 cause groups over 1332 rows (43 error-level, 25 warn-level, 0 new since the last digest)",
-      "why_due": "33 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-12T23:44:26.958724+00:00`.",
+      "title": "101 cause groups over 1570 rows (73 error-level, 28 warn-level, 33 new since the last digest)",
+      "why_due": "63 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-13T04:13:49.648924+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -1764,7 +1800,7 @@
       "source": "checklist_unrouted",
       "id": "checklist-unrouted-standing",
       "title": "69 checklist row(s) unrouted past 24h, carried as a stock",
-      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 0 have been said once already and 69 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
+      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 69 have been said once already and 0 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
       "age_days": null,
       "loud": false,
       "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"
