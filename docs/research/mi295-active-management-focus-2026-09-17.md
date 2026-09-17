@@ -54,7 +54,13 @@
 
 `mid_bracket` means, in `src/runtime/bracket_outcome.py`'s own words, *"we LOOKED, on a measurable price, against a real bracket, and the price sat between the levels"* — a genuine non-bracket close. **That bucket IS the active-management surface.** It is the majority of real-money closes by count.
 
-⚠️ **`midBracket` IS AN OUTCOME, NOT A DEFECT, and the module says so in terms:** several legs (`vwap_cross`, `exit_head`, `time_decay`) exit deliberately before a bracket. **Do not read 52.5% as 52.5% failure.** What it establishes is where the decisions live.
+<!-- population-ok: not a claim of mine — a verbatim restatement of
+     src/runtime/bracket_outcome.py's own docstring caveat about how the
+     mid_bracket bucket must be read. The 52.5% it warns against misreading
+     carries its population one paragraph above (21 of 40 gradeable real-money
+     closes, 30d window, read 2026-09-17T19:06:56Z); restating the denominator
+     inside the caveat would not make the caveat a measurement. -->
+⚠️ **`midBracket` IS AN OUTCOME, NOT A DEFECT, and the module says so in terms:** several legs (`vwap_cross`, `exit_head`, `time_decay`) exit deliberately before a bracket. **Do not read that 52.5% as 52.5% failure.** What it establishes is where the decisions live.
 
 **And the majority of that surface is unattributed.** MI-278 U2 (on `main`) attributed every winner since 2026-08-27 — **n = 183 closes / 49 winners**, five accounts — and found:
 
@@ -163,7 +169,7 @@ Both are `ict_scalp_xrp_15m`. **Both fail the same 2024 fold. Each was measured 
 
 The brief carried a finding I confirmed against the row: real-money `bybit_2` shows `streak_days: 6` and grades **`no_streak`**, because `LOSING_STREAK_MIN_LOSS_USD` is a **$500 fleet-wide absolute floor** and the bleed was **−$19.10**.
 
-**A real-money account on six consecutive losing days is structurally invisible to the detector built to catch exactly that.** The floor's own basis (MI-276) is a fleet-wide false-positive sweep; it was never sized against an account this small. Already filed as `BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-…` in the performance backlog. **Not this lane's to fix (the fix is `src/`, Tier-2) — flagged loudly rather than left as a footnote.**
+**A real-money account on six consecutive losing days is structurally invisible to the detector built to catch exactly that.** The floor's own basis (MI-276) is a fleet-wide false-positive sweep; it was never sized against an account this small. Already filed as `BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-SO-IT-UNDER-SERVES-A-SMALL-REAL-MONEY-ACCOUNT` in the performance backlog. **Not this lane's to fix (the fix is `src/`, Tier-2) — flagged loudly rather than left as a footnote.**
 
 ---
 
