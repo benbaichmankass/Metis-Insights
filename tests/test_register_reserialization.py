@@ -147,13 +147,60 @@ def test_identical_bytes_are_untouched_not_clean():
     assert G.grade(BASE, BASE, path="p")["state"] == G.UNTOUCHED
 
 
-def test_all_four_states_are_reachable_so_none_is_decorative():
+def test_every_state_is_reachable_so_none_is_decorative():
     reser = json.dumps(json.loads(BASE), indent=2, ensure_ascii=False) + "\n"
     honest = BASE.replace("\n  ]\n}\n", ',\n    {"id": "Z", "title": "n"}\n  ]\n}\n')
     assert {G.grade(BASE, BASE, path="p")["state"],
             G.grade(BASE, honest, path="p")["state"],
             G.grade(BASE, reser, path="p")["state"],
-            G.grade(None, BASE, path="p")["state"]} == set(G.ALL_STATES)
+            G.grade(None, BASE, path="p")["state"],
+            G.grade(None, BASE, path="p",
+                    base_state=G._git_base.ABSENT_AT_BASE)["state"],
+            } == set(G.ALL_STATES)
+
+
+# ── `new register` vs `we could not look`: the same bytes, opposite facts ───
+# `git show <ref>:<path>` fails identically for a path absent from a real ref
+# and for a ref that cannot be resolved. This guard collapsed them one layer
+# above `_git_base.read_at`, which already told them apart — so a PR that
+# legitimately ADDED a register graded `unreadable` and FAILED.
+#
+# BOTH DIRECTIONS OR NEITHER. Fixing only the first would turn every unreadable
+# base into a pass, which is strictly worse than the bug being fixed: the bug
+# was loud and wrong, that would be quiet and wrong.
+
+def test_a_register_ABSENT_at_the_fork_point_is_new_not_unreadable():
+    assert G.grade(None, BASE, path="p",
+                   base_state=G._git_base.ABSENT_AT_BASE)["state"] == G.NEW_REGISTER
+
+
+def test_an_UNREADABLE_base_is_still_unreadable_after_the_split():
+    assert G.grade(None, BASE, path="p",
+                   base_state=G._git_base.UNREADABLE)["state"] == G.UNREADABLE
+
+
+def test_the_permissive_verdict_cannot_be_reached_by_saying_nothing():
+    """A caller that omits `base_state` gets the STRICT verdict.
+
+    The default matters more than it looks: `grade` is called from a self-test,
+    from these tests and from `check`, and if omission meant "new register" then
+    every one of the existing `grade(None, ...)` call sites would silently flip
+    to a pass. The permissive verdict must cost an explicit say.
+    """
+    assert G.grade(None, BASE, path="p")["state"] == G.UNREADABLE
+
+
+def test_an_absent_base_with_an_unreadable_head_is_not_a_new_register():
+    """Both sides gone is not a register being added — it is nothing to grade."""
+    assert G.grade(None, None, path="p",
+                   base_state=G._git_base.ABSENT_AT_BASE)["state"] == G.UNREADABLE
+
+
+def test_a_new_register_reports_an_UNDEFINED_fraction_not_zero():
+    """0 base lines lost is a real reading; 0/0 of a file is not `none of it`."""
+    v = G.grade(None, BASE, path="p", base_state=G._git_base.ABSENT_AT_BASE)
+    assert v["lost_lines"] == 0
+    assert v["lost_fraction"] is None
 
 
 # ── THE SCOPE, which must not be able to go quietly empty ───────────────────
@@ -335,3 +382,183 @@ def test_check_resolves_the_fork_point_rather_than_trusting_the_ref():
     by_sha = next(r for r in G.check(merge_base, root=repo)["rows"]
                   if r["path"] == rel)
     assert by_name["lost_lines"] == by_sha["lost_lines"] == 0
+
+
+# ---------------------------------------------------------------------------
+# THE SPLIT AT THE LAYER IT ACTUALLY LIVED ON. The pure tests above argue the
+# policy; these two prove `check` HANDS IT THE STATE. A policy the caller never
+# consults is decoration — the exact lesson the fork-point row records, where
+# `grade` was well covered and `check` was exercised zero times.
+# ---------------------------------------------------------------------------
+
+
+def _repo_that_ADDS_a_register():
+    """A branch whose diff introduces a register that does not exist at base.
+
+    Returns (repo_path, new_register_relpath, pre_existing_relpath).
+    """
+    tmp = Path(tempfile.mkdtemp())
+    _run(tmp, "init", "-q", "-b", "main")
+    _run(tmp, "config", "user.email", "t@example.invalid")
+    _run(tmp, "config", "user.name", "t")
+    old = "docs/claude/health-review-backlog.json"
+    new = "docs/claude/brand-new-register.json"
+    (tmp / "docs" / "claude").mkdir(parents=True)
+    (tmp / ".gitattributes").write_text(f"{old} merge=jsonregister\n",
+                                        encoding="utf-8")
+    (tmp / old).write_text(_register([_row(i) for i in range(40)]),
+                           encoding="utf-8")
+    _run(tmp, "add", "-A")
+    _run(tmp, "commit", "-qm", "base")
+
+    _run(tmp, "checkout", "-q", "-b", "feature")
+    (tmp / ".gitattributes").write_text(
+        f"{old} merge=jsonregister\n{new} merge=jsonregister\n", encoding="utf-8")
+    (tmp / new).write_text(_register([_row(i) for i in range(5)]),
+                           encoding="utf-8")
+    _run(tmp, "add", "-A")
+    _run(tmp, "commit", "-qm", "add a new register")
+    return tmp, new, old
+
+
+def test_a_PR_that_ADDS_a_register_passes_AND_the_row_is_still_NAMED():
+    """PLANTED: before the split this exact diff graded `unreadable` -> ok=False.
+
+    ⚠️ ASSERTING ONLY `ok` WOULD PASS IF THE ROW HAD VANISHED ALTOGETHER, which
+    is a different and worse fix — a register silently dropped from the scope is
+    how `clean` stops meaning anything. So the STATE is asserted, by name.
+    """
+    repo, new, _old = _repo_that_ADDS_a_register()
+    out = G.check("main", root=repo)
+
+    row = next((r for r in out["rows"] if r["path"] == new), None)
+    assert row is not None, (
+        f"{new} is absent from the graded rows entirely. Passing by dropping a "
+        "register from the scope is not passing.")
+    assert row["state"] == G.NEW_REGISTER, (
+        f"a register this diff ADDS graded {row['state']!r}. Before the split it "
+        "graded 'unreadable', which FAILED a legitimate PR.")
+    assert out["ok"] is True
+    assert new in out["new_registers"], "the new register is not reported"
+
+    # NEGATIVE CONTROL: the collapse, reinstated. Drop the state on the way in
+    # and the very same inputs must go back to `unreadable`, or this test does
+    # not discriminate and proves nothing.
+    head_text = (repo / new).read_text(encoding="utf-8")
+    collapsed = G.grade(None, head_text, path=new)
+    assert collapsed["state"] == G.UNREADABLE, (
+        "withholding the base state did NOT change the verdict, so this control "
+        "cannot fail and is decoration")
+
+
+def test_check_still_FAILS_on_a_register_it_could_not_read():
+    """The other direction, through `check`.
+
+    A register present at the fork point whose head carries conflict markers is
+    the real `unreadable` this repo has seen twice (b66d4ad91, repaired one
+    commit later). The split must not have bought the new-register pass by
+    making every unreadable register pass.
+    """
+    repo, _new, old = _repo_that_ADDS_a_register()
+    (repo / old).write_text(
+        "<<<<<<< HEAD\n" + (repo / old).read_text(encoding="utf-8"),
+        encoding="utf-8")
+    _run(repo, "add", "-A")
+    _run(repo, "commit", "-qm", "commit a register with conflict markers in it")
+
+    out = G.check("main", root=repo)
+    row = next(r for r in out["rows"] if r["path"] == old)
+    assert row["state"] == G.UNREADABLE, (
+        f"a conflict-markered register graded {row['state']!r} — 'we could not "
+        "parse it' must never read as fine")
+    assert out["ok"] is False
+    assert old in out["unreadable"]
+
+
+# ---------------------------------------------------------------------------
+# THE CENSUS MUST NAME WHAT IT DID NOT CHECK.
+# The guard printed "23 unmarked candidate(s) NOT checked" — true, honest about
+# its scope, and unactionable. Three of the four review backlogs were in that
+# 23, and on 2026-09-13 a hand-resolved conflict in one of them dropped a filed
+# row while every guard, including this one, read green.
+# ---------------------------------------------------------------------------
+
+
+def test_the_unmarked_candidates_are_NAMED_not_counted():
+    sample = ["docs/claude/performance-review-backlog.json",
+              "docs/claude/ml-review-backlog.json"]
+    out = "\n".join(G.render_unmarked(sample))
+    for path in sample:
+        assert path in out, f"{path} was counted but not named"
+
+
+def test_the_cap_truncates_the_LIST_and_never_the_COUNT():
+    """A census that capped its own total would be the unasserted denominator
+    one level up — the defect this renderer exists to fix, reintroduced by it."""
+    many = [f"docs/claude/f{i:03d}.json" for i in range(100)]
+    lines = G.render_unmarked(many, cap=10)
+    listed = [ln for ln in lines if ln.strip().startswith("docs/")]
+    assert len(listed) == 10
+    assert any("90 more" in ln for ln in lines), (
+        "the cap withheld 90 paths without saying so")
+
+
+def test_an_empty_unmarked_list_is_stated_in_words_not_silence():
+    """Otherwise 'every register is bound' and 'the probe stopped matching'
+    render identically — which is how a broken census reads as a clean one."""
+    lines = G.render_unmarked([])
+    assert lines and "none" in lines[0]
+
+
+def test_check_returns_the_list_and_it_agrees_with_the_count():
+    v = G.check("HEAD")
+    assert isinstance(v["unmarked_paths"], list)
+    assert len(v["unmarked_paths"]) == v["unmarked_candidates"], (
+        "the count and the list must be the same population, or the census "
+        "reports a number for one thing and names another")
+
+
+def test_no_BOUND_register_appears_in_the_unmarked_list():
+    """A list of gaps that includes the things that are not gaps is not a list
+    of gaps."""
+    bound = set(G.registers_from_gitattributes(REPO))
+    assert not (bound & set(G.check("HEAD")["unmarked_paths"]))
+
+
+# ---------------------------------------------------------------------------
+# AN UNRESOLVABLE BASE IS REFUSED, NOT GRADED CLEAN.
+# Measured before the fix: check("origin/does-not-exist") returned ok=True with
+# registers_in_diff=0 and every register UNTOUCHED — a verdict byte-identical to
+# a run that compared everything and found it clean. Both `git diff` calls fail,
+# `touched` is empty, and every register takes the `not in touched` branch.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unresolvable_base_is_refused_and_its_count_is_None_not_zero():
+    v = G.check("no-such-ref-anywhere-000-pytest")
+    assert v["ok"] is False
+    assert v["base_state"] == G._git_base.TIP_UNRESOLVABLE
+    assert v["rows"] == []
+    assert v["registers_in_diff"] is None, (
+        "0 is a real reading — 'this diff touched no register'. Nothing was "
+        "read here, and the two must not share a value.")
+
+
+def test_a_REAL_base_still_grades_so_the_refusal_is_not_refuse_everything():
+    v = G.check("HEAD")
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert isinstance(v["registers_in_diff"], int)
+
+
+def test_a_REAL_ref_with_an_EMPTY_diff_is_graded_not_refused():
+    """THE DISCRIMINATOR. A defect keying the refusal on the DIFF being empty
+    behaves identically to the correct one on a bogus ref, because a bogus ref
+    also yields an empty diff. An empty diff against a real base is the ordinary
+    case on most PRs here, and refusing it would fail all of them."""
+    head = _run(REPO, "rev-parse", "HEAD").stdout.strip()
+    assert head, "fixture is degenerate"
+    v = G.check(head)                       # a real ref, and no diff against it
+    assert v["base_state"] != G._git_base.TIP_UNRESOLVABLE
+    assert v["registers_in_diff"] == 0
+    assert v["ok"] is True
+

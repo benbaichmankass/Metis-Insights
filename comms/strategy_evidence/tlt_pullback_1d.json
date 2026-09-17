@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "strategy": "tlt_pullback_1d",
+  "symbol": "TLT",
+  "timeframe": "1d",
+  "config_fingerprint": "sha256:bd46518d5613c9d34cc5e46fefefc57f",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -3.9175,
+  "expectancy_r_oos": -0.4897,
+  "n_trades_oos": 8,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 2,
+      "net_r": -2.0401,
+      "expectancy_r": -1.02,
+      "start": "2025-07-09 00:00:00+00:00",
+      "end": "2025-07-23 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 2,
+      "net_r": -0.549,
+      "expectancy_r": -0.2745,
+      "start": "2025-08-11 00:00:00+00:00",
+      "end": "2025-12-26 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 2,
+      "net_r": -1.1265,
+      "expectancy_r": -0.5633,
+      "start": "2026-03-09 00:00:00+00:00",
+      "end": "2026-03-31 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": -0.2019,
+      "expectancy_r": -0.1009,
+      "start": "2026-06-23 00:00:00+00:00",
+      "end": "2026-08-20 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 0,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-16T19:14:32.092126+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/strategy_evidence_omm3li18/tlt_pullback_1d__trades.jsonl",
+  "error": null,
+  "harness": "pullback",
+  "low_n_warning": "n_trades_oos=8 < 10; the pooled number is reported but is not a basis for a verdict."
+}

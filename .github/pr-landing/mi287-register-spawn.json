@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers the MI-287 sub-session in SESSIONS.json — the only thing a manager arriving COLD can read to pick up its predecessor's lanes. Registry row only; no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}

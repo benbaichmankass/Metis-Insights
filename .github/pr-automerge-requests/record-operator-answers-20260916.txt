@@ -1,0 +1,4 @@
+Records the operator's 2026-09-16 answers to two decision popups, and corrects a
+decision this manager should not have re-asked (it was superseded 2026-09-09).
+
+Tier-1, registers only.

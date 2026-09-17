@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import difflib
 import glob
 import json
 import os
@@ -72,23 +73,63 @@ BACKLOG_GLOB = "docs/claude/*backlog*.json"
 EXTRA_REGISTERS = (("comms/follow_ups.json", "follow_ups"),)
 
 
-def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+def filed_ids_with_state(repo: pathlib.Path = REPO) -> tuple[set[str], list[str]]:
+    """`(every filed id, the registers we could NOT read)`.
+
+    ⚠️ **THE SECOND HALF EXISTS BECAUSE THE UNIVERSE SHRINKING IS INVISIBLE.**
+    A register that does not parse was skipped with `continue` and the comment
+    *"a malformed backlog is another guard's problem"* — defensible about whose
+    job the CORRUPTION is, and silent about what it does HERE: every id that
+    register defines drops out of `filed`, so every citation of one reads as a
+    reference resolving to NOTHING.
+
+    MEASURED on `origin/main` @`eb606713d` with one `THIS IS NOT JSON` line
+    inserted into `docs/claude/health-review-backlog.json`: `--all` went from
+    **86 dangling references to 1660** — exactly **+1574**, the row count of
+    that file. Every one of the added 1574 is a confident claim that a row which
+    exists does not, and 1660 lines of it is the desensitised alarm this repo
+    calls its own worst failure mode, with the 86 real findings buried inside.
+
+    ⚠️ **THE GATING `--base` MODE WAS MEASURED AND IS NOT AFFECTED — do not
+    "fix" it.** An id already cited at the base is exempted by
+    `_refs_anywhere_at`, and every real row id is cited at base in its own
+    register row, so the gate cannot false-fail on one. Verified with a positive
+    control that came back OK, and then by establishing WHY rather than reading
+    the OK as evidence. The one reachable false-PASS needs a single diff to FILE
+    a row and CORRUPT the register, which `register-id-guard` reds anyway. So
+    the gate gets a WARNING, not a refusal: a refusal nothing can reach is the
+    decorative branch `collapsed-state-guard` exists to refuse.
+    """
     out: set[str] = set()
-    for f in glob.glob(str(repo / BACKLOG_GLOB)):
+    unreadable: list[str] = []
+    for f in sorted(glob.glob(str(repo / BACKLOG_GLOB))):
         try:
-            for it in json.load(open(f, encoding="utf-8")).get("items", []):
-                if it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — a malformed backlog is another guard's problem
+            doc = json.load(open(f, encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — whose job the CORRUPTION is, is another guard's
+            unreadable.append(str(pathlib.Path(f).relative_to(repo)))
             continue
+        for it in (doc.get("items") or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
     for rel, key in EXTRA_REGISTERS:
         try:
-            for it in json.load(open(repo / rel, encoding="utf-8")).get(key, []):
-                if isinstance(it, dict) and it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — same reasoning as above
+            doc = json.load(open(repo / rel, encoding="utf-8"))
+        except FileNotFoundError:
+            # ABSENT, not unreadable. `comms/follow_ups.json` is optional and a
+            # tree without it is not a tree whose universe is incomplete.
             continue
-    return out
+        except Exception:  # noqa: BLE001
+            unreadable.append(rel)
+            continue
+        for it in (doc.get(key) or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
+    return out, unreadable
+
+
+def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+    """The ids only. Callers that report a COUNT must use the pair above."""
+    return filed_ids_with_state(repo)[0]
 
 
 def _git(args: list[str], repo: pathlib.Path) -> str:
@@ -221,6 +262,97 @@ def dangling(found: dict[str, set[str]], filed: set[str]) -> dict[str, set[str]]
     return {k: v for k, v in sorted(found.items()) if k not in filed}
 
 
+# Three states, never collapsed. "We found a likely id", "we found nothing
+# close" and "several are equally likely" are different answers, and the third
+# is the one a single-suggestion design silently turns into the first.
+SUGGEST_PREFIX = "prefix"
+SUGGEST_AMBIGUOUS = "ambiguous"    # too many start with it to name one
+SUGGEST_FUZZY = "fuzzy"
+SUGGEST_NONE = "none"
+
+#: How many candidates to show. More than this is not a hint, it is a second
+#: problem to read.
+_MAX_SUGGESTIONS = 3
+
+#: Below this length a "prefix" is not evidence of anything -- `BL-2026` would
+#: match hundreds of rows and the hint would be noise dressed as help.
+_MIN_PREFIX_LEN = 12
+
+
+def suggest_for(ref: str, filed: set[str]) -> tuple[str, list[str]]:
+    """`(kind, candidates)` -- which filed id did the author probably mean?
+
+    ⚠️ PREFIX FIRST, AND NOT BECAUSE IT IS EASIER. MEASURED 2026-09-13 over
+    every dangling reference this guard raised against one session's branches
+    (n=3, one session, one author -- state the population, it is small):
+    ALL THREE were exact PREFIXES of a real filed row.
+
+        BL-...-A-DUPLICATE-ROW-ID-REACHED-MAIN          elided in prose
+        BL-...-GRADES-THE-WRONG-TREE                    elided in prose
+        BL-...-GRADES-THE-WRONG                         WRAPPED across a
+                                                        docstring line
+
+    None was a typo. The failure mode these ids actually have is REFORMATTING
+    -- an id shortened or line-broken for readability stops being an id -- and
+    that always truncates, never garbles. `difflib` is the obvious
+    implementation and is NOT the one the evidence asks for, so it is the
+    fallback rather than the rule.
+
+    ⚠️ AMBIGUITY IS REPORTED, NEVER RESOLVED. A prefix shared by several filed
+    rows returns all of them (capped). Picking the first would be the
+    implicit-input-selection shape `check_diagnostic_provenance.py` exists to
+    catch: a confident single answer computed from an arbitrary tiebreak.
+
+    ⚠️ IT SUGGESTS AND NEVER REWRITES. The author may genuinely have meant an
+    id nobody has filed yet, and the fix for that is to file the row -- which
+    the existing message already says. This only removes the lookup.
+    """
+    if len(ref) >= _MIN_PREFIX_LEN:
+        pre = sorted(f for f in filed if f.startswith(ref) and f != ref)
+        if len(pre) > _MAX_SUGGESTIONS:
+            # ⚠️ NOT `prefix` WITH THE FIRST THREE. MEASURED on the live
+            # register (1876 filed ids): a bare date prefix matched 9 rows and
+            # a date-plus-common-word prefix matched 29, so showing three of
+            # them would present an arbitrary alphabetical tiebreak as a hint.
+            #
+            # ⚠️ The illustrations are DESCRIBED rather than QUOTED for a
+            # reason that is this function's own subject: writing a truncated
+            # id here made THIS FILE carry a dangling reference, and the guard
+            # refused its own source. A comment about ids is still text an id
+            # extractor reads.
+            #
+            # Saying HOW MANY is the useful answer: it tells the author their
+            # reference is too truncated to identify anything, which is a
+            # different problem from having mistyped one.
+            return SUGGEST_AMBIGUOUS, pre
+        if pre:
+            return SUGGEST_PREFIX, pre
+    close = difflib.get_close_matches(ref, sorted(filed), n=_MAX_SUGGESTIONS,
+                                      cutoff=0.85)
+    if close:
+        return SUGGEST_FUZZY, list(close)
+    return SUGGEST_NONE, []
+
+
+def suggestion_lines(ref: str, filed: set[str]) -> list[str]:
+    """The hint, as lines. Empty when there is nothing to say -- a hint printed
+    on every finding whether or not it has content is decoration, and this repo
+    walks past decoration."""
+    kind, cands = suggest_for(ref, filed)
+    if kind == SUGGEST_NONE:
+        return []
+    if kind == SUGGEST_AMBIGUOUS:
+        return [f"      ↳ {len(cands)} filed ids START WITH this, so it names "
+                f"none of them — the reference is truncated too far to "
+                f"identify a row. Cite the id in full."]
+    if kind == SUGGEST_PREFIX:
+        head = ("      ↳ a filed id STARTS WITH this. An id shortened or "
+                "line-wrapped for readability stops being an id:")
+    else:
+        head = "      ↳ did you mean:"
+    return [head] + [f"          {c}" for c in cands]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repo-root", default=str(REPO))
@@ -230,16 +362,41 @@ def main(argv: list[str] | None = None) -> int:
                     help="full sweep; REPORTS the pre-existing debt, does not fail on it")
     args = ap.parse_args(argv)
     repo = pathlib.Path(args.repo_root)
-    filed = filed_ids(repo)
+    filed, unreadable = filed_ids_with_state(repo)
+
+    if unreadable:
+        # ⚠️ BEFORE THE LIST, NEVER AFTER IT. The list is the thing that becomes
+        # untrustworthy, and a reader who has already read 1660 "resolves to
+        # NOTHING" lines has drawn the conclusion by the time a footnote lands.
+        print("::error::the universe of FILED ids is INCOMPLETE — "
+              f"{len(unreadable)} register(s) are present and do NOT parse, so "
+              "every id they define is missing from it and every citation of "
+              "one reads as a reference resolving to NOTHING. Measured: one "
+              "corrupt 1574-row backlog turns 86 dangling references into 1660. "
+              "Treat the report below as OVER-COUNTING by an unknown amount.")
+        for rel in unreadable:
+            print(f"  - {rel}")
+        print("Fix the register first (git checkout the last parseable copy, or "
+              "resolve the conflict row-aware via scripts/ops/merge_json_register.py), "
+              "then re-run. register-id-guard fails on this too, and that is the "
+              "blocking half.")
 
     if args.all:
         bad = dangling(refs_everywhere(repo), filed)
-        print(f"{len(filed)} filed ids; {len(bad)} dangling references repo-wide")
+        qualifier = (" — OVER-COUNTED, see the incomplete universe above"
+                     if unreadable else "")
+        print(f"{len(filed)} filed ids; {len(bad)} dangling references "
+              f"repo-wide{qualifier}")
         for k, v in bad.items():
             print(f"  {k}  <- {sorted(v)[0]}"
                   + (f" (+{len(v) - 1} more)" if len(v) > 1 else ""))
-        # Report-only by design: see the module docstring on alarm fatigue.
-        return 0
+        # Report-only on the DEBT by design (see the module docstring on alarm
+        # fatigue) — but an unreadable register is not debt, it is a broken
+        # input, and a sweep that cannot state its own denominator should not
+        # exit 0. This mode is `allow_fail` in run_guards.py, so it still gates
+        # nothing; what changes is that it stops CLAIMING a number it cannot
+        # stand behind.
+        return 2 if unreadable else 0
 
     if not args.base:
         print("::error::--base <ref> or --all required")
@@ -258,6 +415,14 @@ def main(argv: list[str] | None = None) -> int:
     for k, v in bad.items():
         for f in sorted(v):
             print(f"  {f}: {k}")
+        # ⚠️ DIFF-SCOPED MODE ONLY, deliberately. `--all` reports a standing
+        # debt of dozens of references (86 when this was written) and is
+        # report-only by design for exactly the alarm-fatigue reason this
+        # module's docstring gives; four extra lines each would turn a long
+        # report into an unreadable one. This mode is a human trying to fix
+        # ONE thing right now.
+        for line in suggestion_lines(k, filed):
+            print(line)
     print("")
     print("Fix: file the row in the right backlog (docs/claude/*-backlog.json) with honest "
           "severity and enough detail to act on, or correct the id if it is a typo/rename.")

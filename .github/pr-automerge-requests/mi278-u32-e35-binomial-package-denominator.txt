@@ -1,0 +1,5 @@
+MI-278 U32 — re-derive the e35 binomial per order package.
+Tier-1, landing: self. PR #12166, opened by this session so it carries a real
+pull_request event and CI fires normally.
+Guards on committed state: every step PASS except pr-landing R6, which is what
+this file satisfies.

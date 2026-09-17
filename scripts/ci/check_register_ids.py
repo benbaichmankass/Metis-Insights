@@ -40,7 +40,8 @@ THREE CHECKS, each mapping to one way an id collision reaches `main`
   `MI-86` next to the `MI-86` that was already there. Full coverage: every row
   carries its id field by definition, so there is nothing to grade `unknown`.
 
-* **R2 — identity immutability (diff-scoped against the merge base).** This is
+* **R2 — identity immutability (diff-scoped against the base ref AS GIVEN — the
+  TIP, deliberately; see the note below).** This is
   the *replace* spelling, and R1 is blind to it: the branch overwrote main's
   `MI-86`, so the branch's own file contains no duplicate at all. An id that
   exists in BOTH base and head whose **creation facts** changed is either an id
@@ -52,6 +53,28 @@ THREE CHECKS, each mapping to one way an id collision reaches `main`
   they were created, and today that share is **not** 100%. R3 is what makes it
   rise instead of staying where it is. Same shape as
   `check_backlog_criteria.py`: the past is grandfathered, the future is not.
+
+⚠️ **R2 READS THE BASE REF AS GIVEN — THE TIP — AND THAT IS CORRECT HERE. DO
+NOT "FIX" IT TO A MERGE BASE.** This line read *"diff-scoped against the merge
+base"* until 2026-09-13 and was simply false: `_load_at_base` does
+`git show {base}:{path}` on the ref it was handed. The code was right and its
+own documentation asserted the opposite, which is the dangerous direction —
+a reader trusting it would "correct" the code into a real defect.
+
+WHY THE TIP IS RIGHT FOR *THIS* GUARD, while it is wrong for its neighbours:
+R2 asks **"does my id collide with what main HAS?"**, not "did this diff change
+a row?". The fork point would MISS a collision with a row `main` gained after
+this branch was cut — which is the likeliest collision there is, since the
+window for two branches to pick the same id is exactly the window between the
+fork and the merge.
+
+The per-script audit this comes from lives in
+`scripts/ops/check_backlog_criteria.py::_load_at_ref`, which names this guard
+under **"RIGHT BY DESIGN, DO NOT 'FIX' THESE"** — and the whole reason this
+note exists locally is that a warning in another file does not reach someone
+reading this one. `scripts/ops/base_resolution_census.py` is the reader that
+counts the class; it reports this script under *"read at whatever ref was
+passed"*, which is a count of a PATTERN and not a list of defects.
 
 ⚠️ **R2's COVERAGE IS PARTIAL AND IS PRINTED, NEVER COLLAPSED.** A row with no
 creation-date field is graded `unassessable` — *we could not look* — and is
@@ -184,35 +207,86 @@ def _rows(doc: Any, array: str) -> Tuple[List[Dict[str, Any]], str, int]:
     return rows, "present", len(got) - len(rows)
 
 
-def _load(path: Path) -> Optional[Any]:
+#: How a declared register read. THREE STATES, NEVER COLLAPSED — the same
+#: doctrine `_rows` below already applies to the ARRAY, applied one level up to
+#: the FILE. `absent` and `unparseable` are opposite conditions calling for
+#: opposite actions: a register that does not exist yet is nothing to do, and a
+#: register that has been CORRUPTED is rows being destroyed right now.
+#:
+#: ⚠️ AN IO ERROR LANDS IN `unparseable`, DELIBERATELY, and the detail string
+#: says which it was. A fourth state nothing branched on would be the decorative
+#: branch `collapsed-state-guard` exists to refuse: both mean *we could not
+#: look* and both call for the same action, so they share a state and differ in
+#: the message.
+PRESENT, ABSENT, UNPARSEABLE = "present", "absent", "unparseable"
+
+
+def _load(path: Path) -> Tuple[str, Optional[Any], str]:
+    """`(state, doc, detail)` for a register on disk.
+
+    ⚠️ **THIS RETURNED A BARE `Optional[Any]` UNTIL 2026-09-13 AND THE COLLAPSE
+    WAS THE BUG** — the row is
+    `BL-20260903-REGISTER-ID-GUARD-REPORTS-OK-ON-A-REGISTER-IT-COULD-NOT-PARSE`
+    (kept on ONE line: `check_backlog_refs` reads a wrapped id as two ids that
+    resolve to nothing), filed high/Tier-1 on 2026-09-03 and confirmed still live
+    on `origin/main` @`7f832e8c0` on 2026-09-13: with a conflict marker inserted
+    into `docs/claude/health-review-backlog.json` (**1574 rows**), this guard
+    printed `docs/claude/health-review-backlog.json::items[id]: not present or
+    not parseable — not checked` and then **`register-id-guard: OK`, exit 0**.
+    The per-register line was honest; the VERDICT built on top of it was not,
+    and a reader sees the verdict.
+
+    A corrupted register is the single failure mode most likely to DESTROY rows
+    — which is the one thing this guard exists to prevent — so reading it as a
+    clean pass is the worst available answer.
+    """
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        return None
-    except json.JSONDecodeError:
-        return None
+        return ABSENT, None, ""
+    except OSError as exc:                      # permissions, IO, a directory
+        return UNPARSEABLE, None, f"could not be read: {exc}"
+    try:
+        return PRESENT, json.loads(raw), ""
+    except json.JSONDecodeError as exc:
+        return UNPARSEABLE, None, f"did not parse: {exc}"
 
 
-def _load_at_base(path: str, base: str) -> Optional[Any]:
-    """The register as it stands on *base*, or None if it is not there/parseable.
+def _load_at_base(path: str, base: str) -> Tuple[str, Optional[Any], str]:
+    """`(state, doc, detail)` for the register as it stands on *base*.
 
-    ⚠️ Returning None means **we could not look**, and every caller treats it as
-    `unknown` rather than as "nothing changed". A guard that reads a failed
-    `git show` as an empty base would grade every row on the branch as new and
-    report a confident all-clear — the exact shape this repo files as a
+    ⚠️ Anything but `PRESENT` means **we could not look**, and every caller
+    treats it as `unknown` rather than as "nothing changed". A guard that reads
+    a failed `git show` as an empty base would grade every row on the branch as
+    new and report a confident all-clear — the exact shape this repo files as a
     collapsed state.
+
+    ⚠️ **`ABSENT` HERE IS BROADER THAN ON DISK AND THAT IS STATED RATHER THAN
+    HIDDEN:** `git show` reports a bad REF and a path missing AT a good ref the
+    same way, and this function does not disambiguate them. Both land in
+    `ABSENT` because both mean the same thing to R2 — there is no comparable
+    base — and inventing a distinction the command cannot support would be a
+    label naming a cause no code path tested.
+
+    ⚠️ **`UNPARSEABLE` IS SPLIT OUT, AND IT IS NOT GRADED AS A FINDING.** A
+    corrupt copy AT THE BASE is main's problem, not this branch's, and it is
+    already caught loudly by the HEAD-side check in :func:`check` — every PR
+    carries main's file in its own tree, so a corrupt register on main reds
+    every PR there rather than here. What it gets here is its own WORDING, so
+    it stops hiding inside "no readable base at {base}", which describes a
+    different failure.
     """
     try:
         out = subprocess.run(["git", "show", f"{base}:{path}"],
                              capture_output=True, text=True, timeout=60)
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ABSENT, None, f"git show failed: {exc}"
     if out.returncode != 0:
-        return None
+        return ABSENT, None, (out.stderr or "").strip()
     try:
-        return json.loads(out.stdout)
-    except json.JSONDecodeError:
-        return None
+        return PRESENT, json.loads(out.stdout), ""
+    except json.JSONDecodeError as exc:
+        return UNPARSEABLE, None, f"did not parse: {exc}"
 
 
 def _first_present(row: Dict[str, Any], fields: Sequence[str]) -> Optional[str]:
@@ -382,19 +456,49 @@ def check_new_rows_dateable(reg: Register, base_rows: Sequence[Dict[str, Any]],
 # --------------------------------------------------------------------------- #
 def check(root: Path, base: Optional[str] = None,
           registers: Sequence[Register] = REGISTERS
-          ) -> Tuple[List[str], List[str]]:
-    """Return (problems, report_lines)."""
+          ) -> Tuple[List[str], List[str], List[Tuple[str, str]]]:
+    """Return (problems, report_lines, unparseable).
+
+    ⚠️ **`unparseable` IS A THIRD RETURN VALUE RATHER THAN A THIRD KIND OF
+    `problems` ENTRY, ON PURPOSE.** `main` prints one `::error::` headline over
+    `problems` and every word of it is about an id COLLISION ("to git a reused
+    id is a changed value at the same key..."). Filing a parse failure under
+    that headline would be UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a
+    message naming a cause no code path tested — which this repo's remedy says
+    to fix by branching on the actual failure STAGE, not by rewording. So the
+    two causes travel separately and get their own headlines.
+    """
     problems: List[str] = []
     report: List[str] = []
+    unparseable: List[Tuple[str, str]] = []
 
     for reg in registers:
         path = root / reg.path
-        doc = _load(path)
-        if doc is None:
-            # A register that is absent or unparseable is not this guard's
-            # finding to make (open-items-guard and the JSON syntax check own
-            # that), but it must be SAID rather than skipped silently.
-            report.append(f"  {reg.label}: not present or not parseable — not checked")
+        state, doc, detail = _load(path)
+        if state == ABSENT:
+            # Nothing to do and nothing wrong: a register that does not exist
+            # is not this guard's finding to make. SAID, never skipped silently.
+            report.append(f"  {reg.label}: ABSENT — not checked "
+                          f"(the file does not exist)")
+            continue
+        if state == UNPARSEABLE:
+            # ⚠️ THE OPPOSITE CASE, AND IT IS A FINDING. Until 2026-09-13 it
+            # shared the line above under "not present or not parseable", whose
+            # accompanying comment claimed "open-items-guard and the JSON syntax
+            # check own that". MEASURED 2026-09-13 rather than inherited: that
+            # claim holds for `docs/claude/OPEN-ITEMS.json` (a conflict marker
+            # in it makes `check_open_items.py` exit 1) and for
+            # `docs/claude/health-review-backlog.json` (`backlog_append.py
+            # --check-live` exits 1). No guard in `run_guards.py` is NAMED for a
+            # JSON syntax check, and the remaining SIX declared register files
+            # were NOT measured — so "something else covers it" was true of two
+            # of eight and unestablished for the rest. Either way it was other
+            # guards covering for this one, not this one working.
+            unparseable.append((reg.label, detail))
+            report.append(
+                f"  {reg.label}: ⚠️ PRESENT AND DID NOT PARSE — nothing was "
+                f"checked here. This is 'we could not look', not '0 rows' and "
+                f"not 'absent'.")
             continue
         head_rows, arr_state, skipped = _rows(doc, reg.array)
         if arr_state != "present":
@@ -412,7 +516,12 @@ def check(root: Path, base: Optional[str] = None,
                           f"(R2/R3 skipped — no base given)")
             continue
 
-        base_doc = _load_at_base(reg.path, base)
+        base_state, base_doc, base_detail = _load_at_base(reg.path, base)
+        if base_state == UNPARSEABLE:
+            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+                          f"R2 UNKNOWN (the copy at {base} {base_detail}) — a "
+                          f"CORRUPT base, not a missing one")
+            continue
         if base_doc is None:
             report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
                           f"R2 UNKNOWN (no readable base at {base})")
@@ -434,7 +543,7 @@ def check(root: Path, base: Optional[str] = None,
             f"shared ids ({pct:.0f}%), {cov['unassessable']} unassessable · "
             f"R2b (replacement) {cov['shared']}/{cov['shared']} (100%), "
             f"{cov['replaced']} replaced")
-    return problems, report
+    return problems, report, unparseable
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -450,17 +559,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.self_test:
         return _self_test()
 
-    problems, report = check(Path(args.root), args.base)
+    problems, report, unparseable = check(Path(args.root), args.base)
     print("register-id-guard: id uniqueness + identity across "
           f"{len(REGISTERS)} register arrays")
     for line in report:
         print(line)
+    if unparseable:
+        # Its OWN headline, naming its OWN cause. See check()'s docstring for
+        # why this is not folded into the collision headline below.
+        print("::error::A declared register is PRESENT and does NOT parse, so "
+              "its rows were not checked at all. A corrupted register is the "
+              "failure mode most likely to DESTROY rows, which is the one thing "
+              "this guard exists to prevent — reporting OK over it is the "
+              "worst available answer. Restore the file (git checkout the last "
+              "parseable copy, or resolve the conflict row-aware via "
+              "scripts/ops/merge_json_register.py) and re-run.")
+        for label, detail in unparseable:
+            print(f"  - {label}: {detail}")
     if problems:
         print("::error::A register id collided. Git cannot see this class: to "
               "git a reused id is a changed value at the same key, so the merge "
               "silently deletes the row that was already there.")
         for p in problems:
             print(f"  - {p}")
+    if problems or unparseable:
         return 1
     print("register-id-guard: OK")
     return 0
@@ -593,6 +715,59 @@ def _self_test() -> int:
                       "2 non-dict" in report_for(
                           '{"items": [1, "x", {"id": "A", "opened": "2026-01-01",'
                           ' "summary": "s"}]}'), True))
+
+        # --- the FILE-state controls ----------------------------------------
+        # BL-20260903-REGISTER-ID-GUARD-REPORTS-OK-ON-A-REGISTER-IT-COULD-NOT-PARSE
+        # `_load` returned None for BOTH "not there" and "corrupt", and
+        # check() skipped both with one line, so a corrupted register — 1574
+        # rows, measured — printed `register-id-guard: OK` and exited 0.
+        #
+        # THE PLANT AND ITS POSITIVE CONTROL ARE BOTH HERE, because a guard that
+        # only ever demonstrates its failures cannot show it is not always-red.
+        def verdict_for(payload: str) -> Tuple[List[str], List[Tuple[str, str]]]:
+            target.write_text(payload)
+            probs, _rep, unp = check(root, None, only)
+            return probs, unp
+
+        corrupt = '{"items": [{"id": "A"} THIS IS NOT JSON'
+        cases.append(("a register that is PRESENT and does not parse is a FINDING",
+                      bool(verdict_for(corrupt)[1]), True))
+        cases.append(("...and it is NOT filed as an id collision "
+                      "(that headline would name a cause nothing tested)",
+                      bool(verdict_for(corrupt)[0]), False))
+        cases.append(("...and the report says DID NOT PARSE, not 'absent'",
+                      "DID NOT PARSE" in report_for(corrupt), True))
+        cases.append(("a clean register is still a PASS (the positive control)",
+                      verdict_for(
+                          '{"items": [{"id": "A", "opened": "2026-01-01",'
+                          ' "summary": "s"}]}') == ([], []), True))
+
+        # ⚠️ THE EXIT CODE IS ITS OWN CONTROL, and without it the plant that
+        # reproduces the original defect exactly — find the parse failure, then
+        # `return 1` only for `problems` — passes every control above while the
+        # guard still exits 0. That gap is the whole bug: the per-register line
+        # was always honest; the VERDICT was not.
+        import contextlib as _ctx
+        import io as _io
+        target.write_text(corrupt)
+        _buf = _io.StringIO()
+        with _ctx.redirect_stdout(_buf):
+            _rc = main(["--root", str(root)])
+        _out = _buf.getvalue()
+        cases.append(("a corrupt register makes main() EXIT NON-ZERO",
+                      _rc != 0, True))
+        cases.append(("...and main() does NOT also print `register-id-guard: OK`",
+                      "register-id-guard: OK" in _out, False))
+
+        target.unlink()
+        absent_probs, absent_unp = check(root, None, only)[0], check(root, None, only)[2]
+        cases.append(("an ABSENT register is NOT a finding",
+                      bool(absent_probs) or bool(absent_unp), False))
+        cases.append(("...and it is reported as ABSENT, a different state "
+                      "from unparseable",
+                      "ABSENT" in " ".join(check(root, None, only)[1])
+                      and "DID NOT PARSE" not in " ".join(check(root, None, only)[1]),
+                      True))
 
     for label, got, want in cases:
         status = "PASS" if got == want else "FAIL"

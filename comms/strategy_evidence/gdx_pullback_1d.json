@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "strategy": "gdx_pullback_1d",
+  "symbol": "GDX",
+  "timeframe": "1d",
+  "config_fingerprint": "sha256:929538c4cd1aa4278061d9c89a176693",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 14.3959,
+  "expectancy_r_oos": 2.8792,
+  "n_trades_oos": 5,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": 10.8938,
+      "expectancy_r": 10.8938,
+      "start": "2025-06-25 00:00:00+00:00",
+      "end": "2025-06-25 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": 3.9934,
+      "expectancy_r": 3.9934,
+      "start": "2025-10-22 00:00:00+00:00",
+      "end": "2025-10-22 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": -0.2396,
+      "expectancy_r": -0.2396,
+      "start": "2026-02-03 00:00:00+00:00",
+      "end": "2026-02-03 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": -0.2517,
+      "expectancy_r": -0.1259,
+      "start": "2026-04-02 00:00:00+00:00",
+      "end": "2026-09-02 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-16T19:14:05.934067+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/strategy_evidence_omm3li18/gdx_pullback_1d__trades.jsonl",
+  "error": null,
+  "harness": "pullback",
+  "low_n_warning": "n_trades_oos=5 < 10; the pooled number is reported but is not a basis for a verdict."
+}

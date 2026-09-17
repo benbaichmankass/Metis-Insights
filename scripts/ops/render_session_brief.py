@@ -66,11 +66,71 @@ _ROUTING = Path("docs/claude/work/CHECKLIST-ROUTING-AGE.json")
 _CLAUDE_MD = Path("CLAUDE.md")
 
 
-def _load(p: Path) -> dict:
+#: How one of the brief's source registers read. THREE STATES, NEVER COLLAPSED.
+SRC_READ, SRC_ABSENT, SRC_UNREADABLE = "read", "absent", "unreadable"
+
+
+def _read(p: Path) -> tuple[str, dict]:
+    """`(state, doc)` for one source register.
+
+    ⚠️ **THIS WAS ONE STATE UNTIL 2026-09-13 AND THE COLLAPSE LANDED ON THE ONE
+    SURFACE THAT REACHES A SESSION BEFORE IT ACTS.** `_load` returned `{}` for a
+    parse failure exactly as for a missing file, and every section downstream
+    reads a missing key as *nothing to report*. MEASURED on `origin/main`
+    @`7f832e8c0`: with `THIS IS NOT JSON` inserted into
+    `docs/claude/OPEN-ITEMS.json`, the rendered brief went from **20 monitoring
+    rows to 0**, exit 0, and printed
+
+        **No monitoring item is due.** (The section is generated — an empty list
+        here means nothing is past its cadence, not that the renderer failed.)
+
+    — a sentence that is *itself* the falsehood, telling the reader in terms
+    that an empty list is not a renderer failure at the exact moment it is. The
+    rows that vanished include every `loud: true` row a session is obliged to
+    report on, among them the real-money `alpaca_live` and prop-account items.
+
+    ⚠️ `absent` IS NOT `unreadable`. A register that has never existed renders
+    nothing and that is correct; one that has been CORRUPTED must say so.
+    """
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+        raw = p.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return SRC_ABSENT, {}
+    except OSError:
+        return SRC_UNREADABLE, {}
+    try:
+        doc = json.loads(raw)
+    except json.JSONDecodeError:
+        return SRC_UNREADABLE, {}
+    return (SRC_READ, doc) if isinstance(doc, dict) else (SRC_UNREADABLE, {})
+
+
+def _load(p: Path) -> dict:
+    """Doc only. Callers that need to know WHETHER they looked use `_read`."""
+    return _read(p)[1]
+
+
+def _latest_sunset_with_state() -> tuple[dict | None, list[str]]:
+    """`(newest sunset index, paths that did not parse)`.
+
+    ⚠️ **A CORRUPT NEWEST PASS USED TO RENDER THE PREVIOUS DAY'S AS CURRENT.**
+    The loop takes the first truthy doc, and `_load` handed it `{}` for a parse
+    failure, so it silently fell through to an older directory and the brief
+    showed STALE candidates under today's heading — worse than showing none,
+    because nothing said the reading was old.
+    """
+    bad: list[str] = []
+    if not _SUNSET_ROOT.is_dir():
+        return None, bad
+    for day in sorted((p for p in _SUNSET_ROOT.iterdir() if p.is_dir()), reverse=True):
+        idx = day / "INDEX.json"
+        state, doc = _read(idx)
+        if state == SRC_UNREADABLE:
+            bad.append(str(idx))
+            continue
+        if doc:
+            return doc, bad
+    return None, bad
 
 
 def _latest_sunset() -> dict | None:
@@ -250,7 +310,8 @@ def render(today: date | None = None, *,
            priority: dict | None = None,
            constraint: dict | None = None,
            sunset: dict | None = None,
-           routing: dict | None = None) -> str:
+           routing: dict | None = None,
+           unreadable_out: list[str] | None = None) -> str:
     """Render the brief. Pass the registers explicitly to render a REF other than HEAD.
 
     `today` is threaded rather than read inside, because the diff-scoped check
@@ -258,12 +319,35 @@ def render(today: date | None = None, *,
     cancel (see `check_verdict`).
     """
     today = today or datetime.now(timezone.utc).date()
-    oi = open_items if open_items is not None else _load(_OPEN_ITEMS)
-    rl = recurrence if recurrence is not None else _load(_RECURRENCE)
-    cp = priority if priority is not None else _load(_CYCLE_PRIORITY)
-    cn = constraint if constraint is not None else _load(_CONSTRAINT)
-    sn = sunset if sunset is not None else _latest_sunset()
-    rt = routing if routing is not None else _load(_ROUTING)
+
+    # ⚠️ WHICH SOURCES COULD NOT BE READ IS TRACKED, NOT DISCARDED. An explicitly
+    # passed register is `read` by construction (the diff-scoped check supplies
+    # both sides itself); only the ones loaded from disk here can fail.
+    # ⚠️ AN OUT-PARAM, NOT A RE-READ IN `main`. A second list of "which files
+    # are sources" would be a second definition, and the two drift the moment a
+    # register is added — which is exactly how a newly rendered register ends up
+    # unwatched. What `main` exits on is what `render` actually read.
+    unreadable: list[str] = [] if unreadable_out is None else unreadable_out
+
+    def _src(explicit: dict | None, path: Path) -> dict:
+        if explicit is not None:
+            return explicit
+        state, doc = _read(path)
+        if state == SRC_UNREADABLE:
+            unreadable.append(str(path))
+        return doc
+
+    oi = _src(open_items, _OPEN_ITEMS)
+    rl = _src(recurrence, _RECURRENCE)
+    cp = _src(priority, _CYCLE_PRIORITY)
+    cn = _src(constraint, _CONSTRAINT)
+    rt = _src(routing, _ROUTING)
+    if sunset is not None:
+        sn = sunset
+    else:
+        sn, sunset_bad = _latest_sunset_with_state()
+        unreadable.extend(sunset_bad)
+    oi_unreadable = str(_OPEN_ITEMS) in unreadable
     due = due_items(oi.get("items") or [], today)
     unprevented = [c for c in (rl.get("classes") or [])
                    if not c.get("prevention") and not c.get("unpreventable_because")]
@@ -283,6 +367,24 @@ def render(today: date | None = None, *,
              "fire at merge, which is after the wrong work is already built. It lists only what is "
              "DUE or UNPREVENTED, so it shrinks as work lands.")
     L.append("")
+
+    # ⚠️ THE BANNER GOES FIRST, ABOVE EVERYTHING IT INVALIDATES. A session reads
+    # top-down and stops early, and every section below renders a missing key as
+    # "nothing to report" — so a source that could not be read has to be said
+    # before the reader has drawn that conclusion, not after.
+    if unreadable:
+        L.append(f"🛑 **{len(unreadable)} OF THIS BRIEF'S SOURCE REGISTERS COULD NOT BE "
+                 f"READ, so the sections below are INCOMPLETE — this is *we could not "
+                 f"look*, NOT 'nothing is due'.** Every section here renders an absent "
+                 f"key as nothing to report, so an unreadable source is silently "
+                 f"indistinguishable from a quiet one unless it is named:")
+        for rel in unreadable:
+            L.append(f"  - `{rel}` — present but did NOT parse")
+        L.append("")
+        L.append("Restore it (`git checkout` the last parseable copy, or resolve the "
+                 "conflict row-aware via `scripts/ops/merge_json_register.py`) and "
+                 "re-render. Do NOT act on the list below as if it were complete.")
+        L.append("")
 
     # A3 — the priority comes FIRST. A session reads top-down and stops early;
     # what steers the choice of work has to arrive before the list of work.
@@ -312,6 +414,15 @@ def render(today: date | None = None, *,
             L.append(f"  - Last observed: `{last}`. To clear for another cycle, set "
                      f"`verified_at` to today AND write what you saw into `observation` — "
                      f"a claim of progress is not an observation.")
+        L.append("")
+    elif oi_unreadable:
+        # ⚠️ NEVER the reassurance below. That sentence says in terms that an
+        # empty list is not a renderer failure, which is the one claim that is
+        # false in exactly this case — and it is the claim a reader acts on.
+        L.append("🛑 **MONITORING ITEMS: NOT LISTED — `docs/claude/OPEN-ITEMS.json` "
+                 "could not be read.** This is NOT 'no monitoring item is due'. "
+                 "Rows flagged `loud: true` are among the ones missing here, and a "
+                 "session is obliged to report on those.")
         L.append("")
     else:
         L.append("**No monitoring item is due.** (The section is generated — an empty list here "
@@ -494,9 +605,32 @@ def main(argv=None) -> int:
     if a.self_test:
         return _self_test()
 
-    want = render()
+    unreadable: list[str] = []
+    want = render(unreadable_out=unreadable)
     text = _CLAUDE_MD.read_text(encoding="utf-8")
     have = current_block(text)
+
+    if unreadable:
+        # ⚠️ LOUD *AND* NON-ZERO, AND THE BRIEF IS STILL WRITTEN. Writing it is
+        # deliberate: the rendered block now carries the banner, so the session
+        # that reads CLAUDE.md is TOLD. Refusing to write would leave the
+        # previous brief in place, which asserts a completeness that is no
+        # longer true and says nothing to anybody. The non-zero code is for the
+        # producing workflow, which is the only party that can fix the file.
+        print(f"::error::session-brief: {len(unreadable)} source register(s) are "
+              "PRESENT and do NOT parse, so the rendered brief is INCOMPLETE. It "
+              "carries a banner saying so; this exit code is for the workflow "
+              "that produced it.")
+        for rel in unreadable:
+            print(f"  - {rel}")
+        # ⚠️ `--check`'s OWN verdict is deliberately left alone. Its `inherited`
+        # and `base_unreadable` branches exist to avoid stranding a PR for a
+        # staleness it did not introduce, and a corrupt register on `main` is
+        # not this diff's doing either. It is not a silent pass: the line above
+        # prints on every path, and the rendered brief now carries a banner the
+        # committed block does not, so the comparison reads STALE and exits 1
+        # by the ordinary route. Changing that verdict would be a separate
+        # decision about who gets stranded, taken without a measurement.
 
     if a.check:
         # Render BOTH sides with ONE date, so the clock term cancels.
@@ -582,10 +716,10 @@ def main(argv=None) -> int:
             return 1
         _CLAUDE_MD.write_text(text.replace(have, want), encoding="utf-8")
         print("session-brief: CLAUDE.md updated.")
-        return 0
+        return 2 if unreadable else 0
 
     print(want)
-    return 0
+    return 2 if unreadable else 0
 
 
 def _self_test() -> int:
@@ -733,9 +867,101 @@ def _self_test() -> int:
 
     ok &= _self_test_resolve_base()
     ok &= _self_test_check_uses_merge_base()
+    ok &= _self_test_unreadable_source()
 
     print("session-brief self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _self_test_unreadable_source() -> bool:
+    """A source register that is PRESENT and does not PARSE must be SAID.
+
+    MEASURED on `origin/main` @`7f832e8c0` before this existed: with
+    `THIS IS NOT JSON` inserted into `docs/claude/OPEN-ITEMS.json` the brief
+    rendered **0 monitoring rows instead of 20**, exit 0, and printed *"No
+    monitoring item is due. (…an empty list here means nothing is past its
+    cadence, not that the renderer failed.)"* — the reassurance being the
+    falsehood. Same shape for `CYCLE-PRIORITY.json`: the priority section simply
+    vanished.
+
+    Both directions are asserted. A guard that only ever demonstrates its
+    failures cannot show it is not simply always-red, and the over-refusal
+    direction is real here: an EMPTY but valid register must keep rendering the
+    reassurance, because then it IS true.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    ok = True
+    rows = [{"kind": "monitoring", "id": "OI-X", "summary": "s",
+             "clears_when": "c", "check_every_days": 1}]
+
+    def _render(**kw) -> tuple[str, list[str]]:
+        seen: list[str] = []
+        return render(date(2026, 9, 13), unreadable_out=seen, **kw), seen
+
+    # The renderer reads from CWD, so the controls need a tree of their own.
+    cwd0 = os.getcwd()
+    tmp = tempfile.mkdtemp(prefix="brief-src-")
+    try:
+        root = Path(tmp)
+        (root / "docs/claude").mkdir(parents=True)
+        os.chdir(root)
+
+        # (1) corrupt -> named, and the reassurance is GONE.
+        _OPEN_ITEMS.write_text("THIS IS NOT JSON")
+        text, seen = _render()
+        checks = [
+            ("an unreadable OPEN-ITEMS is NAMED in the brief",
+             str(_OPEN_ITEMS) in seen and "COULD NOT BE" in text, True),
+            ("...and the 'nothing is past its cadence' reassurance is NOT printed",
+             "No monitoring item is due" in text, False),
+            ("...and the brief says the items are NOT LISTED",
+             "MONITORING ITEMS: NOT LISTED" in text, True),
+        ]
+
+        # (2) POSITIVE CONTROL: valid and empty is a real reading, not a failure.
+        _OPEN_ITEMS.write_text(json.dumps({"items": []}))
+        text2, seen2 = _render()
+        checks += [
+            ("a VALID but EMPTY register is not reported unreadable", bool(seen2), False),
+            ("...and it still renders the 'no monitoring item is due' line",
+             "No monitoring item is due" in text2, True),
+        ]
+
+        # (3) POSITIVE CONTROL: a register with rows renders them, so the banner
+        #     is not simply always-on.
+        _OPEN_ITEMS.write_text(json.dumps({"items": rows}))
+        text3, seen3 = _render()
+        checks += [
+            ("a register WITH a due row renders it and raises no banner",
+             bool(seen3) is False and "OI-X" in text3, True),
+        ]
+
+        # (4) a NON-OPEN-ITEMS source fails independently — the banner is not
+        #     wired to one register.
+        _CYCLE_PRIORITY.write_text("{ NOT JSON")
+        _, seen4 = _render()
+        checks += [
+            ("an unreadable CYCLE-PRIORITY is named too",
+             str(_CYCLE_PRIORITY) in seen4, True),
+        ]
+
+        # (5) an ABSENT register is NOT unreadable — opposite facts.
+        _CYCLE_PRIORITY.unlink()
+        _OPEN_ITEMS.unlink()
+        _, seen5 = _render()
+        checks += [("an ABSENT register is not reported unreadable", bool(seen5), False)]
+
+        for label, got, want in checks:
+            good = got == want
+            ok &= good
+            print(f"  self-test (source: {label}): {'PASS' if good else 'FAIL'}")
+    finally:
+        os.chdir(cwd0)
+        shutil.rmtree(tmp, ignore_errors=True)
+    return ok
 
 
 def _self_test_resolve_base() -> bool:
