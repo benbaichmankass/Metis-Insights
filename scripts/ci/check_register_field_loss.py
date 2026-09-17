@@ -348,8 +348,40 @@ def load_removals(root: Path = REPO_ROOT,
             if isinstance(r, dict) and isinstance(r.get("file"), str):
                 out.append({"file": r["file"], "id": r.get("id"),
                             "keys": list(r.get("keys") or []),
+                            # ⚠️ THE ENTRY'S OWN KEY NAMES, carried so a
+                            # MALFORMED declaration can be told apart from a
+                            # FABRICATED one at report time. See `is_malformed`.
+                            "entry_keys": sorted(r.keys()),
                             "declared_in": f.name})
     return out
+
+
+def is_malformed(decl: Dict[str, Any]) -> bool:
+    """Can this declaration cover ANY finding at all?
+
+    ⚠️ A DECLARATION WITH NEITHER AN `id` NOR ANY `keys` IS STRUCTURALLY INERT,
+    and `_covers` proves it: a `toplevel_loss` needs `finding["key"] in keys`
+    (never true of an empty list) and every other kind needs `decl["id"] ==
+    finding["id"]` (never true of `None`). So it cannot excuse anything, and it
+    lands in `phantom` — where it is reported as a FALSE STATEMENT ABOUT THE
+    DIFF, which is a different fault with a different remedy.
+
+    MEASURED BY WALKING INTO IT. Writing a declaration against this guard with
+    the row key spelled `row_id` instead of `id` produced
+    `PHANTOM declaration ... it says <file> row None keys [] were removed, and
+    NO such removal is in this diff. An override must be a TRUE statement about
+    the change, or it is a silencer.` The declaration was TRUE; it was
+    misspelled. A session trusting that label goes looking for a fabrication it
+    will not find, which is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A in
+    `CLAUDE.md` — the label names a condition no code path tested — and the
+    remedy this repo prescribes is to branch on the ACTUAL condition rather
+    than to reword the label.
+
+    ⚠️ THIS WIDENS NOTHING AND EXCUSES NOTHING. Both states still FAIL; only
+    the message and its remedy differ. A guard that let a malformed override
+    PASS would be the blanket silencer the phantom check exists to refuse.
+    """
+    return decl.get("id") is None and not decl.get("keys")
 
 
 def _covers(decl: Dict[str, Any], finding: Dict[str, Any]) -> bool:
@@ -502,7 +534,9 @@ def verdict_of(results: Sequence[Dict[str, Any]],
         "summary": (f"{sum(1 for r in results if r['state'] == COMPARED)} register(s) "
                     f"compared, {sum(1 for r in results if r['state'] == SKIPPED)} "
                     f"untouched, {len(unreadable)} unreadable; {len(remaining)} "
-                    f"loss(es), {len(excused)} declared, {len(phantom)} phantom "
+                    f"loss(es), {len(excused)} declared, "
+                    f"{sum(1 for d in phantom if not is_malformed(d))} phantom "
+                    f"+ {sum(1 for d in phantom if is_malformed(d))} malformed "
                     f"declaration(s); declarations {scope_state}: "
                     f"{declarations_read} read, {declarations_inherited} inherited"
                     + (" (SCOPE UNKNOWN — inherited declarations are being graded "
@@ -529,6 +563,19 @@ def render(verdict: Dict[str, Any]) -> str:
         lines.append(f"::error::register-field-loss: {f['kind'].upper()} in "
                      f"{f['path']} — {f['why']}")
     for d in verdict.get("phantom", []):
+        if is_malformed(d):
+            lines.append(
+                f"::error::register-field-loss: MALFORMED declaration in "
+                f"{d['declared_in']} — its entry for {d['file']} carries "
+                f"{d.get('entry_keys', [])} and names neither an `id` nor any "
+                f"`keys`, so it cannot excuse any removal WHATEVER this diff "
+                f"does. This is a spelling fault, NOT a false claim: the "
+                f"schema is "
+                f"{{\"file\": ..., \"id\": <row id>, \"keys\": [<field>, ...]}} "
+                f"— `id` for a row (with `keys` empty meaning the WHOLE row), "
+                f"`keys` alone for a top-level key. It still FAILS, and it "
+                f"fails for its own reason.")
+            continue
         lines.append(f"::error::register-field-loss: PHANTOM declaration in "
                      f"{d['declared_in']} — it says {d['file']} row "
                      f"{d.get('id')!r} keys {d['keys']} were removed, and NO "
@@ -635,6 +682,43 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
        compare(base, added, "sessions", "session_id", "R.json")["findings"] == [])
     ok("an identical document is quiet",
        compare(base, doc([dict(ROW)]), "sessions", "session_id", "R.json")["findings"] == [])
+
+    # ── MALFORMED is not PHANTOM ───────────────────────────────────────────
+    # The declaration shapes, and which of them can cover anything at all.
+    _row_decl = {"file": "R.json", "id": "s1", "keys": [], "declared_in": "d.json",
+                 "entry_keys": ["file", "id", "keys"]}
+    _key_decl = {"file": "R.json", "id": None, "keys": ["extra"],
+                 "declared_in": "d.json", "entry_keys": ["file", "keys"]}
+    _field_decl = {"file": "R.json", "id": "s1", "keys": ["observed"],
+                   "declared_in": "d.json", "entry_keys": ["file", "id", "keys"]}
+    _misspelled = {"file": "R.json", "id": None, "keys": [],
+                   "declared_in": "d.json", "entry_keys": ["file", "row_id", "why"]}
+    ok("a whole-ROW declaration is well formed", not is_malformed(_row_decl))
+    ok("a TOP-LEVEL-key declaration is well formed", not is_malformed(_key_decl))
+    ok("a FIELD declaration is well formed", not is_malformed(_field_decl))
+    ok("a declaration naming NEITHER an id nor any keys is MALFORMED — it "
+       "cannot cover any finding whatever the diff does",
+       is_malformed(_misspelled))
+    ok("…and `_covers` agrees, which is what makes the state derived rather "
+       "than asserted: it matches none of the three finding kinds",
+       not any(_covers(_misspelled, f) for f in (
+           {"path": "R.json", "kind": FIELD_LOSS, "id": "s1", "key": "k"},
+           {"path": "R.json", "kind": ROW_LOSS, "id": "s1", "key": None},
+           {"path": "R.json", "kind": TOPLEVEL_LOSS, "id": None, "key": "extra"})))
+    _rendered = render({"ok": False, "summary": "s", "phantom": [_misspelled],
+                        "findings": [], "excused": [], "unreadable": []})
+    ok("it renders as MALFORMED, not as a false claim about the diff",
+       "MALFORMED declaration" in _rendered
+       and "it is a silencer" not in _rendered)
+    ok("…and it names the keys the entry ACTUALLY carries, so the remedy is "
+       "the spelling rather than a hunt for a fabrication",
+       "'row_id'" in _rendered)
+    _rendered_fab = render({"ok": False, "summary": "s", "phantom": [_row_decl],
+                            "findings": [], "excused": [], "unreadable": []})
+    ok("a well-formed declaration that matches nothing is STILL a phantom — "
+       "the silencer check is untouched",
+       "PHANTOM declaration" in _rendered_fab
+       and "MALFORMED" not in _rendered_fab)
 
     # ── the sibling defect: top-level keys ─────────────────────────────────
     v_top = compare(doc([dict(ROW)], extra="x"), doc([dict(ROW)]),
