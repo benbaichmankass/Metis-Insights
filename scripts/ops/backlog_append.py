@@ -58,6 +58,9 @@ from typing import Any, Dict, Optional, Tuple
 # that exact command; an `import` smoke test from the repo root passes either
 # way, which is precisely why it is not evidence here.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from scripts.ops.check_backlog_criteria import (  # noqa: I001,E402
+    workability_verdict,
+)
 from scripts.ops.system_review_checklist import (  # noqa: I001
     CLOSE_KEYS,
     CLOSED_STATUSES,
@@ -102,6 +105,37 @@ class SimilarRowExists(Exception):
     should be dropped, while a RECURRENCE is evidence the first fix did not
     hold and is one of the most valuable rows there is. Only a human reading
     both can tell, which is exactly why this raises instead of dropping the row.
+    """
+
+
+class RowNotWorkable(Exception):
+    """The row is missing a field that makes it possible to ACT on it.
+
+    `BL-20260910-THE-MANDATED-BACKLOG-WRITER-ACCEPTS-A-ROW-THAT-CI-THEN-REJECTS`.
+    ``CLAUDE.md`` mandates this writer; CI mandates
+    ``check_backlog_criteria.py``, which REJECTS a new row missing
+    ``resolution_criteria`` / ``severity`` / ``tier`` / a creation date. The
+    writer accepted all four, so the cheapest route to a required field was to
+    file the row, push, and let CI find it — which is late, and which this repo
+    calls a guard cheaper to lie to than to satisfy.
+
+    THE VERDICT IS NOT RESTATED HERE. `workability_verdict` IS
+    `check_backlog_criteria._verdict`, imported, so the writer refuses exactly
+    what the guard refuses and the two cannot drift. A second local copy of
+    "what makes a row workable" is how they would.
+
+    ⚠️ RAISE, NOT WARN — the row's own proposed fix says so, and it is right:
+    every other refusal in this module raises, and a warning printed into a
+    session's scrollback is not a mechanism. There is deliberately **no
+    override flag**: `SimilarRowExists` has one because *"the threshold will be
+    wrong sometimes"* and a recurrence is a legitimate re-file, whereas a row
+    nobody can tell is finished is never the right thing to file.
+
+    ⚠️ IT CANNOT REACH A GRANDFATHERED ROW. The guard grades only rows NEW in a
+    diff — 393 of the 1601 live health rows would fail it, and gating those
+    would red every PR in the repo. `append_row` only ever creates a row, so it
+    is inside that scope by construction; `update_row` is untouched, which is
+    what keeps amending an old row possible.
     """
 
 
@@ -181,6 +215,22 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
     _created = _creation_stamp(row)
     if _created:
         row[_created[0]] = _created[1]
+
+    # LAST, and after both stamps, because the verdict reads the fields they
+    # write: a row the caller filed with no date is dated by the stamp above
+    # and must be graded on the row as it will actually be WRITTEN, not as it
+    # arrived. Ordering this before the stamp would reject rows the writer had
+    # already made correct.
+    _unworkable = workability_verdict(row)
+    if _unworkable:
+        raise RowNotWorkable(
+            f"{row.get('id')}: {_unworkable}\n\n"
+            "check_backlog_criteria.py REJECTS this row in CI on every PR that "
+            "adds it, so filing it now only moves the failure to the push. Add "
+            "the field and re-file. The verdict above comes from that guard's "
+            "own predicate, imported — it is not a second opinion."
+        )
+
     items.append(row)
     if isinstance(doc, dict) and updated_at:
         doc["updated_at"] = updated_at
@@ -483,6 +533,14 @@ def _self_test() -> int:
     """Planted controls — including the exact failure this helper exists for."""
     import tempfile
 
+    # `append_row` now REFUSES a row the CI guard would reject, so every fixture
+    # row here has to be workable. That is the change, not noise: a fixture that
+    # could not be filed for real was never a faithful fixture.
+    def _w(**kw):
+        return {"resolution_criteria": ("what DONE looks like, stated at length "
+                                        "enough to clear the guard's floor"),
+                "severity": "medium", "tier": 1, **kw}
+
     checks = []
 
     def ck(name, ok):
@@ -496,7 +554,7 @@ def _self_test() -> int:
 
         # (1) A file written ensure_ascii=False round-trips and appends cleanly.
         p.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
-        n = append_row(p, {"id": "BL-2", "title": "new"}, updated_at="2026-01-02")
+        n = append_row(p, _w(id="BL-2", title="new"), updated_at="2026-01-02")
         after = p.read_text()
         ck("appends a row", n == 2)
         ck("non-ASCII survives unescaped", "em—dash" in after and "\\u2014" not in after)
@@ -512,7 +570,7 @@ def _self_test() -> int:
         p2.write_text(json.dumps(doc, indent=3, separators=(" ,", " : ")))
         raw2 = p2.read_text()
         try:
-            append_row(p2, {"id": "BL-3"})
+            append_row(p2, _w(id="BL-3"))
             ck("refuses an unreproducible format", False)
         except FormatNotReproducible:
             ck("refuses an unreproducible format", True)
@@ -520,7 +578,7 @@ def _self_test() -> int:
 
         # (3) Duplicate ids are refused.
         try:
-            append_row(p, {"id": "BL-2"})
+            append_row(p, _w(id="BL-2"))
             ck("refuses a duplicate id", False)
         except ValueError:
             ck("refuses a duplicate id", True)
@@ -624,7 +682,7 @@ def _self_test() -> int:
             return json.loads(p6.read_text())["items"][-1]
 
         _fresh6()
-        append_row(p6, {"id": "BL-NODATE", "title": "caller supplied no date"})
+        append_row(p6, _w(id="BL-NODATE", title="caller supplied no date"))
         got = _last6()
         ck("stamps a creation key when the caller omits one",
            isinstance(got.get(_CREATION_STAMP_KEY), str)
@@ -659,8 +717,9 @@ def _self_test() -> int:
         # SUPPLIED value SURVIVED — under every spelling the reader consults.
         for spelling in CREATION_KEYS:
             _fresh6()
-            append_row(p6, {"id": f"BL-{spelling.upper()}", "title": "caller dated it",
-                            spelling: "2026-01-02T03:04:05+00:00"})
+            append_row(p6, _w(**{"id": f"BL-{spelling.upper()}",
+                              "title": "caller dated it",
+                              spelling: "2026-01-02T03:04:05+00:00"}))
             got = _last6()
             ck(f"a caller-supplied {spelling!r} survives unchanged",
                got.get(spelling) == "2026-01-02T03:04:05+00:00")
@@ -672,10 +731,52 @@ def _self_test() -> int:
         # an append is an ADDITION and nothing pre-existing moves.
         _fresh6()
         raw6_before = json.loads(p6.read_text())["items"][0]
-        append_row(p6, {"id": "BL-ADDONLY", "title": "x"})
+        append_row(p6, _w(id="BL-ADDONLY", title="x"))
         ck("stamping still leaves pre-existing rows byte-identical",
            json.dumps(json.loads(p6.read_text())["items"][0], indent=2, ensure_ascii=False)
            == json.dumps(raw6_before, indent=2, ensure_ascii=False))
+
+        # (7) THE WORKABILITY REFUSAL — the writer refuses what CI refuses.
+        #     BL-20260910-THE-MANDATED-BACKLOG-WRITER-ACCEPTS-A-ROW-THAT-CI-THEN-REJECTS
+        p7 = pathlib.Path(td) / "workable.json"
+
+        def _fresh7():
+            p7.write_text(json.dumps(base6, indent=2, ensure_ascii=False) + "\n")
+
+        def _refused(row, label):
+            _fresh7()
+            raw7 = p7.read_text()
+            try:
+                append_row(p7, row)
+                ck(f"refuses a row with {label}", False)
+            except RowNotWorkable:
+                ck(f"refuses a row with {label}", True)
+            # A refusal that already wrote is not a refusal.
+            ck(f"the refused file is untouched ({label})", p7.read_text() == raw7)
+
+        _refused({"id": "BL-NOCRIT", "severity": "medium", "tier": 1},
+                 "no resolution_criteria")
+        _refused(_w(id="BL-NOSEV", severity=None), "no severity")
+        _refused(_w(id="BL-NOTIER", tier=None), "no tier")
+        _refused(_w(id="BL-PLACEHOLDER", resolution_criteria="TBD"),
+                 "a placeholder resolution_criteria")
+
+        # THE POSITIVE CONTROL. A refusal without a pass proves only that the
+        # writer is a wall — and it is the arm that fails if the predicate is
+        # ever made unsatisfiable.
+        _fresh7()
+        n7 = append_row(p7, _w(id="BL-WORKABLE", title="a workable row"))
+        ck("a workable row is still appended", n7 == 2)
+
+        # THE VERDICT IS THE GUARD'S, NOT A LOCAL COPY. Assert the identity
+        # rather than the behaviour: two predicates that merely agree today are
+        # exactly what drifts apart.
+        try:
+            from scripts.ops.check_backlog_criteria import _verdict as _guard_verdict
+            ck("the writer's predicate IS the guard's (same object)",
+               workability_verdict is _guard_verdict)
+        except Exception as exc:  # noqa: BLE001
+            ck(f"the writer's predicate IS the guard's (same object) [{exc}]", False)
 
         # MUTATION ARM: with the stamp removed, the first control must FAIL.
         # A control that passes on the bug is not a control.
