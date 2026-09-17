@@ -39,6 +39,7 @@ silently falls back to a default is the trap wearing a helper's clothes.
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime
 import json
 import pathlib
@@ -815,6 +816,241 @@ LIVE_BACKLOGS = (
     "docs/claude/research-review-backlog.json",
 )
 
+
+
+# ---------------------------------------------------------------------------
+# THE SPLICE WRITER — amend a register that does NOT round-trip
+#
+# `update_row` above re-serialises the whole document and refuses
+# (`FormatNotReproducible`) when no candidate serialisation reproduces the file
+# byte-for-byte. That refusal is CORRECT and must stay: a reformat re-attributes
+# every pre-existing row to whoever triggered it
+# (`BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES`).
+#
+# But it leaves the registers that reproduce at NOTHING with no writer at all,
+# and one of them is the file CLAUDE.md requires EVERY session to update at
+# session end. MEASURED 2026-09-17 over all 20 committed `docs/claude/*.json`
+# registers above 200 bytes, each probed against 20 candidate serialisations
+# (indent 1/2/3/4/None x ensure_ascii False/True x trailing newline or not):
+#
+#   * 17 round-trip -- at FOUR different settings, which is why a single
+#     canonical form was never going to work:
+#       13  indent=2, ensure_ascii=False, trailing newline
+#        2  ensure_ascii=TRUE      (ERROR-FEED-DIGEST, soak-doctrine-exceptions)
+#        2  NO trailing newline    (ml-review-backlog, research-review-backlog)
+#        1  indent=1               (UNCARRIED-SPEC-BASELINE)
+#   * 3 round-trip at NONE of the 20: OPEN-ITEMS.json (779,305 bytes),
+#     session-board.json, strategy-refinement-queue.json.
+#
+# So this writer NEVER SERIALISES THE DOCUMENT. It finds the exact bytes of one
+# field's value inside one row and replaces just those, then RE-PARSES and
+# proves the result differs nowhere else. Everything it cannot do unambiguously
+# it REFUSES, because a writer that guesses is worse than a hand-edit a human
+# reviewed.
+# ---------------------------------------------------------------------------
+
+class SpliceAmbiguous(Exception):
+    """The field's current bytes could not be located EXACTLY ONCE in the row.
+
+    Refusing is the whole point: a value that appears twice, or not at all in
+    the spelling this file uses, cannot be replaced without guessing which
+    occurrence was meant.
+    """
+
+
+class SpliceWouldChangeMore(Exception):
+    """The edit changed something beyond the fields asked for — nothing written.
+
+    This is the check that makes a byte splice safe to sanction at all. It is
+    not a belt-and-braces extra; without it the writer is exactly the hand-edit
+    the repo forbids, with a nicer interface.
+    """
+
+
+def _string_mask(raw: str) -> bytearray:
+    """1 where a character is inside a JSON string literal (quotes included).
+
+    One forward pass, so brace-matching below can ignore braces that live
+    inside strings — and these registers are FULL of prose containing braces.
+    """
+    mask = bytearray(len(raw))
+    in_str = False
+    esc = False
+    for i, c in enumerate(raw):
+        if in_str:
+            mask[i] = 1
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+            mask[i] = 1
+    return mask
+
+
+def _row_span(raw: str, row_id: str) -> Tuple[int, int]:
+    """Byte span of the JSON object carrying `row_id`, by brace matching.
+
+    ⚠️ SCOPING TO THE ROW IS NOT AN OPTIMISATION, IT IS THE CORRECTNESS
+    ARGUMENT. A short value like `"status": "open"` occurs hundreds of times in
+    these files; only within one row's braces is it unique.
+    """
+    needle = None
+    for ea in (False, True):
+        cand = json.dumps(row_id, ensure_ascii=ea)
+        n = raw.count(cand)
+        if n == 1:
+            needle = cand
+            break
+        if n > 1:
+            raise SpliceAmbiguous(
+                f"the id {row_id!r} appears {n} times in the raw text — "
+                f"refusing rather than picking one")
+    if needle is None:
+        raise RowNotFound(f"{row_id!r} does not appear in the file's bytes")
+
+    idx = raw.index(needle)
+    mask = _string_mask(raw)
+
+    depth = 0
+    start = -1
+    for i in range(idx, -1, -1):
+        if mask[i]:
+            continue
+        if raw[i] == "}":
+            depth += 1
+        elif raw[i] == "{":
+            if depth == 0:
+                start = i
+                break
+            depth -= 1
+    if start < 0:
+        raise SpliceAmbiguous("could not find the opening brace of the row")
+
+    depth = 0
+    end = -1
+    for i in range(start, len(raw)):
+        if mask[i]:
+            continue
+        if raw[i] == "{":
+            depth += 1
+        elif raw[i] == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end < 0:
+        raise SpliceAmbiguous("could not find the closing brace of the row")
+    return start, end
+
+
+def _locate_value(segment: str, field: str, old_value: Any) -> Tuple[int, int, bool]:
+    """Where inside `segment` this field's CURRENT serialised value sits.
+
+    Finds the serialised KEY, steps over whitespace and the colon, and requires
+    the serialised VALUE to start there. ⚠️ Deliberately does NOT assume a
+    separator spelling: these registers use `": "`, and a writer that hardcoded
+    it would silently fail on a file written with `":"` — failing by finding
+    nothing, which is the quiet direction.
+    """
+    hits = []
+    for ea in (False, True):
+        key_ser = json.dumps(field, ensure_ascii=ea)
+        val_ser = json.dumps(old_value, ensure_ascii=ea)
+        pos = 0
+        while True:
+            k = segment.find(key_ser, pos)
+            if k < 0:
+                break
+            pos = k + 1
+            j = k + len(key_ser)
+            while j < len(segment) and segment[j] in " \t\r\n":
+                j += 1
+            if j >= len(segment) or segment[j] != ":":
+                continue
+            j += 1
+            while j < len(segment) and segment[j] in " \t\r\n":
+                j += 1
+            if segment.startswith(val_ser, j):
+                cand = (j, j + len(val_ser), ea)
+                if cand not in hits:
+                    hits.append(cand)
+        if hits:
+            break
+    # The two ensure_ascii spellings coincide for a pure-ASCII value, so the
+    # same span found twice is ONE hit — compared on span, not on the tuple.
+    spans = {(a, b) for a, b, _ in hits}
+    if len(spans) != 1:
+        raise SpliceAmbiguous(
+            f"field {field!r} located {len(spans)} time(s) in the row — "
+            f"refusing to guess which is meant")
+    return hits[0]
+
+
+def splice_row(path: pathlib.Path, row_id: str, *,
+               fields: Optional[Dict[str, Any]] = None,
+               append: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """Amend a row by replacing exact bytes — for registers that never reformat.
+
+    Use `update_row` first: on a register that round-trips it is simpler and
+    already proven. Reach for this ONLY when `update_row` raises
+    `FormatNotReproducible`.
+
+    Returns the amended row. Writes nothing unless every check passes.
+    """
+    if not fields and not append:
+        raise ValueError("splice_row needs `fields` or `append`")
+
+    raw = path.read_text(encoding="utf-8")
+    doc = json.loads(raw)
+    items = doc["items"] if isinstance(doc, dict) else doc
+    row = next((r for r in items if isinstance(r, dict) and r.get("id") == row_id), None)
+    if row is None:
+        raise RowNotFound(f"no row with id {row_id!r} in {path}")
+
+    changes: Dict[str, Any] = dict(fields or {})
+    for field, text in (append or {}).items():
+        if field not in row:
+            raise RowNotFound(
+                f"cannot append to {field!r}: the row has no such field. "
+                f"Creating one is `fields`, not `append` — said rather than "
+                f"silently done.")
+        if not isinstance(row[field], str):
+            raise ValueError(f"cannot append to non-string field {field!r}")
+        changes[field] = row[field] + text
+
+    for field in changes:
+        if field not in row:
+            raise RowNotFound(
+                f"{field!r} is not on the row; splice_row amends existing "
+                f"fields and cannot add one, because an absent field has no "
+                f"bytes to replace")
+
+    start, end = _row_span(raw, row_id)
+    segment = raw[start:end]
+    for field, new_value in changes.items():
+        a, b, ea = _locate_value(segment, field, row[field])
+        segment = segment[:a] + json.dumps(new_value, ensure_ascii=ea) + segment[b:]
+
+    out = raw[:start] + segment + raw[end:]
+
+    # THE PROOF. Re-parse and require the document to differ ONLY where asked.
+    after = json.loads(out)
+    expected = copy.deepcopy(doc)
+    exp_items = expected["items"] if isinstance(expected, dict) else expected
+    exp_row = next(r for r in exp_items if isinstance(r, dict) and r.get("id") == row_id)
+    exp_row.update(changes)
+    if after != expected:
+        raise SpliceWouldChangeMore(
+            "the splice altered the document beyond the requested field(s) — "
+            "nothing written")
+
+    path.write_text(out, encoding="utf-8")
+    return next(r for r in (after["items"] if isinstance(after, dict) else after)
+                if r.get("id") == row_id)
 
 def check_live_backlogs(root: Optional[pathlib.Path] = None) -> int:
     """Refuse if any live backlog no longer round-trips. Returns a exit code.
