@@ -919,6 +919,14 @@ def main(argv: list | None = None) -> int:
                     help="API base (default: the canonical Caddy host)")
     ap.add_argument("--root", default=".", help="repo root")
     args = ap.parse_args(argv)
+    # The verdict below is about the COMMITTED tree. Say so when that is
+    # not the tree you edited — BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS.
+    import pathlib  # noqa: PLC0415 — local, so importing this module stays free
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ci"))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
+
 
     root = Path(args.root)
     if args.self_test:

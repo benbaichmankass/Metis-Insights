@@ -2283,6 +2283,14 @@ def main() -> int:
     ap.add_argument("--today", default=None,
                     help="override today's date (YYYY-MM-DD) for expiry checks")
     args = ap.parse_args()
+    # The verdict below is about the COMMITTED tree. Say so when that is
+    # not the tree you edited — BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS.
+    import pathlib  # noqa: PLC0415 — local, so importing this module stays free
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
+
 
     if args.self_test:
         return self_test()

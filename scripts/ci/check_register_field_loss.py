@@ -1008,6 +1008,14 @@ def main(argv=None) -> int:
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--base", default=None)
     args = ap.parse_args(argv)
+    # The verdict below is about the COMMITTED tree. Say so when that is
+    # not the tree you edited — BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS.
+    import pathlib  # noqa: PLC0415 — local, so importing this module stays free
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
+
     if args.self_test:
         ok, _ = _self_test()
         return 0 if ok else 1
