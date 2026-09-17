@@ -37171,7 +37171,7 @@
       "id": "BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL-BACKLOG-DISPOSITIONS-ARE-NONE-OF-THE-SIX-THE-GUARD-ACCEPTS",
       "opened": "2026-09-12",
       "opened_by": "MI-280 engineering lane (session_01BjTp5RYwedmpFfkEtkQo1j) — hit live while closing a row",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "tier": "1 (docs + scripts/ci — prose vs guard enum; no order path)",
       "area": "backlog-governance / doc-drift",
@@ -37187,6 +37187,14 @@
         "docs/CLAUDE-RULES-CANONICAL.md",
         "scripts/check_claim_basis.py",
         "docs/claude/health-review-backlog.json"
+      ],
+      "updates": [
+        {
+          "at": "2026-09-12T18:35:50+00:00",
+          "by": "MI-280 engineering lane U35",
+          "disposition": "resolved",
+          "note": "RESOLVED, all four criteria, and the diagnosis CHANGED under measurement -- the row was right to refuse both 'just use the enum' and 'just edit the doc'. (1) COUNTED, which is the number the row said nobody had. POPULATION: all four review backlogs, 1,803 rows. `status` carries ONLY the six enum values -- resolved 776, open 770, kept_open 229, superseded 14, wont_fix 10, invalid 4 -- and ZERO rows carry any of the doc's five. So the migration denominator is 0 and the enum needed no widening. (2) DECIDED, on that evidence: the guard's enum is canonical and the doc was the drift (field beats comment). BUT THE ROW'S OWN CAVEAT WAS CORRECT AND THE ANSWER IS NOT 'the five are retired' -- they are a DIFFERENT FIELD. `disposition` carries them live: 103 row-level and 794 update-level entries (snoozed 41, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 14, CLOSE_UNFIXABLE 3, fixed 2 at row level). `snoozed` is additionally the `snoozed_until` FIELD of rule 4, exactly as the row suspected. So rule 3 was not merely misspelling the enum, it was describing one field and naming another. (3) ONE HOME. check_claim_basis.py::STATUS_ENUM is it; the canonical doc now MIRRORS it between `status-enum` markers and cites the file rather than listing words of its own. (4) THE CONTROL, in canonical-doc-coherence's own shape: check_status_enum_mirror imports the enum and fails BOTH directions -- a doc listing a value CI rejects, and a doc omitting one CI accepts -- and a missing marker or unreadable enum FAILS rather than printing PASS. TWO FURTHER DEFECTS FOUND WHILE VERIFYING, both fixed here rather than filed: (a) claim-basis-guard scanned THREE backlogs while scripts/ops/work_digest.py reads FOUR, so docs/claude/research-review-backlog.json was the one place a free-text status could land unremarked; measured at 19 rows, all already in-enum, so adding it widens coverage and changes no verdict today. (b) work_digest.BACKLOG_TERMINAL listed EIGHT values of which FOUR -- fixed, closed_answered, closed_unfixable, promoted_to_roadmap -- the `status` field can never hold, under a comment asserting 'the on-disk files also carry the historical spellings', which the 1,803-row count refutes. They were unreachable predicates; the digest was not broken by them because the reachable half covers every terminal transition that exists. BACKLOG_TERMINAL is now DERIVED as STATUS_ENUM minus {open, kept_open}, so a value added to the enum becomes terminal automatically. NOT FIXED HERE, DELIBERATELY: `disposition` itself has no enum and no guard and its update-level vocabulary has drifted to 35 distinct values including three that bake a qualifier into the string. A second vocabulary is a second migration with its own denominator and its own open question (whether it should be closed at all). Filed as BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT. Controls: tests/test_status_enum_single_home.py, 7 of them. Seven planted defects, all caught: doc re-adds `fixed`, doc drops a value, mirror markers removed, the enum widened without the doc, the research backlog dropped from the guard's scan set, BACKLOG_TERMINAL re-listed by hand, and the mirror check short-circuited to return no findings."
+        }
       ]
     },
     {
@@ -38840,6 +38848,62 @@
       "related": [
         "BL-20260730-PR-CI-NOT-ATTACHING"
       ]
+    },
+    {
+      "id": "BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT",
+      "opened": "2026-09-12",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 (scripts/ci + docs — a second vocabulary, no order path)",
+      "area": "backlog-governance",
+      "title": "`disposition` is a second backlog vocabulary with no enum and no guard, and its update-level values have drifted to 35 distinct strings including free text with a qualifier baked in",
+      "detail": "MEASURED 2026-09-12 (MI-280 U35) while fixing the SIBLING defect in `status` (BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL-BACKLOG-DISPOSITIONS-ARE-NONE-OF-THE-SIX-THE-GUARD-ACCEPTS). POPULATION: all four review backlogs, 1,803 rows. `status` is clean -- a closed six-value enum, CI-enforced whole-file by claim-basis-guard, ZERO off-enum rows. `disposition` is the opposite and nothing watches it. ROW-LEVEL: 103 rows, 6 distinct values -- snoozed 41, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 14, CLOSE_UNFIXABLE 3, fixed 2. UPDATE-LEVEL: 794 entries, THIRTY-FIVE distinct values -- kept_open 612, snoozed 49, resolved 39, CLOSE_ANSWERED 24, promoted_to_roadmap 19, do_now 15, wont_fix 5, then a long tail of singletons including 'partially-resolved', 'premise_refuted_pending_wider_check', 'kept_open_readable_but_wrong_population', 'fix_shipped_awaiting_live_verification', and three values that are a status with a QUALIFIER baked into the string: 'kept_open (REFUSED -- gate still not evaluable, now with the numbers)', 'open (REFUSED -- headline stale for the SECOND time; corrected again)', 'kept_open (REFUSED -- measured, does not close, and has WORSENED)'. THAT LAST GROUP IS THE HARM NAMED EXACTLY: check_claim_basis.py's own comment above STATUS_ENUM says 'A qualifier belongs in detail, never in status' -- the same thing has already happened in `disposition`, in the field nobody guarded. CASE IS ALSO INCONSISTENT AND IS NOT A SPELLING VARIANT: 27 rows carry CLOSE_ANSWERED / CLOSE_UNFIXABLE while docs/CLAUDE-RULES-CANONICAL.md wrote closed_answered / closed_unfixable -- a different prefix (CLOSE_ vs closed_), so a case-insensitive comparison would not reconcile them either. NOT ESTABLISHED, and must not be assumed: whether `disposition` SHOULD be a closed vocabulary at all. It records WHY a row ended, which is prose-shaped in a way `status` is not, and 'do_now' is not a terminal disposition in any reading -- it may be a different concept sharing a field name. Someone must read the population and decide, not pick the answer that is easier to enforce. WHAT IS ALREADY DONE AND MUST NOT BE RE-DERIVED: the `status` side is fixed and guarded -- one home (check_claim_basis.py::STATUS_ENUM), the canonical doc mirrors it behind status-enum markers, canonical-doc-coherence fails if the two disagree, the guard now scans all FOUR backlogs (it scanned three while work_digest read four), and work_digest's BACKLOG_TERMINAL is DERIVED from the enum instead of restating a superset that carried four members the field can never hold.",
+      "evidence": "Reproduce: collections.Counter over r.get('disposition') for every row, and over u.get('disposition') for every entry of r.get('updates'), across docs/claude/{health,performance,ml,research}-review-backlog.json. Consumers that already read these words: scripts/ops/work_digest.py and scripts/ops/checklist_routing_age.py.",
+      "resolution_criteria": [
+        "Decide whether `disposition` is a closed vocabulary or deliberately free prose, and say which in docs/CLAUDE-RULES-CANONICAL.md rather than leaving it unstated -- 'nobody decided' is what produced 35 values.",
+        "If it is closed: give it ONE home next to STATUS_ENUM, import it (never a second literal), reconcile the CLOSE_ANSWERED/closed_answered case-and-prefix split over its measured 27 rows, and decide where 'do_now' belongs -- it is not terminal.",
+        "Either way, split the three qualifier-bearing values so the qualifier lives in prose and the field holds a value, which is the rule `status` already has and this field does not.",
+        "Add the control in the shape of the status one: a test that the doc and the enforced vocabulary agree, plus a planted-defect control showing it can go red. A one-time cleanup without it is the same class of drift again."
+      ]
+    },
+    {
+      "id": "BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT",
+      "tier": "1 — it is a CI guard (scripts/ci/), no src/, no config/, no order path",
+      "opened": "2026-09-13",
+      "severity": "medium",
+      "status": "open",
+      "area": "ci/landing",
+      "title": "The per-branch merge-slot route is unvouchable by check_manager_scope R2, so a manager is forced back onto the shared field the route exists to replace",
+      "detail": "MEASURED 2026-09-13T08:47Z on branch claude/manager-tick-20260912-0610z. `python3 scripts/ops/claim_merge_slot.py --branch-claim` writes `.github/merge-slots/<slug>.json`, which is the route CLAUDE.md now recommends over the shared `docs/claude/session-board.json::merge_slot` field, on measured grounds: 39 of the last 40 commits touching that file moved `merge_slot.branch`, median gap 11.5 minutes, so every armed branch conflicts with main and resolving faster does not help (the resolution pushes a new head and RESTARTS CI). scripts/ci/check_manager_scope.py R2 FAILED that file for a manager commit: '.github/merge-slots/manager-tick-20260912-0610z.json is not on the manager surface this guard can vouch for. A manager session that writes this is doing an item instead of managing.' The guard has a deliberate, well-reasoned special case for the SHARED key -- `merge_slot_claim_only` decides per COMMIT that the only top-level key changed is `merge_slot` and that its `branch` is the branch being graded, and its own comment explains why the path is NOT simply listed in MANAGER_SURFACE (listing it would let a manager write anything else in that file). The per-branch route was added later and that reasoning was never carried across to it. CONSEQUENCE, and it is the wrong direction: a manager self-landing a registers-only PR must abandon the conflict-free route and take the guaranteed-conflict one. That is what this session did -- dropped the per-branch file and re-claimed the shared field -- purely to satisfy the guard.",
+      "resolution_criteria": "check_manager_scope.py vouches for `.github/merge-slots/<slug>.json` on a manager commit under the SAME per-commit discipline the shared field already gets, i.e. verified rather than path-listed: the file's basename slug must equal the branch being graded, and the commit must change no OTHER file under .github/merge-slots/. DONE when a manager commit carrying ONLY a per-branch claim for its own branch passes R2, AND a planted negative -- a manager commit claiming a slot for a DIFFERENT branch -- still FAILS it. A guard that accepts the first without rejecting the second has been widened, not taught. NOT done by adding the path to MANAGER_SURFACE: that is precisely the shortcut the existing comment in check_manager_scope.py rejects for the shared file, and it would let a manager write any other branch's claim.",
+      "evidence": "Guard output on this branch, both routes tried in sequence: the per-branch file failed R2; after `git rm` of it plus a shared-field claim, R2 read 'ok ... a LANDING act, not an item' and the run exited 0.",
+      "filed_by": "session_01HoFquGdTrD3TTGbMMRc43t"
+    },
+    {
+      "id": "BL-20260916-SPLG-YAHOO-SERVES-NO-1Y-DAILY-BARS-SO-ONE-EVIDENCE-LEG-STAYS-UNMEASURED",
+      "title": "SPLG returns zero rows from Yahoo at a 365d window while the venue is up, leaving splg_trend_long_1d the one remaining harness_failed evidence leg",
+      "severity": "low",
+      "tier": 1,
+      "status": "open",
+      "area": "research-data",
+      "opened_at": "2026-09-16",
+      "detail": "MEASURED 2026-09-16 (MI-287), after the yfinance floor fix took 22 of the 23 harness_failed strategy-evidence legs to `measured`: `splg_trend_long_1d` still grades harness_failed. Its record now carries the NEW discriminating message and the discriminator says this is NOT the dependency class: `venue_state=serving -- the SPY control returned 5 rows, so the venue is up and this is specific to SPLG`. Independently confirmed on the raw chart API with a browser UA: query1.finance.yahoo.com/v8/finance/chart/SPLG?range=1y&interval=1d returns HTTP 200 with a populated meta block (regularMarketPrice 80.0, NYSEArca) and NO timestamp array, while range=1mo returns 200 and SPY returns 252 bars at the same 1y range. meta.firstTradeDate=1784295000 (2026-07-14), i.e. Yahoo believes SPLG has ~2 months of listing history under that symbol -- consistent with a re-listing or symbol re-record -- so a 365d request spans a range Yahoo will not serve. NOT DIAGNOSED FURTHER and deliberately not guessed at: whether the remedy is a shorter window, a different Yahoo symbol, or a non-Yahoo feed is unestablished. Population: all 52 files in comms/strategy_evidence/ on branch claude/mi287-yfinance-ua-fix; census after the fix is 41 measured / 1 harness_failed / 10 no_harness.",
+      "resolution_criteria": "EITHER (a) comms/strategy_evidence/splg_trend_long_1d.json reads coverage_state `measured` with a non-null n_trades_oos, produced by a builder run and not by hand; OR (b) it is ESTABLISHED and recorded that Yahoo cannot serve this leg's window, and the leg is moved to a feed that can, or its window is changed with the reason stated in the record. !! A PLANTED CONTROL THAT MUST FAIL THIS ROW: re-running the builder unchanged and getting the same harness_failed record clears NOTHING -- that is the current state, already measured. !! AND `venue_state=serving` FLIPPING TO `refusing_us` DOES NOT CLEAR THIS EITHER: that would mean the yfinance dependency regressed, which is a DIFFERENT and more serious finding and belongs in its own row.",
+      "filed_by": "session_017RdHjT8D9JoRfskvFY8Srb",
+      "source": "MI-287"
+    },
+    {
+      "id": "BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET",
+      "title": "The yfinance 429-by-User-Agent class silently zeroed 23 evidence legs and ~20 other importers carry the same unguarded pattern",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "area": "research-data",
+      "opened_at": "2026-09-16",
+      "detail": "MEASURED 2026-09-16 (MI-287). Yahoo answers a plain-requests User-Agent with HTTP 429 ('Edge: Too Many Requests') and serves the byte-identical request with a browser UA -- 429 in 6 of 6 default-UA attempts against 200 in 6 of 6 interleaved browser-UA attempts, same host, same ticker, same loop. At the library level, same machine and minute: yfinance 0.2.40 returned 0 rows for SPY, GDX and ES=F; yfinance 1.7.0 returned 365 / 365 / 302. requirements-backtest.txt and requirements-test.txt both pinned only `yfinance>=0.2.0`, a floor that admits the broken resolution, and that is what produced 23 of 52 harness_failed strategy-evidence records. MI-287 raised the floor to >=1.7.0 in both files and taught scripts/research/regime_debt_matrix.py's yahoo arm to discriminate refusing_us / serving / undetermined via a SPY positive control. WHAT IS NOT FIXED: `grep -rln yfinance scripts/ src/` returns ~20 files and the other importers keep the original shape -- an empty frame read as an empty market. Nothing in CI or at runtime detects the venue refusing the whole fleet, so the next occurrence is again discovered by someone re-deriving it from a record. !! THE FLOOR IS HONEST, NOT MINIMAL: 1.7.0 is the lowest version MEASURED to work, not the lowest that DOES work; the boundary was not bisected.",
+      "resolution_criteria": "The `refusing_us` determination is reachable from something OTHER than regime_debt_matrix's single call site -- i.e. the positive-control probe has one owner and is imported, and at least one further yfinance importer is OBSERVED reporting it, or a guard fails a new yf.download whose empty result is read as an empty market. !! A GREEN GUARD SELF-TEST CLEARS NOTHING: a harness cannot reach Yahoo, which is the whole point of this class. !! AND RAISING THE PIN AGAIN CLEARS NOTHING -- a version floor is not a detector, and the 23 legs were lost precisely while a floor was in place.",
+      "filed_by": "session_017RdHjT8D9JoRfskvFY8Srb",
+      "source": "MI-287"
     }
   ]
 }

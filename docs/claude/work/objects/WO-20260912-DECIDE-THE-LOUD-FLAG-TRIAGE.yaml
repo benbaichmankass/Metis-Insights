@@ -75,6 +75,34 @@ captured_by: session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane, backlog-drain U5
 # measurement this session took in U17/U19 and which bears on option B.
 decision_requests:
 - id: DEC-20260912-LOUD-FLAG-TRIAGE
+  status: answered_with_a_redirect_not_an_option
+  answered_at: '2026-09-16'
+  answered_by: operator (conversational popup, relayed by manager session_01HoFquGdTrD3TTGbMMRc43t)
+  operator_text: >-
+    Verbatim, 2026-09-16: "We need to understand why we have so many loud items unhandled when we
+    resume".
+  '⚠️_NONE_OF_THE_FOUR_OPTIONS_WAS_CHOSEN_AND_NO_ONE_MAY_RECORD_ONE': >-
+    The operator picked NONE of derive_from_due / budget_with_guard / derive_from_severity /
+    decline_keep_as_is, and a session must not infer one. The answer REJECTS THE QUESTION'S FRAMING:
+    every option was a way to redefine the REPORTING DUTY so the count stops being embarrassing,
+    and the operator asked instead for the DIAGNOSIS of why 72 rows went unhandled. Redefining the
+    duty before knowing that would be exactly the cosmetic fix this register exists to prevent --
+    it would make the number smaller without making anything get handled.
+  what_is_owed_before_this_decision_can_be_taken: >-
+    A measured account of WHY the loud set is unhandled, distinguishing causes rather than pooling
+    them. Candidate classes to separate, not to assume: (a) rows whose clears_when needs an
+    observation nobody is positioned to make (a live-fleet read, an operator confirmation); (b)
+    rows blocked on a tier-gated decision; (c) rows genuinely actionable that nobody picked up;
+    (d) rows that are effectively done and were never cleared; (e) rows that should never have
+    been loud. State the population and a per-class count. THE SHAPE OF THE ANSWER DECIDES THE
+    OPTION: if most are (a), no reporting-duty change helps and the duty is not the problem; if
+    most are (d), the register has a CLEARING problem, not a flagging one.
+  '⚠️_A_RELATED_INSTANCE_MEASURED_THE_SAME_DAY': >-
+    DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR was re-asked on 2026-09-16 despite having been
+    superseded on 2026-09-09, because the supersession lived only in another row's prose. That is
+    class (d) -- settled but not machine-readably closed -- observed live in a different register
+    on the same day. It is evidence that the "unhandled" population is not one thing, which is
+    precisely the operator's point.
   question: >-
     `loud: true` is set on 72 of 85 OPEN-ITEMS rows (84.7%), while the register's own rule is
     that EVERY loud row must be reported on in a session's closing summary. At that size the
