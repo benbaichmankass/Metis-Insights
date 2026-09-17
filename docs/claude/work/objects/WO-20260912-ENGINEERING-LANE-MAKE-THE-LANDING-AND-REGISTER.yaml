@@ -147,3 +147,53 @@ paused_2026_09_13: >-
       over it reported "read and nothing matched" -- a clean negative over a population
       nobody read. If U91 does not land, every probe pointed at a pretty-printed JSON file
       is silently blind.
+
+resumed_2026_09_17: >-
+  RESUMED 2026-09-17 by the same session (session_01BjTp5RYwedmpFfkEtkQo1j) after the
+  weekly budget window reset on 2026-09-16T18:00Z. ⚠️ BOTH "NEXT CONCRETE STEPS" IN
+  `paused_2026_09_13` ARE NOW DISCHARGED — do not re-do them. That note is preserved
+  above as the record of what was true at the pause, and this key is its correction; a
+  successor acting on its step list would redo finished work, which is the exact failure
+  this lane spent its run on.
+
+  (1) U92's PR IS OPEN AND ARMED — #12366. It was opened by hand first and the landing
+  record, arming file and per-branch merge slot pushed as a second commit, so CI fires
+  normally. Synced to `main` first: backlog 1596 rows, 0 lost from either side, 0
+  duplicates, round-trip OK on all four live backlogs.
+
+  (2) THE #12217 pytest QUESTION IS ANSWERED, AND THE ANSWER WAS THAT THE FAILURE WAS
+  MINE. `tests/test_pytest_run_filter.py` was right: `tests/test_probe_file_whole_json.py`
+  read `docs/claude/DUE.json` and `docs/claude/OPEN-ITEMS.json` AS COMMITTED, and both
+  short-circuit `pytest-run` — instance 5 of the class behind
+  BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT. ⚠️ ITS PRESCRIBED
+  REMEDY IS "COVER THE PATH" AND I DID NOT TAKE IT, on a measured basis: over the
+  preceding week on `main`, `DUE.json` changed 4-8 times a DAY and `OPEN-ITEMS.json` 77
+  times in 7 days, so covering them would put a ~16-minute suite on roughly fifteen
+  pushes a day — against MB-20260706-CI-MINUTES, which is why the short-circuit exists.
+  ⚠️ AND THE SECOND DEFECT NO GUARD CAUGHT: three of the four tests asserted TODAY'S
+  OPERATIONAL STATE of a cron-regenerated file. One required `red_crons.state == "read"`,
+  which goes false the moment a render runs without a token, reddening `main` for CORRECT
+  behaviour; another asserted `red_main_runs` was ABSENT, i.e. it was built to FAIL the
+  moment the thing it watches starts working. They are fixtures now. Nothing was lost: the
+  registry half is already enforced by `probe-guard`, OBSERVED failing on a missing `probe`
+  and again on a missing `probe.is_not`.
+
+  A THIRD THING, NOT IN THE PAUSE NOTE BECAUSE IT HAPPENED DURING THE PAUSE.
+  `open-items-guard` was failing on EVERY PR in the repo and on `origin/main` itself —
+  measured, not inferred: #12214's CI at 2026-09-17T06:32Z reads `PASS 109 / FAIL 1` with
+  that guard the single failure. Cause: OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT
+  crossed the 21-day staleness limit at 22 days on 2026-09-16, inside the pause. The guard
+  is working as designed and its limit was NOT relaxed. Fixed in #12365 by LOOKING:
+  `comms/broker_truth_ledger.json` still carries exactly one account, `bybit_2`, last
+  committed `dc3780e52` on 2026-07-13 and 66 days untouched, so the condition still holds
+  and the row is RE-AFFIRMED rather than cleared. The prior observation was APPENDED to,
+  never replaced — the rule #12214 is still in flight to enforce, honoured before it could.
+
+  OPEN AND ARMED AT THIS WRITING: #12214, #12217, #12224, #12365, #12366, and #12367 —
+  which is THIS correction, and which the first version of this key could not name
+  because it did not exist yet. ⚠️ #12367 WAS OPENED BY `claude-pr-automerge`, NOT BY
+  HAND, because this branch's first push carried the arming file ALONGSIDE the content
+  instead of behind it — so the PR was born under `GITHUB_TOKEN`, carries no
+  `pull_request` event, and its CI never fired. That is the documented trap, walked
+  into by the lane that documents it, and the commit adding this sentence is the
+  ordinary push that arms its checks. MERGED: #12223.
