@@ -132,9 +132,27 @@ jobs:
       # slot fires at all — read the run history, never the cron expression.
       #
       # Only PyYAML, deliberately: nothing else this job runs leaves the
-      # stdlib (render_due_list.py and render_session_brief.py are stdlib-only,
-      # which is why due-list.yml needs no install step and succeeds). The
-      # pinned spelling matches the 10 sibling workflows that already use it.
+      # stdlib. The pinned spelling matches the sibling workflows that already
+      # use it.
+      #
+      # ⚠️ CORRECTED 2026-09-17 — THIS COMMENT USED TO END "(render_due_list.py
+      # and render_session_brief.py are stdlib-only, WHICH IS WHY due-list.yml
+      # NEEDS NO INSTALL STEP AND SUCCEEDS)". Do not re-quote that. It was true
+      # when written on 2026-09-08 and false four days later:
+      # `src_spent_decision_edges` landed 2026-09-12 and execs
+      # `scripts/ci/check_decision_answers.py`, which imports PyYAML at module
+      # scope, so `render_due_list.py` stopped being stdlib-only. due-list.yml's
+      # cron then failed 4 of 4 scheduled runs (#104-#107, 2026-09-13 .. 09-16)
+      # at its own self-test gate on the identical ModuleNotFoundError this step
+      # was added to fix.
+      #
+      # ⚠️ THE STALE SENTENCE IS WHY THE FIX DID NOT SPREAD, which is the part
+      # worth carrying: this class was correctly diagnosed here and fixed at ONE
+      # call site, and a reader checking whether the siblings needed the same
+      # step was told in prose that they did not. FIELD BEATS COMMENT —
+      # tests/test_workflow_python_deps.py now DERIVES the answer from the
+      # import-and-exec graph over every workflow, so nobody has to trust a
+      # prose claim about which script is stdlib-only again.
       - name: Install PyYAML — the work store is YAML and the runner has none
         run: python3 -m pip install --quiet --upgrade pip "pyyaml>=6.0"
 
