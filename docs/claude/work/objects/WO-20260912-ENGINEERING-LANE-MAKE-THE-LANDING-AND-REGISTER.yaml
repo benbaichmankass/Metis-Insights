@@ -241,3 +241,56 @@ resumed_2026_09_17: >-
   `pull_request` event, and its CI never fired. That is the documented trap, walked
   into by the lane that documents it, and the commit adding this sentence is the
   ordinary push that arms its checks. MERGED: #12223.
+
+landed_2026_09_17: >-
+  ⚠️ `resumed_2026_09_17` ABOVE ENDS WITH AN "OPEN AND ARMED" LIST THAT IS NOW ENTIRELY
+  STALE, AND THIS KEY IS ITS CORRECTION. It is preserved rather than edited, as the record
+  of what was true when it was written; a successor reading it would chase six PRs that
+  need no chasing and might re-do landed work. Every one of the six is settled — verified
+  by reading `main`'s own commit log with a SUBJECT-ANCHORED match, never by
+  `git merge-base --is-ancestor`, which reports NOT MERGED for every squash-merged PR in
+  this repo, and never from a `list_pull_requests` page, whose 30-item window silently
+  drops older numbers. Both of those wrong probes cost this lane a public correction on
+  2026-09-17.
+
+  SETTLED: #12214 (78ac7873b) · #12217 (5f9d2429b) · #12224 (c7c37eb77) · #12366
+  (166d8af97) · #12367 (7e160d302). #12365 is CLOSED as superseded, not merged — #12364
+  fixed the same root row first, and landing a weaker duplicate would have re-written an
+  observation somebody else had already made properly; its one additive fact was routed
+  into the existing backlog row instead.
+
+  ALSO LANDED SINCE, and not in that list because they did not exist yet: #12368
+  (e8855b190, U95) · #12369 (59da43b9a, U96) · #12370 (dcea30cfe, U97) · #12373
+  (b3cf1f907, U99).
+
+  IN FLIGHT AT THIS WRITING: #12372 (U98, conflict-marker scope) and #12374 (U100).
+  ⚠️ STATE THE POPULATION AND THE TIME: this is a dated snapshot, not a live read. Re-derive
+  it from `main`'s log rather than quoting it, which is the whole reason the sentence this
+  key corrects went stale.
+
+  #12372 CARRIES A LESSON WORTH MORE THAN THE UNIT: its first CI run reddened three tests
+  in `tests/test_pytest_run_filter.py`, and both causes were real. Its probe files were
+  written into the repository's own documentation tree, where that suite's scan reads each
+  as a COMMITTED docs file a docs-only PR could change while `pytest-run` short-circuits to
+  a green tick having executed nothing. That was a live hazard and not only a scan artefact:
+  a test writing into the working tree leaves the file behind if the process dies before its
+  `finally`, and the next real-corpus scan would report a planted conflict as a genuine
+  finding. Fixed by pointing the module `ROOT` at a tmp tree, which still exercises the real
+  corpus construction. Separately `docs/sprint-logs` — level 4 of the instruction hierarchy —
+  is a genuine committed tree the suite now asserts over, and was covered the way the failing
+  test instructs, by adding it to the filter rather than narrowing the scan.
+
+  ⚠️ AND THE LANE FOUND A FOUR-DAY OUTAGE WHILE LOOKING FOR ITS NEXT UNIT, which is the
+  finding this record most needs to carry forward. `due-list.yml` — the producer behind the
+  ONE surface that answers "what is due right now" — concluded `failure` on 4 of 4 scheduled
+  runs (#104-#107, 2026-09-13 .. 09-16) on a missing PyYAML, and `docs/claude/DUE.json` sat
+  four days stale. It is a RECURRENCE whose previous fix's own comment is what stopped it
+  spreading: `constraint-readout.yml` diagnosed the identical class on 2026-09-08, fixed ONE
+  call site, and asserted in prose that `due-list.yml` needed no install step. Nothing graded
+  that claim. #12374 fixes the three affected workflows, corrects the comment in place, and
+  replaces the prose claim with a test that DERIVES the answer from the import-and-exec
+  graph. Filed as
+  BL-20260917-A-WORKFLOW-THAT-RUNS-A-PYTHON-SCRIPT-IS-NOT-CHECKED-AGAINST-WHAT-THAT-SCRIPT-IMPORTS.
+  ⚠️ MERGING #12374 CLEARS NEITHER HALF OF THAT ROW: a merge is not a run, and a green
+  `pytest-run` is a harness that cannot reach a runner — which is exactly why the class was
+  invisible to CI for four days.
