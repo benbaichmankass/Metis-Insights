@@ -1,0 +1,39 @@
+id: WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Engineering lane: the structural fixes, with the research/testing/ML infrastructure made fit for purpose
+stage: BUILD
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-17
+closed_at: null
+why: >-
+  Operator-directed 2026-09-17: structural fixes are needed in many places, with EMPHASIS on making the
+  research/testing/ML infrastructure fit for purpose and designed to be used correctly and efficiently.
+  ⚠️ THE LANDING AND REGISTER MACHINERY COMES FIRST, on measured grounds rather than preference: 9 of 14
+  substantive PRs are merge-conflicted and EVERY conflict probed is in a shared register
+  (health-review-backlog.json in 5 of 7), ZERO in src/, tests/, scripts/ or config/. Roughly 10,000 lines of
+  finished, self-tested work is stranded on register contention alone. Until that is fixed, everything this
+  lane produces strands the same way.
+  EVIDENCE FROM THE MANAGER'S OWN SESSION, 4 trivial register changes on 2026-09-17, each hitting a DIFFERENT
+  landing defect: the GITHUB_TOKEN-born-PR no-CI trap (twice); pr-landing R13 preferring the per-branch
+  merge-slot route while manager-scope R2 refuses it for a manager; and watch/armed-branch-push resolving a
+  branch's PRs BY NAME so a reused designated branch always matches its own merged PR and reports work
+  unlanded when it landed (filed BL-20260917-WATCH-RESOLVES-A-BRANCHS-PRS-BY-NAME-SO-A-REUSED-DESIGNATED-BRANCH-ALWAYS-MATCHES-ITS-OWN-MERGED-PR-AND-FAILS).
+  THEN the research/testing/ML infra: replay-pregate cannot finish (trainer OOM), the Actions-log probe reader
+  has never read a job log, the scalp exit head has no artifact, and MI-287's 23 strategy-evidence harnesses
+  are UNVERIFIED — DEC-20260917-E35-GATE says verify they actually pass before deciding on e35.
+done_condition: >-
+  A register/landing change OBSERVED to stop a real conflict or a wrong verdict — not a passing self-test — and
+  a stated, measured verdict on whether the research/testing/ML infra is fit for purpose, naming what was fixed
+  and what was left and why.
+source: operator directive, 2026-09-17, in conversation with the manager session_01GHpyXT2qssLJsrvXBQRkQF
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: nothing blocks this object at spawn. Every input each lane needs is
+  readable from its own container. ⚠️ It is a statement about TODAY and about THIS object only, and is NOT a
+  forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
+  edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF

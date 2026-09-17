@@ -1,80 +1,107 @@
 id: WO-20260917-OPS-LANE-CANONIZE-THE-SESSION-RECEIPT-THEN-REVIEW-AND-TRIAGE
-type: commitment
+type: work_object
 parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
-  OPS lane: canonize the session-receipt format, then system review + audit, then
-  triage the health backlog into workable chunks
-stage: DELIVERY
-lifecycle: ready
+  Ops lane: canonize the session-receipt format, then system review + audit, then triage the backlog into workable chunks
+stage: BUILD
+lifecycle: in_flight
 owner: session_0178pRo8ZxrnrREzDzDzb9Zk
 opened_at: 2026-09-17
 closed_at: null
 
-⚠️_LIFECYCLE_UNDERSTATES_REALITY: >-
-  THIS ROW READS `ready` AND THE LANE IS RUNNING. The value is wrong and says so
-  here rather than being quietly corrected, because `in_flight` is not available:
-  MEASURED 2026-09-17 at origin/main 19e5966 over all 184 objects in
-  docs/claude/work/objects/, the store holds 8 in_flight against a ceiling of 8,
-  so scripts/ci/check_wip_ceiling.py refuses a ninth and would red every PR in
-  the repo.
-
-  ⚠️ AND THE CEILING IS NOT HOLDING AGAINST LIVE WORK. Of those 8, six carry a
-  resolvable session-id owner and SIX OF SIX ARE NOT RUNNING — five
-  SESSION_STATUS_IDLE and one SESSION_STATUS_ARCHIVED, every one with
-  status_bucket in {COMPLETED, BLOCKED} and ZERO in WORKING; five of the six
-  report `status_category: completed` in their own post_turn_summary. The other
-  two are ungradeable: one carries `owner: claude` (not a session id) and one
-  carries `owner: null` (nobody has said). Read individually via get_session on
-  2026-09-17; the owning ids are in the finding filed as
-  BL-20260917-THE-WIP-CEILING-IS-FULL-AND-SIX-OF-SIX-GRADEABLE-IN-FLIGHT-OWNERS-ARE-DEAD-SESSIONS-SO-A-NEW-LANE-CANNOT-RECORD-ITSELF.
-
-  Closing those rows is the MANAGER's act (they are other lanes' objects and
-  docs/claude/work/** is the manager surface), so this lane FILED and ESCALATED
-  rather than acting. Do not read `ready` here as a claim that nothing started.
-
-done_condition: >-
-  THREE UNITS, in the operator's order, and they are different facts — say WHICH
-  was delivered rather than closing on the easiest.
-
-  (1) MI-290 CANONIZED: `.claude/skills/session-receipt/SKILL.md` exists and the
-  trigger phrase "session receipt" RESOLVES to it through the binding skill-first
-  lookup; `scripts/ops/session_receipt.py` produces the measured half;
-  GET /api/bot/work/receipts serves a durable artifact. ⚠️ NOT done when the
-  files merge — done when a session that was NOT pointed here by its prompt is
-  asked for a session receipt and produces THIS shape. A skill that exists and is
-  never reached is the exact failure
-  OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE
-  watches.
-
-  (2) SYSTEM REVIEW delivered with the operator's two weightings — performance
-  for the past week, and soak monitoring — each figure carrying its population.
-
-  (3) TRIAGE delivered as NAMED CHUNKS BY CLASS that a later session can pick up
-  without re-deriving the classification. ⚠️ Explicitly NOT a drain: a count of
-  rows closed is not this unit's measure and must not be substituted for it.
+merge_note: >-
+  ⚠️ THIS FILE WAS AN add/add CONFLICT AND IS RESOLVED AS A UNION, NEVER BY TAKING A
+  SIDE. The manager (session_01GHpyXT2qssLJsrvXBQRkQF) created it in #12470 while the
+  lane created it independently — neither knew of the other, because the lane's
+  registry row was not on origin/main when the lane started (MI-263 reproducing). The
+  MANAGER's structural record is kept verbatim as the authoritative SPAWN record
+  (`type`, `stage`, `why` including its own recorded first-reading error, `source`,
+  `captured_by`); the LANE added `owner`, `decision_requests` and the delivery record
+  below. Nothing from either side was dropped. Resolving by side would have discarded
+  either the operator directive's full text or the only open decision on this object —
+  which is the BL-20260814 hand-resolved-merge shape, one level up.
 
 why: >-
-  Operator-directed 2026-09-17: "i want this format of summary cannonized so that
-  this is what i get whenever i ask a session for a 'session receipt', and this is
-  what should be presented on the web page". The receipt format was delivered once,
-  lived only in one manager's transcript, and could not even be committed — it
-  carried shortened backlog ids that resolve to nothing, so check_backlog_refs
-  refused it. A format that exists only in a transcript is the "research that
-  specifies work is carried by nothing" class, one level up.
+  Operator-directed 2026-09-17, in this order. (1) FIRST, build what MI-290 queues: the operator asked that
+  'session receipt' be a canonized shape — a skill that OWNS the format so the trigger phrase resolves to it,
+  a generator for the attribution and PR-verification queries, a durable artifact the Workflow page can read,
+  and ONE decision left deliberately open (generated on demand vs written at session end). ⚠️ MI-290 says in
+  terms DO NOT BUILD THIS WITHOUT READING THE 2026-09-17 DELIVERY, which existed only in the predecessor's
+  transcript; it is committed in this change at docs/claude/receipts/RECEIPT-2026-09-17-manager-wrap.md and is
+  the reference artifact. (2) THEN the system review + audit, weighted as the operator asked: performance for
+  the past week, and SOAK MONITORING. (3) THEN triage the health backlog into workable chunks.
+  ⚠️ THE MANAGER'S FIRST READING OF (1) WAS WRONG AND IS RECORDED SO IT IS NOT REPEATED: it read 'open items
+  about the receipt format' as the cron/watcher receipt-LANDING cluster (PR-QUEUE-WATCH, TRAINER-CAPTURE-WATCH,
+  the commit-to-main quota defect). The operator corrected it to STANDARDIZING the session wrap-up receipt.
+  The landing cluster is real and stays filed, but it is NOT this lane's first unit.
 
-source: >-
-  operator 2026-09-17 (units 1 and 2, including the two review weightings);
-  manager session_01GHpyXT2qssLJsrvXBQRkQF spawn brief (unit 3 and the ordering).
+⚠️_ONE_SENTENCE_OF_THE_WHY_ABOVE_IS_FALSE_ON_MAIN: >-
+  MEASURED 2026-09-17 by the owning lane with `git cat-file -e`: the path the `why`
+  names — docs/claude/receipts/RECEIPT-2026-09-17-manager-wrap.md — DOES NOT EXIST on
+  origin/main. The `why` is preserved verbatim rather than edited, because it is the
+  manager's spawn record and rewriting another session's record hides what was
+  believed; this field is the correction beside it. A later session going to that path
+  for the reference artifact will find nothing.
+
+  THE CAUSE IS KNOWN AND IS THE SAME ONE THIS LANE'S FIRST UNIT EXISTS TO FIX: the
+  artifact carries SHORTENED backlog ids that resolve to nothing, so check_backlog_refs
+  refuses the diff, and `docs/claude/receipts/` is additionally off
+  check_manager_scope's MANAGER_SURFACE (R2). The lane's fix addresses both — receipts
+  now land under docs/claude/work/receipts/, which IS on the manager surface, and the
+  generator resolves ids from the backlog rather than letting an author type them.
+
+  ⚠️ THE REFERENCE ARTIFACT ITSELF IS THEREFORE STILL CARRIED BY NOTHING DURABLE. It
+  was relayed into the lane's spawn prompt verbatim and is reproduced in shape by
+  .claude/skills/session-receipt/SKILL.md, but the original is not in the repo. Whether
+  to commit it (now possible under the new path, once its ids are expanded) is a small
+  piece of work nobody owns.
+
+done_condition: >-
+  MI-290's four owed things exist and the open decision is PUT to the operator rather than silently resolved;
+  a session review has been run with the performance and soak weighting stated; and the backlog is triaged into
+  named chunks a later session can pick up without re-deriving the triage.
+
+  ⚠️ SHARPENED BY THE OWNING LANE — THE THREE UNITS ARE DIFFERENT FACTS, so say WHICH
+  was delivered rather than closing on the easiest.
+
+  (1) MI-290 is NOT done when the files merge — it is done when a session that was NOT
+  pointed here by its prompt is asked for a session receipt and produces THIS shape. A
+  skill that exists and is never reached is the exact failure
+  OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE watches.
+
+  (2) The review must state its own COVERAGE. It does not satisfy /system-review's ~15
+  mandatory coverage keys and says so in a table before any finding; a thin
+  review_coverage block would pass the coverage guard while measuring nothing.
+
+  (3) The triage is explicitly NOT a drain: a count of rows closed is not this unit's
+  measure and must not be substituted for it.
+
+source: operator directive, 2026-09-17, in conversation with the manager session_01GHpyXT2qssLJsrvXBQRkQF
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+
+delivered: >-
+  PR #12473, 2026-09-17, by session_0178pRo8ZxrnrREzDzDzb9Zk. All three units.
+  (1) .claude/skills/session-receipt/SKILL.md (verified LOADED and invocable, not merely
+  written) + scripts/ops/session_receipt.py + GET /api/bot/work/receipts +
+  docs/claude/work/receipts/<session_id>.json. (2)
+  docs/claude/work/SYSTEM-REVIEW-2026-09-17.md. (3)
+  docs/claude/work/BACKLOG-TRIAGE-2026-09-17.md — 21 classes over the 330 unresolved
+  crit+high rows, a verified complete partition (330 indices, 330 unique, 0 missing, 0
+  duplicated). Tier-1, landing: hold on unvouchable_paths — one file is outside
+  TIER1_SURFACE, so it needs a manager MERGE DECISION and is NOT waiting on an approval.
 
 blocked_on: []
-blocked_on_basis: ASSESSED
-blocked_on_note: >-
-  Nothing blocks units 1-3. What is OPEN is the decision below, and it does not
-  block delivery: the union of both answers is buildable and was built, so the
-  decision changes the CADENCE a session runs the generator on, never whether the
-  generator exists. Recorded as ASSESSED rather than left empty — an empty
-  blocked_on with basis NOT_ASSESSED is nobody having looked, which is what 96 of
-  the store's 184 objects currently carry.
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: nothing blocks this object at spawn. Every input each lane needs is
+  readable from its own container. ⚠️ It is a statement about TODAY and about THIS object only, and is NOT a
+  forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
+  edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
+
+  RE-AFFIRMED 2026-09-17 by the owning lane at delivery, and it held: nothing blocked
+  units 1-3. The open decision below does NOT block, because the union of both answers
+  is buildable and was built — it sets the CADENCE a session runs the generator on,
+  never whether the generator exists.
 
 decision_requests:
   - id: DEC-20260917-SESSION-RECEIPT-CADENCE
@@ -103,12 +130,12 @@ decision_requests:
       answered the skill says: generate on demand AND --write when you wrap.
 
       ⚠️ MEASURED 2026-09-17 AND IT BEARS ON THE ANSWER — sessions do not
-      reliably survive to write anything. Over the 8 in_flight work objects, 6
-      carry a resolvable owner and 6 of 6 are IDLE or ARCHIVED, five reporting
-      `completed` in their own summary while their object still reads in_flight.
-      An at-session-end receipt would have been written by the five that completed
-      and NOT by anything that died mid-turn, so it improves the record without
-      guaranteeing it.
+      reliably survive to write anything. Of the 8 in_flight work objects read that
+      day, 6 carried a resolvable session-id owner and 6 of 6 were IDLE or ARCHIVED,
+      five reporting `completed` in their own summary while their object still read
+      in_flight. An at-session-end receipt would have been written by the five that
+      completed and NOT by anything that died mid-turn, so it improves the record
+      without guaranteeing it.
 
       ⚠️ AND A WARNING ABOUT HOW THIS QUESTION REACHES YOU. The Telegram decision
       channel is MEASURED FAILING: over 47 consecutive sweep runs recovered from
