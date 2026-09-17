@@ -769,6 +769,81 @@ def src_red_crons(
 _PUSH_RUN_NOT_A_FINDING = (None, "success", "cancelled", "skipped")
 
 
+#: Three never-collapsed answers to "how far behind `main`'s tip was the commit
+#: this verdict actually graded?". `distance_unknown` is *we could not look* and
+#: is NEVER folded into `at_tip` — the whole defect being repaired here is a
+#: verdict that read as a statement about the tip without having graded it.
+GRADE_AT_TIP = "at_tip"
+GRADE_BEHIND_TIP = "behind_tip"
+GRADE_DISTANCE_UNKNOWN = "distance_unknown"
+
+
+def grade_distance(main_shas: list[str],
+                   graded_sha: str | None) -> tuple[str, int | None]:
+    """How many commits on `main` are NEWER than the one a run graded.
+
+    `main_shas` is newest-first, as the commits API returns it, so the INDEX is
+    the distance: index 0 is the tip and therefore distance 0.
+
+    ⚠️ A sha that is not in the list returns `distance_unknown`, NEVER
+    `len(main_shas)`. The list is one page, so absence means *the commit is
+    older than the page* OR *it is not on `main` at all* — two different facts,
+    and inventing a number for either would put a fabricated denominator on a
+    verdict whose whole defect was having none.
+    """
+    if not graded_sha or not main_shas:
+        return GRADE_DISTANCE_UNKNOWN, None
+    try:
+        idx = main_shas.index(graded_sha)
+    except ValueError:
+        return GRADE_DISTANCE_UNKNOWN, None
+    return (GRADE_AT_TIP if idx == 0 else GRADE_BEHIND_TIP), idx
+
+
+def _placement_phrase(state: str, dist: int | None) -> str:
+    """Render one graded commit's placement for a human, denominator attached."""
+    if state == GRADE_AT_TIP:
+        return "`main`'s tip"
+    if state == GRADE_BEHIND_TIP:
+        return f"{dist} commit(s) behind `main`'s tip"
+    return "distance from the tip UNKNOWN — we could not look"
+
+
+def _red_main_note(placements: dict[str, tuple[str, int | None]],
+                   red_n: int, commits_note: str) -> str:
+    """State the population a `red_main_runs` verdict rests on.
+
+    ⚠️ THE ZERO-ROW CASE IS WHY THIS EXISTS. The source emits a row only on a
+    real failure, so a green run renders as no rows at all — which reads as
+    *the default branch is clean* while what was established is only *the most
+    recent commit anyone graded was clean*. MEASURED 2026-09-17: `main`'s tip
+    was `00045e5d3` while the newest COMPLETED push-to-main `guards` run had
+    graded `88de5e156`, **4 commits back, all 4 of them touching a register** —
+    the class that turned `main` red twice that day. `main` happened to be
+    clean; the point is that this source could not tell the two apart.
+    """
+    graded = len(placements)
+    behind = [d for (s, d) in placements.values()
+              if s == GRADE_BEHIND_TIP and d is not None]
+    unknown = sum(1 for (s, _d) in placements.values()
+                  if s == GRADE_DISTANCE_UNKNOWN)
+    at_tip = sum(1 for (s, _d) in placements.values() if s == GRADE_AT_TIP)
+    parts = [
+        f"{graded} workflow(s) graded, {red_n} red",
+        f"{at_tip} graded at `main`'s tip",
+        (f"worst distance {max(behind)} commit(s) behind"
+         if behind else "none graded behind the tip"),
+        f"{unknown} with distance_unknown",
+    ]
+    if commits_note:
+        parts.append(commits_note)
+    parts.append(
+        "⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict "
+        "is the latest COMPLETED push run, and an auto-merged PR produces no "
+        "push run at all, so the tip is routinely ungraded")
+    return " · ".join(parts)
+
+
 def src_red_main_runs(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
@@ -818,6 +893,22 @@ def src_red_main_runs(
         return SourceResult("red_main_runs", "could_not_read",
                             note=f"{type(exc).__name__}: {exc}")
 
+    #: `main`'s recent commits, newest-first, so every verdict can name the
+    #: commit it graded and how far back that is.
+    #: ⚠️ A FAILURE HERE MUST NOT SUPPRESS A RED ROW. The point of this source
+    #: is the red; losing it because the denominator could not be read would be
+    #: strictly worse than the unprovenanced verdict this repairs. On failure
+    #: every placement degrades to `distance_unknown` and the reds still ship.
+    main_shas: list[str] = []
+    commits_note = ""
+    try:
+        commits = _gh(f"/repos/{REPO}/commits?sha=main&per_page=100", token)
+        main_shas = [c.get("sha", "") for c in commits if isinstance(c, dict)]
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        commits_note = (f"could not read `main`'s commit list "
+                        f"({type(exc).__name__}) — every distance below reads "
+                        f"`distance_unknown`")
+
     latest: dict[str, dict] = {}
     for run in data.get("workflow_runs", []):
         if run.get("status") != "completed":
@@ -825,15 +916,23 @@ def src_red_main_runs(
         name = run.get("name") or run.get("path", "?")
         if name not in latest:            # the API returns newest-first
             latest[name] = run
+
     rows = []
+    placements: dict[str, tuple[str, int | None]] = {}
     for name, run in sorted(latest.items()):
-        if run.get("conclusion") not in _PUSH_RUN_NOT_A_FINDING:
-            rows.append(_row("red_main_runs", name, name,
-                             f"the latest push-to-main run of {name} concluded "
-                             f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
-                             f"red, and until 2026-09-13 nothing read this",
-                             loud=True, link=run.get("html_url", "")))
-    return SourceResult("red_main_runs", "read", rows)
+        sha = run.get("head_sha") or ""
+        placements[name] = grade_distance(main_shas, sha)
+        if run.get("conclusion") in _PUSH_RUN_NOT_A_FINDING:
+            continue
+        rows.append(_row("red_main_runs", name, name,
+                         f"the latest push-to-main run of {name} concluded "
+                         f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
+                         f"red, and until 2026-09-13 nothing read this. Graded "
+                         f"at {sha[:9] or '(no sha)'}, "
+                         f"{_placement_phrase(*placements[name])}",
+                         loud=True, link=run.get("html_url", "")))
+    return SourceResult("red_main_runs", "read", rows,
+                        note=_red_main_note(placements, len(rows), commits_note))
 
 
 def src_unlanded_automation(
