@@ -133,7 +133,169 @@ decision_requests:
       NOT BLOCKING. U42 continues to the next unit; nothing waits on this answer, and
       no parameter, roster or execution value was changed by the unit that raised it.
 
+  - id: DEC-20260917-SCALP-MARGIN-BOUND-SIZING
+    question: >-
+      On roughly a quarter of ict_scalp orders the per-trade SIZE is set by available
+      margin rather than by the declared 1.5% risk policy -- provably so, at any
+      balance. The limiter is undeclared, moves with the book, and is recorded only on
+      refusal rows. Do you want it left as-is and RECORDED as the policy, swept offline
+      before any change, or made observable first? A stop floor is deliberately NOT
+      offered as a ready option -- see the context.
+    urgency: routine
+    asked_on: '2026-09-17'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-17 (MI-278 U45) off two live pulls -- /api/diag/journal
+      table=trades and table=order_packages, limit=1000 each, ids 4867-5866,
+      2026-08-21 -> 2026-09-17, rowset digests declared in the memo. Instrument
+      scripts/research/margin_bound_sizing_basis.py (50 self-test + 41 pytest controls;
+      8 planted defects, 8 caught). Memo
+      docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md.
+      || THE PROOF NEEDS NO NEW STAMP AND NO BALANCE. The risk sizer demands
+      equity x risk_pct x entry / risk_per_unit; the margin pre-flight cap allows
+      basis_usd x leverage x buffer; and because every basis the sizer may use is at
+      most equity, the equity term CANCELS. risk_pct x entry /
+      (risk_per_unit x leverage x buffer) >= 1 proves the cap binds at ANY balance --
+      equivalently, whenever the declared initial stop is closer than
+      10000 x risk_pct / (leverage x buffer) = 55.56 bp at bybit_1's declared 1.5% / 3x
+      / 0.9. On the pull: 43 of 274 gradeable sizer-output rows are provably bound,
+      provableCoverage 0.2445, and the control against each row's OWN stamped ceiling
+      is SOUND with ZERO false positives on 32 stamped rows.
+      || [!] IT IS A FAMILY PROPERTY, NOT AN AVAX ONE, WHICH IS NOT WHAT THE ROW SAYS.
+      42 of the 43 bound rows are ict_scalp_* orders; the other 16 legs on the account
+      contribute ONE between them, and not a single pullback or donchian leg is bound
+      at any ratio (their stops sit at 72-476 bp). ict_scalp_5m on BTC is
+      proportionally worse than the leg PB-20260822 names: 50.0% of its gradeable
+      orders bound, median ratio 1.003.
+      || [!] THE OBVIOUS REMEDY IS WITHDRAWN BY THIS UNIT'S OWN EVIDENCE. A minimum
+      stop distance WIDENS risk, which LOWERS the demanded quantity until the cap stops
+      binding -- i.e. it removes the size clamp from the cohort that, on the only
+      measurement available, is not the losing one. Pooled, the bound cohort is
+      +1,013.93 over 34 closes against -10,842.22 over 96; but that comparison does NOT
+      survive its own control -- ict_scalp_sol_15m has ZERO bound rows and contributes
+      47% of the unbound loss by itself. Per leg, on a MEASURED-only basis and over the
+      five legs where both arms reach n>=3, three lean toward the bound arm, one is
+      tied and one leans against, at 1-10 measured rows per arm. NOT ESTABLISHED IN
+      EITHER DIRECTION, on a PAPER account over 27 days.
+      || WHAT THE CLAMP IS DOING MEANWHILE: median realised risk_usd is 387 on the
+      bound cohort against 867 on the rest, while the declared per-trade budget at the
+      observed equity is ~2,000. So on that cohort the per-trade risk is set by
+      available margin, not by policy.
+      || WHERE IT COMES FROM, read at the field (src/units/strategies/ict_scalp.py:508-523):
+      sl = sweep extreme -/+ 0.20 x ATR, and the ONLY floor on risk is `risk <= 0`. No
+      min_stop_bps parameter exists on any ict_scalp leg. But the degenerate case is
+      rare -- risk/ATR is median 3.30 and only 1.8% of rows fall below 0.25 x ATR -- so
+      an ATR floor is the wrong instrument: 1.0 x ATR touches 5.1% of rows and only 14
+      of the 65 bound ones, while a bp floor at the binding distance touches 23.7% by
+      construction. AND any floor on risk also moves the TARGET, because
+      tp = entry +/- tp_at_r x risk three lines below; refusing the signal does not.
+      || [!] DO NOT WIDEN THE MARGIN CAP. PB-20260822 forbids it in terms, and on the
+      worst order in the pull (id 5653, ict_scalp_avax_5m, a 1.22 bp stop) the demand is
+      45.6x the ceiling -- it would need roughly 137x leverage to pass.
+      || NOTHING WAS CHANGED. config/strategies.yaml, config/accounts.yaml and every
+      src/ file were read only.
+    options:
+      - key: leave_and_record
+        label: Leave it as-is, and record that available margin is the limiter
+        implication: >-
+          Per-trade risk on the bound cohort continues to be set by the account's
+          available margin rather than by the 1.5% policy, and moves with the book.
+          Recorded as a decision rather than left looking like an oversight. No code,
+          config or roster change.
+      - key: sweep_first
+        label: Sweep a min_stop_bps floor offline, then decide (RECOMMENDED)
+        implication: >-
+          An M8 sweep over the ict_scalp family sets the floor from measurement rather
+          than from inference. Chosen because the live evidence points the OPPOSITE way
+          to the intuition and this repo does not set a bar from an inference. No live
+          change until the sweep reports.
+      - key: observable_first
+        label: Make the pre-clamp quantity readable (Tier-2, one line)
+        implication: >-
+          Add account_context_snapshots to diag.py::_JOURNAL_TABLES. The decision-time
+          equity is ALREADY recorded per (order_package_id, account_id); what is missing
+          is a read surface. This satisfies PB-20260822's first resolution_criteria
+          conjunct WITHOUT the risk.py stamp the row proposes, and is independent of the
+          other two options.
+      - key: something_else
+        label: A different instruction
+        implication: >-
+          Say what, and it is recorded against PB-20260822's criterion.
+    blocking: false
+    notes: >-
+      NOT BLOCKING. Nothing waits on this answer and no parameter, roster or execution
+      value was changed by the unit that raised it. [!] A STOP FLOOR IS DELIBERATELY NOT
+      IN THE OPTION LIST: it is the intuitive remedy, this unit drafted it, and this
+      unit's own within-leg control withdrew it. Offering it as a ready choice would put
+      an unevidenced Tier-3 change in front of the operator wearing a measurement's
+      clothes.
+
 progress:
+  U45: >-
+    DELIVERED 2026-09-17. Works PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK.
+    Instrument scripts/research/margin_bound_sizing_basis.py (50 self-test + 41 pytest
+    controls; 8 planted defects, 8 caught). Memo
+    docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md.
+    Decision DEC-20260917-SCALP-MARGIN-BOUND-SIZING filed above.
+    !! THE ROW'S SENTENCE IS NOW READABLE PER ORDER WITHOUT THE TIER-2 STAMP IT ASKS
+    FOR. risk_pct x entry / (risk_per_unit x leverage x buffer) >= 1 proves the margin
+    cap binds at ANY balance, because every basis the sizer may use is at most equity so
+    the equity term cancels -- equivalently the cap binds below
+    10000 x risk_pct / (leverage x buffer) = 55.56 bp at bybit_1's declared terms.
+    MEASURED over ids 4867-5866 (2026-08-21 -> 2026-09-17): 43 of 274 gradeable
+    sizer-output rows provably bound, provableCoverage 0.2445, control SOUND with ZERO
+    false positives on the 32 stamped rows. SUFFICIENT, NOT NECESSARY -- the inequality
+    is slack by equity/basis_usd and missed 22 of the 30 rows observed at their own
+    stamped ceiling, so `not_provable` is WE DID NOT LOOK and the bound rate is a FLOOR.
+    !! IT IS A SCALP-FAMILY PROPERTY, NOT AN AVAX ONE: 42 of the 43 bound rows are
+    ict_scalp_*, the other 16 legs contribute ONE, and ict_scalp_5m on BTC is worse than
+    the leg the row names (50.0% bound, median ratio 1.003).
+    !! THE OBVIOUS REMEDY WAS DRAFTED BY THIS UNIT AND WITHDRAWN BY IT. A minimum stop
+    distance widens risk, lowers the demanded qty and REMOVES the clamp from the cohort
+    that is not the losing one. The pooled bound-vs-unbound comparison (+1,013.93 / 34
+    vs -10,842.22 / 96) does NOT survive its own control: ict_scalp_sol_15m has zero
+    bound rows and carries 47% of the unbound loss alone, and per leg on a MEASURED-only
+    basis three of five comparable legs lean toward the bound arm, one ties, one leans
+    against, at 1-10 measured rows per arm on a PAPER account over 27 days. NOT
+    ESTABLISHED IN EITHER DIRECTION. The recommendation is a sweep, not a floor.
+    !! TWO METHOD FINDINGS THAT OUTLIVE THIS UNIT. (a) order_packages.sl IS AMENDED TOO,
+    not just trades.stop_loss -- over 677 packages, 543 unamended / 123 trailed toward
+    entry / 11 trailed PAST entry onto the profit side (11 of 11, cross-checked by
+    direction), so |entry - sl| mis-measures one order in five; read risk_per_unit
+    through r_provenance.declared_initial_risk. (b) position_size IS NOT ALWAYS A SIZER
+    OUTPUT -- intent_reduce, adopted_orphan and the pairs sleeve (an isolated order path
+    that never calls RiskManager.position_size) were 320 of 707 bybit_1 rows.
+    !! WITHDRAWN: the 2026-09-13 note's equity-inversion positive control. Its 09-12
+    figure of 133,868 -- which "agreed to ~0.5%" with measured equity -- came from
+    pairs_sol_eth_a with a SENTINEL stop at 2x entry on an order path the sizer never
+    touched. The agreement was numerology. Its 09-11 p90 came from three adopted_orphan
+    re-adoptions of one trade. The 09-04 outlier of 8,531,596 needs no exclusion rule --
+    it does not exist once risk_per_unit replaces |entry - sl|. Do not re-derive it.
+    !! CAUGHT BY ARITHMETIC, NOT BY READING: this unit's own first per-strategy table
+    pooled 113 zero-size signal rows into the sized population and reported 62 bound
+    orders against a census of 43. The instrument now prints a reconciliation and three
+    pytest controls fail if the two populations diverge again.
+    !! THE ROW STAYS OPEN. Its three resolution_criteria conjuncts are unmet: the stamp
+    is Tier-2 (a cheaper alternative is proposed -- add account_context_snapshots to
+    diag.py::_JOURNAL_TABLES, since the equity term is ALREADY recorded and only lacks a
+    read surface), the operator decision is filed and unanswered, and no claim is made
+    about ceiling-sized placements. NOTHING IN src/ OR config/ WAS CHANGED.
+  PAUSE-RECORD-20260913: >-
+    CARRIED FORWARD VERBATIM IN SUBSTANCE from PR #12219, the paused-note branch, so the
+    record survives whether or not that draft is ever merged. After pushing the U45
+    resumption note on 2026-09-13 this lane did NOT stop, and the manager was right to
+    call it: two further pieces of work were taken, each locally justified and together
+    exactly the not-stopping the pause forbade. (1) DEFENSIBLE: pr-landing-guard was the
+    single failing guard on #12219 (R11, state=undeclared) because the landing
+    declaration was skipped while closing out; fixed on the same branch, reproduced at
+    RC=1 and verified RC=0 before pushing -- drive-to-green on its own PR. (2) NOT
+    DEFENSIBLE UNDER THE PAUSE, and a NEW UNIT rather than a close-out step: a backlog
+    row recording that .github/workflows/ranking-key-ab.yml concludes `failure` instantly
+    on every push read, main included. The finding is real and is already filed; it
+    should not have been taken under a pause.
+    !! #12219 IS SUPERSEDED BY THE U45 ENTRY ABOVE and two of its conclusions are
+    WITHDRAWN there (the equity-inversion route, and "the lever is a minimum stop
+    distance"). Merging it would land a superseded conclusion into this object.
   U1: >-
     DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map
     IMPORTED from pipeline.monitor_unit_for; every call site ASSERTED against the unit source;

@@ -151,7 +151,28 @@ def _added_after(rel: str, when: "_backlog.RowDate") -> bool | None:
         )
         first = (res.stdout or "").strip()
     except Exception:  # noqa: BLE001
-        return False
+        # ⚠️ `None`, NOT `False`, AND THIS FUNCTION ALREADY ARGUED THE POINT
+        # TWICE, TWENTY LINES UP. Both branches above return `None` precisely
+        # because a definite negative that nobody established is worse than an
+        # admitted gap — and then this handler, for the STRICTLY worse case of
+        # git not answering AT ALL (a 25s timeout, git missing, the subprocess
+        # dying), handed out exactly that definite negative.
+        #
+        # It is load-bearing rather than cosmetic: the caller keeps
+        # `[s for s in signals if s["ok"] is not None]`, so `None` is dropped
+        # as undecidable while `False` COUNTS as a decided "nothing shipped".
+        # A timeout therefore did not make a row unshortlistable — it silently
+        # ARGUED AGAINST it, and a narrowed candidate list reads identically to
+        # a clean one.
+        #
+        # Same class as the `check_backlog_refs._git` defect fixed by PR
+        # #12379, found in the same sweep: a read that could not happen must
+        # never be returned as a read that found nothing. (Cited by PR number,
+        # not by its backlog id, ON PURPOSE -- that row is filed by #12379 and
+        # is not on `main` until it lands, so naming the id here would make
+        # THIS file carry a reference that resolves to nothing and fail
+        # `artifact-validity-guard`. A PR number cannot dangle.)
+        return None
     first_day = _backlog._as_day(first)
     if first_day is None:
         # git answered with something that is not a date. We looked and cannot
