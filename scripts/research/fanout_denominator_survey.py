@@ -103,6 +103,11 @@ def find_candidates(root_dir: pathlib.Path) -> dict[str, dict]:
 #                          ~1.0x by accident; it does not NAME the issue, so removing
 #                          the filter silently reintroduces it
 #   live_spa_surface    -- a number a human reads on the dashboard
+#   rederived_by        -- a COMPANION instrument re-derived this surface's statistic
+#                          per package. ⚠️ IT DOES NOT MEAN THE SURFACE WAS FIXED: the
+#                          surface still publishes the row-denominator rate, and this
+#                          field is what makes the companion discoverable FROM the
+#                          surface list instead of only from a memo nobody re-reads.
 #
 DECLARED: dict[str, dict] = {
     "scripts/ml/build_exit_head_dataset.py": {"class": "price_path",
@@ -129,7 +134,9 @@ DECLARED: dict[str, dict] = {
     "scripts/research/backtest_fidelity_calibrate.py": {"class": "price_path",
      "rate": "live_win_rate and the KS statistic on the live realized-R distribution"},
     "scripts/research/bleed_attribution_2026_09_11.py": {"class": "price_path",
-     "rate": "stop_rate_adjudicated, win rate with Wilson intervals, Fisher exact on pre/post 2x2, difference-in-differences"},
+     "rate": "stop_rate_adjudicated, win rate with Wilson intervals, Fisher exact on pre/post 2x2, difference-in-differences",
+     "rederived_by": "scripts/research/bleed_record_package_denominator.py",
+     "rederived_note": "MI-278 U31 -- the e35 pre/post Fisher CROSSES ALPHA on packages (8e-05 -> 0.05703)"},
     "scripts/research/bracket_calibration_report.py": {"class": "price_path",
      "rate": "reach_rate (share that reached their declared target)"},
     "scripts/research/build_exit_panel.py": {"class": "no_rate_over_journal_trades"},
@@ -137,7 +144,9 @@ DECLARED: dict[str, dict] = {
     "scripts/research/component_edge_report.py": {"class": "price_path",
      "rate": "per-strategy and per-component-bucket win rate, AUC-of-win, mean-R"},
     "scripts/research/e35_break_attribution.py": {"class": "price_path",
-     "rate": "pre/post win rate per arm AND the one-sided binomial p-value built on it"},
+     "rate": "pre/post win rate per arm AND the one-sided binomial p-value built on it",
+     "rederived_by": "scripts/research/e35_binomial_package_denominator.py",
+     "rederived_note": "MI-278 U32 -- the one-sided binomial takes TWO terms from rows, not one"},
     "scripts/research/exit_reconstruction_validator.py": {"class": "price_path",
      "rate": "exit-mechanism agreement rate (reconstructed sl/tp vs journalled exit_reason)"},
     "scripts/research/exit_reconstruction_validator_v2.py": {"class": "price_path",
@@ -166,6 +175,107 @@ DECLARED: dict[str, dict] = {
      "rate": "window winRate, expectancy, expectancyR, rCoverage, bracketOutcome.reachedRatio -- all per trades row"},
     "src/web/api/routers/trade_scores.py": {"class": "no_rate_over_journal_trades"},
 }
+
+
+#: A surface can carry a package notion through EITHER the `order_package_id` COLUMN
+#: or the `order_packages` TABLE, and keying on the column alone is UNSOUND.
+#:
+#: ⚠️ MEASURED 2026-09-17 (MI-278 U50) and it is not hypothetical: a narrow probe on
+#: `order_package_id` grades `scripts/ops/dead_leg_audit.py` as a FALSE DECLARATION --
+#: it declares `states_package_count: True` and never names that column -- while the
+#: file plainly counts packages, by querying `FROM order_packages` directly. The
+#: declaration is right and the probe was wrong. A guard shipped on the narrow probe
+#: would have reported a correct surface as lying, which is the direction that gets a
+#: guard disabled rather than fixed. Widening it takes that false positive to ZERO.
+_PACKAGE_NOTION = re.compile(
+    r"order_package_id|order_packages|per_package|n_packages|distinct_packages"
+    r"|package[_ ]count")
+
+#: The four payment states, never collapsed.
+#:
+#: ⚠️ THERE IS DELIBERATELY NO `paid_in_place` HERE, AND AN EARLIER DRAFT OF THIS
+#: MODULE HAD ONE. It graded 6 of the 21 exposed surfaces `paid_in_place` off a
+#: WHOLE-FILE token match -- contradicting this module's own docstring two functions
+#: down, which says a positive is necessary and NOT sufficient. A file can name a
+#: package in a comment, in an unrelated query, or beside the rate rather than in it.
+#: Naming that state "paid" would have published exactly the overclaim the asymmetry
+#: was written to prevent, so the positive is named for what it is: unverified.
+NOTION_UNVERIFIED = "package_notion_present_rate_unverified"
+REDERIVED_ELSEWHERE = "rederived_elsewhere"
+NO_PACKAGE_NOTION = "no_package_notion"
+PAYMENT_UNREADABLE = "unreadable"
+
+
+def package_notion(path: str, root: pathlib.Path | None = None) -> str | None:
+    """Does this file carry ANY package notion? `None` means we could not read it.
+
+    ⚠️ THE ANSWER IS ASYMMETRIC AND THAT ASYMMETRY IS THE WHOLE POINT.
+
+    A ``False`` here is a SOUND, strong negative: a file that never names a package in
+    any form cannot be stating a package denominator, so ``no_package_notion`` is
+    mechanically checkable and needs no human.
+
+    A ``True`` is NECESSARY AND NOT SUFFICIENT. It says the token appears somewhere --
+    in a comment, in an unrelated query, beside the rate rather than in it. It does NOT
+    say the RATE states its denominator, and nothing textual can: that is the judgement
+    the backlog row explicitly says no checker can make ("no checker can read which
+    question is being asked"). So this never upgrades a declaration; it only ever
+    CONTRADICTS one.
+    """
+    fp = (root or pathlib.Path(".")) / path
+    try:
+        text = fp.read_text(errors="replace")
+    except OSError:
+        return None
+    return bool(_PACKAGE_NOTION.search(text))
+
+
+def payment_state(path: str, root: pathlib.Path | None = None) -> str:
+    """How was this exposed surface's denominator debt settled, if at all?
+
+    ``package_notion_present_rate_unverified``
+                             the file names a package SOMEWHERE. Necessary, NOT
+                             sufficient, and never reported as paid -- whether the RATE
+                             uses it is a human judgement this cannot make.
+    ``rederived_elsewhere``  a COMPANION instrument re-derived the number and the
+                             surface is UNCHANGED -- so a reader who runs the surface
+                             still gets the row-denominator rate, with no pointer.
+    ``no_package_notion``    the SOUND negative: no package appears in the file in any
+                             form, so it cannot be stating a package denominator.
+    ``unreadable``           we could not read the file.
+
+    ⚠️ ``rederived_elsewhere`` IS NOT A WEAKER ``paid``, IT IS A DIFFERENT FACT, and
+    conflating them is what this function exists to stop. MI-278 U31 and U32 both
+    re-derived a statistic per package and published the result in a memo; neither
+    touched the producing surface. The prose in the backlog row says those surfaces
+    were "paid", the registry correctly still lists them as exposed, and a session
+    reading the prose would not re-check. Field beats comment.
+    """
+    notion = package_notion(path, root)
+    if notion is None:
+        return PAYMENT_UNREADABLE
+    if notion:
+        return NOTION_UNVERIFIED
+    if DECLARED.get(path, {}).get("rederived_by"):
+        return REDERIVED_ELSEWHERE
+    return NO_PACKAGE_NOTION
+
+
+def declaration_contradictions(candidates: dict[str, dict],
+                               root: pathlib.Path | None = None) -> list[dict]:
+    """Declarations the code CONTRADICTS: a claimed package count with no notion at all.
+
+    One direction only, deliberately -- see :func:`package_notion`. An empty list means
+    no declaration is refuted; it does NOT mean every declaration is correct.
+    """
+    out = []
+    for path, d in sorted(DECLARED.items()):
+        if not (d.get("states_package_count") or d.get("dedupes_by_package")):
+            continue
+        notion = package_notion(path, root)
+        if notion is False:
+            out.append({"path": path, "declared": d, "package_notion": False})
+    return out
 
 
 def grade_registry(candidates: dict[str, dict]) -> dict:
@@ -317,6 +427,44 @@ def self_test() -> int:
     chk(all(not DECLARED[p].get("dedupes_by_package")
             for p in g2["price_path_not_deduped"]),
         "the exposed list never contains a surface that already dedupes")
+    # --- MI-278 U50: the payment axis, and the probe that must not come back ----
+    root = pathlib.Path(".")
+
+    # THE NAMED REGRESSION CONTROL. A narrow probe on the `order_package_id` COLUMN
+    # grades dead_leg_audit.py a false declaration; it counts packages by querying the
+    # order_packages TABLE. If this fails, someone narrowed _PACKAGE_NOTION back.
+    chk(package_notion("scripts/ops/dead_leg_audit.py", root) is True,
+        "dead_leg_audit counts packages via the TABLE, not the column — and is seen")
+    chk("order_package_id" not in
+        pathlib.Path("scripts/ops/dead_leg_audit.py").read_text(errors="replace"),
+        "...and it genuinely never names the column, so the control is live not vacuous")
+
+    chk(declaration_contradictions(find_candidates(root), root) == [],
+        "no declaration is contradicted by the code today")
+
+    chk(package_notion("scripts/research/bleed_attribution_2026_09_11.py", root) is False,
+        "the bleed-attribution surface still names no package at all")
+    chk(payment_state("scripts/research/bleed_attribution_2026_09_11.py", root)
+        == REDERIVED_ELSEWHERE,
+        "...and grades rederived_elsewhere, NOT paid — the surface is unchanged")
+    chk(payment_state("scripts/research/e35_break_attribution.py", root)
+        == REDERIVED_ELSEWHERE,
+        "the e35 break-attribution surface likewise")
+    chk(payment_state("scripts/research/m20_exit_analysis.py", root) == NO_PACKAGE_NOTION,
+        "a surface with no companion and no notion grades no_package_notion")
+    chk(package_notion("scripts/research/does_not_exist_xyz.py", root) is None,
+        "an unreadable file is None — we could not look, never False")
+    chk(payment_state("scripts/research/does_not_exist_xyz.py", root) == PAYMENT_UNREADABLE,
+        "...and grades unreadable, never no_package_notion")
+
+    # The vocabulary must not regain a state that asserts what it cannot establish.
+    chk("paid_in_place" not in globals().values() and
+        NOTION_UNVERIFIED == "package_notion_present_rate_unverified",
+        "the positive state is named unverified, never paid")
+    chk(len({NOTION_UNVERIFIED, REDERIVED_ELSEWHERE, NO_PACKAGE_NOTION,
+             PAYMENT_UNREADABLE}) == 4,
+        "the four payment states are distinct")
+
     print("self-test: OK" if ok == 0 else f"self-test: {ok} FAILURE(S)")
     return 1 if ok else 0
 
@@ -383,9 +531,41 @@ def main() -> int:
         d = DECLARED.get(p, {})
         tag = " [LIVE SPA]" if d.get("live_spa_surface") else (
             " [blunted by a required --account, not by design]" if d.get("account_filtered") else "")
-        print(f"    {p}{tag}")
+        state = payment_state(p, root)
+        print(f"    {p}{tag}  [{state}]")
         if d.get("rate"):
             print(f"        {d['rate']}")
+        if d.get("rederived_by"):
+            print(f"        ^ re-derived per package by {d['rederived_by']}")
+            print(f"          {d.get('rederived_note', '')}")
+            print("          \u26a0\ufe0f THE SURFACE ITSELF IS UNCHANGED -- running it still "
+                  "gives the row-denominator rate.")
+
+    states = collections.Counter(
+        payment_state(p, root) for p in g["price_path_not_deduped"])
+    print()
+    print("  PAYMENT STATE over those surfaces -- four different facts, never pooled:")
+    for k in (NOTION_UNVERIFIED, REDERIVED_ELSEWHERE, NO_PACKAGE_NOTION,
+              PAYMENT_UNREADABLE):
+        if states.get(k):
+            print(f"    {k:22s} {states[k]}")
+    print("    \u26a0\ufe0f NONE OF THESE IS `paid`, AND THAT IS DELIBERATE. "
+          "`..._rate_unverified` means\n       the file names a package somewhere -- necessary, "
+          "not sufficient. "
+          "`rederived_elsewhere`\n       means a companion re-derived the number and THE SURFACE "
+          "IS UNCHANGED, so a reader\n       who runs it still gets the un-annotated row rate. "
+          "Prose calling those 'paid' is what\n       goes stale.")
+
+    contra = declaration_contradictions(cands, root)
+    print()
+    if contra:
+        print(f"  \u26a0\ufe0f DECLARATIONS THE CODE CONTRADICTS: {len(contra)}")
+        for c in contra:
+            print(f"    {c['path']} declares a package count and names no package anywhere")
+    else:
+        print("  declarations contradicted by the code: 0 \u2014 and that is ONE DIRECTION ONLY. "
+              "A\n    mechanical probe can refute a package claim; it can never confirm that a "
+              "RATE\n    states its denominator, which is the judgement no checker can make.")
 
     if "inflation" in payload:
         i = payload["inflation"]
