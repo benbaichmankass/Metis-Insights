@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-17T14:58Z",
+  "updated_at": "2026-09-17T15:03Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
@@ -4906,7 +4906,7 @@
       "item": "MI-278",
       "lane": "research",
       "last_observed_at": "2026-09-17T14:58Z",
-      "last_observation": "MEASURED 2026-09-17T14:58Z via get_session, not inferred: session_status IDLE, connection_status DISCONNECTED, status_bucket REVIEW_READY. Its own post_turn_summary reads 'PR #12419 conflict resolved via cherry-pick, force-pushed; CI re-running'. #12419 IS still in the live open-PR list, so this lane STOPPED WITH WORK IN FLIGHT. !! THE PREVIOUS VALUE HERE WAS 'working' AND THAT WAS WRONG IN THE DANGEROUS DIRECTION -- a successor would have believed a disconnected lane was still driving #12419 to green. That is the SAME defect this manager corrected in #12426 earlier today and then re-introduced by not updating on stop. Lifetime cost $1,403.00."
+      "last_observation": "MEASURED 2026-09-17T14:58Z via get_session, not inferred: session_status IDLE, connection_status DISCONNECTED, status_bucket REVIEW_READY. Its own post_turn_summary reads 'PR #12419 conflict resolved via cherry-pick, force-pushed; CI re-running'. #12419 IS still in the live open-PR list, so this lane STOPPED WITH WORK IN FLIGHT. !! THE PREVIOUS VALUE HERE WAS 'working' AND THAT WAS WRONG IN THE DANGEROUS DIRECTION -- a successor would have believed a disconnected lane was still driving #12419 to green. That is the SAME defect this manager corrected in #12426 earlier today and then re-introduced by not updating on stop. Lifetime cost $1,403.00. !! CORRECTED 2026-09-17T15:03Z, BEFORE THIS ROW EVEN MERGED: #12419 HAS SINCE LANDED (599842a6e on main). The 14:58Z reading was true when taken and was stale within five minutes. Recorded rather than silently overwritten, because shipping a point-in-time PR state as if it were current is the exact defect this PR exists to fix -- a registry row about a PR is only ever true as of its timestamp, and the branch claude/mi278-u48-tp-geometry-reachability still exists on origin. The LANE state (idle, disconnected, review_ready) is unchanged and is what this row is actually for."
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -4936,7 +4936,7 @@
       "item": "MI-279",
       "lane": "ops",
       "last_observed_at": "2026-09-17T14:58Z",
-      "last_observation": "MEASURED 2026-09-17T14:58Z via get_session: IDLE, DISCONNECTED, REVIEW_READY. post_turn_summary reads 'second base merge pushed (09f76dcb3); CI running on new head' on branch claude/mi279-u3-symbol-binds-data. STOPPED WITH WORK IN FLIGHT -- and note the branch had already taken TWO base merges, so it was losing a race with main rather than failing. Previous value 'working' was wrong. Lifetime cost $296.10 -- the cheapest of the three long lanes by ~5x, doing comparable ops work, which is the measurement DEC-20260916-PACING-RULES was set on."
+      "last_observation": "MEASURED 2026-09-17T14:58Z via get_session: IDLE, DISCONNECTED, REVIEW_READY. post_turn_summary reads 'second base merge pushed (09f76dcb3); CI running on new head' on branch claude/mi279-u3-symbol-binds-data. STOPPED WITH WORK IN FLIGHT -- and note the branch had already taken TWO base merges, so it was losing a race with main rather than failing. Previous value 'working' was wrong. Lifetime cost $296.10 -- the cheapest of the three long lanes by ~5x, doing comparable ops work, which is the measurement DEC-20260916-PACING-RULES was set on. !! SHARPENED 2026-09-17T15:03Z -- THE BRANCH IS PR #12072 AND IT NEEDS A HUMAN MERGE DECISION. Open since 2026-09-12, landing: hold, hold_reason: unvouchable_paths. The work is Tier-1 by the canonical table, but two changed files (scripts/backtest_trend.py and scripts/prop/account_compat_matrix.py) sit OUTSIDE check_pr_landing's TIER1_SURFACE, so the lane correctly refused to self-land and ROUTED IT TO THE MANAGER. It then sat five days because the manager never actioned it. That is a handoff item, not a stalled lane: it is waiting on a person, and no amount of lane time moves it."
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
