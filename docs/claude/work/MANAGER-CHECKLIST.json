@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-17T14:45:00Z",
+  "updated_at": "2026-09-17T15:10:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4266,6 +4266,21 @@
       "what_is_owed_next": "An operator decision on e35 (DEC-20260916-E35-GEOMETRY was deferred pending exactly this verification), and a disposition on the 10 unroutable legs — build the two missing classify() branches, or record that ict_scalp and fvg_range legs are knowingly ungradeable by the M7 gate. Neither is taken here.",
       "verified_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "verified_at": "2026-09-17"
+    },
+    {
+      "id": "MI-293",
+      "title": "This manager ran for ~20 hours without holding the lease, the machinery said so twice, and it was read past",
+      "state": "done",
+      "owner": "manager",
+      "opened": "2026-09-17",
+      "measured": "manager_lease.py heartbeat --session-id session_01HoFquGdTrD3TTGbMMRc43t, run 2026-09-17T15:0xZ, refused: state=expired_unverified, holder=session_01HoFquGdTrD3TTGbMMRc43t, claimed_at and heartbeat_at BOTH 2026-09-16T19:10:21Z, last heartbeat 1193 minutes (19.9h) earlier. The lease was claimed once and never heartbeaten again, while the session went on spawning nothing but merging, recording decisions, running a queue and writing every shared register.",
+      "what_the_tool_said": "'STAND DOWN - stop managing, do not re-claim silently. If you believe this is wrong, take it to the operator.' That is the designed behaviour for an outgoing manager whose lease lapsed, and it was obeyed: NO claim was made. Taking it to the operator is what this row is.",
+      "⚠️_THE_SIGNAL_FIRED_TWICE_AND_I_READ_PAST_IT": "This is not a gap in the machinery and must not be filed as one. check_manager_scope.py graded THIS session's own commits 'UNATTRIBUTED' earlier today, naming the reason exactly: 'names session_01HoFquGdTrD3TTGbMMRc43t, but MANAGER-LEASE.json's own history places that session in office 2026-09-11T16:09:41Z..2026-09-16T20:40:21Z - NOT at 2026-09-17T14:39Z, when this commit was authored. The register CONTRADICTS the trailer.' It also said in terms that this is 'NOT a clean bill of health, and NOT an excuse either'. The guard exited 0 because it cannot GRADE an unattributable commit, and I read the rc=0 rather than the message. Then handoff_check.py FAILED on the same fact and graded the whole handover readiness=not_ready. Two independent mechanisms said it before the third refused.",
+      "⚠️_WHAT_THIS_DOES_AND_DOES_NOT_INVALIDATE": "It does NOT invalidate the work. CLAUDE.md is explicit that the lease 'does not gate ordinary work: a session doing its own task needs no lease, and sub-sessions keep running with no lease held - what pauses is SUPERVISION'. Every PR this session landed today is Tier-1 register or doc work that any session may do. What WAS done without standing is the supervisory half: poking lanes, directing them to wrap, and treating their state as mine to report. Those are the acts the lease exists to make exclusive, and a second manager could have been doing them concurrently with no collision detectable.",
+      "disposition": "NO re-claim, per the tool's instruction. The lease is left exactly as it is - claimable by the next manager with no TTL wait, which is the outcome this session wanted anyway, now reached honestly rather than by calling a lapse a feature. handoff_check.py will keep grading readiness=not_ready on the lease line for this session and that is CORRECT: a handover of something you do not hold is not a handover. The successor CLAIMS a free lease; it is not handed one.",
+      "⚠️_FOR_THE_NEXT_MANAGER": "Claim the lease FIRST, before any supervisory act, and heartbeat it on the 90-minute cadence DEC-20260917-MANAGER-TICK-CADENCE sets. The failure here was not forgetting to claim - it was claiming once and never refreshing, which reads identically to a healthy lease for 90 minutes and then silently stops being one. Also: main_ci reads 'unknown (main's head reported ZERO check runs - not a pass)', so the unrefreshable case could not be ruled out; say so in your claim.",
+      "recorded_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "recorded_at": "2026-09-17"
     }
   ],
   "as_of": "2026-09-17T17:05:00Z",
