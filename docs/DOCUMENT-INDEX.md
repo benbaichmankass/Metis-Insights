@@ -727,6 +727,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u19-package-denominator-rederivation-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
