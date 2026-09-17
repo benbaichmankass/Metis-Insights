@@ -198,6 +198,11 @@ jobs:
           pr-body: "Automated probe run (W2). Results only — no row is cleared by this. Auto-merge."
           branch-prefix: automation/probes
           verify-merged: "true"
+          # RECOMPUTE on conflict -- see error-feed-digest.yml. PROBES.json and
+          # STUCK-BRANCHES.json are written by the steps above in this same job;
+          # only the due-list is re-rendered here, so a conflict on those two
+          # still aborts rather than being silently recomputed from nothing.
+          refresh-command: python3 scripts/ops/render_due_list.py --write
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'
