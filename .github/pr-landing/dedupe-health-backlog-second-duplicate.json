@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register hygiene. One duplicate row deleted from docs/claude/health-review-backlog.json and one new row appended to the same file; nothing else. No src/, no config/, no deploy/, no workflow, no order path -- squarely the Tier-1 surface. It self-lands because register-id-guard is WHOLE-FILE and the duplicate reds EVERY open PR in the repo until it is gone (measured: it was 1 of 5 guard failures on an unrelated PR, #12404, which does not touch this file), so routing a one-row deletion through a human merge click keeps the whole queue blocked for no decision anybody needs to make. The deletion is DECLARED at .github/register-removals/dedupe-health-backlog-second-duplicate.json and that declaration is verified, not presence-only. The two rows were asserted EQUAL as objects field by field before either was touched, so no finding is lost, and the accompanying backlog row records the RECURRENCE (this is the second such duplicate on this file today, hours after #12381 removed the first) rather than pretending the deletion is the fix."
+}
