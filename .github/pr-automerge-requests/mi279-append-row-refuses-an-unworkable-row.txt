@@ -1,0 +1,1 @@
+armed by session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane) for claude/mi279-append-row-refuses-an-unworkable-row -- PR #12394, Tier-1 self-land: append_row refuses a row CI would reject, closing one open backlog row.

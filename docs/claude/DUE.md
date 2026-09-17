@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-17T10:09:12+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-17T10:27:45+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 17d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -20,7 +20,7 @@ _Generated 2026-09-17T10:09:12+00:00 · verdict **all_sources_read**_
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
 - 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 14d) — monitoring row 14d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
-- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 14d) — armed 356.2h ago, on the order of 356 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
+- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 14d) — armed 356.5h ago, on the order of 356 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
   - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 12d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
@@ -175,7 +175,7 @@ _Generated 2026-09-17T10:09:12+00:00 · verdict **all_sources_read**_
 - 🔔 **#12253** (unlanded_automation · 4d) — producer output opened a PR that has not landed
   - chore(ops): refresh the error-feed digest (auto)
 - 🔔 **ERROR-FEED-DIGEST-STALE** (error_feed · 4d) — EVERY group below was observed at 2026-09-13T05:20:09+00:00, NOT now. The digest workflow did not land a fresh run, so an absent condition may simply be one nobody looked for.
-  - error-feed digest is 100.8h old — expected hourly
+  - error-feed digest is 101.1h old — expected hourly
 - 🔔 **OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED** (open_items · 4d) — monitoring row 4d since last observation (cadence 2d)
   - ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n
 - 🔔 **OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED** (open_items · 4d) — monitoring row 4d since last observation (cadence 3d)
@@ -254,8 +254,6 @@ _Generated 2026-09-17T10:09:12+00:00 · verdict **all_sources_read**_
   - chore(ops): queue the daily work digest (auto)
 - 🔔 **#12363** (unlanded_automation · 0d) — producer output opened a PR that has not landed
   - chore(ops): refresh the error-feed digest (auto)
-- 🔔 **#12382** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(m7): strategy review packets (auto)
 - 🔔 **#12385** (unlanded_automation · 0d) — producer output opened a PR that has not landed
   - chore(ml): replay pre-gate fleet report (auto)
 - 🔔 **.github/workflows/ranking-key-ab.yml** (red_main_runs) — the latest push-to-main run of .github/workflows/ranking-key-ab.yml concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this
@@ -274,12 +272,8 @@ _Generated 2026-09-17T10:09:12+00:00 · verdict **all_sources_read**_
   - The committed due-list envelope carries a `red_main_runs` entry whose state is `read` -- i.e. the source was CALLED and had a token. THE POSITIVE CONTROL IS THE SIBLING SOURCE `red_crons`, chosen beca
 - 🔔 **OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET** (open_items · 0d) — loud row — must be reported on every session
   - TWO INDEPENDENT CAUSES left docs/claude/DUE.json -- the surface that answers 'what is due right now?' -- four days stale at generated_at 2026-09-13T05:20:13Z, and fixing either alone would not have mo
-- 🔔 **branch-protection-sync** (red_main_runs) — the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this
-  - branch-protection-sync
 - 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
   - constraint-readout
-- 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
-  - due-list
 - 🔔 **econ-calendar-produce** (red_crons) — latest scheduled run concluded 'failure'
   - econ-calendar-produce
 - 🔔 **error-feed-digest** (red_crons) — latest scheduled run concluded 'failure'
