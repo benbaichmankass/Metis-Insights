@@ -223,6 +223,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `.claude/skills/research-driver/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/session-coordination/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/session-handoff/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+| `.claude/skills/session-receipt/SKILL.md` | instruction | live | — | 2026-09-17 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/sprint-format/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-report/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
@@ -394,6 +395,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/vm-operator-mode.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/claude/vm-resource-management.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/web-automations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/BACKLOG-TRIAGE-2026-09-17.md` | unknown | live | — | 2026-09-17 | `not-assessed / read:MI-294-authored-it-this-session-triage-handoff` | the current triage of the health backlog into 21 named chunks; goes historical when a later triage re-measures the same population |
 | `docs/claude/work/BACKLOG-DRAIN-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md` | unknown | live | — | 2026-09-12 | `not-assessed / read:MI-283-authored-it-this-session-evidence-for-open-PR-11903` | evidence for the Tier-2 ask in PR #11903, which is open and unmerged; goes historical when that PR is decided |
@@ -413,6 +415,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md` | unknown | unknown | — | 2026-09-17 | `not-assessed / read:engineering-lane-authored-it-this-session-evidence-for-open-PR` | evidence for the landing-machinery fix (conflict census + the 33-branch replay) and the research/testing/ML infra verdict; goes historical when that PR is decided |
 | `docs/claude/work/RETIRED-MIRRORS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/SYSTEM-REVIEW-2026-09-17.md` | unknown | live | — | 2026-09-17 | `not-assessed / read:MI-294-authored-it-this-session-review-record` | the 2026-09-17 review record, weighted to performance-7d and soak monitoring; goes historical at the next system review |
 | `docs/claude/work/SYSTEM-REVIEW-EVIDENCE-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/TIER2-SELF-LAND-APPROVAL-RECORD-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |

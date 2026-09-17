@@ -349,6 +349,25 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "evidence for the Tier-2 ask in PR #11903, which is open and unmerged; "
         "goes historical when that PR is decided",
     ),
+    # Both written 2026-09-17 by the OPS lane (MI-294), which authored and read
+    # them in full in the same session. They are the deliverables of units 2 and
+    # 3 of that lane, and each states its own coverage and populations inline --
+    # the triage declares its partition verified complete (330/330), and the
+    # review opens with a table of what it did NOT cover rather than implying a
+    # full /system-review. They ship carrying `unknown` only because no derivable
+    # rule reaches a freshly-written record under `docs/claude/work/`.
+    "docs/claude/work/BACKLOG-TRIAGE-2026-09-17.md": (
+        "live",
+        "read:MI-294-authored-it-this-session-triage-handoff",
+        "the current triage of the health backlog into 21 named chunks; goes "
+        "historical when a later triage re-measures the same population",
+    ),
+    "docs/claude/work/SYSTEM-REVIEW-2026-09-17.md": (
+        "live",
+        "read:MI-294-authored-it-this-session-review-record",
+        "the 2026-09-17 review record, weighted to performance-7d and soak "
+        "monitoring; goes historical at the next system review",
+    ),
 }
 
 # ---------------------------------------------------------------------------

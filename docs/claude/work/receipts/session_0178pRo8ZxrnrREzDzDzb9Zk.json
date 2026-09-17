@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "kind": "session_receipt",
+  "session_id": "session_0178pRo8ZxrnrREzDzDzb9Zk",
+  "role": "lane:ops (MI-294)",
+  "generated_at": "2026-09-17T19:33:01Z",
+  "window": "origin/main since 2026-09-17",
+  "decisions": {
+    "basis": "author_completed",
+    "note": "Operator decisions taken this session, each with the answer recorded VERBATIM, and an explicit note wherever the operator OVERRULED this session's recommendation. An empty list here is a claim that none were taken.",
+    "rows": [
+      {
+        "question": "Is a session receipt generated ON DEMAND or WRITTEN AT SESSION END?",
+        "answer": "NOT YET ANSWERED \u2014 filed as DEC-20260917-SESSION-RECEIPT-CADENCE on WO-20260917-OPS-LANE-CANONIZE-THE-SESSION-RECEIPT-THEN-REVIEW-AND-TRIAGE with four options. MI-290 left it open in terms and this lane did not resolve it by building only one; the skill instructs the union until it is answered.",
+        "overruled": null,
+        "note": "\u26a0\ufe0f ALSO being put to the operator through the manager in conversation, because the Telegram decision channel is MEASURED failing 4 of 4 candidates on 47 of 47 runs."
+      }
+    ]
+  },
+  "sessions_spawned": {
+    "basis": "author_completed",
+    "note": "One row per spawned session. The MANDATE is the author's (git cannot know what a session was told); WHAT LANDED is measured by attributing that session's own commits. Aborted and respawned sessions are listed, never silently dropped.",
+    "rows": [
+      {
+        "session_id": "in-context subagent (no session id)",
+        "checklist_item": "MI-294 unit 2",
+        "lane": "ops",
+        "spawned_at": "2026-09-17T19:1xZ",
+        "lifecycle": "completed",
+        "mandate": "READ-ONLY: measure trading performance for the past week per account class, answer the take-profit question with its denominator, per-strategy table",
+        "landed": "no commits \u2014 read-only by mandate; findings carried into SYSTEM-REVIEW-2026-09-17.md",
+        "maps_to": "MI-294 unit 2"
+      },
+      {
+        "session_id": "in-context subagent (no session id)",
+        "checklist_item": "MI-294 unit 2",
+        "lane": "ops",
+        "spawned_at": "2026-09-17T19:1xZ",
+        "lifecycle": "completed",
+        "mandate": "READ-ONLY: grade every declared soak against its four states, read all 14 live, find the registration gap",
+        "landed": "no commits \u2014 read-only by mandate; findings carried into SYSTEM-REVIEW-2026-09-17.md",
+        "maps_to": "MI-294 unit 2"
+      },
+      {
+        "session_id": "in-context subagent (no session id)",
+        "checklist_item": "MI-294 unit 3",
+        "lane": "ops",
+        "spawned_at": "2026-09-17T19:2xZ",
+        "lifecycle": "completed",
+        "mandate": "READ-ONLY: classify the unresolved crit+high health-backlog rows into a complete partition by defect class, measure the age regression",
+        "landed": "no commits \u2014 read-only by mandate; findings carried into BACKLOG-TRIAGE-2026-09-17.md",
+        "maps_to": "MI-294 unit 3"
+      },
+      {
+        "session_id": "in-context subagent (no session id)",
+        "checklist_item": "MI-294 unit 2",
+        "lane": "ops",
+        "spawned_at": "2026-09-17T19:5xZ",
+        "lifecycle": "running at receipt time",
+        "mandate": "READ-ONLY: account reachability + execution gates, ML/trainer health, service/deploy state, strategy promotion STANCE",
+        "landed": "not yet returned at receipt time \u2014 recorded rather than omitted",
+        "maps_to": "MI-294 unit 2"
+      }
+    ]
+  },
+  "own_work": {
+    "basis": "measured",
+    "attribution": {
+      "state": "measured",
+      "window": "origin/main since 2026-09-17",
+      "attributed": [],
+      "attributed_count": {
+        "value": 0,
+        "population": "commits on origin/main since 2026-09-17 carrying a Claude-Session trailer naming session_0178pRo8ZxrnrREzDzDzb9Zk"
+      },
+      "scanned_count": {
+        "value": 0,
+        "population": "all non-merge commits on origin/main since 2026-09-17"
+      },
+      "unattributed_count": {
+        "value": 0,
+        "population": "commits on origin/main since 2026-09-17 carrying NO parseable Claude-Session trailer"
+      }
+    },
+    "prs": {
+      "rows": [],
+      "landed": {
+        "value": 0,
+        "population": "of 0 PR number(s) checked against origin/main by squash suffix"
+      },
+      "could_not_look": {
+        "value": 0,
+        "population": "of 0 PR number(s) whose landing state could NOT be read"
+      }
+    },
+    "landed_prs": []
+  },
+  "totals": {
+    "basis": "measured",
+    "prs_landed_by_this_session": {
+      "value": 0,
+      "population": "of 0 PR number(s) checked against origin/main by squash suffix"
+    },
+    "commits_attributed_to_this_session": {
+      "value": 0,
+      "population": "commits on origin/main since 2026-09-17 carrying a Claude-Session trailer naming session_0178pRo8ZxrnrREzDzDzb9Zk"
+    },
+    "commit_population": {
+      "value": 0,
+      "population": "all non-merge commits on origin/main since 2026-09-17"
+    },
+    "commits_unattributed": {
+      "value": 0,
+      "population": "commits on origin/main since 2026-09-17 carrying NO parseable Claude-Session trailer"
+    },
+    "sessions_spawned": {
+      "value": 4,
+      "population": "in-context read-only subagents spawned by this lane; none committed, by mandate"
+    },
+    "errors_recorded": {
+      "value": 7,
+      "population": "errors this session made and corrected, recorded in section E"
+    }
+  },
+  "errors": {
+    "basis": "author_completed",
+    "note": "What this session got wrong and how it was corrected. NOT optional: a receipt with no errors section reads as a claim of none, and every receipt written so far has had entries here.",
+    "rows": [
+      {
+        "what": "I wrote OPEN-ITEMS.json back through json.dumps(indent=2, ensure_ascii=False) for a FOUR-ROW edit and produced a 1795-insertion / 1813-deletion diff \u2014 the mass-reserialization trap CLAUDE.md warns about for the backlogs, reproduced on a different register.",
+        "correction": "Reverted with git checkout, established the file's serialisation is NOT reproducible by any of 8 candidate json.dumps forms, and patched the raw text surgically per value \u2014 matching each value's own existing escaping and anchoring verified_at on the row's id literal. Result: 8 insertions, 8 deletions, exactly the 4 observations and 4 stamps. Verified with check_open_items.py --base origin/main (observation-preservation READ against the merge base, not skipped)."
+      },
+      {
+        "what": "I ran pr-landing-guard BEFORE committing, got told 'every changed path IS inside TIER1_SURFACE \u2014 declare landing: self and arm it', and nearly complied. src/web/api/routers/work.py measurably is NOT inside TIER1_SURFACE.",
+        "correction": "Committed first and re-ran: the same declaration then passed with 'R14 verified \u2014 paths outside TIER1_SURFACE: src/web/api/routers/work.py'. The guard had graded an EMPTY diff (changed_paths uses <merge-base>...HEAD, so uncommitted work is invisible) and reached a vacuously-true conclusion pointing at the riskier action. Filed as BL-20260917-PR-LANDING-R14-GRADES-AN-UNCOMMITTED-TREE-AS-AN-EMPTY-DIFF-AND-ON-THAT-EMPTY-DIFF-TELLS-THE-AUTHOR-TO-SELF-LAND-WORK-IT-NEVER-EXAMINED."
+      },
+      {
+        "what": "My own dispatch brief said '932 unresolved health rows, 331 critical/high, 41 critical'. I did not inherit it \u2014 but a session that had would have planned more than twice the critical work that exists.",
+        "correction": "Measured: 928 unresolved, 330 crit+high, and 41 criticals across ALL 1,624 rows but only 18 among the unresolved. 23 of the 41 are already terminal. Recorded in BACKLOG-TRIAGE-2026-09-17.md \u00a7 0 with both populations stated."
+      },
+      {
+        "what": "I cited two backlog ids in a work object BEFORE filing them \u2014 the exact trap MI-290 says the generator exists to prevent, committed by the session canonizing the rule.",
+        "correction": "Caught by running check_backlog_refs.py --base origin/main before committing; filed both rows first, then re-ran to OK. This is why the generator resolves ids from the backlog rather than letting an author type them."
+      },
+      {
+        "what": "My surgical splice of a backlog row used json.dumps(indent=2) with the DEFAULT ensure_ascii=True, escaping the non-ASCII characters in the note. The consequence is out of proportion to the typo: append_row round-trips the file before appending, so no candidate serialisation would reproduce it and EVERY future write to that backlog would have been REFUSED repo-wide.",
+        "correction": "Caught by artifact-validity-guard (backlog_append.py --check-live), which named both the cause and the correct fix. Re-serialised THAT ROW with ensure_ascii=False \u2014 one line changed, never a file reformat, which would have re-attributed every pre-existing row to this diff. 4 live backlogs now reproduce byte-for-byte. This is the SECOND serialisation error I made on a register in one session; the first was on OPEN-ITEMS.json."
+      },
+      {
+        "what": "I opened the PR and reported it ready without reading `mergeable_state`. It was `dirty` \u2014 a merge conflict \u2014 which is why only 2 of the required checks had attached.",
+        "correction": "Read `mergeable_state` (the documented FIRST move on a PR with missing checks), found the conflict, and resolved it. The conflict was an add/add on this lane's OWN work object, which the manager had created independently in #12470 because the lane's registry row was not on origin/main when it started. Resolved as a UNION, not by taking a side \u2014 taking either side would have discarded the operator directive's full text or the only open decision on the object."
+      },
+      {
+        "what": "My work object carried a prominent field saying the WIP ceiling forced it to lifecycle `ready`. That became false while the PR was open: the manager closed three stale in_flight rows in #12470, so the object is now correctly `in_flight` with a real owner.",
+        "correction": "Re-measured over all 8 in_flight rows at 89f9d0c3e and rewrote the object rather than leaving a stale constraint standing. Narrowed the backlog row instead of closing it: the immediate consequence is discharged, but 7 of 8 rows still cannot be graded for liveness, and the remediation was a SWEEP with no mechanism behind it."
+      },
+      {
+        "what": "I pushed PR #12473 and reported it as CI-running without having run the full suite in a dependency set matching CI's. pytest-run came back RED with THREE failures, all mine. (1) Adding GET /api/bot/work/receipts took the api-tier-policy coverage from 109 to 110 and I added the ROW without restating the doc's own computed-coverage line, so the doc contradicted the script -- the stale-number class this repo calls `field beats comment`, committed in a PR whose subject is making numbers carry their populations. (2)+(3) tests/test_pytest_run_filter.py's two derived scans found my new test reading two committed trees pytest-run would let short-circuit. My local green was produced with pytest and fastapi installed mid-session, so it was never the same run CI does.",
+        "correction": "Restated the coverage line from the computed value. Dispositioned the two trees DIFFERENTLY rather than covering both, because they are different facts: docs/api-tier-policy.md is COVERED (the hazard is MEASURED -- failure (1) IS a docs-only diff reddening the suite), and docs/claude/work/receipts is NOT (premise measured by PLANTING a corrupt receipt: 29 of 29 stayed green, so a receipt-only diff cannot redden the suite and covering it would be pure CI cost on every receipt ever written). The receipts scan hit came from a duplicated literal path, so the assertion now compares against the module's own RECEIPTS_RELDIR.\n\nWHAT THE FAILURE BOUGHT, which is worth more than the fix: docs/api-tier-policy.md has been an UNCOVERED committed reader all along and neither derived scan could see it -- tests/test_check_api_tier_policy.py spells the join in a third form both scans are blind to. It surfaced only because my new test happened to name the same file in a spelling they do see. Filed as a RECURRENCE of a row marked RESOLVED five days ago: BL-20260917-THE-PYTEST-RUN-COMMITTED-READER-SCANS-ARE-BLIND-TO-THE-OS-PATH-JOIN-SPELLING-SO-AN-UNCOVERED-READER-WAS-FOUND-BY-ACCIDENT.\n\nAND I REPRODUCED A THIRD DEFECT WHILE DOCUMENTING THE SECOND: my first draft of both the COVERED entry and the test docstring spelled the join form out literally, and the line scan duly read the PROSE as a real reader of docs/ -- false-positive class 3, reproduced inside the comment describing it, which that file warns had already happened once."
+      },
+      {
+        "what": "Appending the row above, I wrote this receipt back with ensure_ascii=False while the generator writes it with the json.dumps DEFAULT (ensure_ascii=True). A one-row append produced 20 insertions / 16 deletions, re-encoding every em-dash and emoji in the file. That is the SAME class as the OPEN-ITEMS.json reserialization two rows above, committed AFTER recording that one, against my own deliverable.",
+        "correction": "Reverted with git checkout and re-appended matching the generator's serialization, taking the diff to a clean append. THE UNDERLYING GAP IS REAL AND IS NOW NAMED IN THE SKILL rather than left to be rediscovered: scripts/ops/session_receipt.py has no round-trip check, so unlike backlog_append.py it cannot REFUSE a write that would reformat the file. The blast radius is genuinely smaller -- one file per session, authored by that session -- which is part of why one-file-per-session was chosen, but 'smaller' is not 'absent' and this is the second time in one session I have hit it."
+      }
+    ]
+  }
+}
