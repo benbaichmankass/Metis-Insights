@@ -18,9 +18,9 @@
 >
 > | # | action | cost | what it buys |
 > |---|---|---|---|
-> | **1** | **Merge PR #11933** (MI-278 U3/U4) | one click | lands the **only** IS/OOS + walk-forward evidence the object's `done_condition` asks for, plus the two Tier-3 proposals it produced |
+> | **1** | **Land PR #11933** (MI-278 U3/U4) — ⚠️ **resolve its register conflict first, see § 2.1** | a short landing pass, **not one click** | lands the **only** IS/OOS + walk-forward evidence the object's `done_condition` asks for, plus the two Tier-3 proposals it produced |
 > | **2** | **Answer U4's Proposal 1 vs Proposal 3** — accept one, or reject both | one decision | the object's `done_condition` is then **met**, and M20 closes as answered rather than as abandoned |
-> | **3** | **Merge PR #12205** (U41) | one click | lands the `both_contribute` attribution that `OI-20260911`'s clause asks for; it is `landing: self` and **all five checks are green** |
+> | **3** | **Land PR #12205** (U41) — ⚠️ **also conflicted, see § 2.1** | a short landing pass | lands the `both_contribute` attribution that `OI-20260911`'s clause asks for; `landing: self`, all five checks green, but **green CI is not mergeability** |
 >
 > **⚠️ THE HONEST HEADLINE IS UNCOMFORTABLE AND MUST NOT BE SOFTENED: the premise the workstream was opened on did not survive its own measurement.** M20 was framed as *hold winners longer*. Across **175 cells over 7 legs in five arms** (MI-278 U3), **nothing tested makes a winner run longer and survives the gate.** The two cells that survive **both narrow the trade** — take profit sooner, or tighten the stop. They are on the **same leg** and they are **mutually exclusive**.
 >
@@ -106,6 +106,26 @@ Population: all **51** `origin/claude/mi278-*` remote branches, each diffed agai
 | #12219 | U45 | *(U45's memo landed separately on `main`)* | — | — |
 
 **The work does not need redoing. It needs landing.** The brief's other claim — that the conflicts are in shared registers and **zero** in `src/`/`tests/`/`scripts/`/`config/` — I did not re-verify per PR and am not asserting.
+
+### 2.1 ⚠️ CORRECTION, 2026-09-17T20:1xZ — "merge it" was wrong; these PRs are CONFLICTED
+
+**I wrote § 0 rows 1 and 3 as one-click merges. That was wrong and it is my error, not a change in the world.** Re-read at **20:1xZ**, after `main` advanced to `89f9d0c3e`:
+
+| PR | `mergeable_state` | CI |
+|---|---|---|
+| **#11933** | **`dirty`** | 5 of 5 green |
+| **#12205** | **`dirty`** | 5 of 5 green |
+| #12471 (this one) | `clean` | 5 of 5 green |
+
+**`dirty` is a real merge conflict.** A click will not land either PR; the register conflict has to be resolved first, so row 1 and row 3 are **a short landing pass, not a click**.
+
+⚠️ **How I got it wrong is worth more than the correction.** Both PRs read `mergeable_state: unknown` every time I looked — GitHub had not finished computing — and I reported merge-readiness from **CI being green** instead. That is this repo's own *"read the field, not the prose about it"* failure, committed on a field that was simply not ready yet: **green CI is not mergeability**, and `unknown` is *we could not look*, never *fine*.
+
+**The manager reached the same conclusion independently and by measurement** (`89f9d0c3e`, on the M20 object): *"of the conflicts probed across these branches, every one is in a SHARED REGISTER (`health-review-backlog.json` in 5 of 7, then `CLAUDE.md`, `DOCUMENT-INDEX.md`, `OPEN-ITEMS.json`, one M20 work object) and ZERO are in `src/`, `tests/`, `scripts/` or `config/`."* That is the dispatch-brief claim § 2 above declines to assert on my own authority — **it now has a source, and it is the manager's, not mine.**
+
+**Nothing about the substance changes.** The evidence is complete, it still needs landing, and the Tier-3 answer is still the thing that closes the object. What changes is the *cost and shape* of rows 1 and 3: a serialised landing pass with a union resolve on the registers (`scripts/ops/merge_json_register.py` exists for exactly this), not a click.
+
+⚠️ **And a local `git merge-tree` probe CANNOT be used to check this.** This clone has `merge.jsonregister.driver` armed, so a local test-merge of a register-touching branch reports clean for a branch GitHub grades `dirty` — `BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY`. I ran one, it said `CLEAN`, and **GitHub says `dirty`**. Take mergeability from GitHub.
 
 ---
 
