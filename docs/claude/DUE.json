@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-17T17:44:30+00:00",
+  "generated_at": "2026-09-17T21:43:11+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 79,
+      "rows": 80,
       "note": ""
     },
     "soaks": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 9,
-      "note": "freshness=fresh age=7.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=11.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 6,
+      "rows": 2,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
-      "rows": 1,
-      "note": "9 workflow(s) graded, 1 red · 6 graded at `main`'s tip · worst distance 37 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "rows": 0,
+      "note": "8 workflow(s) graded, 0 red · 5 graded at `main`'s tip · worst distance 13 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -47,13 +47,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 54,
+      "rows": 58,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-17T17:44:24+00:00, age 0.0h"
+      "note": "digest 2026-09-17T21:43:08+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -77,8 +77,8 @@
     },
     "spent_decision_edges": {
       "state": "read",
-      "rows": 4,
-      "note": "184 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 4 on a `waiting` object"
+      "rows": 5,
+      "note": "187 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 194,
-    "loud": 146
+    "due": 195,
+    "loud": 147
   },
   "rows": [
     {
@@ -167,7 +167,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 363.8h ago, on the order of 363 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 367.8h ago, on the order of 367 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 15,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -714,15 +714,6 @@
     },
     {
       "source": "open_items",
-      "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
-      "title": "MI-276 shipped TWO alert-only Tier-2 detectors for the shape found twice on 2026-09-11, where both investigations ended with the same sentence - the operator noticed before any monitor did. src/runtim",
-      "why_due": "monitoring row 5d since last observation (cadence 3d)",
-      "age_days": 5,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
       "id": "OI-20260911-TIER-2-APPROVED-SELF-LANDING-IS-BUILT-AND-NO-PR-HAS-LANDED-OR-BEEN-REFUSED-BY-IT",
       "title": "pr-landing R15 lets a Tier-2 PR self-land against an approval record it demonstrably could not have written -- the record must exist at the branch's merge-base with main, be byte-identical at HEAD, be",
       "why_due": "monitoring row 5d since last observation (cadence 3d)",
@@ -1226,13 +1217,40 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12459"
     },
     {
-      "source": "red_main_runs",
-      "id": ".github/workflows/ranking-key-ab.yml",
-      "title": ".github/workflows/ranking-key-ab.yml",
-      "why_due": "the latest push-to-main run of .github/workflows/ranking-key-ab.yml concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this. Graded at 8af09ef0d, 37 commit(s) behind `main`'s tip",
-      "age_days": null,
+      "source": "unlanded_automation",
+      "id": "#12466",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35225422784"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12466"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12469",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12469"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12474",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12474"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12477",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12477"
     },
     {
       "source": "probes",
@@ -1290,6 +1308,15 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+      "title": "MI-276 shipped TWO alert-only Tier-2 detectors for the shape found twice on 2026-09-11, where both investigations ended with the same sentence - the operator noticed before any monitor did. src/runtim",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
       "title": "MI-280 (engineering lane, session_01BjTp5RYwedmpFfkEtkQo1j, 2026-09-12) shipped eight units against four measured, unowned failure modes in the landing/register machinery. MERGED, ARMED and OBSERVED a",
       "why_due": "loud row — must be reported on every session",
@@ -1307,31 +1334,22 @@
       "link": ""
     },
     {
-      "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
+      "source": "open_items",
+      "id": "OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER",
+      "title": "PR #12472 makes commit-to-main RECOMPUTE a generated artifact on conflict instead of aborting, under three ANDed conditions (a refresh-command is declared; EVERY conflicted path is one the caller name",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34592532948"
+      "link": ""
     },
     {
       "source": "red_crons",
-      "id": "due-list",
-      "title": "due-list",
+      "id": "econ-calendar-produce",
+      "title": "econ-calendar-produce",
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34587092798"
-    },
-    {
-      "source": "red_crons",
-      "id": "pr-queue-watch",
-      "title": "pr-queue-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34623771514"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35168138713"
     },
     {
       "source": "red_crons",
@@ -1340,7 +1358,7 @@
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34580398446"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35204197736"
     },
     {
       "source": "spent_decision_edges",
@@ -1379,6 +1397,15 @@
       "link": "docs/claude/work/objects/WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE.yaml"
     },
     {
+      "source": "spent_decision_edges",
+      "id": "stranded-edge-WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
+      "title": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER is `waiting` on an UNRESOLVABLE edge",
+      "why_due": "Its `blocked_on` ref is 'DEC-20260913-WHAT-BOUNDS-AN-OPEN-ITEMS-OBSERVATION', graded unresolvable — no decision request in the store declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE OPPOSITE: a spent edge is discharged by re-pointing or re-grading it, while nothing matching on ids can ever discharge this one, so the object is parked with no way out and no consumer can say what it is waiting for. A typed edge whose ref is prose is untyped. ⚠️ Fixing it is the object owner's or the manager's call.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER.yaml"
+    },
+    {
       "source": "stuck_branches",
       "id": "stuck-branches-changed",
       "title": "43 automation branch(es) newly stranded, 0 cleared",
@@ -1386,24 +1413,6 @@
       "age_days": null,
       "loud": true,
       "link": "docs/claude/STUCK-BRANCHES.json"
-    },
-    {
-      "source": "red_crons",
-      "id": "trainer-capture-watch",
-      "title": "trainer-capture-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34623006745"
-    },
-    {
-      "source": "red_crons",
-      "id": "work-digest",
-      "title": "work-digest",
-      "why_due": "latest scheduled run concluded 'cancelled'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34622246570"
     },
     {
       "source": "sunset",
@@ -1534,8 +1543,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-72e2ad1e",
-      "title": "[error] x92 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 92 rows 2026-09-09T10:03:15 → 2026-09-17T17:12:45 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x96 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 96 rows 2026-09-09T10:03:15 → 2026-09-17T21:14:45 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 8,
       "loud": false,
       "link": ""
@@ -1590,6 +1599,15 @@
       "id": "ERRFEED-9da85381",
       "title": "[error] x63 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 63 rows 2026-09-10T09:07:19 → 2026-09-14T06:29:52 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog",
+      "age_days": 7,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "error_feed",
+      "id": "ERRFEED-ae533209",
+      "title": "[error] x8 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-10T07:23:53 → 2026-09-16T13:06:52 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
       "age_days": 7,
       "loud": false,
       "link": ""
@@ -1731,27 +1749,18 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-2ec888b5",
-      "title": "[error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_live/SLV: position N carries a resting stop for only N — N unprotected. The netted position is",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-17T13:42:49 → 2026-09-17T13:42:49 · accounts=alpaca_live — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-7f6ceff7",
+      "title": "[error] NEW x1 alpaca_target_naked detected: alpaca_paper/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only ",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-17T19:55:03 → 2026-09-17T19:55:03 · accounts=alpaca_paper — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-81db2cca",
-      "title": "[error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_portfolio/SLV: position N carries a resting stop for only N — N unprotected. The netted positi",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-17T13:42:47 → 2026-09-17T13:42:47 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog",
-      "age_days": 0,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
-      "id": "ERRFEED-bc0e4131",
-      "title": "[error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_paper/SLV: position N carries a resting stop for only N — N unprotected. The netted position i",
-      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-17T13:42:46 → 2026-09-17T13:42:46 · accounts=alpaca_paper — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-87ea3a44",
+      "title": "[error] NEW x1 alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can o",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-17T19:55:04 → 2026-09-17T19:55:04 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -1759,8 +1768,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "104 cause groups over 1579 rows (76 error-level, 28 warn-level, 3 new since the last digest)",
-      "why_due": "66 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-17T12:39:01.979162+00:00`.",
+      "title": "106 cause groups over 1584 rows (78 error-level, 28 warn-level, 2 new since the last digest)",
+      "why_due": "68 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-17T17:32:26.306737+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
