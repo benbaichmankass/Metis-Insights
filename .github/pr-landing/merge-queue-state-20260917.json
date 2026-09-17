@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One NEW work object recording a measurement: a PR appending to a shared register has no reliable path to a merge while other sessions are active. No shared register in the diff, so it carries no conflict surface \u2014 which is itself the point the object makes."
+}
