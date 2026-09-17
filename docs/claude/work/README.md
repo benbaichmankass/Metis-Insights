@@ -152,6 +152,80 @@ content from its first commit, or it is deployed and unproven.
 the sub-sessions its predecessor spawned. A session it does not name is, to that
 successor, a session that does not exist.
 
+### Two decisions before the spawn call: fresh or resume, and which model
+
+Operator, 2026-09-17, on the first: *"The only reason to reuse the session is
+if the next unit benefits from the context that the session developed while
+working on the previous task. But if it doesn't benefit, then we should start
+fresh."* And on why this belongs here rather than in one session's memory:
+*"we need to make sure that this is also canonized correctly for future
+manager sessions and not just left as a lesson that we learn here and then
+forget and don't apply it going forward."*
+
+**The test is BENEFIT, not subject area.** MI-295 landed a memo (a research
+doc) — not machinery. Its successor unit, MI-298, needed a PR branch's code
+(the #11933 sweep), not MI-295's session having read anything into its own
+context. "Same subject area" would have said resume; resume would have been
+the wrong call, because the thing the next unit actually needed to reuse sits
+on disk regardless of which session reads it — a fresh session can `git
+fetch` that branch as cheaply as a resumed one.
+
+⚠️ **A LANE IS RESUMED BY DEFAULT** — there is no separate "start fresh" call;
+resuming an idle session and spawning a new one differ only in which id you
+pass, so the manager's habit of naming the same lane again is what wins unless
+someone actively decides otherwise. That default has a real cost: measured
+2026-09-17 via `get_session` on two live lanes,
+`session_017PQcFJne7qyuVHzH5RZtFC` (research) and
+`session_01SzoZAiXJibakevDU9pbwxm` (engineering) — **state the population: n=2
+lanes, one manager, one day; a reading of the default, not a fleet census** —
+`cache_read_tokens` came to **91,107,145 ($55.82)** and **102,412,896
+($69.23)**, **193.5M tokens / $125.05 combined**, against 141,352 + 226,761
+**output** tokens. Essentially the entire spend on both lanes was a resumed
+session re-reading its own accumulated context on every turn; a fresh session
+starts near 40k.
+
+⚠️ **THE TEST APPLIES AT DISPATCH — NOT TO A SESSION ALREADY RUNNING.** Once a
+lane is running, the comparison is cost-per-unit-**delivered**, never
+cost-per-turn, and interrupting it forfeits everything not yet landed. Read
+what a session has **produced** before interrupting it. A manager that reads a
+context-usage / cost figure and interrupts a running lane on that basis alone,
+without checking its output, can throw away a finished deliverable to save
+nothing — the two lanes measured above had **both landed complete
+deliverables in exactly the minutes** a manager read their cost meters.
+Filed: `BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN`.
+
+**The second decision, same operator directive:** *"not every task requires
+Opus 5. Obviously the manager I want to be able to understand what's going on
+... but the other one, if anything can be wrong, say Sonnet or Haiku, that's
+also fine. Let's just make sure we match the model to the task."*
+`create_session`'s `model` parameter **defaults to the calling session's
+model** when omitted — so a manager that spawns without passing `model` gives
+every lane its own model, silently. Measured on the same two lanes: both read
+`configured_model: claude-opus-5`, and **neither spawn call passed `model`.**
+The model was inherited, never chosen, for a research lane and an engineering
+lane doing well-specified work, neither obviously needing the manager's own
+model.
+
+Choose deliberately: the manager needs a strong model because it has to hold
+the whole picture across every lane; a well-specified unit where a mistake is
+recoverable in review does not. Available ids: `claude-opus-5` ·
+`claude-sonnet-5` · `claude-haiku-4-5-20251001` · `claude-fable-5-1`. **Record
+the choice and its reason in the lane's `SESSIONS.json` row** — not just the
+model value, but why — so a successor reading that row inherits the reasoning
+and does not have to re-derive it (or worse, treat inheritance itself as if it
+had been a decision). Filed:
+`BL-20260917-A-SPAWNED-LANE-INHERITS-THE-MANAGERS-MODEL-SO-EVERY-LANE-RUNS-ON-OPUS-WITHOUT-ANYONE-CHOOSING-IT`.
+
+⚠️ **NEITHER RULE IS MECHANIZED, DELIBERATELY.** CI cannot read a
+`create_session` call — it never executes inside a PR — so a guard here would
+grade the *record* of a choice, not the choice itself. That is the same
+refusal `CLAUDE.md`'s manager-duties § "THE MANAGER'S THREE BASE DUTIES" makes
+for operator feedback becoming canon: *"Refusing to mechanize it is the honest
+outcome; pretending to would be the `new-table-wiring-guard` presence-only
+failure with an extra step."* This section is that refusal applied to the same
+shape one level over — a session's own read of the operator's words, held to
+the discipline of stating its measured basis rather than asserted bare.
+
 ⚠️ **THIS HAS FAILED TWICE, AND THE SECOND TIME WAS WORSE.**
 `MI-15-SESSIONS-REGISTRY-INCOMPLETE` recorded **3 of 6** spawned sessions absent
 on 2026-09-01 and applied the remedy *"remember to register"*. On
