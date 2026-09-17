@@ -39409,6 +39409,19 @@
         "docs/claude/receipts (not committed) -- predecessor's 2026-09-17 wrap receipt section 7"
       ],
       "found_by": "session_01GHpyXT2qssLJsrvXBQRkQF (manager)"
+    },
+    {
+      "id": "BL-20260917-THE-DIAG-JOURNAL-OFFSET-PARAMETER-IS-SILENTLY-IGNORED-SO-A-SESSION-PAGING-FOR-A-WIDER-CORPUS-GETS-THE-SAME-1000-ROWS-EVERY-TIME",
+      "opened_at": "2026-09-17",
+      "opened_by": "MI-298 session_017PQcFJne7qyuVHzH5RZtFC",
+      "status": "open",
+      "severity": "high",
+      "tier": "1 — read surface",
+      "area": "research",
+      "title": "/api/diag/journal accepts offset= and IGNORES it — limit=1000&offset=1000 returns the IDENTICAL id range (4882,5881) as offset=0 with no error, so a session paging for a wider corpus gets the same 1000 rows every time and believes it has N x 1000",
+      "detail": "MEASURED 2026-09-17T21:2xZ by MI-298 against https://ict-bot.duckdns.org, browser-direct with the DIAG_READ_TOKEN bearer. Evidence: docs/research/mi298-winner-label-recovery-2026-09-17.md section 2.1. || THE THREE PROBES. (a) ?table=trades&limit=1000 -> n=1000, id range (4882, 5881). (b) ?table=trades&limit=2000 -> n=1000, id range (4882, 5881) — the 1000-row cap is HARD and is correctly documented in CLAUDE.md. (c) ?table=trades&limit=1000&offset=1000 -> n=1000, id range (4882, 5881), BYTE-IDENTICAL to (a). The offset is accepted and discarded. || WHY THIS IS HIGH AND NOT COSMETIC: it returns a PLAUSIBLE WRONG ANSWER rather than an error. A full 1000 rows come back, so every downstream count is a real integer over a real population, just the SAME population repeated. A session paging this endpoint to assemble a 5000-row corpus would get a 5000-row file holding 1000 distinct rows duplicated five times, and every rate over it would be correct-looking and wrong. Nothing in the response distinguishes it from a working paginator. || SAME DEFECT CLASS AS /api/bot/performance?days=, already documented in this repo as silently falling back to window=all: an accepted-and-ignored parameter on a read surface. UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B (implicit input selection) in CLAUDE.md terms. || WHAT IT COST THIS UNIT, so the impact is not theoretical: MI-298 was dispatched to apply the exit-label recovery over a WIDER window. The widening is bounded at 1000 rows by the hard cap, and because the cap is a SLIDING window (this pull is ids 4882-5881 against the prior measurement's 4716-5715), 166 of that measurement's oldest rows are now permanently unreachable, so its population cannot be reproduced at all. Establishing that took three probes that should not have been necessary. || NOT CLAIMED: that the cap itself is wrong (it is deliberate and documented), or that a paging route SHOULD exist. Only that a parameter which is accepted must either work or refuse, never be discarded silently.",
+      "resolution_criteria": "EITHER (a) /api/diag/journal honours offset= and a probe demonstrates it — limit=1000&offset=1000 returns an id range DISJOINT from limit=1000&offset=0, verified by comparing the two id SETS rather than by reading the diff; OR (b) the route REFUSES an unsupported parameter with a 4xx naming it, so a caller learns immediately. A DOC NOTE ALONE DOES NOT CLOSE THIS: the /api/bot/performance days= precedent is already documented in CLAUDE.md and was still hit by a session on this same day, because the surface that lies is the one a caller reads, not the doc. AND A GREEN TEST CLEARS NOTHING: the defect is in what the LIVE route does with an extra query parameter; a harness asserting the cap does not exercise it.",
+      "next_step": "Tier-2 (src/web/api/routers/diag.py). Decide between honouring offset and refusing it — refusing is the smaller change and removes the silent-wrong-answer property, which is the actual hazard."
     }
   ]
 }
