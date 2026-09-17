@@ -35,6 +35,17 @@ def _run(**over):
         "prompted_choice_shortened": 0,
         "held_write_gate": 0, "held_route": 0, "held_not_polled": 0,
         "failed": 4, "paused": False, "prompt_state_read": "read",
+        # collapsed-state: polled_with_handler — FIXTURE DATA, NOT A BRANCH.
+        # This file quotes ONE value of `telegram_poll.poll_state` because it
+        # reproduces the LIVE 2026-09-17 receipt signature verbatim, where that
+        # field genuinely read `polled_with_handler` while nothing was being
+        # delivered — which is half of why the defect looked healthy. Nothing
+        # here branches on it, and nothing should: the poll_state decision has
+        # ONE owner, `telegram_decisions.answerable_route`, which already
+        # branches on all three. `decision_channel_alert` passes the value
+        # through into the `all_held` operator message without reading it, so
+        # adding `token_only_not_polled` / `unknown` cases to THIS file would be
+        # the decorative branch this guard exists to prevent.
         "destination": "claude", "poll_state": "polled_with_handler",
         "token_from": "TELEGRAM_CLAUDE_BOT_SECRET",
         "failure_kinds": {td.FAIL_TOO_LONG: 4},
