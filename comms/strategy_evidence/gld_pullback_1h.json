@@ -5,21 +5,54 @@
   "timeframe": "1h",
   "config_fingerprint": "sha256:8ff2b78c3c2adad48d4c307eadf1b50e",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 16.2587,
+  "expectancy_r_oos": 0.2956,
+  "n_trades_oos": 55,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 13,
+      "net_r": 0.2959,
+      "expectancy_r": 0.0228,
+      "start": "2025-04-23 15:00:00+00:00",
+      "end": "2025-07-29 16:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 13,
+      "net_r": 10.2927,
+      "expectancy_r": 0.7917,
+      "start": "2025-07-31 19:00:00+00:00",
+      "end": "2025-10-22 20:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 13,
+      "net_r": 3.59,
+      "expectancy_r": 0.2762,
+      "start": "2025-11-13 20:00:00+00:00",
+      "end": "2026-04-22 20:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 16,
+      "net_r": 2.0801,
+      "expectancy_r": 0.13,
+      "start": "2026-04-30 16:00:00+00:00",
+      "end": "2026-09-03 16:00:00+00:00"
+    }
+  ],
+  "folds_positive": 4,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:23:05.526495+00:00",
+  "generated_at": "2026-09-16T19:14:09.501059+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for GLD",
+  "source_run": "/tmp/strategy_evidence_omm3li18/gld_pullback_1h__trades.jsonl",
+  "error": null,
   "harness": "pullback"
 }
