@@ -54,11 +54,13 @@ Soak: `GET /api/diag/log_file?name=netting_attribution_soak` — **1000 lines** 
 
 The row's exits are (a) *"OI-20260908's root cause lands … and a re-measure over a post-fix window shows the fall persisting or vanishing"* and (b) individual venue adjudication. **(b) is exhausted** — U9 matched 38 of 50 and U16 proved the remainder unreachable by quantity matching of any kind.
 
-**(a)'s first half is DONE.** MI-281's correction to `OI-20260908` records the book-selection fix as landed (`46e1efb1f`, PR #11435) and **deployed 2026-09-08T18:53Z**. Eight days of post-fix window now exist.
+**(a)'s first half is DONE.** MI-281's correction to `OI-20260908` records the book-selection fix as landed (`46e1efb1f`, PR #11435). ⚠️ **Verified here against the commit rather than the prose** — `46e1efb1f39aaa22414c4eb31c092cbc56bfb881`, committed `2026-09-08T18:53:00Z`, and an ancestor of `main` by `merge-base --is-ancestor`. Eight days of post-fix window now exist.
 
 ## 2. There are TWO fixes in that window, so a three-era split is confounded
 
 A **second** fix to the same chain merged inside it: **PR #11903** (MI-283), the `(symbol, position_idx)` dedupe in `account_open_positions`, merged **2026-09-12T19:47:52Z**. Both sever the path from a dropped hedge book to a false close. The eras are therefore **four**, and any result pooled across the last two attributes to neither.
+
+⚠️ **A merge is not a deploy, and the boundaries say so — but here it does not matter, which is measured rather than assumed.** Both boundaries are the merge plus the observed ~5-minute `ict-git-sync` pull (fix A `18:58Z`, fix B `19:53Z`); an earlier draft applied the lag to B and not to A. **ZERO `bybit_1` rows open inside either merge→sync window** — fix A's nearest rows are `18:11:28Z` and `19:01:28Z` (50 minutes of clearance), fix B's are `12:01:21Z` and `20:00:14Z` (8 hours) — so every figure below is invariant to how the lag is modelled. A fact about this window, not a licence to stop modelling it.
 
 ## 3. The measurement
 
