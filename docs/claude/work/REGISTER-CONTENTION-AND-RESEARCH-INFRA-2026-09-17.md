@@ -1,6 +1,6 @@
 # Register contention, and whether the research/testing/ML infra is fit for purpose
 
-> **Doc status:** `live` · category `evidence` · generated `2026-09-17` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `unknown` · last verified `2026-09-17` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 >
 > ENGINEERING LANE, `session_01SzoZAiXJibakevDU9pbwxm`, under
 > `WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS`.
@@ -293,7 +293,7 @@ provenanced — but the default is a smoke fixture, not a research corpus.
 | `replay-pregate` 38-min poll vs ~84 min | `clears_when` (b) is explicitly an **operator decision** to re-scope; a session may not take it. |
 | PR #11925 (`probe_actions_log`) | Already written and open — it needs a **merge decision**, not a re-implementation. |
 | `backtesting/SKILL.md` completeness | Tier-1 and real, but a skill rewrite is its own unit, not a rider on a landing-machinery PR. |
-| The 12 conflicted substantive PRs | Each needs its **author's** judgement on a register union; resolving them from here is `BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS`. |
+| The 12 conflicted substantive PRs | Each needs its **author's** judgement on a register union; resolving them from here is `BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION`. |
 | Anything Tier-2/3 | Out of lane scope. Proposed to the manager, never taken. |
 
 **Not established, stated plainly:** whether the trainer VM is memory-pressured
