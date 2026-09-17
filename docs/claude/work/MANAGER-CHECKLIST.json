@@ -4163,8 +4163,8 @@
       "opened": "2026-09-17",
       "measured": "manager_lease.py status at 2026-09-17T15:1xZ: state=expired_unverified, holder session_01HoFquGdTrD3TTGbMMRc43t, last heartbeat 1016 min ago (2026-09-16T19:10:21Z), main_ci=unknown because main's head reported ZERO check runs.",
       "⚠️_THE_HOLDER_IS_NOT_DEAD": "It is this session. The heartbeat is stale because a heartbeat commit is a register append and register appends have not been landing — not because supervision stopped. A successor reading `expired` must not infer the manager died.",
-      "related_backlog_row": "BL-20260917-THE-LEASE-GRADES-MAIN-RED-OFF-EVERY-CHECK-RUN-SO-TWO-NON-REQUIRED-WORKFLOWS-MAKE-IT-PERMANENTLY-UNCLAIMABLE",
-      "blocked_on": []
+      "blocked_on": [],
+      "⚠️_THE_BACKLOG_ROW_FOR_THIS_IS_DESCRIBED_AND_NOT_NAMED_ON_PURPOSE": "A row for this class WAS filed — on the branch of #12346, which has not landed — so on `main` its id resolves to NOTHING and artifact-validity-guard correctly failed this PR for naming it (scripts/ops/check_backlog_refs.py --base origin/main, exit 1). Per CLAUDE.md a dangling id may only be DESCRIBED, never copied, because 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. THE ROW IS NOT RE-FILED HERE, deliberately: health-review-backlog.json is a second shared register, and adding it would destroy the one property that lets this commit land first time (see MI-288). WHAT IT SAYS, so a successor can find or re-file it: manager_lease.py grades `main` red off EVERY check run rather than the three REQUIRED contexts (pytest-collect, pytest-run, guards), so two non-required workflows that are routinely red make the lease read `expired_unverified` / `main_ci=unknown` permanently. Severity medium, tier 1. It lands with #12346, or is re-filed by whoever picks this up."
     }
   ],
   "as_of": "2026-09-17T15:15:00Z",
