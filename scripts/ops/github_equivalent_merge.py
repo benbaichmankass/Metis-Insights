@@ -171,11 +171,38 @@ def _conflict_paths(cwd: str, env: dict[str, str]) -> list[str]:
     return [p for p in out.stdout.splitlines() if p.strip()]
 
 
-def predict(repo: str, base: str, head: str) -> dict:
-    """Merge ``head`` into ``base`` the way GitHub would, and report the verdict."""
+def predict(repo: str, base: str, head: str, *, inspect=None) -> dict:
+    """Merge ``head`` into ``base`` the way GitHub would, and report the verdict.
+
+    ⚠️ **`clean` IS A STATEMENT ABOUT THE MERGE, NEVER ABOUT THE RESULT**, and
+    conflating the two is a measured, `main`-reddening defect rather than a
+    theoretical one. GitHub's squash cannot run this repo's row-aware register
+    driver, so `.gitattributes` falls back to ``union`` — which keeps a row
+    present on BOTH sides at different positions rather than recognising it as
+    one row. That merge does not conflict. It reports success and emits a
+    DUPLICATE register id, and this function returned ``clean`` for exactly that
+    case twice on 2026-09-17.
+
+    ``inspect`` is how a caller looks at the tree before it is torn down. It is
+    called ONLY on a clean merge -- a conflicted merge has no result to inspect
+    and a failed one has no tree -- with the merged worktree's path, and
+    whatever it returns is stored under ``result["inspection"]``.
+
+    ⚠️ **AN INSPECTION VERDICT NEVER OVERWRITES THE MERGE VERDICT.** A clean
+    merge whose content is wrong stays ``clean`` here, because it genuinely will
+    not conflict; the content finding rides beside it. Folding one into the
+    other would make a caller unable to tell *"you must merge the base in"* from
+    *"this will land and corrupt a register"*, which have opposite remedies.
+
+    ⚠️ **AN INSPECTION THAT RAISES IS `could_not_look`, NOT A PASS.** The hook
+    runs against a real worktree and can fail for reasons that say nothing about
+    the content; reporting that as clean content would be the collapsed state
+    this module exists to refuse.
+    """
     result: dict = {"state": COULD_NOT_LOOK, "base": base, "head": head,
                     "conflict_paths": [], "reason": None,
-                    "drivers": [], "source_clone_armed": None}
+                    "drivers": [], "source_clone_armed": None,
+                    "inspection": None}
     tmp = None
     try:
         try:
@@ -228,6 +255,15 @@ def predict(repo: str, base: str, head: str) -> dict:
                       env=env, check=False)
         if merged.returncode == 0:
             result["state"] = CLEAN
+            if inspect is not None:
+                try:
+                    result["inspection"] = inspect(work)
+                except Exception as exc:  # the hook failing is not clean content
+                    result["inspection"] = {
+                        "state": COULD_NOT_LOOK,
+                        "reason": f"the inspection hook raised: {exc!r}",
+                        "findings": [],
+                    }
             return result
         paths = _conflict_paths(work, env)
         if not paths:
@@ -256,6 +292,28 @@ def predict(repo: str, base: str, head: str) -> dict:
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+def overall_state(result: dict) -> str:
+    """The WORST of the merge verdict and the inspection verdict.
+
+    ⚠️ **The two are reported separately and combined only HERE**, for the one
+    consumer that needs a single number: the CLI's exit code. A clean merge
+    whose inspected content is wrong must not exit 0 — the whole point is that
+    ``clean`` was the answer that let a duplicate register id reach ``main``
+    twice on 2026-09-17 — and it must not silently become ``would_conflict``
+    in the RESULT either, because the remedies differ.
+    """
+    merge_state = result["state"]
+    ins = result.get("inspection") or {}
+    ins_state = ins.get("state")
+    if merge_state != CLEAN or not ins_state:
+        return merge_state
+    if ins_state == CLEAN:
+        return CLEAN
+    if ins_state == COULD_NOT_LOOK:
+        return COULD_NOT_LOOK
+    return WOULD_CONFLICT
+
+
 def render(result: dict) -> str:
     state = result["state"]
     head, base = result["head"], result["base"]
@@ -273,6 +331,24 @@ def render(result: dict) -> str:
         lines.append("github-equivalent merge: COULD NOT LOOK — this is NOT a "
                      "clean bill and NOT a conflict.")
         lines.append(f"  {result['reason']}")
+    ins = result.get("inspection")
+    if ins:
+        ins_state = ins.get("state")
+        findings = ins.get("findings") or []
+        if ins_state == CLEAN:
+            lines.append(f"  inspected the merged tree: OK ({ins.get('note') or 'no findings'})")
+        elif ins_state == COULD_NOT_LOOK:
+            lines.append("  ⚠️ the merged tree COULD NOT BE INSPECTED — the line "
+                         "above is about the MERGE only, and is not a clean bill "
+                         "for what it would produce.")
+            lines.append(f"    {ins.get('reason')}")
+        else:
+            lines.append("  ⚠️ THE MERGE IS CLEAN AND ITS RESULT IS NOT. Merging "
+                         "this would land the following:")
+            for f in findings:
+                lines.append(f"    - {f}")
+            lines.append("    remedy: this is NOT fixed by merging the base in. "
+                         "The offending row must be reconciled before the merge.")
     if result["drivers"]:
         armed = result["source_clone_armed"]
         word = {True: "ARMED", False: "not armed", None: "unreadable"}[armed]
@@ -295,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
         print(_json.dumps(result, indent=2, sort_keys=True))
     else:
         print(render(result))
-    return EXIT[result["state"]]
+    return EXIT[overall_state(result)]
 
 
 if __name__ == "__main__":
