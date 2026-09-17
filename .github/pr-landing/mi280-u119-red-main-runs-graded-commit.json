@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by surface and by effect. One source function in scripts/ops/render_due_list.py (an observability READER — it computes what the due list says, and touches no order path, no config and no deploy), its existing test file extended, and two appended backlog rows. No src/, no config/, no deploy/, no workflows. None of the three touched paths is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply. The change is additive to the verdict: it attaches the graded commit and its distance from main's tip to a result that previously stated neither, and a commits-API failure degrades to distance_unknown while still emitting every red — so the worst case is the behaviour that exists today."
+}
