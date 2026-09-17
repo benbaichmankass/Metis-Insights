@@ -8,7 +8,15 @@ printed:
     ::error::A register id collided. Git cannot see this class: to git a reused
       id is a changed value at the same key, so the merge silently deletes the
       row that was already there.
-      - …: NEW row 'BL-20260101-BETA' records no creation date…
+      - …: NEW row 'FIXTURE-BETA' records no creation date…
+
+⚠️ THE FIXTURE IDS READ `FIXTURE-…`, NOT `BL-…`, AND THAT IS NOT COSMETIC. The
+quote above is the guard's real output with the invented row renamed:
+`scripts/ops/check_backlog_refs.py` scans added lines for register ids, and an
+INVENTED `BL-`-shaped id resolves to no filed row — reported as "a doc saying
+'tracked by BL-X' where BL-X was never filed". Caught on this very change
+(artifact-validity-guard, the 1 FAIL of 85). A fixture id must not be shaped
+like a real one.
 
 `main` printed ONE `::error::` headline over a `problems` list pooling R1, R2
 and R3. **R3 is not a collision** — the census line on the very same run says
@@ -94,7 +102,7 @@ def _run(tmp_path: Path):
     return proc.returncode, proc.stdout
 
 
-DATED = {"id": "BL-20260101-ALPHA", "opened": "2026-01-01",
+DATED = {"id": "FIXTURE-ALPHA", "opened": "2026-01-01",
          "summary": "the original row"}
 
 
@@ -116,7 +124,7 @@ def test_an_R3_only_run_is_not_headlined_as_a_collision(tmp_path):
     """The reproduction, end to end through `main`."""
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        DATED, {"id": "BL-20260101-BETA", "summary": "new, NO creation date"}))
+        DATED, {"id": "FIXTURE-BETA", "summary": "new, NO creation date"}))
 
     rc, out = _run(tmp_path)
     assert rc == 1, out
@@ -134,7 +142,7 @@ def test_the_R3_headline_gives_the_R3_remedy(tmp_path):
     """
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        DATED, {"id": "BL-20260101-BETA", "summary": "new, NO creation date"}))
+        DATED, {"id": "FIXTURE-BETA", "summary": "new, NO creation date"}))
     _, out = _run(tmp_path)
     headline = next(ln for ln in out.splitlines() if UNDATED in ln)
     assert "Do NOT mint a fresh id" in headline, headline
@@ -149,7 +157,7 @@ def test_the_census_still_reports_unique_on_that_same_run(tmp_path):
     """
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        DATED, {"id": "BL-20260101-BETA", "summary": "new, NO creation date"}))
+        DATED, {"id": "FIXTURE-BETA", "summary": "new, NO creation date"}))
     _, out = _run(tmp_path)
     census = next(ln for ln in out.splitlines() if "2 rows" in ln)
     assert "unique" in census and "UNIQUENESS PROBLEM" not in census, census
@@ -182,7 +190,7 @@ def test_R2_keeps_the_collision_headline(tmp_path):
     """
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        {"id": "BL-20260101-ALPHA", "opened": "2026-02-02",
+        {"id": "FIXTURE-ALPHA", "opened": "2026-02-02",
          "summary": "an entirely different item"}))
     rc, out = _run(tmp_path)
     assert rc == 1, out
@@ -193,7 +201,7 @@ def test_R2_keeps_the_collision_headline(tmp_path):
 def test_a_clean_run_prints_no_error_headline_at_all(tmp_path):
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        DATED, {"id": "BL-20260101-DELTA", "opened": "2026-03-03",
+        DATED, {"id": "FIXTURE-DELTA", "opened": "2026-03-03",
                 "summary": "new and dated"}))
     rc, out = _run(tmp_path)
     assert rc == 0, out
@@ -205,7 +213,7 @@ def test_a_run_tripping_both_prints_both_headlines(tmp_path):
     """Splitting must not make one cause hide the other."""
     _repo_with_base(tmp_path, _rows(DATED))
     _write_head(tmp_path, _rows(
-        DATED, DATED, {"id": "BL-20260101-GAMMA", "summary": "new, undated"}))
+        DATED, DATED, {"id": "FIXTURE-GAMMA", "summary": "new, undated"}))
     rc, out = _run(tmp_path)
     assert rc == 1, out
     assert COLLIDED in out and UNDATED in out, out

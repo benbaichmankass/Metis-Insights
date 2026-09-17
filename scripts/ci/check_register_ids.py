@@ -356,7 +356,15 @@ UNDATED_HEADLINE = (
 #:
 #:     …::items[id]: 2 rows, unique · R2a assessed 1/1 (100%) · R2b 1/1, 0 replaced
 #:     ::error::A register id collided. …the merge silently deletes the row…
-#:       - …: NEW row 'BL-20260101-BETA' records no creation date…
+#:       - …: NEW row 'FIXTURE-BETA' records no creation date…
+#:
+#: ⚠️ THE FIXTURE IDS READ `FIXTURE-…`, NOT `BL-…`, AND THAT IS NOT COSMETIC.
+#: The quote above is this guard's real output, with the invented row renamed:
+#: `scripts/ops/check_backlog_refs.py` scans added lines for register ids and
+#: an INVENTED `BL-`-shaped id in a comment resolves to no filed row, so it is
+#: reported as "a doc saying 'tracked by BL-X' where BL-X was never filed".
+#: Caught on this very change (artifact-validity-guard, FAIL 1 of 85). A
+#: fixture id must not be shaped like a real one.
 #:
 #: UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a message naming a cause no
 #: code path tested. The harm is the REMEDY, not the wording: the headline says
