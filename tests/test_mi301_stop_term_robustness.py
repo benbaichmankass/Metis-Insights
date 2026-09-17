@@ -117,8 +117,11 @@ def test_negative_robust_term_is_its_own_state() -> None:
 
 def _live_shape() -> dict:
     n = M.NUMERATORS["all_stop_outs"]
-    mk = lambda s, t: ([{"adjudicated": "reached_stop"}] * s
-                       + [{"adjudicated": "neither"}] * (t - s))
+
+    def mk(s: int, t: int) -> list:
+        return ([{"adjudicated": "reached_stop"}] * s
+                + [{"adjudicated": "neither"}] * (t - s))
+
     return {
         "e35": {"pre": M.rate(mk(2, 8), n), "post": M.rate(mk(11, 20), n)},
         "untouched_control": {"pre": M.rate(mk(22, 47), n),

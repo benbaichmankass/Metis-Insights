@@ -130,10 +130,12 @@ remove), so this is a latent label defect, not a live error — filed, not fixed
 
 Both use the row selection `stop_integrity_both_arms` actually implements
 (**earliest close**), so they are directly comparable to U15's `earliest close` row.
+Intervals are Wilson score intervals, two-sided at alpha 0.05; every rate carries
+its own `stops/n`, so each row states its own population.
 
 **`all_stop_outs`**
 
-| arm | era | stops/n | rate | 95% CI (Wilson) | state |
+| arm | era | stops/n | rate | Wilson CI (two-sided, alpha 0.05) | state |
 |---|---|---|---|---|---|
 | `e35` | pre | 2/8 | 25.00 | **(7.15, 59.07)** | `insufficient_n` |
 | `e35` | post | 11/20 | 55.00 | (34.21, 74.18) | `measured` |
@@ -145,7 +147,7 @@ DiD **+19.53pp** (treated +30.00, control +10.47) · state `ungradeable_cell` ·
 
 **`declared_only`** — the basis #12205's headline claims to use
 
-| arm | era | stops/n | rate | 95% CI (Wilson) | state |
+| arm | era | stops/n | rate | Wilson CI (two-sided, alpha 0.05) | state |
 |---|---|---|---|---|---|
 | `e35` | pre | 2/8 | 25.00 | **(7.15, 59.07)** | `insufficient_n` |
 | `e35` | post | 9/20 | 45.00 | (25.82, 65.79) | `measured` |
