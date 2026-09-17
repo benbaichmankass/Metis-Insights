@@ -47,8 +47,9 @@ WHAT THIS MODULE IS NOT
 It is **not** a second definition of "what is a register" or "what is a
 collision". Both are imported from `scripts/ci/check_register_ids.py`, which is
 their single owner. A second copy would drift silently and in the dangerous
-direction — the way the writer and the guard drifted apart in
-`BL-20260912-BACKLOG-APPEND-STAMPS-NO-CREATION-KEY-...` — so a test asserts the
+direction — the way the mandated writer and the mandated guard
+`BL-20260912-BACKLOG-APPEND-STAMPS-NO-CREATION-KEY-SO-THE-ONLY-WRITER-LEAVES-THE-FIELD-EVERY-READER-NEEDS-TO-THE-CALLER`
+drifted apart — so a test asserts the
 identity of the imported objects rather than their equality.
 """
 from __future__ import annotations
@@ -157,15 +158,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     if r["state"] == CLEAN:
         print(f"predicted-register-integrity: OK — {r['note']}")
         return 0
+    # ⚠️ Every line below states the population it ranges over. A verdict about
+    # registers that does not say HOW MANY it read is the unquantified claim the
+    # diagnostic-provenance guard refuses, and it is the specific shape that
+    # makes an empty denominator read as a clean result.
+    read, unread = r["registers_read"], r["registers_unreadable"]
     if r["state"] == WOULD_DUPLICATE:
-        print("predicted-register-integrity: WOULD DUPLICATE — merging this "
-              "would land the following on main:")
+        print(f"predicted-register-integrity: WOULD DUPLICATE — over {read} "
+              f"register(s) read ({len(unread)} unreadable), merging this would "
+              f"land the following {len(r['findings'])} finding(s) on main:")
         for f in r["findings"]:
             print(f"  - {f}")
         return 1
-    print("predicted-register-integrity: COULD NOT LOOK — this is NOT a clean "
-          "bill and NOT a finding.")
+    print(f"predicted-register-integrity: COULD NOT LOOK — {read} register(s) "
+          f"read, {len(unread)} unreadable. This is NOT a clean bill for the "
+          f"{read + len(unread)} register(s) in scope, and NOT a finding either.")
     print(f"  {r['reason']}")
+    for u in unread:
+        print(f"  unreadable: {u}")
     return 2
 
 
