@@ -463,6 +463,31 @@ def _verdict(row: dict[str, Any]) -> str | None:
     return None
 
 
+#: PUBLIC ALIAS for :func:`_verdict`, so the MANDATED WRITER can refuse exactly
+#: what this GUARD refuses — `scripts/ops/backlog_append.py::append_row` imports
+#: this name.
+#:
+#: WHY AN ALIAS RATHER THAN A SECOND COPY OF THE RULE. A writer that restated
+#: "what makes a row workable" would drift from this one, and the drift is the
+#: defect being fixed: `BL-20260910-THE-MANDATED-BACKLOG-WRITER-ACCEPTS-A-ROW-THAT-CI-THEN-REJECTS`
+#: measured the writer accepting rows this guard then rejected, and its proposed
+#: fix says in terms to IMPORT this predicate rather than restate it — the same
+#: single-owner argument the repo makes for `src/runtime/provenance.py`.
+#:
+#: WHY AN ALIAS RATHER THAN A RENAME: `_verdict` has ten call sites in this file
+#: and appears in its self-test's expectations. Renaming to publish it would put
+#: a churn diff between the reader and the one-line change that matters.
+#:
+#: ⚠️ THE TWO CALLERS ARE NOT SCOPED THE SAME, and that is deliberate rather
+#: than an oversight. This guard grades only rows NEW IN A DIFF (pre-existing
+#: rows are grandfathered — 393 live health rows would fail it today, and a
+#: whole-tree gate would red every PR in the repo, which is how a guard gets
+#: switched off instead of satisfied). `append_row` only ever creates a row, so
+#: it is inside that same scope by construction: it can never reach a
+#: grandfathered one.
+workability_verdict = _verdict
+
+
 def _report(bad: list[tuple[str, str, str]], *, advisory: bool) -> int:
     if not bad:
         return 0

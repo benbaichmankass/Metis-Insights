@@ -76,10 +76,20 @@ def test_the_live_backlogs_all_round_trip():
         )
 
 
+#: `append_row` REFUSES a row `check_backlog_criteria` would reject, so every
+#: fixture row must be workable. That is the behaviour under test elsewhere in
+#: this file, not incidental setup: a fixture that could not be filed for real
+#: was never a faithful fixture.
+def _w(**kw):
+    return {"resolution_criteria": ("what DONE looks like, stated at length "
+                                    "enough to clear the guard's floor"),
+            "severity": "medium", "tier": 1, **kw}
+
+
 def test_append_is_addition_only(tmp_path):
     p = tmp_path / "b.json"
     before = _write(p, indent=2, ensure_ascii=False)
-    append_row(p, {"id": "BL-2", "title": "new"}, updated_at="2026-01-02")
+    append_row(p, _w(id="BL-2", title="new"), updated_at="2026-01-02")
     after = p.read_text()
 
     assert "em—dash" in after, "the em-dash was escaped — the exact trap"
@@ -103,7 +113,7 @@ def test_the_planted_ensure_ascii_write_is_refused(tmp_path):
 
     # This layout IS reproducible, so the helper may append — but it must not
     # un-escape anything, because that would rewrite every affected line.
-    append_row(p, {"id": "BL-2"})
+    append_row(p, _w(id="BL-2"))
     after = p.read_text()
     assert "\\u2014" in after, (
         "the helper un-escaped an escaped file — that rewrites every line "
@@ -151,6 +161,14 @@ _EXISTING = {
     "title": "exit reason frozen when the price arrives late",
     "detail": "the sweep fills exit_price after the close and never re-runs the "
               "classifier, so broker-truth rows keep a reconciler_filled label",
+    # Workable, because a REAL backlog row is — `append_row` now refuses one
+    # that is not, and a fixture standing in for a real row must be able to
+    # survive the real writer.
+    "resolution_criteria": "the classifier re-runs once the late price lands, "
+                           "and a broker-truth row no longer reads reconciler_filled",
+    "severity": "medium",
+    "tier": 1,
+    "opened_at": "2026-08-22",
 }
 
 
@@ -179,22 +197,22 @@ def test_a_recurrence_can_be_filed_once_acknowledged(tmp_path):
     strictly worse than the duplicate it prevents.
     """
     p = _seed_backlog(tmp_path, [_EXISTING])
-    n = append_row(p, {
+    n = append_row(p, _w(**{
         "id": "BL-20260826-EXIT-REASON-FROZEN-AGAIN",
         "title": "the exit reason is frozen when price arrives late — AGAIN",
         "detail": "same sweep, same classifier, after the 08-22 fix: it did not hold",
-    }, similar_ok=True)
+    }), similar_ok=True)
     assert n == 2
 
 
 def test_a_genuinely_new_row_is_not_blocked(tmp_path):
     """The check must not tax ordinary filing."""
     p = _seed_backlog(tmp_path, [_EXISTING])
-    assert append_row(p, {
+    assert append_row(p, _w(**{
         "id": "BL-20260826-INGRESS-CERT-UNMONITORED",
         "title": "ingress certificate expiry is unmonitored",
         "detail": "nothing watches the edge cluster's cert expiry date",
-    }) == 2
+    })) == 2
 
 
 def test_the_precheck_never_blocks_when_it_cannot_run(tmp_path, monkeypatch):
@@ -406,7 +424,10 @@ def test_superseded_gets_its_own_key_not_resolved_at(tmp_path):
 def test_a_row_filed_already_closed_is_stamped(tmp_path):
     p = _closing_backlog(tmp_path)
     append_row(p, {"id": "BL-NEW", "title": "t", "status": "wont_fix", "tier": 1,
-                   "detail": "d", "resolution_criteria": "c"}, similar_ok=True)
+                   "severity": "medium",
+                   "resolution_criteria": ("what DONE looks like, stated at "
+                                           "length enough to clear the floor"),
+                   "detail": "d"}, similar_ok=True)
     assert isinstance(_row(p, "BL-NEW").get("resolved_at"), str)
 
 
@@ -497,7 +518,7 @@ def test_append_row_stamps_a_creation_key_when_the_caller_omits_one(tmp_path):
     from scripts.ops.backlog_append import _CREATION_STAMP_KEY, append_row
 
     p = _seed_creation_backlog(tmp_path)
-    append_row(p, {"id": "BL-NODATE", "title": "no date supplied"})
+    append_row(p, _w(id="BL-NODATE", title="no date supplied"))
     row = _last_creation_row(p)
     stamped = row.get(_CREATION_STAMP_KEY)
     assert isinstance(stamped, str) and len(stamped) >= 7, (
@@ -537,8 +558,9 @@ def test_a_caller_supplied_creation_date_survives_under_every_spelling(tmp_path)
 
     for spelling in CREATION_KEYS:
         p = _seed_creation_backlog(tmp_path)
-        append_row(p, {"id": f"BL-{spelling.upper()}", "title": "caller dated it",
-                       spelling: "2026-01-02T03:04:05+00:00"})
+        append_row(p, _w(**{"id": f"BL-{spelling.upper()}",
+                            "title": "caller dated it",
+                            spelling: "2026-01-02T03:04:05+00:00"}))
         row = _last_creation_row(p)
         assert row.get(spelling) == "2026-01-02T03:04:05+00:00", (
             f"the stamp clobbered a caller-supplied {spelling!r}")
@@ -556,9 +578,89 @@ def test_stamping_still_leaves_pre_existing_rows_byte_identical(tmp_path):
 
     p = _seed_creation_backlog(tmp_path)
     before = _json.loads(p.read_text())["items"][0]
-    append_row(p, {"id": "BL-ADDONLY", "title": "x"})
+    append_row(p, _w(id="BL-ADDONLY", title="x"))
     after = _json.loads(p.read_text())["items"][0]
     assert (_json.dumps(after, indent=2, ensure_ascii=False)
             == _json.dumps(before, indent=2, ensure_ascii=False)), (
         "the creation stamp broke the addition-only property — a diff-scoped "
         "guard would re-attribute the pre-existing row to this change")
+
+
+# --------------------------------------------------------------------------- #
+# The WORKABILITY refusal — the writer refuses what CI refuses.
+#   BL-20260910-THE-MANDATED-BACKLOG-WRITER-ACCEPTS-A-ROW-THAT-CI-THEN-REJECTS
+#
+# The row's criterion asks for the refusal to be VERIFIED BY RUNNING IT — "a
+# planted call omitting them raises, and the same call with them present returns
+# normally" — and says in terms that a test which merely imports the validator
+# does not clear it. Every case below goes through `append_row` itself.
+# --------------------------------------------------------------------------- #
+def _workability_backlog(tmp_path):
+    import json as _json
+    p = tmp_path / "workability-backlog.json"
+    p.write_text(_json.dumps(
+        {"schema_version": 1, "items": [{"id": "BL-SEED", "title": "seed"}]},
+        indent=2, ensure_ascii=False) + "\n")
+    return p
+
+
+@pytest.mark.parametrize("row,label", [
+    ({"id": "BL-NOCRIT", "severity": "medium", "tier": 1}, "no resolution_criteria"),
+    ({"id": "BL-NOSEV", "resolution_criteria": "x" * 80, "tier": 1}, "no severity"),
+    ({"id": "BL-NOTIER", "resolution_criteria": "x" * 80, "severity": "medium"}, "no tier"),
+    ({"id": "BL-TBD", "resolution_criteria": "TBD", "severity": "medium", "tier": 1},
+     "a placeholder resolution_criteria"),
+])
+def test_append_row_refuses_an_unworkable_row(tmp_path, row, label):
+    from scripts.ops.backlog_append import RowNotWorkable
+
+    p = _workability_backlog(tmp_path)
+    before = p.read_text()
+    with pytest.raises(RowNotWorkable) as exc:
+        append_row(p, row)
+    assert row["id"] in str(exc.value), (
+        f"the refusal for {label} does not name the row — a bare refusal cannot "
+        "be acted on")
+    assert p.read_text() == before, (
+        f"a refused write TOUCHED the file ({label}) — a refusal that already "
+        "wrote is not a refusal")
+
+
+def test_a_workable_row_is_still_appended(tmp_path):
+    """POSITIVE CONTROL. A refusal without a pass proves only that it is a wall.
+
+    This is also the arm that fails if the predicate is ever made
+    unsatisfiable, which a refusal-only suite would score as a success.
+    """
+    p = _workability_backlog(tmp_path)
+    assert append_row(p, _w(id="BL-WORKABLE", title="a workable row")) == 2
+
+
+def test_the_writers_predicate_IS_the_guards(tmp_path):
+    """Identity, not agreement.
+
+    Two predicates that merely agree today are exactly what drifts apart —
+    which is the defect this row records. Asserting the same object is what
+    makes the drift impossible rather than unlikely.
+    """
+    from scripts.ops.backlog_append import workability_verdict
+    from scripts.ops.check_backlog_criteria import _verdict
+
+    assert workability_verdict is _verdict
+
+
+def test_update_row_is_untouched_by_the_refusal(tmp_path):
+    """AMENDING an old row must stay possible.
+
+    393 of the 1601 live health rows would fail the predicate, and they are
+    grandfathered because the guard grades only rows NEW in a diff. If the
+    refusal leaked into `update_row`, every one of them would become
+    un-amendable — so the repair path would be blocked by the rule meant to
+    improve the rows.
+    """
+    import json as _json
+
+    p = _workability_backlog(tmp_path)
+    row = update_row(p, "BL-SEED", fields={"detail": "amended"})
+    assert row["detail"] == "amended"
+    assert _json.loads(p.read_text())["items"][0]["detail"] == "amended"
