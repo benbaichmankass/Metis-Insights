@@ -1,0 +1,6 @@
+{
+  "held_by": "github-actions[bot] · reconcile-open-prs run 35241174254",
+  "branch": "automation/reconcile-open-prs-35241174254-1",
+  "claimed_at": "2026-09-17T16:10:50Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+}
