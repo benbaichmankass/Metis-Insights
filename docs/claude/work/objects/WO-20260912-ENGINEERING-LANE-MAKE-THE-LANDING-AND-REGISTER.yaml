@@ -189,4 +189,11 @@ resumed_2026_09_17: >-
   and the row is RE-AFFIRMED rather than cleared. The prior observation was APPENDED to,
   never replaced — the rule #12214 is still in flight to enforce, honoured before it could.
 
-  OPEN AND ARMED AT THIS WRITING: #12214, #12217, #12224, #12365, #12366. MERGED: #12223.
+  OPEN AND ARMED AT THIS WRITING: #12214, #12217, #12224, #12365, #12366, and #12367 —
+  which is THIS correction, and which the first version of this key could not name
+  because it did not exist yet. ⚠️ #12367 WAS OPENED BY `claude-pr-automerge`, NOT BY
+  HAND, because this branch's first push carried the arming file ALONGSIDE the content
+  instead of behind it — so the PR was born under `GITHUB_TOKEN`, carries no
+  `pull_request` event, and its CI never fired. That is the documented trap, walked
+  into by the lane that documents it, and the commit adding this sentence is the
+  ordinary push that arms its checks. MERGED: #12223.
