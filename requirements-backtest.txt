@@ -26,7 +26,22 @@ requests>=2.31.0
 # yfinance, not the live Alpaca data API: no live equities scalp leg exists yet
 # to be config-exact against, and the CLAUDE.md VM-authority split forbids
 # copying production Alpaca keys onto the trainer regardless of read-only intent.
-yfinance>=0.2.0
+# ⚠️ FLOOR RAISED 2026-09-16 (MI-287) — `>=0.2.0` WAS A FLOOR THAT ADMITTED A
+# BROKEN RESOLUTION, AND IT SILENTLY COST 23 OF 52 STRATEGY-EVIDENCE LEGS.
+# Yahoo answers a plain-`requests` User-Agent with HTTP 429 ("Edge: Too Many
+# Requests") and serves the byte-identical request with a browser UA. The
+# 0.2.x line builds its session on `requests`; the 1.x line uses `curl_cffi`
+# to impersonate a browser, so only the latter is served.
+# MEASURED 2026-09-16, same machine / network / minute, interleaved:
+#   raw API, curl default UA -> HTTP 429 in 6 of 6; browser UA -> 200 in 6 of 6
+#   yfinance 0.2.40 -> SPY 0 rows, GDX 0 rows, ES=F 0 rows
+#   yfinance 1.7.0  -> SPY 365,   GDX 365,   ES=F 302
+# (Measurement lives in the MI-287 PR body and the work object; re-run with
+#  `pip install yfinance==0.2.40` to reproduce the negative arm.)
+# ⚠️ THE BOUNDARY WAS NOT BISECTED. 1.7.0 is the lowest version MEASURED to
+# work, not the lowest version that DOES work — so this floor is honest rather
+# than minimal, and lowering it needs a measurement, not an assumption.
+yfinance>=1.7.0
 
 # Used by the cache-freshness check (parsing month strings → datetimes).
 # Already a transitive dep of pandas; pinning explicitly so the
