@@ -2,25 +2,23 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
-_Generated 2026-09-17T17:44:24+00:00 · covers rows after `2026-09-17T12:39:01.979162+00:00` · verdict **all_feeds_read**_
+_Generated 2026-09-17T21:43:08+00:00 · covers rows after `2026-09-17T17:32:26.306737+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
-- **operator_alerts** — state `read` · 579 of 1000 requested · span 2026-09-09T06:44:24.244346+00:00 → 2026-09-17T17:12:45.423247+00:00
-- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-09-12T10:09:41.390924+00:00 → 2026-09-17T17:32:26.306737+00:00
+- **operator_alerts** — state `read` · 584 of 1000 requested · span 2026-09-09T06:44:24.244346+00:00 → 2026-09-17T21:14:45.236048+00:00
+- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-09-12T10:11:53.206531+00:00 → 2026-09-17T21:40:52.903025+00:00
 
-## Groups (104, covering 1579 rows)
+## Groups (106, covering 1584 rows)
 
-- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_live/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jour
-  - 2026-09-17T13:42:49.793653+00:00 → 2026-09-17T13:42:49.793653+00:00 · accounts: alpaca_live
-- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_paper/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jou
-  - 2026-09-17T13:42:46.175946+00:00 → 2026-09-17T13:42:46.175946+00:00 · accounts: alpaca_paper
-- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
-  - 2026-09-17T13:42:47.896749+00:00 → 2026-09-17T13:42:47.896749+00:00 · accounts: alpaca_portfolio
-- **[error] x92** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca
-  - 2026-09-09T10:03:15.361800+00:00 → 2026-09-17T17:12:45.423247+00:00 · accounts: alpaca_paper · symbols: GLD
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_paper/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-17T19:55:03.485552+00:00 → 2026-09-17T19:55:03.485552+00:00 · accounts: alpaca_paper
+- **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
+  - 2026-09-17T19:55:04.633144+00:00 → 2026-09-17T19:55:04.633144+00:00 · accounts: alpaca_portfolio
+- **[error] x96** `operator_alerts` — 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca
+  - 2026-09-09T10:03:15.361800+00:00 → 2026-09-17T21:14:45.236048+00:00 · accounts: alpaca_paper · symbols: GLD
 - **[error] x63** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_unavailable (for N c
   - 2026-09-10T09:07:19.410872+00:00 → 2026-09-14T06:29:52.314802+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[error] x62** `operator_alerts` — ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles_unavailable (for N 
@@ -107,12 +105,18 @@ _Generated 2026-09-17T17:44:24+00:00 · covers rows after `2026-09-17T12:39:01.9
   - 2026-09-11T11:44:06.560104+00:00 → 2026-09-11T11:44:06.560104+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[error] x1** `operator_alerts` — *DEMO TRADER* ⚠️ Order execution failed Account: bybit_N Strategy: ict_scalp_avax_Nm Symbol: AVAXUSDT | Side: sell | Qty: N Reason: RuntimeError: Order submissi
   - 2026-09-10T17:40:42.149653+00:00 → 2026-09-10T17:40:42.149653+00:00 · accounts: bybit_1 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
+- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_live/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jour
+  - 2026-09-17T13:42:49.793653+00:00 → 2026-09-17T13:42:49.793653+00:00 · accounts: alpaca_live
 - **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_paper/QQQ: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jou
   - 2026-09-14T16:08:45.042243+00:00 → 2026-09-14T16:08:45.042243+00:00 · accounts: alpaca_paper
+- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_paper/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jou
+  - 2026-09-17T13:42:46.175946+00:00 → 2026-09-17T13:42:46.175946+00:00 · accounts: alpaca_paper
 - **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_paper/USO: position N carries a resting stop for only N — N unprotected. The netted position is shared by more jou
   - 2026-09-15T15:03:54.891629+00:00 → 2026-09-15T15:03:54.891629+00:00 · accounts: alpaca_paper
 - **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/QQQ: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
   - 2026-09-14T16:08:46.725965+00:00 → 2026-09-14T16:08:46.725965+00:00 · accounts: alpaca_portfolio
+- **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/SLV: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
+  - 2026-09-17T13:42:47.896749+00:00 → 2026-09-17T13:42:47.896749+00:00 · accounts: alpaca_portfolio
 - **[error] x1** `bot_logs` — alpaca_partial_stop_coverage detected: alpaca_portfolio/USO: position N carries a resting stop for only N — N unprotected. The netted position is shared by more
   - 2026-09-15T15:03:56.602235+00:00 → 2026-09-15T15:03:56.602235+00:00 · accounts: alpaca_portfolio
 - **[error] x1** `bot_logs` — alpaca_target_naked detected: alpaca_paper/SLV: position N has N of take-profit coverage against a declared TP of N — the position can only stop out or run
@@ -165,18 +169,18 @@ _Generated 2026-09-17T17:44:24+00:00 · covers rows after `2026-09-17T12:39:01.9
   - 2026-09-17T12:18:07.333647+00:00 → 2026-09-17T12:18:07.333647+00:00 · accounts: bybit_1 · symbols: XRPUSDT
 - **[error] x1** `operator_alerts` — 🪝 Exchange-side orphan position — policy=adopt Account: bybit_N Symbol: SOLUSDT | Side: short | Size: N Entry (Bybit avgPrice): N DB trade id (adopted): N
   - 2026-09-12T11:05:09.380483+00:00 → 2026-09-12T11:05:09.380483+00:00 · accounts: bybit_1 · symbols: SOLUSDT
-- **[warn] x260** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-09-12T10:09:41.390924+00:00 → 2026-09-17T17:32:26.306737+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
-- **[warn] x168** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
-  - 2026-09-12T10:09:42.343348+00:00 → 2026-09-17T14:59:52.258691+00:00 · symbols: MGC · strategies: mgc_trend_1h
-- **[warn] x162** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
-  - 2026-09-12T10:09:41.867287+00:00 → 2026-09-17T14:59:51.867533+00:00 · symbols: MGC · strategies: mgc_pullback_1d
+- **[warn] x264** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-09-12T10:11:55.273984+00:00 → 2026-09-17T21:40:52.903025+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x167** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
+  - 2026-09-12T10:11:56.234987+00:00 → 2026-09-17T14:59:52.258691+00:00 · symbols: MGC · strategies: mgc_trend_1h
+- **[warn] x161** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
+  - 2026-09-12T10:11:55.755674+00:00 → 2026-09-17T14:59:51.867533+00:00 · symbols: MGC · strategies: mgc_pullback_1d
 - **[warn] x154** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
-  - 2026-09-12T10:09:44.664247+00:00 → 2026-09-17T15:26:34.207115+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+  - 2026-09-12T10:11:59.042416+00:00 → 2026-09-17T20:45:13.705180+00:00 · symbols: MHG · strategies: mhg_pullback_1d
 - **[warn] x137** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
   - 2026-09-12T10:11:53.206531+00:00 → 2026-09-17T14:33:27.205720+00:00 · symbols: MES
-- **[warn] x98** `bot_logs` — position_read_state hedge_book_dropped
-  - 2026-09-12T10:10:10.861470+00:00 → 2026-09-12T11:05:29.593930+00:00
+- **[warn] x94** `bot_logs` — position_read_state hedge_book_dropped
+  - 2026-09-12T10:12:24.553899+00:00 → 2026-09-12T11:05:29.593930+00:00
 - **[warn] x16** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
   - 2026-09-10T10:09:23.612270+00:00 → 2026-09-16T23:57:50.771391+00:00 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[warn] x12** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_sol_eth_a | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
@@ -187,8 +191,8 @@ _Generated 2026-09-17T17:44:24+00:00 · covers rows after `2026-09-17T12:39:01.9
   - 2026-09-09T17:01:27.636417+00:00 → 2026-09-17T07:02:44.550614+00:00 · symbols: BNBUSDT · strategies: pairs_bnb_btc_a
 - **[warn] x10** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: pairs_bnb_btc_b | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its ti
   - 2026-09-09T17:01:27.628546+00:00 → 2026-09-17T07:02:44.542305+00:00 · symbols: BTCUSDT · strategies: pairs_bnb_btc_b
-- **[warn] x8** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
-  - 2026-09-11T10:30:59.936370+00:00 → 2026-09-17T10:49:27.105775+00:00 · symbols: SOLUSDT · strategies: ict_scalp_sol_15m
+- **[warn] x9** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
+  - 2026-09-11T10:30:59.936370+00:00 → 2026-09-17T20:24:59.379706+00:00 · symbols: SOLUSDT · strategies: ict_scalp_sol_15m
 - **[warn] x6** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_xrp_Nm | Symbol: XRPUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
   - 2026-09-11T01:10:31.853415+00:00 → 2026-09-17T15:08:26.861489+00:00 · symbols: XRPUSDT · strategies: ict_scalp_xrp_15m, ict_scalp_xrp_5m
 - **[warn] x4** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_mgc_Nm | Symbol: MGC Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timef
@@ -224,4 +228,4 @@ _Generated 2026-09-17T17:44:24+00:00 · covers rows after `2026-09-17T12:39:01.9
 
 ---
 
-_Watermark: `2026-09-17T17:32:26.306737+00:00` — advanced to the newest row read (2026-09-17T17:32:26.306737+00:00)_
+_Watermark: `2026-09-17T21:40:52.903025+00:00` — advanced to the newest row read (2026-09-17T21:40:52.903025+00:00)_

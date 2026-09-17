@@ -39378,6 +39378,20 @@
       "found_by": "session_01GHpyXT2qssLJsrvXBQRkQF (manager)"
     },
     {
+      "id": "BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES",
+      "title": "pr-landing R5 refuses runtime_logs/ so replay-pregate can never land a report, even if a run ever completes",
+      "severity": "high",
+      "tier": "1",
+      "status": "open",
+      "detail": "MEASURED 2026-09-17. `git log origin/main -- runtime_logs/replay_pregate/` is EMPTY: zero fleet pre-gate reports have ever reached main. The open item OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY names only the RUN half. There is a SECOND, INDEPENDENT blocker it does not carry, and it would bite a COMPLETE run identically: PR #12385 fails `guards` with PASS 67 / FAIL 1, the one failure being pr-landing-guard R5 -- `state=undeclared`, because runtime_logs/replay_pregate/*.partial.json is outside TIER1_SURFACE (docs/** tests/** comms/** .github/** scripts/{ci,ops,research,reports}/** *.md; runtime_logs absent). Reproduced directly: `python3 scripts/ci/check_pr_landing.py --base origin/main --branch automation/replay-pregate-35204197736-1` exits 1 naming that path. POSITIVE CONTROL that this is NOT a general automation outage: docs/claude/PROBES.json on origin/main carries generated_at 2026-09-17T10:07:08Z, i.e. the probes cron lands same-day -- because its artifact is under docs/**. The failure is specific to callers whose artifact lives under runtime_logs/. The open item's own `detail` blames the landing failure on .gitignore + `git add` (fixed with `git add -f`); THAT FIX WORKED -- the commits exist on the branches -- and a DIFFERENT gate now stops them one step later. 6 open PRs: #12385 #12328 #12297 #12265 #12228 #11916.",
+      "resolution_criteria": "EITHER runtime_logs/replay_pregate/** is added to TIER1_SURFACE in scripts/ci/check_pr_landing.py and a replay-pregate PR is OBSERVED passing pr-landing-guard, OR the generator declares `landing: hold` so the refusal is a deliberate human-read rather than an accident. !! A COMPLETED RUN DOES NOT CLEAR THIS and is the trap: the two blockers are independent, so a run that finally scores 22 heads would still be refused here. !! AND A GREEN `guards` ON SOME OTHER PR CLEARS NOTHING -- R5 keys on the PATH, so only a PR carrying a runtime_logs/ artifact exercises it.",
+      "reported_by": "engineering-lane session_01SzoZAiXJibakevDU9pbwxm",
+      "refs": [
+        "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY"
+      ],
+      "opened_at": "2026-09-17T19:34:08.803330+00:00"
+    },
+    {
       "id": "BL-20260917-RESTART-PENDING-COLLAPSES-STALE-RUNTIME-CODE-AND-DOCS-LANDED-SINCE-BOOT-SO-THE-HEALTHY-STATE-IS-INDISTINGUISHABLE-FROM-AN-INCIDENT",
       "opened": "2026-09-17",
       "severity": "medium",
@@ -39454,18 +39468,43 @@
       "next_action": "Grade the 25 unverified whole-string candidates per-file, and add Call-node resolution to the AST scan with a planted revert control. Do NOT quote the 26 as uncovered readers without that grading."
     },
     {
-      "id": "BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES",
-      "title": "pr-landing R5 refuses runtime_logs/ so replay-pregate can never land a report, even if a run ever completes",
-      "severity": "high",
-      "tier": "1",
+      "id": "BL-20260917-THE-DIAG-JOURNAL-OFFSET-PARAMETER-IS-SILENTLY-IGNORED-SO-A-SESSION-PAGING-FOR-A-WIDER-CORPUS-GETS-THE-SAME-1000-ROWS-EVERY-TIME",
+      "opened_at": "2026-09-17",
+      "opened_by": "MI-298 session_017PQcFJne7qyuVHzH5RZtFC",
       "status": "open",
-      "detail": "MEASURED 2026-09-17. `git log origin/main -- runtime_logs/replay_pregate/` is EMPTY: zero fleet pre-gate reports have ever reached main. The open item OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY names only the RUN half. There is a SECOND, INDEPENDENT blocker it does not carry, and it would bite a COMPLETE run identically: PR #12385 fails `guards` with PASS 67 / FAIL 1, the one failure being pr-landing-guard R5 -- `state=undeclared`, because runtime_logs/replay_pregate/*.partial.json is outside TIER1_SURFACE (docs/** tests/** comms/** .github/** scripts/{ci,ops,research,reports}/** *.md; runtime_logs absent). Reproduced directly: `python3 scripts/ci/check_pr_landing.py --base origin/main --branch automation/replay-pregate-35204197736-1` exits 1 naming that path. POSITIVE CONTROL that this is NOT a general automation outage: docs/claude/PROBES.json on origin/main carries generated_at 2026-09-17T10:07:08Z, i.e. the probes cron lands same-day -- because its artifact is under docs/**. The failure is specific to callers whose artifact lives under runtime_logs/. The open item's own `detail` blames the landing failure on .gitignore + `git add` (fixed with `git add -f`); THAT FIX WORKED -- the commits exist on the branches -- and a DIFFERENT gate now stops them one step later. 6 open PRs: #12385 #12328 #12297 #12265 #12228 #11916.",
-      "resolution_criteria": "EITHER runtime_logs/replay_pregate/** is added to TIER1_SURFACE in scripts/ci/check_pr_landing.py and a replay-pregate PR is OBSERVED passing pr-landing-guard, OR the generator declares `landing: hold` so the refusal is a deliberate human-read rather than an accident. !! A COMPLETED RUN DOES NOT CLEAR THIS and is the trap: the two blockers are independent, so a run that finally scores 22 heads would still be refused here. !! AND A GREEN `guards` ON SOME OTHER PR CLEARS NOTHING -- R5 keys on the PATH, so only a PR carrying a runtime_logs/ artifact exercises it.",
-      "reported_by": "engineering-lane session_01SzoZAiXJibakevDU9pbwxm",
-      "refs": [
-        "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY"
-      ],
-      "opened_at": "2026-09-17T19:34:08.803330+00:00"
+      "severity": "high",
+      "tier": "1 — read surface",
+      "area": "research",
+      "title": "/api/diag/journal accepts offset= and IGNORES it — limit=1000&offset=1000 returns the IDENTICAL id range (4882,5881) as offset=0 with no error, so a session paging for a wider corpus gets the same 1000 rows every time and believes it has N x 1000",
+      "detail": "MEASURED 2026-09-17T21:2xZ by MI-298 against https://ict-bot.duckdns.org, browser-direct with the DIAG_READ_TOKEN bearer. Evidence: docs/research/mi298-winner-label-recovery-2026-09-17.md section 2.1. || THE THREE PROBES. (a) ?table=trades&limit=1000 -> n=1000, id range (4882, 5881). (b) ?table=trades&limit=2000 -> n=1000, id range (4882, 5881) — the 1000-row cap is HARD and is correctly documented in CLAUDE.md. (c) ?table=trades&limit=1000&offset=1000 -> n=1000, id range (4882, 5881), BYTE-IDENTICAL to (a). The offset is accepted and discarded. || WHY THIS IS HIGH AND NOT COSMETIC: it returns a PLAUSIBLE WRONG ANSWER rather than an error. A full 1000 rows come back, so every downstream count is a real integer over a real population, just the SAME population repeated. A session paging this endpoint to assemble a 5000-row corpus would get a 5000-row file holding 1000 distinct rows duplicated five times, and every rate over it would be correct-looking and wrong. Nothing in the response distinguishes it from a working paginator. || SAME DEFECT CLASS AS /api/bot/performance?days=, already documented in this repo as silently falling back to window=all: an accepted-and-ignored parameter on a read surface. UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B (implicit input selection) in CLAUDE.md terms. || WHAT IT COST THIS UNIT, so the impact is not theoretical: MI-298 was dispatched to apply the exit-label recovery over a WIDER window. The widening is bounded at 1000 rows by the hard cap, and because the cap is a SLIDING window (this pull is ids 4882-5881 against the prior measurement's 4716-5715), 166 of that measurement's oldest rows are now permanently unreachable, so its population cannot be reproduced at all. Establishing that took three probes that should not have been necessary. || NOT CLAIMED: that the cap itself is wrong (it is deliberate and documented), or that a paging route SHOULD exist. Only that a parameter which is accepted must either work or refuse, never be discarded silently.",
+      "resolution_criteria": "EITHER (a) /api/diag/journal honours offset= and a probe demonstrates it — limit=1000&offset=1000 returns an id range DISJOINT from limit=1000&offset=0, verified by comparing the two id SETS rather than by reading the diff; OR (b) the route REFUSES an unsupported parameter with a 4xx naming it, so a caller learns immediately. A DOC NOTE ALONE DOES NOT CLOSE THIS: the /api/bot/performance days= precedent is already documented in CLAUDE.md and was still hit by a session on this same day, because the surface that lies is the one a caller reads, not the doc. AND A GREEN TEST CLEARS NOTHING: the defect is in what the LIVE route does with an extra query parameter; a harness asserting the cap does not exercise it.",
+      "next_step": "Tier-2 (src/web/api/routers/diag.py). Decide between honouring offset and refusing it — refusing is the smaller change and removes the silent-wrong-answer property, which is the actual hazard."
+    },
+    {
+      "id": "BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN",
+      "opened_at": "2026-09-17",
+      "opened_by": "MI-300 CANON lane",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — process/docs, no code change",
+      "area": "ops",
+      "title": "A spawned lane is resumed by default, not started fresh — so a unit that doesn't need the predecessor's context still pays the whole thing back as cache-read tokens every turn",
+      "detail": "MEASURED 2026-09-17 via get_session on the two live lanes the manager (session_01GHpyXT2qssLJsrvXBQRkQF) had running that day: session_017PQcFJne7qyuVHzH5RZtFC (research, MI-295/MI-298) and session_01SzoZAiXJibakevDU9pbwxm (engineering, MI-296). Both carried cache_read_tokens 91,107,145 ($55.82) and 102,412,896 ($69.23) -- 193.5M cache-read tokens and $125.05 combined -- against 141,352 + 226,761 OUTPUT tokens. Essentially the whole spend was a resumed session re-reading its own accumulated context every turn; a fresh session starts near 40k tokens. State the population: n=2 lanes, one manager, one day -- this is a reading of the DEFAULT, not a fleet-wide census. || THE DISCRIMINATOR THAT MADE THIS NON-OBVIOUS: MI-295 landed a memo (research doc), not machinery. Its successor unit, MI-298, depended on a PR branch's code (#11933's sweep), not on MI-295's session having read anything. 'Same subject area' would have said resume; resume was the wrong call, because the thing the next unit actually needed to reuse (the PR branch) does not live in session context at all -- it is on disk regardless of which session reads it. || The test -- does the NEXT unit benefit from the context the session already built, evaluated at the point of dispatch -- and the corollary for a session already running (read what it produced before interrupting it, never judge a RUNNING lane on a cost meter alone) are now canonized in CLAUDE.md's manager-duties bullets and docs/claude/work/README.md 'Spawning a sub-session' (this session's own PR).",
+      "resolution_criteria": "The canon text lands on main (both files) AND a later manager session is OBSERVED applying the at-dispatch test -- stating explicitly why the next unit does or does not need the predecessor's session context, not merely that it shares a subject area -- before choosing fresh vs resume. A manager restating 'different unit, same file family, so fresh' without that reasoning is still doing it on the old heuristic even after this row exists.",
+      "next_step": "None from this lane -- Tier-1 doc change only. Watch OPEN-ITEMS.json / a future manager check-in for whether the rule is cited and applied, not just read."
+    },
+    {
+      "id": "BL-20260917-A-SPAWNED-LANE-INHERITS-THE-MANAGERS-MODEL-SO-EVERY-LANE-RUNS-ON-OPUS-WITHOUT-ANYONE-CHOOSING-IT",
+      "opened_at": "2026-09-17",
+      "opened_by": "MI-300 CANON lane",
+      "status": "open",
+      "severity": "medium",
+      "tier": "1 — process/docs, no code change",
+      "area": "ops",
+      "title": "create_session's model parameter defaults to the CALLING session's model, so a manager that spawns without passing model gives every lane its own model by accident -- measured both live lanes on 2026-09-17 running claude-opus-5 with no model argument passed",
+      "detail": "MEASURED 2026-09-17 via get_session on session_017PQcFJne7qyuVHzH5RZtFC and session_01SzoZAiXJibakevDU9pbwxm, both spawned by manager session_01GHpyXT2qssLJsrvXBQRkQF: both read configured_model: claude-opus-5, and create_session's own tool schema documents model as defaulting to 'the calling session's model' when omitted. Neither spawn call passed model. So the model was INHERITED, never CHOSEN, for both lanes -- one doing well-specified research work, one doing well-specified engineering work, neither obviously needing the manager's own model. || Operator directive the same day: 'not every task requires Opus 5. Obviously the manager I want to be able to understand what's going on ... but the other one, if anything can be wrong, say Sonnet or Haiku, that's also fine. Let's just make sure we match the model to the task.' || This is a cost/fit finding, not a correctness defect -- a lane running on a stronger model than its task needs does not produce a wrong answer, it produces an unnecessarily expensive one, and the person deciding never made a decision. Canonized in CLAUDE.md's manager-duties bullets and docs/claude/work/README.md 'Spawning a sub-session' (this session's own PR): choosing a model is an ACT, record the choice and the reason in the lane's SESSIONS.json row.",
+      "resolution_criteria": "The canon text lands on main (both files) AND a later manager session is OBSERVED passing an explicit model argument on a create_session call for a well-specified, recoverable-in-review lane (not the manager's own), with the choice and its reason recorded in that lane's SESSIONS.json row -- not merely inheriting silently and citing this row as though inheritance were the decision.",
+      "next_step": "None from this lane -- Tier-1 doc change only. No guard is proposed: CI cannot read a create_session call, so enforcement would grade the record of a choice rather than the choice itself."
     }
   ]
 }
