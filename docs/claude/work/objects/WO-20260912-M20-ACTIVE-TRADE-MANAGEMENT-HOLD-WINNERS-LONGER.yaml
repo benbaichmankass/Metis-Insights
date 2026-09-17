@@ -792,3 +792,117 @@ progress:
     produce the badge the row's criterion asks for (KILL/DEMOTE gated on >=20 LIVE closes; both
     shadow legs structurally_ungradeable). NOTHING CHANGED: no parameter, roster or execution value.
     Memo: docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md
+  U46: >-
+    DELIVERED (memo on main). PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN clause 1 -- is an
+    implausible per-strategy expectancyR still produced now that MI-144's provenanced R is
+    binding? Instrument scripts/research/r_denominator_admissibility.py. Nothing proposed.
+    Memo: docs/research/m20-u46-*.md
+  U47: >-
+    DELIVERED (memo on main). BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY.
+    The winner/loser $/R separation REPRODUCES on the rolled window (winner max 2.975 < loser min
+    3.335, spread 3.3664x) -- and that is explicitly NOT a replication and must not be reported as
+    satisfying or refuting the row's criterion (b): n is 41 BOTH times, and the two windows overlap
+    heavily. THE ATTRIBUTION IS AN ENUMERATION, NOT A HUNT: risk_usd = balance x risk_pct exactly on
+    an unclamped row, bybit_2 declares ONE risk_pct (0.015), so the dispersion is a clamp or the
+    balance, and the clamps are a finite list. FOUR of nine candidates are `unreachable` on a config
+    or code read (a stronger verdict than any correlation -- the mechanism cannot run on this
+    account); four are `refuted`; one `contributes` on 4 of 33 rows. !! THE ONE THAT LOOKED LIKE AN
+    ANSWER AND WAS NOT: per-leg median risk orders PERFECTLY by lot count, 6 of 6 monotone -- and
+    floor(L)/L is 1.000 on all 33 rows, so flooring lost nothing. A session that stopped at the
+    table would have shipped a wrong cause with a beautiful exhibit behind it. Verdict
+    `attributed_in_part`; narrowing the field is NOT an attribution and the instrument's own verdict
+    string says so. THE MISSING INPUT IS NAMED: decision-time balance is recorded in
+    account_context_snapshots, which is NOT in diag.py::_JOURNAL_TABLES (HTTP 400 measured), so
+    U45's one-line Tier-2 proposal to add it is now load-bearing for a SECOND high-severity row.
+    Coverage 33/41 = 80.5% stated, not hidden. Memo:
+    docs/research/m20-u47-the-risk-dispersion-is-not-any-clamp-a-session-can-read-2026-09-17.md
+  U50: >-
+    DELIVERED, PR #12429 (open, guards green, pytest-run in flight at wrap; auto-merge armed).
+    BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY -- made the payment axis MEASURED and corrected the row's stale
+    pointer. Two of the three payments never touched the surface. Instrument
+    scripts/research/fanout_denominator_survey.py. !! A DEFECT I RE-INTRODUCED AND CI CAUGHT: an
+    inert parameter (`diagnostic-provenance` class D) -- the same class removed from
+    risk_dispersion_attribution.py one unit earlier. Removed; recorded rather than quietly fixed.
+    Memo: docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md
+  U51: >-
+    DELIVERED AND MERGED (0734454a6).
+    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN. Its second exit -- "memos gain a
+    retained/hashed input SO THE NEXT SUCH DIFFERENCE IS ATTRIBUTABLE" -- was shipped by U26 and DID
+    NOT WORK, in two OPPOSITE ways: stanza-vs-live reported the ENTIRE population as `rows_added`,
+    while stanza-vs-stanza on the real U32/U38 re-stamp pair reported all three lists `[]` with
+    `rows_not_localisable: 0`. A module built to separate three causes was MIS-ASSIGNING between
+    them. 64 controls were green because all of them compared live dicts and the one stanza control
+    checked the identity case. Adoption measured: 5 of 357 memos declare, 0 of 5 attributable. Both
+    halves fixed (REFUSE first -- `None`, never `[]`, for a derived list -- then ENABLE via
+    row_digests in the stanza), 64 -> 80 self-test controls plus 19 new pytest controls including a
+    live positive control over the real corpus. Also corrected RESEARCH-CAPABILITY-INDEX.md in
+    place, whose row claimed content_changed arrives "with the changed rows NAMED". Memo:
+    docs/research/m20-u51-the-stanza-round-trips-as-text-and-not-as-evidence-2026-09-17.md
+  U52: >-
+    DELIVERED, PR #12439 (open, armed at wrap).
+    BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED.
+    Option (a) is REACHABLE at last (46e1efb1f is on main -- verified against the COMMIT OBJECT, not
+    against prose claiming it) and it returns `insufficient_n`: 4 graded post-fix winners against a
+    required 11. THE DELIVERABLE IS A DATE, not a verdict -- share arm ~2026-09-28, winner-R arm
+    ~2026-10-01, carried by OI-20260917-THE-NETTING-POST-FIX-REMEASURE-IS-RUNNABLE-AND-UNDER-POWERED
+    so the soak is not left to accrue unwatched. THREE FINDINGS THE ROW DOES NOT CONTAIN: (1) TWO
+    fixes landed in the window (#11435 09-08, #11903 09-12), so there are FOUR eras and only the
+    POOLED 3+4 arm reaches p<0.10 -- and a pooled arm ATTRIBUTES TO NEITHER FIX; five contrasts,
+    Bonferroni 0.0100, none survives. (2) THE SCOPING RULE DECIDES THE VERDICT: exit_reason alone
+    gives p=0.0375 (significant), U49's stamp-AND-soak union gives p=0.0681 (not) -- the cheap
+    filter misses 7 of 33 applied soak rows, UNEVENLY across eras (4/2/1). (3) The unsound scope is
+    BIASED TOWARD `estimated`: 2 of 39 rows are MEASURED and both arrive via notes_stamp. Boundary
+    invariance MEASURED: zero rows in either merge->git-sync window. !! MY OWN FALSE NEGATIVE,
+    RECORDED: the first draft read a trades.r column that DOES NOT EXIST (0 of 1000 rows) and graded
+    both arms `unmeasurable`. And planted defect P12 PASSED a 48-control suite because no fixture
+    row lacked a package; 6 controls added, then caught. THE ROW DOES NOT CLOSE. Memo:
+    docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md
+
+# ── WRAP, 2026-09-17, on the manager's directive (session_01HoFquGdTrD3TTGbMMRc43t) ──
+wrap_2026_09_17:
+  state: >-
+    THE OBJECT IS NOT DONE AND NOTHING HERE CLAIMS IT IS. Its done_condition asks for at least one
+    lever reaching a Tier-3 proposal with IS/OOS + walk-forward evidence behind it. U23 put a
+    proposal in front of the operator and it is UNANSWERED; U48 then established that the geometry
+    contrast the backlog prescribes is `unsatisfiable_by_construction`, so the walk-forward arm the
+    done_condition wants CANNOT be built as specified. That is a finding, not an excuse, and it
+    means the done_condition needs re-specifying by the operator or the manager rather than
+    grinding at it.
+  measured_at_wrap: >-
+    35 distinct m20-u* unit memos are on origin/main (37 files; `git ls-tree -r origin/main
+    docs/research/`), which is the MEASURED count of landed units -- the per-unit log above is
+    INCOMPLETE for earlier units and must not be read as the roster. Not on main at wrap: u3, u6,
+    u7, u8, u17, u20, u29, u30, u37, u41, u43, u44, u48, u50, u52. Some of those are process units
+    that shipped no memo; three are in flight (u48/#12419, u50/#12429, u52/#12439).
+  in_flight_at_wrap: >-
+    THREE PRs open, all Tier-1 `landing: self`, all armed, all green on `guards` with `pytest-run`
+    still running when this was written -- #12419 (U48), #12429 (U50), #12439 (U52). None is
+    half-landed: each is a complete unit whose PR is armed and waiting on CI. NOTHING is
+    half-written in the container; every branch is pushed.
+  unfinished_and_what_it_costs: >-
+    (1) THE QUEUE ITEM THAT WAS NEXT and was NOT started, on the wrap directive: U6 -- the next open
+    `high` row in docs/claude/performance-review-backlog.json. Cost to resume: one session, no
+    setup, the instrument pattern is established.
+    (2) PR #12158 (U30, the ict_scalp `tp_at_r` sweep axis) is `landing: hold` /
+    `unvouchable_paths` and has needed a HUMAN MERGE CLICK since 2026-09-13 -- four days. U2
+    established the take-profit is the ONLY lever with attributed mass (18 of 49 winners ended
+    exactly at target), so the one instrument that can grade the M20 subject is blocked on a click.
+    THIS IS THE HIGHEST-VALUE UNBLOCKING ACTION AVAILABLE TO A HUMAN and it is not a session's to
+    take.
+    (3) DEC-20260913-FOUR-LEG-DISPOSITION on this object is UNANSWERED.
+    (4) The account_context_snapshots diag gap (U45's one-line Tier-2 proposal) now blocks TWO
+    high-severity rows, U45's and U47's. It is Tier-2 and was not taken.
+  found_and_owned_by_nobody: >-
+    (a) MI-278 HAS NO ROW IN docs/claude/work/MANAGER-CHECKLIST.json. MEASURED at wrap over all 287
+    items with a positive control: 'MI-278' occurs 0 times, 'MI-279' 0, 'MI-280' 0, while 'MI-277'
+    occurs once and 'research' 38 times -- so the probe finds positives and this lane is genuinely
+    absent from the page the operator reads. A row was deliberately NOT inserted from here: the
+    manager was mid-wrap rewriting that file, and a 288th row from a worker risks conflicting with
+    the wrap it is meant to support. The manager should add it.
+    (b) `automation/**` is OUTSIDE pr-landing's TIER1_SURFACE, so a coordination-board relay result
+    file committed on a unit branch makes a Tier-1 research PR fail R5. Worked around this session
+    by moving board posts to a dedicated branch; filed rather than widening the guard.
+    (c) scripts/ci/guard_selftests.py plants `.claude/skills/_selftest_doc_values/SKILL.md` and an
+    INTERRUPTED run leaves it behind, where `git add -A` commits it -- and BOTH guards that then
+    fail print a remedy which would REGISTER A SELF-TEST FIXTURE AS A REAL SKILL. Filed to the
+    health backlog; establishing it was mine needed a positive control (clean on origin/main).
