@@ -41,8 +41,8 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-13T07:00:00Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0652Z tick; observations are the 05:56 ones, explicitly not re-read",
+  "updated_at": "2026-09-16T19:07:57Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "sessions": [
     {
       "session_id": "session_01L8GZoVxY9iqAykyydG13rP",
@@ -4881,7 +4881,7 @@
     {
       "session_id": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
       "registry_key": "pending-20260912T051723Z",
-      "state": "working",
+      "state": "paused_closing_out",
       "title": "RESEARCH LANE MI-278 — M20 Active Trade Management: why winners stopped running, and what holds them",
       "owns_object": "WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER",
       "checklist_item": "MI-278",
@@ -4895,19 +4895,23 @@
         "claude/mi278-u23-tier3-proposal"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:39:03Z",
         "via": "get_session",
-        "note": "RUNNING. 780221 (78%). U26 merged; U27 discharge in progress; 2 PRs ready. Self-scheduled check-in 40m."
+        "state_read": "RUNNING",
+        "note": "RECEIVED THE PAUSE AND IS SERVING IT. task_summary 'Inspecting the unpushed commits on each branch', i.e. working the close-out directive's step (1), push-first. ⚠️ ITS CURRENT BRANCH claude/mi278-u45-avax-risk-qty-reconstruction WAS NOT ON ORIGIN at 08:40:56Z — measured, not inferred (git rev-parse --verify origin/<branch> failed while five other mi278-* branches resolved, so the probe can find a positive). rate_limit_info {seven_day, isUsingOverage TRUE, status REJECTED}: it is running on OVERAGE, so any turn may be refused mid-way. context 273080/1000000.",
+        "unpushed_at_last_read": [
+          "claude/mi278-u45-avax-risk-qty-reconstruction"
+        ]
       },
       "item": "MI-278",
       "lane": "research",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:04Z get_session (NOT re-read at 0652Z — this tick went on restoring the lapsed lease; the reading is 60 min old and labelled): RUNNING/connected, 581406/1M (58%), branch claude/mi278-u41-break-attribution-verdict"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:07Z get_session: IDLE/review_ready (between units — the safest moment to pause), 764506/1M (76%), branch claude/mi278-u44-union-driver-on-work-objects-is-unsafe. PAUSE DIRECTIVE DELIVERED via trigger trig_01WcbCeED49HJjS4XGA84bFg, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_013iSqp4LsU1eq8K326eUtgj",
       "registry_key": "pending-20260912T051723Z-2",
-      "state": "working",
+      "state": "paused_closing_out",
       "title": "OPS LANE MI-279 — drive the health backlog down by class, critical first",
       "owns_object": "WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN",
       "checklist_item": "MI-279",
@@ -4921,19 +4925,23 @@
         "claude/mi279-u8-oldest-high"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:38:48Z",
         "via": "get_session",
-        "note": "RUNNING. 289732 (29%) — the only lane comfortably under threshold, unchanged for 4 ticks. 5 PRs resynced and armed; no needs_action set, so NOT treated as blocking."
+        "state_read": "RUNNING",
+        "note": "RECEIVED THE PAUSE AND IS SERVING IT. task_summary 'Arm the close-out branch' and its current branch is claude/mi279-closeout-pause — a branch created FOR the close-out, which did not exist before the directive. That is the clearest positive evidence any lane acted on it. ⚠️ NOT ON ORIGIN at 08:40:56Z. rate_limit_info {seven_day, isUsingOverage TRUE, status REJECTED} — on overage. context 656521/1000000.",
+        "unpushed_at_last_read": [
+          "claude/mi279-closeout-pause"
+        ]
       },
       "item": "MI-279",
       "lane": "ops",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:56:12Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 289732/1M (29%), branch claude/mi279-u23-builder-latch"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:08Z get_session: RUNNING, 745508/1M (75%), branch claude/mi279-u28-pat-open-and-arming-gate, mid-analysis of register arithmetic + a workflow PAT client. PAUSE DIRECTIVE DELIVERED via trigger trig_018pdd8tpTLhCWZyVqteaGPY, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_01BjTp5RYwedmpFfkEtkQo1j",
       "registry_key": "pending-20260912T051805Z",
-      "state": "working",
+      "state": "paused_could_not_close_out",
       "title": "ENGINEERING LANE MI-280 — stop the landing and register machinery losing work",
       "owns_object": "WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER",
       "checklist_item": "MI-280",
@@ -4947,14 +4955,20 @@
         "claude/mi280-u65-close-the-reserialization-row"
       ],
       "last_observed": {
-        "at": "2026-09-13T00:53:55Z",
+        "at": "2026-09-13T08:28:09Z",
         "via": "get_session",
-        "note": "RUNNING. 760945 (76%). 18 PRs merged; #12143 green. Its #12094 blocker is CLEARED — both #12094 and #12095 landed on main."
+        "state_read": "IDLE / status_bucket FAILED",
+        "note": "⚠️ THIS LANE COULD NOT SERVE ITS CLOSE-OUT TURN, AND THAT IS A DIFFERENT FACT FROM THE OTHER TWO — do not report all three as paused cleanly. post_turn_summary reads status_category 'failed', status_detail \"You've hit your weekly limit · resets Sep 16, 6pm (UTC)\". ⚠️ AND ITS rate_limit_info READS isUsingOverage FALSE with status REJECTED, where MI-278/279 read isUsingOverage TRUE: this lane is past the HARD stop, not on the overage path, so it cannot take a turn at all until 2026-09-16T18:00:00Z. The pause trigger trig_01MiaVcTHroUPhGafB5pAf8j fired at 08:12:00Z into a session that could not answer it.",
+        "unpushed_at_last_read": [
+          "claude/mi280-u92-malformed-removal-declaration"
+        ],
+        "⚠️_what_is_at_risk": "Its working branch claude/mi280-u92-malformed-removal-declaration is NOT on origin (measured 08:40:56Z). Whatever U92 contains exists only in that container. If the container is reclaimed before 2026-09-16T18:00Z the work is gone; if it survives, the lane can push on resume. WE DO NOT KNOW WHICH — that is 'we did not look', not 'it is safe'. ⚠️ ITS LANDED WORK IS NOT AT RISK: 11 mi280-* branches ARE on origin, including claude/mi280-u91-red-main-runs-unproven (PR #12217) and claude/mi280-u90-open-items-observation-loss (PR #12214), both pushed before the limit hit.",
+        "⚠️_operator_decision_governing_this": "Operator was asked 2026-09-13 what to do if a lane could not serve its close-out turn and chose 'Report it and leave the lane alone'. The manager therefore RECORDED this and touched nothing — no re-trigger, no attempt to push on the lane's behalf, no archive."
       },
       "item": "MI-280",
       "lane": "engineering",
-      "last_observed_at": "2026-09-13T05:56Z",
-      "last_observation": "2026-09-13T05:55:56Z get_session (NOT re-read at 0652Z — 60 min old, labelled): RUNNING/connected, 706997/1M (71%), #12189 merged"
+      "last_observed_at": "2026-09-13T08:08Z",
+      "last_observation": "2026-09-13T08:08Z get_session: RUNNING, 729747/1M (73%), branch claude/mi280-u91-red-main-runs-unproven, mid-way wiring self-test cases into main(). PAUSE DIRECTIVE DELIVERED via trigger trig_01MiaVcTHroUPhGafB5pAf8j, fires 08:12Z. rate_limit status=rejected."
     },
     {
       "session_id": "session_01ALe9gTsSEMVWYyR8X8TY79",
@@ -5059,6 +5073,20 @@
         "via": "get_session",
         "note": "IDLE / review_ready at 14:48:37Z. DELIVERED: #11970 merged (1baff7a1f) and DEPLOYED — /api/diag/version git_sha reads 1baff7a1f. Work complete; archiving. NOT respawned, per the operator lane-rollback directive."
       }
+    },
+    {
+      "session_id": "session_017RdHjT8D9JoRfskvFY8Srb",
+      "registry_key": "pending-20260916T190712Z",
+      "state": "working",
+      "title": "MI-287: fix the 23 failing strategy-evidence harnesses (ONE root cause: yfinance returns no rows)",
+      "owns_object": "WO-20260901-PHASE-F",
+      "checklist_item": "MI-287",
+      "spawned_at": "2026-09-16T19:07:12Z",
+      "spawned_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-chosen first lane on resume (DEC-20260916-FIRST-LANE-AFTER-THE-PAUSE). 33 of 52 strategy legs carry no offline edge evidence; the review gate therefore proposes no_offline_evidence on 32 legs with actionable 0.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-16T19:07:57Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",

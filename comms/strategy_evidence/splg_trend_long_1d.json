@@ -17,9 +17,9 @@
   "window_days": 365,
   "fee_bps_roundtrip": null,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:29:47.967403+00:00",
+  "generated_at": "2026-09-16T19:14:28.977561+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
   "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for SPLG",
+  "error": "fetch failed: RuntimeError: yfinance returned no rows for SPLG (yfinance==1.7.0); venue_state=serving -- the SPY control returned 5 rows, so the venue is up and this is specific to SPLG (delisting, a short listing history, or a wrong symbol map). NOT a dependency problem.",
   "harness": "trend"
 }

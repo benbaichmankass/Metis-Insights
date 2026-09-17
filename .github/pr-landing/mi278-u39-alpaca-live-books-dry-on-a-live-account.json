@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-only: a new instrument under scripts/research/, its pytest surface under tests/, one memo under docs/research/, two index registrations, one new backlog row, three update notes, a surgical two-row observation on docs/claude/OPEN-ITEMS.json, and one work-object progress note. Every path is inside TIER1_SURFACE. No src/, no config/, no unit file, no workflow, no order path; coordinator.py, execute.py, orders.py, runtime_status.py, accounts.yaml, strategies.yaml and account_state.yaml were read only. No parameter proposed; the two implied remedies are Tier-2 and are not applied."
+}
