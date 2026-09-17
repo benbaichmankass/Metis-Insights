@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1, register-only. One existing row in docs/claude/health-review-backlog.json amended in place through update_row (2 insertions, 2 deletions). No src/, no config/, no deploy/, no workflows, no scripts, no tests. No path touched is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply. It records measurements and three refuted hypotheses, marks one clause narrowed rather than met, and enacts nothing."
+}
