@@ -64,18 +64,40 @@ def read_files(paths: list[str], root: Path) -> tuple[list[dict] | None, str]:
         except OSError as exc:
             return None, f"{rel} could not be read: {exc}"
         before = len(rows)
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                # One malformed line is not an unread of the file, but it IS
-                # unread of that line — counted so the denominator stays honest.
-                continue
-            if isinstance(obj, dict):
-                rows.append(obj)
+        # ⚠️ WHOLE-FILE JSON FIRST, THEN JSONL. Not every committed corpus a
+        # `monitoring` row clears on is line-delimited: `docs/claude/DUE.json`
+        # is one pretty-printed object, and read line-by-line EVERY line fails
+        # to parse, yielding 0 rows — which this probe would then report as
+        # "read and nothing matched". That is a clean negative worn over a
+        # population nobody read, the sub-class C defect this module's own
+        # docstring exists to refuse, and it would have been invisible: the
+        # verdict is indistinguishable from a genuine no-match.
+        #
+        # A JSONL file of two or more lines cannot parse as one JSON value, so
+        # this cannot change how an existing corpus is read. A ONE-LINE JSONL
+        # file parses to the same single row either way.
+        try:
+            whole = json.loads(text)
+        except json.JSONDecodeError:
+            whole = None
+        if isinstance(whole, dict):
+            rows.append(whole)
+        elif isinstance(whole, list):
+            rows.extend(o for o in whole if isinstance(o, dict))
+        else:
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    # One malformed line is not an unread of the file, but it
+                    # IS unread of that line — counted so the denominator
+                    # stays honest.
+                    continue
+                if isinstance(obj, dict):
+                    rows.append(obj)
         read_ok.append(f"{rel}:{len(rows) - before}")
     if not read_ok:
         return None, "no --file was given, so nothing was read"
@@ -134,6 +156,29 @@ def _self_test() -> int:
         ok(rows is not None and len(rows) == 2,
            "a malformed line is skipped without making the file an unread")
         ok("read 2 row(s)" in note, "the denominator is reported")
+
+        # A whole-file JSON object is ONE row. Read line by line it is ZERO,
+        # and the probe would have called that "read and nothing matched" —
+        # a clean negative over a population nobody read.
+        (root / "whole.json").write_text(
+            '{\n  "verdict": "partial",\n  "sources": {"a": {"state": "read"}}\n}\n',
+            encoding="utf-8")
+        rows, note = read_files(["whole.json"], root)
+        ok(rows is not None and len(rows) == 1,
+           "a pretty-printed JSON object is one row, not an empty population")
+        ok(main(["--root", d, "--file", "whole.json",
+                 "--require", "sources.a.state=read"]) == 0,
+           "and a nested path reaches into it end-to-end")
+        (root / "arr.json").write_text('[{"state": "a"}, 7, {"state": "b"}]',
+                                       encoding="utf-8")
+        rows, _ = read_files(["arr.json"], root)
+        ok(rows is not None and len(rows) == 2,
+           "a JSON array is its objects, and its non-objects are skipped")
+        (root / "scalar.json").write_text("7\n", encoding="utf-8")
+        rows, _ = read_files(["scalar.json"], root)
+        ok(rows == [],
+           "a scalar whole-file parse is NOT a corpus and falls through to "
+           "the line reader rather than swallowing the file")
 
         rows, note = read_files(["nope.jsonl"], root)
         ok(rows is None and "ABSENT" in note,
