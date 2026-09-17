@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by the canonical doc's own list — 'GitHub Actions workflow fixes' and 'CI scripts'. One new CI script, one new scheduled workflow, one watch-list entry, one workflow-catalog row, one test file, one appended backlog row. No src/, no config/, no deploy/, no order path. No path touched is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply: it adds a workflow rather than editing claude-pr-automerge.yml, pr-opener.yml, board-post.yml or commit-to-main. The new workflow is READ-ONLY — permissions: contents: read, it commits nothing and mutates nothing — and its only effect is to run three existing diff-independent guards against main on a cadence and exit non-zero on a real finding, so the worst case of a mistake here is a noisy alert rather than a changed tree."
+}
