@@ -59,6 +59,20 @@ Usage::
     python3 scripts/ops/work_digest.py --base origin/main~20 --head HEAD
     python3 scripts/ops/work_digest.py --base <ref> --head HEAD --write
     python3 scripts/ops/work_digest.py --self-test
+
+⚠️ **THE `--base` REF IS READ AS GIVEN — THE TIP — AND A MERGE BASE WOULD BE
+MEANINGLESS HERE. DO NOT "FIX" IT.** This script takes BOTH `--base` and
+`--head` and compares two ARBITRARY refs over a WINDOW; it is not a
+diff-scoper asking *"did this branch do X?"*, so there is no branch whose fork
+point would be the right reference. Resolving a merge base between two
+arbitrary refs would silently move one end of the window.
+
+It is listed among the tip-readers by `scripts/ops/base_resolution_census.py`,
+which says in terms that that is **a count of a pattern, not a list of
+defects**. The per-script audit is in
+`scripts/ops/check_backlog_criteria.py::_load_at_ref` and names this script
+under **"RIGHT BY DESIGN, DO NOT 'FIX' THESE"**. This note exists locally
+because a warning in another file does not reach someone reading this one.
 """
 # wiring: .github/workflows/work-digest.yml (cron "20 2,6,10,14,18,22 * * *" +
 # workflow_dispatch) -> `--base <24h ago> --head main --write`, then
@@ -92,6 +106,7 @@ from src.utils.work_facts import (  # noqa: E402
     CEILING_ENFORCED,
     CEILING_STATE,
 )
+from scripts.check_claim_basis import STATUS_ENUM  # noqa: E402
 from scripts.ops.work_phase_ping import (  # noqa: E402
     PING_WORTHY,
     _field,
@@ -489,13 +504,37 @@ class Source(NamedTuple):
     removed_verb: str
 
 
-#: A terminal disposition on a review backlog. `docs/CLAUDE-RULES-CANONICAL.md`
-#: § "Backlog governance" declares five ways a row ends; the on-disk files also
-#: carry the historical spellings, and all of them are verdicts.
-BACKLOG_TERMINAL = frozenset({
-    "resolved", "fixed", "wont_fix", "superseded", "invalid",
-    "closed_answered", "closed_unfixable", "promoted_to_roadmap",
-})
+#: The NON-terminal half of the enforced `status` enum. Everything else in that
+#: enum is a verdict, so `BACKLOG_TERMINAL` is DERIVED rather than listed —
+#: a value added to the enum later becomes terminal here automatically, which is
+#: the failure mode a second hand-written list has (it goes stale silently and
+#: the digest stops reporting a real transition).
+BACKLOG_NON_TERMINAL = frozenset({"open", "kept_open"})
+
+#: A terminal `status` on a review backlog, derived from the ONE home of that
+#: vocabulary: `scripts/check_claim_basis.py::STATUS_ENUM`, which CI enforces
+#: whole-file over every backlog this module reads.
+#:
+#: ⚠️ THIS SET USED TO CARRY FOUR MEMBERS THE FIELD CANNOT HOLD, and the comment
+#: above it asserted the opposite of what the files say. It read "the on-disk
+#: files also carry the historical spellings" and listed `fixed`,
+#: `closed_answered`, `closed_unfixable` and `promoted_to_roadmap` beside the
+#: enum values. MEASURED 2026-09-12 across all four backlogs (1,803 rows):
+#: `status` holds ONLY the six enum values — `resolved` 776, `open` 770,
+#: `kept_open` 229, `superseded` 14, `wont_fix` 10, `invalid` 4 — and the four
+#: extra members appear on ZERO rows. They were unreachable predicates: no
+#: transition could ever match them, and the digest was not broken by them
+#: because the reachable half covers every terminal transition that exists.
+#:
+#: ⚠️ WHERE THOSE FOUR WORDS DO LIVE, so this is a correction and not a deletion:
+#: `disposition`, a DIFFERENT field — 103 row-level and 794 update-level entries,
+#: carrying `snoozed`, `CLOSE_ANSWERED`, `promoted_to_roadmap`, `do_now`,
+#: `CLOSE_UNFIXABLE` and `fixed`. That field has no enum and no guard, and its
+#: update-level vocabulary has already drifted to 35 distinct values including
+#: free text. Tracked at
+#: BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT
+#: and deliberately NOT fixed here — a second vocabulary is a second migration.
+BACKLOG_TERMINAL = frozenset(STATUS_ENUM) - BACKLOG_NON_TERMINAL
 
 #: A checklist item reaching one of these is a decision the operator wants.
 #: `queued` and `triage` are deliberately absent: scoping an item is work in

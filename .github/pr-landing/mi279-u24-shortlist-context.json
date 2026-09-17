@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tooling and observability: scripts/ops/backlog_drain_candidates.py now attaches the criterion's own sentence about each matched needle to every shortlist signal, so an `OK` on a path the criterion names as insufficient can no longer read as evidence for closing. Six new tests with three mutation arms. Plus one backlog row recording that all three of its clauses are unmet, measured over all 1379 corpus rows with a positive control. No src/, no ml/, no config/, no .github/workflows/, no order path. Nothing enacted, no row closed, no corpus row stamped."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records two operator answers into docs/claude/work/objects/ and marks a superseded decision row machine-readably. Registers only — no src/, tests/, scripts/, config/, deploy/ or workflow change."
+}

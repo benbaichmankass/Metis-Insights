@@ -39,9 +39,29 @@ silently falls back to a default is the trap wearing a helper's clothes.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import pathlib
+import sys
 from typing import Any, Dict, Optional, Tuple
+
+# ONE OWNER for "what counts as closed" and "where a close date may live". Both
+# are imported from the READER whose count this stamp exists to make correct, so
+# the writer and the reader cannot drift apart — a second local copy is how they
+# would. That module is stdlib-only, imports nothing from here (no cycle) and
+# costs ~18ms.
+#
+# ⚠️ THE sys.path LINE IS LOAD-BEARING, NOT TIDINESS. `run_guards.py` invokes
+# this file as `python3 scripts/ops/backlog_append.py --check-live`, which puts
+# `scripts/ops/` on sys.path and NOT the repo root — so an absolute import
+# raises ModuleNotFoundError and reds every PR in the repo. Caught by RUNNING
+# that exact command; an `import` smoke test from the repo root passes either
+# way, which is precisely why it is not evidence here.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from scripts.ops.system_review_checklist import (  # noqa: I001
+    CLOSE_KEYS,
+    CLOSED_STATUSES,
+)
 
 #: Candidate serialisations, most-likely first. A file whose bytes none of these
 #: reproduce is REFUSED rather than reformatted.
@@ -149,6 +169,12 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
                   "that the earlier fix did not hold is the finding — and "
                   "re-file with similar_ok=True."
             )
+    # A row filed ALREADY CLOSED ("found it and fixed it in one session") is a
+    # witnessed close, so it can be dated honestly. prior_status=None says the
+    # row is being created — there is no earlier close for this to back-date.
+    _stamp = _close_stamp(row, prior_status=None)
+    if _stamp:
+        row[_stamp[0]] = _stamp[1]
     items.append(row)
     if isinstance(doc, dict) and updated_at:
         doc["updated_at"] = updated_at
@@ -173,6 +199,61 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
             )
     path.write_text(out)
     return len(items)
+
+
+#: The close-date key each closed status is stamped with. **Both values are in
+#: `system_review_checklist.CLOSE_KEYS`, and that is the whole selection rule** —
+#: a semantically prettier key the reader does not consult (`wont_fix_at`, say)
+#: would build the mechanism and have it not work, which is this repo's
+#: written-and-never-read class inside the fix for it. `resolved_at` is also what
+#: 568 of the 830 already-closed rows carry, so a new stamp joins the dominant
+#: spelling rather than adding a sixth.
+_CLOSE_STAMP_KEY: Dict[str, str] = {"superseded": "superseded_at"}
+_CLOSE_STAMP_DEFAULT = "resolved_at"
+
+
+def _close_stamp(row: Dict[str, Any], *, prior_status: Optional[str],
+                 now: Optional[str] = None) -> Optional[Tuple[str, str]]:
+    """``(key, iso)`` to stamp a just-closed row, or ``None``. Never back-dates.
+
+    WHY THIS EXISTS — THE HEADLINE METRIC IS DECAYING AS A MEASUREMENT.
+    ``backlog_burndown()`` buckets a closed row by its close date, so a closed
+    row carrying none falls out of EVERY month's closed count and the operator's
+    own question — *"is the backlog growing?"* — reads worse than it is. This
+    module never stamped one: the reader's docstring says in terms that
+    ``backlog_append.py`` "does not stamp a creation key — it is on the caller",
+    so the spelling was left to whoever happened to be writing.
+
+    MEASURED 2026-09-13 over all 1826 rows in the three backlogs, bucketing
+    CLOSED rows by the month they were OPENED, the share closed with NO close
+    date anywhere runs 9.9% (Jun) -> 6.9% (Jul) -> 19.3% (Aug) -> **43.2%
+    (Sep)**. A growing undercount does not cancel out of a trend, and it is
+    worst on the NEWEST rows — exactly where a reader looks.
+
+    THE TRIGGER IS WITNESSING A CLOSE, NEVER "THIS ROW IS CLOSED".
+      * ``prior_status`` must not ALREADY be closed. A row closed weeks ago and
+        merely appended to today would otherwise be stamped with TODAY — a
+        fabricated date, which is worse than the missing one it replaces
+        because it reads as a statement. ``None`` means the row is being
+        CREATED, which is a witnessed close if it arrives already closed.
+      * An existing close key is never overwritten. A stated date is a
+        statement; this is only ever an observation of the present write.
+
+    ⚠️ IT REPAIRS NOTHING ALREADY FILED. The 131 closed rows carrying no date
+    stay undated, deliberately: back-filling them would assert close dates
+    nobody observed.
+    """
+    status = str(row.get("status") or "")
+    if status not in CLOSED_STATUSES:
+        return None
+    if prior_status is not None and str(prior_status) in CLOSED_STATUSES:
+        return None          # closed before this write — not ours to date
+    for k in CLOSE_KEYS:
+        v = row.get(k)
+        if isinstance(v, str) and len(v) >= 7:
+            return None      # the row already says when; do not restate it
+    key = _CLOSE_STAMP_KEY.get(status, _CLOSE_STAMP_DEFAULT)
+    return key, (now or datetime.datetime.now(datetime.timezone.utc).isoformat())
 
 
 class RowNotFound(Exception):
@@ -274,6 +355,13 @@ def update_row(path: pathlib.Path, row_id: str,
         target[key] = current + value
     for key, value in (fields or {}).items():
         target[key] = value
+
+    # The close date, stamped only when THIS write is the one that closes the
+    # row. `before_target["status"]` is the status as it stood on disk, so a row
+    # that was already closed is left alone rather than re-dated to today.
+    _stamp = _close_stamp(target, prior_status=before_target.get("status"))
+    if _stamp:
+        target[_stamp[0]] = _stamp[1]
 
     if isinstance(doc, dict) and updated_at:
         doc["updated_at"] = updated_at

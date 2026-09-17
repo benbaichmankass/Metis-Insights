@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/health-review-backlog.json, docs/claude/OPEN-ITEMS.json and the GENERATED SESSION-BRIEF block in CLAUDE.md (a one-line age counter, re-rendered by scripts/ops/render_session_brief.py --write), plus this declaration, its arming file and a per-branch merge-slot claim. All three are in TIER1_SURFACE (docs/**, *.md). One backlog row updated and one OPEN-ITEMS observation recorded from read-only live diag pulls (/api/diag/log_file?name=exit_interval_soak). No src/, no ml/, no config/, no scripts/, no .github/workflows/, no order path, nothing enacted. The OI row is deliberately NOT removed -- it is loud and shared, and that call is routed to the manager."
+}

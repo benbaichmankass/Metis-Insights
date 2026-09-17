@@ -21,6 +21,20 @@ on the next ``ict-git-sync`` pull and sends. So a ping is **truth in transit**
 between the commit and the send, and it fails BACK: an un-committed row is a
 ping that never happened, never a ping wrongly shown as delivered. Delivery is
 deduped VM-side on a hash of the raw line.
+
+⚠️ **THE `--base` REF IS READ AS GIVEN — THE TIP — AND A MERGE BASE WOULD BE
+MEANINGLESS HERE. DO NOT "FIX" IT.** This script takes BOTH `--base` and
+`--head` and compares two ARBITRARY refs over a WINDOW; it is not a
+diff-scoper asking *"did this branch do X?"*, so there is no branch whose fork
+point would be the right reference. Resolving a merge base between two
+arbitrary refs would silently move one end of the window.
+
+It is listed among the tip-readers by `scripts/ops/base_resolution_census.py`,
+which says in terms that that is **a count of a pattern, not a list of
+defects**. The per-script audit is in
+`scripts/ops/check_backlog_criteria.py::_load_at_ref` and names this script
+under **"RIGHT BY DESIGN, DO NOT 'FIX' THESE"**. This note exists locally
+because a warning in another file does not reach someone reading this one.
 """
 # wiring: manual-only - session-invoked by whoever lands a phase, and that is
 # the POINT rather than an omission: this is Phase A of the operating-layer

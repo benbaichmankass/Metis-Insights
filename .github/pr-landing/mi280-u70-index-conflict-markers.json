@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ci/check_document_index.py only: a new R7 precondition refusing docs/DOCUMENT-INDEX.md when it carries an unresolved merge conflict, which the guard previously graded OK at rc=0 (measured by planting the real half-resolved shape at line 732 and re-proven after a lint fix). No existing rule's behaviour changes and the file is clean today (--all -> OK, population 1076, row-drift census 0). Scoped to that one file and explicitly NOT a repo-wide conflict-marker guard, which the filed row says must not be smuggled in as a one-line fix. Tier-1 surface by the canonical list (scripts/ci/**), and NOT landing machinery — verified against check_pr_landing.py::LANDING_MACHINERY, which does not list this file. 8 planted controls including the false positive the row warns about (a table row whose note quotes the markers must stay clean). No src/, no config/, no deploy/, no workflow, no register, no order path."
+}

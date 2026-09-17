@@ -1,0 +1,41 @@
+# FILED, not migrated: MI-279 OPS lane (/backlog-drain), 2026-09-12. Arrives
+# `dormant` — carried, not started, not queued. It exists so the remedy named in
+# docs/research/corpus-schema-degradation-2026-09-12.md is CARRIED by a work
+# register rather than by an evidence document nobody is obliged to re-read;
+# that is the failure class BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK
+# names and `uncarried-spec-guard` mechanises.
+id: BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT
+type: question
+parent_intent: null
+title: |-
+  Stamp the dispatched sha and Actions run id on every sweep-corpus row, so a missing field can be told from one the extractor could not emit
+stage: INTEGRITY
+lifecycle: dormant
+owner: null
+opened_at: null
+closed_at: null
+review_trigger: |-
+  Re-read when anyone next touches scripts/research/m20_corpus_extract.py, the e35 sibling, or .github/workflows/m20-exit-lever-sweep.yml — the stamp is two environment variables threaded through one writer, so it is cheapest while that file is already open. ⚠️ A dormant object is NOT a queued one: nothing is scheduled to pick this up, and saying so is more honest than a backlog promise nobody is keeping.
+done_condition: |-
+  THREE things, and the third is the one that is easy to skip. (1) Every NEW corpus row carries the dispatched sha (GITHUB_SHA) and the Actions run id (GITHUB_RUN_ID), null where genuinely unavailable — verified by reading a row written by a REAL dispatched run, never by a fixture. ⚠️ Neither may be invented: a local run has no run id, so the field must be null and null must read as "we could not look". (2) A test asserts `measurement_key` is UNCHANGED by the addition, with a negative control that FAILS if the new keys are folded into it — otherwise every existing row keys distinctly from its successor and supersession silently stops working. (3) `scripts/research/m20_corpus_schema_census.py` gains a third, AUTHORITATIVE boundary basis that reads the row's own dispatched sha, and its output distinguishes rows graded from the sha from rows still graded from the two guessed boundaries. ⚠️ DO NOT close this by stamping the 20 existing `absent_between_boundaries` rows: their cause is not established and recording one would be a fabricated measurement. ⚠️ DO NOT close it on the census alone — the census REPORTS the ambiguity, it does not remove it.
+blocked_on: []
+blocked_on_basis: |-
+  ASSESSED 2026-09-12 and genuinely EMPTY — this is one of the few rows where the empty list is a claim rather than an absence of one. The writer (`scripts/research/m20_corpus_extract.py`) and the workflow that would pass the two variables are both Tier-1 paths, both present in the tree, and the census that would consume the third basis is committed. Nothing external is awaited; what is missing is that nobody has done it.
+source:
+  backlog: docs/claude/health-review-backlog.json
+  row_id: BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT
+  status_at_migration: open
+  severity: high
+  tier: '1'
+  opened_by: claude (MI-279 OPS lane, session_013iSqp4LsU1eq8K326eUtgj)
+  migrated_on: '2026-09-12'
+  note: |-
+    The backlog row remains the state of record for the FINDING and its updates; this object is the state of record for the WORK. New findings are still filed to the backlog through scripts/ops/backlog_append.py::append_row, never here.
+evidence:
+- |-
+  docs/research/corpus-schema-degradation-2026-09-12.md
+- |-
+  scripts/research/m20_corpus_schema_census.py
+- |-
+  docs/claude/health-review-backlog.json#BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT
+verdict: null

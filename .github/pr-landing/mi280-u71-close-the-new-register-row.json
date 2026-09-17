@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row moved open -> resolved plus one `updates` entry, byte-exact through the file's own serialisation (rows 1571 -> 1571, 0 added, 0 removed, exactly 1 row's content changed — the target). Closed only after its fix was verified on MAIN'S own copy at ba7664e39: NEW_REGISTER at line 80, the ABSENT_AT_BASE branch at 197, check() forwarding the state at 318, 26 tests passing there, and the original reproduction re-run against main now grading `new_register` where it previously graded `unreadable`. No code, config, workflow or runtime."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/health-review-backlog.json only, plus this declaration, its arming file and a per-branch merge-slot claim. One row updated: the grain decision for the tick_cost durable soak, answered with measured byte counts over a read-only /api/diag/tick_cost payload and a read-only /api/diag/log_file size. No src/, no ml/, no config/, no scripts/, no .github/workflows/, no order path. The build it unblocks lands in src/runtime/tick_cost.py and is deliberately NOT done here — src/ is outside TIER1_SURFACE, so that change must declare landing hold."
+}

@@ -335,8 +335,11 @@
         "summary": "<= 240 chars — 'all N live accounts reachable' or the down set | 'unavailable: <reason>'"
       },
       "backlog_drive": {
-        "_comment": "REQUIRED. Proves the three review backlogs were WORKED, not just counted. A REVIEW DISPOSITIONS; IT DOES NOT MERELY TOUCH (2026-08-13, binding — CLAUDE-RULES-CANONICAL § 'Backlog governance' rule 5). Per domain record `drained` (resolved/fixed), `snoozed` (an accrual-blocked row moved behind an ISO date + named trigger) and `promoted` (a research programme moved to its ROADMAP milestone and CLOSED here) — those three are the dispositions the renderer counts. `deferred` is the audit trail for rows left open, and each reason must name a blocker ON THE ROW (soaking / blocked-on-future-data / Tier-3-awaiting-operator); a reason describing the REVIEW ('no new evidence', 'carried forward unchanged', 'no time', 'didn't look') is REFUSED by the renderer — 75 such touches were recorded while the backlog grew +129 net over 30 days, with the coverage guard green throughout. If the total disposition count is ZERO, `summary` must justify it in >=80 chars.",
+        "_comment": "REQUIRED. Proves the three review backlogs were WORKED, not just counted. A REVIEW DISPOSITIONS; IT DOES NOT MERELY TOUCH (2026-08-13, binding — CLAUDE-RULES-CANONICAL § 'Backlog governance' rule 5). Per domain record `drained` (resolved/fixed), `snoozed` (an accrual-blocked row moved behind an ISO date + named trigger) and `promoted` (a research programme moved to its ROADMAP milestone and CLOSED here) — those three are the dispositions the renderer counts. `deferred` is the audit trail for rows left open, and each reason must name a blocker ON THE ROW (soaking / blocked-on-future-data / Tier-3-awaiting-operator); a reason describing the REVIEW ('no new evidence', 'carried forward unchanged', 'no time', 'didn't look') is REFUSED by the renderer — 75 such touches were recorded while the backlog grew +129 net over 30 days, with the coverage guard green throughout. If the total disposition count is ZERO, `summary` must justify it in >=80 chars. || TRIAGE COUNTERS ADDED 2026-09-12 (BL-20260814-STRICT-GUARD-DOES-NOT-ENFORCE-THE-TRIAGE-GATE). `open_at_start` is the domain's live-row count when the run began, `triaged` how many were READ to a disposition, `count_untriaged` the remainder. The SKILL calls 100% triage a HARD COMPLETION GATE -- 'every open item, not a sample' -- and `render_system_report.py --strict` now FAILS a run declaring count_untriaged > 0, or triaged != open_at_start, naming the domain. !! THESE WERE NAMED IN THE SKILL FOUR TIMES AND WERE ABSENT FROM THIS TEMPLATE, which is why --strict passed a report declaring 201/39/26: the field the gate is written against was not in the schema authors fill in. !! A GENUINELY PARTIAL RUN IS STILL PUBLISHABLE, via --allow-partial-triage, which stamps a PARTIAL REVIEW banner at the top of the rendered HTML naming the untriaged counts -- publishable, never mistakable for complete. !! AND STATE THE COUNT EVEN WHEN IT IS 0: an absent count is 'we did not look', and while --strict does not yet refuse absence (no report carries the field yet), omitting it defeats the gate rather than passing it.",
         "health": {
+          "count_untriaged": 0,
+          "triaged": 0,
+          "open_at_start": 0,
           "drained": [],
           "snoozed": [],
           "promoted": [],
@@ -348,6 +351,9 @@
           ]
         },
         "performance": {
+          "count_untriaged": 0,
+          "triaged": 0,
+          "open_at_start": 0,
           "drained": [],
           "snoozed": [],
           "promoted": [],
@@ -359,6 +365,9 @@
           ]
         },
         "ml": {
+          "count_untriaged": 0,
+          "triaged": 0,
+          "open_at_start": 0,
           "drained": [],
           "snoozed": [],
           "promoted": [],
