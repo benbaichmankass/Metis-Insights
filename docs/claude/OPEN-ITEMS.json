@@ -136,8 +136,9 @@
     "BL-20260713-BYBIT2-PNL-UNDERRECORD"
    ],
    "observed_live": "2026-08-26T10:10Z, deployed sha 510fbb6a: the flag works and its coverage limit is confirmed rather than assumed. bybit_2 reads known_divergent on 200/200 rows; bybit_1 / alpaca_paper / ib_paper all read no_record; /api/bot/performance?window=all reports accountsKnownDivergent:[bybit_2] and accountsUnrecorded:[alpaca_live]. Every account except one is therefore UNRECONCILED, which is what this row exists to keep visible — no_record is not a clean bill of health.",
-   "verified_at": "2026-08-26",
-   "observation": " || 2026-08-26 (b9kyip): re-checked on the deployed /api/bot/performance?window=all -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. Still exactly ONE reconciled account; unchanged, and the row stands."
+   "reaffirmed": "2026-09-17",
+  "verified_at": "2026-08-26",
+   "observation": " || 2026-08-26 (b9kyip): re-checked on the deployed /api/bot/performance?window=all -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. Still exactly ONE reconciled account; unchanged, and the row stands. || 2026-09-17 (MI-278 research lane, session_01Wv1BdfEUnmCBZrhvUjeBzb): re-checked LIVE on the deployed /api/bot/performance?window=all (HTTP 200 from https://ict-bot.duckdns.org) -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}, IDENTICAL to the 2026-08-26 baseline field for field. Still exactly ONE reconciled account, so the row's claim STANDS -- this is a RE-AFFIRMATION, not a clear, and no_record is still not a clean bill of health. !! IT DID NOT GO STALE THROUGH NEGLECT: the 21-day window elapsed during the 2026-09-13 -> 2026-09-17 operator-directed pause, when every lane was stood down BY INSTRUCTION. It crossed on the CALENDAR, and because open-items-guard is not diff-scoped that turned main RED (Guards run 8172, head 5a07c6510) and, through the pull_request merge ref, every open PR with it -- 7 of mine alone, none of whose diffs touched this file. Recorded so the next pause is known to carry this cost."
   },
   {
    "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
