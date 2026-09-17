@@ -4,7 +4,7 @@ parent_intent: IN-20260901-OPERATING-LAYER
 title: >-
   Make the landing and register machinery stop losing the other lanes' work
 stage: BUILD
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01BjTp5RYwedmpFfkEtkQo1j
 opened_at: 2026-09-12
 closed_at: null
@@ -118,7 +118,21 @@ blocked_on_basis: >-
   2026-09-12: this lane published a wrong reading of that list — `scripts/ops/claim_merge_slot.py`
   IS landing machinery (11 entries; import the module, do not grep it), and U5 (#11881) is
   a `hold` in consequence.
-
+  (+) REASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF), APPENDED and not
+  replacing the assessment(s) above — they are the record of what was true when made, and this object
+  is itself the one that names silently reverting another session's assessment as the defect to stop.
+  ⚠️ I nearly did exactly that here: my first edit REPLACED this field wholesale and was reverted
+  before it left the working tree. Recorded because the near-miss is the finding, not the fix.
+  MOVED in_flight -> waiting. `in_flight` means a session is actively working the object; session_01BjTp5RYwedmpFfkEtkQo1j
+  is STOPPED by DEC-20260917-LANES-AFTER-WRAP ('Stay stopped; hand off to a new manager'), so nothing
+  was moving this. The deliverables are OPEN, MERGE-CONFLICTED PRs (#12400, #12398, #12222).
+  MEASURED 2026-09-17: of the conflicts probed across these branches, every one is in a SHARED
+  REGISTER (health-review-backlog.json in 5 of 7, then CLAUDE.md, DOCUMENT-INDEX.md, OPEN-ITEMS.json,
+  one M20 work object) and ZERO are in src/, tests/, scripts/ or config/ — the work does not need
+  redoing, it needs a serialised landing pass.
+  ⚠️ NOT A DOWNGRADE OF THE WORK: this object is closer to done than most in_flight rows. Moving it to
+  `waiting` is what keeps the WIP ceiling HONEST rather than gamed — it frees a slot for a lane that
+  is genuinely being worked, instead of leaving three slots held by stopped sessions.
 scope_limits: >-
   scripts/ci/**, scripts/ops/**, .github/workflows/**, tests/**, docs/**. Tier-1 tooling
   only. NOT src/, NOT config/, NOT deploy/. R12 is not to be defeated, marked, or

@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-17T16:52Z",
+  "updated_at": "2026-09-17T19:02:33Z",
   "updated_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
   "sessions": [
     {
@@ -5089,6 +5089,48 @@
       "confirmed_at": "2026-09-16T19:07:57Z",
       "last_observed_at": "2026-09-17T14:58Z",
       "last_observation": "MEASURED 2026-09-17T14:58Z via get_session: IDLE, DISCONNECTED, status_bucket COMPLETED, nothing in flight. Its own post_turn_summary: 'yfinance 0.2.40->1.7.0 floor + SPY control; yahoo UA fix; 23 harness failures->1; 19 measured->41'. !! THAT LAST FIGURE INDEPENDENTLY CORROBORATES THE MANAGER'S OWN COUNT: MI-292 measured 41 gradeable evidence records and 11 errored, derived from the committed packets and comms/strategy_evidence/ WITHOUT reading this summary. Two independent routes agree on 41. The work landed as PR #12348 (0be1980a2) -- NOT #12347, which is lane registration. Lifetime cost $23.01, and it is the lane that produced the cycle's gating measurement."
+    },
+    {
+      "session_id": "session_0178pRo8ZxrnrREzDzDzb9Zk",
+      "registry_key": "pending-20260917T185754Z",
+      "state": "working",
+      "title": "OPS LANE MI-294 — canonize the session-receipt format (MI-290), then system review + audit, then triage the backlog",
+      "owns_object": "WO-20260917-OPS-LANE-CANONIZE-THE-SESSION-RECEIPT-THEN-REVIEW-AND-TRIAGE",
+      "checklist_item": "MI-294",
+      "spawned_at": "2026-09-17T18:57:54Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator-directed 2026-09-17, in this order. MI-290 is already specced and unbuilt; its reference artifact is committed at docs/claude/receipts/RECEIPT-2026-09-17-manager-wrap.md. Then a system review weighted to the past week's performance and soak monitoring. Then backlog triage into workable chunks.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-17T19:02:33Z"
+    },
+    {
+      "session_id": "session_017PQcFJne7qyuVHzH5RZtFC",
+      "registry_key": "pending-20260917T185754Z-2",
+      "state": "working",
+      "title": "RESEARCH LANE MI-295 — active trade management: an update, and where to focus next",
+      "owns_object": "WO-20260917-RESEARCH-LANE-ACTIVE-MANAGEMENT-WHERE-TO-FOCUS-NEXT",
+      "checklist_item": "MI-295",
+      "spawned_at": "2026-09-17T18:57:54Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator wants a FOCUS RECOMMENDATION, not more measurement. The 2026-08-30 break is already attributed both_contribute (#12205). Real money took 4 trades in 7d for -$10.96 with ZERO take-profits reached.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-17T19:02:33Z"
+    },
+    {
+      "session_id": "session_01SzoZAiXJibakevDU9pbwxm",
+      "registry_key": "pending-20260917T185754Z-3",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-296 — structural fixes, landing/register machinery FIRST, then research/testing/ML infra fitness",
+      "owns_object": "WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS",
+      "checklist_item": "MI-296",
+      "spawned_at": "2026-09-17T18:57:54Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "9 of 14 substantive PRs conflicted, every probed conflict in a shared register and none in code. The manager hit 3 distinct landing defects on 4 trivial register changes today.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-17T19:02:33Z"
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
