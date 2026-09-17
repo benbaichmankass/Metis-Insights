@@ -276,10 +276,77 @@ jobs:
             //    is behaviourally identical and makes both the check and its
             //    plant stop matching — the guard then reports a regression that
             //    is not there, which is how a guard gets relaxed to shut it up.
+            // ⚠️ THE THIRD TRY IS THE ONE THAT ACTUALLY WORKS HERE, AND IT
+            //    EXISTS BECAUSE THE FIRST TWO ARE MEASURED TO FAIL. Every
+            //    `claude-pr-automerge` run since 2026-09-12T09:56:31Z has
+            //    logged `could not construct a PAT-authenticated client:
+            //    @actions/github is not resolvable from this script` — read
+            //    off the live job logs of run 34718195692 (#12087, 20:49:21Z)
+            //    and run 34744864126 (#12211, 2026-09-13T07:17:43Z), i.e. both
+            //    ends of a 10.5-hour window with no exception. So the PAT half
+            //    of #11889 has NEVER once opened a PR; it has only ever fallen
+            //    back, and #12087 was duly born under GITHUB_TOKEN with no CI.
+            //
+            //    `getOctokit` needs a module this runtime will not hand us.
+            //    `fetch` needs nothing: it is a global on Node 20 and 24, and
+            //    the REST call it makes is the same one Octokit would. This is
+            //    the ONLY call made through `opener` (grep: one site,
+            //    `opener.rest.pulls.create`), so the shim implements exactly
+            //    that and nothing else — a partial client is honest where a
+            //    fake general-purpose one would be a trap for the next caller.
+            //
+            // ⚠️ THE TWO `require` TRIES ARE KEPT AND MUST STAY FIRST, for two
+            //    reasons that are not style. A real Octokit is better if the
+            //    runtime ever provides one; and `automerge-trigger-guard` C6 is
+            //    a SOURCE assertion on the literal `getOctokit(patToken)`,
+            //    whose own planted defect mutates that exact string. Deleting
+            //    the dead-looking lines would make the guard and its plant stop
+            //    matching, and a guard that reports a regression that is not
+            //    there is how a guard gets relaxed to shut it up.
+            function _patFetchClient() {
+              const api = 'https://api.github.com';
+              return { rest: { pulls: { create: async (args) => {
+                const res = await fetch(`${api}/repos/${args.owner}/${args.repo}/pulls`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${patToken}`,
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'claude-pr-automerge',
+                  },
+                  body: JSON.stringify({
+                    title: args.title, head: args.head, base: args.base,
+                    body: args.body, draft: !!args.draft,
+                  }),
+                });
+                if (!res.ok) {
+                  // Shaped like an Octokit error so the EXISTING 403 fallback
+                  // below reads `e.status` and behaves identically. A new
+                  // error shape here would silently disable that fallback.
+                  const detail = await res.text();
+                  const err = new Error(
+                    `PAT pulls.create returned ${res.status}: ${detail.slice(0, 300)}`);
+                  err.status = res.status;
+                  throw err;
+                }
+                return { data: await res.json() };
+              } } } };
+            }
             function _patClient() {
               const tries = [
                 () => __original_require__('@actions/github').getOctokit(patToken),
                 () => require('@actions/github').getOctokit(patToken),
+                // ⚠️ NOT a `catch`-all rescue of the two above: this is tried
+                //    only when BOTH threw, and it throws itself if `fetch` is
+                //    absent, so a runtime without it still reaches the loud
+                //    GITHUB_TOKEN fallback rather than a broken client.
+                () => {
+                  if (typeof fetch !== 'function') {
+                    throw new Error('global fetch is unavailable');
+                  }
+                  return _patFetchClient();
+                },
               ];
               for (const t of tries) {
                 try { return t(); } catch (e) { /* try the next */ }
@@ -415,8 +482,26 @@ jobs:
             } catch (e) {
               core.warning(`could not read check runs for ${armHead.slice(0,8)}: ${e.message}`);
             }
+            // ⚠️ `opener_kind` TRAVELS WITH THE COUNT, and it is the term that
+            // decides. MEASURED 2026-09-13 on #12087 (created under
+            // GITHUB_TOKEN) and #12211 (adopted): the gate graded `attached` on
+            // BOTH, on the strength of one run named `watch` — which comes from
+            // `armed-branch-push-watch.yml`, fires on every `claude/**` push,
+            // and is NOT a required check. Auto-merge waits on required checks,
+            // so that run gave GitHub nothing to wait for while the gate
+            // reported it had "something real". The two workflows were added
+            // the SAME DAY as two halves of one incident, and the detector
+            // defeated the preventer.
+            //
+            // ⚠️ AND THE OBVIOUS FIX — count only the required checks — WOULD
+            // TAKE THE LANDING ROUTE DOWN. On #12211 the required checks had
+            // not been created 12 seconds after the push (they arrive with the
+            // `synchronize` event moments later), so a required-only read at
+            // this instant refuses EVERY self-landing PR. The opener is known
+            // now and is not a race, which is why it is the discriminator.
             require('fs').writeFileSync(process.env.ARMING_INPUT,
-              JSON.stringify({ check_runs: checkRuns, checks_read_ok: checksReadOk }));
+              JSON.stringify({ check_runs: checkRuns, checks_read_ok: checksReadOk,
+                               opener_kind: openerKind }));
 
             const gate = require('child_process').spawnSync(
               'python3', ['scripts/ci/automerge_arming.py', '--input', process.env.ARMING_INPUT],

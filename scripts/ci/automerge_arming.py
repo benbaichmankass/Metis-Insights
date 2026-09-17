@@ -61,8 +61,17 @@ import sys
 
 ATTACHED = "attached"
 NONE_ATTACHED = "none_attached"
+OPENER_CANNOT_ATTACH = "opener_cannot_attach"
 UNREADABLE = "unreadable"
-ALL_STATES = (ATTACHED, NONE_ATTACHED, UNREADABLE)
+ALL_STATES = (ATTACHED, NONE_ATTACHED, OPENER_CANNOT_ATTACH, UNREADABLE)
+
+# The opener kinds `claude-pr-automerge.yml` reports. `github_token` is a
+# statement about the FUTURE that no count of check runs can overturn: GitHub
+# suppressed the `pull_request` event, so the required checks will never be
+# created on this head, however many other runs happen to be sitting on it.
+OPENER_GITHUB_TOKEN = "github_token"
+OPENER_PAT = "pat"
+OPENER_ADOPTED = "adopted"
 
 # The job name in `.github/workflows/claude-pr-automerge.yml`. Its check run is
 # always present on a PR this workflow opened, and is never evidence that the
@@ -70,8 +79,56 @@ ALL_STATES = (ATTACHED, NONE_ATTACHED, UNREADABLE)
 SELF_JOB = "open-and-automerge"
 
 
-def grade(check_runs, *, checks_read_ok: bool) -> dict:
-    """Pure. `check_runs` is whatever the API returned; nothing is trusted."""
+def grade(check_runs, *, checks_read_ok: bool, opener_kind=None) -> dict:
+    """Pure. `check_runs` is whatever the API returned; nothing is trusted.
+
+    ⚠️ `opener_kind` IS CHECKED BEFORE ANY COUNT, AND NO COUNT CAN OVERTURN IT
+    — BUT `unreadable` STILL COMES FIRST, and that ordering is load-bearing
+    rather than cosmetic. Both states refuse, so there is no safety difference;
+    what differs is the REASON a reader is given. A check-run read that FAILED
+    is *we did not look*, which this repo puts above every other verdict, and
+    `tests/test_automerge_request_gate.py` asserts in terms that such a read is
+    "not filled in with a plausible answer". Grading it `opener_cannot_attach`
+    would answer a question we had not asked — the unprovenanced-diagnostic
+    shape, inside the module written to prevent its neighbour. So: could not
+    look → `unreadable`; looked, and the opener cannot attach →
+    `opener_cannot_attach`; looked, and nothing foreign is there →
+    `none_attached`.
+    MEASURED 2026-09-13 on two live runs — #12087 (a PR this workflow CREATED
+    under GITHUB_TOKEN, 2026-09-12T20:49:22Z) and #12211 (an ADOPTED PR,
+    2026-09-13T07:17:44Z) — the gate graded `attached` on BOTH, with the same
+    `why`:
+
+        1 check run(s) other than `open-and-automerge` are attached to this
+        head (watch), so GitHub has something real to wait for before it merges.
+
+    The run it found is `watch`, from `.github/workflows/armed-branch-push-watch.yml`
+    — which fires on every `claude/**` push, is NOT a required check, and was
+    added on 2026-09-12, the SAME DAY as this gate, as the OTHER half of the
+    same defect. So the two siblings born of one incident defeat each other:
+    the detector attaches a run, and the preventer reads that run as evidence
+    the required checks arrived.
+
+    ⚠️ AND THE `why` IS FALSE IN THE WAY THAT MATTERS. Auto-merge waits on
+    REQUIRED checks; a non-required run gives GitHub nothing to wait for. So
+    the gate reported "something real to wait for" about a head that had
+    nothing — UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A, inside the module
+    written to stop a related defect.
+
+    ⚠️ WHY THE FIX IS NOT "COUNT ONLY REQUIRED CHECKS". Measured on #12211, an
+    ADOPTED PR on the ordinary two-push route: 12 seconds after the arming
+    push, `watch` had attached and the four required checks had NOT — they are
+    created by the `synchronize` event moments later. A required-only gate,
+    read at that instant, would refuse to arm EVERY self-landing PR in the
+    repo. The timing is why the discriminator has to be the opener, which is
+    known at that instant and is not a race.
+
+    ⚠️ `None` GRADES EXACTLY AS BEFORE, DELIBERATELY. An absent `opener_kind`
+    is *we were not told*, not *the opener is unsafe*, and inventing a refusal
+    from it would take the landing route down for every caller that has not
+    been updated. The workflow always passes it; a missing value keeps the old
+    behaviour rather than a new failure.
+    """
     if not checks_read_ok:
         return {
             "state": UNREADABLE, "arm": False, "attached": None, "self_only": None,
@@ -86,6 +143,20 @@ def grade(check_runs, *, checks_read_ok: bool) -> dict:
                    "list, so no count can be taken from it. A non-array is "
                    "refused rather than read as a zero — the same false-zero "
                    "this repo already paid for once in the pr-queue watcher.",
+        }
+    if opener_kind == OPENER_GITHUB_TOKEN:
+        return {
+            "state": OPENER_CANNOT_ATTACH, "arm": False,
+            "attached": None, "self_only": None,
+            "why": "this PR was just CREATED under GITHUB_TOKEN, so GitHub's "
+                   "recursion prevention suppressed the `pull_request` event "
+                   "and the required checks will NEVER be created on this "
+                   "head. No number of other runs sitting on it changes that — "
+                   "a non-required run (`watch` fires on every claude/** push) "
+                   "is not something auto-merge waits for. Refusing to arm. "
+                   "REMEDY: repair the PAT-authenticated open so the event "
+                   "fires, or push one ordinary commit from your own "
+                   "credentials and let the run fire again.",
         }
     # An entry with no usable name is NOT an attachment. Caught by this module's
     # own self-test before it shipped: `[{}, {"name": ""}]` produced two empty
@@ -176,6 +247,61 @@ def _self_test(quiet: bool = False):
     check("entries with no usable name do not manufacture an attachment",
           r["state"] == NONE_ATTACHED and not r["arm"])
 
+    # ── the live case this gate was defeated by, reproduced exactly ──────────
+    # #12087 (created under GITHUB_TOKEN) and #12211 (adopted) both graded
+    # `attached` on this payload. The self job plus ONE non-required run.
+    WATCH = [{"name": SELF_JOB, "conclusion": "success"}, {"name": "watch"}]
+
+    r = grade(WATCH, checks_read_ok=True, opener_kind=OPENER_GITHUB_TOKEN)
+    check("a PR CREATED under GITHUB_TOKEN does not arm, even with a "
+          "non-required run sitting on the head (the live #12087 payload)",
+          r["state"] == OPENER_CANNOT_ATTACH and r["arm"] is False)
+    # ⚠️ ASSERTS THE POSITIVE, not merely `!= NONE_ATTACHED`. The weaker form
+    # is satisfied by `attached`, i.e. by the defect itself, so it survives a
+    # mutation that deletes the whole branch — a control that passes on the
+    # bug is not a control.
+    check("…and it is a state of its OWN, never folded into none_attached: a "
+          "run WAS seen, and the remedy is to fix the opener rather than to "
+          "wait for checks",
+          r["state"] == OPENER_CANNOT_ATTACH
+          and grade(WATCH, checks_read_ok=True)["state"] == ATTACHED)
+    check("…and the refusal names the opener cause, not a count",
+          "GITHUB_TOKEN" in r["why"] and "recursion" in r["why"])
+
+    # THE CONTROL THAT STOPS THIS BECOMING A BLANKET REFUSAL. Two of them,
+    # because a gate that refused the ordinary route would stop every
+    # self-landing PR in the repo — a worse outcome than the defect.
+    r = grade(WATCH, checks_read_ok=True, opener_kind=OPENER_ADOPTED)
+    check("an ADOPTED PR still arms on the same payload (its required checks "
+          "are moments behind the push, not absent)",
+          r["state"] == ATTACHED and r["arm"] is True)
+    r = grade(WATCH, checks_read_ok=True, opener_kind=OPENER_PAT)
+    check("a PAT-opened PR still arms on the same payload", r["arm"] is True)
+    r = grade(WATCH, checks_read_ok=True)
+    check("…and so does a caller that passes no opener_kind at all "
+          "('we were not told' must not become a new refusal)",
+          r["state"] == ATTACHED and r["arm"] is True)
+
+    # The opener verdict is about the FUTURE, so it must hold however rich the
+    # check list looks. Without this, a gate that merely reordered the tests
+    # would pass everything above.
+    r = grade(REAL + [{"name": "watch"}], checks_read_ok=True,
+              opener_kind=OPENER_GITHUB_TOKEN)
+    check("a GITHUB_TOKEN-opened PR does not arm even when REQUIRED-looking "
+          "checks are present, because the opener decides, not the count",
+          r["state"] == OPENER_CANNOT_ATTACH and r["arm"] is False)
+
+    # ⚠️ AND `unreadable` OUTRANKS IT. Both refuse, so nothing is less safe —
+    # what is at stake is the REASON. A read that FAILED is *we did not look*,
+    # and answering it with a verdict about the opener would report a question
+    # we never asked. `test_a_check_read_that_THREW_is_not_filled_in_with_a_
+    # plausible_answer` in the request-gate suite asserts exactly this, and it
+    # caught the first ordering in CI rather than here.
+    r = grade(None, checks_read_ok=False, opener_kind=OPENER_GITHUB_TOKEN)
+    check("a FAILED check read grades UNREADABLE even when the opener is also "
+          "damning — 'we did not look' outranks every other reason",
+          r["state"] == UNREADABLE and r["arm"] is False)
+
     check("arm is True for exactly one state",
           [grade(x, checks_read_ok=k)["arm"]
            for x, k in ((REAL, True), (SELF, True), ([], True), (None, False))]
@@ -183,8 +309,10 @@ def _self_test(quiet: bool = False):
 
     reached = {grade(REAL, checks_read_ok=True)["state"],
                grade(SELF, checks_read_ok=True)["state"],
-               grade(None, checks_read_ok=False)["state"]}
-    check("all three states are reachable, so none is decorative",
+               grade(None, checks_read_ok=False)["state"],
+               grade(REAL, checks_read_ok=True,
+                     opener_kind=OPENER_GITHUB_TOKEN)["state"]}
+    check("all four states are reachable, so none is decorative",
           reached == set(ALL_STATES))
 
     if not quiet:
@@ -197,8 +325,9 @@ def _self_test(quiet: bool = False):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--input", help="JSON file: {check_runs, checks_read_ok}. "
-                                    "Default: read stdin.")
+    ap.add_argument("--input",
+                    help="JSON file: {check_runs, checks_read_ok, opener_kind}. "
+                         "Default: read stdin.")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
 
@@ -219,8 +348,12 @@ def main(argv=None) -> int:
                           "Refusing to arm — a gate that cannot read its input "
                           "must not wave the merge through."}
     else:
+        # ⚠️ `or None`, NOT a bare get. An absent key and an empty string must
+        # both mean *we were not told*, so the old behaviour is kept; only a
+        # recognised opener changes the verdict.
         verdict = grade(payload.get("check_runs"),
-                        checks_read_ok=bool(payload.get("checks_read_ok")))
+                        checks_read_ok=bool(payload.get("checks_read_ok")),
+                        opener_kind=(payload.get("opener_kind") or None))
 
     print(json.dumps(verdict, indent=2))
     print(f"automerge-arming: {verdict['state']} — "

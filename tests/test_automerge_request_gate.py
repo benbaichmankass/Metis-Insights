@@ -246,14 +246,33 @@ def test_negative_control_inherited_identical_file_does_not_arm():
 # trigger is broken.
 # --------------------------------------------------------------------------
 
-def test_positive_control_a_genuine_request_still_arms():
+def test_positive_control_a_genuine_request_still_OPENS_the_pr():
+    """⚠️ THIS TEST ASSERTED `enableAutoMerge` UNTIL 2026-09-13, AND THE CHANGE
+    THAT BROKE IT IS THE POINT RATHER THAN A REGRESSION.
+
+    In this fixture no `BRANCH_PROTECTION_TOKEN` is present, so the workflow
+    CREATES the PR under `GITHUB_TOKEN` — and GitHub's recursion prevention
+    means the required checks will never attach to that head. The arming gate
+    now refuses exactly that case (`opener_cannot_attach`), which is what
+    `BL-20260908-CLAUDE-PR-AUTOMERGE-OPENS-A-PR-WITH-NO-CI-AND-ARMS-A-RACE-THAT-DROPS-COMMITS-FOUR-SESSIONS-IN-ONE-DAY`
+    asks for in terms: *"auto-merge is not armed until at least one required
+    check has attached (so the arming race cannot silently drop a commit)"*.
+
+    So the request gate's positive half is what survives here — a genuine
+    request must still OPEN the PR, and the relay must not go down over a
+    missing secret. ⚠️ The ARMING positive is not lost, it MOVED: the very
+    next test drives an ADOPTED PR, which is the route every session actually
+    uses, and it still arms. Deleting this one instead would have removed the
+    only control proving the relay still opens PRs at all."""
     res = run_gate(
         branch="claude/some-branch", head_sha="c" * 40,
         blobs={f"{'c'*40}|{REQ}/some-branch.txt": "new"},   # absent on main == added here
     )
     kinds = _kinds(res)
     assert "pulls.create" in kinds, f"a real request must still open the PR: {kinds}"
-    assert "enableAutoMerge" in kinds, f"a real request must still arm: {kinds}"
+    assert "enableAutoMerge" not in kinds, (
+        "a PR CREATED under GITHUB_TOKEN must not be armed — no required check "
+        f"can ever attach to that head: {kinds}")
 
 
 def test_positive_control_modified_request_on_an_open_nondraft_pr_arms():

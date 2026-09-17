@@ -45,7 +45,15 @@ Checks:
       the checks do not attach, and C7 then withholds the arming rather than
       merging a head nothing measured.
 
-⚠️ C6/C7 ARE SOURCE ASSERTIONS AND THAT IS A REAL LIMIT, STATED RATHER THAN
+  C8  the PAT client keeps a REQUIRE-FREE construction path, and the arming
+      input carries `opener_kind`. ⚠️ C8 EXISTS BECAUSE C6 WAS TRUE THROUGHOUT
+      A PERIOD IN WHICH THE PAT PATH NEVER RAN: `@actions/github` is not
+      resolvable from a `github-script` body in this runtime, so every run
+      from 2026-09-12T09:56:31Z warned and fell back to GITHUB_TOKEN while
+      C6's literal sat there being satisfied. And the count-based gate then
+      armed anyway, because one non-required run (`watch`) was attached.
+
+⚠️ C6/C7/C8 ARE SOURCE ASSERTIONS AND THAT IS A REAL LIMIT, STATED RATHER THAN
 HIDDEN. They establish that the workflow still ROUTES through the PAT and the
 gate — which is what a later editor deletes — and they cannot establish that the
 gate DECIDES correctly. That half is `automerge_arming.py`'s own planted-defect
@@ -156,6 +164,35 @@ def check(root: Path) -> list[str]:
             "on #10079 and #10683. Reverting to `github.rest.pulls.create` "
             "restores that, and C7 would then withhold every arming.")
 
+    # C8 — the PAT client has a REQUIRE-FREE construction path, and the gate is
+    # told which opener was used.
+    #
+    # ⚠️ C6 ASSERTS THE LITERAL `getOctokit(patToken)` IS PRESENT, AND THAT
+    # LITERAL WAS PRESENT THROUGHOUT A PERIOD IN WHICH THE PAT PATH NEVER ONCE
+    # RAN. Measured on two live job logs 10.5 hours apart — run 34718195692
+    # (#12087, 2026-09-12T20:49:21Z) and run 34744864126 (#12211,
+    # 2026-09-13T07:17:43Z) — every run warned `@actions/github is not
+    # resolvable from this script` and fell back to GITHUB_TOKEN. So C6 is a
+    # source assertion that a green tree satisfied while the capability it
+    # names was dead: exactly the presence-only shape this repo keeps paying
+    # for. C8 is the companion, and it is still a source assertion — it cannot
+    # prove the client WORKS either, only that a path exists which does not
+    # depend on the module that is measurably absent.
+    fetch_fallback = "_patFetchClient" in code and "typeof fetch !== 'function'" in code
+    opener_to_gate = "opener_kind: openerKind" in code
+    if not (fetch_fallback and opener_to_gate):
+        fails.append(
+            "C8 the PAT path lost its require-free construction or stopped "
+            f"telling the gate which opener ran (builds a fetch client: "
+            f"{fetch_fallback}; passes opener_kind to the arming input: "
+            f"{opener_to_gate}). Both halves are load-bearing and they fail "
+            "differently: without the first the PR is opened under "
+            "GITHUB_TOKEN and no required check ever attaches; without the "
+            "second the gate grades that PR on a count, and one non-required "
+            "run — `watch`, which fires on every claude/** push — is enough to "
+            "make it read `attached`. That is how #12087 was armed with no CI "
+            "on the head, 11 hours after the gate shipped to prevent it.")
+
     # C7 — arming goes through the gate, and the refusal path RETURNS.
     gate_invoked = "scripts/ci/automerge_arming.py" in code
     gate_obeyed = "verdict.arm" in code
@@ -259,6 +296,15 @@ def self_test() -> int:
             r, "'scripts/ci/automerge_arming.py', '--input'", "'true', '--input'"),
         "C7 gate consulted but its verdict ignored": lambda r: _mutate_script(
             r, "if (!verdict.arm) {", "if (false) {"),
+        # C8 — the two ways this change gets undone. The first removes the only
+        # construction path measured to work in this runtime; the second leaves
+        # it in place and stops the gate hearing about it, which is the subtler
+        # regression because the PR still opens correctly and only the refusal
+        # is lost.
+        "C8 require-free PAT construction removed": lambda r: _mutate_script(
+            r, "_patFetchClient", "_patMissing", all_occurrences=True),
+        "C8 opener kind no longer reaches the gate": lambda r: _mutate_script(
+            r, "opener_kind: openerKind", "opener_kind: null"),
     }
 
     with tempfile.TemporaryDirectory() as td:
