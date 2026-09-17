@@ -87,14 +87,36 @@ BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
     "docs/claude/ml-review-backlog.json",
+    # ADDED 2026-09-17. This tuple was the THREE above from the day the criteria
+    # check landed, and `docs/claude/research-review-backlog.json` — split out
+    # of the performance backlog on 2026-08-30 — was graded by NOBODY: not by
+    # `_check_new_rows`, not by `_census`. `backlog_append.LIVE_BACKLOGS` names
+    # this exact class in its own comment ("splitting a backlog is not complete
+    # until the new file is named here") after the round-trip guard inherited
+    # the same gap silently.
+    #
+    # ⚠️ WIDENED ON A MEASUREMENT, NOT ON PRINCIPLE, and it is the same
+    # measurement `ALL_BACKLOGS` below recorded for the kept_open check:
+    # `_verdict` was run over all 19 rows in that file on 2026-09-17 and **0
+    # FAIL**. So this reds nothing today and removes a future blind spot.
+    # `_check_new_rows` grades only rows NEW in a diff regardless, so even a
+    # failing legacy row there could not red a PR.
+    #
+    # ⚠️ FOUND from the other side: `backlog_append.append_row` now refuses what
+    # this predicate refuses, on whatever file it is pointed at, which made the
+    # WRITER stricter than this GUARD for exactly this one backlog. An
+    # asymmetry that shows up only when someone builds the other half is the
+    # kind that survives for weeks.
+    "docs/claude/research-review-backlog.json",
 )
 
-#: The four review backlogs. ``BACKLOGS`` above is the THREE the criteria check
-#: has always covered; the kept_open check below spans all four because the
-#: class it enforces was measured across all four and the number must stay
-#: comparable. research-review-backlog.json held 0 kept_open rows when this
-#: landed, so widening the set changed no count — it removes a future blind spot.
-ALL_BACKLOGS = BACKLOGS + ("docs/claude/research-review-backlog.json",)
+#: Historical alias, kept because seven call sites read it. It named the four
+#: review backlogs while ``BACKLOGS`` named three; since 2026-09-17 the two sets
+#: are IDENTICAL, so the alias no longer distinguishes anything — it is retained
+#: only so this change does not put a rename diff between the reader and the
+#: one-line scope fix above. The kept_open check that motivated it spans the
+#: same four files it always did.
+ALL_BACKLOGS = BACKLOGS
 
 #: Every field name under which a backlog row states an EXIT CONDITION.
 #:

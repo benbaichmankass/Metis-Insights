@@ -664,3 +664,28 @@ def test_update_row_is_untouched_by_the_refusal(tmp_path):
     row = update_row(p, "BL-SEED", fields={"detail": "amended"})
     assert row["detail"] == "amended"
     assert _json.loads(p.read_text())["items"][0]["detail"] == "amended"
+
+
+def test_the_criteria_guard_grades_every_live_backlog():
+    """The scope gap that let the research backlog be graded by nobody.
+
+    `docs/claude/research-review-backlog.json` was split out of the performance
+    backlog on 2026-08-30 and was absent from `check_backlog_criteria.BACKLOGS`
+    until 2026-09-17, so `_check_new_rows` and `_census` never looked at it.
+    `LIVE_BACKLOGS`' own comment names this class after the round-trip guard
+    inherited the identical gap: *splitting a backlog is not complete until the
+    new file is named here.*
+
+    Pinned as SET EQUALITY against the writer's own tuple rather than as "the
+    research one is present", for the same reason that tuple is pinned that
+    way: the next backlog to be split out must fail this too, and a
+    membership check would pass for it.
+    """
+    from scripts.ops.backlog_append import LIVE_BACKLOGS
+    from scripts.ops.check_backlog_criteria import BACKLOGS
+
+    assert set(BACKLOGS) == set(LIVE_BACKLOGS), (
+        "the criteria guard and the mandated writer disagree about which files "
+        "are review backlogs — whichever is missing is graded by nobody: "
+        f"only in the guard {sorted(set(BACKLOGS) - set(LIVE_BACKLOGS))}, "
+        f"only in the writer {sorted(set(LIVE_BACKLOGS) - set(BACKLOGS))}")
