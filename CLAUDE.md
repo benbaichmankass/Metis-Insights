@@ -114,7 +114,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 **🗑️ SUNSET (E3, 2026-09-14): 21 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 13 packet date(s)) · machinery probe `measured`, 93 findings carried.
 - Candidates: `avax_pullback_2h`, `fade_breakout_4h`, `fvg_range_15m`, `gdx_pullback_1d`, `gld_pullback_1d`, `htf_pullback_trend_2h`, `iaum_pullback_1d`, `ief_pullback_1d`, `iwm_trend_long_1d`, `mes_trend_long_1d`, `mhg_pullback_1d`, `qld_trend_long_1d` …. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.
 
-**🧭 ⚠️ THIS READING IS 142h OLD — its producer has not run.** The rows below were measured at `2026-09-11T10:39:09+00:00`, not today. `.github/workflows/constraint-readout.yml` writes this register on a daily cron; anything that crossed the threshold since then is NOT in it, and a row listed as `newly_stalled` may since have been routed. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.
+**🧭 ⚠️ THIS READING IS 144h OLD — its producer has not run.** The rows below were measured at `2026-09-11T10:39:09+00:00`, not today. `.github/workflows/constraint-readout.yml` writes this register on a daily cron; anything that crossed the threshold since then is NOT in it, and a row listed as `newly_stalled` may since have been routed. Regenerate: `python3 scripts/ops/checklist_routing_age.py --write`.
 
 **🧭 No filed checklist row crossed 24h unrouted since the last reading.** (Generated — an empty list here means no NEW crossing, not that nothing is waiting; see the standing count below.)
 
