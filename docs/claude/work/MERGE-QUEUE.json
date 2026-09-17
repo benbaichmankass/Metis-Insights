@@ -53,413 +53,37 @@
     "armed. See check_manager_scope.py's R7 note for what is and is not covered."
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-10T05:32:00Z",
-  "updated_by": "session_01HrmZ1RRNM4UnEUaFdrPEjj",
+  "updated_at": "2026-09-17T15:05Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "note": "STATE 2026-09-10T02:47Z. ONE entry `rebasing` (#11626) and that is the R8 invariant, not a coincidence — its owner is poked and cleared; nothing else may rebase until it lands. TONIGHT'S LEDGER, recorded here rather than left in my session context (MI-102's whole lesson): #11629, #11632, #11628, #11631, #11634 merged by me, each now carried as a `merged` entry with its commit. #11628 and #11632 are the two independent halves of a RED MAIN I CAUSED and neither substitutes for the other — #11632 fixed the DATA (a 7-key merge_slot claim I wrote), #11628 fixed the METRIC (a positional line-compare that read every following line as changed once the key count differed). ⚠️ THE 44 `blocked` AUTOMATION ENTRIES BELOW ARE STALE AND I AM NOT DRAINING THEM. They were measured 2026-09-09T04:16Z and many have since merged or closed; this file has not been reconciled against a live open-PR list since. That is stated rather than silently carried, and it is deliberate: the census in this same file records that the queue GREW 30 -> 42 across a window in which ten PRs were merged, because every merge to main spawns a reconcile-open-prs — draining one at a time while still merging does not converge. A successor must NOT open a session on 'drain the queue'. What IS current in this file is the non-automation entries and tonight's ledger. ⚠️ AND DO NOT READ THE `blocked` COUNT AS A BACKLOG OF WORK — R13 blocks every bot-opened PR by construction (a bot writes no merge_slot claim), so `blocked` there is the steady state of a mechanism, not a queue of things waiting on a decision.",
   "entries": [
     {
-      "pr": 11478,
-      "state": "blocked",
+      "pr": 12442,
+      "state": "green",
       "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
+      "blocked_on": "CI running; auto-merge armed, per-branch merge slot claimed",
+      "note": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-17: pacing tick clause 2h->90min; WO-20260916-OPERATOR-DIRECTION.yaml"
     },
     {
-      "pr": 11476,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: error-feed-digest"
-    },
-    {
-      "pr": 11475,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: econ-calendar"
-    },
-    {
-      "pr": 11471,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: work-digest",
-      "⚠️_receipt_is_older_than_main": "WORK-DIGEST.json generated_at 2026-09-08T23:49:25Z, older than main's 2026-09-09T00:58:39Z. Landing this clears NOTHING — see digest_clearance."
-    },
-    {
-      "pr": 11470,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11468,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11465,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: work-digest",
-      "⚠️_receipt_is_older_than_main": "WORK-DIGEST.json generated_at 2026-09-08T22:42:40Z, older than main's 2026-09-09T00:58:39Z. Landing this clears NOTHING — see digest_clearance."
-    },
-    {
-      "pr": 11462,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: error-feed-digest"
-    },
-    {
-      "pr": 11459,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11458,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: data-commit"
-    },
-    {
-      "pr": 11456,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: data-commit"
-    },
-    {
-      "pr": 11454,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11453,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11452,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: work-digest",
-      "⚠️_receipt_is_older_than_main": "WORK-DIGEST.json generated_at 2026-09-08T20:35:07Z, older than main's 2026-09-09T00:58:39Z. Landing this clears NOTHING — see digest_clearance."
-    },
-    {
-      "pr": 11450,
-      "state": "merged",
-      "tier": 1,
-      "note": "MERGED 20:20:06Z as f1446fe8 by auto-merge. MI-168's record correction, cherry-picked from #11347 onto current main keeping the original authorship. Unions verified against that main: backlog 1347->1348 with 0 rows lost and 0 altered; OPEN-ITEMS 68->68 with the single altered row being the one the change exists to correct.",
-      "verified": "merge commit f1446fe8 on main carries (#11450); read 2026-09-09T04:16:41Z"
-    },
-    {
-      "pr": 11449,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11448,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11447,
-      "state": "merged",
-      "tier": 1,
-      "note": "MERGED 20:14Z as b5f2ddef. The 20:11:00Z heartbeat plus the two register corrections (26-not-6 automation census; SESSIONS status_bucket). ⚠️ I clicked it — auto-merge was armed and had NOT fired three minutes after the last check went green, and a green PR sitting unmerged is what cost us #10923.",
-      "verified": "merge commit b5f2ddef on main carries (#11447); read 2026-09-09T04:16:41Z"
-    },
-    {
-      "pr": 11445,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: work-digest",
-      "⚠️_receipt_is_older_than_main": "WORK-DIGEST.json generated_at 2026-09-08T19:54:09Z, older than main's 2026-09-09T00:58:39Z. Landing this clears NOTHING — see digest_clearance."
-    },
-    {
-      "pr": 11444,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11442,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: work-digest",
-      "⚠️_receipt_is_older_than_main": "WORK-DIGEST.json generated_at 2026-09-08T19:23:13Z, older than main's 2026-09-09T00:58:39Z. Landing this clears NOTHING — see digest_clearance."
-    },
-    {
-      "pr": 11439,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: error-feed-digest"
-    },
-    {
-      "pr": 11438,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11432,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11429,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11428,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: constraint-readout"
-    },
-    {
-      "pr": 11422,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11420,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11416,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11408,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: error-feed-digest"
-    },
-    {
-      "pr": 11404,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11402,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11399,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11397,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11393,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11386,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: valuation-snapshots"
-    },
-    {
-      "pr": 11382,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: data-commit"
-    },
-    {
-      "pr": 11376,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: session-reaper"
-    },
-    {
-      "pr": 11368,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: due-list"
-    },
-    {
-      "pr": 11367,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: error-feed-digest"
-    },
-    {
-      "pr": 11366,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: probes"
-    },
-    {
-      "pr": 11362,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11361,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: strategy-reviews"
-    },
-    {
-      "pr": 11353,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "pr-landing-guard R13: arms auto-merge, does not hold the merge slot on its own branch. A bot writes no claim, so this NEVER self-heals and a CI re-run changes nothing. Lands only when the manager claims the slot for it by hand — proven three times (#11436, #11425, #11423).",
-      "note": "automation: reconcile-open-prs"
-    },
-    {
-      "pr": 11499,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "open-pr-record --strict REFUSES this PR's own output: it MOVED #11390 to settled_prs[] as closed_unmerged with no `disposition`, which the job cannot know and correctly will not invent. NOT the merge-slot deadlock — #11494 fixed that and #11500 proved it. A CI re-run changes nothing; this clears only once #11390's disposition is on main's open row so the move carries it (landing now). ⚠️ The CI line names `session-registry-guard`, which is not where the defect is.",
-      "note": "automation: reconcile-open-prs — blocked as a FAMILY, on one shared row, not individually"
-    },
-    {
-      "pr": 11506,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "open-pr-record --strict REFUSES this PR's own output: it MOVED #11390 to settled_prs[] as closed_unmerged with no `disposition`, which the job cannot know and correctly will not invent. NOT the merge-slot deadlock — #11494 fixed that and #11500 proved it. A CI re-run changes nothing; this clears only once #11390's disposition is on main's open row so the move carries it (landing now). ⚠️ The CI line names `session-registry-guard`, which is not where the defect is.",
-      "note": "automation: reconcile-open-prs — blocked as a FAMILY, on one shared row, not individually"
-    },
-    {
-      "pr": 11626,
+      "pr": 12444,
       "state": "merged",
       "tier": 1,
       "blocked_on": "",
-      "note": "MERGED d597d2451 (2026-09-10T04:51Z) by the manager under `landing: hold` / `unvouchable_paths` — a merge click, NOT an operator gate; the approval for the substance is recorded on the MI-217 checklist row and was not re-sought. The owner ACTED on the 02:44Z poke: head 30e88b06b -> 9a4f292ab, 4 -> 7 commits, additions unchanged at 566/13, i.e. main merged in and both backlog rows kept. ⚠️ THE FIRST MERGE ATTEMPT (02:41Z) WAS REFUSED 405 AND MY LOCAL TEST-MERGE HAD SAID CLEAN — merge.jsonregister is armed in this clone and GitHub runs no custom driver, so that clean result was the driver, not a fact about the PR (BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY). This merge was called from `mergeable_state: clean` read off the API at 04:51Z, not from a worktree."
+      "note": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-17: re-affirm the loud review-packet OPEN-ITEMS row; landed 1d415c186"
     },
     {
-      "pr": 11630,
-      "state": "merged",
-      "tier": 2,
-      "blocked_on": "",
-      "note": "MERGED c88c7ff9e (2026-09-10 ~04:07Z) — OPERATOR-APPROVED, asked as a popup and answered 'Merge it now'. ⚠️ THE MERGE DOES NOT AUTHORIZE THE RE-ATTACH and the operator's answer said so: the 3-row order_packages repair (closed->open) is UNAPPLIED and returns as its own decision with its exact diff. Verified in the diff before asking: the tool is dry-run by default, requires a captured exchange payload, refuses without it, and has NO caller outside its own tests — no database was written. It was a DRAFT and had to be marked ready first."
-    },
-    {
-      "pr": 11629,
-      "state": "merged",
+      "pr": 12446,
+      "state": "green",
       "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 844d513c0 (2026-09-10, by the manager). manager heartbeat + supervision."
+      "blocked_on": "CI running; auto-merge armed, per-branch merge slot claimed",
+      "note": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-17: file: open-items guard validates check_every_days and never enforces it"
     },
     {
-      "pr": 11632,
-      "state": "merged",
+      "pr": 12447,
+      "state": "green",
       "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 47498c449 (2026-09-10, by the manager). the DATA half of the merge-slot red: canonical 4-key claim, no test touched."
-    },
-    {
-      "pr": 11628,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 1b542fc6d (2026-09-10, by the manager). the METRIC half: difflib add+remove bounded by the two slots' own size."
-    },
-    {
-      "pr": 11631,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED a7cc62a24 (2026-09-10, by the manager). MI-230 / audit F-50 — exit-eval near-miss band + restart gap."
-    },
-    {
-      "pr": 11634,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED ac69e16bd (2026-09-10, by the manager). manager heartbeat, three-lane supervision, two backlog filings."
-    },
-    {
-      "pr": 11635,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 182fe3e85 (MI-230 close-out, self-landed). ⚠️ IT CARRIES A FINDING, NOT A PASS: the restart gap BREACHES the 60s requirement on 77 of 442 restarts (17.4%), worst 210.4s — against an OPEN-ITEMS row that predicted `within` and said not to hold out for a breach."
-    },
-    {
-      "pr": 11636,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 050849104 — manager heartbeat 02:49:05Z, four-lane supervision, tonight's ledger, one backlog filing."
-    },
-    {
-      "pr": 11637,
-      "state": "merged",
-      "tier": 1,
-      "blocked_on": "",
-      "note": "MERGED 91faf047f — chore(ops): record what each session left behind (automation)."
-    },
-    {
-      "pr": 11640,
-      "state": "blocked",
-      "tier": 1,
-      "blocked_on": "guards:artifact-validity-guard + merge conflict (dirty) — routed to MI-231",
-      "note": "BLOCKED ON TWO INDEPENDENT THINGS, both diagnosed by the manager and BOTH ROUTED to MI-231 (session_017vNWUL48WWrtxssFv2EDMf) rather than fixed here — the diff carries scripts/ops/constraint_readout.py, a worker path check_manager_scope.py R2 grades. (1) guards RED on head c86e869c2 (job 102753476857, 05:13:31Z): PASS 71 / FAIL 1, the single failure being artifact-validity-guard. Cause located exactly: the branch's own new backlog row its own new coordination-board-re-serialisation row (the id is deliberately NOT quoted here: that row exists only on their branch, so naming it makes artifact-validity-guard fail THIS PR for an unresolvable reference — which is exactly what it did on my first attempt) carries no resolution_criteria and no tier and uses the legacy `opened` key. MEASURED as theirs, not inherited: origin/main 1425 items with that id absent, their head 1426 with it present once. (2) mergeable_state dirty — a merge conflict, and the half to fix FIRST, since a dirty PR reports zero/stale checks that read as 'CI has not started'. This PR is tier 1 / landing self / hold_reason None, so it SELF-LANDS on green and needs no merge click from the manager. Poked 05:29:4xZ (trig_01WgtWXTzsbR8mM5at8cjVyu); delivery evidenced by the target session's updated_at advancing to 05:29:56Z."
+      "blocked_on": "CI running; auto-merge armed, per-branch merge slot claimed",
+      "note": "manager session_01HoFquGdTrD3TTGbMMRc43t, 2026-09-17: true lane terminal states in SESSIONS.json"
     }
   ],
   "digest_clearance": {
@@ -519,5 +143,7 @@
         "verified": "pull_request_read at 2026-09-09T04:16:41Z: state=closed, merged=false, head 468e9388. Superseded by #11450, which landed the same record correction."
       }
     ]
-  }
+  },
+  "⚠️_THIS_FILE_WAS_DEAD_FOR_SEVEN_DAYS_AND_R8_PASSED_THROUGHOUT": "MEASURED 2026-09-17T15:00Z. The 57 entries this file carried were written 2026-09-10T05:32Z by a DIFFERENT manager (session_01HrmZ1RRNM4UnEUaFdrPEjj) and covered PRs #11353-#11640. Checked against the live open-PR list: ZERO of 57 name a PR that is still open. Every one had closed. Meanwhile 81 PRs landed on main on 2026-09-17 alone and this file recorded NONE of them. !! THE FINDING IS NOT THAT A MANAGER FORGOT -- IT IS THAT R8 CANNOT TELL. check_manager_scope.py R8 asserts exactly one thing, len(rebasing) > 1, with no freshness check of any kind, so a file whose every entry died a week ago passes it TRIVIALLY and by VACUITY. R8 is the only mechanical enforcement of the manager's merge-queue base duty, and it is satisfied by an empty-of-live-work file. !! THAT IS THE SAME SHAPE THIS FILE'S OWN _doc DESCRIBES BEING FIXED: R8 exists because the queue was once cited as 'the state of record' and found on no branch and in no commit. The remedy made the FILE exist. It did not make the file TRUE, and a dead file passes the guard exactly as a live one does -- the failure moved one hop rather than closing. !! DO NOT READ THE REPLACED ENTRIES AS A REBUILT QUEUE. This manager did NOT re-enter the ~60 open PRs it has not assessed; inventing entries for work it never scheduled would manufacture a record, which is the harm the work store's README already names (a false edge is worse than a missing one). What is here is only the four PRs this manager actually drove on 2026-09-17. The other ~77 that landed today did so through their own lanes' auto-merge and never passed through this file, which is itself worth knowing about what this file does and does not cover.",
+  "⚠️_WHAT_IS_OWED": "A backlog row for the R8-passes-on-a-dead-file finding. It is NOT filed in this PR because #12446 is already in flight on docs/claude/health-review-backlog.json and a second PR on that file would conflict with this manager's own. Filed once #12446 lands. Stated here so the obligation survives this session rather than living in its context -- which is the lesson this file was created for."
 }
