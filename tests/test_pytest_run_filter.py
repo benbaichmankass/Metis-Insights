@@ -205,6 +205,23 @@ COVERED = {
     "docs/research/research-disposition-ledger.jsonl":
         "test_research_disposition reads the REAL ledger and compares before/after; "
         "a ledger row is a docs-only diff and is the whole subject of the test",
+    "docs/api-tier-policy.md":
+        "tests/test_check_api_tier_policy.py reads the REAL doc three times and "
+        "asserts its STATED coverage claim equals the computed one. \u26a0\ufe0f THE HAZARD IS "
+        "MEASURED, NOT ARGUED: on 2026-09-17 the doc said 109/109 while the code "
+        "said 110/110 and the suite went red -- so a PR restating that line and "
+        "nothing else is precisely a docs-only diff that reddens main, PR "
+        "#9208's shape. \u26a0\ufe0f AND IT WAS UNCOVERED THE WHOLE TIME, surfaced by "
+        "accident: that test spells the join `os.path.join(REPO, \"docs/...\")`, a "
+        "THIRD spelling BOTH scans below are blind to -- the line regex wants the "
+        "segmented join and the AST walk wants a division chain, and the "
+        "example is deliberately NOT spelled out here because the line scan "
+        "would read it as a real read (false-positive class 3, in the comment "
+        "describing the blind spot) -- so neither "
+        "reported it. It became visible only because an unrelated test added the "
+        "segmented spelling for the same file. Population: 1 of the 1188 files "
+        "under tests/ uses that spelling today. Filed as "
+        "BL-20260917-THE-PYTEST-RUN-COMMITTED-READER-SCANS-ARE-BLIND-TO-THE-OS-PATH-JOIN-SPELLING-SO-AN-UNCOVERED-READER-WAS-FOUND-BY-ACCIDENT",
     "src/runtime/order_monitor.py": "python",
     "requirements.txt": "dependency pin",
 }

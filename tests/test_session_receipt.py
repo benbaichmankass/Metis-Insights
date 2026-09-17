@@ -180,10 +180,33 @@ def test_receipt_path_is_on_the_manager_surface():
     """⚠️ Load-bearing and easy to "tidy" away. `check_manager_scope`'s
     MANAGER_SURFACE admits `docs/claude/work/**` and NOT `docs/claude/receipts/**`,
     and a MANAGER is the primary author of receipts. On 2026-09-17 the reference
-    receipt was refused by R2 at the shorter path."""
+    receipt was refused by R2 at the shorter path.
+
+    ⚠️ THE PARENT IS COMPARED AGAINST THE MODULE'S OWN DECLARED CONSTANT,
+    NEVER AGAINST A RE-SPELLED LITERAL, and that is not cosmetic. A duplicated repo-root path chain (deliberately not spelled out here --
+    test_pytest_run_filter's scan is a LINE REGEX and would read the example
+    as a real read, which is its own false-positive class 3) asserts the wrong property twice over: it
+    pins the path to a second source of truth that may drift from
+    RECEIPTS_RELDIR, and it is READ BY `test_pytest_run_filter`'s committed-tree
+    scans as evidence that the suite asserts over the receipts DIRECTORY --
+    which would put the whole tree in pytest-run's relevance filter and run the
+    full suite on every receipt ever written.
+
+    ⚠️ THAT DEPENDENCY IS MEASURED ABSENT, NOT ASSUMED -- the premise the
+    file BL-20260814 was filed about. Planted 2026-09-17: a syntactically
+    invalid `PLANTED-CORRUPT.json` was committed-shaped into
+    docs/claude/work/receipts/ and the whole of this module stayed green (29 of
+    29), because the one test that really reads the tree
+    (`test_route_payload_is_best_effort_and_states_its_population`) asserts a
+    read STATE rather than any receipt's contents, and the route routes a
+    corrupt file to `readErrors` rather than raising. Population: every test in
+    tests/ naming `receipts` is this file and no other, measured by grep. So a
+    receipt-only diff cannot redden the suite, and covering the tree would be
+    pure CI cost. If a test ever DOES assert over a committed receipt's
+    contents, that premise is falsified and the tree must be covered."""
     assert sr.RECEIPTS_RELDIR.startswith("docs/claude/work/")
     p = sr.receipt_path("session_01Abc", repo=REPO)
-    assert p.parent == REPO / "docs" / "claude" / "work" / "receipts"
+    assert p.parent.relative_to(REPO).as_posix() == sr.RECEIPTS_RELDIR
 
 
 def test_receipt_path_refuses_a_traversal_stem():
