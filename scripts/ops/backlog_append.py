@@ -61,6 +61,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from scripts.ops.system_review_checklist import (  # noqa: I001
     CLOSE_KEYS,
     CLOSED_STATUSES,
+    CREATION_KEYS,
 )
 
 #: Candidate serialisations, most-likely first. A file whose bytes none of these
@@ -175,6 +176,11 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
     _stamp = _close_stamp(row, prior_status=None)
     if _stamp:
         row[_stamp[0]] = _stamp[1]
+    # A row is being CREATED here, so this write IS the filing event — which is
+    # what makes dating it an observation rather than a reconstruction.
+    _created = _creation_stamp(row)
+    if _created:
+        row[_created[0]] = _created[1]
     items.append(row)
     if isinstance(doc, dict) and updated_at:
         doc["updated_at"] = updated_at
@@ -199,6 +205,72 @@ def append_row(path: pathlib.Path, row: Dict[str, Any],
             )
     path.write_text(out)
     return len(items)
+
+
+#: The key a row with NO creation date is stamped with. **The selection rule is
+#: the same one `_CLOSE_STAMP_KEY` states, applied to the other end of the row**,
+#: and it has to satisfy two readers at once rather than one:
+#:
+#:   * `system_review_checklist.CREATION_KEYS` — the burn-down READER — consults
+#:     ``opened_at``, ``opened``, ``filed_at``, ``date``. A stamp under a key it
+#:     does not consult would build the mechanism and have it not work.
+#:   * `scripts/ci/check_register_ids.py` — the GUARD that rejects a new row
+#:     carrying no creation date — accepts only ``("opened_at", "opened")`` on
+#:     the four review backlogs. So the two accepted spellings are the only
+#:     candidates, whatever the reader alone would tolerate.
+#:
+#: ``opened_at`` is also the dominant spelling by a wide margin — measured over
+#: all 1732 rows in the three backlogs on 2026-09-12: ``opened_at`` 1245,
+#: ``opened`` 396, ``date`` 11, ``filed_at`` 6, and 74 rows carrying none. So a
+#: new stamp joins the majority rather than adding a fifth.
+#:
+#: ⚠️ A SELF-TEST CONTROL ASSERTS THIS VALUE IS IN THE GUARD'S OWN
+#: ``creation_fields`` FOR THE HEALTH BACKLOG, by importing the guard's table
+#: rather than restating it. A hardcoded string here and a hardcoded tuple there
+#: is exactly how the writer and the guard would drift back apart — which is the
+#: defect being fixed, one level up.
+_CREATION_STAMP_KEY = "opened_at"
+
+
+def _creation_stamp(row: Dict[str, Any],
+                    now: Optional[str] = None) -> Optional[Tuple[str, str]]:
+    """``(key, iso)`` to date a row being CREATED, or ``None``.
+
+    WHY THIS EXISTS.
+    `BL-20260912-BACKLOG-APPEND-STAMPS-NO-CREATION-KEY-SO-THE-ONLY-WRITER-LEAVES-THE-FIELD-EVERY-READER-NEEDS-TO-THE-CALLER`
+    and `BL-20260903-THREE-CREATION-DATE-KEYS-IN-ONE-BACKLOG-AND-THE-NEW-GUARD-ACCEPTS-ONLY-ONE`.
+    ``CLAUDE.md`` requires every row to be filed through this module and never by
+    hand — and this module stamped a CLOSE date while leaving the CREATION date
+    entirely to the caller. So the mandated tool could produce a row the mandated
+    guard rejects, and did: measured 2026-09-12, one session filed five rows
+    across three branches with no creation key and `check_register_ids` failed
+    all three PRs. The guard catches it at the PR, which is late; the writer can
+    make it impossible.
+
+    THE STAMP IS A DEFAULT, NEVER AN OVERWRITE. Any of the reader's four
+    spellings already on the row suppresses it — a stated date is a statement,
+    and clobbering an author's deliberate value is the failure mode that would
+    make this worse than the gap it closes.
+
+    ⚠️ IT REPAIRS NOTHING ALREADY FILED. The 74 rows carrying no creation key
+    stay undated, deliberately: back-filling them would assert filing dates
+    nobody observed — the same reasoning `_close_stamp` records for its 131.
+
+    ⚠️ ONE NARROW RESIDUAL, STATED RATHER THAN HIDDEN. A caller who supplies
+    ``date`` or ``filed_at`` and nothing else suppresses the stamp (the reader
+    accepts those) while `check_register_ids` still does not, so that row is
+    visible to the burn-down and rejected by the guard. It is left alone because
+    the alternative — writing ``opened_at`` beside a creation key the author
+    deliberately chose — puts the same fact on the row twice, which is the
+    spelling sprawl these rows are about. 17 of 1732 rows carry those two
+    spellings; no new one has been filed under either.
+    """
+    for k in CREATION_KEYS:
+        v = row.get(k)
+        if isinstance(v, str) and len(v) >= 7:
+            return None      # the row already says when; do not restate it
+    return (_CREATION_STAMP_KEY,
+            now or datetime.datetime.now(datetime.timezone.utc).isoformat())
 
 
 #: The close-date key each closed status is stamped with. **Both values are in
@@ -536,6 +608,80 @@ def _self_test() -> int:
         except FormatNotReproducible:
             ck("MUTATION: refuses to edit a file it cannot reproduce", True)
         ck("MUTATION: the refused file is untouched", p5.read_text() == raw5)
+
+        # (6) THE CREATION STAMP — the write end of the creation-date defect.
+        #     BL-20260912-BACKLOG-APPEND-STAMPS-NO-CREATION-KEY-SO-THE-ONLY-WRITER-LEAVES-THE-FIELD-EVERY-READER-NEEDS-TO-THE-CALLER
+        #     Its criterion demands the stamp be READ OFF THE FILE THAT WAS
+        #     WRITTEN, not off the return value or the code — so every check
+        #     below re-parses the file from disk.
+        p6 = pathlib.Path(td) / "creation.json"
+        base6 = {"schema_version": 1, "items": [{"id": "BL-SEED", "title": "seed"}]}
+
+        def _fresh6():
+            p6.write_text(json.dumps(base6, indent=2, ensure_ascii=False) + "\n")
+
+        def _last6():
+            return json.loads(p6.read_text())["items"][-1]
+
+        _fresh6()
+        append_row(p6, {"id": "BL-NODATE", "title": "caller supplied no date"})
+        got = _last6()
+        ck("stamps a creation key when the caller omits one",
+           isinstance(got.get(_CREATION_STAMP_KEY), str)
+           and len(got[_CREATION_STAMP_KEY]) >= 7)
+
+        # The stamp is only worth anything if the GUARD accepts the key it
+        # writes. Assert that against the guard's OWN table rather than against
+        # a second hardcoded tuple here — two copies of "which spellings count"
+        # is the drift this whole change is about.
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+            from scripts.ci.check_register_ids import REGISTERS as _REGS
+            _health = [r for r in _REGS
+                       if r.path == "docs/claude/health-review-backlog.json"]
+            ck("the guard's table was readable (control is armed)", len(_health) == 1)
+            ck("the stamped key is one the GUARD accepts for the health backlog",
+               bool(_health) and _CREATION_STAMP_KEY in _health[0].creation_fields)
+        except Exception as exc:  # noqa: BLE001
+            # *We could not look* is not a pass. Fail the control loudly rather
+            # than skipping it, because a silently-skipped agreement check is
+            # how the two tables drift apart unobserved.
+            ck(f"the guard's table was readable (control is armed) [{exc}]", False)
+            ck("the stamped key is one the GUARD accepts for the health backlog", False)
+
+        # ...and it is one the burn-down READER consults, which is a different
+        # claim from the guard accepting it.
+        ck("the stamped key is one the burn-down READER consults",
+           _CREATION_STAMP_KEY in CREATION_KEYS)
+
+        # THE CONTROL THAT MATTERS, and the row says so in terms: the failure
+        # mode is clobbering an author's deliberate value, so assert the
+        # SUPPLIED value SURVIVED — under every spelling the reader consults.
+        for spelling in CREATION_KEYS:
+            _fresh6()
+            append_row(p6, {"id": f"BL-{spelling.upper()}", "title": "caller dated it",
+                            spelling: "2026-01-02T03:04:05+00:00"})
+            got = _last6()
+            ck(f"a caller-supplied {spelling!r} survives unchanged",
+               got.get(spelling) == "2026-01-02T03:04:05+00:00")
+            if spelling != _CREATION_STAMP_KEY:
+                ck(f"no second creation key is added beside {spelling!r}",
+                   _CREATION_STAMP_KEY not in got)
+
+        # The stamp must not break the property every other control here pins:
+        # an append is an ADDITION and nothing pre-existing moves.
+        _fresh6()
+        raw6_before = json.loads(p6.read_text())["items"][0]
+        append_row(p6, {"id": "BL-ADDONLY", "title": "x"})
+        ck("stamping still leaves pre-existing rows byte-identical",
+           json.dumps(json.loads(p6.read_text())["items"][0], indent=2, ensure_ascii=False)
+           == json.dumps(raw6_before, indent=2, ensure_ascii=False))
+
+        # MUTATION ARM: with the stamp removed, the first control must FAIL.
+        # A control that passes on the bug is not a control.
+        ck("MUTATION: a row with no creation key is undated without the stamp",
+           _creation_stamp({"id": "x"}) is not None
+           and _creation_stamp({"id": "x", "opened_at": "2026-01-01"}) is None)
 
     ok = sum(checks)
     print(f"self-test: {ok}/{len(checks)} passed")
