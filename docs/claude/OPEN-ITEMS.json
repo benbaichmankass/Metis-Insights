@@ -1837,6 +1837,7 @@
  },
   {
    "id": "OI-20260917-THE-NETTING-POST-FIX-REMEASURE-IS-RUNNABLE-AND-UNDER-POWERED-AND-ITS-N-ARRIVES-ON-A-DATE",
+  "probe_absent_reason": "NO PROBE IS POSSIBLE, and the reason is structural rather than dated. The row clears on a RE-RUN of scripts/research/netting_postfix_remeasure.py against a LIVE journal pull, which needs network and the diag bearer -- neither of which CI holds. There is no committed artifact to probe instead: the instrument writes no register, so nothing on disk records how the post-fix n is accruing. A probe over the dates would be WORSE than none, because it would grade the calendar, and this row's own clears_when says time passing clears nothing.",
    "opened": "2026-09-17",
    "kind": "monitoring",
    "loud": false,
