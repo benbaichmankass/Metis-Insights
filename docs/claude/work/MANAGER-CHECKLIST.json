@@ -4281,6 +4281,36 @@
       "⚠️_FOR_THE_NEXT_MANAGER": "Claim the lease FIRST, before any supervisory act, and heartbeat it on the 90-minute cadence DEC-20260917-MANAGER-TICK-CADENCE sets. The failure here was not forgetting to claim - it was claiming once and never refreshing, which reads identically to a healthy lease for 90 minutes and then silently stops being one. Also: main_ci reads 'unknown (main's head reported ZERO check runs - not a pass)', so the unrefreshable case could not be ruled out; say so in your claim.",
       "recorded_by": "session_01HoFquGdTrD3TTGbMMRc43t",
       "recorded_at": "2026-09-17"
+    },
+    {
+      "id": "MI-294",
+      "title": "OPS LANE — canonize the session-receipt format (MI-290), then system review + audit, then triage the backlog",
+      "opened": "2026-09-17",
+      "state": "in_flight",
+      "lane": "ops",
+      "owner": "session_0178pRo8ZxrnrREzDzDzb9Zk",
+      "owns_object": "WO-20260917-OPS-LANE-CANONIZE-THE-SESSION-RECEIPT-THEN-REVIEW-AND-TRIAGE",
+      "note": "Operator-directed 2026-09-17, in this order. UNIT 1 builds what MI-290 queues. ⚠️ THE MANAGER'S FIRST READING WAS WRONG AND IS RECORDED AS WRONG: it read 'open items about the receipt format' as the cron/watcher receipt-LANDING cluster; the operator corrected it to STANDARDIZING the session wrap-up receipt. The landing cluster stays filed and is NOT this lane's first unit. MI-290's reference artifact (the 2026-09-17 delivery) existed only in the predecessor's transcript and is carried to the lane IN ITS SPAWN PROMPT -- not committed, because manager-scope R2 refuses docs/claude/receipts/ as manager surface (authoring it is the LANE's item) and artifact-validity refuses the artifact's own SHORTENED backlog ids. Both refusals are correct and the second is input to the spec: a canonized receipt must require FULL ids. UNIT 2 is a system review weighted to the past week's performance and to SOAK MONITORING. UNIT 3 triages the health backlog into named chunks -- triage, not drain."
+    },
+    {
+      "id": "MI-295",
+      "title": "RESEARCH LANE — active trade management: an update, and where to focus next",
+      "opened": "2026-09-17",
+      "state": "in_flight",
+      "lane": "research",
+      "owner": "session_017PQcFJne7qyuVHzH5RZtFC",
+      "owns_object": "WO-20260917-RESEARCH-LANE-ACTIVE-MANAGEMENT-WHERE-TO-FOCUS-NEXT",
+      "note": "Operator-directed 2026-09-17: 'an update on active management so we can decide where to focus next'. The deliverable is a FOCUS RECOMMENDATION, not more measurement -- a re-measurement that changes no recommendation does not satisfy it. MI-278's results are STRANDED, not missing: #12205 attributes the 2026-08-30 break as both_contribute, and #11976 / #12158 / #12181 carry further units. Every probed conflict on those branches is in a shared register and none in code, so they need landing, not redoing. MEASURED 2026-09-17: real money 4 trades / 7d, -$10.96, ZERO take-profits reached."
+    },
+    {
+      "id": "MI-296",
+      "title": "ENGINEERING LANE — structural fixes, landing/register machinery FIRST, then research/testing/ML infra fitness",
+      "opened": "2026-09-17",
+      "state": "in_flight",
+      "lane": "engineering",
+      "owner": "session_01SzoZAiXJibakevDU9pbwxm",
+      "owns_object": "WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS",
+      "note": "Operator-directed 2026-09-17. The landing/register ordering is on MEASURED grounds: 9 of 14 substantive PRs conflicted, every probed conflict in a shared register (health-review-backlog.json in 5 of 7) and ZERO in src/, tests/, scripts/ or config/. The manager hit FOUR distinct landing defects on four trivial register changes the same day -- the GITHUB_TOKEN-born-PR no-CI trap (twice), the pr-landing-R13-vs-manager-scope-R2 merge-slot disagreement, watch resolving a branch's PRs by NAME, and OPEN-ITEMS.json being unreproducible by any json.dumps configuration. THEN the research/testing/ML infra, including DEC-20260917-E35-GATE's requirement to VERIFY MI-287's 23 harnesses rather than read its lifecycle state."
     }
   ],
   "as_of": "2026-09-17T17:05:00Z",
@@ -5983,6 +6013,21 @@
       "⚠️_the_auto_merge_race_does_NOT_apply_here": "CLAUDE.md warns that once auto-merge is armed a later push races CI and can be left out of the squash (measured on #11392). That hazard needs a head that CAN merge. This one cannot: two required contexts are absent, so auto-merge has nothing to fire on, and the new head simply becomes the one the required checks finally run against. Stated rather than assumed, because the general rule points the other way.",
       "why_this_is_recorded_rather_than_just_fixed": "It is a SECOND live instance, on a different PR, of the class MI-279 flagged on #12213 two hours earlier — and the two have DIFFERENT causes (that one had no pull_request-event run at all across 5 runs; this one had a partial delivery). One is an anecdote, two on one morning is a pattern, and the pattern is that `total_count > 0` says nothing about whether the REQUIRED set ran. Read the required contexts out of branch-protection-sync.yml and check them BY NAME.",
       "the_scope_overlap_audit_on_this_PR_needed_no_action_and_here_is_why": "The bot flagged 3 paths against 226 declared. `.github/pr-automerge-requests/manager-tick-20260912-0610z.txt` and `.github/pr-landing/manager-tick-20260912-0610z.json` both carry THIS BRANCH'S SLUG in their own filenames, so no other branch writes them — the match is against a broad `.github/` declaration, not a real contender. `docs/claude/health-review-backlog.json` was matched to a LIVE declaration by session_01BjTp5RYwedmpFfkEtkQo1j — which is MI-280, the lane that hit its hard weekly limit and CANNOT push (see its row above), so the collision cannot occur; and the write was a single append through scripts/ops/backlog_append.py, which round-trips the file's exact serialisation rather than reformatting it. Recorded because 'I looked and it was fine' and 'I did not look' are different facts."
+    }
+  },
+  "operator_decisions_2026_09_17T18_5xZ": {
+    "DEC-20260917-RECEIPT-FORMAT-MEANING": {
+      "asked": "Does 'open items about the receipt format' mean the cron/watcher receipt-LANDING cluster, or standardizing the manager end-of-session wrap-up receipt?",
+      "answered": "Standardizing.",
+      "⚠️_THE_MANAGER_READ_IT_THE_OTHER_WAY_AND_WAS_WRONG": "The manager reasoned from a coherent evidence cluster -- 7 unresolved receipt-id backlog rows and 9 open items, including the commit-to-main API-quota defect that strands receipts -- and proposed that reading explicitly as an assumption rather than acting on it silently. The operator corrected it. RECORDED so a successor does not re-derive the wrong reading from the same cluster, which is genuinely suggestive.",
+      "consequence": "MI-294 UNIT 1 is MI-290 (canonize the session receipt). The landing cluster stays filed and unassigned.",
+      "status": "recorded; MI-294 in flight"
+    },
+    "DEC-20260917-SPAWN-THE-LANES": {
+      "asked": "Spawn the three lanes (ops / research / engineering)?",
+      "answered": "Yes.",
+      "⚠️_SUPERSEDES_A_STANDING_PROHIBITION": "DEC-20260917-LANES-AFTER-WRAP records 'Stay stopped; hand off to a new manager' with the clause 'no new lane may be spawned'. That clause is SUPERSEDED by this answer. Recorded explicitly because a successor reading the earlier decision alone would find a live prohibition.",
+      "status": "recorded; MI-294/295/296 spawned, registered and CONFIRMED against observed get_session reads"
     }
   }
 }
