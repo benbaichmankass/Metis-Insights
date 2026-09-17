@@ -136,8 +136,8 @@
     "BL-20260713-BYBIT2-PNL-UNDERRECORD"
    ],
    "observed_live": "2026-08-26T10:10Z, deployed sha 510fbb6a: the flag works and its coverage limit is confirmed rather than assumed. bybit_2 reads known_divergent on 200/200 rows; bybit_1 / alpaca_paper / ib_paper all read no_record; /api/bot/performance?window=all reports accountsKnownDivergent:[bybit_2] and accountsUnrecorded:[alpaca_live]. Every account except one is therefore UNRECONCILED, which is what this row exists to keep visible — no_record is not a clean bill of health.",
-   "verified_at": "2026-08-26",
-   "observation": " || 2026-08-26 (b9kyip): re-checked on the deployed /api/bot/performance?window=all -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. Still exactly ONE reconciled account; unchanged, and the row stands."
+   "verified_at": "2026-09-17",
+   "observation": " || 2026-08-26 (b9kyip): re-checked on the deployed /api/bot/performance?window=all -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. Still exactly ONE reconciled account; unchanged, and the row stands. || 2026-09-17 (session_01HoFquGdTrD3TTGbMMRc43t): re-checked on the deployed /api/bot/performance?window=all (HTTP 200 over the Caddy host) -- journalTrust reads {readState: read, accountsKnownDivergent: [bybit_2], accountsUnrecorded: [alpaca_live], accountsUnreadable: []}. BYTE-IDENTICAL to the 2026-08-26 reading three weeks on: still exactly ONE reconciled account, so neither clears_when arm has moved and the row STANDS. Recorded because the row crossed its 21-day reaffirm limit and open-items-guard began redding every PR in the repo -- the cadence mechanism working, not a defect."
   },
   {
    "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",

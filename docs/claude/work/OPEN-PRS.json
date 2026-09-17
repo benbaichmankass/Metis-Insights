@@ -52,7 +52,8 @@
       "operator_decision": {
         "verdict": "not_required",
         "text": "None required — Tier-1 register/record work. Recorded as not_required rather than left blank so the row cannot read as an unexamined approval."
-      }
+      },
+      "opened_at": "2026-09-16T19:03:14Z"
     },
     {
       "pr": 12224,
@@ -62,7 +63,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T09:18:53Z"
     },
     {
       "pr": 12223,
@@ -72,7 +74,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T09:16:04Z"
     },
     {
       "pr": 12222,
@@ -82,7 +85,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T08:54:17Z"
     },
     {
       "pr": 12219,
@@ -92,7 +96,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T08:41:43Z"
     },
     {
       "pr": 12217,
@@ -102,7 +107,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T08:06:39Z"
     },
     {
       "pr": 12214,
@@ -112,7 +118,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T07:50:27Z"
     },
     {
       "pr": 12213,
@@ -122,7 +129,8 @@
       "operator_decision": {
         "verdict": "none_recorded",
         "text": "NOT ESTABLISHED by this reconciliation. The manager listed the open queue and did NOT open each PR to read whether an operator verdict was given on it. `none_recorded` is the vocabulary's value for 'no decision is recorded here' — it is NOT `not_required`, which would assert an examination nobody made, and it is NOT `pending`, which would assert the PR is waiting on the operator. Read the PR itself before acting on this row."
-      }
+      },
+      "opened_at": "2026-09-13T07:48:06Z"
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
