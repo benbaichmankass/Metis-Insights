@@ -16095,7 +16095,7 @@
     {
       "id": "BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC",
       "title": "backtest_trend.py --symbol is a display LABEL while --data silently defaults to a BTC fixture; account_compat_matrix.py has the same shape",
-      "status": "kept_open",
+      "status": "resolved",
       "severity": "high",
       "tier": 1,
       "area": "research/harness",
@@ -16116,8 +16116,14 @@
           "by": "/system-review 2026-08-29 triage",
           "disposition": "kept_open",
           "note": "Re-validated: a --symbol that is a display label over a silently-defaulted BTC fixture is the diagnostic-provenance sub-class B shape (implicit input selection). Two tools share it."
+        },
+        {
+          "at": "2026-09-17T15:35:00+00:00",
+          "by": "session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane, post-merge observation)",
+          "note": "CLOSED ON OBSERVATION AGAINST MERGED main, NOT against a diff. PR #12072 squash-merged as c068b7448 (2026-09-17); the worktree was reset to that commit and the row's OWN two criterion commands were RUN there. (1) `python3 scripts/backtest_trend.py --symbol SOLUSDT --timeframe 1h` with no --data -> RC=2, refusing and naming the symbol, the timeframe, the directory searched, the resolver used and the fallback declined; grep for the BTC fixture span '2022-07-23 21:24:00' over both stdout and stderr returns 0 hits on 0 of 2 streams. (2) `python3 scripts/prop/account_compat_matrix.py --symbol SOLUSDT --strategy trend_donchian` -> RC=2, same refusal, and 'btc_5m.parquet' appears 0 times in stdout. The criterion's 'BOTH harnesses must pass' clause is therefore met, not half-met. POSITIVE CONTROL, because a refusal that refuses everything is not a fix: with NO --symbol and no --data the harness still exits RC=0 and prints the identical legacy result -- BTCUSDT 1h, span 2022-07-23 21:24:00+00:00 -> 2022-07-27 08:43:00+00:00, trades=144, win_rate=31.25%, net_r=-82.6483 -- plus one provenance line on stderr reading 'data source [legacy_default] data/backtest_candles.csv for symbol=(unspecified) timeframe=1h'. So the 251 existing --data call sites are untouched and only the symbol-without-data case refuses. THIS ROW'S TWO NAMED HARNESSES ARE FIXED AND THE CLASS IS NOT: the AST census in the same PR measured 17 such sites at origin/main and 15 after, over a denominator of 58 files declaring --symbol out of 2269 parsed, and 14 of the remaining 15 share one fixture (data/backtest_candles.csv). Those are carried by BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE, which stays OPEN. Closing this row is not a claim about them. WHY IT WAS STILL kept_open AFTER THE MERGE: the PR declared landing: hold / unvouchable_paths and could not self-land, so the status was deliberately not flipped on the branch -- a close written before the merge would have asserted a landing that had not happened. The merge is what made the close observable, and this is it."
         }
-      ]
+      ],
+      "resolved_at": "2026-09-17T15:32:20.702539+00:00"
     },
     {
       "id": "BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER",
