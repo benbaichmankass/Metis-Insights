@@ -185,3 +185,37 @@ class TestEveryDiffScopedGuardCarriesIt:
             if "UNCOMMITTED WORK (" in src:
                 offenders.append(rel)
         assert offenders == [], offenders
+
+
+class TestTheOrchestratorDeduplicates:
+    """⚠️ FOUND BY MEASURING MY OWN CHANGE, not by reasoning about it.
+
+    Wiring the notice into 24 guards made `run_guards.py` print it once per
+    sub-invocation — MEASURED at 4 copies from a single selected guard, because
+    a guard's self-test and its real run are separate processes. Over the full
+    set that is dozens of identical paragraphs about one true fact, while the
+    orchestrator already states it ONCE with more in it. That is the
+    desensitised alarm this repo calls its own P1, introduced by the fix for it.
+    """
+
+    def test_run_guards_spawns_its_children_with_the_notice_OFF(self):
+        src = (ROOT / "scripts" / "ci" / "run_guards.py").read_text(encoding="utf-8")
+        assert "DIRTY_TREE_NOTICE" in src, (
+            "run_guards prints its own richer notice; if it stops suppressing "
+            "the per-guard one, every run gains dozens of duplicates")
+        assert "env=_child_env()" in src, (
+            "the suppression must be ON THE SPAWN, not merely defined")
+
+    def test_the_orchestrator_still_prints_its_OWN_notice(self):
+        """The suppression must not silence the thing it deduplicates TO."""
+        src = (ROOT / "scripts" / "ci" / "run_guards.py").read_text(encoding="utf-8")
+        assert "every guard above is " in src and "scoped to a COMMIT RANGE" in src
+
+    def test_the_two_notices_are_distinguishable_in_output(self):
+        """They are different sentences on purpose, so a reader (and a probe)
+        can tell which layer spoke. A shared string would make the dedup
+        unmeasurable."""
+        orchestrator = (ROOT / "scripts" / "ci" / "run_guards.py").read_text(encoding="utf-8")
+        per_guard = (ROOT / "scripts" / "ci" / "_dirty_tree.py").read_text(encoding="utf-8")
+        assert "this guard graded a" in per_guard
+        assert "this guard graded a" not in orchestrator

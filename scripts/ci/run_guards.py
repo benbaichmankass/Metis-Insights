@@ -2781,10 +2781,32 @@ def _absent_runner_reason(argv: Sequence[str], runner: str) -> CouldNotRun:
         + (f" — {remedy}" if remedy else ""))
 
 
+def _child_env() -> dict:
+    """The environment guards are spawned in — with their own dirty-tree notice OFF.
+
+    ⚠️ THIS IS NOT A WEAKENING, IT IS DEDUPLICATION. Every `--base` guard now
+    emits its own notice (`scripts/ci/_dirty_tree.py`), because a session chasing
+    one failure types the guard and not this orchestrator. Inside THIS run the
+    same fact is already stated ONCE, with more in it — the split between paths
+    that are in the graded diff and paths that are not. Letting both speak was
+    MEASURED at 4 copies from a single selected guard (its self-test and its real
+    invocation each print), which over the full set is dozens of identical
+    paragraphs around one true fact: the desensitised alarm this repo calls its
+    own P1.
+
+    ⚠️ It is set ONLY here, for children of this process. Nothing writes it to a
+    shell profile or a workflow, so a session running a guard by hand — the case
+    the per-guard notice exists for — is unaffected.
+    """
+    env = dict(os.environ)
+    env["DIRTY_TREE_NOTICE"] = "0"
+    return env
+
+
 def _run(argv: Sequence[str]) -> int:
     print(f"    $ {' '.join(argv)}", flush=True)
     try:
-        proc = subprocess.run(argv, cwd=REPO)
+        proc = subprocess.run(argv, cwd=REPO, env=_child_env())
     except FileNotFoundError:
         print(f"    ::error::command not found: {argv[0]}", flush=True)
         return 127
