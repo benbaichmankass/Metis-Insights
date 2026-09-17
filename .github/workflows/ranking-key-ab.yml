@@ -110,6 +110,20 @@ concurrency:
 jobs:
   ab:
     runs-on: ubuntu-latest
+    # ⚠️ A BOOLEAN, NOT THE TOKEN. The landing step below needs to know WHETHER
+    # the secret is set, and `secrets` is NOT an available context in a step
+    # `if:` — the available ones are env, github, inputs, job, matrix, needs,
+    # runner, steps, strategy, vars. Using it there made this workflow INVALID
+    # TO ACTIONS while remaining valid YAML, so GitHub failed EVERY run at
+    # startup with zero jobs and reported the workflow's name as its own path.
+    # MEASURED 2026-09-17: 3,393 completed runs, the newest 100 spanning 2.6
+    # hours all `failure` with total_jobs 0, ~38 an hour, since the file landed
+    # 2026-09-09 in #11473 — it has never once reached a job.
+    # ⚠️ The env carries `!= ''` rather than the secret itself, deliberately:
+    # lifting the token would put it in the environment of every step in the
+    # job, and only the two `with:` uses actually need its value.
+    env:
+      HAVE_LANDING_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN != '' }}
     # Generous, and measured rather than padded: on a 2-core sandbox the four v1
     # members over 400d took ~5 min for the FIRST arm (which builds the signal
     # cache) and the replay alone thereafter. A wider roster with 5m members is
@@ -280,7 +294,7 @@ jobs:
           echo "DEST=$dest" >> "$GITHUB_ENV"
 
       - name: Land the results on main
-        if: ${{ inputs.commit_results && secrets.BRANCH_PROTECTION_TOKEN != '' }}
+        if: ${{ inputs.commit_results && env.HAVE_LANDING_TOKEN == 'true' }}
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
