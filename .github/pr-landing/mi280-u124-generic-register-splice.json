@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling. One new function plus two helpers and two exception types in scripts/ops/backlog_append.py, one new test file, one added stdlib import. No behaviour change to append_row or update_row — the module's 44 self-tests pass unchanged and --check-live still reproduces all four live backlogs byte-for-byte. It touches NO register content: it adds the ability to write one and writes none. No src/, no config/, no deploy/, no workflows, no order path. No path touched is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply — backlog_append.py is a register writer, not part of the landing route."
+}

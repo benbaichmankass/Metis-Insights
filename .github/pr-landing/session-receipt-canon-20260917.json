@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 register write, manager scope — filing a to-do and recording operator decisions into docs/claude/work/** is explicitly management. One file, MANAGER-CHECKLIST.json, and nothing else. MI-290 QUEUES (does not build) the session-receipt format the operator asked to canonize on 2026-09-17: the trigger phrase, the five sections, the population and measurement rules that make it honest, and the four things it owes — a skill that owns the format, a generator script for the attribution and PR-verification queries, the Workflow-page surface, and one decision deliberately left open (on-demand vs written-at-session-end). MI-291 records the four operator decisions of the same day with their status, and carries two corrections a successor would otherwise get wrong: the #12346 salvage is TWO edits and not three (its checklist and OPEN-PRS edits are superseded by #12412 and #12428, and its CLAUDE.md delta is the generated hour counter), and the tick-cadence answer OVERRULED the manager's recommendation, so widening R7 is settled rather than open."
+}
