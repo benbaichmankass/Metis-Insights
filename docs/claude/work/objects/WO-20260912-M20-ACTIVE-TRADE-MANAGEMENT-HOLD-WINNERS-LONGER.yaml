@@ -229,8 +229,130 @@ decision_requests:
       unit's own within-leg control withdrew it. Offering it as a ready choice would put
       an unevidenced Tier-3 change in front of the operator wearing a measurement's
       clothes.
+  - id: DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE
+    question: >-
+      The two keys that record a netting quantity rewrite are stored unprotected in
+      `trades.notes`, so the 500-char cap sheds them -- measured, five live rows have
+      already lost theirs. The module they live in states the rule that would have
+      prevented it, and this is the FOURTH instance of the class its own comments
+      record. Do you want the one-line protection applied, a durable marker outside
+      `notes` instead, or the loss accepted and recorded?
+    urgency: routine
+    asked_on: '2026-09-17'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-17 (MI-278 U49) by RUNNING the reference implementation
+      scripts/research/netting_position_size_basis.py with --soak, on
+      /api/diag/journal?table=trades&limit=1000 (ids 4873-5872,
+      sha256:098092a13d8efff2...) and /api/diag/log_file?name=netting_attribution_soak
+      (1000-line tail, 2026-08-29T08:11:10Z -> 2026-09-16T07:12:15Z, of a 3,882,168-byte
+      file). No new instrument was written -- one already exists and a second would be
+      RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. Memo
+      docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md.
+      || WHAT IS BROKEN. `_netting_apply_close`'s partial branch rewrites
+      `position_size` and leaves the row OPEN, so it closes later under an ordinary exit
+      reason. The only trace is `netting_attribution_basis` + `netting_attributed_qty`
+      in `trades.notes`, written through `dump_capped(notes, 500)`, and NEITHER is in
+      `json_notes._DEFAULT_PROTECTED`. On 783 graded bybit rows: 44 carry a stamp, the
+      `exit_reason` filter sees 42, and the soak shows 5 MORE whose stamp was shed
+      entirely -- 7 invisible in total against the 2 a journal-only audit can see, a
+      3.5x under-count. A further 104 rows grade `evidence_may_be_shed`, which is *we
+      could not look*, not a clean negative.
+      || THE TWO KEYS FAIL IN TWO DIFFERENT WAYS, which matters for the remedy.
+      `netting_attribution_basis` is a SHORT STRING ('leg_gone' / 'fifo'), so
+      `_shrink_dict` trims it to a prefix matching neither vocabulary entry -- exactly
+      BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP. `netting_attributed_qty`
+      is a FLOAT, which `_shrink_dict` can never trim (it only trims strings), so it can
+      only be DROPPED WHOLE by the shed loop. One line covers both.
+      || [!] THE ARGUMENT IS THE MODULE'S OWN, NOT THIS SESSION'S PREFERENCE.
+      `json_notes.py` states 'EVERY PROVENANCE MARKER BELONGS HERE ... a consumer
+      compares it for equality against a fixed vocabulary, so a trimmed value is not a
+      shorter answer -- it is an unreadable third state that matches nothing.'
+      `netting_attribution_basis` meets that criterion exactly: its vocabulary is
+      leg_gone / fifo (order_monitor.py:9366, documented again at diag.py:544) and
+      consumers compare against it. The tuple's own comments already record THREE prior
+      instances (exit_reason_source; closed_by_operator + pre_mark_exit_reason).
+      || [!] WHAT NO OPTION HERE BUYS: none of them recovers the five rows already shed,
+      and none of them makes any close false or true -- that needs the venue-side read
+      OI-20260908 specifies. This is about whether the NEXT ones are readable.
+    options:
+      - key: protect_the_keys
+        label: Add both keys to json_notes._DEFAULT_PROTECTED (Tier-2, one line) (RECOMMENDED)
+        implication: >-
+          The two keys stop being shed, so a future netting rewrite stays attributable
+          from the journal alone. Recommended because it is the remedy the module's own
+          comment already prescribes for this exact class, and three prior instances
+          were fixed this way. It does NOT recover the five rows already shed and must
+          not be reported as if it did.
+      - key: durable_marker_outside_notes
+        label: Give the partial branch a durable marker outside `notes` instead (Tier-2, larger)
+        implication: >-
+          A column or its own log, so the evidence is not competing with a 500-char cap
+          at all. Strictly better than protection and strictly more work; it also makes
+          the marker queryable rather than requiring a substring read of `notes`. Choose
+          this if the cap is expected to keep claiming keys.
+      - key: accept_and_record
+        label: Accept the loss and record it as a decision
+        implication: >-
+          Netting rewrites stay partly unattributable from the journal, and any analysis
+          scoping this contamination must read the soak as well -- which is itself a
+          tail, so the population stays a lower bound. Legitimate, and recorded as a
+          decision rather than left looking like an oversight.
+      - key: something_else
+        label: A different instruction
+        implication: >-
+          Say what, and it is recorded against this row's clause (2).
+    blocking: false
+    notes: >-
+      NOT BLOCKING. Nothing waits on this answer, and the unit that raised it applied no
+      runtime change -- clause (1) of the row was cleared by USE (the corrected scoping
+      rule applied to MI-278 U47's netting finding, which it CONFIRMED rather than
+      overturned: 4 of 33 on bybit_2, soak adds zero). [!] A THIRD OPTION THAT LOOKS
+      ATTRACTIVE IS DELIBERATELY ABSENT -- 'stop the partial branch rewriting
+      position_size at all' is a legitimate Tier-2 order-path decision and the row says
+      so, but it would leave the netted sibling holding its full size, which is the 451x
+      journal-vs-exchange divergence BL-20260801 exists to stop. It is not offered as a
+      ready choice without that consequence being measured.
 
 progress:
+  U48: >-
+    DELIVERED 2026-09-17 (PR #12419). Works
+    BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT.
+    Instrument scripts/research/tp_geometry_reachability.py (65 self-test + 27 pytest
+    controls; 7 planted defects, 7 caught). Memo
+    docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md.
+    !! THIS BEARS DIRECTLY ON THIS OBJECT'S done_condition, WHICH THAT ROW IS NAMED AS
+    BLOCKING. The row prescribes running both tp_geometry levels on one family. That arm
+    CANNOT BE BUILT on any family at any cap: tp_geometry is computed from family
+    membership in CLAMPING_FAMILIES by the same predicate that gates whether the cap
+    reaches the harness, so a clamping family attains {live_parity_capped,
+    NO_TAKE_PROFIT} and never live_parity_uncapped, while scalp is uncapped at every
+    cap. The row's resolution_criteria can never be met as written, so it cannot be
+    waited on -- it has to be rewritten or the object has to route around it.
+    !! Also established the row's own open caveat: 218 arms delivered their recorded
+    tp_cap_pct and 28 did not (the scalp arms), so a dose sweep is inert on a
+    non-clamping family. The only runnable axis is >=3 positive tp_cap_pct values inside
+    a clamping family.
+    !! AND THE ONE INSTRUMENT THAT CAN GRADE THE LEVER WITH ATTRIBUTED MASS IS BLOCKED ON
+    A MERGE CLICK: U2 established the take-profit is the only mechanism with attributed
+    mass (18 of 49 winners ended exactly at target); the scalp tp_at_r axis was built by
+    U30 in PR #12158, landing:hold / unvouchable_paths, open since 2026-09-13. It is not
+    waiting on an approval.
+  U49: >-
+    DELIVERED 2026-09-17. Works
+    BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT.
+    NO NEW INSTRUMENT -- the row names a reference implementation and it already grades
+    this, so a second would be RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. Memo
+    docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md.
+    Decision DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE filed above.
+    CLAUSE (1) CLEARED BY USE: the corrected scoping rule (notes stamp AND soak, never
+    exit_reason alone) was applied to U47's netting finding, and CONFIRMED it -- on
+    bybit_2 n=33 the stamp sees 4, the soak adds zero, so U47's `contributes` verdict
+    stands. A confirming result, reported as one.
+    FLEET: 783 bybit rows graded; exit_reason sees 42, the stamp census is 44, and the
+    soak reveals 5 more whose stamp was shed -- 7 invisible against the 2 a journal-only
+    audit sees, a 3.5x under-count, with 104 further rows ungradeable either way.
+    CLAUSE (2) IS TIER-2 AND WAS NOT APPLIED.
   U45: >-
     DELIVERED 2026-09-17. Works PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK.
     Instrument scripts/research/margin_bound_sizing_basis.py (50 self-test + 41 pytest
