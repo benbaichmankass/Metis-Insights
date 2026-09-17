@@ -96,6 +96,20 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ⚠️ THE PROBE BINARIES ARE STDLIB-ONLY; THE DUE-LIST RE-RENDER LOWER IN
+      # THIS JOB IS NOT. `render_due_list.py`'s `src_spent_decision_edges`
+      # (landed 2026-09-12) execs `scripts/ci/check_decision_answers.py`, which
+      # imports PyYAML at module scope, so with no install this job commits a
+      # due-list whose parked-edge source reads `could_not_read` — a detector
+      # deployed and never once read on a real run. Measured 2026-09-17: 0 of 3
+      # workflow-produced DUE.json revisions carrying that source could read it.
+      #
+      # It is installed here rather than immediately before the re-render so the
+      # step cannot be reordered out of the dependency's reach; it costs seconds
+      # and this job already runs for minutes.
+      - name: Install PyYAML — the due-list re-render execs a guard that imports it
+        run: python3 -m pip install --quiet --upgrade pip "pyyaml>=6.0"
+
       - name: Self-test before trusting any verdict
         run: |
           set -euo pipefail
