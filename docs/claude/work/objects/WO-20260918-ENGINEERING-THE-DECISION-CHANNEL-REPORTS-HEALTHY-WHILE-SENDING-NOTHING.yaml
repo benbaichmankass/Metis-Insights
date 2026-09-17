@@ -1,0 +1,84 @@
+id: WO-20260918-ENGINEERING-THE-DECISION-CHANNEL-REPORTS-HEALTHY-WHILE-SENDING-NOTHING
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Engineering lane: the operator decision channel reports itself healthy and routed while sending nothing
+stage: BUILD
+lifecycle: waiting
+lifecycle_basis: >-
+  `waiting`, not `in_flight`, and the distinction is load-bearing rather than bookkeeping. The BUILD is
+  complete: the render is bounded, the failure is typed, the verdict is expressible and a reader exists, with
+  193 tests green and 7 planted defects each caught. What is outstanding is a Tier-2 MERGE DECISION the
+  operator owns plus an ict-telegram-bot.service restart plus a human confirming what arrived on their phone
+  -- i.e. an observation accruing on somebody else, which is exactly what `waiting` means and is not
+  consuming a lane's attention.
+  ⚠️ IT IS ALSO WHY NO WIP-CEILING EXCEPTION WAS FILED. This object was the NINTH `in_flight` against the
+  ceiling of 8 (measured by scripts/ci/check_wip_ceiling.py on 2026-09-18: done 67 / dormant 13 /
+  in_flight 9 / ready 65 / waiting 34). Filing docs/claude/work/wip-ceiling-exception.yaml would have turned
+  a private call into an operator decision for no reason, and demoting somebody else's live object to make
+  room would be worse. The guard's own remedy names `waiting` as free; this object genuinely is.
+owner: session_01CQ91T43zDR3AKC7y1PPxvY
+opened_at: 2026-09-18
+closed_at: null
+why: >-
+  BL-20260917-THE-WORK-DECISION-SWEEP-REPORTS-ITSELF-HEALTHY-AND-ROUTED-WHILE-FAILING-TO-SEND-EVERY-CANDIDATE-ON-47-OF-47-RUNS
+  (severity critical, filed by the OPS lane). The work-decision sweep recorded
+  candidates 4 / failed 4 / prompted_choice 0 on 47 of 47 recoverable runs while reading as checked,
+  unpaused, unheld and routed to a live poller throughout. Four operator decisions were waiting; zero had
+  been asked; every surface said the channel was fine.
+  WHY THIS ONE AND NOT ANOTHER: CLAUDE.md's own design note for this channel says a decision channel with a
+  question in it and no round-trip behind it is WORSE than no channel -- the operator answers nothing, the
+  question reads in_transit for ever, and it LOOKS dealt with. Here it is worse still: nothing was even
+  being asked and the receipt reported success. That is the unprovenanced-diagnostic class landing on the
+  one channel the operator uses to make decisions.
+  ⚠️ THE CAUSE WAS NOT KNOWN AT SPAWN AND IS NOW MEASURED: Telegram caps sendMessage's text at 4096
+  CHARACTERS and render_decision_prompt had NO length budget anywhere -- it joined question + context +
+  every option label and implication. send_telegram_direct RAISES on a non-2xx, the sweep caught that into a
+  bare `failed += 1`, and the error string went only to the systemd journal, whose retention this repo has
+  itself measured at ~30 minutes.
+  THE PARTITION, over the COMPLETE population of 33 decision requests in docs/claude/work/objects/*.yaml,
+  cross-checked against the live marker file (/api/diag/log_file?name=work_decision_prompted, 20 markers):
+  0 of 5 over-cap requests had EVER been delivered, against 20 of 20 delivered markers all under the cap.
+  Unanswered AND over cap = 4, which is EXACTLY the receipt's candidates 4 / failed 4. The 4 unanswered
+  UNDER the cap all carry markers, so prompted_choice 0 is CORRECT for them.
+  POSITIVE CONTROL, and it is in situ on the receipt itself: the largest prompt ever delivered is 3815
+  chars, and the 47th run reads candidates 5 / failed 4 / prompted_choice 1 -- a 3815-char newcomer went out
+  cleanly on the very same run the four over-cap ones failed.
+  THE FOUR UNDELIVERED: DEC-20260917-SCALP-MARGIN-BOUND-SIZING (5463 chars),
+  DEC-20260913-FOUR-LEG-DISPOSITION (4738), DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE (4569),
+  DEC-20260912-LOUD-FLAG-TRIAGE (4184).
+  ⚠️ THE SECOND FINDING IS THE MORE GENERAL ONE: the sweep wrote a durable receipt on every run and NOTHING
+  READ IT. Detection was never the missing half -- the receipt had the numbers all along. The reader is what
+  was absent, which is why this unit ships one rather than only a better field.
+  ⚠️ NOT THIS UNIT: MI-254, the Workflow page's decisions inbox grading on `answer` alone so an ANSWERED
+  decision reads unanswered. One is the SEND failing, the other the READ mis-grading, and fixing either
+  alone leaves the round-trip broken. Separately owned; deliberately not folded in.
+done_condition: >-
+  BOTH, and they are different facts -- say WHICH was cleared.
+  (1) THE CAUSE IS NAMED ON THE RECEIPT: a later reader can tell a Telegram refusal from a render fault from
+  a network blip without the systemd journal, and a run where every candidate FAILED is distinguishable on
+  the receipt itself from a run where there was NOTHING TO SEND. Those are opposite facts and rendered the
+  same.
+  (2) OBSERVED DELIVERED: a sweep receipt carries prompted_choice >= 1 (or prompted_choice_shortened >= 1)
+  for one of the four, AND the operator confirms a decision prompt arrived.
+  !! (1) WITHOUT (2) IS NOT ENOUGH -- naming the cause is diagnosis, not repair, and this unit also fixes
+  the render, so (2) is reachable rather than aspirational.
+  !! A QUIET RECEIPT CLEARS NOTHING: candidates 0 is the EMPTY-DENOMINATOR state and says nothing about
+  whether a send would have worked. Read candidates BEFORE reading any zero in failed.
+  !! AND A GREEN TEST SUITE CLEARS NOTHING. 193 tests pass and 7 planted defects are each caught, and a
+  harness cannot reach a Telegram chat -- which is the whole of what was failing.
+source: >-
+  manager dispatch to the ENGINEERING lane, MI-303, 2026-09-18, on the operator directive of 2026-09-17:
+  "for engineering, I'm sure we can also find continuous amounts of work of structural things that need to
+  be fixed, code that isn't working."
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by session_01CQ91T43zDR3AKC7y1PPxvY. The empty list is a POSITIVE finding, not the
+  NOT_ASSESSED default: nothing blocked the diagnosis or the build. The cause was measurable from the repo
+  corpus plus two read-only diag log_file pulls, both of which succeeded from this container.
+  ⚠️ IT IS A STATEMENT ABOUT THE BUILD, NOT ABOUT THE OBSERVATION. Clause (2) of done_condition now waits
+  on a Tier-2 merge plus an ict-telegram-bot.service restart plus a human confirming what arrived on their
+  phone -- but that is a criterion accruing, NOT a blocker holding a chain up, and writing it as a typed
+  edge would make the constraint computation read a false blocker. A false blocker is worse than a missing
+  one (docs/claude/work/README.md, 2026-09-01).
+captured_by: session_01CQ91T43zDR3AKC7y1PPxvY

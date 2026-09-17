@@ -151,6 +151,57 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "telegram_decisions.sweep_outcome",
+        "producer": "src/runtime/telegram_decisions.py",
+        # The producer OWNS the vocabulary: the six values are module constants
+        # and nowhere else. No `producer_field` — the literals do not share a
+        # line with the word `outcome` at their declaration, and narrowing here
+        # would fail for a spelling reason rather than a real one.
+        "producer_field": "",
+        "consumer_token": (r"\bOUTCOME_DELIVERED\b|\bOUTCOME_PARTIAL\b|"
+                           r"\bOUTCOME_ALL_FAILED\b|\bOUTCOME_ALL_HELD\b|"
+                           r"\bOUTCOME_NOTHING_PENDING\b|"
+                           r"\bOUTCOME_NOT_GRADED\b"),
+        "states": ["delivered", "partial_failure", "all_failed", "all_held",
+                   "nothing_pending", "not_graded"],
+        "why": (
+            "MI-303"
+            ". MEASURED 2026-09-17: the work-decision sweep recorded "
+            "`candidates: 4 / failed: 4 / prompted_choice: 0` on 46 of the 47 "
+            "runs recoverable from its receipt ring, while EVERY health field "
+            "read good -- checked true, reason null, paused false, destination "
+            "`claude`, poll_state `polled_with_handler`, and all three "
+            "`held_*` counters at ZERO. Four operator decisions had reached "
+            "nobody for days and no surface said so. THE THREE `held_*` "
+            "COUNTERS ARE THE DESIGNED WAY TO SAY WHY NOTHING WENT OUT, AND "
+            "ALL THREE WERE ZERO WHILE NOTHING WENT OUT -- the instrument "
+            "could not express the state it was in. THE PAIRS THAT MUST NOT "
+            "COLLAPSE. (1) `nothing_pending` vs `all_failed`: these are "
+            "OPPOSITE FACTS -- no question was pending, versus every question "
+            "was refused -- and they rendered nearly identically, separated "
+            "only by a bare `failed` count that no consumer read. "
+            "`nothing_pending` is the EMPTY-DENOMINATOR state and says nothing "
+            "about whether a send would have worked, so reading it as health "
+            "is the `curl ... || echo '{}'` class this repo has already paid "
+            "for. (2) `all_failed` vs `all_held`: both deliver nothing and the "
+            "REMEDIES ARE DISJOINT -- a refused send is fixed in the send path "
+            "(the cause here was Telegram's 4096-char body cap), while a held "
+            "one is fixed by configuration (set DASHBOARD_API_TOKEN, start "
+            "ict-claude-decision-bot.service). A session told only `nothing "
+            "went out` chases the wrong one. (3) `not_graded` vs everything "
+            "else: a paused sweep, an unreadable inbox and a crashed run are "
+            "*we did not look*, never a working channel -- and a receipt row "
+            "written before this field existed grades `not_graded` rather "
+            "than being re-derived by the consumer, because a second "
+            "definition of the verdict is how the two drift. The consumer is "
+            "src/runtime/decision_channel_alert.py, which is a SEPARATE FILE "
+            "deliberately: this guard's own rule is that a module branching "
+            "on its own constants proves nothing about whether anyone acts on "
+            "the distinction, and the absence of any reader at all is exactly "
+            "what made this defect invisible."
+        ),
+    },
+    {
         "name": "losing_streak_alert.state",
         "producer": "src/runtime/losing_streak_alert.py",
         "producer_field": "",

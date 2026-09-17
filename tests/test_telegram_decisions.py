@@ -1183,3 +1183,277 @@ def test_falling_back_with_NO_secret_stays_quiet(tmp_path, monkeypatch, caplog):
 
     assert stats["destination"] == "trader_fallback"
     assert not [r for r in caplog.records if r.levelname == "WARNING"]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MI-303 — THE 4096-CHARACTER BODY CAP.
+#
+# The defect: `render_decision_prompt` had NO length budget, Telegram refuses a
+# body over 4096 chars, `send_telegram_direct` RAISES on that, and the sweep
+# caught it into a bare `failed += 1` whose only explanation went to a journal
+# with ~30 minutes of retention. Four operator decisions were undeliverable on
+# 46 of 47 recoverable runs while every health field read good.
+#
+# These tests pin the three halves of the repair: the render is BOUNDED, the
+# failure is NAMED, and the sweep's own verdict is EXPRESSIBLE.
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _long(n: int) -> str:
+    return "x" * n
+
+
+@pytest.mark.parametrize("budget", [1, 10, 50, 200, 1000, 4032])
+def test_the_render_bound_is_a_post_condition_for_every_budget(budget):
+    """⚠️ THE WHOLE DEFECT IN ONE ASSERTION. A render that CAN produce an
+    undeliverable body is the bug — reporting the failure afterwards is not a
+    fix. This must hold for absurd budgets too, because a clip helper that
+    overshoots its own bound would reintroduce it one layer down."""
+    req = _request(
+        question=_long(20_000),
+        context=_long(20_000),
+        options=[{"key": f"k{i}", "label": _long(400),
+                  "implication": _long(3_000)} for i in range(40)],
+    )
+    body, fit = td.render_decision_prompt_fitted(req, budget=budget)
+    assert len(body) <= budget, f"{len(body)} > {budget}"
+    assert fit == td.FIT_SHORTENED
+
+
+def test_a_normal_request_is_not_shortened_and_says_nothing_about_shortening():
+    body, fit = td.render_decision_prompt_fitted(_request())
+    assert fit == td.FIT_WHOLE
+    assert "SHORTENED" not in body
+
+
+def test_shortening_is_never_silent_and_names_where_the_full_text_lives():
+    """A truncated question the operator cannot go and read in full invites a
+    decision made on incomplete information."""
+    body, fit = td.render_decision_prompt_fitted(_request(context=_long(9_000)))
+    assert fit == td.FIT_SHORTENED
+    assert "SHORTENED" in body
+    assert "docs/claude/work/objects/WO-20260901-PHASE-H.yaml" in body
+
+
+def test_context_is_dropped_before_the_question_is_touched():
+    """THE DROP ORDER IS THE DESIGN: context is context, the question is the
+    question, and the option LABELS are what the buttons say."""
+    q = "Build the read gate now, or wait for the retirement?"
+    body, _ = td.render_decision_prompt_fitted(
+        _request(question=q, context=_long(9_000)))
+    assert q in body                      # question survived whole
+    assert "x" * 100 not in body          # context is gone
+    assert "Build it now" in body         # every label survived
+    assert "Wait" in body
+
+
+def test_the_footer_survives_even_when_the_options_alone_blow_the_budget():
+    """The ids are how the operator finds the question at all, so they are the
+    last thing to go — the last-resort branch keeps them."""
+    req = _request(options=[{"key": f"k{i}", "label": _long(600),
+                             "implication": _long(600)} for i in range(50)])
+    body, _ = td.render_decision_prompt_fitted(req)
+    assert len(body) <= td.TELEGRAM_MESSAGE_MAX_CHARS
+    assert "WO-20260901-PHASE-H" in body
+    assert "DEC-20260901-READ-GATE-SEQUENCING" in body
+
+
+def test_the_whole_live_repo_corpus_now_fits(): # noqa: C901
+    """THE REGRESSION GUARD, over the REAL population rather than a fixture.
+
+    Measured 2026-09-17: 5 of the 33 decision requests in the work store
+    rendered over the cap and 0 of them had EVER been delivered, against 20
+    delivered markers all under it. If a future prose edit pushes one back over
+    the cap, this fails here instead of on the operator's phone.
+    """
+    import glob
+    import yaml
+    from src.runtime.work_decisions import normalise_requests
+
+    n = 0
+    for path in sorted(glob.glob("docs/claude/work/objects/*.yaml")):
+        try:
+            data = yaml.safe_load(open(path, encoding="utf-8")) or {}
+        except Exception:                      # noqa: BLE001 — not this test's job
+            continue
+        if not isinstance(data, dict) or not data.get("decision_requests"):
+            continue
+        oid = str(data.get("id") or "")
+        for req in normalise_requests(
+                {"decision_requests": data["decision_requests"]}, oid):
+            body = td.render_decision_prompt({**req,
+                                              "objectTitle": data.get("title")})
+            assert len(body) <= td.TELEGRAM_MESSAGE_MAX_CHARS, (
+                f"{oid}::{req['id']} renders {len(body)} chars")
+            n += 1
+    # POSITIVE CONTROL: a corpus this probe cannot see proves nothing. 33 were
+    # measured on 2026-09-17; assert we are still reading a real population.
+    assert n >= 20, f"only {n} requests found — the probe has gone blind"
+
+
+# ── the failure is NAMED, not counted (resolution criterion 1) ───────────────
+
+@pytest.mark.parametrize("exc,expected", [
+    (__import__("urllib").error.HTTPError(
+        "u", 400, "Bad Request: message is too long", None, None),
+     td.FAIL_TOO_LONG),
+    (__import__("urllib").error.HTTPError(
+        "u", 400, "Bad Request: chat not found", None, None),
+     td.FAIL_TELEGRAM_REFUSED),
+    (__import__("urllib").error.URLError("timed out"), td.FAIL_NETWORK),
+    (TimeoutError("slow"), td.FAIL_NETWORK),
+    (ConnectionResetError("reset"), td.FAIL_NETWORK),
+    (RuntimeError("Telegram replied ok=false"), td.FAIL_TELEGRAM_REFUSED),
+    (ValueError("something else"), td.FAIL_UNKNOWN),
+])
+def test_every_send_failure_gets_its_own_typed_kind(exc, expected):
+    """A bare `failed: 4` cannot be acted on. `too_long` is matched by MESSAGE
+    and tested FIRST, because Telegram returns it as a plain 400 alongside
+    every other refusal — and HTTPError subclasses URLError, so a naive order
+    would report every refusal as a network fault."""
+    assert td.classify_send_failure(exc) == expected
+
+
+def test_the_receipt_cannot_leak_a_bot_token_from_an_error_string():
+    """The receipt is readable over /api/diag. The module's discipline is that
+    tokens appear as VARIABLE NAMES only; an exception string is the one place
+    a VALUE could arrive from outside it."""
+    tok = "123456789:AAFakeTokenValueThatIsLongEnough00"
+    red = td.redact_error(RuntimeError(f"failed POST /bot{tok}/sendMessage"))
+    assert tok not in red and "redacted" in red
+    red2 = td.redact_error(RuntimeError(f"auth {tok} rejected"))
+    assert tok not in red2
+
+
+def test_redacted_errors_are_bounded_and_single_line():
+    red = td.redact_error(RuntimeError("a\nb\n" + "z" * 5000))
+    assert "\n" not in red and len(red) <= 300
+
+
+def test_a_failed_send_records_the_kind_and_the_error_not_just_a_count(
+        tmp_path, monkeypatch):
+    """The live receipt said `failed: 4` and nothing else, on 46 of 47 runs."""
+    import urllib.error
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+
+    def boom(text, keyboard):
+        raise urllib.error.HTTPError(
+            "u", 400, "Bad Request: message is too long", None, None)
+
+    stats = td.run_decision_prompt_sweep(
+        sender=boom, state_path=tmp_path / "p.json")
+    assert stats["failed"] == 1
+    assert stats["failure_kinds"] == {td.FAIL_TOO_LONG: 1}
+    assert stats["failure_detail"][0]["kind"] == td.FAIL_TOO_LONG
+    assert "too long" in stats["failure_detail"][0]["error"]
+    # and the body length is recorded, so a reader can see HOW far over it was
+    assert stats["failure_detail"][0]["body_chars"] > 0
+
+
+def test_a_sender_returning_falsy_is_unconfirmed_not_a_refusal(
+        tmp_path, monkeypatch):
+    """`send_telegram_direct` returns False ONLY on its credentials-missing
+    skip: nothing was sent and nothing was refused."""
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    stats = td.run_decision_prompt_sweep(
+        sender=lambda t, k: False, state_path=tmp_path / "p.json")
+    assert stats["failure_kinds"] == {td.FAIL_UNCONFIRMED: 1}
+
+
+def test_failure_detail_is_bounded(tmp_path, monkeypatch):
+    reqs = [_request(id=f"DEC-{i}") for i in range(20)]
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox(reqs), None))
+    stats = td.run_decision_prompt_sweep(
+        sender=lambda t, k: False, state_path=tmp_path / "p.json")
+    assert stats["failed"] == 20                      # the COUNT is complete
+    assert len(stats["failure_detail"]) == td._FAILURE_DETAIL_KEPT
+
+
+def test_a_shortened_delivery_is_counted_apart_from_a_whole_one(
+        tmp_path, monkeypatch):
+    """A body that had text removed must never read as a clean send."""
+    monkeypatch.setattr(
+        td, "fetch_inbox",
+        lambda: (_inbox([_request(context=_long(9_000))]), None))
+    stats = td.run_decision_prompt_sweep(
+        sender=_sender([]), state_path=tmp_path / "p.json")
+    assert stats["prompted_choice_shortened"] == 1
+    assert stats["prompted_choice"] == 0
+
+
+# ── the sweep's verdict is EXPRESSIBLE (resolution criterion 2) ──────────────
+
+def test_the_live_47_run_signature_grades_all_failed():
+    """⚠️ THE EXACT COUNTER SET THE OPERATOR'S CHANNEL SAT IN. Every health
+    field good, all three `held_*` at zero, nothing delivered."""
+    assert td.grade_sweep_outcome({
+        "checked": True, "candidates": 4, "failed": 4,
+        "prompted_choice": 0, "prompted_free_text": 0,
+        "held_write_gate": 0, "held_route": 0, "held_not_polled": 0,
+    }) == td.OUTCOME_ALL_FAILED
+
+
+def test_the_47th_run_grades_partial_because_one_send_did_land():
+    """The in-situ positive control: `candidates 5 / failed 4 /
+    prompted_choice 1` — a 3815-char newcomer went out cleanly on the same run
+    the four over-cap ones failed."""
+    assert td.grade_sweep_outcome({
+        "checked": True, "candidates": 5, "failed": 4, "prompted_choice": 1,
+    }) == td.OUTCOME_PARTIAL
+
+
+@pytest.mark.parametrize("stats,expected", [
+    ({"checked": True, "candidates": 0}, td.OUTCOME_NOTHING_PENDING),
+    ({"checked": True, "candidates": 2, "prompted_choice": 2},
+     td.OUTCOME_DELIVERED),
+    ({"checked": True, "candidates": 2, "prompted_choice_shortened": 2},
+     td.OUTCOME_DELIVERED),
+    ({"checked": True, "candidates": 2, "redelivered": 2},
+     td.OUTCOME_DELIVERED),
+    ({"checked": True, "candidates": 2, "held_write_gate": 2},
+     td.OUTCOME_ALL_HELD),
+    ({"checked": True, "candidates": 2, "held_not_polled": 2},
+     td.OUTCOME_ALL_HELD),
+    ({"checked": False, "paused": True}, td.OUTCOME_NOT_GRADED),
+    # candidates existed and nothing at all is accounted for: NOT health.
+    ({"checked": True, "candidates": 3}, td.OUTCOME_NOT_GRADED),
+])
+def test_every_sweep_outcome_is_reachable_from_the_counters(stats, expected):
+    assert td.grade_sweep_outcome(stats) == expected
+
+
+def test_nothing_pending_and_all_failed_are_never_the_same_verdict():
+    """The pair the whole contract exists for: OPPOSITE FACTS that used to
+    render nearly identically."""
+    empty = td.grade_sweep_outcome({"checked": True, "candidates": 0,
+                                    "failed": 0})
+    broken = td.grade_sweep_outcome({"checked": True, "candidates": 4,
+                                     "failed": 4})
+    assert empty != broken
+    assert empty == td.OUTCOME_NOTHING_PENDING
+    assert broken == td.OUTCOME_ALL_FAILED
+
+
+def test_a_paused_sweep_is_not_graded_rather_than_nothing_pending(
+        tmp_path, monkeypatch):
+    """*We did not look* is not *we looked and the inbox was empty*."""
+    monkeypatch.setenv("WORK_DECISION_PROMPT_SECONDS", "0")
+    stats = td.run_decision_prompt_sweep(
+        sender=_sender([]), state_path=tmp_path / "p.json")
+    assert stats["paused"] is True
+    assert stats["sweep_outcome"] == td.OUTCOME_NOT_GRADED
+
+
+def test_the_outcome_reaches_the_durable_receipt_on_every_path(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(td, "fetch_inbox", lambda: (_inbox([_request()]), None))
+    state = tmp_path / "p.json"
+    td.run_decision_prompt_sweep(sender=lambda t, k: False, state_path=state)
+    receipt = json.loads((tmp_path / "work_decision_sweep_receipt.json")
+                         .read_text())
+    assert receipt["last"]["sweep_outcome"] == td.OUTCOME_ALL_FAILED
+    assert receipt["last"]["failure_kinds"] == {td.FAIL_UNCONFIRMED: 1}
+
+
+def test_every_declared_outcome_and_failure_kind_is_a_distinct_string():
+    assert len(set(td.SWEEP_OUTCOMES)) == len(td.SWEEP_OUTCOMES) == 6
+    assert len(set(td.SEND_FAILURE_KINDS)) == len(td.SEND_FAILURE_KINDS) == 6

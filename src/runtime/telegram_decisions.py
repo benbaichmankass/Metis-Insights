@@ -179,6 +179,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -261,6 +262,141 @@ MARKER_WRONG_DESTINATION = "wrong_destination"
 #: MI-109 records) nor into ``wrong_destination`` (which would assert a
 #: mis-delivery nobody observed).
 MARKER_DESTINATION_UNRECORDED = "unrecorded"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# THE 4096-CHARACTER BODY CAP — the defect MI-303 fixed, and the reason the
+# render is BUDGETED rather than merely long.
+#
+# MEASURED 2026-09-17 (BL-20260917-THE-WORK-DECISION-SWEEP-REPORTS-ITSELF-HEALTHY-AND-ROUTED-WHILE-FAILING-TO-SEND-EVERY-CANDIDATE-ON-47-OF-47-RUNS):
+# ``render_decision_prompt`` joined question + context + every option label and
+# implication with NO length budget anywhere, and Telegram's ``sendMessage``
+# refuses a ``text`` over 4096 characters with HTTP 400 ``message is too long``.
+# ``send_telegram_direct`` RAISES on a non-2xx, the sweep caught that into a
+# bare ``failed += 1``, and the error string went only to the systemd journal —
+# whose measured retention is ~30 minutes. So the channel failed permanently
+# and reported every health field good.
+#
+# THE PARTITION, over all 33 requests in ``docs/claude/work/objects/*.yaml``
+# cross-checked against the live marker file (20 markers):
+#
+#                      has marker (ever delivered)   no marker
+#   <= 4096 chars                20                     8   (all settled)
+#   >  4096 chars                 0                     5
+#
+# Unanswered AND over cap = 4, which is EXACTLY the receipt's
+# ``candidates: 4 / failed: 4`` on 46 of 47 recovered runs. POSITIVE CONTROL:
+# the largest prompt ever delivered is 3815 chars, and the 47th run reads
+# ``candidates 5 / failed 4 / prompted_choice 1`` — a 3815-char newcomer went
+# out cleanly on the very same run the four over-cap ones failed.
+#
+# ⚠️ IT IS NOT ENOUGH TO REPORT THE FAILURE: A RENDER THAT CAN PRODUCE AN
+# UNDELIVERABLE MESSAGE IS THE DEFECT. So the budget is a POST-CONDITION —
+# :func:`render_decision_prompt` is bounded for every input, asserted over the
+# real repo corpus and over a pathological one, and the sweep's ``too_long``
+# failure kind survives as the detector for a REGRESSION rather than as the
+# normal path.
+#
+# ⚠️ AND SHORTENING IS NEVER SILENT. A truncated question is a question the
+# operator may answer on incomplete information, so the message says so in
+# words and names the file the full text lives in, and a shortened delivery is
+# counted SEPARATELY from a whole one (``prompted_choice_shortened``) so it can
+# never read as a clean send. Dropping the question outright, or holding it,
+# were both rejected: the operator seeing a question they are blocking on is
+# most of the value, and this module already carries the rule that a visible
+# imperfect delivery beats an invisible perfect one.
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: Telegram's hard cap on ``sendMessage``'s ``text``, in CHARACTERS (not bytes).
+TELEGRAM_MESSAGE_MAX_CHARS = 4096
+
+#: A safety margin under the cap. The cap is on characters as Telegram counts
+#: them, and we do not want a rendering that lands one character inside it.
+_BODY_BUDGET_MARGIN = 64
+
+#: The whole question survived. The normal, healthy render.
+FIT_WHOLE = "whole"
+#: Something was dropped or truncated to fit, and the body SAYS SO.
+FIT_SHORTENED = "shortened"
+
+# ── why a send did not happen. NEVER COLLAPSED, AND NEVER A BARE COUNT. ──────
+# The resolution criterion this answers, verbatim: *"the sweep records WHY a
+# send failed (an error string or a typed failure state) rather than only a
+# count, so a later reader can tell a Telegram API refusal from a render
+# failure from a malformed callback_data. A bare `failed: 4` cannot be acted
+# on."*
+#: Telegram itself said the body is too long. After the budget above this is a
+#: REGRESSION detector, not an expected state — if it ever appears, the render
+#: bound has been broken or Telegram's cap moved.
+FAIL_TOO_LONG = "too_long"
+#: Telegram answered and refused for some OTHER reason (bad chat id, bot
+#: blocked, a malformed reply_markup). A 4xx we received — different remedy
+#: from a network fault, and pooling them hides which one you have.
+FAIL_TELEGRAM_REFUSED = "telegram_refused"
+#: We never reached Telegram (DNS, timeout, reset). ⚠️ *We do not know* whether
+#: a body would have been accepted, so this must never be read as a refusal.
+FAIL_NETWORK = "network"
+#: Building the message raised before any send was attempted.
+FAIL_RENDER = "render_error"
+#: The sender returned falsy WITHOUT raising — ``send_telegram_direct``'s
+#: documented "credentials missing, skipped" path. Nothing was sent and nothing
+#: was refused.
+FAIL_UNCONFIRMED = "unconfirmed"
+#: An exception we could not classify. Kept so an unrecognised failure is
+#: NAMED as unrecognised rather than silently bucketed into a neighbour.
+FAIL_UNKNOWN = "unknown"
+
+SEND_FAILURE_KINDS: tuple[str, ...] = (
+    FAIL_TOO_LONG, FAIL_TELEGRAM_REFUSED, FAIL_NETWORK, FAIL_RENDER,
+    FAIL_UNCONFIRMED, FAIL_UNKNOWN,
+)
+
+#: How many per-failure detail rows one receipt row carries. Bounded: the
+#: receipt is a ring read over /api/diag and four stuck decisions must not
+#: become an unbounded blob.
+_FAILURE_DETAIL_KEPT = 6
+
+# ── the sweep's own verdict. NEVER COLLAPSED. ────────────────────────────────
+# ⚠️ THIS FIELD EXISTS BECAUSE ITS ABSENCE HID A CRITICAL FOR AT LEAST 3.7
+# HOURS AND PROBABLY DAYS. The receipt carried `candidates`, `failed` and three
+# `held_*` counters, and on all 47 recovered runs every health field read good
+# — `checked: true`, `reason: null`, `paused: false`, `destination: claude`,
+# `poll_state: polled_with_handler`, and all three `held_*` at ZERO — while
+# nothing at all was being delivered. The three `held_*` counters are the
+# DESIGNED way to say why nothing went out, and all three being zero while
+# nothing goes out means the instrument could not express the state it was in.
+#
+# `nothing_pending` and `all_failed` are OPPOSITE FACTS and rendered nearly
+# identically: only the bare `failed` count separated them, and no consumer
+# read it. Registered with `collapsed-state-guard` as
+# `telegram_decisions.sweep_outcome` so the distinction is enforced rather
+# than merely written down.
+#: At least one prompt was delivered and nothing failed.
+OUTCOME_DELIVERED = "delivered"
+#: Some delivered, some did not. A channel that is partly failing is failing.
+OUTCOME_PARTIAL = "partial_failure"
+#: Candidates existed and EVERY ONE failed to send. THE STATE THAT COULD NOT
+#: BE EXPRESSED — this is the live defect's own signature.
+OUTCOME_ALL_FAILED = "all_failed"
+#: Candidates existed and every one was HELD — the write gate, no route, or
+#: nothing polling the bot. ⚠️ Deliberately NOT pooled with `all_failed`: a
+#: hold takes a completely different operator action (set a token, start a
+#: poller) from a send that is being refused, and a session told only
+#: "nothing went out" would chase the wrong one.
+OUTCOME_ALL_HELD = "all_held"
+#: No question was pending. ⚠️ THE EMPTY-DENOMINATOR STATE: it says NOTHING
+#: about whether a send would have worked, and must never be read as health.
+#: Read `candidates` before reading any zero in `failed`.
+OUTCOME_NOTHING_PENDING = "nothing_pending"
+#: The sweep did not reach the send loop at all — paused, inbox unreadable,
+#: prompt-state unreadable, or it raised. ⚠️ *We did not look.* A paused
+#: channel is not a healthy one.
+OUTCOME_NOT_GRADED = "not_graded"
+
+SWEEP_OUTCOMES: tuple[str, ...] = (
+    OUTCOME_DELIVERED, OUTCOME_PARTIAL, OUTCOME_ALL_FAILED, OUTCOME_ALL_HELD,
+    OUTCOME_NOTHING_PENDING, OUTCOME_NOT_GRADED,
+)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -393,42 +529,278 @@ def build_decision_keyboard(request: dict[str, Any]) -> Optional[dict[str, Any]]
     return {"inline_keyboard": rows}
 
 
-def render_decision_prompt(request: dict[str, Any]) -> str:
-    """The prompt body. States the question, the options, and where truth lands."""
+def _clip(text: str, budget: int) -> tuple[str, bool]:
+    """Return ``(text, was_clipped)``, never exceeding ``budget`` characters.
+
+    The ellipsis is INSIDE the budget, so the result is bounded even when
+    ``budget`` is tiny — a clip helper that can overshoot its own bound is the
+    defect this whole change exists to remove, one layer down.
+    """
+    if budget <= 0:
+        return "", bool(text)
+    if len(text) <= budget:
+        return text, False
+    marker = " […]"
+    if budget <= len(marker):
+        return text[:budget], True
+    return text[: budget - len(marker)] + marker, True
+
+
+def _source_hint(request: dict[str, Any]) -> str:
+    """Where the FULL text of this question lives, for a shortened body.
+
+    Load-bearing rather than decorative: a truncated question the operator
+    cannot go and read in full is a question they may answer on incomplete
+    information, which is the one thing a control recording a human decision
+    must not invite.
+    """
+    return f"docs/claude/work/objects/{request.get('objectId')}.yaml"
+
+
+def render_decision_prompt(
+    request: dict[str, Any],
+    *,
+    budget: int = TELEGRAM_MESSAGE_MAX_CHARS - _BODY_BUDGET_MARGIN,
+) -> str:
+    """The prompt body, GUARANTEED to fit ``budget`` characters.
+
+    Thin wrapper over :func:`render_decision_prompt_fitted` — callers that do
+    not care whether it was shortened keep the old one-argument signature.
+    """
+    return render_decision_prompt_fitted(request, budget=budget)[0]
+
+
+def render_decision_prompt_fitted(
+    request: dict[str, Any],
+    *,
+    budget: int = TELEGRAM_MESSAGE_MAX_CHARS - _BODY_BUDGET_MARGIN,
+) -> tuple[str, str]:
+    """Return ``(body, fit_state)`` — the prompt, and whether it was shortened.
+
+    States the question, the options, and where truth lands. ``fit_state`` is
+    :data:`FIT_WHOLE` or :data:`FIT_SHORTENED`.
+
+    ⚠️ **THE BOUND IS A POST-CONDITION, NOT AN INTENTION.** ``len(body) <=
+    budget`` holds for EVERY input, including a request whose option
+    implications alone exceed the cap. That is asserted over the live repo
+    corpus and over a pathological request in
+    ``tests/test_telegram_decisions.py``. Before MI-303 there was no budget at
+    all and four operator decisions were undeliverable for days — see the
+    ``TELEGRAM_MESSAGE_MAX_CHARS`` block above for the measurement.
+
+    THE DROP ORDER IS BY LOAD-BEARINGNESS, and it is the whole design:
+
+    1. the header, the option LABELS, the tap instruction and the footer
+       (object + request id) always survive — the labels are what the buttons
+       say, and the footer is how the operator finds the full text;
+    2. ``context`` is truncated, then dropped entirely, FIRST — it is context,
+       not the question;
+    3. option ``implication`` text is truncated next;
+    4. the ``question`` is truncated LAST, and only if the rest cannot yield.
+
+    Shortening ALWAYS adds a line saying so and naming the source file. A
+    silent truncation would be the unprovenanced-diagnostic class landing on
+    the operator's decision channel: a body that reads whole and is not.
+    """
     urgency = request.get("urgency")
     head = "🛑 DECISION NEEDED" if urgency == "blocking" else "❓ DECISION"
-    lines = [
-        f"{head} — {request.get('objectTitle') or request.get('objectId')}",
-        "",
-        str(request.get("question") or "(the request declares no question text)"),
-    ]
-    context = request.get("context")
-    if context:
-        lines += ["", str(context)]
+    title = request.get("objectTitle") or request.get("objectId")
     options = [
         o for o in (request.get("options") or [])
         if isinstance(o, dict) and isinstance(o.get("key"), str)
     ]
+
+    header = f"{head} — {title}"
+    footer = (f"object:  {request.get('objectId')}\n"
+              f"request: {request.get('id')}")
     if options:
-        lines += ["", "Options:"]
-        for opt in options:
-            label = opt.get("label") or opt["key"]
-            implication = opt.get("implication")
-            lines.append(f"• {label}" + (f" — {implication}" if implication else ""))
-        lines += ["", "Tap an option below. Tapping SUBMITS your answer; it is "
-                       "not the decision until it is written into the repo."]
+        closer = ("Tap an option below. Tapping SUBMITS your answer; it is "
+                  "not the decision until it is written into the repo.")
     else:
         # Honest about the boundary rather than pretending the button flow
         # covers it. Free text is a second step; see the module docstring.
-        lines += ["", "⚠️ This question takes a FREE-TEXT answer, which cannot be "
-                       "sent from a Telegram button. Answer it on the dashboard "
-                       "or in the repo — it is shown here so it is not invisible."]
-    lines += [
-        "",
-        f"object:  {request.get('objectId')}",
-        f"request: {request.get('id')}",
-    ]
-    return "\n".join(lines)
+        closer = ("⚠️ This question takes a FREE-TEXT answer, which cannot be "
+                  "sent from a Telegram button. Answer it on the dashboard "
+                  "or in the repo — it is shown here so it is not invisible.")
+    shortened_note = (
+        f"⚠️ SHORTENED to fit Telegram's {TELEGRAM_MESSAGE_MAX_CHARS}-character "
+        f"limit. Read the FULL text before answering: {_source_hint(request)}")
+
+    question = str(request.get("question")
+                   or "(the request declares no question text)")
+    context = str(request.get("context") or "")
+
+    def assemble(q: str, ctx: str, opt_lines: list[str], note: bool) -> str:
+        parts = [header, "", q]
+        if ctx:
+            parts += ["", ctx]
+        if opt_lines:
+            parts += ["", "Options:"] + opt_lines
+        parts += ["", closer]
+        if note:
+            parts += ["", shortened_note]
+        parts += ["", footer]
+        return "\n".join(parts)
+
+    def opt_lines(implication_budget: Optional[int]) -> tuple[list[str], bool]:
+        """One line per option. ``None`` keeps implications whole; ``0`` drops
+        them. The LABEL is never dropped — it is what the button says."""
+        lines: list[str] = []
+        clipped = False
+        for opt in options:
+            label, lab_clip = _clip(str(opt.get("label") or opt["key"]), 120)
+            clipped = clipped or lab_clip
+            imp = opt.get("implication")
+            if not imp or implication_budget == 0:
+                lines.append(f"• {label}")
+                if imp:
+                    clipped = True
+                continue
+            if implication_budget is None:
+                lines.append(f"• {label} — {imp}")
+                continue
+            text, imp_clip = _clip(str(imp), implication_budget)
+            clipped = clipped or imp_clip
+            lines.append(f"• {label} — {text}" if text else f"• {label}")
+        return lines, clipped
+
+    # ── 1. everything whole ─────────────────────────────────────────────────
+    whole_opts, _ = opt_lines(None)
+    body = assemble(question, context, whole_opts, note=False)
+    if len(body) <= budget:
+        return body, FIT_WHOLE
+
+    # From here the body WILL carry the shortened note, so every attempt below
+    # is assembled with it — otherwise the note itself could push us back over.
+    #
+    # ── 2. drop the context ─────────────────────────────────────────────────
+    body = assemble(question, "", whole_opts, note=True)
+    if len(body) <= budget:
+        return body, FIT_SHORTENED
+
+    # ── 3. squeeze the option implications, then drop them ──────────────────
+    for imp_budget in (240, 120, 0):
+        squeezed, _ = opt_lines(imp_budget)
+        body = assemble(question, "", squeezed, note=True)
+        if len(body) <= budget:
+            return body, FIT_SHORTENED
+
+    # ── 4. truncate the QUESTION, last ──────────────────────────────────────
+    bare_opts, _ = opt_lines(0)
+    # What the question may occupy = the budget minus everything that must
+    # survive. Computed by measuring the real frame rather than estimating it,
+    # so the arithmetic cannot drift from `assemble`.
+    frame = len(assemble("", "", bare_opts, note=True))
+    q_budget = budget - frame
+    if q_budget > 0:
+        clipped_q, _ = _clip(question, q_budget)
+        body = assemble(clipped_q, "", bare_opts, note=True)
+        if len(body) <= budget:
+            return body, FIT_SHORTENED
+
+    # ── 5. the frame ITSELF does not fit: an enormous option list ───────────
+    # ⚠️ A LAST RESORT THAT IS STILL BOUNDED AND STILL HONEST. It keeps the
+    # header, the footer and the note — the three things that let the operator
+    # find the question — and says plainly that the options could not be
+    # listed. It does NOT drop the buttons: `build_decision_keyboard` is a
+    # separate, independently-bounded path (Telegram's own reply_markup limit
+    # governs there), so the taps still work even when the LIST of them cannot
+    # be printed in the body.
+    minimal = "\n".join([
+        header, "",
+        _clip(question, max(budget // 2, 0))[0], "",
+        f"({len(options)} option(s) — the labels are on the buttons below; "
+        f"they were too long to list here.)", "",
+        shortened_note, "",
+        footer,
+    ])
+    return _clip(minimal, budget)[0], FIT_SHORTENED
+
+
+def classify_send_failure(exc: BaseException) -> str:
+    """Which :data:`SEND_FAILURE_KINDS` bucket an exception belongs in.
+
+    ⚠️ ``too_long`` IS TESTED FIRST AND BY MESSAGE, not by status code, because
+    Telegram returns it as a plain HTTP 400 alongside every other refusal —
+    ``Bad Request: message is too long``. That string is what MI-303's whole
+    measurement turns on, and bucketing it as a generic refusal would leave the
+    next reader exactly where the bare ``failed: 4`` left this one.
+
+    ⚠️ ``network`` IS NOT A REFUSAL. An unreachable API means *we do not know*
+    whether the body would have been accepted; the two have different remedies
+    and pooling them would report a DNS blip as Telegram having said no.
+    """
+    import socket
+    import urllib.error
+
+    text = f"{type(exc).__name__}: {exc}".lower()
+    if "too long" in text or "message_too_long" in text:
+        return FAIL_TOO_LONG
+    if isinstance(exc, urllib.error.HTTPError):
+        # HTTPError is a subclass of URLError, so it MUST be tested first —
+        # otherwise every refusal reads as a network fault.
+        return FAIL_TELEGRAM_REFUSED
+    if isinstance(exc, (urllib.error.URLError, socket.timeout, TimeoutError,
+                        ConnectionError)):
+        return FAIL_NETWORK
+    if isinstance(exc, RuntimeError):
+        # `send_telegram_direct` raises RuntimeError on `ok: false` — Telegram
+        # answered and said no.
+        return FAIL_TELEGRAM_REFUSED
+    return FAIL_UNKNOWN
+
+
+#: Anything shaped like a bot token, so an error string cannot leak one into a
+#: receipt that is readable over ``/api/diag/log_file``. The receipt already
+#: holds only VARIABLE names for tokens and chats; an exception string is the
+#: one place a value could arrive from outside that discipline.
+_TOKEN_RE = re.compile(r"\b\d{6,}:[A-Za-z0-9_\-]{20,}")
+
+
+def redact_error(exc: BaseException, *, limit: int = 300) -> str:
+    """A bounded, token-free one-line rendering of ``exc`` for the receipt."""
+    text = f"{type(exc).__name__}: {exc}"
+    text = _TOKEN_RE.sub("<redacted-token>", text)
+    # A URL can carry the token in its path (`/bot<token>/sendMessage`).
+    text = re.sub(r"(?i)/bot[^/\s]+/", "/bot<redacted-token>/", text)
+    return " ".join(text.split())[:limit]
+
+
+def grade_sweep_outcome(stats: dict[str, Any]) -> str:
+    """The sweep's own verdict, from its counters. One of :data:`SWEEP_OUTCOMES`.
+
+    ⚠️ PURE, AND SEPARATE FROM THE SWEEP, so the grading is arguable in tests
+    rather than against a live Telegram chat — and so the 47-run signature that
+    exposed MI-303 (`candidates 4 / failed 4 / everything else zero`) is a
+    one-line assertion instead of a reading of a live receipt.
+    """
+    if not stats.get("checked"):
+        # Paused, inbox unreadable, prompt-state unreadable, or it raised.
+        return OUTCOME_NOT_GRADED
+    candidates = int(stats.get("candidates") or 0)
+    if candidates <= 0:
+        return OUTCOME_NOTHING_PENDING
+    sent = (int(stats.get("prompted_choice") or 0)
+            + int(stats.get("prompted_free_text") or 0)
+            + int(stats.get("prompted_choice_shortened") or 0)
+            + int(stats.get("redelivered") or 0))
+    failed = int(stats.get("failed") or 0)
+    held = (int(stats.get("held_write_gate") or 0)
+            + int(stats.get("held_route") or 0)
+            + int(stats.get("held_not_polled") or 0))
+    if sent and not failed:
+        return OUTCOME_DELIVERED
+    if sent and failed:
+        return OUTCOME_PARTIAL
+    if failed:
+        # Nothing sent and something failed. The live defect's signature.
+        return OUTCOME_ALL_FAILED
+    if held:
+        return OUTCOME_ALL_HELD
+    # Candidates existed, nothing sent, nothing failed, nothing held. Should be
+    # unreachable; NOT_GRADED rather than a cheerful default, because a
+    # counter set we cannot explain is *we did not look*, never health.
+    return OUTCOME_NOT_GRADED
 
 
 def render_callback_reply(
@@ -1017,6 +1389,19 @@ def run_decision_prompt_sweep(
         "prompted_choice": 0, "prompted_free_text": 0,
         "held_write_gate": 0, "held_route": 0, "held_not_polled": 0,
         "failed": 0, "paused": False,
+        # ⚠️ A BARE `failed` COUNT CANNOT BE ACTED ON — that is MI-303's first
+        # resolution criterion verbatim. `failure_kinds` buckets every failure
+        # by typed cause and `failure_detail` carries the (redacted) error
+        # string per request, so a later reader can tell a Telegram refusal
+        # from a render fault from a network blip without the systemd journal,
+        # whose measured retention is ~30 minutes.
+        "failure_kinds": {},
+        "failure_detail": [],
+        # A shortened body is counted SEPARATELY from a whole one, so a
+        # delivery that dropped context can never read as a clean send.
+        "prompted_choice_shortened": 0,
+        # ⚠️ THE FIELD WHOSE ABSENCE HID THIS CRITICAL. See SWEEP_OUTCOMES.
+        "sweep_outcome": OUTCOME_NOT_GRADED,
         "prompt_state_read": None,
         "destination": None, "poll_state": None,
         "token_from": None,
@@ -1187,15 +1572,50 @@ def run_decision_prompt_sweep(
                 stats["held_not_polled"] += 1
                 continue
 
+            # ⚠️ THE RENDER AND THE SEND ARE CLASSIFIED SEPARATELY. A body we
+            # could not BUILD and a body Telegram REFUSED are different faults
+            # with different fixes, and the old single `except` around both
+            # reported them as one anonymous `failed`.
+            fit = FIT_WHOLE
+            fail_kind: Optional[str] = None
+            fail_error: Optional[str] = None
+            sent = False
             try:
-                sent = bool(sender(render_decision_prompt(req), keyboard))
-            except Exception as exc:  # noqa: BLE001 — a send bug never kills the bot
-                logger.warning("telegram_decisions: send failed for %s: %s", key, exc)
-                sent = False
+                body, fit = render_decision_prompt_fitted(req)
+            except Exception as exc:  # noqa: BLE001 — never kills the bot
+                fail_kind, fail_error = FAIL_RENDER, redact_error(exc)
+            else:
+                try:
+                    sent = bool(sender(body, keyboard))
+                except Exception as exc:  # noqa: BLE001 — never kills the bot
+                    fail_kind, fail_error = (
+                        classify_send_failure(exc), redact_error(exc))
+                else:
+                    if not sent:
+                        # `send_telegram_direct` returns False ONLY on its
+                        # documented credentials-missing skip: nothing was sent
+                        # and nothing was refused, which is its own state.
+                        fail_kind = FAIL_UNCONFIRMED
+                        fail_error = ("sender returned falsy without raising "
+                                      "(credentials missing / skipped)")
             if not sent:
                 # Marker NOT written, so it retries next cadence — the
                 # `run_prop_expiry_prompts` rule: flip only on a confirmed send.
                 stats["failed"] += 1
+                kind = fail_kind or FAIL_UNKNOWN
+                stats["failure_kinds"][kind] = (
+                    stats["failure_kinds"].get(kind, 0) + 1)
+                # Bounded: four stuck decisions must not grow the receipt ring
+                # without limit, and the COUNT above is already complete.
+                if len(stats["failure_detail"]) < _FAILURE_DETAIL_KEPT:
+                    stats["failure_detail"].append({
+                        "key": key, "kind": kind, "error": fail_error,
+                        "body_chars": len(body) if fail_kind != FAIL_RENDER
+                        else None,
+                    })
+                logger.warning(
+                    "telegram_decisions: send failed for %s [%s]: %s",
+                    key, kind, fail_error)
                 continue
             # ⚠️ THE MARKER RECORDS WHERE IT WENT (MI-109 (a)). Without this the
             # marker is once-only and destination-blind, so a prompt delivered
@@ -1228,10 +1648,16 @@ def run_decision_prompt_sweep(
                 row["redelivery_reason"] = verdict
                 stats["redelivered"] += 1
             prompted[key] = row
-            if keyboard is not None:
-                stats["prompted_choice"] += 1
-            else:
+            row["fit"] = fit
+            if keyboard is None:
                 stats["prompted_free_text"] += 1
+            elif fit == FIT_SHORTENED:
+                # NEVER pooled with a whole send: the operator was shown a
+                # body that had text removed, and a reader must be able to see
+                # that without re-rendering it.
+                stats["prompted_choice_shortened"] += 1
+            else:
+                stats["prompted_choice"] += 1
 
         try:
             write_prompt_state(_prune(prompted, live_keys, now=ref), state_path)
@@ -1245,6 +1671,14 @@ def run_decision_prompt_sweep(
         # that only records runs which reached the bottom cannot tell a swept
         # inbox from a paused sweep, and both of those are states the operator
         # has been in while believing the channel was working.
+        #
+        # ⚠️ AND THE VERDICT IS GRADED HERE, for the same reason: an early
+        # return must not leave `sweep_outcome` at its initial value by
+        # accident. `grade_sweep_outcome` reads only the counters, so a paused
+        # or unreadable run grades `not_graded` because `checked` is False —
+        # never `nothing_pending`, which would claim we looked and found the
+        # inbox empty.
+        stats["sweep_outcome"] = grade_sweep_outcome(stats)
         write_sweep_receipt(stats, now=ref, path=receipt_path)
     return stats
 
@@ -1670,7 +2104,28 @@ def build_on_demand_decisions(
 __all__ = [
     "CB_PREFIX",
     "TELEGRAM_CALLBACK_DATA_MAX_BYTES",
+    "TELEGRAM_MESSAGE_MAX_CHARS",
     "CALLBACK_OUTCOMES",
+    "SEND_FAILURE_KINDS",
+    "SWEEP_OUTCOMES",
+    "FIT_WHOLE",
+    "FIT_SHORTENED",
+    "FAIL_TOO_LONG",
+    "FAIL_TELEGRAM_REFUSED",
+    "FAIL_NETWORK",
+    "FAIL_RENDER",
+    "FAIL_UNCONFIRMED",
+    "FAIL_UNKNOWN",
+    "OUTCOME_DELIVERED",
+    "OUTCOME_PARTIAL",
+    "OUTCOME_ALL_FAILED",
+    "OUTCOME_ALL_HELD",
+    "OUTCOME_NOTHING_PENDING",
+    "OUTCOME_NOT_GRADED",
+    "classify_send_failure",
+    "grade_sweep_outcome",
+    "redact_error",
+    "render_decision_prompt_fitted",
     "AnswerableRoute",
     "Resolution",
     "answerable_route",
