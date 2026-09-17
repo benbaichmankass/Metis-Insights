@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-17T16:05Z",
+  "as_of": "2026-09-17",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -76,27 +76,6 @@
       "state": "open",
       "opened_at": "2026-09",
       "observed": "DRAFT ON PURPOSE. Declares landing: hold / unvouchable_paths — it is HELD BY ITS OWN DECLARATION, not by a missing approval and not by a manager decision. Do not 'unblock' it by merging: the author declared paths this session could not vouch for, and R14 verifies that declaration against the diff. ⚠️ DO NOT UN-DRAFT IT to 'clear the queue' — the draft state is the author's signal, and un-drafting is a decision nobody has taken.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      },
-      "hold_reason": "unvouchable_paths"
-    },
-    {
-      "pr": 12072,
-      "title": "CLOSE BL-20260813 — --symbol constrains the DATA",
-      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
-      "checklist_item": "MI-279",
-      "tier": 1,
-      "draft": false,
-      "landing": "hold",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "⚠️ NEEDS A CONTENT DECISION, NOT A REFRESH — the ONLY row here that does. The row-aware merge driver REFUSED it: two sessions edited the SAME backlog row differently, so this is a genuine content conflict a rebase cannot resolve. Whoever picks it up must read both versions and decide which reading is right; merging either blindly discards the other session's finding.",
       "observed_at": "2026-09-17T16:05Z",
       "operator_decision": {
         "verdict": "not_required",
@@ -455,6 +434,11 @@
       "pr": 10775,
       "merge_sha": "d08cac48",
       "note": "Pruned in the SAME PR that added it — it merged between the two commits. That is the structural regress this file documents, observed live rather than in the abstract: the row was correct when written and stale ~90 seconds later."
+    },
+    {
+      "pr": 12072,
+      "merge_sha": "c068b7448",
+      "note": "Pruned 2026-09-17: MERGED as c068b7448 (squash) by the manager on an explicit operator instruction, and DEPLOYED — /api/diag/version read git_sha == git_sha_on_disk == c068b7448, restart_pending false, at 15:31:53Z. [!] THIS ROW'S OWN `observed` NOTE SAID THE PR 'NEEDS A CONTENT DECISION, NOT A REFRESH' because the row-aware merge driver had refused it — two sessions editing the same backlog row differently. THAT WAS TRUE WHEN WRITTEN AND WAS FALSE AT MERGE TIME; it is recorded here rather than deleted, because a successor reading only the prune would not know the claim had been checked. MEASURED against the merge base 2ae8342109 before merging: exactly TWO rows differed between main and the branch, and for EACH one only ONE side had changed it vs the base, so git's 3-way merge took the changed side and discarded nothing. BL-20260917-RANKING-KEY-AB-HAS-3393-RUNS-AND-THE-MEASURED-WINDOW-IS-100-PERCENT-STARTUP-FAILURE-WITH-ZERO-JOBS-AND-NOTHING-PAGES-ON-IT : main changed, PR did not -> main's version landed, and main's is the SUPERSET (8357 vs 5421 chars; it carries MI-280 U127's cause-establishment, a `secrets` context in a step-level `if:` at line 283). BL-20260730-2D-VOL-CELLS-UNAUDITABLE : PR changed, main did not -> the PR's version landed, and the PR's is the SUPERSET (adds one MI-279 kept_open disposition entry, additions only). Backlog union verified semantically, not by line count: 1620 main rows U 1617 PR rows -> 1621, LOST 0, UNEXPECTED 0, duplicate ids 0. [!] AN ID-SET CHECK IS NOT SUFFICIENT ON THIS FILE and nearly was not here: presence-by-id reported clean while two rows diverged in CONTENT. Compare per-row content against the MERGE BASE, not just the id sets."
     }
   ],
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
