@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ONE backlog row appended to docs/claude/health-review-backlog.json through scripts/ops/backlog_append.py::append_row, and nothing else -- diff is 12 insertions, 0 deletions. It FILES a measured finding and FIXES NOTHING: no guard is changed, no threshold moved, manager_status.py's age clamp is untouched, and the 20 future-dated stamps in MANAGER-CHECKLIST.json and OPEN-PRS.json are left exactly as they are, because the row's own criteria say correcting them without fixing the clamp clears nothing. Filing is the manager's sanctioned act of NOT taking the item (CLAUDE.md: 'filing is the act of NOT taking the item, and it is permitted with no cap, deliberately'). No src/, no tests/, no scripts/, no workflows, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps, no live-VM file."
+}
