@@ -200,6 +200,30 @@ writes **`docs/claude/work/receipts/<session_id>.json`**, which
    reference receipt was refused by R2 at `docs/claude/receipts/`, and one
    directory level up the block disappears.
 
+### ⚠️ EDITING A WRITTEN RECEIPT — re-run the generator, or match its serialization exactly
+
+A receipt is a section-E artifact, so it is normal to append an error row after
+the file is already written. **The generator writes with `json.dumps(receipt,
+indent=2)` — the `ensure_ascii` DEFAULT, i.e. escaped.** Hand-editing with
+`ensure_ascii=False` re-encodes every em-dash and emoji in the file, turning a
+one-row append into a whole-file rewrite.
+
+⚠️ **THIS IS NOT A STYLE POINT AND IT IS NOT HYPOTHETICAL.** It happened on
+2026-09-17, in this format's own first receipt, appending the row that recorded
+the SAME class of mistake against `OPEN-ITEMS.json` earlier the same session: a
+one-row append produced **20 insertions / 16 deletions**, against **8 / 0** once
+the serialization matched. A rewritten register destroys the reviewability of
+the diff and, on a shared file, re-attributes everyone else's lines to you.
+
+⚠️ **AND THE GENERATOR CANNOT REFUSE IT.** `scripts/ops/backlog_append.py`
+round-trips a register and raises `FormatNotReproducible` rather than write a
+reformatted file; `session_receipt.py` has **no such check**. The blast radius is
+genuinely smaller here — one file per session, authored by that session, which
+is part of why one-file-per-session was chosen — but smaller is not absent, so
+the discipline is yours and not the tool's. Prefer re-running the generator; if
+you must edit in place, read, mutate, and write back with `indent=2` and no
+`ensure_ascii` override, then **check `git diff --stat` shows insertions only.**
+
 ---
 
 ## ⚠️ ONE THING THIS SKILL DOES NOT DECIDE
