@@ -115,8 +115,11 @@ record, **the proposal is to run the sweep** — said in those words.
 
 ### 1.4 Real-money week vs lifetime
 
-Win rate **27.1% lifetime → 0% this week**; expectancyR **−0.3231 → −0.8472**
-(2.6× worse). Directionally consistent with the open
+Win rate **27.1% over n = 431 lifetime → 0% over n = 4 this week**; expectancyR
+**−0.3231 (n = 431) → −0.8472 (n = 4)**, 2.6× worse. Both populations are closed,
+non-backtest, `pnl NOT NULL` rows on `bybit_2` (`window=all` and `window=7d`).
+⚠️ The lifetime WIN COUNT is deliberately not stated: the route reports the RATE,
+and this review did not re-derive a numerator from it. Directionally consistent with the open
 `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30` bleed row — **and it does
 NOT attribute it.** n=4 cannot distinguish a regime change from noise, and the
 paper arm's −$48.2k is ~70% unmeasured. **No attribution is offered.**
