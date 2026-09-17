@@ -138,6 +138,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import github_equivalent_merge as gem  # noqa: E402
 import manager_lease  # noqa: E402
 import session_registry as sr  # noqa: E402
 
@@ -957,6 +958,65 @@ def edge_has_evidence(item: Dict[str, Any], edge: Dict[str, Any]) -> bool:
     return bool(re.search(r"\d{4}-\d{2}-\d{2}", blob))
 
 
+def check_github_mergeability(branches: Sequence[str], base: str = "origin/main",
+                              *, predictor=None) -> Optional[Dict[str, Any]]:
+    """Will GitHub call these branches conflicted? — asked the ONE way that predicts it.
+
+    ⚠️ **THIS IS THE OTHER HALF OF `check_merge_driver` ABOVE, AND THEY PULL IN
+    OPPOSITE DIRECTIONS.** That check FAILS an un-armed clone, because un-armed
+    you pay hand-resolutions you did not need. Armed, `git merge` resolves the
+    register locally and reports success for a pair GitHub grades ``dirty`` —
+    so the very arming that check demands is what makes a local test merge lie.
+
+    `BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY`
+    is a manager doing exactly that: test-merged locally, got *"Automatic merge
+    went well"*, called the merge, received **HTTP 405 "Pull Request has merge
+    conflicts"**. Its resolution asks for a check the merge-queue duty ACTUALLY
+    CALLS rather than prose — prose one file away is what did not reach the
+    moment of use.
+
+    ⚠️ **IT IS OMITTED ENTIRELY WHEN NO BRANCH IS NAMED**, and that is not
+    laziness. A check that reported `UNKNOWN` on every ordinary invocation would
+    make `readiness` unknown for every manager who did not pass the flag — the
+    desensitised alarm, with a readiness verdict attached. The question was not
+    asked, so nothing is answered.
+
+    ⚠️ **A `PASS` HERE MEANS *NO CONFLICT*, NEVER *MERGEABLE NOW*.** It cannot
+    see required checks, reviews or branch protection. `mergeable_state` from
+    GitHub remains authoritative; this predicts it when GitHub has not computed
+    it yet, which is precisely when a session reaches for a local merge.
+    """
+    if not branches:
+        return None
+    predict = predictor or gem.predict
+    per: Dict[str, str] = {}
+    for br in branches:
+        try:
+            per[br] = predict(str(Path.cwd()), base, br)["state"]
+        except Exception as exc:  # pragma: no cover - defensive
+            per[br] = f"{gem.COULD_NOT_LOOK}: {exc}"
+    conflicted = [b for b, v in per.items() if v == gem.WOULD_CONFLICT]
+    unknown = [b for b, v in per.items() if not v.startswith((gem.CLEAN, gem.WOULD_CONFLICT))]
+    if conflicted:
+        return _c("github_mergeability", FAIL,
+                  f"{len(conflicted)} of {len(per)} branch(es) would CONFLICT on "
+                  f"GitHub against `{base}`: {', '.join(conflicted)}. The remedy "
+                  f"belongs to the PR's author — merge the base branch in — and a "
+                  f"manager cannot discharge it by clicking merge.",
+                  verdicts=per)
+    if unknown:
+        return _c("github_mergeability", UNKNOWN,
+                  f"{len(unknown)} of {len(per)} branch(es) COULD NOT BE GRADED: "
+                  f"{', '.join(unknown)}. That is 'we did not look', not 'no "
+                  f"conflict'.", verdicts=per)
+    return _c("github_mergeability", PASS,
+              f"{len(per)} branch(es) merge cleanly against `{base}` in an "
+              f"UN-ARMED clone, which is the state GitHub's server is in. "
+              f"A clean prediction is not a claim that the merge button is "
+              f"enabled — checks and protection are separate.",
+              verdicts=per)
+
+
 def check_blocked_claims(ck_doc: Optional[Any], ck_readable: bool) -> Dict[str, Any]:
     if not ck_readable or not isinstance(ck_doc, dict):
         return _c("blocked_claims", UNKNOWN,
@@ -1033,6 +1093,7 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         base: str = "origin/main", open_prs: Optional[List[Dict[str, Any]]] = None,
         enforced: Sequence[str] = ("working",),
         threshold: int = DIGEST_THRESHOLD,
+        predict_merge: Sequence[str] = (),
         skip_self_test: bool = False) -> Dict[str, Any]:
     checks: List[Dict[str, Any]] = []
     if not skip_self_test:
@@ -1070,6 +1131,10 @@ def run(observation: Optional[Any] = None, manager_session_id: Optional[str] = N
         check_blocked_claims(ck, ck_ok),
         check_lease(lease, lease_ok, manager_session_id),
     ]
+    # Omitted entirely when no branch is named — see the check's docstring.
+    _mergeability = check_github_mergeability(predict_merge, base)
+    if _mergeability is not None:
+        checks.append(_mergeability)
     return {"readiness": grade(checks), "checks": checks}
 
 
@@ -1105,6 +1170,35 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("any FAIL -> not_ready", grade([P, F]), "not_ready")
     check("any UNKNOWN, no fail -> unknown, NEVER ready", grade([P, U]), "unknown")
     check("FAIL dominates UNKNOWN", grade([U, F]), "not_ready")
+
+    # 0 · github_mergeability — the check added with github_equivalent_merge.py.
+    # ⚠️ IT MUST APPEAR HERE OR THE self_test CHECK'S OWN CLAIM GOES FALSE. That
+    # claim is "every check below has been shown THIS RUN to be able to fail",
+    # and a check with no planted case has not been shown anything.
+    _gm_ok = lambda repo, base, br: {"state": gem.CLEAN}          # noqa: E731
+    _gm_bad = lambda repo, base, br: {"state": gem.WOULD_CONFLICT}  # noqa: E731
+    _gm_blind = lambda repo, base, br: {"state": gem.COULD_NOT_LOOK}  # noqa: E731
+    check("no branch named -> the check is OMITTED, not a pass",
+          check_github_mergeability((), "origin/main", predictor=_gm_ok), None)
+    check("a clean prediction PASSES",
+          check_github_mergeability(("b",), "origin/main",
+                                    predictor=_gm_ok)["state"], PASS)
+    check("A PREDICTED CONFLICT FAILS — the manager cannot merge it",
+          check_github_mergeability(("b",), "origin/main",
+                                    predictor=_gm_bad)["state"], FAIL)
+    check("could-not-look is UNKNOWN, never a pass",
+          check_github_mergeability(("b",), "origin/main",
+                                    predictor=_gm_blind)["state"], UNKNOWN)
+    check("one conflict among several still FAILS",
+          check_github_mergeability(("a", "b"), "origin/main",
+                                    predictor=lambda r, ba, br: {
+                                        "state": gem.WOULD_CONFLICT if br == "b"
+                                        else gem.CLEAN})["state"], FAIL)
+    check("a raising predictor is UNKNOWN, never a pass",
+          check_github_mergeability(
+              ("b",), "origin/main",
+              predictor=lambda r, ba, br: (_ for _ in ()).throw(RuntimeError("x"))
+          )["state"], UNKNOWN)
 
     # 1 · work_has_parent
     objs = {"WO-REAL"}
@@ -1418,6 +1512,10 @@ def main(argv=None) -> int:
                          "Needed for the artifact-cap candidates and the register "
                          "conflict surface.")
     ap.add_argument("--base", default="origin/main")
+    ap.add_argument("--predict-merge", default=None,
+                    help="CSV of branch refs to test-merge against --base the "
+                         "way GITHUB would (an un-armed clone). Omitted "
+                         "entirely when unset: the question was not asked.")
     ap.add_argument("--enforce-states", default="working",
                     help="CSV of SESSIONS.json states counted as live (default: working)")
     ap.add_argument("--digest-threshold", type=int, default=DIGEST_THRESHOLD)
@@ -1431,7 +1529,8 @@ def main(argv=None) -> int:
               manager_session_id=a.session_id, base=a.base,
               open_prs=_normalise_prs(_load_json_arg(a.open_prs)),
               enforced=tuple(s.strip() for s in a.enforce_states.split(",") if s.strip()),
-              threshold=a.digest_threshold)
+              threshold=a.digest_threshold,
+              predict_merge=tuple(b.strip() for b in (a.predict_merge or "").split(",") if b.strip()))
     for c in res["checks"]:
         icon = {PASS: "PASS", FAIL: "FAIL", UNKNOWN: "????"}[c["state"]]
         print(f"manager-preflight: [{icon}] {c['check']}: {c['message']}")
