@@ -284,3 +284,115 @@ progress:
     defects planted and 19 caught -- two ESCAPED on the first pass and both were control gaps, not module
     bugs, now closed; 4 no-op plants fired zero). Nothing in src/, config/ or any unit file is touched.
     Memo: docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md
+  U23: >-
+    DELIVERED as the object's own done_condition deliverable -- a Tier-3 PROPOSAL, PR pending.
+    IT PROPOSES CHANGING NO TARGET PARAMETER. U2 established the brief's premise is false (no exit
+    lever is cutting winners short; the lever family is 3 of 49 winners and giveback_stop's two
+    fires BANKED +$2,471.70), so the take-profit is the only lever with attributed mass -- 18 of 49
+    winners ended exactly there. The M20 walk-forward arm set then STRUCTURALLY CANNOT grade it:
+    measured over the complete 246 arms / 33 legs / 3 families, tp_geometry is PERFECTLY CONFOUNDED
+    with family AND block_unit (uncapped <=> scalp <=> per_leg; capped <=> {donchian,pullback} <=>
+    family_pooled), NO family carries both geometries, all 246 arms share tp_cap_pct 0.099 so there
+    is no dose, and verdict tracks data volume (candidate median 23 folds / 288 OOS vs 16 / 222).
+    The seductive 75%-vs-30% candidate-rate gap IS the scalp-vs-others gap -- the same 28 arms.
+    THE ASK: two named research arms (a within-family geometry contrast, and a cap dose), with the
+    acceptance criterion stated in advance so it cannot be chosen afterwards. Neither touches live
+    money, config/ or the order path.
+    !! THIS DOES NOT SATISFY done_condition AND SAYS SO: that condition requires a lever with IS/OOS
+    + walk-forward BEHIND it, and the finding is that the walk-forward cannot support the lever.
+    THE OBJECT STAYS in_flight. Closing it on this would be marking my own homework.
+    !! It also WITHDRAWS a claim this session repeated in several board posts and PR bodies -- 'three
+    decision requests on the work object are unanswered'. The object file contains the string
+    'decision' ZERO times; the claim is unsupported and its origin is unknown.
+    Memo: docs/research/m20-u23-tier3-proposal-target-geometry-2026-09-12.md.
+    Audit: scripts/research/m20_target_geometry_evidence_audit.py (19 controls, 4 planted defects).
+  U40: >-
+    DELIVERED. Worked
+    BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE,
+    whose remedy is Tier-3 but whose BOTH resolution halves are Tier-1 CI work.
+    !! THE DIRECTION IS VERIFIED IN CODE, NOT TAKEN FROM THE ROW: _election_sort_key carries
+    -intent.effective_priority() and the aggregator does sorted(...) ascending taking ordered[0],
+    so a HIGHER priority WINS and an absent leg taking the fallback beats everything below it.
+    RE-MEASURED 2026-09-13: fallback 10, 50 mapped legs, min mapped 0, 45 STRICTLY BELOW -- the
+    row's figures reproduce exactly. My live-leg count is 44, not the row's 45; one gate changed
+    since 09-09 and I state my own denominator.
+    !! THE ESCALATION, AND IT IS THE POINT: the row says 'The contended accounts are paper-class
+    today'. NO LONGER TRUE. alpaca_live (mode: live, account_class: real_money) routes TWO of the
+    five uncovered legs -- iaum_pullback_1d and slv_pullback_1d -- added by the Option-A roster
+    change e88ef612a on 2026-09-10, ONE DAY AFTER the row was filed.
+    !! SHIPPED scripts/ci/check_priority_fallback_distribution.py, registered in run_guards.py (37
+    self-test + 25 pytest controls). R1 is the row's 'transferable half' verbatim -- STRICTLY below
+    min(DEFAULT_PRIORITIES.values()), with a control proving `<=` is caught. R2 is per-leg coverage
+    with the legs NAMED. R3 is the enforcing rule: a worsening against a committed seed, INCLUDING
+    a seeded leg moving onto real money with no new leg -- which is exactly what Option A did. Both
+    R3 shapes proved END TO END, not only through the pure function.
+    !! R1/R2 REPORT AND DO NOT ENFORCE, DELIBERATELY: both are violated today, the remedy is
+    TIER-3, and failing would red every PR in the repo -- check_pr_queue_watch.py's own reasoning
+    about never_ran. --strict arms them once the operator decides; no flag to unset. SEEDING IS NOT
+    A DISPOSITION.
+    !! A DIVERGENCE FROM THE ROW'S LETTER, STATED: it asks that scripts/check_strategy_coverage.py
+    gain a fourth invariant, but that path is outside check_pr_landing.TIER1_SURFACE so it cannot
+    self-land. Both invariants are hosted in the new scripts/ci/ guard; that file is untouched.
+    !! HONEST ABOUT COVERAGE: 11 defects planted, NINE caught by a named control and TWO caught
+    only as a ValueError/TypeError -- recorded as a weaker form rather than counted as clean,
+    because a traceback does not say which invariant broke. AND ONE OF MY OWN CONTROLS WAS WRONG
+    and a plant found it: 'a real-money exposure is called out loudly' keyed on a string the
+    per-account line already contains, so deleting the warning passed; re-keyed, the plant now
+    fires 2. 3 no-op plants fired zero.
+    !! ALSO RECORDED TWO ALREADY-DISCHARGED ROWS I NEARLY REBUILT, which is the cheap half of not
+    wasting the next session: the scalp-target sweep row's fully-specified build was done by U30
+    (PR #12158, landing: hold, awaiting a human merge click -- and that row does NOT clear on the
+    merge, since its criterion is a SWEEP RUN), and PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13's
+    next_action was worked by U34.
+    NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Nothing in src/, config/ or any unit
+    file is touched. Memo:
+    docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md
+  U39: >-
+    DELIVERED. Worked
+    BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING
+    and found its cause had stopped binding two weeks before it was filed.
+    !! THE CAUSE CHANGED FOUR TIMES AND THE ROW REPORTS THE MODAL ONE. Bucketed into contiguous
+    ERAS rather than censused, over 33 live alpaca_live rows (rowset sha256:5b1cacd6...):
+    sizing_refused at balance=0.10 (13, 08-18->08-25) -> account_mode_dry_run (4) -> sizing (1) ->
+    account_mode_dry_run (5) -> sizing at balance=200.10 (3, last 2026-08-28T16:11:34Z) ->
+    account_mode_dry_run (3) -> dry_run_no_order_placed (4, 2026-09-01 -> 2026-09-11). Window
+    census sizing 17 / account_mode 12 / dry_fold 4. FUNDING THE ACCOUNT TODAY WOULD CHANGE
+    NOTHING: the four current rows never reach sizing. Two further claims in that row are stale --
+    'its only routed real-money leg' (the roster went 1 -> FIVE on 2026-09-10, Option A) and the
+    200.10 balance (the 13 oldest refusals quote 0.10; the account was funded 08-21..08-25).
+    !! THE CURRENT CONDITION IS ALREADY FILED AND I DID NOT RE-FILE IT.
+    BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE is
+    open since 09-06 and MI-200 reproduced it on 09-08. My duplicate check caught it at 0.61
+    overlap; without it I would have filed a second row for a week-old finding. What this unit adds
+    is TWO MORE ROWS -- 5558 (09-08) and 5686 (09-11), taking it to four signals over ten days,
+    all account_class real_money / is_demo 0 / notes is_dry true -- with BOTH declared gates
+    verified permissive at every timestamp against GIT HISTORY, not against today's file.
+    !! I ALSO CONFIRMED ONE OF MI-200's ELIMINATIONS AND WITHDREW ONE OF ITS CORROBORATIONS.
+    account_state.yaml was my own leading hypothesis and it is refuted the same way MI-200 refuted
+    it -- the repo file declares only bybit_1 and bybit_2, so the accessor returns None. But
+    'Runtime view agrees: /api/bot/config live_per_account = True', cited by BOTH the row and
+    MI-200 as a confirming surface, IS NOT INDEPENDENT EVIDENCE: runtime_status.
+    _read_live_per_account reads accounts.yaml::mode and nothing else, folding neither
+    account_state.yaml nor execution: shadow, so it restates a gate already counted and can never
+    show a dry fold. Two of the three 'declared surfaces' that search rests on are one surface read
+    twice. Filed as
+    BL-20260913-LIVE-PER-ACCOUNT-IS-A-PROJECTION-OF-ACCOUNTS-YAML-MODE-WHILE-ITS-OWN-NOTE-CALLS-IT-THE-PIPELINES-RUNTIME-VIEW
+    (Tier-2, fleet-wide, not applied).
+    !! A DOC-vs-CODE GAP RECORDED AS THAT AND NOT AS A CAUSE: the executor folds THREE dry terms and
+    CLAUDE.md says 'there is no third gate'. account_state.yaml is not the Prime Directive's hidden
+    default-off flag -- it is declared, dry-only, with a sanctioned write path -- but it is not one
+    of the two, and a session reading the canonical doc eliminates two gates and has nowhere left
+    to look. The remaining candidate is unchanged and is MI-200's: the dry_run= parameter at
+    coordinator.py:1314. The decisive read (get-env on /proc/<MainPID>/environ) is still owed and a
+    research container cannot make it.
+    !! TWO LOUD OPEN ITEMS ARE BLOCKED, NOT PENDING, and both are annotated:
+    OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED and
+    OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED,
+    whose own text says 'the strategies: list is the ENTIRE execution gate ... the merge IS the
+    arming' -- contradicted by the journal. NEITHER IS CLEARED. Instrument
+    scripts/research/declared_vs_effective_dry.py (56 self-test + 26 pytest controls; 11 defects
+    planted and 11 caught; TWO PLANTS WERE MALFORMED on the first pass -- one literal backslash-n,
+    one inconsistent rename that CRASHED and so scored zero FAIL lines in a grep-based counter --
+    both re-run correctly and recorded rather than counted; 2 no-op plants fired zero). Nothing in
+    src/, config/ or any unit file is touched. Memo:
+    docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md

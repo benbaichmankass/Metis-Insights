@@ -5,21 +5,55 @@
   "timeframe": "1d",
   "config_fingerprint": "sha256:0ff6f295957202614ee964e8b5032377",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 1.2907,
+  "expectancy_r_oos": 0.2581,
+  "n_trades_oos": 5,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": 0.0233,
+      "expectancy_r": 0.0233,
+      "start": "2025-06-09 00:00:00+00:00",
+      "end": "2025-06-09 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": 0.1585,
+      "expectancy_r": 0.1585,
+      "start": "2025-08-13 00:00:00+00:00",
+      "end": "2025-08-13 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": 0.1459,
+      "expectancy_r": 0.1459,
+      "start": "2025-12-04 00:00:00+00:00",
+      "end": "2025-12-04 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": 0.963,
+      "expectancy_r": 0.4815,
+      "start": "2026-04-13 00:00:00+00:00",
+      "end": "2026-08-17 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 4,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:28:07.493040+00:00",
+  "generated_at": "2026-09-16T19:14:25.054157+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for SCHA",
-  "harness": "trend"
+  "source_run": "/tmp/strategy_evidence_omm3li18/scha_trend_long_1d__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "low_n_warning": "n_trades_oos=5 < 10; the pooled number is reported but is not a basis for a verdict."
 }

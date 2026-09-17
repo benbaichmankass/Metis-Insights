@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T04:58:30Z",
+  "updated_at": "2026-09-13T09:00:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4116,8 +4116,8 @@
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
     }
   ],
-  "as_of": "2026-09-13T04:58:30Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t — 0452Z manager tick",
+  "as_of": "2026-09-13T08:10:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
     "lanes": [
@@ -5666,5 +5666,156 @@
       "decision 2 (arming breakout_1) still gated on a dispatchable round for a strategy NOT already holding that symbol",
       "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
     ]
+  },
+  "manager_tick_2026_09_13T0552Z": {
+    "THE_PR_WENT_GREEN_AND_DIRTY_IN_THE_SAME_HOUR": {
+      "green": "all five checks on #11875 passed at 05:21Z, `guards` included — the artifact-validity fix worked.",
+      "dirty": "and main moved past it, so a local `git merge-tree --write-tree` graded the head CONFLICT. This is the case the tick prompt names: green on every check AND unmergeable, because the checks ran against a base main has since passed. mergeable_state alone tells them apart; four green checks do not.",
+      "resolved": "merged main in; the ONLY conflicted file was docs/claude/work/OPEN-PRS.json, whole-file, both sides rewritten."
+    },
+    "I_READ_THE_CONFLICT_INSTEAD_OF_RESOLVING_ON_REFLEX_AND_IT_MATTERED": {
+      "what_the_two_sides_held": "MINE: open_prs 9 / settled_prs 95. MAIN'S: open_prs 0 / settled_prs 104. On its face that reads as main having DELETED nine rows.",
+      "what_it_actually_was": "main MOVED all nine from open_prs to settled_prs — they merged. Checked by PR NUMBER across both sections rather than by section: the set of PRs present only on my side is EMPTY.",
+      "the_half_that_had_to_be_verified_field_by_field": "all three rows carrying a real operator verdict were compared literally, not assumed: #11817 `approved`, #11870 `not_required`, and #11903 `approved_with_conditions` WITH its condition and scope text intact. Losing that third one is the exact failure this register exists to prevent — a successor reading 'approved' without 'bybit_1 only, not fleet-wide' could merge a demo-only approval onto a real-money account. Nothing was lost, so the merge was resolved to MAIN deliberately.",
+      "what_is_still_wrong_and_is_NOT_fixed_here": "main's open_prs is EMPTY against roughly 27 PRs actually open on GitHub. An empty list is not the claim that nothing is open — it is nobody having re-derived it, which this register's own _doc calls its dangerous case. I added ONE row: #11875, the PR this session owns and can state facts about. A full re-derivation needs a live open-PR list and is a unit of work, not a tick. open_pr_record --strict now grades structural=well_formed, decisions=graded, settled=settled_graded, completeness=not_observed — and `not_observed` is WE DID NOT LOOK, never a pass."
+    },
+    "lanes_all_three_RUNNING_re_observed": {
+      "MI-278_research": "58% (flat 3h), merge-testing 3 branches",
+      "MI-279_ops": "29% (flat), e2e tests with mutation controls in flight",
+      "MI-280_engineering": "71% (flat since compaction), #12189 MERGED — 141 insertions, and it found THREE guard bugs by measurement plus planted defects, which is the lane doing exactly what it was dispatched for",
+      "no_spawns": "three lanes exactly, per the operator's rollback instruction."
+    },
+    "merge_queue": {
+      "mine": "#11875 re-merged onto main at 05:55Z and is CLEAN again; checks re-run on the new head.",
+      "still_needs_the_operator": "#12046 (MI-280) — `landing: hold` / `unvouchable_paths`, nothing armed, ONE human merge click. Third tick running. Reported, not re-asked.",
+      "lanes_are_self_serving": "MI-278 is merge-testing its own branches and MI-280 landed #12189 itself; no manager merge was needed or taken."
+    },
+    "next": [
+      "#12046 needs one operator merge click",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — a re-derivation is owed and is a unit of work, not a tick",
+      "decision 2 (arming breakout_1) still gated on a dispatchable round for a strategy NOT already holding that symbol",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow"
+    ]
+  },
+  "manager_tick_2026_09_13T0652Z": {
+    "THE_LEASE_LAPSED_AND_I_DID_NOT_NOTICE_FOR_TWO_HOURS": {
+      "what_happened": "PR #11875 SQUASH-MERGED at 2026-09-13T05:21:13Z, taking the branch's content up to 44ad69b35 onto main. I did not notice, because `git merge-base --is-ancestor <my head> origin/main` answered NO — which is TRUE of my head and says NOTHING about whether the PR merged, since a SQUASH merge puts the content on main under a commit that is an ancestor of nothing on the branch. I read a true answer to the wrong question and concluded the PR was still open.",
+      "the_consequence": "every commit I made after 05:21 — the 0552Z tick, the OPEN-PRS conflict resolution, two guard fixes, and the 05:53 and 06:52 lease HEARTBEATS — went onto a branch whose PR was already merged. No open PR meant no CI fired on any of them, which I noticed and misdiagnosed as a GitHub event problem. And the heartbeats never reached main, so main's lease read 04:53:35Z and EXPIRED at 06:23. `manager_lease.py heartbeat` refused with STAND DOWN, correctly.",
+      "the_lesson_that_generalises": "the rule is 'a claim you did not PUSH protects nothing'. This is one level deeper: A CLAIM PUSHED TO A BRANCH WHOSE PR HAS MERGED ALSO PROTECTS NOTHING, and it looks identical to a healthy push — the push succeeds, the commit exists, the file says what you meant. The check that would have caught it is reading the PR's OWN `state`/`merged` field, not deriving mergedness from ancestry.",
+      "also_caught_by_the_tool_as_predicted": "the branch restart refused while the heartbeat sat uncommitted — `git checkout` blocked it, which this tick's own prompt says in terms is 'the tool catching what you did not'. It was.",
+      "resolution": "branch restarted from origin/main per the standing rule that a merged PR is finished and must not be reused; the three stranded commits' CONTENT is carried forward here rather than discarded; lease RE-CLAIMED over its own expiry with the reason recorded. ⚠️ The claim could not verify main's CI — main's head reports ZERO check runs, so the `unrefreshable holder` case was not ruled out BY EVIDENCE. I am the holder and know it was not that, but the check could not run and the claim says so rather than implying it passed."
+    },
+    "what_the_0552Z_block_below_is": "REAL WORK THAT NEVER LANDED. It is carried forward verbatim, not re-derived: the OPEN-PRS whole-file conflict was read rather than resolved on reflex, and the finding — that main had MOVED all nine rows to settled with every operator_decision intact, including the approved_with_conditions one — stands and is worth keeping.",
+    "OPEN_PRS_row_for_11875_deliberately_NOT_carried": "that row recorded #11875 as OPEN. It merged at 05:21, so carrying it would put a false claim into the handoff record — the precise failure that register exists to prevent. main's own copy already has #11875 nowhere; the honest state is that open_prs is still empty against ~27 open PRs, which stays owed as its own unit of work.",
+    "lanes": "NOT re-observed this tick. The tick was spent establishing why the lease had lapsed and restoring it; the three lanes were get_session'd at 05:56 and all three were RUNNING (MI-278 58%, MI-279 29%, MI-280 71%). Saying so rather than carrying an hour-old reading as if it were fresh.",
+    "next": [
+      "re-observe the three lanes next tick — this tick's reading is 60 min old and is labelled as such",
+      "#12046 still needs one operator merge click",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14"
+    ],
+    "AND_A_PR_EXISTED_THE_WHOLE_TIME_WHICH_CORRECTS_MY_LAST_REPORT": "PR #12200 was opened AUTOMATICALLY by claude-pr-automerge at 05:59:33Z — the very first push after #11875 squash-merged — and its head tracked every commit I made afterwards. I never looked for it; I kept reading #11875. So last tick's report that 'no CI fired on my pushes, suspect a GitHub event problem' is WRONG and is corrected: CI was not firing ON #11875 because #11875 was merged, while a live PR carrying the same pushes sat beside it. 'No checks on the PR I am watching' is not 'no checks'. The arming file did exactly what it is for; what failed was that I did not ask which PR the branch actually had. #12200's body is rewritten to describe what it really carries."
+  },
+  "manager_tick_2026_09_13T0752Z": {
+    "LOUD_ALL_THREE_LANES_ARE_RATE_LIMIT_REJECTED": {
+      "measured": "2026-09-13T07:53:53Z / 07:54:25Z / 07:54:28Z, get_session on all three lanes. EVERY ONE reports rate_limit_info {rateLimitType 'seven_day', isUsingOverage TRUE, status 'REJECTED', resetsAt 1789581600}.",
+      "what_changed": "one hour ago all three read status 'allowed_warning' with isUsingOverage FALSE. The seven-day window has crossed from approaching-the-cap into OVERAGE AND REJECTING.",
+      "reset": "1789581600 = 2026-09-16T18:00:00Z — 82.1 hours from this reading. Computed, not estimated; the earlier '~09-16 18:00' guess happens to have been right and is now confirmed arithmetically.",
+      "what_it_means_and_what_it_does_NOT": "'rejected' is what the API reports about the ACCOUNT's seven-day window, and all three lanes still read session_status RUNNING and connection_status connected. I have NOT established what a rejected request does to a lane in practice — whether it retries, stalls, or fails a turn. Do not report throughput as stopped; report that the limit is rejecting and that the effect on the lanes is UNMEASURED.",
+      "the_consequence_that_IS_established": "SPAWNING A REPLACEMENT LANE CANNOT HELP. Every lane runs on the same account and the same seven-day window, so a fresh session inherits the same rejection. The usual remedy for a lane that is stuck or full — spawn a successor — is unavailable for the next ~82 hours. That is the operator's call, not mine, and it is the reason this is LOUD rather than a checklist line.",
+      "operator_decision_this_raises_without_pre_empting": "whether to (a) let the three lanes run down and accept reduced throughput until 09-16T18:00Z, (b) stop one or two lanes deliberately to concentrate the remaining budget, or (c) something about the account's limit itself, which is entirely outside what a session can touch. NOT proposed, NOT acted on."
+    },
+    "TWO_OF_THREE_LANES_ARE_PAST_THE_HANDOFF_THRESHOLD": {
+      "MI-279_ops": "745508/1M (75%) — UP from 289732 an hour ago. It did NOT compact; it grew 456k in one hour. Past the ~600k threshold at which the standing guidance says a lane should close out and hand off rather than start anything new.",
+      "MI-280_engineering": "729747/1M (73%) — also past it, having compacted to 707k earlier and grown again.",
+      "MI-278_research": "581406/1M (58%) — flat for four hours and below the threshold.",
+      "why_I_am_NOT_acting_on_it": "the standing remedy is to have the lane close out and hand off to a FRESH session, and a fresh session is exactly what the rate limit makes unavailable. So the two facts interact: the normal response to a full lane is blocked by the other finding. Recorded together for that reason rather than as two independent lines.",
+      "also_noted_not_interpreted": "MI-279's post_turn_summary is ABSENT on this read where it was present an hour ago. I do not know what that means and am not guessing."
+    },
+    "the_branch_restart_is_now_a_PER_TICK_STEP": {
+      "what": "#12200 MERGED at 07:18:27Z at head e337116d5 — the 0652Z tick landed. That is the SECOND consecutive tick whose PR auto-merged within the hour, leaving the branch finished.",
+      "the_procedure_that_follows": "at the START of every tick, read the branch's PR STATE (not ancestry) and, if it merged, restart the branch from origin/main BEFORE doing anything else. Done this tick: restarted at 475495155, then heartbeated on the fresh base. This is the system working as designed — the arming file opens a new PR on the first push — and the failure at 0552Z/0652Z was mine for not checking.",
+      "cheap_check": "`git merge-base --is-ancestor` is the WRONG probe and answers a different question under squash merges. Read the PR's own `merged` field."
+    },
+    "lanes_are_landing_their_own_work": "MI-278 merged #12212 and has #12148 awaiting a click; MI-280 merged the diagnostic-provenance-guard and armed duplicate detection (U89; register 1586 rows, 0 duplicates). No manager merge was needed or taken.",
+    "next": [
+      "the rate-limit rejection is the operator's to decide on — it is LOUD and it blocks the normal remedy for a full lane",
+      "#12046 still needs one operator merge click (fourth tick)",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — TOMORROW",
+      "OPEN-PRS open_prs is empty against ~27 open PRs — owed as its own unit"
+    ]
+  },
+  "OPERATOR_DIRECTED_PAUSE_2026_09_13T0808Z": {
+    "the_directive": "Operator, 2026-09-13: \"we're out of tokens for this week, so we need to pause all lanes as soon as possible (they should close up whatever they're working on so no work is lost and we can pick up again in a few days)\".",
+    "corroborated_independently": "all three lanes' own get_session reports rate_limit_info {rateLimitType seven_day, isUsingOverage TRUE, status REJECTED, resetsAt 1789581600 = 2026-09-16T18:00:00Z}. The operator's statement and the API's agree.",
+    "HOW_the_directive_was_delivered_because_the_obvious_channel_does_not_exist": "A manager CANNOT message a running cloud sub-session — ListAgents returns no reachable agents, re-confirmed at 08:08Z. The channel that DOES reach one is create_trigger with persistent_session_id, which fires a prompt INTO the named live session. Three one-shot triggers created, all firing 2026-09-13T08:12:00Z: trig_01WcbCeED49HJjS4XGA84bFg (MI-278), trig_018pdd8tpTLhCWZyVqteaGPY (MI-279), trig_01MiaVcTHroUPhGafB5pAf8j (MI-280). ⚠️ RECORD THIS: the standing note that a manager cannot reach a sub-session is true of SendMessage and FALSE of this route. It is the first time in this run that a directive has been pushed to a lane rather than left in a register and hoped for.",
+    "what_each_lane_was_told": "In this order, because a turn may be refused mid-way and the early steps are the ones that preserve work: (1) PUSH FIRST, PROSE SECOND — commit and push every branch, arming a PR if the unit is complete and committing with a 'WIP (paused 2026-09-13):' subject if it is not, because an unpushed container is lost when it is reclaimed; (2) write a RESUMPTION NOTE into their OWN work object under docs/claude/work/objects/ — explicitly NOT into this checklist or SESSIONS.json, since a second writer corrupts them; (3) list every branch and open PR they leave behind; (4) stop and go idle. And: if a step fails because a request is refused, skip it and SAY SO — a partial close-out that is honest about its gaps beats a complete-looking one that is not.",
+    "state_at_the_moment_of_pausing": {
+      "MI-278_research": "IDLE / review_ready at 08:07Z — BETWEEN units, which is the safest possible moment to stop. 764506/1M (76%). Its own stated next action was to pick up another research unit; the directive supersedes that explicitly.",
+      "MI-279_ops": "RUNNING, 745508/1M (75%), mid-analysis of register arithmetic and a workflow PAT client. The most perishable of the three — that analysis may exist only in its context.",
+      "MI-280_engineering": "RUNNING, 729747/1M (73%), mid-way wiring self-test cases into main(). Told to leave it RECOVERABLE rather than finish it."
+    },
+    "what_is_NOT_established": "whether a rate-limit-REJECTED session can serve the close-out turn at all. The directive is delivered; the lanes acting on it is UNOBSERVED. Do not report the pause as complete until each lane's own push and resumption note are visible on origin. ⚠️ And the trigger tool warned that fired sessions carry no MCP connector tools — for a persistent session that warning is written for the fresh-session case and may not apply, but if a lane cannot reach mcp__github__* it can still git-push and use the arming-file route, which is what the directive asks for.",
+    "the_manager_session_itself_is_NOT_covered_by_this": "the operator said 'all lanes'. This session is the manager, and its hourly tick keeps firing and keeps spending. That is a real question and it is being put to the operator rather than decided here — disabling my own wake-up is not a call I should make unilaterally.",
+    "next": [
+      "VERIFY the pause rather than assume it: re-read all three at ~08:20Z and confirm each pushed and wrote a resumption note",
+      "record what each lane left behind into OPEN-PRS once they report it",
+      "#12046 still needs one operator merge click",
+      "the bybit hedge-book dedupe row is LOUD and due 2026-09-14 — tomorrow, and there may be no lane running to observe it"
+    ]
+  },
+  "FINAL_STATE_2026_09_13T0845Z_MANAGER_STANDING_DOWN": {
+    "what_this_is": "The manager's LAST write of this run. Operator directed a full pause 2026-09-13 (weekly token budget spent). The operator was then asked whether the hourly manager tick should also stop and chose 'Stop the hourly tick too' — one verification pass, write the final state here, go quiet. This is that write. THE HOURLY TICK ROUTINE IS BEING DISABLED IN THE SAME PASS, so nothing will update this page until a human starts a new manager.",
+    "resumes": "2026-09-16T18:00:00Z — the seven_day rate window reset, read off all three lanes' own rate_limit_info.resetsAt (1789581600), not assumed.",
+    "LANE_CLOSE_OUT_VERIFICATION": {
+      "how_it_was_verified": "Not by asking the lanes and believing the answer: by reading origin for a push, and reading the pushed diff. A lane reporting it closed out is a claim; a commit on origin carrying a resumption note is the observation.",
+      "MI-278_RESEARCH": {
+        "verdict": "CLOSED OUT CLEANLY",
+        "evidence": "origin/claude/mi278-u45-avax-risk-qty-reconstruction, pushed 2026-09-13T08:40:57Z, subject 'WIP (paused 2026-09-13): U45 resumption note — AVAX scalp sizing, measured but uncommitted'. One file, +76 lines, all of it into its OWN work object WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT-HOLD-WINNERS-LONGER.yaml — exactly the shape the directive asked for (WIP prefix for an incomplete unit; note in the lane's own object, never in this checklist or SESSIONS.json, so there is no second writer).",
+        "quality_of_the_note": "High, and it is not a summary — it is measurement that exists nowhere else. It carries the population (a 1000-row journal tail, ids 4772-5736, 76 ict_scalp_avax_5m rows), CORRECTS TWO OF ITS OWN FALSE NEGATIVES in writing (a 1e-6 tolerance that made an exact match read as 'differs'; a wrong config key name), and lands a NEW finding: PB-20260822's stated blocker is real but MISDIAGNOSED — the pre-clamp risk qty is already written to account_context_snapshots and simply has no read surface, so adding that table to diag's _JOURNAL_TABLES is a far cheaper fix than the Tier-2 risk.py stamp the backlog row proposes."
+      },
+      "MI-279_OPS": {
+        "verdict": "CLOSED OUT CLEANLY, and reports NOTHING unpushed",
+        "evidence": "origin/claude/mi279-closeout-pause, two commits (08:18:13Z close-out note, 08:38:09Z arming). Resumption note into its own WO-20260912-OPS-LANE-DRIVE-THE-HEALTH-BACKLOG-DOWN.yaml; object deliberately left in_flight because this is a pause, not a completion.",
+        "what_it_hands_forward": "#12211 (U27) merged as 475495155. #12213 (U28) Tier-1 but landing:hold — NEEDS A HUMAN MERGE CLICK. #12216 (U29) Tier-1 self, armed, four required checks green at 08:10Z.",
+        "⚠️_a_CI_anomaly_it_flagged_that_a_successor_must_not_read_as_green": "#12213's head carries ONLY the `watch` check — no pull_request-event run has ever fired on that branch (it measured 5 runs, all push or pull_request_target), while the identical route on #12216 produced all four required checks twice. It dispatched guards.yml / pytest-run.yml / pytest-collect.yml by workflow_dispatch. VERIFY THOSE THREE ARE GREEN BEFORE MERGING #12213. total_count 1 is not green.",
+        "⚠️_the_loud_row_it_opened": "A real-money bybit_2 hedge book that no surface in this repo can fetch, so no surface can say whether the position is still there — and every surface reads through the same defective path, which means their silence is NOT evidence it closed. It is in OPEN-ITEMS as a loud row; it is the single most important thing this lane produced."
+      },
+      "MI-280_ENGINEERING": {
+        "verdict": "⚠️ COULD NOT SERVE ITS CLOSE-OUT TURN — a different fact from the other two, and it must not be reported as 'all three paused cleanly'.",
+        "evidence": "get_session at 08:28:09Z: status_bucket FAILED, post_turn_summary status_detail \"You've hit your weekly limit · resets Sep 16, 6pm (UTC)\". Its rate_limit_info reads isUsingOverage FALSE with status REJECTED, where MI-278 and MI-279 both read isUsingOverage TRUE — i.e. this lane is past the HARD stop and not on the overage path, so it could not take a turn at all. The pause trigger fired at 08:12:00Z into a session that could not answer it.",
+        "what_is_at_risk": "Its working branch claude/mi280-u92-malformed-removal-declaration is NOT on origin (measured 08:40:56Z with a positive control — eleven other mi280-* branches resolve). Whatever U92 contains exists only in that container. Whether it survives to 2026-09-16T18:00Z is UNKNOWN — that is 'we did not look', not 'it is safe'.",
+        "what_is_NOT_at_risk": "Everything else. 11 mi280-* branches are on origin, including #12217 (U91) and #12214 (U90), both pushed before the limit hit.",
+        "what_the_manager_did_about_it": "Nothing, deliberately. The operator was asked in advance what to do if a lane could not serve its turn and chose 'Report it and leave the lane alone'. So: recorded here, no re-trigger, no push on the lane's behalf, no archive."
+      }
+    },
+    "⚠️_A_CORRECTION_TO_THIS_MANAGERS_OWN_PAUSE_BLOCK_READ_IT_BEFORE_REUSING_THE_ROUTE": {
+      "what_the_earlier_block_claimed": "OPERATOR_DIRECTED_PAUSE_2026_09_13T0808Z states that create_trigger with persistent_session_id is the channel that reaches a running sub-session, and calls it 'the first time in this run that a directive has been pushed to a lane rather than left in a register and hoped for'.",
+      "what_the_evidence_now_says": "THAT IS UNPROVEN AND ONE LANE CONTRADICTS IT. MI-279's own close-out note states plainly: 'I NEVER RECEIVED THAT DIRECTIVE IN MY OWN CHANNEL. The manager delivered it via create_trigger into live sessions ... no such prompt reached this session, and I am acting on the commit-message relay' — it read the directive out of the commit message on PR #12215 and acted on that. MI-278's note names no channel at all.",
+      "so_what_is_actually_established": "Two of three lanes closed out. ZERO of them is confirmed to have closed out BECAUSE of the trigger. The one lane that says how it learned of the pause says it learned from a COMMIT MESSAGE. A trigger firing is a delivery receipt for a prompt, not evidence a rate-limited session served the turn it opened.",
+      "why_this_is_recorded_rather_than_quietly_dropped": "Because the earlier block reads as a proven capability, and a successor manager would reach for it in an emergency and believe the lane had been reached. The honest state is: the route is available and UNVERIFIED, and the cheap thing that demonstrably worked was writing the directive into a commit message on a PR the lanes were already watching. Do both next time; trust neither alone.",
+      "the_second_order_point": "This is the same class as everything else in this register — a mechanism that SHIPPED is not a mechanism that RAN, and a receipt is not an observation."
+    },
+    "WHAT_THE_MANAGER_DID_IN_ITS_LAST_HOUR": {
+      "merged_12046": "Tier-1 (scripts/check_claim_basis.py binds one more backlog file; .github/workflows/pytest-run.yml makes CI run MORE often). Merged as d2c55e2994b74a348ebc5f3261541e6ba1dce0fc under an operator-authorised MANAGER RULING — the operator authorised the ROUTE for a green Tier-1 PR whose owning lane is rate-limited, NOT this PR's content. Recorded in OPEN-PRS.json with the caveat that only the manager read the diff, and with the fact that the manager's first description of the PR to the operator was incomplete and was corrected before the merge.",
+      "MI-227_clause_3_observed": "The intent-reduce leg resize was read back off the venue and OPEN-ITEMS updated: trade 5731 (parent 5688), bybit_1 XRPUSDT, 18,377.1 -> 3,589.9, with BOTH tracked legs re-reading at qty 3589.9 against a 3589.9 position — coverage 1.00x where the F-36 defect would have left 5.12x. n=1, and bybit_1 is account_class paper. Stated, not buried.",
+      "a_false_anomaly_the_manager_filed_and_withdrew": "The manager filed a row claiming trade 5731's direction opposed its bracket. It was WRONG and is withdrawn as status 'invalid': an intent_reduce row's `direction` is the CLOSE-ORDER side by documented contract (src/units/accounts/clients.py:837-843), and the venue confirms bybit_1 holds XRPUSDT Buy 3589.9. Left in the register as an invalid row rather than deleted, because the withdrawal is the useful artifact."
+    },
+    "WHAT_A_RESUMING_MANAGER_SHOULD_DO_FIRST": [
+      "1. Read this block and the CORRECTION above it before trusting the trigger route.",
+      "2. Check whether MI-280's container survived and whether claude/mi280-u92-malformed-removal-declaration ever reached origin. If it did not, U92 is gone and the unit is re-doable from its work object, not lost work in the sense that matters.",
+      "3. Give #12213 the three dispatched checks a look BEFORE merging it — MI-279's flagged anomaly. total_count 1 is not green.",
+      "4. Pick up MI-279's loud OPEN-ITEMS row on the unfetchable bybit_2 hedge book. It is real money and no surface can currently answer it.",
+      "5. Re-claim the lease with a reason (this manager's expires 2026-09-13T10:12:00Z and will be long stale)."
+    ],
+    "⚠️_AND_THIS_PR_REPRODUCED_THE_ANOMALY_MI_279_FLAGGED": {
+      "what_happened": "PR #12221 — the PR carrying THIS block — was opened at 2026-09-13T08:50:54Z and, eight minutes later, carried SIX check runs of which only ONE was a required context. Required set, read from .github/workflows/branch-protection-sync.yml::REQUIRED_CONTEXTS rather than assumed: [pytest-collect, pytest-run, guards]. `pytest-run` fired. `pytest-collect` and `guards` did NOT. mergeable_state read `blocked` — NOT `dirty`, so this was never a merge conflict.",
+      "the_cause_is_established_not_guessed": "GitHub was returning 500s in that exact minute, and there are four independent witnesses: `mcp__github__create_pull_request` returned `500 []` on its first attempt and succeeded on the second; `update_pull_request` (draft→ready) failed TWICE with GraphQL 'Something went wrong while executing your query' carrying request ids; and the repo's own `open-and-automerge` job, which ran at 08:50:05Z BEFORE the PR existed, died with `##[error]Unhandled error: HttpError: Server Error` — read from its job log, not inferred. So the two missing checks are dropped webhook deliveries from a GitHub-side incident, not anything about this diff.",
+      "why_the_two_RED_checks_are_NOT_this_PR_s": "`open-and-automerge` and `watch` are both from run 34748560416/34748560369, started 08:50:05Z — FORTY-NINE SECONDS BEFORE THE PR EXISTED. `open-and-automerge`'s whole job is to find-or-open the PR and enable auto-merge; it hit the 500 storm and failed. Both of its duties were then performed by hand and verified: the PR was created (08:50:54Z) and auto-merge was enabled (08:51:39Z, SQUASH, confirmed by the pull_request.auto_merge_enabled event). Neither check is in REQUIRED_CONTEXTS. ⚠️ Re-running them would be a no-op at best — the PR they exist to open is already open — so the one permitted re-run is deliberately NOT spent here.",
+      "the_remedy_and_why_it_is_this_one": "Push one ordinary commit. `guards.yml` fires on `pull_request` types [opened, synchronize, reopened] and `pytest-collect` the same way, so a synchronize re-arms both. ⚠️ `ready_for_review` is DELIBERATELY ABSENT from guards.yml's trigger list — its own header explains why (re-running on the ready transition re-tests an identical sha and resets a green head to pending) and then warns: *'RE-ADD IT if drafts ever stop running checks: a draft with no runs and no ready trigger would be unmergeable forever.'* That warning describes a DIFFERENT failure from this one — here `opened` was delivered for pytest-run and dropped for the other two — but it is the nearest thing in the repo to this hazard and a successor should read the two together. ⚠️ A workflow_dispatch was NOT used, which is the other available route and the one MI-279 took on #12213: a dispatched run attaches to the BRANCH, and whether it satisfies the PR's required context is exactly what MI-279 could not establish and had to warn about. A synchronize produces the genuine pull_request-event run, so it needs no caveat.",
+      "⚠️_the_auto_merge_race_does_NOT_apply_here": "CLAUDE.md warns that once auto-merge is armed a later push races CI and can be left out of the squash (measured on #11392). That hazard needs a head that CAN merge. This one cannot: two required contexts are absent, so auto-merge has nothing to fire on, and the new head simply becomes the one the required checks finally run against. Stated rather than assumed, because the general rule points the other way.",
+      "why_this_is_recorded_rather_than_just_fixed": "It is a SECOND live instance, on a different PR, of the class MI-279 flagged on #12213 two hours earlier — and the two have DIFFERENT causes (that one had no pull_request-event run at all across 5 runs; this one had a partial delivery). One is an anecdote, two on one morning is a pattern, and the pattern is that `total_count > 0` says nothing about whether the REQUIRED set ran. Read the required contexts out of branch-protection-sync.yml and check them BY NAME.",
+      "the_scope_overlap_audit_on_this_PR_needed_no_action_and_here_is_why": "The bot flagged 3 paths against 226 declared. `.github/pr-automerge-requests/manager-tick-20260912-0610z.txt` and `.github/pr-landing/manager-tick-20260912-0610z.json` both carry THIS BRANCH'S SLUG in their own filenames, so no other branch writes them — the match is against a broad `.github/` declaration, not a real contender. `docs/claude/health-review-backlog.json` was matched to a LIVE declaration by session_01BjTp5RYwedmpFfkEtkQo1j — which is MI-280, the lane that hit its hard weekly limit and CANNOT push (see its row above), so the collision cannot occur; and the write was a single append through scripts/ops/backlog_append.py, which round-trips the file's exact serialisation rather than reformatting it. Recorded because 'I looked and it was fine' and 'I did not look' are different facts."
+    }
   }
 }
