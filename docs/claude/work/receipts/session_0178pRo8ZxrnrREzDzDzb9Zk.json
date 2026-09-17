@@ -116,6 +116,10 @@
     "sessions_spawned": {
       "value": 4,
       "population": "in-context read-only subagents spawned by this lane; none committed, by mandate"
+    },
+    "errors_recorded": {
+      "value": 7,
+      "population": "errors this session made and corrected, recorded in section E"
     }
   },
   "errors": {
@@ -137,6 +141,18 @@
       {
         "what": "I cited two backlog ids in a work object BEFORE filing them \u2014 the exact trap MI-290 says the generator exists to prevent, committed by the session canonizing the rule.",
         "correction": "Caught by running check_backlog_refs.py --base origin/main before committing; filed both rows first, then re-ran to OK. This is why the generator resolves ids from the backlog rather than letting an author type them."
+      },
+      {
+        "what": "My surgical splice of a backlog row used json.dumps(indent=2) with the DEFAULT ensure_ascii=True, escaping the non-ASCII characters in the note. The consequence is out of proportion to the typo: append_row round-trips the file before appending, so no candidate serialisation would reproduce it and EVERY future write to that backlog would have been REFUSED repo-wide.",
+        "correction": "Caught by artifact-validity-guard (backlog_append.py --check-live), which named both the cause and the correct fix. Re-serialised THAT ROW with ensure_ascii=False \u2014 one line changed, never a file reformat, which would have re-attributed every pre-existing row to this diff. 4 live backlogs now reproduce byte-for-byte. This is the SECOND serialisation error I made on a register in one session; the first was on OPEN-ITEMS.json."
+      },
+      {
+        "what": "I opened the PR and reported it ready without reading `mergeable_state`. It was `dirty` \u2014 a merge conflict \u2014 which is why only 2 of the required checks had attached.",
+        "correction": "Read `mergeable_state` (the documented FIRST move on a PR with missing checks), found the conflict, and resolved it. The conflict was an add/add on this lane's OWN work object, which the manager had created independently in #12470 because the lane's registry row was not on origin/main when it started. Resolved as a UNION, not by taking a side \u2014 taking either side would have discarded the operator directive's full text or the only open decision on the object."
+      },
+      {
+        "what": "My work object carried a prominent field saying the WIP ceiling forced it to lifecycle `ready`. That became false while the PR was open: the manager closed three stale in_flight rows in #12470, so the object is now correctly `in_flight` with a real owner.",
+        "correction": "Re-measured over all 8 in_flight rows at 89f9d0c3e and rewrote the object rather than leaving a stale constraint standing. Narrowed the backlog row instead of closing it: the immediate consequence is discharged, but 7 of 8 rows still cannot be graded for liveness, and the remediation was a SWEEP with no mechanism behind it."
       }
     ]
   }
