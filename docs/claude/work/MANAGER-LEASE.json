@@ -20,15 +20,15 @@
   ],
   "schema_version": 1,
   "state": "held",
-  "holder": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "claimed_at": "2026-09-16T19:10:21Z",
-  "heartbeat_at": "2026-09-16T19:10:21Z",
-  "expires_at": "2026-09-16T20:40:21Z",
+  "holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
+  "claimed_at": "2026-09-17T16:35:15Z",
+  "heartbeat_at": "2026-09-17T16:35:15Z",
+  "expires_at": "2026-09-17T18:05:15Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
   "claimed_over_state": "expired_unverified",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "note": null
+  "note": "New manager session, 2026-09-17. Predecessor session_01HoFquGdTrD3TTGbMMRc43t wrapped cleanly (receipt supplied by operator) and deliberately left the lease un-reclaimed; its heartbeat is 1284 min stale, far past the 90 min TTL. COULD NOT CHECK main CI: main's head reports zero check runs, so the 'unrefreshable' case was not ruled out by reading — but the predecessor's own receipt records it stood down, which is independent evidence it is not alive-and-blocked."
 }

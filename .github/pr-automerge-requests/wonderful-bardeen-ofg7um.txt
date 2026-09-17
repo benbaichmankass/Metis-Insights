@@ -1,0 +1,1 @@
+manager lease claim; Tier-1 registers only; see .github/pr-landing/wonderful-bardeen-ofg7um.json
