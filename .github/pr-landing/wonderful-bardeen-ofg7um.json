@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Coordination registers only: the manager lease claim (docs/claude/work/MANAGER-LEASE.json), the supervision record this claim obliges (docs/claude/work/SESSIONS.json), and this branch's own landing declaration plus its arming and merge-slot files. No src/, no config/, no deploy/, no tests/, no scripts/, no workflow, no order path. The lease is the reason this must land rather than wait: another session reads origin/main, not this branch, so an unmerged claim protects nothing against a concurrent manager."
+}
