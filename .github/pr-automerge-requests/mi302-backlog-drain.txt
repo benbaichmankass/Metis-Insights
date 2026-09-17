@@ -1,0 +1,2 @@
+MI-302 backlog drain — close 5 health-review-backlog.json rows + 1 skill-doc landing-table row.
+Merge-slot claimed on Claude Coordination Board issue #11336 at issuecomment-5722529887.
