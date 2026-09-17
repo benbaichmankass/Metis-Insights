@@ -90,6 +90,12 @@ COVERED = {
     # a docs/ path literal; these are the ones not writing a tmp_path
     # fixture. See test_docs_committed_readers_are_all_covered below, which
     # re-derives this set from the tests on every run so it cannot go stale.
+    "docs/sprint-logs":
+        "test_conflict_marker_scope reads THE REAL sprint-log tree — level 4 of "
+        "the instruction hierarchy, and the gap that decided the conflict-marker "
+        "scope. A sprint-log-only PR must therefore run the suite: the tree is "
+        "now asserted over, so a short-circuit would report a green having "
+        "checked none of the 309 files the assertion covers",
     "docs/research/exit-refinement-coverage.json":
         "test_exit_head_per_leg reads THE REAL matrix (not a fixture); PR #9208 "
         "changed only this file, short-circuited to a TEN-SECOND green "
