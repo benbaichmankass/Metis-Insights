@@ -149,6 +149,105 @@ def _day(v: Any) -> date | None:
         return None
 
 
+#: The tracking-id prefixes `scripts/ops/check_backlog_refs.py::REF` matches.
+#:
+#: ⚠️ DELIBERATELY A COPY, NOT AN IMPORT, AND THE DRIFT IS CLOSED BY A TEST.
+#: `check_backlog_refs.py` is a CI guard with its own argv/exit contract, and
+#: importing it here to read one regex would put a guard's module-scope work on
+#: the hot path of the renderer that guard grades. `tests/test_due_list_id_safe_
+#: truncation.py` parses `REF` out of that file and asserts this set equals it,
+#: so the two cannot diverge silently — which is the only failure a copy has.
+_ID_PREFIXES = ("BL", "MB", "FU")
+
+#: A register id left DANGLING by a cut: the id shape, anchored to the end of
+#: the clipped string. The trailing `-?` matters — a cut can land on the hyphen
+#: itself, and a cut ending `…-BYBIT2-` is just as dangling as one ending
+#: `…-PAGE-R`. (The examples are written WITHOUT their date digits on
+#: purpose — see the note in `_clip`'s docstring.)
+_ID_TAIL = re.compile(
+    r"\b(?:" + "|".join(_ID_PREFIXES) + r")-\d{0,8}(?:-[A-Z0-9]+)*-?[A-Z0-9]*$"
+)
+
+
+def _clip(text: Any, limit: int) -> str:
+    """`text` truncated to `limit`, NEVER leaving a partial tracking id behind.
+
+    ⚠️ THIS IS NOT COSMETIC — A TRUNCATED ID IS A REFERENCE THAT RESOLVES TO
+    NOTHING, AND IT TOOK THE DUE-LIST OFF THE AIR FOR FOUR DAYS. A bare
+    ``[:200]`` over register-supplied prose cuts wherever 200 characters land.
+    On 2026-09-12 that happened to land inside a filed id, so from the next
+    render onward every ``DUE.json``/``DUE.md`` carried
+    a 37-character prefix of the real ``BL-<YYYYMMDD>-BYBIT2-SETTLE-COIN-PAGE-``
+    row — a reference that matches nothing. ``check_backlog_refs.py`` then
+    correctly refused the
+    commit, so **the producer generated output its own repo could never accept**
+    and `error-feed-digest.yml` landed 0 of 22 runs. A generated artifact that
+    CI must reject is a self-strangling loop, not a flake.
+
+    ⚠️ THE CLASS WAS KNOWN AND THE FIX DID NOT REACH THE PRODUCER. This file
+    already carried a comment (at the `src_probes` hand-off) saying an id is
+    kept on one line *because* wrapping truncates it; and
+    `check_backlog_refs.py::suggest_for` records measuring n=3 truncations on
+    2026-09-13 and concluding the failure mode is REFORMATTING. Both readings
+    were right and both looked only at **hand-written prose**. Neither asked
+    whether anything truncates ids *programmatically* — and something did,
+    hourly, into a committed artifact.
+
+    The rule is: **the whole id, or none of it.**
+
+    - Cut lands in ordinary text → plain truncation, unchanged behaviour.
+    - Cut lands inside an id → cut again *before* that id starts.
+    - …and that would leave nothing (the id begins at offset 0 and is itself
+      longer than `limit`) → keep the id WHOLE and overrun `limit`.
+
+    That last branch is the one worth defending: it is the only case where this
+    returns more than `limit` characters. Ids are bounded (~150 chars on the
+    live register), an over-long row is a readability cost, and the alternative
+    — emitting a fragment — is the defect. A row that reads as tracked while
+    being tracked by nobody is the exact crack the 2026-07-30 operator directive
+    names, and it is worse than a long line.
+
+    ⚠️ THE EXAMPLES ABOVE ARE DELIBERATELY WRITTEN WITHOUT THEIR DATE DIGITS,
+    AND RESTORING THEM RE-BREAKS THIS FILE. ``check_backlog_refs.py`` scans
+    ``scripts/`` as well as ``docs/``, and its ``REF`` needs ``\d{8}`` to
+    match — so spelling a truncated id literally here makes THIS docstring a
+    dangling reference and fails the guard. Writing the explanation re-created
+    the finding it explains; that is recorded rather than quietly worked
+    around, because it is the same shape as the bug.
+
+    ⚠️ IT NEVER REWRITES, ONLY CLIPS. Nothing here repairs a dangling id that
+    was already dangling in the register — that is the author's to fix, and
+    `check_backlog_refs.py` still says so. This only guarantees the renderer
+    does not MANUFACTURE one.
+    """
+    text = str(text if text is not None else "")
+    if limit <= 0 or len(text) <= limit:
+        return text
+
+    cut = text[:limit]
+    # Does the boundary fall INSIDE a token? If the next character cannot
+    # continue an id, nothing was split and the plain cut is correct.
+    nxt = text[limit]
+    if not (nxt.isalnum() or nxt == "-"):
+        return cut
+
+    m = _ID_TAIL.search(cut)
+    if m is None:
+        return cut
+
+    head = cut[:m.start()].rstrip()
+    if head:
+        return head
+
+    # The id starts at offset 0 and does not fit. Emit it whole rather than
+    # emit a fragment — see the docstring's third bullet.
+    whole = re.match(
+        r"\b(?:" + "|".join(_ID_PREFIXES) + r")-\d{8}-[A-Z0-9]+(?:-[A-Z0-9]+)*",
+        text,
+    )
+    return whole.group(0) if whole else cut
+
+
 # ── sources ────────────────────────────────────────────────────────────────
 
 def src_open_items(root: Path, today: date) -> SourceResult:
@@ -168,7 +267,7 @@ def src_open_items(root: Path, today: date) -> SourceResult:
     rows = []
     for it in items:
         ident = it.get("id", "(no id)")
-        title = (it.get("summary") or "")[:200]
+        title = _clip(it.get("summary"), 200)
         loud = bool(it.get("loud"))
         # Both spellings occur in the live register; neither is authoritative.
         last = _day(it.get("verified_at")) or _day(it.get("last_checked"))
@@ -281,7 +380,7 @@ def src_soaks(root: Path, today: date) -> SourceResult:
             # nobody can read is not a soak that has been checked, and silently
             # dropping it would make a typo look like a row with no soak.
             tally["unknown"] += 1
-            rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+            rows.append(_row("soaks", ident, _clip(it.get("summary"), 200),
                              "soak declaration is UNGRADEABLE — " + "; ".join(bad)))
             continue
 
@@ -301,7 +400,7 @@ def src_soaks(root: Path, today: date) -> SourceResult:
         if not v.surfaces:
             context.append(f"{ident}: {v.state}")
             continue
-        rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+        rows.append(_row("soaks", ident, _clip(it.get("summary"), 200),
                          f"soak {v.state.upper()} — {v.why}",
                          age_days=v.days_since_declared, loud=v.escalates))
 
@@ -376,7 +475,7 @@ def src_operator_owed(root: Path, today: date) -> SourceResult:
                f"{sorted(open_statuses | terminal_statuses)} — ungradeable, "
                f"surfaced rather than dropped")
         rows.append(_row("operator_owed", it.get("id", "(no id)"),
-                         (it.get("title") or "")[:200],
+                         _clip(it.get("title"), 200),
                          why,
                          age_days=(today - opened).days if opened else None,
                          loud=True))
@@ -547,7 +646,7 @@ def src_probes(
             continue
         if state == "fail":
             rows.append(_row("probes", r.get("id", "(no id)"),
-                             (r.get("checks") or "")[:200],
+                             _clip(r.get("checks"), 200),
                              "probe FAILED — its declared observation did not hold" + stamp,
                              loud=True))
         elif state == "could_not_run" and r.get("reason") != "no_probe_declared":
@@ -600,7 +699,7 @@ def src_research_queue(
                 elif s.startswith("title:") and not title:
                     title = s.split(":", 1)[1].strip()
             if status == "queued":
-                rows.append(_row("research_queue", f.stem, title[:200],
+                rows.append(_row("research_queue", f.stem, _clip(title, 200),
                                  "research job still queued"))
     except OSError as exc:
         return SourceResult("research_queue", "could_not_read", note=f"OSError: {exc}")
@@ -760,7 +859,7 @@ def src_unlanded_automation(
             continue
         opened = _day(pr.get("created_at"))
         rows.append(_row("unlanded_automation", f"#{pr.get('number')}",
-                         (pr.get("title") or "")[:200],
+                         _clip(pr.get("title"), 200),
                          "producer output opened a PR that has not landed",
                          age_days=(today - opened).days if opened else None,
                          loud=True, link=pr.get("html_url", "")))
@@ -862,7 +961,7 @@ def src_error_feed(
             "ERRFEED-" + hashlib.sha1(
                 g.get("cause", "").encode("utf-8")).hexdigest()[:8],
             f"[{g.get('level')}] {'NEW ' if g.get('is_new') else ''}"
-            f"x{g.get('count')} {g.get('cause', '')[:140]}",
+            f"x{g.get('count')} {_clip(g.get('cause'), 140)}",
             f"error-level condition on `{g.get('feed')}`, "
             + ("FIRST SEEN since the last digest — " if g.get("is_new")
                else "STANDING (predates the last digest) — ")
@@ -1086,7 +1185,7 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: t
     for r in reg.get("newly_stalled") or []:
         rows.append(_row(
             "checklist_unrouted", str(r.get("id", "(no id)")),
-            str(r.get("title") or "(no title)")[:140],
+            _clip(r.get("title") or "(no title)", 140),
             f"FILED AND NEVER ROUTED — {r.get('unrouted_hours', '?')}h with "
             f"owner `{r.get('owner', '?')}` and status `{r.get('status', '?')}`, past the "
             f"measured {thr}h threshold. Route it, disposition it, or record why it stays "
@@ -1408,7 +1507,7 @@ def src_spent_decision_edges(
             rows.append(_row(
                 "spent_decision_edges", f"stranded-edge-{obj}",
                 f"{obj} is `waiting` on an UNRESOLVABLE edge",
-                (f"Its `blocked_on` ref is {str(ref)[:120]!r}, graded "
+                (f"Its `blocked_on` ref is {_clip(ref, 120)!r}, graded "
                  f"{mod.EDGE_UNRESOLVABLE} — no decision request in the store "
                  f"declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE "
                  f"OPPOSITE: a spent edge is discharged by re-pointing or "
@@ -1439,7 +1538,7 @@ def src_spent_decision_edges(
         rows.append(_row(
             "spent_decision_edges", "spent-edge-objects-unparseable",
             f"{len(unparsed)} work object(s) did not parse",
-            (f"{'; '.join(unparsed)[:400]} — so every count below is over the "
+            (f"{_clip('; '.join(unparsed), 400)} — so every count below is over the "
              f"PARSED set only. A loader silently skipping a file understates "
              f"the spent set, which is the direction nobody re-checks."),
             loud=True, link=str(_WORK_OBJECTS)))
