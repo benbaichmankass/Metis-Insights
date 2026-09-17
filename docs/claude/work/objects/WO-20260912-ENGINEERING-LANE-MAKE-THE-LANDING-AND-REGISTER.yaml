@@ -46,7 +46,51 @@ source: >-
   spawn-priority exception filed under the 2026-09-12 block of
   docs/claude/work/spawn-priority-exception.yaml
 
-blocked_on: []
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260913-WHAT-BOUNDS-AN-OPEN-ITEMS-OBSERVATION
+    since: '2026-09-13'
+    question: >-
+      The observation-preservation rule shipped in #12214 makes SHORTENING a row's
+      `observation` a declared act. It does not decide how LONG one may get, and the two
+      pull against each other: the cheap way to satisfy the rule is to APPEND, and one
+      field already reached 16,989 characters before somebody cut it. A 17k-character
+      field in the register CLAUDE.md tells every session to read FIRST is itself a way
+      for the register to stop being read -- the failure check_open_items.py exists to
+      prevent one level up. MEASURED over all 233 commits touching the register on main
+      (232 pairs gradeable): base observation text was lost in 38 of 232 commits (16.4%)
+      across 82 rows, 73 of which kept under 200 characters of the base (median longest
+      surviving block 32 chars) and only 7 of which said anything about superseding;
+      largest single drop 15,720 characters. So the cutting is real and mostly
+      undeclared -- AND some of those cuts were probably right.
+    options:
+      - key: nothing_bounds_it
+        text: >-
+          Nothing bounds an observation; appending forever is accepted, and the register
+          brief gets longer. A LEGITIMATE OUTCOME, and it must be RECORDED as a decision
+          rather than left looking like a policy about to be written.
+      - key: compaction_idiom
+        text: >-
+          Define a compaction idiom the rule RECOGNISES -- e.g. the prose convention this
+          repo already uses, keeping the prior text below a dated separator -- so a
+          session compacting a long observation does so without the supersession
+          declaration and WITHOUT the compaction being silent.
+      - key: explicit_ceiling
+        text: >-
+          Set a length or retained-reading ceiling, with the consequence stated: past it,
+          a cut is expected rather than declared.
+    is_not: >-
+      [!] THIS DOES NOT HOLD UP ANY OTHER WORK IN THIS OBJECT and must not be read as a
+      chain-blocker -- every unit this lane ran proceeded without it, and the rule that
+      raises the question is already merged and working. It is recorded here ONLY because
+      the operator asked (2026-09-13) that carried questions be written down so "the next
+      session that picks up knows to take into account. We don't lose those questions
+      because they were never answered." A false blocker is worse than a missing one, so
+      the scope is stated rather than implied: this edge blocks the COMPACTION POLICY, not
+      the lane. [!] AND DO NOT 'RESOLVE' IT BY LOOSENING THE RULE -- a ceiling enforced by
+      permitting silent truncation would be strictly worse than either horn.
+    filed_as: >-
+      BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET
 blocked_on_basis: >-
   TWO ASSESSMENTS, BOTH KEPT, because they are different observations and neither
   substitutes for the other. ⚠️ This field is itself an instance of U4, the failure this
@@ -79,3 +123,121 @@ scope_limits: >-
   scripts/ci/**, scripts/ops/**, .github/workflows/**, tests/**, docs/**. Tier-1 tooling
   only. NOT src/, NOT config/, NOT deploy/. R12 is not to be defeated, marked, or
   excepted -- it is the machinery protecting itself from a change to the machinery.
+
+paused_2026_09_13: >-
+  PAUSED 2026-09-13T08:12Z by operator direction relayed through the manager
+  (session_01HoFquGdTrD3TTGbMMRc43t): the account's weekly token budget is spent, every
+  lane stands down, the seven-day window resets 2026-09-16T18:00:00Z. This note is written
+  by the lane (session_01BjTp5RYwedmpFfkEtkQo1j) on the assumption that WHOEVER RESUMES IT
+  IS NOT ME AND HAS NONE OF MY CONTEXT.
+
+  WHERE THE WORK STOPPED. Thirteen units ran this session, U80 through U92. ELEVEN ARE
+  MERGED AND WERE VERIFIED AGAINST `main`'s OWN COPY AFTER EACH MERGE, never against the
+  branch -- a merge is not a deploy and a green PR is not an observation. THREE ARE OPEN
+  AND ARMED and need nothing from a human except CI:
+    * #12214 (claude/mi280-u90-open-items-observation-loss) -- COMPLETE, armed, auto-merge
+      on. check_suite.completed reported clean on head 2c93d65b7 at 08:19:35Z.
+    * #12217 (claude/mi280-u91-red-main-runs-unproven) -- COMPLETE, armed, auto-merge on.
+      It went `dirty` against a moved `main` and I RESOLVED THAT AND PUSHED (c44c59896),
+      verified field-level: OPEN-ITEMS 86/86 -> 87 rows, 0 lost from either side, 0
+      duplicates, and the only rows differing from my side are main's three newer ones.
+      ⚠️ ITS `pytest-run` WENT RED ON THE PRE-ARMING HEAD 78ca2fe91 AND I COULD NOT
+      ESTABLISH WHY -- see the open question below. That is the one genuinely unfinished
+      thread in this lane.
+    * #12218-or-unopened (claude/mi280-u92-malformed-removal-declaration) -- the branch is
+      PUSHED and COMPLETE (local full guard set PASS 84 / FAIL 1, the one failure being
+      pr-landing-guard for the landing record that has not been written). NO PR HAS BEEN
+      OPENED AND IT IS NOT ARMED. This is the only unit needing more than CI.
+
+  THE NEXT CONCRETE STEP, in order.
+    (1) Open a PR for claude/mi280-u92-malformed-removal-declaration YOURSELF (never let
+        claude-pr-automerge open it -- a PR born under GITHUB_TOKEN carries no
+        pull_request event and its CI never fires), then push the SECOND commit carrying
+        .github/pr-landing/mi280-u92-malformed-removal-declaration.json (tier 1, landing
+        self), .github/pr-automerge-requests/<same-slug>.txt, and the per-branch merge slot
+        from `claim_merge_slot.py --branch-claim`. The unit is finished; only the landing
+        is not.
+    (2) Answer the #12217 pytest question below, or say plainly that it could not be
+        answered from this container.
+
+  THE OPEN QUESTION, STATED AS A QUESTION RATHER THAN A GUESS. `pytest-run` concluded
+  `failure` on #12217's head 78ca2fe91 (run 34746870906, job 103696288431). I could not
+  reproduce it and I could not read it: the job log tail the MCP returns is the post-job
+  cleanup block (2319 chars) and does not contain the failing test, and a LOCAL full-suite
+  run is impossible in this container -- `python3 -m pytest -q` aborts at collection with
+  116 errors, every one `RuntimeError: The starlette.testclient module requires httpx`,
+  and `import httpx` raises ModuleNotFoundError. That is an ENVIRONMENT gap, NOT a repo
+  defect, and it must not be reported as one. What IS established: the two test files this
+  unit adds or touches pass (34 of 34, on the MERGED state), so the failure is not in them
+  unless it is an interaction. WHAT TO DO FIRST: read the job's own log in the browser, or
+  check whether pytest-run was red on `main` at that time -- the failure may not be this
+  PR's at all, and the merge I have since pushed may have carried its fix.
+
+  WHAT I KNOW THAT IS NOT YET WRITTEN DOWN ANYWHERE ELSE.
+    * `backlog_append.py` has an `update_row(path, row_id, fields=..., append=...)` that
+      amends a row IN PLACE preserving the file's exact bytes, and it stamps `resolved_at`
+      itself. I hand-spliced a status flip before finding it and `artifact-validity-guard`
+      correctly failed the run because the file stopped round-tripping. Use it. The same
+      is true of OPEN-ITEMS.json, which has NO such helper -- every edit there is a manual
+      splice, and that is what U90 (#12214) exists to make safe.
+    * The four-cell truth table for `register-field-loss` is in U92's commit message and
+      its backlog resolution; it was run in worktrees against `origin/main`, not in a
+      harness. One of my own probes in that table was VACUOUS on the first attempt (two
+      heredoc setups chained with && inside `bash -c`; the removal never applied and the
+      guard reported `0 register(s) compared` -- an exit 0 that proved nothing). Read the
+      DENOMINATOR, never the exit code.
+    * `probe_file.py` now reads a whole-file JSON corpus as one row. Before U91 it read
+      every corpus line by line, so `docs/claude/DUE.json` yielded ZERO rows and any probe
+      over it reported "read and nothing matched" -- a clean negative over a population
+      nobody read. If U91 does not land, every probe pointed at a pretty-printed JSON file
+      is silently blind.
+
+resumed_2026_09_17: >-
+  RESUMED 2026-09-17 by the same session (session_01BjTp5RYwedmpFfkEtkQo1j) after the
+  weekly budget window reset on 2026-09-16T18:00Z. ⚠️ BOTH "NEXT CONCRETE STEPS" IN
+  `paused_2026_09_13` ARE NOW DISCHARGED — do not re-do them. That note is preserved
+  above as the record of what was true at the pause, and this key is its correction; a
+  successor acting on its step list would redo finished work, which is the exact failure
+  this lane spent its run on.
+
+  (1) U92's PR IS OPEN AND ARMED — #12366. It was opened by hand first and the landing
+  record, arming file and per-branch merge slot pushed as a second commit, so CI fires
+  normally. Synced to `main` first: backlog 1596 rows, 0 lost from either side, 0
+  duplicates, round-trip OK on all four live backlogs.
+
+  (2) THE #12217 pytest QUESTION IS ANSWERED, AND THE ANSWER WAS THAT THE FAILURE WAS
+  MINE. `tests/test_pytest_run_filter.py` was right: `tests/test_probe_file_whole_json.py`
+  read `docs/claude/DUE.json` and `docs/claude/OPEN-ITEMS.json` AS COMMITTED, and both
+  short-circuit `pytest-run` — instance 5 of the class behind
+  BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT. ⚠️ ITS PRESCRIBED
+  REMEDY IS "COVER THE PATH" AND I DID NOT TAKE IT, on a measured basis: over the
+  preceding week on `main`, `DUE.json` changed 4-8 times a DAY and `OPEN-ITEMS.json` 77
+  times in 7 days, so covering them would put a ~16-minute suite on roughly fifteen
+  pushes a day — against MB-20260706-CI-MINUTES, which is why the short-circuit exists.
+  ⚠️ AND THE SECOND DEFECT NO GUARD CAUGHT: three of the four tests asserted TODAY'S
+  OPERATIONAL STATE of a cron-regenerated file. One required `red_crons.state == "read"`,
+  which goes false the moment a render runs without a token, reddening `main` for CORRECT
+  behaviour; another asserted `red_main_runs` was ABSENT, i.e. it was built to FAIL the
+  moment the thing it watches starts working. They are fixtures now. Nothing was lost: the
+  registry half is already enforced by `probe-guard`, OBSERVED failing on a missing `probe`
+  and again on a missing `probe.is_not`.
+
+  A THIRD THING, NOT IN THE PAUSE NOTE BECAUSE IT HAPPENED DURING THE PAUSE.
+  `open-items-guard` was failing on EVERY PR in the repo and on `origin/main` itself —
+  measured, not inferred: #12214's CI at 2026-09-17T06:32Z reads `PASS 109 / FAIL 1` with
+  that guard the single failure. Cause: OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT
+  crossed the 21-day staleness limit at 22 days on 2026-09-16, inside the pause. The guard
+  is working as designed and its limit was NOT relaxed. Fixed in #12365 by LOOKING:
+  `comms/broker_truth_ledger.json` still carries exactly one account, `bybit_2`, last
+  committed `dc3780e52` on 2026-07-13 and 66 days untouched, so the condition still holds
+  and the row is RE-AFFIRMED rather than cleared. The prior observation was APPENDED to,
+  never replaced — the rule #12214 is still in flight to enforce, honoured before it could.
+
+  OPEN AND ARMED AT THIS WRITING: #12214, #12217, #12224, #12365, #12366, and #12367 —
+  which is THIS correction, and which the first version of this key could not name
+  because it did not exist yet. ⚠️ #12367 WAS OPENED BY `claude-pr-automerge`, NOT BY
+  HAND, because this branch's first push carried the arming file ALONGSIDE the content
+  instead of behind it — so the PR was born under `GITHUB_TOKEN`, carries no
+  `pull_request` event, and its CI never fired. That is the documented trap, walked
+  into by the lane that documents it, and the commit adding this sentence is the
+  ordinary push that arms its checks. MERGED: #12223.

@@ -78,8 +78,53 @@ _CONFLICT_CLOSE = re.compile(r"^>>>>>>>(?: .*)?$")
 _CONFLICT_MID = re.compile(r"^=======$")
 
 
+#: Paths that LEGITIMATELY carry a line-start conflict marker — e.g. a doc that
+#: SHOWS a conflict block while explaining how to resolve one. Maps a
+#: repo-relative path to the EXACT line numbers allowed to carry one.
+#:
+#: ⚠️ VERIFIED, NOT PRESENCE-ONLY, and both directions are enforced. Declaring a
+#: file does not silence it: a marker on any line NOT in the declared set still
+#: fails, so a real conflict landing elsewhere in an annotated file is still
+#: caught. And an entry whose file carries NO marker at the declared line is
+#: ITSELF a finding, so a stale entry cannot sit here quietly widening what is
+#: excused. A marker cheaper to lie to than to satisfy is worse than none —
+#: the lesson `new-table-wiring-guard` paid for.
+#:
+#: ⚠️ EMPTY BY DESIGN, AND MEASURED SO. Over all 1,052 tracked `docs/**/*.md`
+#: on 2026-09-17 the scan flags ZERO files; 10 files mention a marker in prose
+#: and NONE carries one at line start in tracked content (the single repo-wide
+#: `^<<<<<<<` hit is a git-ignored `.pyc`). This exists so the first doc that
+#: legitimately needs one has a declared route instead of a reason to weaken
+#: the check.
+CONFLICT_MARKER_EXPECTED: dict[str, set[int]] = {}
+
+
 def _conflict_corpus() -> list[Path]:
-    """`_active_files()` plus `ROADMAP.md`.
+    """`_active_files()` plus `ROADMAP.md` plus every tracked `docs/**/*.md`.
+
+    ⚠️ **THE SCOPE IS A DECISION, recorded 2026-09-17** —
+    `BL-20260913-THE-CONFLICT-MARKER-REFUSAL-WAS-RULED-FOR-TWO-REGISTER-FAMILIES-AND-NEVER-EXTENDED-TO-THE-CANONICAL-PROSE-A-SESSION-READS`,
+    whose criterion is that somebody DECIDE the repo-wide scope rather than let
+    it stay unstated. The decided set is *every prose document a session may
+    read*: `ACTIVE_DOCS`, `ROADMAP.md`, every `SKILL.md` and command, and all of
+    `docs/**/*.md`.
+
+    **The gap that decided it was the instruction hierarchy's own level 4.**
+    Levels 1-3, 5 and 6 were covered and `docs/sprint-logs/` — 309 files — was
+    not, so "the current sprint log" could carry both sides of a contested edit
+    and pass every guard in the repo.
+
+    MEASURED before extending, because the FALSE POSITIVE is the hard half here
+    and the row says so: over all 1,052 tracked `docs/**/*.md` the scan flags
+    **0** files, and the whole sweep costs **0.14 s** for 14.7 MB. The predicate
+    is anchored to git's exact seven-character line-start shape, so a doc that
+    MENTIONS a marker inline or shows one indented stays clean — asserted, not
+    assumed. Where a file genuinely needs a marker at line start,
+    :data:`CONFLICT_MARKER_EXPECTED` is the declared route.
+
+    ⚠️ The JSON registers and `docs/DOCUMENT-INDEX.md` keep their OWN rulings
+    (`check_register_reserialization.py`, `check_document_index.py` R7). This
+    does not replace them, and the overlap on `DOCUMENT-INDEX.md` is harmless.
 
     ⚠️ THIS CHECK DELIBERATELY READS ONE MORE FILE THAN THE OTHERS, and the
     asymmetry is the point rather than an oversight. `ROADMAP.md` is third in
@@ -98,7 +143,18 @@ def _conflict_corpus() -> list[Path]:
     roadmap = ROOT / "ROADMAP.md"
     if roadmap.exists():
         files = files + [roadmap]
-    return files
+    files = files + sorted((ROOT / "docs").rglob("*.md"))
+    # Dedupe while keeping order stable, so a file in ACTIVE_DOCS *and* under
+    # docs/ is read once and cannot be reported twice.
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for f in files:
+        r = f.resolve()
+        if r in seen or not f.is_file():
+            continue
+        seen.add(r)
+        out.append(f)
+    return out
 
 
 def file_integrity(text: str | None) -> tuple[str, list[tuple[int, str]]]:
@@ -156,12 +212,52 @@ def check_conflict_markers() -> list[str]:
                 "look', never 'the document is intact'."
             )
         elif state == CONFLICT_FOUND:
+            allowed = CONFLICT_MARKER_EXPECTED.get(str(rel))
+            if allowed is not None:
+                # DECLARED lines are excused; anything else in the same file is
+                # NOT. A real conflict landing in an annotated doc still fails.
+                hits = [(n, ln) for n, ln in hits if n not in allowed]
+                if not hits:
+                    continue
             where = ", ".join(f"line {n}: {ln}" for n, ln in hits[:6])
             more = f" (+{len(hits) - 6} more)" if len(hits) > 6 else ""
+            extra = (
+                " Lines declared in CONFLICT_MARKER_EXPECTED are excused; these "
+                "are not." if allowed is not None else
+                " If this document legitimately SHOWS a conflict block, declare "
+                "its exact line numbers in CONFLICT_MARKER_EXPECTED rather than "
+                "narrowing the scan."
+            )
             fails.append(
                 f"{rel}: UNRESOLVED MERGE CONFLICT — {where}{more}. "
                 "Resolve it; a governance doc carrying both sides of a "
-                "contested edit is not a document anyone can follow."
+                f"contested edit is not a document anyone can follow.{extra}"
+            )
+
+    # THE OTHER DIRECTION: a declared entry that excuses nothing is itself a
+    # finding. A stale entry left behind after a doc is rewritten would sit here
+    # silently widening what is excused, which is how a verified override decays
+    # into a presence-only one.
+    for decl_path, decl_lines in sorted(CONFLICT_MARKER_EXPECTED.items()):
+        f = ROOT / decl_path
+        if not f.is_file():
+            fails.append(
+                f"{decl_path}: declared in CONFLICT_MARKER_EXPECTED but the file "
+                "does not exist. Remove the entry — a declaration that names "
+                "nothing excuses nothing and hides what it might excuse later."
+            )
+            continue
+        try:
+            state, hits = file_integrity(f.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue  # the read failure is already reported above
+        present = {n for n, _ in hits}
+        stale = sorted(set(decl_lines) - present)
+        if stale:
+            fails.append(
+                f"{decl_path}: CONFLICT_MARKER_EXPECTED declares line(s) "
+                f"{stale} that carry NO marker. The entry is stale — correct or "
+                "remove it, so the override keeps saying something true."
             )
     return fails
 
