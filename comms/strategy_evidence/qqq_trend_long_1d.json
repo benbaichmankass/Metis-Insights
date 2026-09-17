@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "strategy": "qqq_trend_long_1d",
+  "symbol": "QQQ",
+  "timeframe": "1d",
+  "config_fingerprint": "sha256:65dababb91db18001e72eb992222591c",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 3.4778,
+  "expectancy_r_oos": 0.5796,
+  "n_trades_oos": 6,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": 4.1304,
+      "expectancy_r": 4.1304,
+      "start": "2025-06-10 00:00:00+00:00",
+      "end": "2025-06-10 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": -1.0152,
+      "expectancy_r": -1.0152,
+      "start": "2025-10-24 00:00:00+00:00",
+      "end": "2025-10-24 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": -1.0191,
+      "expectancy_r": -1.0191,
+      "start": "2026-01-27 00:00:00+00:00",
+      "end": "2026-01-27 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 3,
+      "net_r": 1.3817,
+      "expectancy_r": 0.4606,
+      "start": "2026-04-13 00:00:00+00:00",
+      "end": "2026-08-13 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-16T19:14:23.833183+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/strategy_evidence_omm3li18/qqq_trend_long_1d__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "low_n_warning": "n_trades_oos=6 < 10; the pooled number is reported but is not a basis for a verdict."
+}

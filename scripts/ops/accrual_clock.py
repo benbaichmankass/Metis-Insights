@@ -197,12 +197,49 @@ ALL_BACKLOGS = (
 )
 
 
-def _load_rows(path: pathlib.Path) -> list[dict[str, Any]]:
+#: How a backlog file read. THREE STATES, NEVER COLLAPSED — and `unreadable` is
+#: NOT `absent`. This census already announces an absent file, correctly; it was
+#: blind to a corrupt one, which is the opposite fact and the more urgent one.
+ROWS_READ, ROWS_ABSENT, ROWS_UNREADABLE = "read", "absent", "unreadable"
+
+
+def _read_rows(path: pathlib.Path) -> tuple[str, list[dict[str, Any]]]:
+    """`(state, rows)` — a parse failure is never reported as "no rows".
+
+    ⚠️ **MEASURED on `origin/main` @`7f832e8c0`**: with a conflict marker in
+    `docs/claude/health-review-backlog.json`, `--all` printed
+
+        docs/claude/health-review-backlog.json: 0 (row, leg) pair(s), 0 on a
+        clock that cannot tick.
+
+    against a true reading of **4 and 4**, and exited 0 either way. A stated
+    count over a file that could not be read is UNPROVENANCED DIAGNOSTIC OUTPUT
+    sub-class C — an unasserted denominator, where an empty result reads as a
+    clean negative. This census exists to keep a stock VISIBLE, so silently
+    under-reporting it is the one failure that defeats its purpose.
+    """
     try:
-        d = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
-        return []
-    return d["items"] if isinstance(d, dict) and "items" in d else (d if isinstance(d, list) else [])
+        raw = path.read_text()
+    except FileNotFoundError:
+        return ROWS_ABSENT, []
+    except OSError:
+        return ROWS_UNREADABLE, []
+    try:
+        d = json.loads(raw)
+    except json.JSONDecodeError:
+        return ROWS_UNREADABLE, []
+    if isinstance(d, list):
+        return ROWS_READ, d
+    if isinstance(d, dict) and isinstance(d.get("items"), list):
+        return ROWS_READ, d["items"]
+    # A top-level shape holding no rows array is *we could not find the rows*,
+    # not a backlog with none. All four live backlogs are {"items": [...]}.
+    return ROWS_UNREADABLE, []
+
+
+def _load_rows(path: pathlib.Path) -> list[dict[str, Any]]:
+    """Rows only — for callers that have already established the file reads."""
+    return _read_rows(path)[1]
 
 
 def exit_text(row: dict[str, Any]) -> str:
@@ -221,11 +258,18 @@ def exit_text(row: dict[str, Any]) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def census(backlog: pathlib.Path, root: pathlib.Path | None = None) -> list[tuple[str, str, str]]:
-    """``[(row id, leg, state)]`` for every accrual-shaped carried row."""
+def census_with_state(backlog: pathlib.Path, root: pathlib.Path | None = None
+                      ) -> tuple[str, list[tuple[str, str, str]]]:
+    """`(file state, [(row id, leg, state)])` — the count and whether we LOOKED.
+
+    Two different facts, and the caller has to be able to tell them apart before
+    it prints a number. `census` keeps returning the list alone so existing
+    callers are unchanged.
+    """
+    file_state, rows_in = _read_rows(backlog)
     strategies, accounts = load_config(root)
     out: list[tuple[str, str, str]] = []
-    for row in _load_rows(backlog):
+    for row in rows_in:
         rid = str(row.get("id") or "")
         if not rid or str(row.get("status") or "") not in {"open", "kept_open"}:
             continue
@@ -237,7 +281,12 @@ def census(backlog: pathlib.Path, root: pathlib.Path | None = None) -> list[tupl
             continue
         for leg in legs:
             out.append((rid, leg, clock_state(leg, strategies, accounts)))
-    return out
+    return file_state, out
+
+
+def census(backlog: pathlib.Path, root: pathlib.Path | None = None) -> list[tuple[str, str, str]]:
+    """``[(row id, leg, state)]`` for every accrual-shaped carried row."""
+    return census_with_state(backlog, root)[1]
 
 
 def _self_test() -> int:
@@ -304,6 +353,42 @@ def _self_test() -> int:
         if is_accrual_shaped(t):
             bad.append(f"is_accrual_shaped FIRED on a non-accrual criterion: {t!r}")
 
+    # ── FILE-STATE CONTROLS ─────────────────────────────────────────────────
+    # MEASURED on origin/main @7f832e8c0 before these existed: with a conflict
+    # marker in docs/claude/health-review-backlog.json, `--all` printed
+    # "0 (row, leg) pair(s), 0 on a clock that cannot tick" against a true
+    # reading of 4 and 4, and exited 0 either way. Both directions are asserted
+    # — the over-reporting case is real here, because an ABSENT file and an
+    # EMPTY-but-valid one must both stay out of the unreadable set.
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _d:
+        _t = pathlib.Path(_d) / "b.json"
+        fcases = [
+            ("a file that does not parse is UNREADABLE, not empty",
+             "THIS IS NOT JSON", ROWS_UNREADABLE),
+            ("a top-level shape with no rows array is UNREADABLE",
+             '{"schema_version": 1}', ROWS_UNREADABLE),
+            ("an EMPTY but valid backlog READS — empty is a real answer",
+             '{"items": []}', ROWS_READ),
+            ("a backlog with rows READS", '{"items": [{"id": "A"}]}', ROWS_READ),
+        ]
+        for label, payload, want in fcases:
+            _t.write_text(payload)
+            got = _read_rows(_t)[0]
+            if got != want:
+                bad.append(f"{label}: got {got!r}, want {want!r}")
+        _t.unlink()
+        if _read_rows(_t)[0] != ROWS_ABSENT:
+            bad.append("an ABSENT file must be ABSENT, never UNREADABLE — "
+                       "opposite facts, and the census already words them apart")
+        # AND THE CENSUS MUST CARRY THE STATE OUT, not just compute it: a fix
+        # that graded correctly and then discarded the grade would leave `main`
+        # printing the same "0 (row, leg) pair(s)" it always did.
+        _t.write_text("THIS IS NOT JSON")
+        if census_with_state(_t)[0] != ROWS_UNREADABLE:
+            bad.append("census_with_state dropped the file state — the count "
+                       "would be printed as if the file had been read")
+
     if bad:
         print("accrual-clock self-test: FAIL")
         for b in bad:
@@ -325,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
         return _self_test()
     targets = [args.backlog] if args.backlog else list(ALL_BACKLOGS)
     total = dead_n = 0
+    unreadable: list[str] = []
     for rel in targets:
         path = pathlib.Path(rel)
         if not path.exists():
@@ -332,7 +418,17 @@ def main(argv: list[str] | None = None) -> int:
             # under-reports the stock it exists to keep visible.
             print(f"accrual-clock census: SKIPPING {rel} — not present.")
             continue
-        rows = census(path)
+        file_state, rows = census_with_state(path)
+        if file_state == ROWS_UNREADABLE:
+            # ⚠️ THE OPPOSITE FACT FROM THE SKIP ABOVE, and it must not borrow
+            # that wording. "Not present" is a file nobody has filed into; this
+            # is a file that EXISTS and whose rows are unreachable, so the stock
+            # is under-reported by an unknown amount rather than by zero.
+            unreadable.append(rel)
+            print(f"\naccrual-clock census: COULD NOT READ {rel} — present but "
+                  f"did NOT parse. Its rows are NOT in the totals below. This is "
+                  f"'we could not look', NOT '0 (row, leg) pairs'.")
+            continue
         dead = [r for r in rows if r[2] in DEAD_CLOCK_STATES or r[2] == "unstated"]
         total += len(rows)
         dead_n += len(dead)
@@ -342,13 +438,28 @@ def main(argv: list[str] | None = None) -> int:
             mark = "  " if state == CAN_RUN else "!!"
             print(f"  {mark} {rid:56s} {leg:26s} {state}")
     if not total:
+        if unreadable:
+            # ⚠️ NEVER "no accrual-shaped carried rows found" here. That sentence
+            # is a finding about the backlog; with every readable file gone it
+            # would be a finding about nothing, stated as one about everything.
+            print(f"accrual-clock census: NOTHING WAS COUNTED — "
+                  f"{len(unreadable)} file(s) could not be read (see above).")
+            return 2
         print("accrual-clock census: no accrual-shaped carried rows found.")
         return 0
+    if unreadable:
+        print(f"\n⚠️ THE TOTAL BELOW IS INCOMPLETE — {len(unreadable)} file(s) "
+              f"could not be read and contribute 0 to it: "
+              f"{', '.join(unreadable)}")
     print(f"\nTOTAL {total} (row, leg) pair(s), {dead_n} on a clock that cannot tick.")
     print("\nA leg outside `can_run` will never deliver the trades its row is "
           "waiting for. `can_run` is the NECESSARY condition only — it says the "
           "gate is open, never that the leg has traded.")
-    return 0
+    # ⚠️ NON-ZERO ON AN UNREADABLE FILE, THOUGH THIS GUARD IS `allow_fail` IN CI
+    # — so it does not gate, and it is not trying to. The blocking guards for a
+    # corrupt register are register-id-guard and backlog-criteria; what this code
+    # owes is not to hand a caller a number it cannot stand behind.
+    return 2 if unreadable else 0
 
 
 if __name__ == "__main__":

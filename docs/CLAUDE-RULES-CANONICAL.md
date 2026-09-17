@@ -435,11 +435,48 @@ to stop admitting un-workable rows and to give every row an exit.
      by construction, so it is either a **skill/guard obligation** or it is not
      tracked at all. Never an open row.
 
-3. **Every row ends. Five terminal dispositions, and "open indefinitely" is not
-   one of them:** `fixed` · `closed_answered` (the row's own text or the repo
-   already answers it) · `closed_unfixable` (outside our control — **state the
-   accepted residual risk**) · `promoted_to_roadmap` (closed here, tracked there)
-   · `snoozed` (see 4).
+3. **Every row ends, and "open indefinitely" is not a disposition.** A row's
+   `status` is a **closed six-value enum**, enforced whole-file over every review
+   backlog by `claim-basis-guard`. It has ONE home —
+   [`scripts/check_claim_basis.py`](../scripts/check_claim_basis.py)`::STATUS_ENUM`
+   — and the list below is a MIRROR of it that
+   `canonical-doc-coherence` fails on if the two disagree, so this paragraph can
+   no longer drift away from what CI accepts:
+
+   <!-- status-enum:begin — mirrored from scripts/check_claim_basis.py::STATUS_ENUM; canonical-doc-coherence fails if these disagree. Do not edit by hand; change the enum and re-mirror. -->
+   `open` · `kept_open` · `resolved` · `wont_fix` · `superseded` · `invalid`
+   <!-- status-enum:end -->
+
+   **Terminal** is all of them except `open` and `kept_open`. A qualifier
+   ("resolved, but only on paper") belongs in `detail` or in an `updates` entry,
+   **never in `status`** — a free-text status makes the open count uncomputable,
+   which is the whole reason the enum is enforced.
+
+   ⚠️ **THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12 AND NOT ONE OF THEM WAS
+   A LEGAL `status`** — it read *"Five terminal dispositions … `fixed` ·
+   `closed_answered` · `closed_unfixable` · `promoted_to_roadmap` · `snoozed`"*,
+   and the intersection with the enforced enum was **EMPTY**. This is the
+   document the instruction hierarchy ranks FIRST giving an instruction CI
+   rejects: a session closing a row on PR #11866 wrote `status: fixed` because
+   that is the word this rule used, and the guard refused the PR. The refusal is
+   the good outcome; on a surface the guard does not scan it would instead have
+   become a free-text status. Measured 2026-09-12 across all four review
+   backlogs (**1,803 rows**): `status` holds `resolved` 776 · `open` 770 ·
+   `kept_open` 229 · `superseded` 14 · `wont_fix` 10 · `invalid` 4, and **zero**
+   rows carry any of the five. *Field beats comment* — the enum was right and
+   this paragraph was the drift.
+
+   ⚠️ **THOSE FIVE WORDS ARE NOT RETIRED — THEY BELONG TO A DIFFERENT FIELD, and
+   that is what the old wording hid.** `disposition` carries them (103 row-level
+   and 794 update-level entries: `snoozed`, `CLOSE_ANSWERED`,
+   `promoted_to_roadmap`, `do_now`, `CLOSE_UNFIXABLE`, `fixed`). It says WHY a
+   row ended; `status` says WHETHER it did, and only `status` is counted.
+   `snoozed` is additionally a **field** (`snoozed_until`, rule 4) rather than
+   only a word. ⚠️ **`disposition` has no enum and no guard**, and its
+   update-level vocabulary has already drifted to **35 distinct values including
+   free text** — tracked at
+   `BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT`,
+   deliberately not closed by the same change that fixed this paragraph.
 
 4. **`snoozed_until` is the defer path and it is REQUIRED for accrual-blocked
    rows.** A row genuinely waiting on soak, live outcomes, or data that does not

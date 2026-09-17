@@ -108,8 +108,32 @@ import argparse
 import json
 import re
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+#: ⚠️ IMPORTED, NEVER RE-DERIVED. `check_pr_landing` is the single owner of both
+#: the per-branch directory names and the branch->slug rule (its own docstring:
+#: "Same derivation `claude-pr-automerge.yml` uses, so the two agree"). A second
+#: copy here would be free to drift, and the drift would be SILENT in the
+#: dangerous direction: a slug rule that disagreed would stop recognising a
+#: session's own file and re-report exactly the noise this exists to remove.
+from check_pr_landing import (  # noqa: E402
+    AUTOMERGE_DIR,
+    BRANCH_SLOT_DIR,
+    LANDING_DIR,
+    branch_slug,
+)
 
 STATES = ("overlap", "no_overlap", "could_not_check")
+
+#: Directories whose files are named after ONE branch and are therefore
+#: single-writer BY CONSTRUCTION. Each was split out of a shared file precisely
+#: to remove a collision: `.github/pr-automerge-request` was one shared file that
+#: collided by construction and cost #10086 a merge commit and a full CI cycle on
+#: 2026-08-21; `.github/merge-slots/` is the same repair applied to
+#: `session-board.json::merge_slot`, whose shared field MOVED in 39 of the last
+#: 40 commits touching it.
+PER_BRANCH_DIRS = (LANDING_DIR, AUTOMERGE_DIR, BRANCH_SLOT_DIR)
 
 #: A START declares scope. Only these are read as declarations — a QUESTION, a
 #: DONE, a merge-slot claim or an audit comment declares nothing.
@@ -361,6 +385,49 @@ def matches(changed: str, declared: str) -> bool:
     if not declared.endswith(_EXTS):
         return changed.startswith(declared.rstrip("/") + "/")
     return False
+
+
+def per_branch_owner(changed: str) -> str | None:
+    """The slug that OWNS `changed`, or None if it is not a per-branch file.
+
+    A file directly inside one of :data:`PER_BRANCH_DIRS` is named after exactly
+    one branch, so its owner is its stem. Anything else — a file elsewhere, or a
+    file nested deeper inside one of those directories — returns None, because
+    the naming convention says nothing about it.
+
+    ⚠️ `README.md` inside such a directory is NOT a per-branch file and must not
+    read as one: it is genuinely shared, and exempting it would hide a real
+    collision on the one file in there that can have one.
+    """
+    for d in PER_BRANCH_DIRS:
+        prefix = d.rstrip("/") + "/"
+        if not changed.startswith(prefix):
+            continue
+        rest = changed[len(prefix):]
+        if "/" in rest or not rest:
+            return None
+        stem = rest.rsplit(".", 1)[0]
+        if not stem or stem.lower() == "readme":
+            return None
+        return stem
+    return None
+
+
+def is_own_per_branch_file(changed: str, my_branch: str | None) -> bool:
+    """Is `changed` the single-writer file belonging to THIS branch?
+
+    Only true when the owning slug is this branch's own. Another branch's slug
+    file under the same directory returns False and stays reportable — that is
+    a session editing somebody else's declaration, which is a REAL collision and
+    the true positive this must not delete.
+
+    An unknown branch returns False. *We could not look* is never an exemption:
+    suppressing on a branch we cannot name would silence the true positive too.
+    """
+    if not my_branch:
+        return False
+    owner = per_branch_owner(changed)
+    return owner is not None and owner == branch_slug(my_branch)
 
 
 ATTRIBUTIONS = ("mine", "other_active", "other_landed", "unattributable")
@@ -624,8 +691,8 @@ def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
     that has not been updated cannot quietly reinstate the old behaviour.
     """
     empty = {"hits": [], "landed_hits": [], "unattributed_hits": [],
-             "self_declared": 0, "parsed": 0, "explicitly_excluded": 0,
-             "unparsed_hints": []}
+             "self_declared": 0, "sole_writer_suppressed": 0, "parsed": 0,
+             "explicitly_excluded": 0, "unparsed_hints": []}
 
     # BOARD HEALTH IS CHECKED BEFORE THE BOARD'S CONTENT, because an unhealthy
     # board's content is not evidence of anything. This runs FIRST — ahead of
@@ -657,12 +724,13 @@ def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
                           "is never silent — treated as a failed read, not as "
                           "'nobody declared anything'",
                 "hits": [], "landed_hits": [], "unattributed_hits": [],
-                "self_declared": 0, "parsed": 0, "explicitly_excluded": 0,
-                "unparsed_hints": []}
+                "self_declared": 0, "sole_writer_suppressed": 0, "parsed": 0,
+                "explicitly_excluded": 0, "unparsed_hints": []}
 
     my_sessions = pr_session_ids(my_body)
     hits, landed, unattributed = [], [], []
     self_declared, parsed_total, excluded_total, hints_total = 0, 0, 0, []
+    sole_writer = 0
 
     for st in starts:
         who = attribution(st, my_branch=my_branch, my_pr=my_pr,
@@ -685,6 +753,20 @@ def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
                     # A session never collides with itself. COUNTED, not hidden:
                     # a silent suppressor cannot be audited for over-suppression.
                     self_declared += 1
+                    break
+                if f != d and is_own_per_branch_file(f, my_branch):
+                    # A DIRECTORY declaration resolved onto THIS branch's own
+                    # single-writer file. No other branch can write it, so the
+                    # collision is structurally impossible and reporting it is
+                    # pure noise — measured at 7 of 11 live-session rows on
+                    # #11896. COUNTED, never hidden, for the same reason
+                    # `self_declared` is.
+                    #
+                    # ⚠️ `f != d` IS LOAD-BEARING. An EXACT declaration of this
+                    # path is another session explicitly claiming this very
+                    # file, which is a real claim and stays reported; only the
+                    # directory-prefix match is suppressed.
+                    sole_writer += 1
                     break
                 ident = parse_identity(st.get("body") or "")
                 row = {"file": f, "declared": d,
@@ -714,6 +796,12 @@ def assess(changed_files, starts, *, my_branch: str, my_pr: int | None = None,
         # Shipped so suppression is visible. A jump here with no matching drop in
         # `hits` is how you would catch this fix over-reaching.
         "self_declared": self_declared,
+        # Same contract, different cause: a directory declaration that resolved
+        # onto THIS branch's own single-writer file. Shipped rather than folded
+        # into `self_declared` because they answer different questions — that one
+        # is "I declared it myself", this one is "nobody else could have written
+        # it" — and a reader auditing over-suppression needs to know which.
+        "sole_writer_suppressed": sole_writer,
         # Always shipped: a `no_overlap` over 0 parsed paths establishes nothing.
         "parsed": parsed_total,
         # Shipped so a reader can see negations were honoured rather
@@ -801,7 +889,10 @@ def render(v: dict, *, pr: int, changed_n: int) -> str:
               f"_Compared {changed_n} changed file(s) against {v['parsed']} declared "
               f"path(s) — {len(hits)} from a live session, {len(landed)} from a landed "
               f"branch, {len(un)} unattributable, {v.get('self_declared', 0)} matched "
-              f"your OWN declaration and were not reported._"]
+              f"your OWN declaration and "
+              f"{v.get('sole_writer_suppressed', 0)} were your own single-writer "
+              f"per-branch file(s) that no other branch can write — none of those "
+              f"were reported._"]
     if v["unparsed_hints"]:
         lines += ["",
                   "⚠️ **This list is a LOWER BOUND.** These declarations were prose the "
@@ -1261,6 +1352,41 @@ def _self_test() -> int:
 
     ok(set(STATES) == {"overlap", "no_overlap", "could_not_check"},
        "the three verdict states are exactly these")
+
+    # ── PER-BRANCH SINGLE-WRITER FILES ───────────────────────────────────────
+    # These live in the SELF-TEST and not only in tests/, because the guard
+    # registry runs this module with `--self-test` while `pytest-run`
+    # short-circuits on diffs it judges irrelevant. A control that only the
+    # skippable job runs is a control that can be skipped.
+    _MB, _MS = "claude/self-test-slug", "self-test-slug"
+    _TS = "someone-elses-slug"
+    for _d in PER_BRANCH_DIRS:
+        ok(per_branch_owner(f"{_d}/{_MS}.json") == _MS,
+           f"a file directly in {_d} is owned by its stem")
+        ok(is_own_per_branch_file(f"{_d}/{_MS}.json", _MB),
+           f"this branch owns its own slug file in {_d}")
+        # THE CONTROL THAT MATTERS: suppressing this would DELETE a true
+        # positive — a session editing somebody else's declaration.
+        ok(not is_own_per_branch_file(f"{_d}/{_TS}.json", _MB),
+           f"another branch's slug file in {_d} is NOT mine and stays reportable")
+        ok(per_branch_owner(f"{_d}/README.md") is None,
+           f"README.md in {_d} is shared, not per-branch")
+    ok(per_branch_owner("docs/claude/OPEN-ITEMS.json") is None,
+       "a genuinely shared register has no per-branch owner")
+    ok(per_branch_owner(".github/pr-landing/nested/f.json") is None,
+       "a nested file is not covered by the naming convention")
+    ok(not is_own_per_branch_file(f".github/pr-landing/{_MS}.json", None),
+       "an unknown branch is never an exemption — we-did-not-look must not silence")
+
+    _START = ("\u25b6\ufe0f **START**\nSession: `session_0otherotherother`\n"
+              "Branch: `claude/" + _TS + "`\n\nTouching: `.github/pr-landing/`\n")
+    _rows = [{"body": _START, "url": "u", "created_at": "t"}]
+    _v = assess([f".github/pr-landing/{_MS}.json"], _rows, my_branch=_MB, my_pr=1)
+    ok(_v["hits"] == [] and _v["sole_writer_suppressed"] == 1,
+       "a directory declaration does not collide a branch with its own slug file")
+    _v2 = assess([f".github/pr-landing/{_TS}.json"], _rows, my_branch=_MB, my_pr=1)
+    ok(_v2["state"] == "overlap" and _v2["sole_writer_suppressed"] == 0,
+       "POSITIVE CONTROL: editing another branch's slug file still reports")
 
     print(f"scope-overlap: self-test OK — {fired} planted controls all fire")
     return 0

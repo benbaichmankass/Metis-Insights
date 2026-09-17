@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "strategy": "tlt_pullback_1h",
+  "symbol": "TLT",
+  "timeframe": "1h",
+  "config_fingerprint": "sha256:64596baa0f40728a0ffa9561eb74b534",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "trail_decay_stall_bars",
+    "trail_decay_tight_mult"
+  ],
+  "net_r_oos": -4.4077,
+  "expectancy_r_oos": -0.0469,
+  "n_trades_oos": 94,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 23,
+      "net_r": 0.9826,
+      "expectancy_r": 0.0427,
+      "start": "2025-04-23 19:00:00+00:00",
+      "end": "2025-08-25 16:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 23,
+      "net_r": -8.6065,
+      "expectancy_r": -0.3742,
+      "start": "2025-08-29 16:00:00+00:00",
+      "end": "2025-12-23 18:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 23,
+      "net_r": -4.2087,
+      "expectancy_r": -0.183,
+      "start": "2025-12-26 16:00:00+00:00",
+      "end": "2026-04-21 16:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 25,
+      "net_r": 7.4249,
+      "expectancy_r": 0.297,
+      "start": "2026-04-24 20:00:00+00:00",
+      "end": "2026-09-14 17:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-16T19:14:33.502524+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/strategy_evidence_omm3li18/tlt_pullback_1h__trades.jsonl",
+  "error": null,
+  "harness": "pullback"
+}

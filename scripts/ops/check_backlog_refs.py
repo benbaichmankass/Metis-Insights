@@ -25,6 +25,35 @@ guard checks only ids the diff *introduces*, the same scoping `silent-empty-guar
 pre-existing debt is measured and attributed in `BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS`
 rather than hidden behind a suppression.
 
+THE BASE IS READ AT THE TIP, AND THAT IS RIGHT BY DESIGN
+--------------------------------------------------------
+Classified 2026-09-17 (``BL-20260913-CHECK-BACKLOG-REFS-READS-THE-BASE-TIP-AND-IS-THE-ONE-MEMBER-OF-THE-BASE-VS-TIP-CLASS-THE-PER-SCRIPT-AUDIT-NEVER-COVERED``),
+the last
+of the five tip-readers the base-vs-tip census counts to be graded either way. The reason
+lives HERE as well as in the audit in `scripts/ops/check_backlog_criteria.py::_load_at_ref`,
+because that row's whole finding was that **a warning in another file does not reach someone
+reading this one.**
+
+This module's base read is :func:`_refs_anywhere_at`, a FALLBACK that fires only for a path
+ABSENT at the base. It asks *"is this id cited anywhere in the tree I am merging INTO?"* —
+and the tree being merged into is the TIP. The tip is the question's own subject, not an
+approximation of it, which is the same reason `check_register_ids.py` reads the tip.
+
+⚠️ **THE DIRECTION MATTERS MORE THAN THE COUNT.** Switching to the fork point would make a
+guard that runs on EVERY PR blame a diff for a dangling id a CONCURRENT branch introduced —
+false blame, and the guard would red PRs for what the base did. The reverse error is real and
+is stated rather than hidden: when this diff and a concurrent branch independently cite the
+same DANGLING id, the tip read exempts it here. That id is not lost — it lands in
+``BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS``, which this docstring already names as the
+declared home for pre-existing debt, and the ``--all`` sweep still reports it.
+
+MEASURED on ``origin/main`` 2026-09-17: **1,856** ids cited at the tip, **86** of them
+dangling. Of the ids cited ONLY in the last **6 / 20 / 60** commits — the entire population
+where tip and fork point can disagree — **0 are dangling, at every window.** So the choice
+has changed no finding to date. That is a measurement over a window, not a proof for all
+time; ``tests/test_backlog_refs_base_is_the_tip.py`` pins the classification so a later
+change to a merge base has to be a decision rather than a tidy-up.
+
 Stdlib-only.
 
 Usage:
@@ -34,6 +63,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import difflib
 import glob
 import json
 import os
@@ -72,28 +102,114 @@ BACKLOG_GLOB = "docs/claude/*backlog*.json"
 EXTRA_REGISTERS = (("comms/follow_ups.json", "follow_ups"),)
 
 
-def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+def filed_ids_with_state(repo: pathlib.Path = REPO) -> tuple[set[str], list[str]]:
+    """`(every filed id, the registers we could NOT read)`.
+
+    ⚠️ **THE SECOND HALF EXISTS BECAUSE THE UNIVERSE SHRINKING IS INVISIBLE.**
+    A register that does not parse was skipped with `continue` and the comment
+    *"a malformed backlog is another guard's problem"* — defensible about whose
+    job the CORRUPTION is, and silent about what it does HERE: every id that
+    register defines drops out of `filed`, so every citation of one reads as a
+    reference resolving to NOTHING.
+
+    MEASURED on `origin/main` @`eb606713d` with one `THIS IS NOT JSON` line
+    inserted into `docs/claude/health-review-backlog.json`: `--all` went from
+    **86 dangling references to 1660** — exactly **+1574**, the row count of
+    that file. Every one of the added 1574 is a confident claim that a row which
+    exists does not, and 1660 lines of it is the desensitised alarm this repo
+    calls its own worst failure mode, with the 86 real findings buried inside.
+
+    ⚠️ **THE GATING `--base` MODE WAS MEASURED AND IS NOT AFFECTED — do not
+    "fix" it.** An id already cited at the base is exempted by
+    `_refs_anywhere_at`, and every real row id is cited at base in its own
+    register row, so the gate cannot false-fail on one. Verified with a positive
+    control that came back OK, and then by establishing WHY rather than reading
+    the OK as evidence. The one reachable false-PASS needs a single diff to FILE
+    a row and CORRUPT the register, which `register-id-guard` reds anyway. So
+    the gate gets a WARNING, not a refusal: a refusal nothing can reach is the
+    decorative branch `collapsed-state-guard` exists to refuse.
+    """
     out: set[str] = set()
-    for f in glob.glob(str(repo / BACKLOG_GLOB)):
+    unreadable: list[str] = []
+    for f in sorted(glob.glob(str(repo / BACKLOG_GLOB))):
         try:
-            for it in json.load(open(f, encoding="utf-8")).get("items", []):
-                if it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — a malformed backlog is another guard's problem
+            doc = json.load(open(f, encoding="utf-8"))
+        except Exception:  # noqa: BLE001 — whose job the CORRUPTION is, is another guard's
+            unreadable.append(str(pathlib.Path(f).relative_to(repo)))
             continue
+        for it in (doc.get("items") or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
     for rel, key in EXTRA_REGISTERS:
         try:
-            for it in json.load(open(repo / rel, encoding="utf-8")).get(key, []):
-                if isinstance(it, dict) and it.get("id"):
-                    out.add(str(it["id"]))
-        except Exception:  # noqa: BLE001 — same reasoning as above
+            doc = json.load(open(repo / rel, encoding="utf-8"))
+        except FileNotFoundError:
+            # ABSENT, not unreadable. `comms/follow_ups.json` is optional and a
+            # tree without it is not a tree whose universe is incomplete.
             continue
-    return out
+        except Exception:  # noqa: BLE001
+            unreadable.append(rel)
+            continue
+        for it in (doc.get(key) or []):
+            if isinstance(it, dict) and it.get("id"):
+                out.add(str(it["id"]))
+    return out, unreadable
+
+
+def filed_ids(repo: pathlib.Path = REPO) -> set[str]:
+    """The ids only. Callers that report a COUNT must use the pair above."""
+    return filed_ids_with_state(repo)[0]
+
+
+class GitRead(RuntimeError):
+    """`git` did not answer — *we did not look*, which is NOT "nothing found".
+
+    ⚠️ THIS EXISTS BECAUSE THE ONE READ THAT MATTERS WAS THE ONE THAT COLLAPSED.
+    Two of the three reads in this file were already careful about exactly this
+    distinction, and both are FALLBACK reads:
+
+    * :func:`_refs_in_file_at` returns ``None`` for *the file did not exist*
+      rather than ``set()``, citing the Collapsed-states rule by name;
+    * :func:`_refs_anywhere_at` RAISES above rc 1, with the note that reading a
+      git failure as "nothing was cited at base" *"would silently restore the
+      blindness this function removes"*.
+
+    :func:`_git`, which computes **the diff itself** — the primary input that
+    decides whether this guard looks at anything at all — did the thing they
+    both refuse. It returned ``.stdout`` and discarded ``returncode``, so a base
+    ref that does not resolve produced an empty diff, zero introduced refs, and
+    the message ``OK — every tracking id this change introduces resolves``.
+    A guard that reports a clean bill of health when it could not read its own
+    input is worse than no guard: it is read as evidence.
+
+    MEASURED 2026-09-17 while investigating the four-day due-list outage. The
+    same commit, graded twice against byte-identical base trees:
+
+        --base origin/histbase   -> exit 1, names the dangling fragment
+        --base hb12245           -> exit 0, "OK — every tracking id ... resolves"
+
+    ``hb12245`` was a remote-tracking ref spelled without its ``origin/``
+    prefix, so ``git diff hb12245...HEAD`` died with ``fatal: bad revision`` and
+    this guard called it clean — for all four PRs in the sample. The only
+    reason a false all-clear was not published is that the run included a
+    known-positive control, which also came back clean and gave the typo away.
+    """
 
 
 def _git(args: list[str], repo: pathlib.Path) -> str:
-    return subprocess.run(["git", "-C", str(repo)] + args,
-                          capture_output=True, text=True).stdout
+    """Run `git`, and REFUSE rather than pass off a failure as empty output.
+
+    Every current caller runs a plain ``git diff``, which exits 0 whether or not
+    there are differences (only ``--exit-code``/``--quiet`` change that), so a
+    non-zero status here is always a real error and never "no changes".
+    """
+    proc = subprocess.run(["git", "-C", str(repo)] + args,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GitRead(
+            f"`git {' '.join(args)}` exited {proc.returncode}: "
+            f"{proc.stderr.strip()[:300] or '(no stderr)'}")
+    return proc.stdout
 
 
 def _refs_in_file_at(ref: str, path: str, repo: pathlib.Path) -> set[str] | None:
@@ -221,6 +337,97 @@ def dangling(found: dict[str, set[str]], filed: set[str]) -> dict[str, set[str]]
     return {k: v for k, v in sorted(found.items()) if k not in filed}
 
 
+# Three states, never collapsed. "We found a likely id", "we found nothing
+# close" and "several are equally likely" are different answers, and the third
+# is the one a single-suggestion design silently turns into the first.
+SUGGEST_PREFIX = "prefix"
+SUGGEST_AMBIGUOUS = "ambiguous"    # too many start with it to name one
+SUGGEST_FUZZY = "fuzzy"
+SUGGEST_NONE = "none"
+
+#: How many candidates to show. More than this is not a hint, it is a second
+#: problem to read.
+_MAX_SUGGESTIONS = 3
+
+#: Below this length a "prefix" is not evidence of anything -- `BL-2026` would
+#: match hundreds of rows and the hint would be noise dressed as help.
+_MIN_PREFIX_LEN = 12
+
+
+def suggest_for(ref: str, filed: set[str]) -> tuple[str, list[str]]:
+    """`(kind, candidates)` -- which filed id did the author probably mean?
+
+    ⚠️ PREFIX FIRST, AND NOT BECAUSE IT IS EASIER. MEASURED 2026-09-13 over
+    every dangling reference this guard raised against one session's branches
+    (n=3, one session, one author -- state the population, it is small):
+    ALL THREE were exact PREFIXES of a real filed row.
+
+        BL-...-A-DUPLICATE-ROW-ID-REACHED-MAIN          elided in prose
+        BL-...-GRADES-THE-WRONG-TREE                    elided in prose
+        BL-...-GRADES-THE-WRONG                         WRAPPED across a
+                                                        docstring line
+
+    None was a typo. The failure mode these ids actually have is REFORMATTING
+    -- an id shortened or line-broken for readability stops being an id -- and
+    that always truncates, never garbles. `difflib` is the obvious
+    implementation and is NOT the one the evidence asks for, so it is the
+    fallback rather than the rule.
+
+    ⚠️ AMBIGUITY IS REPORTED, NEVER RESOLVED. A prefix shared by several filed
+    rows returns all of them (capped). Picking the first would be the
+    implicit-input-selection shape `check_diagnostic_provenance.py` exists to
+    catch: a confident single answer computed from an arbitrary tiebreak.
+
+    ⚠️ IT SUGGESTS AND NEVER REWRITES. The author may genuinely have meant an
+    id nobody has filed yet, and the fix for that is to file the row -- which
+    the existing message already says. This only removes the lookup.
+    """
+    if len(ref) >= _MIN_PREFIX_LEN:
+        pre = sorted(f for f in filed if f.startswith(ref) and f != ref)
+        if len(pre) > _MAX_SUGGESTIONS:
+            # ⚠️ NOT `prefix` WITH THE FIRST THREE. MEASURED on the live
+            # register (1876 filed ids): a bare date prefix matched 9 rows and
+            # a date-plus-common-word prefix matched 29, so showing three of
+            # them would present an arbitrary alphabetical tiebreak as a hint.
+            #
+            # ⚠️ The illustrations are DESCRIBED rather than QUOTED for a
+            # reason that is this function's own subject: writing a truncated
+            # id here made THIS FILE carry a dangling reference, and the guard
+            # refused its own source. A comment about ids is still text an id
+            # extractor reads.
+            #
+            # Saying HOW MANY is the useful answer: it tells the author their
+            # reference is too truncated to identify anything, which is a
+            # different problem from having mistyped one.
+            return SUGGEST_AMBIGUOUS, pre
+        if pre:
+            return SUGGEST_PREFIX, pre
+    close = difflib.get_close_matches(ref, sorted(filed), n=_MAX_SUGGESTIONS,
+                                      cutoff=0.85)
+    if close:
+        return SUGGEST_FUZZY, list(close)
+    return SUGGEST_NONE, []
+
+
+def suggestion_lines(ref: str, filed: set[str]) -> list[str]:
+    """The hint, as lines. Empty when there is nothing to say -- a hint printed
+    on every finding whether or not it has content is decoration, and this repo
+    walks past decoration."""
+    kind, cands = suggest_for(ref, filed)
+    if kind == SUGGEST_NONE:
+        return []
+    if kind == SUGGEST_AMBIGUOUS:
+        return [f"      ↳ {len(cands)} filed ids START WITH this, so it names "
+                f"none of them — the reference is truncated too far to "
+                f"identify a row. Cite the id in full."]
+    if kind == SUGGEST_PREFIX:
+        head = ("      ↳ a filed id STARTS WITH this. An id shortened or "
+                "line-wrapped for readability stops being an id:")
+    else:
+        head = "      ↳ did you mean:"
+    return [head] + [f"          {c}" for c in cands]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repo-root", default=str(REPO))
@@ -230,22 +437,64 @@ def main(argv: list[str] | None = None) -> int:
                     help="full sweep; REPORTS the pre-existing debt, does not fail on it")
     args = ap.parse_args(argv)
     repo = pathlib.Path(args.repo_root)
-    filed = filed_ids(repo)
+    filed, unreadable = filed_ids_with_state(repo)
+
+    if unreadable:
+        # ⚠️ BEFORE THE LIST, NEVER AFTER IT. The list is the thing that becomes
+        # untrustworthy, and a reader who has already read 1660 "resolves to
+        # NOTHING" lines has drawn the conclusion by the time a footnote lands.
+        print("::error::the universe of FILED ids is INCOMPLETE — "
+              f"{len(unreadable)} register(s) are present and do NOT parse, so "
+              "every id they define is missing from it and every citation of "
+              "one reads as a reference resolving to NOTHING. Measured: one "
+              "corrupt 1574-row backlog turns 86 dangling references into 1660. "
+              "Treat the report below as OVER-COUNTING by an unknown amount.")
+        for rel in unreadable:
+            print(f"  - {rel}")
+        print("Fix the register first (git checkout the last parseable copy, or "
+              "resolve the conflict row-aware via scripts/ops/merge_json_register.py), "
+              "then re-run. register-id-guard fails on this too, and that is the "
+              "blocking half.")
 
     if args.all:
         bad = dangling(refs_everywhere(repo), filed)
-        print(f"{len(filed)} filed ids; {len(bad)} dangling references repo-wide")
+        qualifier = (" — OVER-COUNTED, see the incomplete universe above"
+                     if unreadable else "")
+        print(f"{len(filed)} filed ids; {len(bad)} dangling references "
+              f"repo-wide{qualifier}")
         for k, v in bad.items():
             print(f"  {k}  <- {sorted(v)[0]}"
                   + (f" (+{len(v) - 1} more)" if len(v) > 1 else ""))
-        # Report-only by design: see the module docstring on alarm fatigue.
-        return 0
+        # Report-only on the DEBT by design (see the module docstring on alarm
+        # fatigue) — but an unreadable register is not debt, it is a broken
+        # input, and a sweep that cannot state its own denominator should not
+        # exit 0. This mode is `allow_fail` in run_guards.py, so it still gates
+        # nothing; what changes is that it stops CLAIMING a number it cannot
+        # stand behind.
+        return 2 if unreadable else 0
 
     if not args.base:
         print("::error::--base <ref> or --all required")
         return 1
 
-    bad = dangling(refs_in_added_lines(args.base, repo), filed)
+    try:
+        introduced = refs_in_added_lines(args.base, repo)
+    except GitRead as exc:
+        # ⚠️ NOT `return 0`. An unreadable base is *we did not look*, and the
+        # whole point of this guard is that a reference nobody can resolve must
+        # not read as resolved. Exit 2 rather than 1 so the two are legible
+        # apart: 1 is "I looked and found dangling refs", 2 is "I could not
+        # look at all". Same split the `--all` path above already makes for an
+        # unreadable register.
+        print(f"::error::could not read the diff against base {args.base!r} — "
+              f"WE DID NOT LOOK, which is not the same as 'nothing dangles'. "
+              f"{exc}")
+        print("Fix: pass a base that resolves. A remote-tracking ref needs its "
+              "remote prefix (`origin/main`, not `main`, unless a local branch "
+              "of that name exists).")
+        return 2
+
+    bad = dangling(introduced, filed)
     if not bad:
         print("OK — every tracking id this change introduces resolves to a filed "
               "backlog row.")
@@ -258,6 +507,14 @@ def main(argv: list[str] | None = None) -> int:
     for k, v in bad.items():
         for f in sorted(v):
             print(f"  {f}: {k}")
+        # ⚠️ DIFF-SCOPED MODE ONLY, deliberately. `--all` reports a standing
+        # debt of dozens of references (86 when this was written) and is
+        # report-only by design for exactly the alarm-fatigue reason this
+        # module's docstring gives; four extra lines each would turn a long
+        # report into an unreadable one. This mode is a human trying to fix
+        # ONE thing right now.
+        for line in suggestion_lines(k, filed):
+            print(line)
     print("")
     print("Fix: file the row in the right backlog (docs/claude/*-backlog.json) with honest "
           "severity and enough detail to act on, or correct the id if it is a typo/rename.")

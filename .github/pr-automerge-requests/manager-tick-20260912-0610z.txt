@@ -1,0 +1,12 @@
+FINAL manager write of this run (2026-09-13T08:45Z).
+
+Lane close-out VERIFIED by reading origin, not by asking: MI-278 and MI-279
+both pushed resumption notes into their own work objects. MI-280 could NOT
+serve its turn (hard weekly limit, isUsingOverage FALSE) — reported and left
+alone, per the operator's answered decision.
+
+Also: a correction to this manager's own pause block. The create_trigger route
+is UNPROVEN — MI-279 states it never received the prompt and acted on the
+commit-message relay instead.
+
+Records #12046's manager ruling. Tier-1, registers only.

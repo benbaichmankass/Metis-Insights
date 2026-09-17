@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the four operator answers of 2026-09-16 into one machine-readable work object. ONE NEW FILE and its landing files \u2014 no shared register, so it carries no merge-conflict surface. Split out of #12346 after six consecutive CI cycles there were voided by concurrent sessions' register merges: a ~20-minute required CI cannot outrun a repo landing register PRs every few minutes, and the operator answers are the content that must not be lost to that race."
+}

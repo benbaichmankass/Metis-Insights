@@ -132,6 +132,14 @@ def canonical_items() -> list[dict[str, str]]:
 CREATION_KEYS = ("opened_at", "opened", "filed_at", "date")
 CLOSE_KEYS = ("resolved_at", "resolved", "resolved_on", "closed", "superseded_at")
 
+#: The statuses that mean a row is CLOSED. **This is the single owner**, and
+#: `scripts/ops/backlog_append.py` imports it rather than re-declaring it — so
+#: the writer stamps a close date for exactly the statuses this reader counts as
+#: closed, by construction rather than by coincidence. Two copies of "what
+#: counts as closed" is how the stamp and the count drift apart, which is the
+#: whole defect being fixed (see BL-20260913-…-CLOSE-DATE-…).
+CLOSED_STATUSES = frozenset({"resolved", "wont_fix", "invalid", "superseded"})
+
 
 def _row_month(row: dict[str, Any], keys: tuple[str, ...]) -> tuple[str, str]:
     """First key that yields a `YYYY-MM` prefix, and WHICH key it was.
@@ -148,7 +156,12 @@ def _row_month(row: dict[str, Any], keys: tuple[str, ...]) -> tuple[str, str]:
 
 
 def backlog_burndown() -> dict[str, Any]:
-    """Opened vs CLOSED per month across the three backlogs.
+    """Opened vs CLOSED per month across every declared review backlog.
+
+    ⚠️ THIS LINE READ "the three backlogs" UNTIL 2026-09-17 AND THE SCOPE
+    WAS A HARDCODED THREE-ENTRY DICT THAT HAD DRIFTED — see the comment at
+    the call site. The scope is now read from the single owner, so the
+    count follows the registers rather than this sentence.
 
     Operator directive 2026-08-31: *"the backlog shouldn't really be growing ...
     we should be getting things done from the backlog ... it's not so much a
@@ -195,12 +208,29 @@ def backlog_burndown() -> dict[str, Any]:
     monthly series is checked against.
     """
     import collections
-    files = {
-        "health": ROOT / "docs/claude/health-review-backlog.json",
-        "perf": ROOT / "docs/claude/performance-review-backlog.json",
-        "ml": ROOT / "docs/claude/ml-review-backlog.json",
-    }
-    CLOSED = {"resolved", "wont_fix", "invalid", "superseded"}
+
+    # ⚠️ THE SCOPE IS READ FROM THE SINGLE OWNER, NEVER RESTATED HERE. Until
+    # 2026-09-17 this was a hardcoded three-entry dict, and it had DRIFTED:
+    # `docs/claude/research-review-backlog.json` was split out on 2026-08-30 and
+    # never added, so the burn-down the drain doctrine names as THE metric was
+    # computed over 1863 rows while 1882 existed — 19 rows (13 of them open)
+    # excluded from both sides of the ratio, silently.
+    #
+    # ⚠️ IT DRIFTED BECAUSE IT SAT OUTSIDE A PIN THAT ALREADY EXISTED. Two other
+    # copies of this list are chained to the filesystem — `LIVE_BACKLOGS` is
+    # asserted equal to a GLOB of the review backlogs on disk, and `BACKLOGS` is
+    # asserted equal to `LIVE_BACKLOGS` — so adding a backlog fails a test until
+    # both learn about it. This third copy was reachable by neither assertion,
+    # which is precisely why it was the one that went stale.
+    #
+    # Imported INSIDE the function on purpose: `check_backlog_criteria` runs a
+    # `sys.path` shim at import time, and this module is itself imported by
+    # `backlog_append`, so a module-level import would push that side effect
+    # into every writer process for a list only this function needs.
+    from scripts.ops.check_backlog_criteria import BACKLOGS as _BACKLOGS
+
+    files = {rel: ROOT / rel for rel in _BACKLOGS}
+    CLOSED = CLOSED_STATUSES
     opened: Any = collections.Counter()
     closed: Any = collections.Counter()
     spellings: Any = collections.Counter()

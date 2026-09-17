@@ -1,0 +1,4 @@
+MI-278 / U23 — the Tier-3 proposal (propose only; no parameter changed).
+PR #12110, opened by this session so CI fires on a real pull_request event.
+Tier-1: one scripts/research/ audit, one memo, two register rows, one
+backlog row, one work-object progress entry. Nothing enacted.

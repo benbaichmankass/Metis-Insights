@@ -1,0 +1,4 @@
+MI-279 OPS lane — BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR.
+Tier-1: scripts/{research,ops}/ + docs/ + backlog rows. Opt-in marker for
+claude-pr-automerge.yml; its PATH is the signal. PR #12105 was opened by the
+session itself, so CI fired on a real pull_request event.

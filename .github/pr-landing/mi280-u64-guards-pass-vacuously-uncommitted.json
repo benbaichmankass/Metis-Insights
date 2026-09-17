@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one backlog row recording an operational trap in the diff-scoped guards, reproduced on a scratch branch. No code, config, workflow or runtime is changed -- the run_guards.py notice it argues for is a separate change with its own control."
+}

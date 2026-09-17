@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "strategy": "squeeze_breakout_4h",
+  "symbol": "BTCUSDT",
+  "timeframe": "4h",
+  "config_fingerprint": "sha256:1f63117f59519aaf85bfb2f951e7f55d",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 0.5994,
+  "expectancy_r_oos": 0.0666,
+  "n_trades_oos": 9,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 2,
+      "net_r": -1.7232,
+      "expectancy_r": -0.8616,
+      "start": "2025-11-26 16:00:00+00:00",
+      "end": "2026-01-12 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 2,
+      "net_r": 0.9986,
+      "expectancy_r": 0.4993,
+      "start": "2026-01-25 04:00:00+00:00",
+      "end": "2026-04-01 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 2,
+      "net_r": 4.0193,
+      "expectancy_r": 2.0096,
+      "start": "2026-04-17 08:00:00+00:00",
+      "end": "2026-06-01 04:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 3,
+      "net_r": -2.6953,
+      "expectancy_r": -0.8984,
+      "start": "2026-06-30 08:00:00+00:00",
+      "end": "2026-09-02 04:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-13T03:31:03.589167+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/squeeze_breakout_4h__trades.jsonl",
+  "error": null,
+  "harness": "squeeze",
+  "low_n_warning": "n_trades_oos=9 < 10; the pooled number is reported but is not a basis for a verdict."
+}

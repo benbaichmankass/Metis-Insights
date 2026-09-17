@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "strategy": "mes_trend_long_1d",
+  "symbol": "MES",
+  "timeframe": "1d",
+  "config_fingerprint": "sha256:ff10269dd2b73d1033faa08ecb5f7d25",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -0.7343,
+  "expectancy_r_oos": -0.1469,
+  "n_trades_oos": 5,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": 0.127,
+      "expectancy_r": 0.127,
+      "start": "2025-09-11 00:00:00+00:00",
+      "end": "2025-09-11 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": -0.727,
+      "expectancy_r": -0.727,
+      "start": "2025-10-24 00:00:00+00:00",
+      "end": "2025-10-24 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": -0.6437,
+      "expectancy_r": -0.6437,
+      "start": "2025-12-22 00:00:00+00:00",
+      "end": "2025-12-22 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": 0.5094,
+      "expectancy_r": 0.2547,
+      "start": "2026-04-13 00:00:00+00:00",
+      "end": "2026-08-04 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-16T19:14:14.883381+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "/tmp/strategy_evidence_omm3li18/mes_trend_long_1d__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "low_n_warning": "n_trades_oos=5 < 10; the pooled number is reported but is not a basis for a verdict."
+}
