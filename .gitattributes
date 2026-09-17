@@ -33,6 +33,16 @@
 # (`register-id-guard`) is that half, and it runs on every PR.
 
 docs/claude/health-review-backlog.json      merge=jsonregister
+# The other three review backlogs are the SAME row-register shape and were NOT
+# bound — measured 2026-09-13, all four carry `items[]` with a unique `id`, which
+# is what ID_FIELDS keys on. Only `health` was listed, so a hand-resolved conflict
+# in the other three silently drops rows: on 2026-09-13 resolving
+# performance-review-backlog.json by hand dropped BL-20260912-A-1000-ROW-TAIL-PULL-…
+# and every guard passed on the result. Running merge_json_register.py over that
+# same conflict's three inputs returns the correct 140 items with nothing dropped.
+docs/claude/performance-review-backlog.json merge=jsonregister
+docs/claude/ml-review-backlog.json          merge=jsonregister
+docs/claude/research-review-backlog.json    merge=jsonregister
 docs/claude/OPEN-ITEMS.json                 merge=jsonregister
 docs/claude/work/MANAGER-CHECKLIST.json     merge=jsonregister
 docs/claude/work/SESSIONS.json              merge=jsonregister

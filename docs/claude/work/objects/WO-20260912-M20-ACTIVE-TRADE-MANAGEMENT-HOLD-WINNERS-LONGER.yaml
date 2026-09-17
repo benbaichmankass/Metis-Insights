@@ -48,6 +48,91 @@ unit_breakdown: >-
   cleared U3, evidence attached, routed to the manager. U5 the MFE/MAE-in-ATR instrument
   (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
 
+decision_requests:
+  - id: DEC-20260913-FOUR-LEG-DISPOSITION
+    question: >-
+      PB-20260821 asks for a kill / demote-to-shadow / hold decision on four legs.
+      The M7 gate cannot produce one (U34 proved the KILL/DEMOTE matrix is gated on
+      >=20 LIVE closes and both shadow legs grade structurally_ungradeable, so
+      waiting cannot grade them). What disposition do you want for each of
+      slv_trend_1h, htf_pullback_trend_2h, eth_pullback_2h and tlt_pullback_1h?
+    urgency: routine
+    asked_on: '2026-09-13'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-13 (MI-278 U42) off two live pulls, trader git_sha f2335be98.
+      Instrument scripts/research/kill_case_admissibility.py; memo
+      docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md.
+      THE ROW'S OWN JUSTIFICATION IS GONE: it names slv_trend_1h as "the only large
+      loser whose loss is well MEASURED (coverage 0.77)". That leg now reads coverage
+      0.00 at 30d and 0.26 at lifetime, and its 30d defensible PnL is +49.56 -- a GAIN
+      -- against a -735.11 headline carried by 2 unmeasured rows. Its LIFETIME loss
+      does survive (-4214.86 admissible over 12 rows), so the instinct was not wrong;
+      the stated reason was.
+      || WHERE EACH LEG STANDS. slv_trend_1h: shadow since 2026-08-24, 3 PAPER
+      accounts, never on real money, lifetime loss_survives. htf_pullback_trend_2h:
+      shadow since 2026-08-23, bybit_1 paper only; its lifetime real-money rows
+      predate its 2026-07-16 demote off bybit_2; PAPER LIFETIME GRADES loss_inverts --
+      headline -4459.45 against an ADMISSIBLE +2130.53, with 17 of 23 rows unmeasured.
+      eth_pullback_2h: LIVE on bybit_2 REAL MONEY, and on real money it is -$15.49
+      over 15 lifetime closes (-$0.33 over 4 at 30d) -- approximately flat, not a kill
+      case. tlt_pullback_1h: LIVE on alpaca_live REAL MONEY and has NEVER placed an
+      order there -- 19 of 19 alpaca_live journal rows are `rejected`, zero closed,
+      2026-08-18 to 2026-09-11 (U39's dry-booking finding from the other side).
+      || [!] THE LEG WITH THE WORST HEADLINE HAS THE BEST EVIDENCE. htf_pullback_trend_2h
+      is the one whose admissible record is a GAIN and the one U34 found carries
+      net_r_oos +2.7261 over n=79 at FAITHFUL fidelity, the highest standard the
+      builder emits. A kill argued from this row's premise would be arguing against
+      the only positive evidence in the set. This is NOT a promotion proposal.
+      || [!] TWO OF THE FOUR ARE ON REAL MONEY and the row was filed as a class of
+      PAPER losers -- it has never said so.
+      || [!] NOTHING HERE IS AN EDGE TEST. Admissibility grades PROVENANCE: whether a
+      loss survives restriction to rows anyone can stand behind. A leg whose loss
+      survives may still be worth keeping, and one whose loss inverts may still be
+      worth killing on other grounds.
+    options:
+      - key: hold_all_four_pending_evidence
+        label: Hold all four; record that the M7 gate cannot decide them and stop re-measuring
+        implication: >-
+          Nothing changes on the fleet. The two shadow legs stay parked on a stopped
+          accrual clock and the two live legs keep trading as they are. This is a
+          legitimate answer and it CLOSES PB-20260821 -- the row's criterion is a
+          decision per leg, and "hold, for this stated reason" is one. What it costs
+          is that htf's positive offline edge stays unharvested and tlt keeps a
+          nominal real-money route that places nothing.
+      - key: kill_the_two_shadow_legs
+        label: Retire slv_trend_1h and htf_pullback_trend_2h outright
+        implication: >-
+          Removes two legs that cannot be graded by waiting. [!] For htf this kills
+          the leg whose admissible record is +2130.53 and whose offline OOS edge is
+          the best of the four -- defensible only if the reason is "we will not carry
+          ungradeable legs", NOT "it lost money", because on the rows we can stand
+          behind it did not.
+      - key: repromote_htf_keep_slv_shadow
+        label: Return htf_pullback_trend_2h to live (paper bybit_1) on its offline edge; leave slv in shadow
+        implication: >-
+          Restarts the only accrual clock that could ever settle this row, on the leg
+          with the best evidence, at no real-money risk (bybit_1 is paper-class).
+          [!] Tier-3 and it reverses an operator-approved demote made 2026-08-23 on a
+          4-axis discharge, so it needs the reason for THAT demote to be re-read
+          first -- U42 did not re-read it and does not claim it was wrong.
+      - key: fix_tlt_route_first
+        label: Deal with tlt_pullback_1h's dead real-money route before dispositioning anything
+        implication: >-
+          tlt is declared live on real money and has placed nothing in 25 days. Until
+          that is resolved its record cannot inform any decision, and the declaration
+          is misleading on every surface that reads execution state. This defers the
+          other three rather than answering them.
+      - key: something_else
+        label: A different disposition, per leg
+        implication: >-
+          Say which leg gets which of kill / demote-to-shadow / hold and the reason;
+          it is recorded per leg against PB-20260821's criterion.
+    blocking: false
+    notes: >-
+      NOT BLOCKING. U42 continues to the next unit; nothing waits on this answer, and
+      no parameter, roster or execution value was changed by the unit that raised it.
+
 progress:
   U1: >-
     DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map
@@ -396,3 +481,30 @@ progress:
     both re-run correctly and recorded rather than counted; 2 no-op plants fired zero). Nothing in
     src/, config/ or any unit file is touched. Memo:
     docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md
+  U42: >-
+    DELIVERED. Worked PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13, the oldest open `high` row in the
+    performance backlog bearing on trade management. BOTH OF ITS LOAD-BEARING CLAIMS ABOUT
+    slv_trend_1h ARE FALSE TODAY: '0 wins in 13' is 4 trades / 2 wins / 50.0% at 30d, and 'the only
+    large loser whose loss is well MEASURED (coverage 0.77)' is coverage 0.00 at 30d and 0.26 at
+    LIFETIME -- with the part of its 30d PnL anyone can stand behind reading +49.56, a GAIN, against
+    a -735.11 headline carried by 2 unmeasured rows. Its LIFETIME loss DOES survive (-4214.86
+    admissible over 12 rows), so the instinct was right and the stated reason is gone. !! THE ROW NOW
+    POINTS AWAY FROM THE EVIDENCE: htf_pullback_trend_2h grades loss_inverts on lifetime paper --
+    headline -4459.45 against an ADMISSIBLE +2130.53, 17 of 23 rows neither measured nor estimated --
+    and it is the same leg U34 found carries the best offline number of the four (net_r_oos +2.7261,
+    n=79, FAITHFUL). A kill argued on this row's premise would argue against the only positive
+    evidence in the set. NOT a promotion proposal; Tier-3. !! AND tlt_pullback_1h IS 'LIVE ON REAL
+    MONEY' IN NAME ONLY: 19 of 19 alpaca_live journal rows are `rejected`, zero closed, 2026-08-18 ->
+    2026-09-11 -- U39's dry-booking finding from the other side. eth_pullback_2h, the only leg
+    actually trading real money, is -$15.49 over 15 lifetime closes. NEW INSTRUMENT:
+    scripts/research/kill_case_admissibility.py grades whether a leg's HEADLINE loss survives
+    restriction to totalPnlMeasured's own basis (MEASURED+ESTIMATED, verified at performance.py:490,
+    not inferred from the name) -- 8 never-collapsed verdicts in which `no_admissible_rows` is *we
+    could not look* and is deliberately NOT folded into `loss_inverts`, and `absent_from_block` is 0
+    closes and never a 0.0 reading. 27 self-test + 14 pytest controls; 10 planted defects, 10 caught
+    by a named control. THE DECISION IS ASKED, not re-measured a fourth time:
+    DEC-20260913-FOUR-LEG-DISPOSITION on this object, non-blocking, with 'hold all four for this
+    stated reason' as an explicit CLOSING option -- because U34 already proved the M7 gate cannot
+    produce the badge the row's criterion asks for (KILL/DEMOTE gated on >=20 LIVE closes; both
+    shadow legs structurally_ungradeable). NOTHING CHANGED: no parameter, roster or execution value.
+    Memo: docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md

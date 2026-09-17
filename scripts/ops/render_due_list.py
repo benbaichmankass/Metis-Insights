@@ -1626,6 +1626,44 @@ def render_markdown(env: dict) -> str:
 
 # ── self-test: planted controls, so a vacuous pass is impossible ───────────
 
+def _state_and_cause(got: "SourceResult") -> str:
+    """The assertion message for a source that did not read — WITH its cause.
+
+    ⚠️ **THIS EXISTS BECAUSE A MESSAGE THAT NAMED NO CAUSE COST FOUR DAYS.**
+    The three `state == "read"` assertions below used to fail as bare
+    ``AssertionError: could_not_read``. That is UNPROVENANCED DIAGNOSTIC OUTPUT
+    sub-class A (`CLAUDE.md` § "Diagnostic provenance"): the label names the
+    grade and says nothing about the derivation, and a reader takes it as a
+    statement about the SOURCE LOGIC the assertion appears to be testing.
+
+    It was not the source logic. Measured over `due-list.yml`'s complete run
+    history, runs #104-#107 (2026-09-13 .. 2026-09-16, all `event=schedule`)
+    concluded `failure` **4 of 4**, each in seconds at this gate, on
+
+        scripts/ci/check_decision_answers.py: ModuleNotFoundError: No module named 'yaml'
+
+    — a dependency the runner does not install, nothing to do with the grading.
+    `SourceResult.note` already carried that string and the assertion dropped it
+    on the floor, so the run log showed only the grade.
+
+    ⚠️ **THIS DOES NOT WEAKEN THE GATE, AND MUST NOT BE MADE TO.** The
+    assertion still requires `read`; only what it PRINTS on the way out
+    changes. `constraint-readout.yml`'s note on the same failure class is
+    right — *"THE GATE WAS NOT THE BUG — IT WORKED"* — and a run that skipped
+    it would commit a due-list whose parked-edge source diagnosed nothing.
+
+    ⚠️ **THE NAME IS DELIBERATELY NOT `_why`.** `_self_test` rebinds `_why` as a
+    loop variable partway through its own body, which makes that name LOCAL for
+    the whole function — so a helper called `_why` resolves to the leftover
+    string at every assertion site and dies as `TypeError: 'str' object is not
+    callable`, replacing one uninformative message with a worse one. Caught by
+    running this file with `yaml` blocked; a run without the block never reaches
+    the line, so a green self-test would not have found it.
+    """
+    note = (getattr(got, "note", "") or "").strip()
+    return f"{got.state} — {note}" if note else f"{got.state} (no note recorded)"
+
+
 def _self_test() -> int:
     r_ok = SourceResult("a", "read", [_row("a", "1", "t", "w")])
     r_bad = SourceResult("b", "could_not_read", note="403")
@@ -1986,7 +2024,7 @@ def _self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         root = _opr_tree(td, _settled(pr=4242, terminal="closed_unmerged"))
         got = src_settled_disposition_owed(root, today)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         ids = {r["id"] for r in got.rows}
         assert ids == {"settled-prs-disposition-owed"}, ids
         row = got.rows[0]
@@ -2049,7 +2087,7 @@ def _self_test() -> int:
 
     with tempfile.TemporaryDirectory() as td:
         got = src_manager_queue_watch(_mqw_tree(td, None), today, now=_now)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         ids = {r["id"] for r in got.rows}
         assert ids == {"manager-queue-watch-never-ran-overdue"}, ids
         row = got.rows[0]
@@ -2173,7 +2211,7 @@ blocked_on:
 
     with tempfile.TemporaryDirectory() as td:
         got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}), today)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         assert {r["id"] for r in got.rows} == {"spent-edge-WO-TEST-PARKED"}, got.rows
         assert got.rows[0]["loud"], "a parked object is loud, not a footnote"
         assert got.rows[0]["link"] == f"{_WORK_OBJECTS}/WO-TEST-PARKED.yaml", \

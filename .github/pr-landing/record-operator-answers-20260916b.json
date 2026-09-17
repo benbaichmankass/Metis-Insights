@@ -1,5 +1,5 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Records the four operator answers of 2026-09-16 into docs/claude/work/objects/, adds the chosen first lane as a checklist row, and narrows one OPEN-ITEMS observation. Registers and records only — no src/, tests/, scripts/, config/, deploy/ or workflow change."
+  "landing": "hold",
+  "why": "Records the four operator answers of 2026-09-16 into docs/claude/work/objects/, adds the chosen first lane as a checklist row, and narrows one OPEN-ITEMS observation. Registers and records only \u2014 no src/, tests/, scripts/, config/, deploy/ or workflow change. LANDING: HOLD, and the reason is measured rather than procedural \u2014 this diff touches four of the hottest shared registers, and over five consecutive CI cycles it was made `dirty` by other sessions' register merges every time. Arming auto-merge requires an R13 merge-slot claim on docs/claude/session-board.json, which every commit-to-main rewrites, so the claim itself was a guaranteed conflict that bought no exclusion (R13's own docstring says the claim does not serialize). Dropping the claim removes that file from the diff; the manager merges this by hand, which is management."
 }
