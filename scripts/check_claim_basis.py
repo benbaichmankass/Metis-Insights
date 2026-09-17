@@ -41,6 +41,16 @@ BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
     "docs/claude/ml-review-backlog.json",
+    # ⚠️ ADDED 2026-09-12 (MI-280). This guard scanned THREE backlogs while
+    # `scripts/ops/work_digest.py` reads FOUR — so the fourth was the one place
+    # in the corpus where a free-text `status` could land and nothing would say
+    # so, which is precisely the harm `check_status_enum`'s own error message
+    # names. MEASURED before adding it: 19 rows, statuses `open` x13 and
+    # `resolved` x6, all already in the enum, so this widens COVERAGE and
+    # changes no verdict today. Stated rather than implied, because "it passes"
+    # and "it was already clean" are different facts and only the second is
+    # evidence the addition was safe.
+    "docs/claude/research-review-backlog.json",
 )
 
 # Evidence-grade figures: percentages, R-figures, $-totals >= 1,000.

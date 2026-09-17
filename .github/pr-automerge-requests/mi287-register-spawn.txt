@@ -1,0 +1,1 @@
+arm: tier-1 registry row; see .github/pr-landing/mi287-register-spawn.json
