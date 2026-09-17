@@ -128,3 +128,28 @@ Both MI-278 U4 proposals sit on **`ict_scalp_xrp_15m`**. Measured over the wides
 2. **`contaminated` (16 of 101)** — `netting_attributed`, already tracked as a live unfixed defect with real-money rows in its population.
 
 **Until those move, the ceiling on attribution is ~62% of winners, and no tolerance, window or instrument changes that.** That ceiling is the number to put in front of the operator, not the 43%.
+
+---
+
+## 7. Verification, and how this memo's own PR was nearly merged unchecked
+
+**Guards on committed state:** `stated-population-guard: OK` · `check_backlog_refs: OK — every tracking id this change introduces resolves to a filed backlog row` · `document-index: OK` (population 1099 / registered 1099, row-drift census 0) · `pr-landing: OK — state=declared_self_land`.
+
+**Reproduce every figure above:**
+
+```
+curl -sS "https://ict-bot.duckdns.org/api/diag/journal?table=trades&limit=1000"          -H "Authorization: Bearer $DIAG_READ_TOKEN" -o trades.json
+curl -sS "https://ict-bot.duckdns.org/api/diag/journal?table=order_packages&limit=1000"  -H "Authorization: Bearer $DIAG_READ_TOKEN" -o packages.json
+python3 scripts/research/m20_u2_winner_close_attribution.py \
+    --trades trades.json --packages packages.json --cut 2026-08-21 --sensitivity
+```
+
+⚠️ **The pull will NOT reproduce this memo's population, by construction** — § 2 measured the window as *sliding*, so a later run gets later ids. The **rates** are what carry; the row ids do not.
+
+### ⚠️ This PR was born with NO CI, and that is worth recording because it nearly landed that way
+
+`claude-pr-automerge` opened the PR under `GITHUB_TOKEN`, so **GitHub fired no `pull_request` event** and the four real jobs — `guards`, `pytest-run`, `pytest-collect`, `repo-inventory` — **did not run at all**. The PR carried exactly **two** check runs, `watch` and `open-and-automerge`, *both from the arming workflow itself*, **both green**, with **auto-merge already enabled**.
+
+**So it read as a green, armed, ready PR whose CI had never executed.** `CLAUDE.md` documents this trap and names the remedy — push one ordinary commit — and it still caught this unit, because the workflow opens the PR the instant the arming file lands rather than when the author is ready.
+
+⚠️ **The tempting workaround is the hazard.** CLAUDE.md warns that inventing a commit to arm CI *"pressures you into padding a diff"*. This section is **not** padding: a verification block naming the guard results and a reproduce command is standard for this repo's research memos and was missing. If a future session finds itself with nothing real to add, **the correct move is to say so and ask for the click, not to manufacture a diff.**
