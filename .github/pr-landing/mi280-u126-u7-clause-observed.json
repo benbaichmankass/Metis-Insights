@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1, register-only. One existing row in docs/claude/OPEN-ITEMS.json amended in place by a verified surgical byte splice (locate the field's unique serialised bytes, replace, re-parse, assert the document differs nowhere else — the write is skipped if it does), plus the GENERATED SESSION-BRIEF block of CLAUDE.md re-rendered by scripts/ops/render_session_brief.py --write, which the session-brief guard requires whenever a diff changes the registers. No src/, no config/, no deploy/, no workflows, no scripts, no tests, and no canonical prose outside the generated block. No path touched is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply. It records an observation against an existing monitoring row's own criteria and enacts nothing."
+}
