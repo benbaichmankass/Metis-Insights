@@ -2791,7 +2791,9 @@
         "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
       },
       "merged_as": "f258d5232",
-      "settled_at": "2026-09-17T16:1xZ"
+      "settled_at": "2026-09-17T16:1xZ",
+      "terminal": "merged",
+      "settled_by": "session_01HoFquGdTrD3TTGbMMRc43t"
     }
   ],
   "last_reconciled_at": "2026-09-17T16:05Z",
