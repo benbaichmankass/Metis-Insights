@@ -223,6 +223,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `.claude/skills/research-driver/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/session-coordination/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/session-handoff/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+| `.claude/skills/session-receipt/SKILL.md` | instruction | live | — | 2026-09-17 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/sprint-format/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-report/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |

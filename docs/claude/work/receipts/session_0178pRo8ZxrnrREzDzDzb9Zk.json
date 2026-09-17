@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "kind": "session_receipt",
+  "session_id": "session_0178pRo8ZxrnrREzDzDzb9Zk",
+  "role": "lane:ops",
+  "generated_at": "2026-09-17T19:14:12Z",
+  "window": "origin/main since 2026-09-17",
+  "decisions": {
+    "basis": "author_must_complete",
+    "note": "Operator decisions taken this session, each with the answer recorded VERBATIM, and an explicit note wherever the operator OVERRULED this session's recommendation. An empty list here is a claim that none were taken.",
+    "rows": []
+  },
+  "sessions_spawned": {
+    "basis": "author_supplies_mandate__generator_measures_landing",
+    "note": "One row per spawned session. The MANDATE is the author's (git cannot know what a session was told); WHAT LANDED is measured by attributing that session's own commits. Aborted and respawned sessions are listed, never silently dropped.",
+    "rows": []
+  },
+  "own_work": {
+    "basis": "measured",
+    "attribution": {
+      "state": "measured",
+      "window": "origin/main since 2026-09-17",
+      "attributed": [],
+      "attributed_count": {
+        "value": 0,
+        "population": "commits on origin/main since 2026-09-17 carrying a Claude-Session trailer naming session_0178pRo8ZxrnrREzDzDzb9Zk"
+      },
+      "scanned_count": {
+        "value": 0,
+        "population": "all non-merge commits on origin/main since 2026-09-17"
+      },
+      "unattributed_count": {
+        "value": 0,
+        "population": "commits on origin/main since 2026-09-17 carrying NO parseable Claude-Session trailer"
+      }
+    },
+    "prs": {
+      "rows": [],
+      "landed": {
+        "value": 0,
+        "population": "of 0 PR number(s) checked against origin/main by squash suffix"
+      },
+      "could_not_look": {
+        "value": 0,
+        "population": "of 0 PR number(s) whose landing state could NOT be read"
+      }
+    },
+    "landed_prs": []
+  },
+  "totals": {
+    "basis": "measured",
+    "prs_landed_by_this_session": {
+      "value": 0,
+      "population": "of 0 PR number(s) checked against origin/main by squash suffix"
+    },
+    "commits_attributed_to_this_session": {
+      "value": 0,
+      "population": "commits on origin/main since 2026-09-17 carrying a Claude-Session trailer naming session_0178pRo8ZxrnrREzDzDzb9Zk"
+    },
+    "commit_population": {
+      "value": 0,
+      "population": "all non-merge commits on origin/main since 2026-09-17"
+    },
+    "commits_unattributed": {
+      "value": 0,
+      "population": "commits on origin/main since 2026-09-17 carrying NO parseable Claude-Session trailer"
+    },
+    "sessions_spawned": {
+      "value": 0,
+      "population": "rows in section B, which the author completes"
+    }
+  },
+  "errors": {
+    "basis": "author_must_complete",
+    "note": "What this session got wrong and how it was corrected. NOT optional: a receipt with no errors section reads as a claim of none, and every receipt written so far has had entries here.",
+    "rows": []
+  }
+}

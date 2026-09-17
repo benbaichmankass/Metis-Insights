@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 by the canonical table and by docs/api-tier-policy.md — GET /api/bot/work/receipts is a public read route with no session gate, sitting in the same Tier-1 section as its sibling GET /api/bot/work/checklist, and it is read-only, file-backed, no DB, no secrets and no write surface. But it lives in src/web/api/routers/work.py, which is outside TIER1_SURFACE, so the guard cannot vouch for it and self-landing is correctly refused rather than granted by default. The OPS lane's spawn brief is Tier-1 only and says to propose anything else to the manager rather than take it, so this waits for a manager merge decision. Everything else in the diff (the skill, the generator, the tests, the api-tier row, the DOCUMENT-INDEX row, the backlog rows, the work object) is squarely on the Tier-1 surface.",
+  "why": "MI-290: canonize the session-receipt format — a skill that owns the shape, a generator that produces its measured half, and a read route that serves the durable artifact to the Workflow page"
+}

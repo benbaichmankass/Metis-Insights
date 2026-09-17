@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import logging
 import os
 import re
@@ -1705,3 +1706,199 @@ async def post_work_decision(
             "question reads UNANSWERED — transit fails back, never forward."
         ),
     }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Session receipts — MI-290, the Workflow page's third panel
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: Operator directive 2026-09-17: *"i want this format of summary cannonized so
+#: that this is what i get whenever i ask a session for a 'session receipt', and
+#: this is what should be presented on the web page"*. The format's ONE owner is
+#: `.claude/skills/session-receipt/SKILL.md`; the measured half is produced by
+#: `scripts/ops/session_receipt.py`. **This route computes nothing** — it serves
+#: what a session wrote, exactly as `/checklist` serves what a manager pushed.
+#:
+#: ⚠️ ONE FILE PER SESSION, not a shared register, and the reason is measured
+#: rather than stylistic: several lanes wrap at once, and a single mutable array
+#: is the shape that made `session-board.json::merge_slot` move in 39 of the last
+#: 40 commits touching it, sending every armed branch `dirty` and restarting its
+#: CI. `docs/claude/work/README.md` states the principle — one file per object,
+#: so two sessions touching different work never conflict.
+_RECEIPTS_SUBDIR = "receipts"
+_RECEIPTS_CACHE_TTL_S = 20.0
+_receipts_cache: tuple[float, dict[str, Any]] | None = None
+
+#: A session id, and the ONLY thing accepted as a filename stem. Anchored, so a
+#: traversal (`../`) is refused at the door rather than resolved and rejected
+#: later — the same polarity `/object/{object_id}` already uses.
+_RECEIPT_STEM_RE = re.compile(r"^session_[A-Za-z0-9]+$")
+
+#: The five sections, named here so the route can report a receipt that is
+#: MISSING one rather than serving it as though it were complete. A receipt with
+#: no `errors` block reads as a claim that the session made no mistakes, which is
+#: the specific failure the skill's section E exists to prevent.
+_RECEIPT_SECTIONS = ("decisions", "sessions_spawned", "own_work", "totals", "errors")
+
+
+def _receipt_completeness(payload: dict[str, Any]) -> dict[str, Any]:
+    """Which of the five sections are present, and which are still scaffolds.
+
+    Three states, never collapsed: a section can be `complete` (the author filled
+    it), `scaffold` (the generator wrote it and nobody has completed it — NOT the
+    same as "there were none"), or `missing` (absent entirely).
+    """
+    sections: dict[str, str] = {}
+    for name in _RECEIPT_SECTIONS:
+        block = payload.get(name)
+        if not isinstance(block, dict):
+            sections[name] = "missing"
+            continue
+        if block.get("basis") == "measured":
+            sections[name] = "complete"
+        elif block.get("rows"):
+            sections[name] = "complete"
+        else:
+            # An empty narrative section is a CLAIM ("none were taken"), and the
+            # page must be able to show that it is an unfilled scaffold instead.
+            sections[name] = "scaffold"
+    return {
+        "sections": sections,
+        "complete": all(v == "complete" for v in sections.values()),
+        "note": (
+            "`scaffold` means the generator wrote the section and no author "
+            "completed it. That is NOT the same as an author stating there were "
+            "none — a receipt with an empty ERRORS section reads as a claim of "
+            "no mistakes, and this field is what keeps the two apart."
+        ),
+    }
+
+
+def _receipts_payload() -> dict[str, Any]:
+    """Build the receipts envelope. Best-effort: never raises to the caller."""
+    repo = Path(repo_root())
+    reldir = f"docs/claude/work/{_RECEIPTS_SUBDIR}"
+    directory = _work_dir() / _RECEIPTS_SUBDIR
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+
+    if not directory.is_dir():
+        # ⚠️ NOT an empty list. "no session has written a receipt yet" and "the
+        # directory could not be read" are opposite findings, and a page that
+        # renders them identically is the collapse this router already refuses
+        # three times over.
+        return {
+            "present": False,
+            "readState": "absent",
+            "reason": (
+                f"{reldir}/ does not exist on this tree. No receipt has been "
+                "written yet, OR the tree predates the directory — this is not "
+                "a claim that no session has worked."
+            ),
+            "receipts": [],
+            "readErrors": [],
+            "summary": {"receipts": 0, "population": f"files matching session_*.json in {reldir}/"},
+            "freshness": {"path": reldir, "treeState": tree.state,
+                          "treeStamp": manager_status.render_tree_stamp(tree)},
+        }
+
+    receipts: list[dict[str, Any]] = []
+    read_errors: list[dict[str, str]] = []
+    for path in sorted(directory.glob("*.json")):
+        if not _RECEIPT_STEM_RE.match(path.stem):
+            # Reported, never silently skipped — a stray file in this directory
+            # is a finding about whoever put it there.
+            read_errors.append({"file": path.name,
+                                "error": "filename stem is not a session id"})
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            # A file that fails to parse is REPORTED, never dropped — this
+            # router's own rule 1.
+            read_errors.append({"file": path.name, "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        if not isinstance(payload, dict):
+            read_errors.append({"file": path.name, "error": "not a JSON object"})
+            continue
+        commit = manager_status.read_file_commit(f"{reldir}/{path.name}", repo_dir=repo)
+        receipts.append({
+            "sessionId": payload.get("session_id") or path.stem,
+            "role": payload.get("role"),
+            "generatedAt": payload.get("generated_at"),
+            "window": payload.get("window"),
+            "completeness": _receipt_completeness(payload),
+            # Verbatim. The receipt's own fields are the product; an allowlist
+            # here would silently drop the detail the page exists to show —
+            # the same reasoning `/checklist` applies to its `fields` block.
+            "receipt": payload,
+            "freshness": {
+                "commitState": commit.state,
+                "commitSha": commit.sha,
+                "committedAt": commit.committed_at,
+                "commitAgeHours": (round(commit.age_hours, 3)
+                                   if commit.age_hours is not None else None),
+                # `None` is "we could not look", never "clean".
+                "workingTreeDirty": commit.dirty,
+            },
+        })
+
+    receipts.sort(key=lambda r: (r.get("generatedAt") or ""), reverse=True)
+    return {
+        "present": True,
+        "readState": "read",
+        "receipts": receipts,
+        # Non-empty `readErrors` with `present: true` is the honest state: we
+        # read the directory AND some files in it are unreadable.
+        "readErrors": read_errors,
+        "summary": {
+            "receipts": len(receipts),
+            "unreadable": len(read_errors),
+            "incomplete": sum(1 for r in receipts if not r["completeness"]["complete"]),
+            "population": f"files matching session_*.json in {reldir}/ on this tree",
+        },
+        "format": {
+            "owner": ".claude/skills/session-receipt/SKILL.md",
+            "generator": "scripts/ops/session_receipt.py",
+            "sections": list(_RECEIPT_SECTIONS),
+        },
+        "freshness": {
+            "path": reldir,
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": (
+                "Served from the VM's WORKING TREE, which ict-git-sync pulls "
+                "roughly every 5 minutes — so a receipt appears here at the "
+                "author's PUSH plus that interval, never at its authoring."
+            ),
+        },
+    }
+
+
+@router.get("/receipts")
+def get_work_receipts() -> dict[str, Any]:
+    """Session receipts — the canonical wrap-up record, one per session.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort: an
+    unreadable directory degrades to ``present: false`` WITH its read state,
+    never a 5xx and never an empty list that reads as "no session has worked".
+    """
+    global _receipts_cache
+    now = time.monotonic()
+    cached = _receipts_cache
+    if cached is not None and (now - cached[0]) < _RECEIPTS_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _receipts_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a receipts panel that 500s is invisible rather than empty.
+        logger.warning("work: receipts read failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"receipts read failed: {exc}",
+            "receipts": [],
+            "readErrors": [],
+            "summary": {"receipts": 0,
+                        "population": "payload build failed before the directory was read"},
+        }
+    _receipts_cache = (now, payload)
+    return payload
