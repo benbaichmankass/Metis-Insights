@@ -121,19 +121,76 @@ decisions:
       asks; it does not assume. (2) No spawn prompt may carry an open-ended
       drain-the-queue or work-until-empty mandate — every spawn names a
       specific, finishable deliverable. (3) The manager heartbeat cadence is
-      every 2 hours, not hourly.
+      every 90 MINUTES. ⚠️ CLAUSE (3) READ "every 2 hours, not hourly" until
+      2026-09-17 and that is NO LONGER THE RULE — do not re-quote it. It is
+      superseded by DEC-20260917-MANAGER-TICK-CADENCE below, which the operator
+      answered on 2026-09-17 to resolve the R7 contradiction this same decision
+      flagged. The 09-16 wording is preserved in
+      '⚠️_CLAUSE_3_AS_ANSWERED_ON_2026_09_16' so the record of what was actually
+      chosen that day is not overwritten by its own correction. Clauses (1) and
+      (2) are UNTOUCHED and remain in force exactly as written.
     '⚠️_ONE_LANE_AT_A_TIME_WAS_OFFERED_AND_NOT_SELECTED': >-
       The fourth option — serialize to one lane — was NOT chosen. So concurrency
       is still permitted; what is capped is each lane's spend and mandate. Do
       not enforce a one-lane rule the operator declined, and do not report
       running two lanes as a violation of this decision.
-    '⚠️_R7_GRADES_THE_HEARTBEAT_AND_A_2H_CADENCE_IS_INSIDE_IT': >-
+    '⚠️_CLAUSE_3_AS_ANSWERED_ON_2026_09_16': >-
+      Verbatim, so the correction above cannot be mistaken for a rewrite of what
+      the operator chose: "(3) The manager heartbeat cadence is every 2 hours,
+      not hourly." That WAS the answer on 2026-09-16. It was superseded on
+      2026-09-17, not retracted — the option chosen that day
+      (manager_ticks_every_2h_not_hourly) is still the record of the 09-16
+      answer, and `chosen` is deliberately left unedited for that reason.
+    '⚠️_R7_CONTRADICTION_—_RESOLVED_2026_09_17_DO_NOT_RE_PROPOSE_WIDENING_R7': >-
+      THIS ROW FLAGGED THE CONTRADICTION AND IT IS NOW ANSWERED. As written on
+      2026-09-16: check_manager_scope.py R7 fails a heartbeat more than one lease
+      TTL (90 min) after the previous one, so a 2h cadence EXCEEDS it — either the
+      tick advances the lease inside 90 min while the manager reports every 2h, or
+      R7 is the thing that must change. ⚠️ THE OPERATOR CHOSE THE FIRST, ON
+      2026-09-17: TIGHTEN THE TICKS TO 90 MINUTES. R7 IS UNCHANGED AND STAYS AT
+      ONE LEASE TTL. ⚠️ THE MANAGER RECOMMENDED THE OTHER OPTION — widening R7 to
+      match a 2h cadence — AND WAS OVERRULED. That is recorded here, in the row a
+      successor reads, precisely so the losing recommendation is not re-proposed
+      as if it were a fresh idea: it has been put to the operator once and
+      declined. ⚠️ AND NOTE WHAT WAS **NOT** DECIDED: nothing here changes clauses
+      (1) or (2) — the 8-12 unit cap per lane and the ban on open-ended
+      drain-the-queue mandates are untouched — and nothing here revisits
+      one-lane-at-a-time, which was offered on 2026-09-16 and declined (see the
+      warning above it). A session reading only the tick change must not infer
+      that the spend controls moved with it.
+
+  - id: DEC-20260917-MANAGER-TICK-CADENCE
+    question: >-
+      DEC-20260916-PACING-RULES set the manager tick at 2h while
       check_manager_scope.py R7 fails a heartbeat more than one lease TTL (90
-      min) after the previous one. A 2h cadence EXCEEDS that. Either the tick
-      advances the lease inside 90 min while the manager reports every 2h, or R7
-      is the thing that must change — and changing a guard is a code change, not
-      a manager act. Resolve it before letting a lease lapse; do not discover it
-      at a red PR.
+      min) after the previous one, so the two disagree by 30 minutes and a
+      compliant manager reds its own PR. Tighten the ticks to 90 min, or widen R7
+      to match the 2h cadence?
+    options_offered:
+      - tighten_ticks_back_to_90_min
+      - widen_r7_to_match_the_2h_cadence
+    chosen: tighten_ticks_back_to_90_min
+    operator_text: 'Tighten ticks back to 90 min'
+    answered_at: '2026-09-17'
+    answered_by: operator
+    tier: 1
+    supersedes_clause: >-
+      DEC-20260916-PACING-RULES clause (3) ONLY. Clauses (1) and (2) of that
+      decision are unaffected and remain binding.
+    binding_on_every_manager_session_from_now: >-
+      The manager heartbeat cadence is every 90 MINUTES, matching R7's one-lease-
+      TTL window exactly. A manager reporting to the operator on a longer rhythm
+      still advances the lease inside 90 min — the REPORT cadence and the
+      HEARTBEAT cadence are two different things and only the heartbeat is what
+      R7 grades. R7 is not to be widened.
+    '⚠️_WHAT_THIS_DOES_NOT_ESTABLISH': >-
+      That the cadence is being MET. This records the rule, not compliance with
+      it — and the manager session that recorded it was itself outside the window
+      at the time (its own lease read expired_unverified when this landed, left
+      deliberately claimable for a successor rather than heartbeated). A
+      successor must not read this row as evidence that 90-minute ticks are
+      happening; the observable for that is the git history of
+      docs/claude/work/MANAGER-LEASE.json, which is what R7 reads.
 
   - id: DEC-20260916-BYBIT2-HEDGE-BOOK
     question: >-
