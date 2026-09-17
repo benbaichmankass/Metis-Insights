@@ -39085,6 +39085,24 @@
       "related": []
     },
     {
+      "id": "BL-20260917-REGISTER-ID-GUARD-PRINTS-R2B-COVERAGE-100-PERCENT-FOR-ROWS-R2A-SHORT-CIRCUITED-BEFORE-R2B-COULD-SEE-THEM",
+      "opened_by": "claude (MI-279 OPS lane, session_013iSqp4LsU1eq8K326eUtgj) — found beside the R3-headline fix, deliberately NOT folded into it",
+      "severity": "low",
+      "tier": "1 (tooling / CI)",
+      "status": "open",
+      "area": "ci",
+      "source": "scripts/ci/check_register_ids.py::check_identity + check(); reproduced in a temp git repo against main @123f6c192",
+      "title": "register-id-guard's census prints R2b coverage as 100% of shared ids, including rows R2a short-circuited before R2b could evaluate them",
+      "description": "MEASURED 2026-09-17 in a temp git repo against `main` @`123f6c192`. One shared id, wholesale-replaced so R2a fires. The census line reads:\n\n    …::items[id]: 1 rows, unique · R2a (creation-fact) assessed 1/1 shared ids (100%), 0 unassessable · R2b (replacement) 1/1 (100%), 0 replaced\n\n`check_identity` `continue`s on an R2a hit — correctly, so one row yields one finding — so that row was NEVER REACHED BY R2b. The printed `R2b … 1/1 (100%)` is R2b's REACH (it needs no creation date, unlike R2a) and not what it evaluated, and `0 replaced` is therefore 'we did not look', not 'we looked and found none'. The report line makes no distinction. Same family as the two instances this guard fixed the same day: `_rows`'s '0 rows, unique' for an ABSENT array, and #12398's literal `unique` printed whatever `check_uniqueness` returned.",
+      "why_it_matters": "STATED HONESTLY: this is the WEAKEST member of the class, which is why it is filed rather than fixed. It can only occur on a run that is ALREADY FAILING on R2a, and the offending row is named in the error block of that same run — so nothing is hidden from the reader and no clean verdict is manufactured. Measured consequence today: on a passing run R2a never fires, so the number is correct; the over-claim exists only in the output of a red run. What keeps it worth a row is the CLASS: a coverage percentage that reports reach while reading as evaluation is exactly what `unassessable` was introduced to prevent one column to its left, and the next rule added after R2b would inherit the same shape.",
+      "next_action": "TIER-1. Count the rows R2b actually evaluated (increment a counter inside the `if headline_moved:` branch rather than deriving it from `shared`), and report R2b's coverage as evaluated/shared with the short-circuited rows named separately — the same three-way shape R2a already uses (assessed / unassessable / passed). ⚠️ DO NOT 'fix' it by removing R2a's `continue`: that would emit two findings for one row and is the opposite defect.",
+      "resolution_criteria": "MECHANICALLY CHECKABLE, on purpose — a run of `check_register_ids.py --root <tmp> --base HEAD` over a register whose ONE shared id is wholesale-replaced (so R2a fires and `continue`s) must NOT print `R2b (replacement) 1/1 (100%)` for that register. It must report that 0 of 1 shared ids reached R2b, or name the short-circuited row, or otherwise distinguish 'not evaluated' from 'evaluated and clean'. ⚠️ A PASSING RUN CLEARS NOTHING: on a green run R2a never fires, every shared id does reach R2b, and 100% is the CORRECT reading — so the guard behaving on `main` is not evidence about this row and the check must be made against a deliberately R2a-failing tree. ⚠️ AND A TEST ASSERTING THE NEW STRING IS NOT SUFFICIENT ALONE without the positive control that a genuinely fully-evaluated register still reads 100%; deleting the number everywhere would pass a negative-only suite while destroying the census's ability to report full coverage — the exact trap #12398's own suite records hitting.",
+      "related": [
+        "BL-20260903-OPEN-PRS-ROWS-CARRY-NO-CREATION-DATE-SO-IDENTITY-CANNOT-BE-CHECKED"
+      ],
+      "opened_at": "2026-09-17T11:10:18.399405+00:00"
+    },
+    {
       "id": "BL-20260917-DRAIN-CANDIDATES-TURNS-A-GIT-TIMEOUT-INTO-A-DECIDED-NOTHING-SHIPPED",
       "title": "backlog_drain_candidates._added_after returned False when git did not answer at all, so a timeout silently argued AGAINST shortlisting a row instead of being dropped as undecidable",
       "severity": "medium",
