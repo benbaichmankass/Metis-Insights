@@ -38656,7 +38656,7 @@
     {
       "id": "BL-20260913-THE-CONFLICT-MARKER-REFUSAL-WAS-RULED-FOR-TWO-REGISTER-FAMILIES-AND-NEVER-EXTENDED-TO-THE-CANONICAL-PROSE-A-SESSION-READS",
       "title": "A committed unresolved conflict block in CLAUDE.md passes the FULL guard registry -- the refusal exists for the JSON registers and for DOCUMENT-INDEX.md, and was never extended to the prose docs",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": "1 -- scripts/ci guards over docs/**; developer tooling, no runtime, no order path",
       "area": "ci-guards",
@@ -38667,7 +38667,16 @@
       "related": [
         "BL-20260913-DOCUMENT-INDEX-MD-CAN-CARRY-AN-UNRESOLVED-MERGE-CONFLICT-BLOCK-AND-EVERY-GUARD-READS-OK",
         "BL-20260913-A-GUARD-RUN-BEFORE-COMMITTING-GRADES-THE-WRONG-TREE-AND-ITS-VACUOUS-PASS-IS-INDISTINGUISHABLE-FROM-A-REAL-ONE"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-09-17T07:46:30.970321+00:00",
+          "by": "claude (MI-280 engineering lane, session_01BjTp5RYwedmpFfkEtkQo1j), U98",
+          "disposition": "resolved",
+          "note": "[MI-280 engineering lane, session_01BjTp5RYwedmpFfkEtkQo1j, 2026-09-17] U98 — THE SCOPE DECISION THIS ROW ASKS FOR, MADE AND RECORDED. Chosen: a DECLARED PATH SET WITH A VERIFIED OVERRIDE, the first of the two options the criteria name. THE DECIDED SET is every prose document a session may read: ACTIVE_DOCS + ROADMAP.md + every SKILL.md and command + ALL of docs/**/*.md. Corpus 46 -> 1,089 files, deduplicated so a file in both ACTIVE_DOCS and docs/ is read once and cannot be reported twice. WHAT DECIDED IT WAS THE INSTRUCTION HIERARCHY'S OWN LEVEL 4. Levels 1-3, 5 and 6 were covered and docs/sprint-logs/ -- 309 files -- was not, so 'the current sprint log' could carry both sides of a contested edit and pass every guard in the repo. That is the same defect this row was opened on, one level down the hierarchy. !! THE FALSE POSITIVE IS THE HARD HALF AND THE ROW SAYS SO, so it was MEASURED BEFORE EXTENDING: over all 1,052 tracked docs/**/*.md the scan flags ZERO files; 10 files MENTION a marker in prose and NONE carries one at line start in tracked content -- the single repo-wide '^<<<<<<<' hit is a git-ignored .pyc. The whole sweep costs 0.14s for 14.7 MB. WHERE THE CORPUS STOPS, AND WHY, because a stopping point asserted without a reason is the thing this row objects to: .github/workflows/**, config/** and scripts/** are NOT added, because a conflict marker in YAML, Python or JSON SELF-REPORTS -- verified by planting one in each: yaml.safe_load raises ScannerError, compile() raises SyntaxError, json.loads raises JSONDecodeError. MARKDOWN IS THE ONE FORMAT THAT PARSES FINE WHILE CORRUPT, which is precisely why prose needs a check and code does not. The JSON registers and docs/DOCUMENT-INDEX.md keep their existing rulings (check_register_reserialization.py, check_document_index.py R7); this does not replace them and the DOCUMENT-INDEX overlap is harmless. THE OVERRIDE IS VERIFIED IN BOTH DIRECTIONS, not presence-only: CONFLICT_MARKER_EXPECTED maps a path to the EXACT line numbers allowed to carry a marker. A marker on any undeclared line in an annotated file STILL FAILS (so a declaration can never become a blanket silencer), AND a declared line carrying no marker is ITSELF a finding (so a stale entry cannot sit there quietly widening what is excused). It ships EMPTY, which is the measured state, and exists so the first doc that legitimately shows a conflict block has a declared route instead of a reason to weaken the check. The failure message names that route explicitly rather than inviting a narrower scan. CONTROLS: 15 tests. FIVE plants attempted; THREE reddened immediately (dropping docs/ from the corpus, a declaration excusing the whole file, removing the stale-declaration check). !! TWO WERE ABSORBED AND BOTH ARE RECORDED RATHER THAN DROPPED, because that is the finding about my own controls. (a) 'Un-anchor the regex' changed NOTHING -- the pattern carries ^...$ AND the call uses .match(), which anchors at position 0 regardless, so a one-sided plant is inert; the REAL plant needs both, and with both applied 3 tests go red including the two prose tests. That is defence in depth, not a blind control, and it was established by running it. (b) Planting 'if state == CONFLICT_UNREADABLE' away WAS absorbed for real: my test exercised file_integrity(None) directly, one layer BELOW the reporter, so the predicate stayed right while check_conflict_markers silently dropped the finding. A new test drives an undecodable .md file through the REPORTER and the re-plant now reddens. A control that stops one layer short of what a human reads is not a control -- four of five would have looked like a complete battery."
+        }
+      ],
+      "resolved_at": "2026-09-17T07:46:31.259948+00:00"
     },
     {
       "id": "BL-20260913-THE-DAILY-BRIEF-IS-AN-OPERATOR-SET-DAILY-DELIVERABLE-AND-HAS-BEEN-PRODUCED-ONCE-IN-ELEVEN-DAYS",
