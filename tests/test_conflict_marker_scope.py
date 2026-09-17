@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "scripts" / "ci" / "check_canonical_doc_coherence.py"
@@ -44,6 +45,40 @@ PLANTED = "intro\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> origin/main\ntail
 
 # ── 1. IT FIRES ──────────────────────────────────────────────────────────────
 
+
+# ── A PROBE FILE NEVER LANDS IN THE REPO'S OWN docs/ ─────────────────────────
+
+@pytest.fixture
+def tmp_root(tmp_path, monkeypatch):
+    """A throwaway tree, so writing a probe cannot touch the real `docs/`.
+
+    ⚠️ THIS IS A FIX FOR A REAL FAILURE, NOT A STYLE PREFERENCE. The first
+    version of this file wrote its probe files into the repository's own
+    documentation directory, building each path off the repo root.
+    `tests/test_pytest_run_filter.py` scans this suite for exactly that shape and
+    treats every hit as a COMMITTED documentation file the suite reads; three of
+    its tests went red on the first CI run, because a docs-only PR touching such
+    a path would short-circuit `pytest-run` into a green tick having executed
+    nothing — which is how PR #9208 merged and left `main` red.
+
+    ⚠️ AND THE SHAPE MUST NOT BE WRITTEN IN PROSE EITHER: that scan is a
+    per-LINE regex over this file's source, so spelling the offending join in a
+    comment re-creates the finding it explains. It is described here instead.
+
+    ⚠️ IT IS ALSO THE HAZARD ITSELF: a test that writes into the working tree
+    leaves the file behind if the process dies between the write and the
+    `finally`, and the next `check_conflict_markers()` over the REAL corpus
+    would then report a planted conflict as a live finding.
+
+    `_conflict_corpus()` and `check_conflict_markers()` both read the module-level
+    `ROOT`, so pointing it at a tmp tree exercises the REAL functions rather than
+    a stub — the corpus is still constructed, not faked.
+    """
+    (tmp_path / "docs").mkdir()
+    monkeypatch.setattr(G, "ROOT", tmp_path)
+    return tmp_path
+
+
 def test_a_planted_conflict_block_is_found():
     state, hits = G.file_integrity(PLANTED)
     assert state == G.CONFLICT_FOUND
@@ -56,7 +91,7 @@ def test_an_unreadable_file_is_a_finding_never_a_pass():
     assert state != G.CONFLICT_CLEAN
 
 
-def test_an_unreadable_file_reaches_the_REPORT_not_just_the_predicate():
+def test_an_unreadable_file_reaches_the_REPORT_not_just_the_predicate(tmp_root):
     """The predicate and the reporter are different layers, and I had only tested one.
 
     Planting `if state == CONFLICT_UNREADABLE:` away was ABSORBED by the first
@@ -64,16 +99,12 @@ def test_an_unreadable_file_reaches_the_REPORT_not_just_the_predicate():
     while `check_conflict_markers()` silently dropped it. A control that stops
     one layer short of the thing a human reads is not a control.
     """
-    doc = REPO / "docs" / "_conflict_scope_unreadable.md"
+    doc = tmp_root / "docs" / "unreadable.md"
     doc.write_bytes(b"ok\n\xff\xfe not utf-8 \xff\n")
-    try:
-        fails = [f for f in G.check_conflict_markers()
-                 if "_conflict_scope_unreadable" in f]
-        assert fails, "an undecodable doc must be REPORTED, not skipped"
-        assert "could not be READ" in fails[0]
-        assert "never 'the document is intact'" in fails[0]
-    finally:
-        doc.unlink(missing_ok=True)
+    fails = [f for f in G.check_conflict_markers() if "unreadable" in f]
+    assert fails, "an undecodable doc must be REPORTED, not skipped"
+    assert "could not be READ" in fails[0]
+    assert "never 'the document is intact'" in fails[0]
 
 
 # ── 2. IT STAYS SILENT ON PROSE — the half the row calls harder ──────────────
@@ -133,25 +164,20 @@ def test_the_override_table_is_empty_which_is_the_measured_state():
     assert G.CONFLICT_MARKER_EXPECTED == {}
 
 
-def test_a_declared_line_is_excused_but_an_undeclared_one_in_the_same_file_is_not(tmp_path, monkeypatch):
-    doc = REPO / "docs" / "_conflict_scope_probe.md"
-    doc.write_text(PLANTED, encoding="utf-8")
-    try:
-        # Undeclared: fires.
-        fails = [f for f in G.check_conflict_markers() if "_conflict_scope_probe" in f]
-        assert fails, "positive control: an undeclared marker must fire"
-        # Fully declared: excused.
-        monkeypatch.setattr(G, "CONFLICT_MARKER_EXPECTED",
-                            {"docs/_conflict_scope_probe.md": {2, 4, 6}})
-        assert not [f for f in G.check_conflict_markers() if "_conflict_scope_probe" in f]
-        # PARTIALLY declared: the undeclared line still fires — this is what
-        # stops a declaration from becoming a blanket silencer.
-        monkeypatch.setattr(G, "CONFLICT_MARKER_EXPECTED",
-                            {"docs/_conflict_scope_probe.md": {2}})
-        rest = [f for f in G.check_conflict_markers() if "_conflict_scope_probe" in f]
-        assert rest and "line 6" in rest[0]
-    finally:
-        doc.unlink(missing_ok=True)
+def test_a_declared_line_is_excused_but_an_undeclared_one_in_the_same_file_is_not(tmp_root, monkeypatch):
+    rel = "docs/probe.md"
+    (tmp_root / rel).write_text(PLANTED, encoding="utf-8")
+    # Undeclared: fires.
+    fails = [f for f in G.check_conflict_markers() if "probe.md" in f]
+    assert fails, "positive control: an undeclared marker must fire"
+    # Fully declared: excused.
+    monkeypatch.setattr(G, "CONFLICT_MARKER_EXPECTED", {rel: {2, 4, 6}})
+    assert not [f for f in G.check_conflict_markers() if "probe.md" in f]
+    # PARTIALLY declared: the undeclared line still fires — this is what stops a
+    # declaration from becoming a blanket silencer.
+    monkeypatch.setattr(G, "CONFLICT_MARKER_EXPECTED", {rel: {2}})
+    rest = [f for f in G.check_conflict_markers() if "probe.md" in f]
+    assert rest and "line 6" in rest[0]
 
 
 def test_a_stale_declaration_is_itself_a_finding(monkeypatch):
@@ -167,13 +193,9 @@ def test_a_declaration_naming_a_missing_file_is_a_finding(monkeypatch):
     assert fails and "does not exist" in fails[0]
 
 
-def test_the_failure_message_names_the_declared_route_not_a_narrower_scan(tmp_path):
-    doc = REPO / "docs" / "_conflict_scope_probe2.md"
-    doc.write_text(PLANTED, encoding="utf-8")
-    try:
-        fails = [f for f in G.check_conflict_markers() if "_conflict_scope_probe2" in f]
-        assert fails
-        assert "CONFLICT_MARKER_EXPECTED" in fails[0]
-        assert "narrowing the scan" in fails[0]
-    finally:
-        doc.unlink(missing_ok=True)
+def test_the_failure_message_names_the_declared_route_not_a_narrower_scan(tmp_root):
+    (tmp_root / "docs" / "probe2.md").write_text(PLANTED, encoding="utf-8")
+    fails = [f for f in G.check_conflict_markers() if "probe2.md" in f]
+    assert fails
+    assert "CONFLICT_MARKER_EXPECTED" in fails[0]
+    assert "narrowing the scan" in fails[0]
