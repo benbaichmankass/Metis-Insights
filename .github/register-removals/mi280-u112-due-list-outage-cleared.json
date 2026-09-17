@@ -1,0 +1,10 @@
+{
+  "why": "Deliberate prune of a SETTLED OPEN-ITEMS row at review, which this directory's README names as the legitimate case. OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET required BOTH of two clauses and both are now OBSERVED, which is what this PR records: clause (1) is due-list.yml run #108 (id 35210554258, event=schedule, conclusion=success, 10:27:12-10:32:32Z) committing d448e5831 whose DUE.json carries generated_at 2026-09-17T10:27:45Z, inside that run's own window; clause (2) is a workflow-produced DUE.json with sources.spent_decision_edges = 'read', 15 of 15 sources read, first observed on dd4aec47c (#12389, probes.yml run 35208567664, event=schedule) and recorded as clause (2) ALONE in #12390. Neither was cleared on a workflow_dispatch, which the row ruled out. The row is REMOVED rather than annotated because it is loud:true, so it renders into CLAUDE.md's session brief and every session must report on it -- carrying a CLEARED loud row is the desensitised-alarm failure this repo calls its worst. THE EVIDENCE IS NOT LOST, and that was established before pruning rather than assumed: the full observation was written INTO the row first and landed on main in #12390 (commit 225e87890), so it is in the register's own history; this PR's commit message carries clause (1) and clause (2) with their run ids; and the row's surviving caveat -- that installing a dependency fixed the failure and not the LATENESS -- is REHOMED in this same commit to its actual owner, BL-20260911-NOTHING-DECLARED-MORE-OFTEN-THAN-EVERY-SIX-HOURS-DELIVERS-ITS-DECLARED-RATE-AND-EVERY-DAILY-CRON-FIRES-FOUR-TO-FIVE-HOURS-LATE, as corroboration and explicitly NOT as satisfying that row's clause (1), which wants a population rather than two data points.",
+  "removals": [
+    {
+      "file": "docs/claude/OPEN-ITEMS.json",
+      "id": "OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET",
+      "keys": []
+    }
+  ]
+}
