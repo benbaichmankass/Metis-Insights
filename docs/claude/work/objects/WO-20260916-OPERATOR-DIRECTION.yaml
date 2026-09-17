@@ -165,3 +165,22 @@ refs:
   - docs/claude/work/objects/WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE.yaml
   - docs/claude/work/objects/WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT.yaml
   - comms/strategy_reviews/2026-09-16/INDEX.json
+
+how_this_object_reached_main: >-
+  SPLIT OUT OF #12346 AND THAT IS WORTH KNOWING, because the reason is a measured
+  property of this repo rather than an accident. #12346 carried these answers
+  alongside edits to four shared registers, and SIX consecutive CI cycles on it were
+  voided: each time it reached green or near-green, concurrent sessions landed
+  register-touching PRs and GitHub regraded it dirty. A ~20-minute required CI cannot
+  outrun a repo merging register PRs every few minutes, so a PR whose diff touches a
+  shared register has no reliable path to a merge while other sessions are active.
+  THE ANSWERS THEREFORE MOVED TO A DIFF WITH NO CONFLICT SURFACE AT ALL - this new
+  file plus this branch's own landing declaration, arming file and PER-BRANCH merge-slot
+  claim. The shared docs/claude/session-board.json merge_slot field is deliberately NOT
+  touched: measured over the last 40 commits to it, 39 moved the field, so claiming it
+  buys a guaranteed conflict and - per R13's own docstring - no exclusion.
+  !! DO NOT READ THIS AS A COMPLAINT ABOUT THE GUARDS. Every refusal in that sequence
+  was CORRECT: a truncated backlog id, a severity outside the closed vocabulary, and a
+  hold_reason the diff did not support were all real defects the guards caught. What the
+  six cycles measure is the SERIALISATION cost of shared append-only registers, which is
+  already filed as BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE.
