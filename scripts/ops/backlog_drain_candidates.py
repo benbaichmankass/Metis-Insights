@@ -165,10 +165,13 @@ def _added_after(rel: str, when: "_backlog.RowDate") -> bool | None:
         # ARGUED AGAINST it, and a narrowed candidate list reads identically to
         # a clean one.
         #
-        # Same class as
-        # BL-20260917-CHECK-BACKLOG-REFS-REPORTS-EVERY-ID-RESOLVES-WHEN-IT-COULD-NOT-READ-THE-DIFF-AT-ALL,
-        # found in the same sweep: a read that could not happen must never be
-        # returned as a read that found nothing.
+        # Same class as the `check_backlog_refs._git` defect fixed by PR
+        # #12379, found in the same sweep: a read that could not happen must
+        # never be returned as a read that found nothing. (Cited by PR number,
+        # not by its backlog id, ON PURPOSE -- that row is filed by #12379 and
+        # is not on `main` until it lands, so naming the id here would make
+        # THIS file carry a reference that resolves to nothing and fail
+        # `artifact-validity-guard`. A PR number cannot dangle.)
         return None
     first_day = _backlog._as_day(first)
     if first_day is None:
