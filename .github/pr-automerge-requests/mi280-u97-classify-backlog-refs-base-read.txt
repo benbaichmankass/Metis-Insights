@@ -1,0 +1,2 @@
+U97 — classify check_backlog_refs's base read as RIGHT BY DESIGN, recorded in both the audit and
+the script's own docstring, with four planted defects verified red.
