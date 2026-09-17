@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-13T09:00:00Z",
+  "updated_at": "2026-09-17T15:15:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4114,9 +4114,60 @@
       "manager_note_2026_09_12T0152Z": "DELIVERED. PR #11848 (Tier-1, self-landing, armed): guards + pytest-collect + repo-inventory GREEN, pytest-run finishing. VERDICT: the winner-size collapse is an R COLLAPSE and every in-system mechanism tests NEGATIVE -- size REFUTED (median risk over the full book ROSE $303.60 -> $438.10; the winners-only halving is a selection effect the lane says it first misread), venue clamp REFUTED (cap_r unmoved, winners near the cap 16.7% -> 0.0%), exit levers REFUTED for this account/window, composition REFUTED (all 7 common legs fell, exact p=0.0156). Regime SUPPORTED on PRICE-FREE evidence: winner hold 5.17h -> 1.90h while LOSER hold rose, losers unchanged at ~1R, volatility +29%. !! MAGNITUDE NOT ESTABLISHED and the lane says so: -72.3% all-provenance vs -38.5% on broker-measured rows vs -81.4% standardised, n=15 pre-era measured winners, and the largest single share is netting_attributed which is 100% ESTIMATED over 39 rows -- OI-20260908's own population. It did NOT adjudicate those rows and did not advance that row's verified_at.",
       "owner_observed": "get_session 01:52Z: IDLE / review_ready, context 547623/1000000",
       "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
+    },
+    {
+      "id": "MI-288",
+      "title": "Drain the carried lane PR queue — SERIALISED, on the operator's 2026-09-17 instruction",
+      "state": "in_flight",
+      "owner": "manager",
+      "opened": "2026-09-17",
+      "operator_instruction": "\"serialize the merges, keep working the queue\" (2026-09-17). This replaces the batch-refresh approach, which was measured not to work.",
+      "⚠️_THIS_CHECKLIST_WAS_FOUR_DAYS_STALE_ON_MAIN_WHEN_THIS_ROW_WAS_ADDED": "updated_at read 2026-09-13T09:00:00Z at main 339529f7d on 2026-09-17T15:1xZ. That is NOT because no manager kept it: every checklist edit since carried other register edits in the same commit and none of those commits reached main. The operator's live Workflow page (GET /api/bot/work/checklist, which reads the VM's working tree of main) has therefore been serving a four-day-old checklist while reading as current. This row lands ALONE, touching no other register, which is the only shape measured to land first time.",
+      "the_measurement_behind_the_instruction": "On #12346, SIX consecutive refresh->CI->merge cycles were voided by concurrent sessions landing register-touching PRs. Required CI (pytest-collect, pytest-run, guards) takes ~20 min; main moved roughly every 4 min across the window (25 commits in the ~2h to 15:05Z, measured on git log of origin/main). Four lane PRs green on all three required checks were refused at the merge button twice, 40 minutes apart, refreshed in between. This is arithmetic, not bad luck.",
+      "what_is_proven_to_land": "A diff with NO shared-register surface lands first time. #12392 (16d25eef3) landed at 13:50Z carrying the four operator answers while four register-touching PRs were refused the same minute.",
+      "landed_this_session": [
+        "#12223 5a07c6510",
+        "#12224 c7c37eb77",
+        "#12217 5f9d2429b",
+        "#12214 78ac7873b",
+        "#12148 d52a7c8c8",
+        "#12208",
+        "#12007",
+        "#12392 16d25eef3"
+      ],
+      "still_open_and_owed_a_merge_decision": [
+        "#12346",
+        "#12398",
+        "#11976",
+        "#12090",
+        "#12158",
+        "#12181",
+        "#12205",
+        "#12213",
+        "#12222"
+      ],
+      "deliberately_not_touched": {
+        "#12072": "driver refused it — two sessions edited the same backlog row differently. Needs a CONTENT decision, not a refresh.",
+        "#12219": "draft on purpose (paused U45 resumption note). Must NOT be un-drafted.",
+        "#12070": "draft on purpose. Must NOT be un-drafted."
+      },
+      "⚠️_SERIALISATION_IS_NOT_SOMETHING_THIS_MANAGER_CAN_ENFORCE": "MERGE-QUEUE.json's invariant (at most one entry `rebasing`) is enforced by check_manager_scope.py R8 against THIS session's commits. Nothing stops a concurrent session merging while another's CI runs, and a manager cannot block one synchronously. So 'serialise' here means: this manager refreshes and merges ONE branch at a time and announces the lane on the coordination board — it does NOT mean other sessions are held.",
+      "blocked_on": [],
+      "⚠️_THIS_ROW_S_OWN_PR_WAS_BORN_WITHOUT_CHECKS_AND_THAT_IS_THE_SEVENTH_TIME": "PR #12412. claude-pr-automerge.yml won the race to open it (the branch was pushed with its arming file already committed), so the PR was created under GITHUB_TOKEN, carries no `pull_request` event, and had ZERO required check runs — which renders identically to 'CI has not started yet' and to 'all green'. The documented prevention is to open the PR YOURSELF FIRST so the workflow ADOPTS it; that is not available when the arming file rides in the same single commit as the content. The recovery is this commit: one ordinary push arms CI. Recorded here rather than worked around silently because CLAUDE.md already measures this trap six times on 2026-09-08 alone, and the arming-file-in-the-same-commit variant is not the one it documents."
+    },
+    {
+      "id": "MI-289",
+      "title": "The manager lease has been unrefreshable for ~17h and the cause is the same one",
+      "state": "filed",
+      "owner": "manager",
+      "opened": "2026-09-17",
+      "measured": "manager_lease.py status at 2026-09-17T15:1xZ: state=expired_unverified, holder session_01HoFquGdTrD3TTGbMMRc43t, last heartbeat 1016 min ago (2026-09-16T19:10:21Z), main_ci=unknown because main's head reported ZERO check runs.",
+      "⚠️_THE_HOLDER_IS_NOT_DEAD": "It is this session. The heartbeat is stale because a heartbeat commit is a register append and register appends have not been landing — not because supervision stopped. A successor reading `expired` must not infer the manager died.",
+      "blocked_on": [],
+      "⚠️_THE_BACKLOG_ROW_FOR_THIS_IS_DESCRIBED_AND_NOT_NAMED_ON_PURPOSE": "A row for this class WAS filed — on the branch of #12346, which has not landed — so on `main` its id resolves to NOTHING and artifact-validity-guard correctly failed this PR for naming it (scripts/ops/check_backlog_refs.py --base origin/main, exit 1). Per CLAUDE.md a dangling id may only be DESCRIBED, never copied, because 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. THE ROW IS NOT RE-FILED HERE, deliberately: health-review-backlog.json is a second shared register, and adding it would destroy the one property that lets this commit land first time (see MI-288). WHAT IT SAYS, so a successor can find or re-file it: manager_lease.py grades `main` red off EVERY check run rather than the three REQUIRED contexts (pytest-collect, pytest-run, guards), so two non-required workflows that are routinely red make the lease read `expired_unverified` / `main_ci=unknown` permanently. Severity medium, tier 1. It lands with #12346, or is re-filed by whoever picks this up."
     }
   ],
-  "as_of": "2026-09-13T08:10:00Z",
+  "as_of": "2026-09-17T15:15:00Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "_lane_model": {
     "declared_by": "operator (conversational), 2026-09-10",
