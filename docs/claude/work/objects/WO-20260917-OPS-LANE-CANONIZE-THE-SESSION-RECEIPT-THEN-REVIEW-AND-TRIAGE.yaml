@@ -1,0 +1,36 @@
+id: WO-20260917-OPS-LANE-CANONIZE-THE-SESSION-RECEIPT-THEN-REVIEW-AND-TRIAGE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Ops lane: canonize the session-receipt format, then system review + audit, then triage the backlog into workable chunks
+stage: BUILD
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-17
+closed_at: null
+why: >-
+  Operator-directed 2026-09-17, in this order. (1) FIRST, build what MI-290 queues: the operator asked that
+  'session receipt' be a canonized shape — a skill that OWNS the format so the trigger phrase resolves to it,
+  a generator for the attribution and PR-verification queries, a durable artifact the Workflow page can read,
+  and ONE decision left deliberately open (generated on demand vs written at session end). ⚠️ MI-290 says in
+  terms DO NOT BUILD THIS WITHOUT READING THE 2026-09-17 DELIVERY, which existed only in the predecessor's
+  transcript; it is committed in this change at docs/claude/receipts/RECEIPT-2026-09-17-manager-wrap.md and is
+  the reference artifact. (2) THEN the system review + audit, weighted as the operator asked: performance for
+  the past week, and SOAK MONITORING. (3) THEN triage the health backlog into workable chunks.
+  ⚠️ THE MANAGER'S FIRST READING OF (1) WAS WRONG AND IS RECORDED SO IT IS NOT REPEATED: it read 'open items
+  about the receipt format' as the cron/watcher receipt-LANDING cluster (PR-QUEUE-WATCH, TRAINER-CAPTURE-WATCH,
+  the commit-to-main quota defect). The operator corrected it to STANDARDIZING the session wrap-up receipt.
+  The landing cluster is real and stays filed, but it is NOT this lane's first unit.
+done_condition: >-
+  MI-290's four owed things exist and the open decision is PUT to the operator rather than silently resolved;
+  a session review has been run with the performance and soak weighting stated; and the backlog is triaged into
+  named chunks a later session can pick up without re-deriving the triage.
+source: operator directive, 2026-09-17, in conversation with the manager session_01GHpyXT2qssLJsrvXBQRkQF
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: nothing blocks this object at spawn. Every input each lane needs is
+  readable from its own container. ⚠️ It is a statement about TODAY and about THIS object only, and is NOT a
+  forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
+  edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF

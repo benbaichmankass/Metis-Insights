@@ -151,6 +151,11 @@ jobs:
           pr-body: "Automated due-list refresh (W1). Generated artifact only; auto-merge."
           branch-prefix: automation/due-list
           verify-merged: "true"
+          # RECOMPUTE on conflict -- see error-feed-digest.yml for the measured
+          # rationale. Both declared paths are rendered wholesale by this one
+          # command, so a conflict between two due-list runs has no side to
+          # take; re-rendering over the merged registers IS the merge.
+          refresh-command: python3 scripts/ops/render_due_list.py --write
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'

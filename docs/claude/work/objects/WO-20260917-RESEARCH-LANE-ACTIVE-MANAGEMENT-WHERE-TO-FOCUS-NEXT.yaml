@@ -1,0 +1,33 @@
+id: WO-20260917-RESEARCH-LANE-ACTIVE-MANAGEMENT-WHERE-TO-FOCUS-NEXT
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: an update on active trade management, and a recommendation on where to focus next
+stage: BUILD
+lifecycle: in_flight
+owner: null
+opened_at: 2026-09-17
+closed_at: null
+why: >-
+  Operator-directed 2026-09-17: 'I want an update on active management so we can decide where to focus next
+  here, and this may also require reviewing some soaking items.' The deliverable is a FOCUS RECOMMENDATION,
+  not more measurement. What is already established and must not be re-derived: the 2026-08-30 break is
+  attributed `both_contribute` (#12205 — excursion fell in BOTH arms including the control e35 never touched,
+  AND e35's stop-out rate rose +11.6pp on top, so reverting e35 alone leaves the control arm and ict_scalp_*
+  unexplained). MEASURED 2026-09-17: real money took 4 trades in 7 days for -$10.96 and reached ZERO
+  take-profits, while the paper mirror of the same roster lost $5,349 over 11 trades.
+  ⚠️ Several of this lane's own results are STRANDED in merge-conflicted PRs, all conflicting on shared
+  registers and none on code — read them before re-running anything.
+done_condition: >-
+  A recommendation the operator can act on: what to focus on next in active trade management, what the soaking
+  items say, and what each recommendation rests on WITH ITS POPULATION STATED. A re-measurement that changes no
+  recommendation does not satisfy this.
+source: operator directive, 2026-09-17, in conversation with the manager session_01GHpyXT2qssLJsrvXBQRkQF
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: nothing blocks this object at spawn. Every input each lane needs is
+  readable from its own container. ⚠️ It is a statement about TODAY and about THIS object only, and is NOT a
+  forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
+  edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
