@@ -1,0 +1,1 @@
+armed by session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane) for claude/dedupe-backlog-register-id -- PR #12383, Tier-1 self-land: one appended backlog row recording that register-id-guard's printed remedy is wrong for a true duplicate.
