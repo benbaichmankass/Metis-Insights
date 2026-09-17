@@ -4224,7 +4224,8 @@
           "status": "NOT YET MEASURED"
         }
       },
-      "blocked_on": []
+      "blocked_on": [],
+      "⚠️_THE_LANES_KEPT_OPENING_PRS_AFTER_THE_WRAP_DIRECTIVE": "MEASURED 2026-09-17T14:1xZ against a live list_pull_requests (newest 6, sorted created desc). The wrap directives were delivered 13:16:45Z / 13:17:05Z / 13:17:28Z and confirmed ROUTINE_RUN_STATUS_SUCCEEDED. PRs created AFTER that: #12430 (MI-280, 13:19:52Z), #12434 (MI-280 U124, 13:51:50Z), #12435 (MI-280 U125, 14:01:53Z). PRs created BEFORE it and therefore not evidence of anything: #12427 (MI-279, 13:06:32Z), #12429 (MI-278 U50, 13:11:12Z). ⚠️ THIS IS NOT ESTABLISHED AS NON-COMPLIANCE AND MUST NOT BE RECORDED AS ONE. The directive said 'finish only what is genuinely in flight', and a PR CREATED at 14:01 can be work that was already underway at 13:17 — pushing finished work is exactly what was asked for. Creation time cannot distinguish 'finishing U124' from 'starting U124'. The only thing that settles it is the lane saying which, which is why the wrap directive asks for a final summary naming what was in flight. ⚠️ AND DELIVERED IS NOT READ: SUCCEEDED confirms the wake reached the session, never that its turn had reached the message — the same distinction OI-20260902-DECISION-DRAIN-ROUTINE keeps open for its own stage (4)."
     }
   ],
   "as_of": "2026-09-17T17:05:00Z",
