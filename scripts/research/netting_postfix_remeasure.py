@@ -83,7 +83,12 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 try:  # pragma: no cover - exercised by the live path, not the harness
     from winner_size_collapse_2026_09_12 import risk_usd as _risk_usd
     _RISK_IMPORT = "winner_size_collapse_2026_09_12.risk_usd"
-except Exception as exc:  # noqa: BLE001
+except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent -- the failure is
+    # recorded in `_RISK_IMPORT` ("unimportable:<Type>"), published on every census as
+    # `risk_reader`, and surfaced as the declared R state `risk_reader_unavailable`, which
+    # is kept apart from `no_risk_basis`. A narrow `ImportError` would be WRONG here: the
+    # target module imports two others at module scope, so a broken dependency deeper in
+    # that chain raises something else and would crash the run instead of grading it.
     _risk_usd = None
     _RISK_IMPORT = f"unimportable:{type(exc).__name__}"
 
@@ -92,8 +97,14 @@ except Exception as exc:  # noqa: BLE001
 # is not stated is a number somebody can move without anybody noticing.
 # --------------------------------------------------------------------------
 E35_DEPLOY_UTC = "2026-08-30T08:53:19"   # 892c9a2c, e35 bracket geometry (CLAUDE.md)
-FIX_A_DEPLOY_UTC = "2026-09-08T18:53:00"  # 46e1efb1f / PR #11435, book selection
+FIX_A_DEPLOY_UTC = "2026-09-08T18:58:00"  # 46e1efb1f / PR #11435 merged 18:53:00Z + ~5min git-sync
 FIX_B_DEPLOY_UTC = "2026-09-12T19:53:00"  # PR #11903 merged 19:47:52Z + ~5min git-sync
+
+# ⚠️ BOTH boundaries are the MERGE plus the observed ~5-minute `ict-git-sync` pull, not the
+# merge itself -- a merge is not a deploy, and an earlier draft applied the lag to B and not
+# to A. MEASURED on the live pull: ZERO `bybit_1` rows opened inside either merge->sync window
+# (fix A has 50 min of clearance either side, fix B has 8 h), so the verdict is INVARIANT to
+# how the lag is modelled. That is a fact about this window, not a licence to stop modelling it.
 
 ERAS = ("1_pre_e35", "2_e35_only", "3_fix_a", "4_fix_a_and_b", "unknown")
 
@@ -549,6 +560,8 @@ def _selftest() -> int:
           E35_DEPLOY_UTC < FIX_A_DEPLOY_UTC < FIX_B_DEPLOY_UTC)
     check("fixB's boundary is AFTER #11903's merge — a merge is not a deploy",
           FIX_B_DEPLOY_UTC > "2026-09-12T19:47:52")
+    check("fixA's boundary is AFTER #11435's merge too — the lag is applied to BOTH or neither",
+          FIX_A_DEPLOY_UTC > "2026-09-08T18:53:00")
 
     # 8-14 scope
     applied = {"77"}
