@@ -261,12 +261,18 @@ def payment_state(path: str, root: pathlib.Path | None = None) -> str:
     return NO_PACKAGE_NOTION
 
 
-def declaration_contradictions(candidates: dict[str, dict],
-                               root: pathlib.Path | None = None) -> list[dict]:
+def declaration_contradictions(root: pathlib.Path | None = None) -> list[dict]:
     """Declarations the code CONTRADICTS: a claimed package count with no notion at all.
 
     One direction only, deliberately -- see :func:`package_notion`. An empty list means
     no declaration is refuted; it does NOT mean every declaration is correct.
+
+    ⚠️ It reads ``DECLARED``, never a discovered candidate set. An earlier signature took
+    a ``candidates`` argument it never used -- the inert parameter of
+    ``diagnostic-provenance`` class D, which reads as *"graded over what you passed in"*
+    while grading something else. The same defect was removed from
+    ``risk_dispersion_attribution.py`` one unit earlier and re-introduced here; the guard
+    caught it, this note is why it is not re-introduced again.
     """
     out = []
     for path, d in sorted(DECLARED.items()):
@@ -439,7 +445,7 @@ def self_test() -> int:
         pathlib.Path("scripts/ops/dead_leg_audit.py").read_text(errors="replace"),
         "...and it genuinely never names the column, so the control is live not vacuous")
 
-    chk(declaration_contradictions(find_candidates(root), root) == [],
+    chk(declaration_contradictions(root) == [],
         "no declaration is contradicted by the code today")
 
     chk(package_notion("scripts/research/bleed_attribution_2026_09_11.py", root) is False,
@@ -556,7 +562,7 @@ def main() -> int:
           "IS UNCHANGED, so a reader\n       who runs it still gets the un-annotated row rate. "
           "Prose calling those 'paid' is what\n       goes stale.")
 
-    contra = declaration_contradictions(cands, root)
+    contra = declaration_contradictions(root)
     print()
     if contra:
         print(f"  \u26a0\ufe0f DECLARATIONS THE CODE CONTRADICTS: {len(contra)}")

@@ -46,7 +46,7 @@ def test_the_narrow_probe_would_produce_a_false_declaration():
 
 
 def test_no_declaration_is_contradicted_by_the_code():
-    assert S.declaration_contradictions(S.find_candidates(ROOT), ROOT) == []
+    assert S.declaration_contradictions(ROOT) == []
 
 
 def test_an_unreadable_file_is_none_never_false():
@@ -73,7 +73,7 @@ def test_the_four_payment_states_are_distinct():
 
 def test_declaration_contradictions_runs_in_one_direction_only():
     """It can refute a package claim. It must never CONFIRM one."""
-    for c in S.declaration_contradictions(S.find_candidates(ROOT), ROOT):
+    for c in S.declaration_contradictions(ROOT):
         assert c["package_notion"] is False
 
 
