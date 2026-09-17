@@ -5,21 +5,55 @@
   "timeframe": "1d",
   "config_fingerprint": "sha256:f37035ce532f711384a5487cc249c77a",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 2.0179,
+  "expectancy_r_oos": 0.2883,
+  "n_trades_oos": 7,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": -1.0161,
+      "expectancy_r": -1.0161,
+      "start": "2025-06-09 00:00:00+00:00",
+      "end": "2025-06-09 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": -0.7088,
+      "expectancy_r": -0.7088,
+      "start": "2025-07-01 00:00:00+00:00",
+      "end": "2025-07-01 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": 2.6114,
+      "expectancy_r": 2.6114,
+      "start": "2025-08-12 00:00:00+00:00",
+      "end": "2025-08-12 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 4,
+      "net_r": 1.1314,
+      "expectancy_r": 0.2828,
+      "start": "2025-12-10 00:00:00+00:00",
+      "end": "2026-08-13 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:24:45.341685+00:00",
+  "generated_at": "2026-09-16T19:14:13.491857+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for IWM",
-  "harness": "trend"
+  "source_run": "/tmp/strategy_evidence_omm3li18/iwm_trend_long_1d__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "low_n_warning": "n_trades_oos=7 < 10; the pooled number is reported but is not a basis for a verdict."
 }

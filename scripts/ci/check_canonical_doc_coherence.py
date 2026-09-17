@@ -490,6 +490,87 @@ def check_declared_values() -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# THE BACKLOG `status` ENUM, MIRRORED INTO THE DOC THAT INSTRUCTS SESSIONS.
+#
+# Added 2026-09-12 (MI-280,
+# BL-20260912-THE-CANONICAL-DOCS-FIVE-TERMINAL-BACKLOG-DISPOSITIONS-ARE-NONE-OF-THE-SIX-THE-GUARD-ACCEPTS).
+# § "Backlog governance" rule 3 listed five words as the terminal dispositions
+# and the intersection with the enforced enum was EMPTY, so the document this
+# repo ranks FIRST told a session to write a `status` CI refuses. That is the
+# same class as `check_hierarchy_mirror` one file over: two lists of the same
+# thing, one of them not executable, drifting apart in silence.
+#
+# ⚠️ IT READS THE ENUM, NEVER A THIRD COPY. A literal here would be a second
+# place to forget, which is the defect rather than the fix.
+#
+# ⚠️ A MISSING MARKER, AN UNREADABLE ENUM OR AN EMPTY LIST ALL FAIL. Each of
+# them is a way for this check to stop looking while still printing PASS, and
+# `check_declared_values` above already carries that lesson in its own body.
+# ---------------------------------------------------------------------------
+STATUS_ENUM_DOC = "docs/CLAUDE-RULES-CANONICAL.md"
+STATUS_ENUM_SOURCE = "scripts/check_claim_basis.py"
+_ENUM_BEGIN = "<!-- status-enum:begin"
+_ENUM_END = "<!-- status-enum:end"
+_ENUM_MEMBER = re.compile(r"`([a-z_]+)`")
+
+
+def _enforced_status_enum() -> set[str] | None:
+    """The live value of `check_claim_basis.STATUS_ENUM`, or None."""
+    src = ROOT / STATUS_ENUM_SOURCE
+    if not src.exists():
+        return None
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_ccb_enum", src)
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:  # noqa: BLE001
+        return None
+    got = getattr(mod, "STATUS_ENUM", None)
+    return set(got) if got else None
+
+
+def _mirrored_status_enum() -> set[str] | None:
+    """The values between the doc's mirror markers, or None if absent."""
+    doc = ROOT / STATUS_ENUM_DOC
+    if not doc.exists():
+        return None
+    text = doc.read_text(encoding="utf-8")
+    a = text.find(_ENUM_BEGIN)
+    b = text.find(_ENUM_END, a + 1) if a != -1 else -1
+    if a == -1 or b == -1:
+        return None
+    body = text[text.find("-->", a) + 3:b]
+    return set(_ENUM_MEMBER.findall(body)) or None
+
+
+def check_status_enum_mirror() -> list[str]:
+    enforced = _enforced_status_enum()
+    if enforced is None:
+        return [f"{STATUS_ENUM_SOURCE}: could not read STATUS_ENUM — this check "
+                f"is silently disabled. Fix it, do not ignore it"]
+    mirrored = _mirrored_status_enum()
+    if mirrored is None:
+        return [f"{STATUS_ENUM_DOC}: the `status-enum` mirror block is missing or "
+                f"empty, so the doc no longer states the enum CI enforces "
+                f"({sorted(enforced)})"]
+    fails = []
+    if mirrored - enforced:
+        fails.append(
+            f"{STATUS_ENUM_DOC}: mirror lists {sorted(mirrored - enforced)}, which "
+            f"{STATUS_ENUM_SOURCE}::STATUS_ENUM does NOT accept — a session "
+            f"following the doc would be refused by claim-basis-guard")
+    if enforced - mirrored:
+        fails.append(
+            f"{STATUS_ENUM_DOC}: mirror omits {sorted(enforced - mirrored)}, which "
+            f"{STATUS_ENUM_SOURCE}::STATUS_ENUM accepts — the doc understates the "
+            f"vocabulary")
+    return fails
+
+
 # DOES THE DOC SAY WHAT A LIVE-FLIPPABLE KNOB IS ACTUALLY SET TO?
 #
 # `check_declared_values` above catches *the doc asserts X and the source says
@@ -644,6 +725,8 @@ CHECKS = [
     ("no 7-stage ML ladder in catalog", check_seven_stage_ladder),
     ("instruction-hierarchy mirror", check_hierarchy_mirror),
     ("declared values match their source", check_declared_values),
+    ("backlog status enum mirrored into the canonical doc",
+     check_status_enum_mirror),
     ("env knobs state their live value (ratchet + denominator)",
      check_env_knob_live_values),
 ]

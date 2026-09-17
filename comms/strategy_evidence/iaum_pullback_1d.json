@@ -5,21 +5,58 @@
   "timeframe": "1d",
   "config_fingerprint": "sha256:dfac943e7e7aac04add4d1cb0dbad210",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "trail_decay_stall_bars",
+    "trail_decay_tight_mult"
+  ],
+  "net_r_oos": 12.8523,
+  "expectancy_r_oos": 2.142,
+  "n_trades_oos": 6,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 1,
+      "net_r": -1.0208,
+      "expectancy_r": -1.0208,
+      "start": "2025-06-25 00:00:00+00:00",
+      "end": "2025-06-25 00:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 1,
+      "net_r": 10.3194,
+      "expectancy_r": 10.3194,
+      "start": "2025-07-01 00:00:00+00:00",
+      "end": "2025-07-01 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 1,
+      "net_r": 5.0207,
+      "expectancy_r": 5.0207,
+      "start": "2025-10-23 00:00:00+00:00",
+      "end": "2025-10-23 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 3,
+      "net_r": -1.467,
+      "expectancy_r": -0.489,
+      "start": "2026-02-03 00:00:00+00:00",
+      "end": "2026-09-02 00:00:00+00:00"
+    }
+  ],
+  "folds_positive": 2,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:23:54.830650+00:00",
+  "generated_at": "2026-09-16T19:14:11.033632+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for IAUM",
-  "harness": "pullback"
+  "source_run": "/tmp/strategy_evidence_omm3li18/iaum_pullback_1d__trades.jsonl",
+  "error": null,
+  "harness": "pullback",
+  "low_n_warning": "n_trades_oos=6 < 10; the pooled number is reported but is not a basis for a verdict."
 }
