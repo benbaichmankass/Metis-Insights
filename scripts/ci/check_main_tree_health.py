@@ -136,7 +136,7 @@ def run_probe(p: Probe, *, timeout: int = 300) -> tuple[str, str]:
     except OSError as exc:
         return COULD_NOT_RUN, f"could not execute: {type(exc).__name__}: {exc}"
     out = (r.stdout or "") + (r.stderr or "")
-    tail = "\n".join(l for l in out.strip().splitlines()[-4:])
+    tail = "\n".join(ln for ln in out.strip().splitlines()[-4:])
     return grade(r.returncode), tail
 
 
