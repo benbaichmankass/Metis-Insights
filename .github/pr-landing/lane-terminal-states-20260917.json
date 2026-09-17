@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 register write, manager scope - maintaining the sub-session registry is a management act, not an item. ONE file, docs/claude/work/SESSIONS.json. All four lanes read state 'working'; polled with get_session 2026-09-17T14:58Z they are IDLE - MI-278/279/280 REVIEW_READY with unlanded work (#12419, claude/mi279-u3-symbol-binds-data, claude/mi280-wrap-record plus an armed 15:29Z check-in) and MI-287 COMPLETED. THIS IS A RECURRENCE and that is the point: the checklist already carries MI-MGR-REGISTRY-15-OF-15-WORKING-ROWS-WERE-FALSE, and this manager corrected the same class in #12426 earlier today before re-introducing it by not updating on stop - registering a spawn is mechanised, keeping the state true as a lane STOPS is not. Also records that MI-280 is NOT fully stopped (its own check-in is armed) and the four-lane lifetime cost of USD 3,510.19 with its 51/40/8/1 split, which is the evidence behind DEC-20260916-PACING-RULES clauses (1) and (2). No src, scripts, workflows or config."
+}
