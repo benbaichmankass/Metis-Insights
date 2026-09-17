@@ -4152,7 +4152,8 @@
         "#12070": "draft on purpose. Must NOT be un-drafted."
       },
       "⚠️_SERIALISATION_IS_NOT_SOMETHING_THIS_MANAGER_CAN_ENFORCE": "MERGE-QUEUE.json's invariant (at most one entry `rebasing`) is enforced by check_manager_scope.py R8 against THIS session's commits. Nothing stops a concurrent session merging while another's CI runs, and a manager cannot block one synchronously. So 'serialise' here means: this manager refreshes and merges ONE branch at a time and announces the lane on the coordination board — it does NOT mean other sessions are held.",
-      "blocked_on": []
+      "blocked_on": [],
+      "⚠️_THIS_ROW_S_OWN_PR_WAS_BORN_WITHOUT_CHECKS_AND_THAT_IS_THE_SEVENTH_TIME": "PR #12412. claude-pr-automerge.yml won the race to open it (the branch was pushed with its arming file already committed), so the PR was created under GITHUB_TOKEN, carries no `pull_request` event, and had ZERO required check runs — which renders identically to 'CI has not started yet' and to 'all green'. The documented prevention is to open the PR YOURSELF FIRST so the workflow ADOPTS it; that is not available when the arming file rides in the same single commit as the content. The recovery is this commit: one ordinary push arms CI. Recorded here rather than worked around silently because CLAUDE.md already measures this trap six times on 2026-09-08 alone, and the arming-file-in-the-same-commit variant is not the one it documents."
     },
     {
       "id": "MI-289",
