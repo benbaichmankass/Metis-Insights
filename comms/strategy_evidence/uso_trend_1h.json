@@ -5,21 +5,54 @@
   "timeframe": "1h",
   "config_fingerprint": "sha256:a1e30d03a7fc4166ef6d767e0ac76e5e",
   "basis": "harness_timefolds",
-  "coverage_state": "harness_failed",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 28.0566,
+  "expectancy_r_oos": 0.5101,
+  "n_trades_oos": 55,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 13,
+      "net_r": 1.9732,
+      "expectancy_r": 0.1518,
+      "start": "2025-04-16 14:00:00+00:00",
+      "end": "2025-07-07 14:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 13,
+      "net_r": -2.142,
+      "expectancy_r": -0.1648,
+      "start": "2025-07-18 14:00:00+00:00",
+      "end": "2025-11-18 18:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 13,
+      "net_r": 12.1642,
+      "expectancy_r": 0.9357,
+      "start": "2025-11-28 15:00:00+00:00",
+      "end": "2026-03-27 14:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 16,
+      "net_r": 16.0612,
+      "expectancy_r": 1.0038,
+      "start": "2026-04-02 14:00:00+00:00",
+      "end": "2026-09-15 15:00:00+00:00"
+    }
+  ],
+  "folds_positive": 3,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 0.0,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:36:55.275384+00:00",
+  "generated_at": "2026-09-16T19:14:36.187785+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "fetch failed: RuntimeError: yfinance returned no rows for USO",
+  "source_run": "/tmp/strategy_evidence_omm3li18/uso_trend_1h__trades.jsonl",
+  "error": null,
   "harness": "trend"
 }
