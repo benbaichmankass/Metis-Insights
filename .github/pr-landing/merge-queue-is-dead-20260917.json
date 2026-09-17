@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 register write, manager scope - running the merge queue is a manager BASE DUTY, explicitly not an item. ONE file, docs/claude/work/MERGE-QUEUE.json. MEASURED: its 57 entries were written 2026-09-10 by a different manager and ZERO of them name a PR still open, while 81 PRs landed on main on 2026-09-17 alone and none was recorded. The finding is that check_manager_scope.py R8 asserts only len(rebasing) > 1 with no freshness check, so a file dead for a week passes it by VACUITY - and R8 is the only mechanical enforcement of this duty. Same class as #12446. This PR does NOT rebuild the queue: entering the ~60 open PRs this manager never assessed would manufacture a record, the harm the work store README names. Only the four PRs actually driven today are entered. No src, scripts, workflows or config."
+}
