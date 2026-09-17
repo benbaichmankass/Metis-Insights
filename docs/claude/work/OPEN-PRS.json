@@ -2376,10 +2376,34 @@
       "terminal": "merged",
       "merge_sha": "73747db45490f554fcf3d69639f8e87449a55d2c",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 12046,
+      "title": "guards: bind check_claim_basis to the research review backlog, and make pytest-run relevant to CLAUDE-RULES-CANONICAL",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "tier": 1,
+      "draft": false,
+      "landing": "hold",
+      "state": "merged_by_manager_ruling",
+      "opened_at": "2026-09-12",
+      "observed": "Green and mergeable, sat unmerged across several manager ticks while its owning lane (MI-280) was rate-limit REJECTED and could not land it itself. Read BOTH non-doc diffs before merging: (a) scripts/check_claim_basis.py adds docs/claude/research-review-backlog.json to its BACKLOGS tuple -- the guard's scan set widens by one file, and the PR records the pre-measurement (19 rows, statuses open x13 / resolved x6, all already inside the existing enum, so the widening cannot newly fail on a status the guard does not know); (b) .github/workflows/pytest-run.yml appends |^docs/CLAUDE-RULES-CANONICAL\\.md$ to its relevance path filter, which makes CI run MORE often, never less -- the conservative direction.",
+      "observed_at": "2026-09-13T08:05:00Z",
+      "manager_ruling": {
+        "ruled_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+        "ruled_at": "2026-09-13T08:1xZ",
+        "verdict": "merge",
+        "basis": "Tier-1 (CI/tooling only -- no src/, no config/, no order path, no runtime). Both diffs read in full by the manager before the merge, not taken on the PR description.",
+        "⚠️_this_is_NOT_an_operator_approval": "The operator was asked how a green Tier-1 PR whose owning lane is rate-limited should be handled, and chose 'I merge it as a manager ruling'. That is authorisation of the ROUTE, not an approval of this PR's content. A later session must not cite this row as evidence the operator reviewed #12046 -- nobody but the manager read the diff.",
+        "⚠️_a_correction_is_part_of_this_record": "The manager first described this PR to the operator as 'a CI-guard script widening its own scan set by one backlog file'. That was INCOMPLETE -- it omits the pytest-run.yml workflow change entirely. The description was corrected to the operator BEFORE the merge. Recorded because a ruling made on a mis-stated diff is the failure this file exists to prevent, and it nearly happened here."
+      },
+      "terminal": "merged",
+      "merge_sha": "d2c55e2994b74a348ebc5f3261541e6ba1dce0fc",
+      "settled_by": "session_01HoFquGdTrD3TTGbMMRc43t"
     }
   ],
   "last_reconciled_at": "2026-09-13T05:24:46Z",
   "last_reconciled_sha": "f9c2705acb6a1366ae5c910df55fe53bfa07a533",
-  "updated_at": "2026-09-12T06:20Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t (manager)"
+  "updated_at": "2026-09-13T08:45:00Z",
+  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t"
 }

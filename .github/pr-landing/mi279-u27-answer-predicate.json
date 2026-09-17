@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tooling and observability: scripts/ops/blocked_lane_watch.py now grades decision answeredness through the owning module (src/runtime/work_decisions.py) instead of testing the nested `answer` key alone, so a lane whose decision was answered in conversation no longer reads as still blocking; plus a new scripts/ci guard (decision-answer-consumers, 7 planted controls) registered in run_guards, and one backlog row. Read-only on src/ — no src/ file is modified. No ml/, no config/, no .github/workflows/, no order path. Nothing enacted, no row closed."
+}

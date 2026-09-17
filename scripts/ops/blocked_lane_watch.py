@@ -145,6 +145,15 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+# ONE OWNER for "is this decision answered?", imported rather than re-derived.
+# Two definitions is how the flat and nested shapes drifted apart in the first
+# place; `src/runtime/work_decisions.py` is the module that owns both.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.runtime.work_decisions import (  # noqa: E402
+    ANSWERED_IN_CONVERSATION,
+    normalise_conversational_answer,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY_PATH = REPO_ROOT / "docs" / "claude" / "work" / "SESSIONS.json"
 OBJECTS_DIR = REPO_ROOT / "docs" / "claude" / "work" / "objects"
@@ -510,6 +519,34 @@ def _grade_decision(ref: str, object_reader) -> Dict[str, Any]:
             if req.get("answer"):
                 return {"state": BLOCKER_CLEARED,
                         "why": f"{req_id} carries an answer block"}
+            # ⚠️ THE SECOND RECORDING SHAPE, AND THIS GRADER COULD NOT SEE IT.
+            # An answer given IN CONVERSATION is written by hand as
+            # `verdict` + `chosen` + `answered_at`, with NO `answer` block — the
+            # majority channel by the operator's own practice. Keying on
+            # `answer` alone graded those STILL_BLOCKING, so a lane whose
+            # decision was settled read as blocked
+            # 
+            # BL-20260911-DECISION-REQUESTS-CARRY-TWO-INCOMPATIBLE-ANSWER-SCHEMAS-SO-A-PROBE-KEYED-ON-ONE-REPORTS-ANSWERED-DECISIONS-AS-OPEN.
+            # MEASURED 2026-09-13 over all 183 work objects: 3 of 29 requests
+            # carry the flat shape, `DEC-20260910-EXIT-EVAL-60S-REMEDY` among them.
+            #
+            # The vocabulary is IMPORTED from `work_decisions`, never re-derived:
+            # a second definition of "is this answered?" is exactly how the two
+            # drift, which is the defect this fixes.
+            conversational = normalise_conversational_answer(req)
+            if conversational is not None:
+                grade = str(conversational.get("grade") or "")
+                if grade == ANSWERED_IN_CONVERSATION:
+                    return {"state": BLOCKER_CLEARED,
+                            "why": (f"{req_id} was answered in conversation "
+                                    f"(verdict={conversational.get('verdict')!r})")}
+                # ⚠️ ENGAGED IS NOT ANSWERED, and folding it in would hide a
+                # genuinely open decision — worse than the bug above. The grade
+                # is NAMED so the reason is not "unanswered" when we know more.
+                return {"state": BLOCKER_STILL_BLOCKING,
+                        "why": (f"{req_id} carries verdict "
+                                f"{conversational.get('verdict')!r}, graded {grade} "
+                                f"— engaged but NOT settled")}
             return {"state": BLOCKER_STILL_BLOCKING,
                     "why": f"{req_id} is declared and unanswered"}
     return {"state": BLOCKER_COULD_NOT_LOOK, "reason": REASON_AMBIGUOUS_REF,
@@ -798,9 +835,18 @@ def _self_test() -> int:
         check(f"malformed ({label}) -> could_not_look", g(bad), BLOCKER_COULD_NOT_LOOK)
 
     # ── work object + operator decision ──
+    # ⚠️ D3/D4/D5 EXERCISE THE SECOND RECORDING SHAPE (2026-09-13). Before they
+    # existed the fixture carried only an `answer` block and a bare request, so
+    # a grader keying on `answer` alone passed this self-test while reporting a
+    # settled lane as blocked. A fixture that cannot express the other shape is
+    # how the defect stayed invisible to its own controls.
     objs = {"WO-A": {"lifecycle": "done"}, "WO-B": {"lifecycle": "in_flight"},
             "WO-C": {"decision_requests": [{"id": "D1", "answer": {"chosen": "x"}},
-                                           {"id": "D2"}]}}
+                                           {"id": "D2"},
+                                           {"id": "D3", "verdict": "approved",
+                                            "chosen": "r2_only"},
+                                           {"id": "D4", "verdict": "reframed_not_answered"},
+                                           {"id": "D5", "verdict": "banana"}]}}
     def rd(ref):
         return objs.get(ref)
     check("work object done -> cleared",
@@ -815,6 +861,20 @@ def _self_test() -> int:
     check("answered decision -> cleared",
           g({"kind": "operator_decision", "ref": "WO-C::D1", "clears_when": "answered"},
             W, object_reader=rd), BLOCKER_CLEARED)
+    # The second shape: a conversational answer with a TERMINAL verdict clears.
+    check("conversationally-answered decision -> cleared",
+          g({"kind": "operator_decision", "ref": "WO-C::D3",
+             "clears_when": "answered"}, W, object_reader=rd), BLOCKER_CLEARED)
+    # NEGATIVE CONTROL — engaged is NOT answered. Without this, widening the
+    # grader to "any verdict clears" would pass the test above and hide a
+    # genuinely open decision, which is worse than the bug being fixed.
+    check("engaged-not-settled verdict -> still_blocking",
+          g({"kind": "operator_decision", "ref": "WO-C::D4",
+             "clears_when": "answered"}, W, object_reader=rd), BLOCKER_STILL_BLOCKING)
+    # NEGATIVE CONTROL — a verdict NEITHER vocabulary recognises must not clear.
+    check("unrecognised verdict -> still_blocking",
+          g({"kind": "operator_decision", "ref": "WO-C::D5",
+             "clears_when": "answered"}, W, object_reader=rd), BLOCKER_STILL_BLOCKING)
     check("unanswered decision -> still_blocking (NOT could_not_look)",
           g({"kind": "operator_decision", "ref": "WO-C::D2", "clears_when": "answered"},
             W, object_reader=rd), BLOCKER_STILL_BLOCKING)
