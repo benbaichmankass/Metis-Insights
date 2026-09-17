@@ -77,6 +77,25 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ⚠️ THE DIGEST IS STDLIB-ONLY; THE RE-RENDER AT THE BOTTOM OF THIS JOB
+      # IS NOT, AND THIS JOB IS THE ONE THAT WRITES MOST OF THE ARTIFACT.
+      # `render_due_list.py`'s `src_spent_decision_edges` (landed 2026-09-12)
+      # execs `scripts/ci/check_decision_answers.py`, which imports PyYAML at
+      # module scope. With no install the source lands `could_not_read` and the
+      # committed due-list carries a parked-edge detector that diagnosed nothing.
+      #
+      # MEASURED 2026-09-17 over EVERY DUE.json revision on main carrying that
+      # source (n = 4, i.e. all of them since it landed): 3 were produced by THIS
+      # workflow and all 3 read `could_not_read — ModuleNotFoundError: No module
+      # named 'yaml'`; the single `read` came from a SESSION's local run (31117a4e4,
+      # #12185), whose machine has PyYAML. So 0 of 3 workflow-produced renders
+      # could read it — the source was deployed and never once worked in production.
+      #
+      # The comment on the "Render digest" step below ("stdlib-only, so there is
+      # nothing to install") is about THAT step and remains true of it.
+      - name: Install PyYAML — the due-list re-render execs a guard that imports it
+        run: python3 -m pip install --quiet --upgrade pip "pyyaml>=6.0"
+
       # The controls run BEFORE the fetch, deliberately: a broken grouper that
       # collapses two conditions into one, or a watermark that advances over an
       # unread window, must never land an artifact a session then triages.
