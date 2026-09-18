@@ -99,18 +99,24 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 sys.path.insert(0, str(_HERE.parent))
 
-import yaml
-from exit_capture import mfe_r_of
-from m20_fleet_exit_sweep import (
+# ⚠️ These imports MUST follow the sys.path.insert above — they resolve through
+# it — so E402 is suppressed per line, the convention every sibling research
+# script uses. Do NOT let `ruff --fix` strip these markers: ruff >= 0.16 does not
+# enable E402 and reports them as RUF100 "unused noqa", but this repo PINS ruff
+# <0.16 in requirements-dev.txt precisely to hold the 0.15 default ruleset, where
+# E402 IS enabled. Removing them passes locally under an unpinned ruff and fails
+# the `guards` job in CI.
+import yaml  # noqa: E402
+from exit_capture import mfe_r_of  # noqa: E402  (the ONE MFE reader)
+from m20_fleet_exit_sweep import (  # noqa: E402  (the ONE leg->harness resolver)
     FAMILY_HARNESS,
     base_args,
     classify,
     harness_implements_flag,
     resolve_data,
 )
-
-from src.runtime.bracket_calibration import quantile
-from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+from src.runtime.bracket_calibration import quantile  # noqa: E402  (the ONE quantile)
+from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402  (the ONE clamp)
 
 DEFAULT_OUT = REPO / "docs" / "research" / "mi307-offline-mfe-2026-09-18.json"
 
@@ -573,8 +579,8 @@ def write_reference(src: Path, out: Path) -> int:
     sys.path.insert(0, str(REPO / "scripts" / "research"))
     from exit_location_fidelity import family_of
 
-    kept = {(l["symbol"], l["family"], l["timeframe"]): l
-            for l in (prior.get("legs") or [])}
+    kept = {(row["symbol"], row["family"], row["timeframe"]): row
+            for row in (prior.get("legs") or [])}
     prior_keys = set(kept)
 
     # ⚠️ MI-155's KEY IS NOT UNIQUE OVER THIS FLEET, AND THE COLLISION IS REAL.
