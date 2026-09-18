@@ -188,7 +188,7 @@ findings:
     WHAT THIS DOES NOT CLOSE, and is tracked separately, already filed, and (per
     CLAUDE.md's current OI ledger) independently repaired: the symbol-dedupe
     hedge-book-masking defect this investigation surfaced along the way
-    (`BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL...`)
+    (`BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW`)
     is a real, separately-filed class-level defect — fixed and deployed via
     MI-283/#11903 on 2026-09-12 (`OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP`
     in CLAUDE.md), which is its own open row and not reopened by closing this
