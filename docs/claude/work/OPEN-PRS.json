@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-17",
+  "as_of": "2026-09-18",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -231,6 +231,27 @@
         "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
       },
       "hold_reason": "changes_landing_machinery"
+    },
+    {
+      "pr": 12535,
+      "title": "fix(decisions): compaction ladder for over-cap Telegram decision prompts",
+      "owner_session": "session_01PHax6vjumG6Aa1xh4GfKiF",
+      "checklist_item": "MI-318",
+      "tier": 2,
+      "draft": true,
+      "landing": "hold",
+      "state": "open",
+      "opened_at": "2026-09-18",
+      "observed": "Fixes WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S — render_decision_prompt had no compaction for Telegram's 4096-char sendMessage cap, so every decision prompt whose text exceeded it 400'd forever (the once-only prompted-marker is never set on a failed send), and the failing prompts were the BEST-SPECIFIED ones (question 370-441 chars, the rest is context). Scoped to render_decision_prompt only — the inbox/route/write-gate/poll-registry it composes with are untouched. The question is never shortened, no option is ever dropped, callback_data is never touched (must_not, verified in the PR's own tests). Verified against the three real requests the work object measured (4738/5463/4569 chars) — all three now render under cap with the question intact and every option label present. A green test cannot establish the fleet observation done_condition asks for (a real over-cap prompt arriving with its keyboard intact); that is the manager's to make after merge + an ict-telegram-bot.service restart.",
+      "observed_at": "2026-09-18T11:20Z",
+      "operator_decision": {
+        "verdict": "pending",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Not yet asked. Tier-2 (src/runtime/telegram_decisions.py, the Telegram bridge) needs one operator OK before the manager merges and restarts ict-telegram-bot.service — per WO-20260918's own dispatch, which named this Tier-2 and told the lane to open the PR with landing: hold rather than merge it."
+      },
+      "hold_reason": "tier_2_3_needs_approval"
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2809,7 +2830,7 @@
   ],
   "last_reconciled_at": "2026-09-18T05:27:28Z",
   "last_reconciled_sha": "c63f2ea474b2811627826c03124f3a0a441b0ee0",
-  "updated_at": "2026-09-17T16:05Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "updated_at": "2026-09-18T11:25Z",
+  "updated_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant."
 }
