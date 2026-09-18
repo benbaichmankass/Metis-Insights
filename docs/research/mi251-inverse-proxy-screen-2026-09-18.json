@@ -1,0 +1,238 @@
+{
+  "account": "alpaca_live",
+  "account_class": "real_money",
+  "mode": "live",
+  "side_filter": "long",
+  "equity_usd": 200.0,
+  "risk_pct": 0.02,
+  "cash_ceiling_usd": 180.0,
+  "stop_ceiling_usd": 6.0,
+  "margin_safety_buffer": 0.9,
+  "round_up_budget_mult": 1.5,
+  "price_asof": "2026-08-24",
+  "price_source": "yfinance-lane-proof run 32828398224 (job 97741405818)",
+  "routed_symbols": [
+    "IAUM",
+    "IEF",
+    "SLV",
+    "TLT"
+  ],
+  "routed_legs": [
+    "iaum_pullback_1d",
+    "ief_pullback_1d",
+    "slv_pullback_1d",
+    "tlt_pullback_1d",
+    "tlt_pullback_1h"
+  ],
+  "declared_symbols": [
+    "GDX",
+    "GLD",
+    "IAUM",
+    "IEF",
+    "IWM",
+    "QQQ",
+    "SLV",
+    "SPLG",
+    "SPY",
+    "TLT",
+    "USO"
+  ],
+  "candidates": [
+    {
+      "ticker": "DGZ",
+      "parent": "GLD",
+      "price_asof": 4.8,
+      "stop_reconstructed": 0.3341,
+      "wall_state": "reachable",
+      "parent_state": "parent_has_no_proxy",
+      "candles_mapped": true,
+      "note": "near-dormant ETN; ATR ~6.96% of price"
+    },
+    {
+      "ticker": "RWM",
+      "parent": "IWM",
+      "price_asof": 13.49,
+      "stop_reconstructed": 0.1346,
+      "wall_state": "reachable",
+      "parent_state": "serves_unrouted_leg",
+      "candles_mapped": true,
+      "note": ""
+    },
+    {
+      "ticker": "EUM",
+      "parent": "EEM",
+      "price_asof": 15.99,
+      "stop_reconstructed": 0.2273,
+      "wall_state": "reachable",
+      "parent_state": "no_parent_leg",
+      "candles_mapped": true,
+      "note": "emerging markets"
+    },
+    {
+      "ticker": "DOG",
+      "parent": "DIA",
+      "price_asof": 21.32,
+      "stop_reconstructed": 0.1537,
+      "wall_state": "reachable",
+      "parent_state": "no_parent_leg",
+      "candles_mapped": true,
+      "note": "Dow"
+    },
+    {
+      "ticker": "TBF",
+      "parent": "TLT",
+      "price_asof": 25.36,
+      "stop_reconstructed": 0.2086,
+      "wall_state": "reachable",
+      "parent_state": "serves_routed_leg",
+      "candles_mapped": true,
+      "note": "~$80M AUM"
+    },
+    {
+      "ticker": "PSQ",
+      "parent": "QQQ",
+      "price_asof": 26.18,
+      "stop_reconstructed": 0.3067,
+      "wall_state": "reachable",
+      "parent_state": "serves_unrouted_leg",
+      "candles_mapped": true,
+      "note": "~$759M AUM"
+    },
+    {
+      "ticker": "TBX",
+      "parent": "IEF",
+      "price_asof": 28.81,
+      "stop_reconstructed": 0.1067,
+      "wall_state": "reachable",
+      "parent_state": "serves_routed_leg",
+      "candles_mapped": true,
+      "note": "~$14M AUM -- THIN, flag before use"
+    },
+    {
+      "ticker": "SEF",
+      "parent": "XLF",
+      "price_asof": 29.09,
+      "stop_reconstructed": 0.24,
+      "wall_state": "reachable",
+      "parent_state": "no_parent_leg",
+      "candles_mapped": true,
+      "note": "financials"
+    },
+    {
+      "ticker": "SH",
+      "parent": "SPY",
+      "price_asof": 32.55,
+      "stop_reconstructed": 0.21,
+      "wall_state": "reachable",
+      "parent_state": "serves_unrouted_leg",
+      "candles_mapped": true,
+      "note": "~$1B AUM"
+    },
+    {
+      "ticker": "DDG",
+      "parent": "XLE",
+      "price_asof": null,
+      "stop_reconstructed": null,
+      "wall_state": "price_unknown",
+      "parent_state": "no_parent_leg",
+      "candles_mapped": true,
+      "note": "fetch_failed on the 2026-08-25 run"
+    }
+  ],
+  "sizer_agreement": {
+    "equity_usd": 200.0,
+    "risk_pct": 0.02,
+    "rows": [
+      {
+        "ticker": "DGZ",
+        "qty": 11.0,
+        "notional_usd": 52.8,
+        "risk_usd": 3.68,
+        "risk_pct_of_equity": 1.838,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "RWM",
+        "qty": 13.0,
+        "notional_usd": 175.37,
+        "risk_usd": 1.75,
+        "risk_pct_of_equity": 0.875,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "EUM",
+        "qty": 11.0,
+        "notional_usd": 175.89,
+        "risk_usd": 2.5,
+        "risk_pct_of_equity": 1.25,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "DOG",
+        "qty": 8.0,
+        "notional_usd": 170.56,
+        "risk_usd": 1.23,
+        "risk_pct_of_equity": 0.615,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "TBF",
+        "qty": 7.0,
+        "notional_usd": 177.52,
+        "risk_usd": 1.46,
+        "risk_pct_of_equity": 0.73,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "PSQ",
+        "qty": 6.0,
+        "notional_usd": 157.08,
+        "risk_usd": 1.84,
+        "risk_pct_of_equity": 0.92,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "TBX",
+        "qty": 6.0,
+        "notional_usd": 172.86,
+        "risk_usd": 0.64,
+        "risk_pct_of_equity": 0.32,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "SEF",
+        "qty": 6.0,
+        "notional_usd": 174.54,
+        "risk_usd": 1.44,
+        "risk_pct_of_equity": 0.72,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      },
+      {
+        "ticker": "SH",
+        "qty": 5.0,
+        "notional_usd": 162.75,
+        "risk_usd": 1.05,
+        "risk_pct_of_equity": 0.525,
+        "sizes": true,
+        "ceiling_predicted_reachable": true
+      }
+    ],
+    "ceiling_vs_sizer_disagreements": [],
+    "negative_control": {
+      "ticker": "GDX",
+      "price": 99.43,
+      "stop": 7.665,
+      "qty": 0.0,
+      "refused_as_expected": true,
+      "basis": "MI-201 measured GDX refused on 59 of 59 observed setups"
+    }
+  }
+}

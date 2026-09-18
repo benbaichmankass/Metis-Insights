@@ -1,0 +1,114 @@
+id: WO-20260918-SCOPE-THE-INVERSE-ETF-ROUTE-FOR-THE-DEAD-SHORT-SIDE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane MI-251: screen the nine -1x inverse-ETF candidates against
+  alpaca_live's two hard walls, and say which could serve a leg it routes
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  alpaca_live is a CASH account with shorting_enabled: false at the venue, so every
+  SHORT its legs produce is unexecutable. The operator's standing directive (reaffirmed
+  2026-08-25) is that shorting is NEVER enabled broker-side, so the only route to that
+  flow is a -1x inverse ETF held LONG. Operator decision 2026-09-10T10:15Z chose
+  "Scope inverse ETFs first". A 2026-08-25 sweep named nine affordable candidates and
+  nobody had screened them against the account as it stands today.
+done_condition: >-
+  A written screen of the nine against the whole-share cash wall at $200 and candle
+  availability, naming which are affordable and which have data, plus a Tier-3 proposal.
+  insufficient_n on track record is the EXPECTED reading and is not a blocker: this is a
+  plumbing/expressibility question, not an edge bet.
+must_not:
+  - >-
+    Wire anything. Declaring an instrument on alpaca_live touches a real-money symbols:
+    list AND the CI-enforced alpaca_portfolio mirror equality, so any wiring is a separate
+    Tier-3 decision with its own approval. A session that ends by opening a config PR has
+    exceeded this item.
+  - >-
+    Propose enabling shorting or margin at the broker. It was OFFERED AND NOT TAKEN on
+    2026-08-25 and again on 2026-09-10; it would end the cash-account regime and the T+1
+    settlement gate with it, and that gate is ARMED AND BINDING on this account today.
+  - >-
+    Re-open the metals question. GLD, IAUM, SLV and GDX were RECORDED long-only with
+    reduced flow by operator decision 2026-08-25, because no acceptable -1x product exists
+    to find. That half is closed by decision, not by search.
+  - >-
+    Publish a list of reachable symbols as if it were a constant. That is the predecessor's
+    own recorded defect (BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT);
+    reachability moves with price and volatility and must be emitted as a ceiling.
+outcome: >-
+  MET. Evidence: docs/research/inverse-proxy-screen-2026-09-18.md, instrument
+  scripts/research/mi251_inverse_proxy_screen.py (22 selftests, 9 negative controls),
+  artifact docs/research/mi251-inverse-proxy-screen-2026-09-18.json.
+  (1) AFFORDABILITY IS NOT THE CONSTRAINT. All nine priced candidates clear BOTH walls
+  with large headroom -- dearest is SH at $32.55 against a $180.00 cash ceiling, widest
+  reconstructed stop is DGZ at $0.334 against a $6.00 stop ceiling. Verified end to end
+  against the real RiskManager (0 of 9 ceiling-vs-sizer disagreements) with GDX as a
+  NEGATIVE CONTROL: it refuses at qty 0.0, reproducing MI-201's independent 0-of-59
+  measurement. All ten are mapped in the repo's own yfinance adapter.
+  (2) THE CONSTRAINT IS THE PARENT JOIN, which the affordability sweep never asked.
+  Only TBF (TLT) and TBX (IEF) serve a leg alpaca_live actually routes. SH, PSQ and RWM
+  serve legs that are execution: live but route ONLY to paper accounts. EUM, DOG and SEF
+  have NO parent leg anywhere -- a new exposure, not a proxy. DGZ is metals. DDG is
+  price_unknown (fetch_failed 2026-08-25), carried rather than dropped.
+  (3) THE HEADLINE: the operator's 2026-08-25 sequencing (SH+PSQ first) was TRUE WHEN MADE
+  and its premise has gone. Measured over all 8 commits to config/accounts.yaml since
+  2026-08-20: alpaca_live carried 16 legs incl. spy_pullback_1h/qqq_pullback_1h through
+  2026-08-27, went to ZERO at c1f50fc5d on 2026-08-29T17:06, and was rebuilt to 1 then 5
+  legs. SPY and QQQ never returned. So the pair sequenced FIRST serves nothing here, and
+  the pair serving the current roster is the one sequenced SECOND -- including TBX, flagged
+  "may fail its own liquidity check" at ~$14M. Filed as
+  BL-20260918-THE-INVERSE-PROXY-SEQUENCING-DECISION-RESTS-ON-A-ROSTER-THAT-WAS-EMPTIED-FOUR-DAYS-LATER.
+  (4) FLOW, over the 1000-row order_packages tail 2026-06-02 -> 2026-09-18 (a TAIL; the
+  route hard-caps at 1000 rows id DESC and this is NOT the 3,984-row basis the 2026-08-25
+  note used, and the two are never pooled): the five routed legs produced 29 packages, 12
+  short (41.4%); TBF alone would serve 11 of the 12. n is small and this is NOT an edge claim.
+  ⚠️ NOT ESTABLISHED, each stated in the memo rather than buried: nothing about edge (no
+  backtest run or proposed), nothing about liquidity or tracking error, prices are 25 days
+  old, and the mirror-leg design blockers are UNCHANGED -- the aggregator drops a
+  cross-symbol intent, supported_symbols() validates against accounts.yaml, and the monitor
+  re-evaluates the exit on the ORDER symbol's inversely-correlated candles.
+  WHAT IS LEFT is a DECISION, not a measurement -- see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-INVERSE-PROXY-BUILD-ORDER
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-INVERSE-PROXY-BUILD-ORDER
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      The 2026-08-25 decision was to build SH (-1x SPY) and PSQ (-1x QQQ) first, because
+      they were the most liquid AND because alpaca_live then routed four SPY/QQQ legs
+      carrying 79 short packages. That roster was emptied on 2026-08-29 and rebuilt without
+      SPY or QQQ; the account now routes TLT x2, IEF, SLV and IAUM. So the two sequenced
+      first serve no leg here, and the two that do serve it -- TBF (-1x TLT) and TBX
+      (-1x IEF) -- are the pair sequenced second, TBX being the one flagged as possibly too
+      thin at ~$14M AUM. Each proxy is multi-session Tier-3 work. Which order?
+    options:
+      - key: reaffirm_sh_psq_first
+        label: >-
+          Keep SH+PSQ first. Proving the mirror-leg pattern on the most liquid pair has
+          value independent of which legs route today, and the paper accounts that DO route
+          spy/qqq_pullback_1h can exercise it. Costs: the first proxy built recovers no
+          real-money flow, and the design blockers must be solved anyway.
+      - key: reorder_tbf_first
+        label: >-
+          Build TBF (-1x TLT) first. It is the only candidate serving a routed leg at
+          meaningful volume -- 11 of the 12 short packages the current roster produced --
+          and at ~$80M AUM it is liquid enough to be a real test. Costs: a smaller fund
+          than SH, so a liquidity failure here would be less informative about the pattern.
+      - key: wait_for_the_roster
+        label: >-
+          Build nothing yet. The roster has changed three times in three weeks (16 -> 0 ->
+          1 -> 5); sequencing a multi-session Tier-3 build against it is what produced this
+          question. Revisit once the roster is stable. Legitimate, and must be RECORDED as
+          a decision rather than left looking like work about to start.
+      - key: drop_the_proxy_programme
+        label: >-
+          Record the short side as knowingly dead on alpaca_live and stop spending sessions
+          on proxies. 41.4% of the current roster's flow is suppressed and stays suppressed.
+          Legitimate; it must be RECORDED, with the suppressed share restated so no later
+          session reads those legs' expected contribution at face value.
