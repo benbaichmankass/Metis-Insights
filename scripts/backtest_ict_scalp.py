@@ -56,6 +56,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
+import target_basis  # noqa: E402  (the ONE take-profit-basis definition)
 from src.units.strategies.ict_scalp import order_package  # noqa: E402
 from src.units.strategies import load_strategy_config  # noqa: E402
 
@@ -161,7 +162,7 @@ def _simulate_exit(
     start_idx: int,
     direction: str,
     sl: float,
-    tp: float,
+    tp: Optional[float],
     timeout_bars: int,
     entry: Optional[float] = None,
     be_offset_bps: Optional[float] = None,
@@ -240,7 +241,7 @@ def _simulate_exit(
                         "exit_index": j, "exit_price": cur_sl,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
-            if bar_high >= tp:
+            if tp is not None and bar_high >= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
@@ -250,7 +251,7 @@ def _simulate_exit(
                         "exit_index": j, "exit_price": cur_sl,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
-            if bar_low <= tp:
+            if tp is not None and bar_low <= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
@@ -429,6 +430,8 @@ def run_backtest(
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
     strategy_name: str = "ict_scalp_5m",
+    tp_cap_pct: float = 0.0,
+    no_tp: bool = False,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -490,10 +493,28 @@ def run_backtest(
             continue
         entry = float(pkg["entry"])
         sl = float(pkg["sl"])
-        tp = float(pkg["tp"])
+        unit_tp = float(pkg["tp"])
         risk = abs(entry - sl)
         if risk <= 0:
             continue
+        # WHICH TARGET THIS ARM PLACES — resolved through the ONE owner
+        # (scripts/target_basis.py) rather than branched on here, so this
+        # harness and backtest_fvg_range.py cannot drift on what "capped"
+        # means. Both defaults are off, so a caller passing neither flag is
+        # byte-identical to before these arms existed.
+        #
+        # ⚠️ `unit_tp` IS ALREADY THE LIVE TARGET. ict_scalp's live unit sets
+        # `tp = entry ± tp_at_r * risk` (src/units/strategies/ict_scalp.py:525)
+        # and applies NO venue clamp — `scalp` is absent from
+        # `tp_venue_cap.CLAMPING_FAMILIES`. So the default arm here is live
+        # parity (what `m20_fleet_exit_sweep.tp_geometry_for` calls
+        # `live_parity_uncapped`), `--tp-cap-pct` is a COUNTERFACTUAL rather
+        # than parity, and `--no-tp` is the target-setting basis MI-307 calls
+        # the "uncapped" arm. Do not map those names across families by
+        # analogy with backtest_trend.py, where "no flag" means no target.
+        tp, tp_basis = target_basis.resolve_target(
+            entry=entry, direction=direction, unit_tp=unit_tp,
+            cap_pct=tp_cap_pct, disabled=no_tp)
         # Fill simulation starts on the next bar.
         result = _simulate_exit(
             df,
@@ -572,6 +593,17 @@ def run_backtest(
         meta["exit_time"] = str(exit_ts)
         meta["exit_price"] = exit_price
         meta["tp"] = tp
+        # The arm's own provenance, per trade. A reader must never infer which
+        # arm produced a row from what it believes the caller passed — that is
+        # the substitution scripts/target_basis.py exists to make impossible.
+        meta["tp_basis"] = tp_basis
+        meta["unit_tp"] = unit_tp
+        # cap_r is reported whenever a cap was ASKED for, including when it was
+        # inert, because the inert count is the measurement that says whether
+        # this family's missing clamp matters at all.
+        if tp_cap_pct > 0.0:
+            meta["cap_r"] = target_basis.cap_r(
+                entry=entry, risk=risk, cap_pct=tp_cap_pct)
         trades.append(
             Trade(
                 entry_index=i,
@@ -993,6 +1025,30 @@ def build_parser() -> argparse.ArgumentParser:
                         "existing caller emits byte-identically; the exit-head "
                         "round passes the real leg so per-leg verdicts are "
                         "attributable.")
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="COUNTERFACTUAL venue clamp: cap the strategy's own "
+                        "take-profit at entry*(1 +/- pct), i.e. place "
+                        "min(unit_tp, entry*(1+pct)) long. 0 = off, "
+                        "byte-identical. ** THIS IS NOT LIVE PARITY ON THIS "
+                        "HARNESS. ** ict_scalp's live unit applies NO venue "
+                        "clamp (`scalp` is absent from "
+                        "src/runtime/tp_venue_cap.py::CLAMPING_FAMILIES, and "
+                        "the constant is applied in exactly four unit modules, "
+                        "none of them this one), so the DEFAULT arm is already "
+                        "the live book and this flag DEPARTS from it. It exists "
+                        "to measure whether the clamp's absence here is "
+                        "material -- read the `unit_tp_cap_inert` share. On "
+                        "backtest_trend.py the same flag means the opposite "
+                        "(there, no flag = no target at all); do not carry the "
+                        "meaning across families.")
+    p.add_argument("--no-tp", action="store_true",
+                   help="Disable the take-profit entirely, so a trade runs to "
+                        "its stop or timeout. THIS is the target-setting "
+                        "('uncapped') arm MI-307 needs and the one this "
+                        "harness could not previously produce: with the target "
+                        "live, MFE is truncated at it and can say nothing "
+                        "about what lay above. Off by default, so every "
+                        "existing caller is byte-identical.")
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write one per-trade JSONL object per closed trade to PATH "
                         "(for the ML backtest-label recorder; single-run only, not with --confidence-sweep).")
@@ -1102,6 +1158,8 @@ def main(argv: List[str]) -> int:
         giveback_r=float(args.giveback_r),
         bank_frac=float(args.bank_frac),
         bank_at_r=float(args.bank_at_r),
+        tp_cap_pct=float(args.tp_cap_pct),
+        no_tp=bool(args.no_tp),
     )
 
     try:
