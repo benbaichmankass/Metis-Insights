@@ -1,0 +1,5 @@
+MI-29 — starved-leg measurement, answering DEC-20260910-MI-29-MEASURE-THE-STARVED-LEGS-FIRST.
+
+Tier-1 by path: docs/** and scripts/research/** only. The PR was opened by this
+session (#12558) BEFORE this arming file was pushed, so it carries a real
+pull_request event and CI fires normally.

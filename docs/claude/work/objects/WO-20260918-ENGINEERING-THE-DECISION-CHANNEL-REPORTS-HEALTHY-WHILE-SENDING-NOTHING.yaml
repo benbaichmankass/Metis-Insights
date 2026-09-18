@@ -6,70 +6,136 @@ title: >-
   0 prompted, on 47 of 47 runs
 stage: BUILD
 lifecycle: done
+lifecycle_basis: >
+  [!] SUPERSEDED 2026-09-18 BY THE MANAGER (session_01GHpyXT2qssLJsrvXBQRkQF, #12476), WHICH LANDED
+  FIRST AND CLOSED THIS OBJECT `done` WITH A `closed_observation`. That is the manager's call and it
+  is taken; `lifecycle` above reads `done` accordingly. THE ARGUMENT BELOW IS PRESERVED AS THE RECORD
+  OF WHY THE LANE CHOSE `waiting` OVER `in_flight` AT THE TIME -- it is about the WIP ceiling, not about
+  whether the work finished, and a reader must not take it as the current lifecycle. The ceiling
+  question it raises is discharged by the closure: a `done` object does not consume the in-flight cap.
+  `waiting`, not `in_flight`, and the distinction is load-bearing rather than bookkeeping. The BUILD is complete:
+  the render is bounded, the failure is typed, the verdict is expressible and a reader exists, with 193 tests
+  green and 7 planted defects each caught. What is outstanding is a Tier-2 MERGE DECISION the operator owns plus
+  an ict-telegram-bot.service restart plus a human confirming what arrived on their phone -- i.e. an observation
+  accruing on somebody else, which is exactly what `waiting` means and is not consuming a lane's attention. ⚠️
+  IT IS ALSO WHY NO WIP-CEILING EXCEPTION WAS FILED. This object was the NINTH `in_flight` against the ceiling
+  of 8 (measured by scripts/ci/check_wip_ceiling.py on 2026-09-18: done 67 / dormant 13 / in_flight 9 / ready
+  65 / waiting 34). Filing docs/claude/work/wip-ceiling-exception.yaml would have turned a private call into an
+  operator decision for no reason, and demoting somebody else's live object to make room would be worse. The guard's
+  own remedy names `waiting` as free; this object genuinely is.
+    [!] THE MANAGER'S VERSION DECLARES `in_flight` AND THIS ONE DOES NOT, DELIBERATELY. At the moment the lane
+    finished, this object was the NINTH in_flight against the enforced ceiling of 8
+    (scripts/ci/check_wip_ceiling.py, measured 2026-09-18). The build is complete and what remains is a Tier-2
+    merge decision plus a restart plus a human observation -- which is what `waiting` means. Filing a
+    wip-ceiling exception would have turned a private call into an operator decision for no reason, and
+    demoting another live object to make room would be worse. If the manager wants it back at `in_flight`,
+    that is their call and the ceiling is theirs to reconcile.
 owner: session_01CQ91T43zDR3AKC7y1PPxvY
 opened_at: 2026-09-18
 closed_at: 2026-09-18
 why: >-
   OPERATOR-DIRECTED 2026-09-17 (overnight): 'for engineering, I'm sure we can also find continuous amounts of
-  work of structural things that need to be fixed, code that isn't working.' This is the strongest instance
-  currently measured, and it is code that is not working while every surface says it is.
-  MEASURED by the ops lane 2026-09-17 (filed as
-  BL-20260917-THE-WORK-DECISION-SWEEP-REPORTS-ITSELF-HEALTHY-AND-ROUTED-WHILE-FAILING-TO-SEND-EVERY-CANDIDATE-ON-47-OF-47-RUNS,
-  severity CRITICAL): the work-decision sweep records `candidates: 4 / failed: 4 / prompted_choice: 0` on
-  **47 of 47 runs**, while reading as checked, unpaused, unheld and ROUTED TO A LIVE POLLER throughout.
-  [!] WHY THIS IS THE ONE TO TAKE: CLAUDE.md's own design note says a decision channel with a question in it
-  and no round-trip behind it is WORSE than no channel -- the operator answers nothing, the question reads
-  in_transit forever, and it LOOKS dealt with. Here it is worse still: nothing is even being asked, and the
-  receipt says everything is fine. That is the unprovenanced-diagnostic class landing on the one channel the
-  operator uses to make decisions, and OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP
-  has been open on it since 2026-09-01.
-  [!] AND IT COMPOSES WITH A SECOND, SEPARATE DEFECT ALREADY FILED: MI-254, the Workflow page's decisions
-  inbox grades on `answer` alone so an ANSWERED decision reads UNANSWERED. Do not fold them together -- one is
-  the SEND failing, the other is the READ mis-grading, and fixing either alone leaves the round-trip broken.
-done_condition: >-
+  work of structural things that need to be fixed, code that isn't working.' This is the strongest instance currently
+  measured, and it is code that is not working while every surface says it is. MEASURED by the ops lane 2026-09-17
+  (filed as BL-20260917-THE-WORK-DECISION-SWEEP-REPORTS-ITSELF-HEALTHY-AND-ROUTED-WHILE-FAILING-TO-SEND-EVERY-CANDIDATE-ON-47-OF-47-RUNS,
+  severity CRITICAL): the work-decision sweep records `candidates: 4 / failed: 4 / prompted_choice: 0` on **47
+  of 47 runs**, while reading as checked, unpaused, unheld and ROUTED TO A LIVE POLLER throughout. [!] WHY THIS
+  IS THE ONE TO TAKE: CLAUDE.md's own design note says a decision channel with a question in it and no round-trip
+  behind it is WORSE than no channel -- the operator answers nothing, the question reads in_transit forever, and
+  it LOOKS dealt with. Here it is worse still: nothing is even being asked, and the receipt says everything is
+  fine. That is the unprovenanced-diagnostic class landing on the one channel the operator uses to make decisions,
+  and OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP has been open on it
+  since 2026-09-01. [!] AND IT COMPOSES WITH A SECOND, SEPARATE DEFECT ALREADY FILED: MI-254, the Workflow page's
+  decisions inbox grades on `answer` alone so an ANSWERED decision reads UNANSWERED. Do not fold them together
+  -- one is the SEND failing, the other is the READ mis-grading, and fixing either alone leaves the round-trip
+  broken.
+    === THE LANE'S MEASURED FINDINGS, APPENDED 2026-09-18 by session_01CQ91T43zDR3AKC7y1PPxvY. The manager's
+    dispatch text above is PRESERVED VERBATIM and is not restated. ===
+    THE CAUSE, which the dispatch correctly left open: Telegram caps sendMessage's `text` at 4096 CHARACTERS
+    and render_decision_prompt had NO length budget anywhere -- it joined question + context + every option
+    label and implication. send_telegram_direct RAISES on a non-2xx, the sweep caught that into a bare
+    `failed += 1`, and the error string went only to the systemd journal, whose ~30-minute retention the
+    dispatch itself names.
+    THE PARTITION, over the COMPLETE population of 33 decision requests in docs/claude/work/objects/*.yaml
+    cross-checked against the live marker file (20 markers): 0 of 5 over-cap requests had EVER been delivered,
+    against 20 of 20 delivered markers all UNDER the cap. Unanswered AND over cap = 4 -- exactly the
+    candidates 4 / failed 4 the dispatch quotes. The 4 unanswered UNDER the cap all carry markers, so
+    prompted_choice 0 was CORRECT for them.
+    TWO POSITIVE CONTROLS: the largest prompt ever delivered is 3815 chars; and in situ on the receipt, the
+    47th run reads candidates 5 / failed 4 / prompted_choice 1 -- a 3815-char newcomer went out cleanly on the
+    very same run the four over-cap ones failed. (So it is 46 of 47, not 47 of 47 -- a correction to the filed
+    row's headline, and the 47th run is the control that makes the diagnosis discriminating rather than
+    merely consistent.)
+    THE FOUR UNDELIVERED: DEC-20260917-SCALP-MARGIN-BOUND-SIZING (5463 chars),
+    DEC-20260913-FOUR-LEG-DISPOSITION (4738), DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE (4569),
+    DEC-20260912-LOUD-FLAG-TRIAGE (4184).
+    [!] IT WAS CODE, NOT CONFIGURATION, so the dispatch's escape hatch did not apply: the token resolved, the
+    bot was polled, the write gate was open and the route was `claude` on all 47 rows.
+    [!] THE SECOND FINDING IS THE MORE GENERAL ONE AND THE DISPATCH DID NOT ASK FOR IT: the sweep wrote a
+    durable receipt on EVERY run and NOTHING READ IT. Detection was never the missing half -- the receipt had
+    the numbers all along -- so the unit ships a READER (src/runtime/decision_channel_alert.py) and not only a
+    better field.
+    DELIVERED IN PR #12490 (Tier-2, landing: hold): the render bounded as a POST-CONDITION for every input;
+    `failure_kinds` + a redacted bounded `failure_detail`; and `sweep_outcome` registered with
+    collapsed-state-guard as telegram_decisions.sweep_outcome over six never-collapsed states, which is the
+    dispatch's 'must stop reporting healthy' clause satisfied.
+    [!] THIS FILE WAS WRITTEN TWICE, INDEPENDENTLY, AND THAT IS ITSELF THE FINDING -- recorded here rather
+    than silently resolved. The dispatch told the lane to read this object FIRST. It was ABSENT from
+    origin/main and absent from the lane's clone (measured both ways), so the lane created it. It in fact
+    existed on the MANAGER'S OWN UNMERGED BRANCH (claude/wonderful-bardeen-ofg7um, PR #12476), which no lane
+    can see. Predicted with `git merge-tree --write-tree`: the two versions collide add/add.
+    THIS VERSION IS THE RECONCILIATION and is a SUPERSET: the manager's `title`, `why`, `done_condition`,
+    `source`, `explicitly_not_in_scope` and `blocked_on_basis` are carried VERBATIM, with the lane's measured
+    findings appended under their own heading. Whichever PR lands second, the resolution is to take THIS file,
+    because it contains both. Nothing of the dispatcher's wording is dropped -- the repo's own rule is that a
+    row recording a verdict without its condition reads as complete and is worse than a missing row.
+    [!] AND IT IS A CLASS, NOT A SLIP: the MI-301 research lane hit the identical thing the same night
+    (its PR #12491 records creating WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET after
+    finding it absent from main and from its clone). Two lanes, one night, same mechanism. Filed as
+    BL-20260918-A-LANE-IS-DISPATCHED-AGAINST-A-WORK-OBJECT-THAT-EXISTS-ONLY-ON-THE-MANAGERS-UNMERGED-BRANCH-SO-EVERY-LANE-CORRECTLY-MEASURES-IT-ABSENT-AND-CREATES-A-DUPLICATE.
+    This is OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING caught in the act, one layer up:
+    the spec exists and the carrier is unreachable.
+done_condition: >
   THE CAUSE IS ESTABLISHED BY MEASUREMENT AND NAMED -- why all four candidates fail on every run -- and either
-  fixed, or, if the fix is Tier-2/3, written up as an exact proposal with the diff. The receipt must ALSO
-  stop reporting healthy: a run where every candidate failed must be distinguishable, on the receipt itself,
-  from a run where there was nothing to send. Those are opposite facts and today they render the same.
-  [!] READ THE RECEIPT RING AT /api/diag/log_file?name=work_decision_sweep_receipt, not the systemd journal --
-  its retention was MEASURED at ~30 minutes, which is why the durable ring exists.
-  [!] A GREEN TEST SUITE ESTABLISHES NOTHING HERE and the repo says so in terms: tests/test_work_decisions.py
-  already exercises submit->commit->committed in a harness, and a harness cannot reach the four stages this
-  channel actually fails at.
-  [!] AND IF THE CAUSE TURNS OUT TO BE CONFIGURATION RATHER THAN CODE -- an unset token, a masked unit -- that
-  is a FINDING and closes this object, recorded as that, with the remedy named for whoever can apply it. Do
-  not manufacture a code change to have shipped one.
-source: >-
-  Operator directive 2026-09-17 (overnight dispatch, engineering = structural fixes and code that is not
-  working). The defect was filed by the MI-294 ops lane the same day.
-blocked_on: []
-blocked_on_basis: >-
-  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the receipt ring,
-  the prompted-marker file and the poll-registry claims are all on the diag surface the lane can read, and
-  src/runtime/telegram_decisions.py is in-tree. [!] A Tier-2 unit restart (ict-telegram-bot.service) would be
-  a real blocker IF the fix needs one -- write it as a typed edge WHEN IT BINDS, not now.
+  fixed, or, if the fix is Tier-2/3, written up as an exact proposal with the diff. The receipt must ALSO stop
+  reporting healthy: a run where every candidate failed must be distinguishable, on the receipt itself, from a
+  run where there was nothing to send. Those are opposite facts and today they render the same. [!] READ THE RECEIPT
+  RING AT /api/diag/log_file?name=work_decision_sweep_receipt, not the systemd journal -- its retention was MEASURED
+  at ~30 minutes, which is why the durable ring exists. [!] A GREEN TEST SUITE ESTABLISHES NOTHING HERE and the
+  repo says so in terms: tests/test_work_decisions.py already exercises submit->commit->committed in a harness,
+  and a harness cannot reach the four stages this channel actually fails at. [!] AND IF THE CAUSE TURNS OUT TO
+  BE CONFIGURATION RATHER THAN CODE -- an unset token, a masked unit -- that is a FINDING and closes this object,
+  recorded as that, with the remedy named for whoever can apply it. Do not manufacture a code change to have shipped
+  one.
+    === THE LANE'S SPLIT OF THIS CONDITION, 2026-09-18: PART ONE IS MET, PART TWO IS NOT. ===
+    MET: the cause is established by measurement and named (see `why`), the fix is shipped, and the receipt
+    stops reporting healthy -- `sweep_outcome` makes `all_failed` and `nothing_pending` different values, which
+    is this condition's own 'opposite facts / today they render the same' clause discharged.
+    NOT MET: no prompt has been OBSERVED arriving. It needs a Tier-2 merge, an ict-telegram-bot.service
+    restart, and then a human confirming what landed on their phone. Accrual is tracked at
+    OI-20260918-THE-DECISION-CHANNEL-IS-REPAIRED-AND-NO-PROMPT-HAS-BEEN-OBSERVED-ARRIVING (loud).
+    [!] So this object is NOT closed on the diagnosis, exactly as the dispatch's own 'a green test suite
+    establishes nothing here' clause requires -- 193 tests pass and 7 planted defects are each caught, and a
+    harness cannot reach a Telegram chat.
 explicitly_not_in_scope: >-
-  MI-254 (the inbox grading on the wrong field) -- related and separately owned; minting any credential (the
-  operator ruled that out 2026-09-02); and answering any actual decision in the queue, which is the
-  operator's.
-captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
-closed_observation: >-
-  DONE 2026-09-18, done_condition MET: the cause is ESTABLISHED BY MEASUREMENT AND NAMED, and the fix is
-  written up as an exact proposal because it is Tier-2. PR #12490, `landing: hold` -- correctly NOT merged by
-  the lane and NOT merged by the manager either: Tier-2 needs one operator OK and the operator is asleep.
-  THE CAUSE: Telegram caps sendMessage's `text` at 4096 characters and render_decision_prompt had NO LENGTH
-  BUDGET ANYWHERE. Partition over the COMPLETE population of 33 decision requests, cross-checked against the
-  live marker file: of the rows over 4096 chars, 0 of 5 were EVER delivered; of those under it, 20 of 20 with
-  a marker were. Unanswered AND over cap = 4, which is exactly the receipt's `candidates: 4 / failed: 4`.
-  TWO POSITIVE CONTROLS, and they are what make this decisive rather than plausible: the largest prompt ever
-  delivered is 3815 chars, and IN SITU on the receipt itself the 47th run reads `candidates 5 / failed 4 /
-  prompted_choice 1` -- a 3815-char newcomer went out cleanly on the very same run the four over-cap ones
-  failed.
-  [!] THE SECOND FINDING IS THE MORE GENERAL ONE AND IS WHY THIS WAS WORTH AN OPUS LANE: the sweep wrote a
-  durable receipt on every run and NOTHING READ IT. Detection was never the missing half -- the receipt had
-  the numbers all along. So the change ships a READER (src/runtime/decision_channel_alert.py), not only a
-  better field, and `sweep_outcome` is registered with collapsed-state-guard so `nothing_pending` and
-  `all_failed` -- opposite facts that rendered nearly identically -- cannot be collapsed again.
-  [!] WHAT IS NOT ESTABLISHED, and the lane says so itself: a green suite proves nothing about DELIVERY. 193
-  tests pass and 7 planted defects each fail, and a harness cannot reach a Telegram chat. Criterion (1) of the
-  backlog row is met; criterion (2) is not. Accrual row opened.
+  MI-254 (the inbox grading on the wrong field) -- related and separately owned; minting any credential (the operator
+  ruled that out 2026-09-02); and answering any actual decision in the queue, which is the operator's. HONOURED
+  IN FULL by the lane: MI-254 untouched, no credential proposed, no queued decision answered.
+source: >-
+  Operator directive 2026-09-17 (overnight dispatch, engineering = structural fixes and code that is not working).
+  The defect was filed by the MI-294 ops lane the same day.
+blocked_on: []
+blocked_on_basis: >
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the receipt ring, the
+  prompted-marker file and the poll-registry claims are all on the diag surface the lane can read, and src/runtime/telegram_decisions.py
+  is in-tree. [!] A Tier-2 unit restart (ict-telegram-bot.service) would be a real blocker IF the fix needs one
+  -- write it as a typed edge WHEN IT BINDS, not now.
+    [!] RE-AFFIRMED 2026-09-18 by the lane, and the manager's forecast was RIGHT: the fix does need an
+    ict-telegram-bot.service restart. It is STILL not written as a typed edge, because what is pending is an
+    OBSERVATION ACCRUING on a Tier-2 merge decision, not a blocker holding a chain up -- and a false blocker
+    is worse than a missing one (docs/claude/work/README.md, 2026-09-01).
+captured_by: >-
+  session_01GHpyXT2qssLJsrvXBQRkQF (dispatch) + session_01CQ91T43zDR3AKC7y1PPxvY (findings, reconciliation)
+
+closed_observation: >
+  DONE 2026-09-18, done_condition MET: the cause is ESTABLISHED BY MEASUREMENT AND NAMED, and the fix is written up as an exact proposal because it is Tier-2. PR #12490, `landing: hold` -- correctly NOT merged by the lane and NOT merged by the manager either: Tier-2 needs one operator OK and the operator is asleep. THE CAUSE: Telegram caps sendMessage's `text` at 4096 characters and render_decision_prompt had NO LENGTH BUDGET ANYWHERE. Partition over the COMPLETE population of 33 decision requests, cross-checked against the live marker file: of the rows over 4096 chars, 0 of 5 were EVER delivered; of those under it, 20 of 20 with a marker were. Unanswered AND over cap = 4, which is exactly the receipt's `candidates: 4 / failed: 4`. TWO POSITIVE CONTROLS, and they are what make this decisive rather than plausible: the largest prompt ever delivered is 3815 chars, and IN SITU on the receipt itself the 47th run reads `candidates 5 / failed 4 / prompted_choice 1` -- a 3815-char newcomer went out cleanly on the very same run the four over-cap ones failed. [!] THE SECOND FINDING IS THE MORE GENERAL ONE AND IS WHY THIS WAS WORTH AN OPUS LANE: the sweep wrote a durable receipt on every run and NOTHING READ IT. Detection was never the missing half -- the receipt had the numbers all along. So the change ships a READER (src/runtime/decision_channel_alert.py), not only a better field, and `sweep_outcome` is registered with collapsed-state-guard so `nothing_pending` and `all_failed` -- opposite facts that rendered nearly identically -- cannot be collapsed again. [!] WHAT IS NOT ESTABLISHED, and the lane says so itself: a green suite proves nothing about DELIVERY. 193 tests pass and 7 planted defects each fail, and a harness cannot reach a Telegram chat. Criterion (1) of the backlog row is met; criterion (2) is not. Accrual row opened.
