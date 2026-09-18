@@ -129,46 +129,6 @@
       "hold_reason": "unvouchable_paths"
     },
     {
-      "pr": 12181,
-      "title": "research(m20): U37 — the margin-ceiling record exists only where it does not bind",
-      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
-      "checklist_item": "MI-278",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
-      "pr": 12205,
-      "title": "research(m20): U41 — the 2026-08-30 break is BOTH, and the verdict survives",
-      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
-      "checklist_item": "MI-278",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
       "pr": 12213,
       "title": "U28: the PAT-open path has never once run",
       "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
@@ -232,26 +192,6 @@
       "hold_reason": "operator_asked_to_hold"
     },
     {
-      "pr": 12346,
-      "title": "record the four operator answers of 2026-09-16, route the first lane",
-      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-      "checklist_item": "MI-288",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "⚠️ SUPERSEDED IN ITS HEADLINE CONTENT — the four operator answers it was opened to land ALREADY REACHED main via #12392 (16d25eef3, 13:50Z). What is still only here: the OPEN-ITEMS re-observation, a BL-20260917 lease-grading backlog row, and a checklist update. It went DIRTY six times across six refresh->CI->merge cycles, each voided by a concurrent session. Decide whether to salvage the remaining three edits onto a fresh branch or close it; do NOT simply re-refresh it a seventh time.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
       "pr": 12398,
       "title": "record that a register-appending PR cannot reliably reach a merge",
       "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
@@ -291,106 +231,6 @@
         "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
       },
       "hold_reason": "changes_landing_machinery"
-    },
-    {
-      "pr": 12401,
-      "title": "An R3 finding printed the id-collision headline, and nothing collided",
-      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
-      "checklist_item": "MI-279",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
-      "pr": 12402,
-      "title": "two pushes to main cancelled each other, under a comment saying they may not",
-      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
-      "checklist_item": "MI-280",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
-      "pr": 12410,
-      "title": "PB-20260821's clause 1 now passes",
-      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
-      "checklist_item": "MI-278",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
-      "pr": 12411,
-      "title": "a clean merge is not a correct one — predict the RESULT",
-      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
-      "checklist_item": "MI-280",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
-      "pr": 12426,
-      "title": "the registry said three lanes were paused while they were landing to main",
-      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-      "checklist_item": "MI-288",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Corrects three SESSIONS.json lane rows that read paused_* while MI-278/279/280 were landing to main every few minutes (9/6/5 commits in the ~6h to 15:55Z, over a population of 30 main commits of which 21 carry a session trailer). Staleness in the DANGEROUS direction: a cold successor would have left three active lanes unsupervised.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2778,10 +2618,194 @@
       "settled_at": "2026-09-17T16:1xZ",
       "terminal": "merged",
       "settled_by": "session_01HoFquGdTrD3TTGbMMRc43t"
+    },
+    {
+      "pr": 12181,
+      "title": "research(m20): U37 — the margin-ceiling record exists only where it does not bind",
+      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+      "checklist_item": "MI-278",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "3e323f7091459ba8130fda05f13f290880e22672",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12205,
+      "title": "research(m20): U41 — the 2026-08-30 break is BOTH, and the verdict survives",
+      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+      "checklist_item": "MI-278",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "cc74993b44096d24fcff3e560afed67196864540",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12346,
+      "title": "record the four operator answers of 2026-09-16, route the first lane",
+      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "checklist_item": "MI-288",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "⚠️ SUPERSEDED IN ITS HEADLINE CONTENT — the four operator answers it was opened to land ALREADY REACHED main via #12392 (16d25eef3, 13:50Z). What is still only here: the OPEN-ITEMS re-observation, a BL-20260917 lease-grading backlog row, and a checklist update. It went DIRTY six times across six refresh->CI->merge cycles, each voided by a concurrent session. Decide whether to salvage the remaining three edits onto a fresh branch or close it; do NOT simply re-refresh it a seventh time.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "closed_unmerged",
+      "merge_sha": null,
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12401,
+      "title": "An R3 finding printed the id-collision headline, and nothing collided",
+      "owner_session": "session_013iSqp4LsU1eq8K326eUtgj",
+      "checklist_item": "MI-279",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "3078f1b61440775e75984c42f58a8f7fa7b57402",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12402,
+      "title": "two pushes to main cancelled each other, under a comment saying they may not",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "c9d151929020d9879ab9040a0d88313769831c48",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12410,
+      "title": "PB-20260821's clause 1 now passes",
+      "owner_session": "session_01Wv1BdfEUnmCBZrhvUjeBzb",
+      "checklist_item": "MI-278",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "287fe7ca7ebf8e60e26df9ad48312e1475fc5a44",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12411,
+      "title": "a clean merge is not a correct one — predict the RESULT",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: self (tier 1). Armed or armable; it lands on green. If it is sitting open and green, the useful action is a merge, NOT a re-approval — no approval was ever required.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "918c9b14948e1ec3e30dc0ff6349578933fa2db4",
+      "settled_by": "reconciler"
+    },
+    {
+      "pr": 12426,
+      "title": "the registry said three lanes were paused while they were landing to main",
+      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "checklist_item": "MI-288",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Corrects three SESSIONS.json lane rows that read paused_* while MI-278/279/280 were landing to main every few minutes (9/6/5 commits in the ~6h to 15:55Z, over a population of 30 main commits of which 21 carry a session trailer). Staleness in the DANGEROUS direction: a cold successor would have left three active lanes unsupervised.",
+      "observed_at": "2026-09-18T01:46:12Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "merged",
+      "merge_sha": "ee69136c4c816be72c9e2e204e6cc4520c71d86a",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-17T16:05Z",
-  "last_reconciled_sha": "f9c2705acb6a1366ae5c910df55fe53bfa07a533",
+  "last_reconciled_at": "2026-09-18T01:46:12Z",
+  "last_reconciled_sha": "5540182925d74c05fd24a42dc13d7b8681489da4",
   "updated_at": "2026-09-17T16:05Z",
   "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant."
