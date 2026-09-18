@@ -174,3 +174,10 @@ python3 scripts/research/mi318_scalp_control_bound.py \
 Reads only `docs/research/mi312-scalp-target-arms-2026-09-18.json`, which is on `main`. No network,
 no harness, no candles. Artifact:
 [`mi318-scalp-control-bound-2026-09-18.json`](mi318-scalp-control-bound-2026-09-18.json).
+
+⚠️ **If that input is absent the instrument REFUSES rather than degrading** — it exits with a message
+naming the file and the PR it landed in (#12515), instead of emitting a verdict over an empty leg
+list. A bound computed over zero legs would print a confident `arm_vs_arm_cannot_be_independent` on
+`n_gradeable: 0`, which is the *we did not look* → *there is nothing there* collapse this repo has a
+guard class for; the refusal is what keeps the two apart. Its `verdict` also carries `not_gradeable`
+as a distinct value for the same reason.
