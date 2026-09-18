@@ -62,7 +62,10 @@ closed_observation: >-
   constraint_readout.py::_one_line carried its OWN narrower second clip (140/180 chars) and applied it ON TOP
   of the already-id-safe 200-char title, so a title that survived the first clip could be cut a second time
   INSIDE the same id, manufacturing a dangling reference to a row that does exist. Measured live rather than
-  reasoned: PR #12331's diff carried "Filed as BL-20260912-BYBI...", a 16-char fragment of a real filed row.
+  reasoned: PR #12331's diff carried a 16-char fragment of a real filed row -- the literal text is NOT
+  reproduced here, because quoting a truncated id verbatim makes artifact-validity read the QUOTATION
+  as a broken reference (it did, on this very branch). The row it fragments is the bybit_2 settle-coin
+  one whose full id ends ...-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED.
   Fixed by DELEGATING to the one _clip through the module's existing _due_lib() importer instead of keeping a
   diverging second copy -- the right shape, since the bug WAS the second copy. Self-test gains a positive
   control reproducing the live fragment; 11 new pytest cases cover the two-clip composition, the
