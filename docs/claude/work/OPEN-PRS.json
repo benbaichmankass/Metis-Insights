@@ -210,27 +210,6 @@
         "decided_on": null,
         "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
       }
-    },
-    {
-      "pr": 12400,
-      "title": "the dirty-tree notice reaches every guard a session actually types",
-      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
-      "checklist_item": "MI-280",
-      "tier": 1,
-      "draft": false,
-      "landing": "hold",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "Declares landing: hold / changes_landing_machinery — pr-landing R12 bars a LANDING_MACHINERY diff from self-landing, by construction, because a change to the landing rules must not be able to land itself. ⚠️ STRUCTURAL, NOT A QUEUE POSITION: it cannot arm to test its own route, so it ships proven in a sandbox and unexercised on a real PR. Needs a human merge click.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      },
-      "hold_reason": "changes_landing_machinery"
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2828,10 +2807,34 @@
       "terminal": "merged",
       "merge_sha": "ee69136c4c816be72c9e2e204e6cc4520c71d86a",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 12400,
+      "title": "the dirty-tree notice reaches every guard a session actually types",
+      "owner_session": "session_01BjTp5RYwedmpFfkEtkQo1j",
+      "checklist_item": "MI-280",
+      "tier": 1,
+      "draft": false,
+      "landing": "hold",
+      "state": "open",
+      "opened_at": "2026-09",
+      "observed": "Declares landing: hold / changes_landing_machinery — pr-landing R12 bars a LANDING_MACHINERY diff from self-landing, by construction, because a change to the landing rules must not be able to land itself. ⚠️ STRUCTURAL, NOT A QUEUE POSITION: it cannot arm to test its own route, so it ships proven in a sandbox and unexercised on a real PR. Needs a human merge click.",
+      "observed_at": "2026-09-18T21:47:42Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "hold_reason": "changes_landing_machinery",
+      "terminal": "merged",
+      "merge_sha": "a7b23d51436551070203f64b45bd174946b3fcd3",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-18T05:27:28Z",
-  "last_reconciled_sha": "c63f2ea474b2811627826c03124f3a0a441b0ee0",
+  "last_reconciled_at": "2026-09-18T21:47:42Z",
+  "last_reconciled_sha": "a7b23d51436551070203f64b45bd174946b3fcd3",
   "updated_at": "2026-09-18T11:36Z",
   "updated_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant."
