@@ -294,6 +294,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MI-257 — the checklist the operator reads (GET /api/bot/work/checklist,
+        # rendered as the live Workflow page) may not carry a state/status
+        # disagreement or a value outside its own declared vocabulary.
+        # UNGATED: a row can drift on a commit that only edits
+        # MANAGER-CHECKLIST.json, which this guard's `when` globs (none) would
+        # not otherwise catch. Costs ~0.05s: one JSON read, no network.
+        "name": "manager-checklist-vocabulary-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py"],
+        ],
+    },
+    {
         # E2 — Phase G. Capability build is PULLED by a held-up stage.
         # ⚠️ ADVISORY IN PRODUCTION TODAY, BY MEASUREMENT, NOT BY SOFTENING: the
         # constraint readout REFUSES (1.0% assessed coverage against a 50%
@@ -2781,10 +2796,32 @@ def _absent_runner_reason(argv: Sequence[str], runner: str) -> CouldNotRun:
         + (f" — {remedy}" if remedy else ""))
 
 
+def _child_env() -> dict:
+    """The environment guards are spawned in — with their own dirty-tree notice OFF.
+
+    ⚠️ THIS IS NOT A WEAKENING, IT IS DEDUPLICATION. Every `--base` guard now
+    emits its own notice (`scripts/ci/_dirty_tree.py`), because a session chasing
+    one failure types the guard and not this orchestrator. Inside THIS run the
+    same fact is already stated ONCE, with more in it — the split between paths
+    that are in the graded diff and paths that are not. Letting both speak was
+    MEASURED at 4 copies from a single selected guard (its self-test and its real
+    invocation each print), which over the full set is dozens of identical
+    paragraphs around one true fact: the desensitised alarm this repo calls its
+    own P1.
+
+    ⚠️ It is set ONLY here, for children of this process. Nothing writes it to a
+    shell profile or a workflow, so a session running a guard by hand — the case
+    the per-guard notice exists for — is unaffected.
+    """
+    env = dict(os.environ)
+    env["DIRTY_TREE_NOTICE"] = "0"
+    return env
+
+
 def _run(argv: Sequence[str]) -> int:
     print(f"    $ {' '.join(argv)}", flush=True)
     try:
-        proc = subprocess.run(argv, cwd=REPO)
+        proc = subprocess.run(argv, cwd=REPO, env=_child_env())
     except FileNotFoundError:
         print(f"    ::error::command not found: {argv[0]}", flush=True)
         return 127

@@ -55,6 +55,20 @@ from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule
 # derivation of it. See src/runtime/position_telemetry.py::r_distances.
 from src.runtime.position_telemetry import r_distances  # noqa: E402
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
+# The data-source POLICY (five states, refuses rather than falling back to a
+# fixture). It imports the ONE (symbol, timeframe) -> file resolver rather than
+# carrying a second copy — see that module's docstring.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+#: What `--data` used to default to. Applied ONLY when the caller names no
+#: symbol; a named symbol that cannot be resolved is refused instead.
+LEGACY_DATA_DEFAULT = "data/backtest_candles.csv"
+#: What `--symbol` used to default to — a DISPLAY label, which is the defect.
+LEGACY_SYMBOL_LABEL = "BTCUSDT"
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # main() (the CLI path) resolves unset --slippage/--funding flags to the
@@ -986,9 +1000,26 @@ def _fmt_sweep(sw: Dict[str, Any]) -> str:
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
     p = argparse.ArgumentParser(description="Donchian trend-follower backtest (net-of-cost: fee+slippage+funding).")
-    p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    # ⚠️ BOTH DEFAULTS ARE `None` ON PURPOSE, and that is the load-bearing half
+    # of BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC. While
+    # `--data` carried a default, this harness could not tell "the caller named
+    # this file" from "argparse supplied it", so EVERY run looked explicit and
+    # a `--symbol` that contradicted the default was never noticed. The
+    # historical values live in LEGACY_DATA_DEFAULT / LEGACY_SYMBOL_LABEL below
+    # and are still applied when the caller expresses no opinion, so an
+    # invocation that passes neither flag behaves exactly as before.
+    # `BACKTEST_DATA_PATH` is unchanged and still honoured — it is a FLEET-WIDE
+    # knob read by 23 files, not an M5 leftover (CLAUDE.md § Environment
+    # Variables corrects that misreading in terms).
+    p.add_argument("--data", default=None,
+                   help="Candle file. Default: resolved from --symbol/--timeframe "
+                        "via the canonical resolver; REFUSES rather than falling "
+                        "back to a fixture when a named symbol cannot be resolved.")
     p.add_argument("--timeframe", default="1h")
-    p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--symbol", default=None,
+                   help=f"Instrument symbol. Unset behaves as {LEGACY_SYMBOL_LABEL!r} "
+                        f"against the legacy fixture; NAMING a symbol makes it a "
+                        f"constraint on the data, not a display label.")
     p.add_argument("--resample", default=None, help="Resample to this rule first (e.g. 1h, 2h).")
     p.add_argument("--start", default=None, help="Walk-forward window start (ISO date, inclusive).")
     p.add_argument("--end", default=None, help="Walk-forward window end (ISO date, inclusive).")
@@ -1131,6 +1162,29 @@ def main(argv: List[str]) -> int:
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
+    # --- data-source resolution (BL-20260813-HARNESS-SYMBOL-IS-A-LABEL-DATA-DEFAULTS-TO-BTC)
+    # Runs BEFORE any other validation so a mislabelled run cannot get far enough
+    # to print a result. The policy lives in scripts/ops/backtest_data_source.py;
+    # the (symbol, timeframe) -> file mapping is NOT re-derived there — it is the
+    # one in scripts/research/m20_fleet_exit_sweep.py::resolve_data.
+    _src = _backtest_data_source.resolve_or_refuse(
+        args.symbol, args.timeframe, args.data,
+        legacy_default=LEGACY_DATA_DEFAULT)
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="backtest_trend.py",
+            legacy_default=LEGACY_DATA_DEFAULT), file=sys.stderr)
+        return 2
+    args.data = _src.path
+    # The label follows the data, never the other way round. An unset --symbol
+    # keeps the historical label so existing output is byte-comparable.
+    args.symbol = args.symbol or LEGACY_SYMBOL_LABEL
+    args.data_source_state = _src.state
+    args.data_provenance_line = _src.provenance_line()
+    # To STDERR, deliberately: several callers parse this harness's stdout, and a
+    # provenance line is worthless if adding it breaks the consumers that would
+    # have read it. It still lands in every captured log and every CI run.
+    print(_src.provenance_line(), file=sys.stderr)
     # REFUSE the structurally-unmeasurable combination rather than run it. With
     # no capped TP there is no r_to_target, so `--rr-floor` cannot fire and the
     # run returns exactly-zero deltas indistinguishable from a lever that was

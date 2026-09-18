@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs (docs/claude/work/MANAGER-CHECKLIST.json) + scripts/ci/** only; no src/, config/, deploy/ or ml/ touched; no order path, no strategy config, no risk cap, no account mode, no live-VM mutation"
+}

@@ -1,0 +1,5 @@
+MI-313: PR #12509 fixes docs/claude/work/OPEN-PRS.json's missing disposition
+on the #12346 row (the root cause of session-registry-guard failing on every
+PR since 2026-09-13). Tier-1, landing: self. Auto-merge already armed via
+MCP enable_pr_auto_merge; this file satisfies pr-landing-guard R6's arming
+declaration.

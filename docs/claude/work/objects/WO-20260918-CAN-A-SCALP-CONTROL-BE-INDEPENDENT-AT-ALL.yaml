@@ -1,0 +1,93 @@
+id: WO-20260918-CAN-A-SCALP-CONTROL-BE-INDEPENDENT-AT-ALL
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: is a stronger control available for the scalp family at all, or is the
+  weakness structural?
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  MI-318, the residual MI-312 left and the research lane's queued next item after
+  MI-317. MI-312's positive control passes on 8 of 8 legs within 0.71pp while being
+  99.71% a quantity compared with itself, and it did not answer whether a STRONGER
+  control exists for the non-clamping (ict_scalp / fvg_range) family.
+done_condition: >-
+  A stated answer to "can an arm-vs-arm control on this family be independent", with
+  its population, derived from evidence ALREADY COMMITTED rather than from a new run.
+  A proposal to build a better control does NOT satisfy it unless the proposal is
+  shown to be able to fail.
+must_not:
+  - >-
+    Commission a sweep or a harness run. MI-307's memo records that re-measuring is
+    the failure mode OI-20260906 exists to stop, and the cheapest way to get THIS
+    question wrong is to answer it by running something.
+  - >-
+    Propose a tp_at_r value. Per-leg target geometry is Tier-3 and is carried by
+    OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED.
+  - >-
+    Read the verdict onto MI-307's 19 clamping-family legs. Those are TRAILING
+    strategies whose two arms genuinely differ (sol_pullback_2h: 200 vs 277 trades),
+    which is exactly why MI-307's 3.2pp control means more than MI-312's 0.71pp.
+outcome: >-
+  MET, and the answer is NO -- the weakness is a property of the FAMILY, not of
+  MI-312's design. Evidence: docs/research/scalp-control-design-2026-09-18.md,
+  instrument scripts/research/mi318_scalp_control_bound.py (15 selftests, 4 negative
+  controls), artifact docs/research/mi318-scalp-control-bound-2026-09-18.json.
+  Nothing was run: the verdict is a BOUND over MI-312's committed artifact.
+  THE ARGUMENT: no_tp (target deleted) is the largest perturbation a target change can
+  make; exit time is monotone in target distance, so every candidate target's exit is
+  SANDWICHED between the live arm's and no_tp's per trade; entries advance through
+  next_eligible_idx, a function of exit time; so entry divergence is bounded by one
+  already measured.
+  MEASURED over all 8 legs / 7,342 joined pairs: entry_overlap min 0.9900 / max 1.0000
+  / mean 0.9955 -- an independent-content CEILING of 1.00% against MI-312's observed
+  0.29% disagreement. The ceiling exceeding the observation is the consistency check.
+  CONSEQUENCE: the obvious stronger design -- predict the hit-rate at a target the live
+  arm never ran, then run that arm -- is REFUTED BEFORE IT IS BUILT, because that arm
+  is sandwiched between the two already measured and would share >=99% of entries. It
+  would pass tightly and mean no more than MI-312's does.
+  ⚠️ Step 4 is recorded as a BOUNDING ARGUMENT, not a proof of set-overlap
+  monotonicity: exit times are provably sandwiched, but the entry sequence is a
+  recursion and bounded steps do not formally give monotone set overlap. The measured
+  extreme case carries the finding without that caveat.
+  WHAT IS LEFT is a DECISION, not a measurement -- see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-BUILD-THE-UNDERDETERMINED-SCALP-CONTROL
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-BUILD-THE-UNDERDETERMINED-SCALP-CONTROL
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      A falsifiable control for this family must predict a quantity the MFE distribution
+      UNDERDETERMINES -- the exit-mix (be_stop/timeout split) or the hold-time
+      distribution at a counterfactual target. Both are path-dependent, so both can
+      genuinely fail. Both require per-trade exit reasons from the two arms, which live
+      in gitignored emits, so building either costs a harness re-run (16 invocations).
+      Is that worth spending?
+    options:
+      - key: build_exit_mix
+        label: >-
+          Build the exit-mix control. Strongest candidate -- the be_stop/timeout split
+          depends on the path after the peak, which mfe_r does not encode, so a wrong
+          model of the break-even ratchet fails immediately.
+      - key: build_hold_time
+        label: >-
+          Build the hold-time control instead. Same path-dependence; MI-312's ~2.5-bar
+          shift is one pooled number where a distribution is what would be testable.
+      - key: commit_the_histogram_only
+        label: >-
+          Neither yet. Land only the cheap half of
+          BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED-SO-ITS-MECHANISM-CLAIM-CANNOT-BE-RE-READ
+          (a committed per-leg
+          exit-reason histogram), which makes MI-312's mechanism claim re-readable and
+          is the precondition for either control.
+      - key: decline
+        label: >-
+          Decline. The scalp distribution stands on MI-312's control as measured, its
+          weakness now being a RECORDED structural fact rather than an untested
+          shortcoming. Legitimate, and must be recorded as a decision rather than left
+          looking like work about to start.

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Ex5Dx1TMYy46ncsp8eptpx",
+  "branch": "claude/mi317-target-geometry-packet",
+  "claimed_at": "2026-09-18T07:18:51Z",
+  "purpose": "MI-317 per-leg target-geometry decision packet, PR #12526 (Tier-1: docs/** + scripts/research/**)"
+}

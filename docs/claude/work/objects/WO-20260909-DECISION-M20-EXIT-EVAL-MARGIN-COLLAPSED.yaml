@@ -9,10 +9,10 @@ title: >-
   M20's 60s exit-eval promise was broken on 2026-09-07 and today clears by 48.8ms - operator
   answered: near-miss band plus grade the restart gap
 stage: DECISION
-lifecycle: in_flight
-owner: claude
+lifecycle: done
+owner: null
 opened_at: '2026-09-09'
-closed_at: null
+closed_at: '2026-09-18'
 
 review_trigger: >-
   PICKED UP 2026-09-10 by MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E). The DECISION is
@@ -118,3 +118,35 @@ decision_requests:
       recorded_at: '2026-09-09T21:15:00Z'
       note: >-
         Manager session. One of the six the full-system audit filed and did not take.
+
+verdict: >-
+  CLOSED 2026-09-18 by the engineering lane (session_019J5aUz21AWTzdYyBNgUP2D, unit MI-316),
+  found WHILE building a detector for the general class this object's own history already
+  illustrates: MI-230 (session_01N4QpvcvLWQ5cuKXUcCWJ8E) built and shipped the fix, said so in
+  its own `review_trigger` on 2026-09-10 ("the DECISION is discharged; what remains is the
+  observability BUILD, now in flight"), then went `SESSION_STATUS_BUCKET_COMPLETED` on
+  2026-09-10T03:29:43Z (get_session, read today) -- 8 days before this lifecycle was flipped.
+  `owner: claude` was never a valid session id in the first place, which is likely why no
+  later sweep caught it by string match.
+  || done_condition RE-VERIFIED LIVE, TODAY, both clauses, against the requirement stated in
+  the object's own `context` (60.0s) rather than assumed: (a) NEAR-MISS BAND EMITS AND IS
+  DISTINCT FROM BREACHED -- `/api/diag/log_file?name=exit_loop_health_alert_state` reads
+  `requirement_near_miss_process: 2026-09-11T23:46:49Z` alongside a SEPARATE
+  `requirement_breach_process: 2026-09-18T04:09:29Z` -- two different latches, two different
+  timestamps, both fired for real. (b) THE RESTART GAP IS GRADED -- `GET
+  /api/bot/exit-interval/soak`'s `summary.restart_gap` reads `restart_gap_state: "breached"`,
+  `population: "every row on disk"`, `boundaries_seen: 627`, `gaps_measured: 627`,
+  `breaches: 83`, `max_gap_ms: 210409.2` (2026-08-26). This is the FULL population, not a
+  sample, and the interval this promise actually covers (process-N-end to process-(N+1)-start)
+  is the one MI-230's own build instruments -- not a proxy for it.
+  || WHAT THIS DOES NOT SETTLE: a `restart_gap_state: breached` verdict is a fact about the
+  INSTRUMENT working, not a claim that the underlying 60s exit-eval promise now holds across a
+  restart -- it does not, 83 of 627 measured boundaries breach it, worst case 210.4s. That is
+  the state this object's own `done_condition` asks the instrument to REPORT, and it is
+  reporting it correctly; whether the promise itself should be re-engineered is a separate,
+  unopened question and this closure does not answer it. The delivery gap this object's own
+  decision text names but does not choose (F-51: a breach never reaches outcomes.jsonl / any
+  operator-facing feed) is UNTOUCHED and was not folded in, per the object's own instruction
+  that a lane "must not fold it into this build without asking".
+  || No production write made. Every figure above was read live via the direct diag path
+  (https://ict-bot.duckdns.org) or `get_session`, none assumed from this object's own prose.

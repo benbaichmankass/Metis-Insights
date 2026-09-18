@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "new self-tested scripts/ops/ tool (declared manual-only, not CI-wired) plus two docs-only work-object closures/flags. No src/, config/ or deploy/ touched."
+}

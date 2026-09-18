@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only: CLAUDE.md manager-duty prose, docs/claude/work/README.md, plus two backlog rows appended via backlog_append.py. No runtime, order path, or config touched."
+}

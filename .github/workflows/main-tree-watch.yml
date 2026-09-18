@@ -1,0 +1,78 @@
+# Grade the DEFAULT BRANCH's tree on a cadence, because nothing else does.
+#
+# `guards.yml` carries `push: branches: [main]`, so on paper every commit to
+# `main` is graded. MEASURED 2026-09-17 on two disjoint populations: by MERGE
+# CREDENTIAL over all 29 PR-merge commits in one window, user credential 5 of 5
+# produce a push run and `GITHUB_TOKEN` 0 of 24; by COMMIT KIND over a later
+# 5.1h window, PR merges 0 of 31 and `chore(ops)` pushes 9 of 9. An auto-merged
+# PR's merge commit is created by `GITHUB_TOKEN`, and GitHub starts no workflow
+# run for it — so the repo's only post-merge check skips exactly the commits
+# that carry reviewed work.
+#
+# ⚠️ THE BLIND LANDINGS ARE LATE, NOT UNCOVERED. `main` is linear, so a later
+# push run grades the whole tree: all 24 were eventually covered, median lag
+# 34.4 min. What this bounds is the GAP BETWEEN CONSECUTIVE GRADED RUNS,
+# measured at up to 442.6 minutes.
+#
+# ⚠️ AND THE ARGUMENT IS CORRELATION, NOT LENGTH: that coverage is carried by
+# `chore(ops)` automation pushes — 95 of the last 100 push runs — which stop
+# exactly when the repo is unhealthy (`error-feed-digest` landed 0 of 22 during
+# the four-day due-list outage). A schedule is the only carrier that does not
+# depend on other work happening.
+#
+# ⚠️ WHY NOT A `workflow_run` TRIGGER OR A DISPATCH FROM THE MERGER. Neither can
+# work, and both were considered: there is no run to key a `workflow_run` on —
+# that IS the defect — and the merge commit is created by GitHub, not by any
+# workflow this repo owns. That leaves a schedule.
+#
+# ⚠️ AND WHY NOT SCHEDULE `run_guards.py` ITSELF: `run_guards --base main` on a
+# scheduled run OF `main` diffs `main` against itself, so every diff-scoped
+# guard passes over an empty diff — a green that checked nothing. Only the
+# diff-independent rules can be honestly graded on a cadence, and
+# `check_main_tree_health.py` runs exactly those and says so in its output.
+#
+# ⚠️ THE CADENCE IS A CEILING ON FREQUENCY, NOT A PROMISE. This repo's crons
+# fire late and erratically — `probes.yml`'s first scheduled run fired ~4h50m
+# late and once instead of daily — so read the run history, never this line,
+# when asking how often it actually ran.
+#
+# ⚠️ IT FAILS ON PURPOSE. Exit 1 = a real finding on the default branch; exit 2
+# = a probe COULD NOT RUN, which is *we did not look* and is not a clean tree.
+# Both page through `claude-run-failure-alert.yml`, where this workflow is
+# listed (and `check_cron_failure_watch.py` fails the repo if it is not). So a
+# RED run here means the mechanism WORKING, the same reading `pr-queue-watch`
+# carries — do not file a red run as "this watcher is broken" without reading
+# the log.
+name: main-tree-watch
+
+on:
+  schedule:
+    # 37 past the hour — offset off :00 so it does not pile into the rush.
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-tree-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The DEFAULT BRANCH explicitly, never `github.ref` — a
+          # workflow_dispatch from a topic branch would otherwise grade that
+          # branch's tree and report it as `main`'s.
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Grade main's diff-independent rules
+        run: python3 scripts/ci/check_main_tree_health.py

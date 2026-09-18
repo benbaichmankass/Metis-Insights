@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Closes a work object (docs/claude/work/objects/**) and updates the matching MANAGER-CHECKLIST.json entry, both docs/**. No src/, no config/, no scripts/, no workflows, no order path. The investigation itself was reads-only (GET calls to /api/diag/* verified fresh today); this PR records the closure, it does not act on any account."
+}

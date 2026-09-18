@@ -1,0 +1,103 @@
+id: WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: attribute the 2026-08-30 directional-leg break — e35 geometry or the market?
+stage: EVIDENCE
+lifecycle: done
+owner: session_014ZKXKoPUbHgANGdDmRRjHz
+opened_at: 2026-09-17
+closed_at: 2026-09-17
+why: >-
+  Dispatched to MI-301 as the discriminating measurement OI-20260911 asks for.
+  ⚠️ THIS OBJECT DID NOT EXIST WHEN THE LANE WAS SPAWNED — the spawn prompt named
+  it, and it was absent from origin/main and from the local clone (checked both,
+  with a positive control: the sibling WO-20260917-RESEARCH-LANE-* objects were
+  present). It is created BY the lane so the work is carried, which is the
+  OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING class caught in
+  the act. A successor should read that as a mechanism finding, not a filing slip.
+done_condition: >-
+  A VERDICT with its POPULATION and its PROVENANCE MIX stated, on the
+  discriminating measurement: per-leg stop-out rate and MFE-at-stop, e35 legs vs
+  NON-e35 legs, before vs after 2026-08-30. A restatement of the before/after
+  totals does not satisfy it. Saying the data cannot support the discrimination,
+  WITH the denominator, does.
+outcome: >-
+  MET, and the answer is that one of the two terms is not decidable.
+  ⚠️ THE MEASUREMENT WAS ALREADY RUN AND IS STRANDED: PR #12205 (MI-278 U41,
+  2026-09-13) verdicted `both_contribute`, and is OPEN / mergeable_state dirty,
+  conflicting on six shared registers and on NO code. It was NOT re-derived.
+  What MI-301 established instead, on the population reachable today
+  (trades ids 4887-5886, 1000 rows; e35 8 pre / 20 post packages,
+  untouched_control 47 pre / 103 post, 0 skipped):
+  (1) The verdict's stop-out term enters `verdict()` as a HAND-TYPED
+      `--stop-did-pp 11.6` CLI scalar whose population and provenance its own
+      artifact never states, and the verdict reads only its SIGN — so that sign is
+      the whole difference between `both_contribute` and `market_regime`.
+  (2) The sign is KNIFE-EDGE: on the declared-only basis the DiD is +5.31pp and
+      ONE additional stop-out in the treated pre cell flips it negative. The
+      treated pre cell is 8 packages holding 2 stop-outs, BOTH from one leg on one
+      symbol (ada_pullback_2h/ADAUSDT). Wilson CI on that cell is (7.15, 59.07)
+      and CONTAINS the control's pre rate on both bases — the arms are not
+      distinguishable in the pre era, which is the DiD's own baseline.
+  (3) PER-LEG, which the row demands and every published artifact reports
+      per-ARM: ALL 13 e35 leg x era cells grade `insufficient_n`, largest n=5.
+      The per-leg half is NOT ANSWERABLE on this population.
+  (4) PROVENANCE: the fabrication concern is REFUTED — ZERO fabricated rows in
+      all four cells (the 2026-07-30 anchoring fix and the 2026-08-24
+      recorded_exit_price reclassification removed the class). The coverage
+      ASYMMETRY is real and is measured-vs-ESTIMATED: e35 pre 12.5% against
+      control post 70.9%, a 5.7x spread.
+  (5) The term is UNSTABLE UNDER REPULL: same basis, same row selection, the
+      declared-only DiD reads 13.2 (U15, 09-12) -> 11.57 (#12205, 09-13) -> 5.31
+      (09-17), while the e35 pre cell fell 18 -> 8 packages. Cause is the 1000-row
+      journal clamp rolling forward and stripping the PRE era preferentially, so
+      the evidence for this Tier-3 question DECAYS and no reachable route recovers
+      it (/api/diag/journal has no offset and no date filter; the Data Explorer
+      has a real offset but refuses this lane's bearer).
+  VERDICT: the market half STANDS and #12205 should land; the e35-on-top half is
+  `cannot_discriminate` with a `knife_edge` sign. Recommendation: do NOT revert
+  e35 on this evidence, and do not read that as exoneration either.
+  Memo: docs/research/mi301-stop-term-robustness-2026-09-17.md
+source: >-
+  manager dispatch to MI-301, 2026-09-17; carries
+  OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by session_014ZKXKoPUbHgANGdDmRRjHz. The empty list is a
+  POSITIVE finding rather than the NOT_ASSESSED default: nothing blocked this
+  object, and it is now `done`. ⚠️ A SUCCESSOR OBJECT WOULD BE BLOCKED, and this
+  is the edge to write when one is opened: deciding the e35 term needs the PRE-era
+  population back, which is a READ-SURFACE dependency (the 1000-row
+  /api/diag/journal clamp), not a research one. That is a real future blocker and
+  is recorded here as a statement about a successor, never asserted as an edge on
+  this object — a false blocker is worse than a missing one.
+captured_by: session_014ZKXKoPUbHgANGdDmRRjHz
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET on its EXPLICIT ALTERNATIVE CLAUSE -- 'if the data cannot support the
+  discrimination at usable n, that is a LEGITIMATE CLOSE and must be RECORDED as that finding with its
+  denominator'. PR #12491 (open at close; the finding is what closes this, not the merge).
+  THE VERDICT: the MARKET half stands; the e35-on-top half is `cannot_discriminate` with a `knife_edge` sign --
+  DiD +5.31pp on the declared-only basis, and ONE additional stop-out in the treated pre cell FLIPS IT. Do not
+  revert e35 on this evidence, and this is NOT exoneration either.
+  [!] THE MEASUREMENT HAD ALREADY BEEN RUN AND WAS STRANDED, which is a MANAGER failure and not a research
+  one: #12205 (MI-278 U41, 2026-09-13) ran it, verdicted `both_contribute`, and has sat OPEN and `dirty` for
+  four days on SIX SHARED REGISTERS and NO CODE. The lane flagged it to the manager rather than landing it
+  itself, correctly -- running the merge queue is a manager base duty.
+  [!] AND THE STRANDED VERDICT TURNS ON A HAND-TYPED SCALAR. m20_u41_break_attribution_verdict.verdict()
+  branches on `stop_rose = stop_did_pp > 0`, and `stop_did_pp` is NOT computed by that instrument -- it enters
+  as `--stop-did-pp 11.6` from a different unit. So the sign of an externally supplied number is the WHOLE
+  difference between `both_contribute` (e35 implicated, a Tier-3 revert on the table) and `market_regime`.
+  Nobody had tested that sign against SAMPLING; this lane did, and it does not survive.
+  [!] MY OWN HYPOTHESIS WAS REFUTED AND THE LANE RECORDED IT AS SUCH: zero FABRICATED rows in all four cells.
+  The 2026-07-30 anchoring fix and the 2026-08-24 reclassification removed the class. The real asymmetry is
+  measured-vs-ESTIMATED: e35 pre 12.5% coverage against control post 70.9%, a 5.7x spread.
+  [!] AND THE EVIDENCE IS DECAYING, WHICH IS THE ITEM THAT OUTLIVES THIS OBJECT: the e35 pre cell fell 18 -> 8
+  (-55.6%) across three pulls while post GREW 17 -> 20, because /api/diag/journal takes table+limit ONLY and a
+  rolling newest-1000 window strips the PRE era preferentially. Deciding the e35 term needs the pre-era
+  population BACK -- a READ-SURFACE problem, not a research one, and it gets harder every day. Carried
+  forward as its own unit.
+  [!] add/add UNION, 2026-09-18: the lane created this object because the manager's copy was not on main when
+  it started (MI-263). MAIN's copy is kept as the base and the manager's CLOSE applied on top; nothing from
+  either side was dropped. Fourth instance tonight of the same mechanism -- the manager's practice is now to
+  PUSH THE OBJECT BEFORE SPAWNING.

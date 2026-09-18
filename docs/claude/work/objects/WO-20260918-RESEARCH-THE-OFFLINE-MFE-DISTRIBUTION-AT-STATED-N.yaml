@@ -1,0 +1,84 @@
+id: WO-20260918-RESEARCH-THE-OFFLINE-MFE-DISTRIBUTION-AT-STATED-N
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: produce the offline-harness MFE distribution at stated n, so a per-leg take-profit can rest
+  on something other than the live n=1-8
+stage: BUILD
+lifecycle: done
+owner: null
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  OPERATOR-DIRECTED 2026-09-17 (overnight): active trade management is the TOP priority and the lane keeps
+  pushing it. THE OBVIOUS NEXT STEP IS BLOCKED AND THIS ONE IS NOT -- that is why it was chosen.
+  MI-301 ended on 'deciding the e35 term needs the pre-era population back, which is a READ-SURFACE problem,
+  not a research one'. That repair is MI-305 / PR #12497, Tier-2, held for an operator OK. So the e35 thread
+  cannot advance tonight without the operator.
+  WHAT CAN: OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON names
+  exactly two ways to clear, and the second is THIS: 'the offline-harness MFE distribution is produced at
+  stated n and a per-leg proposal is put in front of the operator off THAT n rather than off the live 1-8.'
+  [!] IT IS DELIBERATELY OFFLINE, AND THAT IS THE POINT: a backtest/offline-harness population does not ride
+  the 1000-row journal clamp, so it is immune to the erosion that is eating the live basis (e35 pre 18 -> 8,
+  -55.6%, across three pulls). The same question, asked where the data is not disappearing.
+  WHAT IS ALREADY ESTABLISHED AND MUST NOT BE REBUILT: ML-2 was BUILT AND REFUTED -- calibration passes
+  (n=9,814 backtest trades, MACE 0.0061) and sharpness FAILS at 0 of 5 quantiles against the risk-scaled
+  baseline, stable across splits and identical on all three legs. So the six decision-time features carry
+  nothing about exit location beyond volatility, tp_r IS the right functional form, and the answer is a
+  PER-LEG MFE QUANTILE IN R. DO NOT REBUILD ML-2 (OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE).
+done_condition: >-
+  A per-leg MFE distribution IN R from the offline harness, with n stated PER LEG, and a per-leg take-profit
+  PROPOSAL derived from it that the operator can act on. Say which legs have enough n to carry a number and
+  which do not -- naming the ones that do NOT is as much of the deliverable as the ones that do.
+  [!] STATE THE POPULATION on every figure and report the provenance mix through src/runtime/provenance.py --
+  never a bespoke predicate. A backtest population has its own hazards (look-ahead, the crypto-only candle
+  source that returned 0 candles for GLD/MGC/QQQ/SLV/SPY/TLT/USO in #12205); name them rather than letting a
+  bigger n read as a better answer.
+  [!] AND THE KNOWN DISAGREEMENT IS PART OF THE JOB, NOT A SURPRISE TO DISCOVER: the backtest and live
+  populations disagree by a measured ~2.5x about crypto p90 MFE. That gap is gate condition 1
+  (backtest-live exit-location fidelity) and it is SEPARATE and UNMET -- see
+  BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION.
+  A proposal that does not say where it sits against that gap is not actionable.
+  [!] PROPOSE ONLY -- per-leg target geometry is TIER-3 and the operator's. Do not change config.
+  [!] AND IF THE OFFLINE HARNESS CANNOT PRODUCE USABLE n EITHER, that is a legitimate close and a harder fact
+  than a number: record it with its denominator, because it would mean the per-leg proposal has no basis
+  anywhere and the sentinel idiom stands by default rather than by choice.
+source: >-
+  Operator directive 2026-09-17 (overnight, research = top priority). Clause (2) of
+  OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the offline harness
+  and the E0 datasets are on the trainer and reachable through the trainer-vm-diag relay, MI-148's calibration
+  instrument is in-tree, and this deliberately does NOT depend on the journal read surface that MI-305 is
+  waiting on an operator for.
+explicitly_not_in_scope: >-
+  Rebuilding ML-2 (built and refuted). Changing any tp_r or atr_stop_mult (Tier-3, the operator's). The e35
+  attribution thread (blocked on MI-305). Gate condition 1's own fidelity run, which is its own unit.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET. PR #12503 merged as b0150bde4 and VERIFIED ON origin/main rather than
+  from the lane's own claim: docs/research/offline-mfe-distribution-2026-09-18.md is present at
+  origin/main (git cat-file -e), alongside scripts/research/mi307_offline_mfe.py and the machine-readable
+  mi307-offline-mfe-2026-09-18.json. 5 checks green.
+  THE DISTRIBUTION EXISTS AT STATED n: 112-1,004 per leg on 19 legs, Binance Vision USDs-M candles
+  2021-01-01 -> 2026-09-16, against the live n=1-8 MI-148 correctly refused to set a number from.
+  Population stated in full on the PR: 19 ok + 25 no_data + 8 not_capped_capable + 3 no_harness = 55.
+  [!] THE ANSWER IS THAT NO PER-LEG tp_r IS PROPOSED, AND THAT IS THE FINDING, NOT A FAILURE TO DELIVER.
+  TP_VENUE_CAP_PCT = 0.099 -- one fleet-wide constant named for a Bybit boundary -- ALREADY IS the per-leg
+  take-profit: in each leg's own R it spans 1.74R to 7.20R (a 4.1x spread nobody chose), it ends 5.1%-44.2%
+  of trades depending on the leg, and on all 6 legs that declare a real tp_r it overrides the declaration on
+  70-97% of trades. Above it a declared tp_r is inert -- on 13 of 19 legs the effective reach at 4R and at
+  10R differ by under 1pp, so tp_r: 4 and tp_r: 50 produce the same book.
+  [!] IT WAS VALIDATED AGAINST A POSITIVE CONTROL IT COULD HAVE FAILED: evaluated at each leg's declared
+  tp_r, P(mfe_r >= min(cap_r, x)) must predict the OBSERVED take_profit exit share of the capped run --
+  19 of 19 legs agree within 3.2pp (mean -0.3pp, median +0.1pp).
+  [!] GATE CONDITION 1 IS CORRECTED, NOT CLEARED, and must not be reported as cleared: 44 of 44 legs still
+  grade insufficient_n. What moved is the reference -- exit_location_fidelity.py went from 3 hand-transcribed
+  legs to 18 measured ones, taking 13 legs from `no_backtest_corpus_for_leg AND live_n_below_abstain_floor`
+  to the floor alone. The remaining work is a SOAK, not a build.
+  [!] WHAT THIS DOES NOT DISCHARGE: the per-leg target geometry is TIER-3 and is the OPERATOR'S decision --
+  OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON clause (2) is
+  what this serves, and clause (1) is still owed by a human. config/ is untouched.
+  [!] COST, recorded because it bears on lane sizing: $70.29 on a RESUMED Opus lane (118.9M cache-read
+  tokens against 175k output), versus $13.27 for the fresh Sonnet ops lane that landed the same night.

@@ -547,8 +547,50 @@ def diagnose(objects: list[dict], read_errors: list[dict]) -> dict:
 
 
 def _one_line(v: Any, limit: int = 160) -> str:
+    """`v`, collapsed to one line and clipped to `limit` — NEVER leaving a
+    partial BL-/MB-/FU- tracking id behind.
+
+    ⚠️ THIS IS THE SAME BUG CLASS THAT TOOK `constraint-readout.yml` OFF THE
+    AIR TWICE. `render_due_list.py`'s own bare `[:200]` slice over
+    register-supplied prose landed inside a filed tracking id on 2026-09-12
+    and manufactured a reference that resolves to nothing —
+    `check_backlog_refs.py` correctly refused the commit (see that guard's
+    `REF` and `render_due_list._clip`'s docstring for the full incident). It
+    was fixed there in #12378 (2026-09-17), id-safe up to 200 chars. But this
+    function used to apply a SECOND, NARROWER re-clip (140/180 chars at this
+    file's own call sites) to text that had already survived the FIRST clip —
+    so an already-id-safe 200-char title could still be cut a second time, at
+    a different boundary, inside the same id. Measured live:
+    `constraint-readout.yml` kept failing `artifact-validity-guard` on
+    exactly this shape through run #15 (2026-09-16), one day AFTER #12378
+    merged, on a title that survived render_due_list's clip at 200 but not
+    THIS module's own second clip at 180. See the MI-270 checklist row and
+    its tracked_by backlog id (health-review-backlog.json, filed 2026-09-11)
+    — spelled there rather than here so this docstring does not itself
+    become the next line-wrapped dangling reference `check_backlog_refs.py`
+    would refuse (SEARCH_DIRS covers `scripts/`; #12378 hit exactly this).
+
+    Delegates the actual cut to `render_due_list._clip` (via `_due_lib()`,
+    the one importer this file already uses for that sibling — a second copy
+    of the id-safe primitive is exactly how the two passes would drift back
+    apart). A cut that would land inside a filed reference is moved to BEFORE
+    the id, or — if the id starts at offset 0 and does not fit — the id is
+    kept whole and `limit` is overrun rather than emitting a fragment.
+
+    Falls back to the old naive slice ONLY if the sibling import failed (the
+    self-test asserts it does not) — degraded, not crashed, and never
+    pretending the fallback is id-safe.
+    """
     s = " ".join(str(v or "").split())
-    return s if len(s) <= limit else s[: limit - 1] + "…"
+    if len(s) <= limit:
+        return s
+    try:
+        clip = _due_lib()._clip
+    except Exception:  # noqa: BLE001 — degrade, never crash a readout render
+        clip = None
+    if clip is not None:
+        return clip(s, limit - 1).rstrip() + "…"
+    return s[: limit - 1] + "…"
 
 
 def money_block(fetch: bool = True) -> dict:
@@ -1764,6 +1806,56 @@ def _self_test() -> int:
         _has = False
     check("the real render_due_list is importable and exposes collect+verdict_for",
           _has, True)
+    check("...and it exposes the id-safe _clip `_one_line` now delegates to",
+          callable(getattr(_lib, "_clip", None)) if _has else False, True)
+
+    # ── `_one_line` must never MANUFACTURE a dangling tracking id ──────────
+    # THE LIVE 2026-09-12 SUMMARY, VERBATIM — the string that took this
+    # workflow's `artifact-validity-guard` red through run #15 (2026-09-16),
+    # one day AFTER render_due_list.py's own copy of this bug was fixed
+    # (#12378), because `_one_line`'s SECOND, narrower clip at 180 chars cut
+    # into an id the first clip (at 200) had already left whole. See the
+    # module-level note on `_one_line` and MI-270.
+    #
+    # ⚠️ THE REAL FILED ID BELOW IS KEPT WHOLE ON ONE LINE, DELIBERATELY.
+    # `check_backlog_refs.py` scans `scripts/` per ADDED LINE
+    # (refs_in_added_lines), not per logical Python string value, so an id
+    # split across two source lines — even inside one Python string literal —
+    # reads as two dangling fragments. This is the exact trap #12378's own
+    # PR hit writing its docstring, and the reason this self-test never
+    # spells a TRUNCATED fragment as literal source text either (below).
+    _live_summary = (
+        "OPERATOR-RAISED 2026-09-12: a real-money ETHUSDT SHORT 0.05 on "
+        "bybit_2 open at the venue with no stop and no take-profit, "
+        "invisible to every bot surface. Filed as "
+        "BL-20260912-BYBIT2-SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED"
+        " (severity critical, Tier-2)."
+    )
+    # POSITIVE CONTROL, WITHOUT SPELLING THE DANGLING FRAGMENT: the old naive
+    # `s[:limit-1]` cuts at a fixed character offset, so it lands INSIDE the
+    # tracking id above rather than at a word boundary — the char right after
+    # the cut continues the id instead of starting new prose. That is the
+    # shape the fix removes; no fragment needs to appear in this file's own
+    # source to prove it.
+    _old_naive = _live_summary[:179] + "…"
+    check("POSITIVE CONTROL: the old naive cut lands INSIDE the tracking "
+          "id, not at a word boundary",
+          _live_summary[179] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-", True)
+    _clipped = _one_line(_live_summary, 180)
+    check("_one_line(180) does NOT reproduce the old naive mid-id cut",
+          _clipped != _old_naive, True)
+    check("...it cuts BEFORE the tracking id entirely and keeps the prose",
+          _clipped == ("OPERATOR-RAISED 2026-09-12: a real-money ETHUSDT "
+                        "SHORT 0.05 on bybit_2 open at the venue with no "
+                        "stop and no take-profit, invisible to every bot "
+                        "surface. Filed as…"),
+          True)
+    check("a short string under the limit is returned unchanged (no ellipsis)",
+          _one_line("short text", 160), "short text")
+    check("an id starting at offset 0, longer than the limit, is kept WHOLE "
+          "rather than fragmented (may overrun `limit`)",
+          _one_line("BL-20260912-" + "A" * 200 + " trailing prose", 50),
+          "BL-20260912-" + "A" * 200 + "…")
 
     print(f"\n{'ALL PASS' if not failures else str(len(failures)) + ' FAILURE(S)'}")
     return 1 if failures else 0

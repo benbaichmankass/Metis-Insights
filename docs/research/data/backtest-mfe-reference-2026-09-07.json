@@ -2,7 +2,7 @@
   "_doc": [
     "The ONLY backtest per-leg MFE distribution that exists in this repo, on the",
     "percent-of-entry basis. It is transcribed from MI-151's published table",
-    "(docs/research/ml2-predictive-bracket-2026-09-06.md § 'The per-leg MFE",
+    "(docs/research/ml2-predictive-bracket-2026-09-06.md \u00a7 'The per-leg MFE",
     "distribution'), which is the artifact of trainer run 34041656868 reported in",
     "issue #11154.",
     "",
@@ -34,6 +34,103 @@
   },
   "legs": [
     {
+      "leg": "ada_pullback_2h",
+      "symbol": "ADAUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 253,
+      "p50": 0.04426049091885552,
+      "p70": 0.09144899228480612,
+      "p80": 0.15162968472794278,
+      "p90": 0.2501957970023544,
+      "p95": 0.30928395009502385,
+      "reached_venue_cap_rate": 0.2924901185770751,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "trend_donchian_ADAUSDT_15m",
+      "symbol": "ADAUSDT",
+      "family": "trend_donchian",
+      "timeframe": "15m",
+      "n": 3382,
+      "p50": 0.0138,
+      "p70": 0.0287,
+      "p80": 0.0419,
+      "p90": 0.0684,
+      "p95": 0.0944,
+      "reached_venue_cap_rate": 0.0458
+    },
+    {
+      "leg": "trend_donchian_ada_4h",
+      "symbol": "ADAUSDT",
+      "family": "trend_donchian",
+      "timeframe": "4h",
+      "n": 173,
+      "p50": 0.07919716646989389,
+      "p70": 0.15619287604475887,
+      "p80": 0.20389152311817285,
+      "p90": 0.2779707451995784,
+      "p95": 0.3733781936200439,
+      "reached_venue_cap_rate": 0.47398843930635837,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "avax_pullback_2h",
+      "symbol": "AVAXUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 398,
+      "p50": 0.04334251369537763,
+      "p70": 0.08022359913785196,
+      "p80": 0.11452373161241332,
+      "p90": 0.1735012599791982,
+      "p95": 0.25337653743053784,
+      "reached_venue_cap_rate": 0.23869346733668342,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "trend_donchian_avax_4h",
+      "symbol": "AVAXUSDT",
+      "family": "trend_donchian",
+      "timeframe": "4h",
+      "n": 233,
+      "p50": 0.043143688567905604,
+      "p70": 0.10691862269037056,
+      "p80": 0.1358044713727783,
+      "p90": 0.20628421303161265,
+      "p95": 0.29097343663945674,
+      "reached_venue_cap_rate": 0.3218884120171674,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "squeeze_breakout_4h",
+      "symbol": "BTCUSDT",
+      "family": "other",
+      "timeframe": "4h",
+      "n": 112,
+      "p50": 0.02997886259095955,
+      "p70": 0.055040414050667764,
+      "p80": 0.08612092464066978,
+      "p90": 0.12422010063495621,
+      "p95": 0.1572181404257456,
+      "reached_venue_cap_rate": 0.14285714285714285,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "htf_pullback_trend_2h",
+      "symbol": "BTCUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 384,
+      "p50": 0.030409479688078084,
+      "p70": 0.05878138638585116,
+      "p80": 0.08618881483323135,
+      "p90": 0.1285270955261313,
+      "p95": 0.17588782677480533,
+      "reached_venue_cap_rate": 0.1640625,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
       "leg": "trend_donchian_BTCUSDT_15m",
       "symbol": "BTCUSDT",
       "family": "trend_donchian",
@@ -43,8 +140,56 @@
       "p70": 0.0158,
       "p80": 0.0236,
       "p90": 0.0387,
-      "p95": 0.0540,
+      "p95": 0.054,
       "reached_venue_cap_rate": 0.0066
+    },
+    {
+      "leg": "trend_donchian_1h",
+      "symbol": "BTCUSDT",
+      "family": "trend_donchian",
+      "timeframe": "1h",
+      "n": 843,
+      "p50": 0.019074094424766073,
+      "p70": 0.039804634321177486,
+      "p80": 0.05655983306115426,
+      "p90": 0.09377910210560703,
+      "p95": 0.12629119572719075,
+      "reached_venue_cap_rate": 0.09015421115065243,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)",
+      "key_not_unique": true,
+      "key_shared_with": [
+        "trend_donchian"
+      ],
+      "key_selection": "largest n_mfe_pct",
+      "key_collision_p90_spread": 1.1337540209883454,
+      "key_collision_p90_by_leg": {
+        "trend_donchian_1h": 0.09377910210560703,
+        "trend_donchian": 0.08271556296122812
+      }
+    },
+    {
+      "leg": "eth_pullback_2h",
+      "symbol": "ETHUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 368,
+      "p50": 0.03370633517224507,
+      "p70": 0.06296480172935721,
+      "p80": 0.08245873246947369,
+      "p90": 0.12837495448597072,
+      "p95": 0.20515931106769783,
+      "reached_venue_cap_rate": 0.16032608695652173,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)",
+      "key_not_unique": true,
+      "key_shared_with": [
+        "eth_pullback_prop_2h"
+      ],
+      "key_selection": "largest n_mfe_pct",
+      "key_collision_p90_spread": 1.3268542319364365,
+      "key_collision_p90_by_leg": {
+        "eth_pullback_2h": 0.12837495448597072,
+        "eth_pullback_prop_2h": 0.17033485163435766
+      }
     },
     {
       "leg": "trend_donchian_ETHUSDT_15m",
@@ -60,17 +205,122 @@
       "reached_venue_cap_rate": 0.0275
     },
     {
-      "leg": "trend_donchian_ADAUSDT_15m",
-      "symbol": "ADAUSDT",
+      "leg": "trend_donchian_eth_prop",
+      "symbol": "ETHUSDT",
       "family": "trend_donchian",
-      "timeframe": "15m",
-      "n": 3382,
-      "p50": 0.0138,
-      "p70": 0.0287,
-      "p80": 0.0419,
-      "p90": 0.0684,
-      "p95": 0.0944,
-      "reached_venue_cap_rate": 0.0458
+      "timeframe": "1h",
+      "n": 1004,
+      "p50": 0.016704610183291772,
+      "p70": 0.03186419270071689,
+      "p80": 0.04616453057323707,
+      "p90": 0.0717661580499645,
+      "p95": 0.10126355900316937,
+      "reached_venue_cap_rate": 0.052788844621513946,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)",
+      "key_not_unique": true,
+      "key_shared_with": [
+        "trend_donchian_eth"
+      ],
+      "key_selection": "largest n_mfe_pct",
+      "key_collision_p90_spread": 1.6702873406037393,
+      "key_collision_p90_by_leg": {
+        "trend_donchian_eth_prop": 0.0717661580499645,
+        "trend_donchian_eth": 0.11987010527462284
+      }
+    },
+    {
+      "leg": "trend_donchian_eth_4h",
+      "symbol": "ETHUSDT",
+      "family": "trend_donchian",
+      "timeframe": "4h",
+      "n": 167,
+      "p50": 0.05769177472104369,
+      "p70": 0.11976777348187416,
+      "p80": 0.16204672555797697,
+      "p90": 0.26532541920303226,
+      "p95": 0.3200972262348621,
+      "reached_venue_cap_rate": 0.3473053892215569,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "sol_pullback_2h",
+      "symbol": "SOLUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 200,
+      "p50": 0.06192231131806676,
+      "p70": 0.1378371656977723,
+      "p80": 0.18480510071374648,
+      "p90": 0.27100329106013793,
+      "p95": 0.41238642370580864,
+      "reached_venue_cap_rate": 0.41,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "trend_donchian_sol_prop",
+      "symbol": "SOLUSDT",
+      "family": "trend_donchian",
+      "timeframe": "1h",
+      "n": 370,
+      "p50": 0.034306861700495905,
+      "p70": 0.063028358367015,
+      "p80": 0.09280551072247621,
+      "p90": 0.12921616319001267,
+      "p95": 0.18524478683431697,
+      "reached_venue_cap_rate": 0.1837837837837838,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)",
+      "key_not_unique": true,
+      "key_shared_with": [
+        "trend_donchian_sol"
+      ],
+      "key_selection": "largest n_mfe_pct",
+      "key_collision_p90_spread": 1.225515629892302,
+      "key_collision_p90_by_leg": {
+        "trend_donchian_sol_prop": 0.12921616319001267,
+        "trend_donchian_sol": 0.15835642762407487
+      }
+    },
+    {
+      "leg": "trend_donchian_sol_4h",
+      "symbol": "SOLUSDT",
+      "family": "trend_donchian",
+      "timeframe": "4h",
+      "n": 193,
+      "p50": 0.06765454800673805,
+      "p70": 0.15109619537515218,
+      "p80": 0.20263203801512583,
+      "p90": 0.30996051608569364,
+      "p95": 0.37665004174103506,
+      "reached_venue_cap_rate": 0.39896373056994816,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "xrp_pullback_2h",
+      "symbol": "XRPUSDT",
+      "family": "pullback",
+      "timeframe": "2h",
+      "n": 268,
+      "p50": 0.057643479662790625,
+      "p70": 0.11975678201797937,
+      "p80": 0.16864812025247383,
+      "p90": 0.26165412768224744,
+      "p95": 0.36120954930280336,
+      "reached_venue_cap_rate": 0.34701492537313433,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
+    },
+    {
+      "leg": "trend_donchian_xrp_4h",
+      "symbol": "XRPUSDT",
+      "family": "trend_donchian",
+      "timeframe": "4h",
+      "n": 146,
+      "p50": 0.02743662441205716,
+      "p70": 0.06450823627337167,
+      "p80": 0.09645164021163988,
+      "p90": 0.16343367121652305,
+      "p95": 0.22394333993450713,
+      "reached_venue_cap_rate": 0.19863013698630136,
+      "source": "MI-307 mi307_offline_mfe.py --run (uncapped arm)"
     }
   ]
 }

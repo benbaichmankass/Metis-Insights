@@ -284,6 +284,15 @@ TIER1_SURFACE = [
     "scripts/ops/**",
     "scripts/research/**",
     "scripts/reports/**",
+    # MI-242, operator-approved 2026-09-10 (DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE).
+    # The canonical Tier-1 examples in docs/CLAUDE-RULES-CANONICAL.md § Permission
+    # Tiers explicitly name "backtest tooling that does not alter live runtime
+    # behavior", while this allowlist covered every scripts/** subdirectory
+    # EXCEPT the top-level research harnesses themselves. ⚠️ WIDENED ONLY TO
+    # THIS ONE GLOB, DELIBERATELY -- the operator's approval was for this
+    # specific contradiction, not a licence to admit `scripts/*.py` generally;
+    # every other loose script at `scripts/` top level stays outside Tier-1.
+    "scripts/backtest_*.py",
     "*.md",
     ".ruff.toml",
     "ruff.toml",
@@ -1525,6 +1534,13 @@ def self_test() -> int:
                                          "explicit operator approval before merge",
                                why="a strategy parameter change, Tier-3 by path"),
             False, "declared_needs_approval"),
+        "tier-1 self-land touching scripts/backtest_*.py (MI-242)": (
+            lambda r: ((r / "scripts").mkdir(parents=True, exist_ok=True),
+                       (r / "scripts/backtest_demo.py").write_text(
+                           "x\n", encoding="utf-8"),
+                       _declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r)),
+            True, "declared_self_land"),
         "verified unvouchable_paths hold on a tier-1 diff": (
             lambda r: ((r / "scripts").mkdir(parents=True, exist_ok=True),
                        (r / "scripts/check_something.py").write_text(
@@ -1601,6 +1617,17 @@ def self_test() -> int:
         "R5 tier-1 self-land over a Tier-3 path": (
             lambda r: (_declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
                        _claim_slot(r)), False),
+        # MI-242's OTHER direction: widening TIER1_SURFACE to
+        # `scripts/backtest_*.py` must not have widened it to `scripts/*.py`
+        # generally. `scripts/check_something.py` is the same non-backtest
+        # top-level script the positive "unvouchable_paths hold" control above
+        # uses — here it is declared SELF-LAND instead, which R5 must refuse.
+        "R5 tier-1 self-land over a still-excluded scripts/*.py path": (
+            lambda r: ((r / "scripts").mkdir(parents=True, exist_ok=True),
+                       (r / "scripts/check_something.py").write_text(
+                           "x\n", encoding="utf-8"),
+                       _declare(r, tier=1, landing="self", why=_GOOD_WHY), _arm(r),
+                       _claim_slot(r)), True),
         "R6 self-land declared but route not armed": (
             lambda r: _declare(r, tier=1, landing="self", why=_GOOD_WHY), True),
         "R3 a one-word `why`": (
@@ -1799,6 +1826,15 @@ def main(argv=None) -> int:
     ap.add_argument("--self-test", action="store_true",
                     help="plant each defect and prove the guard fails on it")
     args = ap.parse_args(argv)
+    # The verdict below is about the COMMITTED tree. Say so when that is
+    # not the tree you edited. See
+    # BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY
+    import pathlib  # noqa: PLC0415 — local, so importing this module stays free
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
+
     if args.self_test:
         return self_test()
 

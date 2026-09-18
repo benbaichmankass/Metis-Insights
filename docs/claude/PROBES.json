@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-17T10:07:08.510898+00:00",
+  "generated_at": "2026-09-18T09:53:26.916711+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 68,
+  "monitoring_rows": 70,
   "rows_with_a_probe": 15,
-  "rows_without_a_probe": 53,
+  "rows_without_a_probe": 55,
   "counts": {
-    "pass": 6,
-    "fail": 5,
+    "pass": 7,
+    "fail": 4,
     "source_empty": 0,
-    "could_not_run": 57
+    "could_not_run": 59
   },
   "results": [
     {
@@ -74,10 +74,10 @@
         "decision~stray_unkeyed,no_strays,could_not_look"
       ],
       "matched": 5,
-      "scanned": 127,
+      "scanned": 128,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=5 scanned=127\nprobe: PASS — 5 of 127 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 127 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 127)"
+      "detail": "probe-counts: matched=5 scanned=128\nprobe: PASS — 5 of 128 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 128 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 128)"
     },
     {
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 536,
-      "scanned": 691,
+      "matched": 568,
+      "scanned": 749,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=536 scanned=691\nprobe: PASS — 536 of 691 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 691 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=568 scanned=749\nprobe: PASS — 568 of 749 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 749 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 12.3h ago, inside the 30.0h window.\n  queue at last run: 59 PR(s) waiting on a merge decision, worst 108.7h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.6h ago, inside the 30.0h window.\n  queue at last run: 71 PR(s) waiting on a merge decision, worst 140.2h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -484,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 83,
+      "matched": 41,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=83 scanned=1000\nprobe: PASS — 83 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=41 scanned=1000\nprobe: PASS — 41 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -706,11 +706,11 @@
         "--positive-control",
         "fanout_schema~2,3"
       ],
-      "matched": 129,
-      "scanned": 691,
+      "matched": 161,
+      "scanned": 749,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=129 scanned=691\nprobe: PASS — 129 of 691 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 691 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 678)"
+      "detail": "probe-counts: matched=161 scanned=749\nprobe: PASS — 161 of 749 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 749 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 736)"
     },
     {
       "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
@@ -742,17 +742,33 @@
         "--positive-control",
         "sources.red_crons.state=read"
       ],
-      "matched": 0,
+      "matched": 1,
       "scanned": 1,
-      "state": "fail",
-      "reason": "exit_1",
-      "detail": "probe-counts: matched=0 scanned=1\nprobe: FAIL — 0 of 1 row(s) match ['sources.red_main_runs.state=read'] (read 1 row(s) from 1 file(s) [docs/claude/DUE.json:1]; positive control 'sources.red_crons.state=read' matched 1)"
+      "state": "pass",
+      "reason": "exit_0",
+      "detail": "probe-counts: matched=1 scanned=1\nprobe: PASS — 1 of 1 row(s) match ['sources.red_main_runs.state=read'] (read 1 row(s) from 1 file(s) [docs/claude/DUE.json:1]; positive control 'sources.red_crons.state=read' matched 1)"
     },
     {
-      "id": "OI-20260917-THE-DUE-LIST-HAD-NO-WORKING-PRODUCER-FOR-FOUR-DAYS-AND-THE-FIX-IS-UNPROVEN-ON-THE-FLEET",
+      "id": "OI-20260917-THE-NETTING-POST-FIX-REMEASURE-IS-RUNNABLE-AND-UNDER-POWERED-AND-ITS-N-ARRIVES-ON-A-DATE",
       "state": "could_not_run",
       "reason": "no_probe_declared",
-      "detail": "THE CLEARING CONDITION IS A CRON THAT FIRES AND LANDS, AND NO FILE-SHAPED PROBE CAN EXPRESS IT. A static `generated_at` match goes stale-TRUE the moment it passes once, which is the opposite of what is wanted here. The obvious substitute is worse than useless and is named so a successor does not reach for it: `probe_file.py --require sources.spent_decision_edges.state=read` CANNOT DISTINGUISH A WO",
+      "detail": "NO PROBE IS POSSIBLE, and the reason is structural rather than dated. The row clears on a RE-RUN of scripts/research/netting_postfix_remeasure.py against a LIVE journal pull, which needs network and the diag bearer -- neither of which CI holds. There is no committed artifact to probe instead: the instrument writes no register, so nothing on disk records how the post-fix n is accruing. A probe over",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE CANNOT REACH THIS. The observable is a step INSIDE a GitHub Actions job on a runner -- commit-to-main's stale-branch refresh emitting `refreshed_after_generated_conflict` -- and the only durable trace is the run log, which probe_actions_log currently reads 0 of 60 of (3 of 3 of its rows grade could_not_run; PR #11925 carries the fix and is unmerged). The one reader that could see this is i",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE CANNOT REACH THIS. The observable is an OPERATOR DECISION on per-leg target geometry -- three of them -- and no repo surface can distinguish 'not yet answered' from 'answered and not recorded'. What a probe COULD check (does the packet file exist) is precisely the thing this row must not clear on.",
       "checks": null,
       "is_not": null
     }

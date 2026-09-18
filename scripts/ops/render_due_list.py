@@ -769,6 +769,81 @@ def src_red_crons(
 _PUSH_RUN_NOT_A_FINDING = (None, "success", "cancelled", "skipped")
 
 
+#: Three never-collapsed answers to "how far behind `main`'s tip was the commit
+#: this verdict actually graded?". `distance_unknown` is *we could not look* and
+#: is NEVER folded into `at_tip` — the whole defect being repaired here is a
+#: verdict that read as a statement about the tip without having graded it.
+GRADE_AT_TIP = "at_tip"
+GRADE_BEHIND_TIP = "behind_tip"
+GRADE_DISTANCE_UNKNOWN = "distance_unknown"
+
+
+def grade_distance(main_shas: list[str],
+                   graded_sha: str | None) -> tuple[str, int | None]:
+    """How many commits on `main` are NEWER than the one a run graded.
+
+    `main_shas` is newest-first, as the commits API returns it, so the INDEX is
+    the distance: index 0 is the tip and therefore distance 0.
+
+    ⚠️ A sha that is not in the list returns `distance_unknown`, NEVER
+    `len(main_shas)`. The list is one page, so absence means *the commit is
+    older than the page* OR *it is not on `main` at all* — two different facts,
+    and inventing a number for either would put a fabricated denominator on a
+    verdict whose whole defect was having none.
+    """
+    if not graded_sha or not main_shas:
+        return GRADE_DISTANCE_UNKNOWN, None
+    try:
+        idx = main_shas.index(graded_sha)
+    except ValueError:
+        return GRADE_DISTANCE_UNKNOWN, None
+    return (GRADE_AT_TIP if idx == 0 else GRADE_BEHIND_TIP), idx
+
+
+def _placement_phrase(state: str, dist: int | None) -> str:
+    """Render one graded commit's placement for a human, denominator attached."""
+    if state == GRADE_AT_TIP:
+        return "`main`'s tip"
+    if state == GRADE_BEHIND_TIP:
+        return f"{dist} commit(s) behind `main`'s tip"
+    return "distance from the tip UNKNOWN — we could not look"
+
+
+def _red_main_note(placements: dict[str, tuple[str, int | None]],
+                   red_n: int, commits_note: str) -> str:
+    """State the population a `red_main_runs` verdict rests on.
+
+    ⚠️ THE ZERO-ROW CASE IS WHY THIS EXISTS. The source emits a row only on a
+    real failure, so a green run renders as no rows at all — which reads as
+    *the default branch is clean* while what was established is only *the most
+    recent commit anyone graded was clean*. MEASURED 2026-09-17: `main`'s tip
+    was `00045e5d3` while the newest COMPLETED push-to-main `guards` run had
+    graded `88de5e156`, **4 commits back, all 4 of them touching a register** —
+    the class that turned `main` red twice that day. `main` happened to be
+    clean; the point is that this source could not tell the two apart.
+    """
+    graded = len(placements)
+    behind = [d for (s, d) in placements.values()
+              if s == GRADE_BEHIND_TIP and d is not None]
+    unknown = sum(1 for (s, _d) in placements.values()
+                  if s == GRADE_DISTANCE_UNKNOWN)
+    at_tip = sum(1 for (s, _d) in placements.values() if s == GRADE_AT_TIP)
+    parts = [
+        f"{graded} workflow(s) graded, {red_n} red",
+        f"{at_tip} graded at `main`'s tip",
+        (f"worst distance {max(behind)} commit(s) behind"
+         if behind else "none graded behind the tip"),
+        f"{unknown} with distance_unknown",
+    ]
+    if commits_note:
+        parts.append(commits_note)
+    parts.append(
+        "⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict "
+        "is the latest COMPLETED push run, and an auto-merged PR produces no "
+        "push run at all, so the tip is routinely ungraded")
+    return " · ".join(parts)
+
+
 def src_red_main_runs(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
@@ -818,6 +893,22 @@ def src_red_main_runs(
         return SourceResult("red_main_runs", "could_not_read",
                             note=f"{type(exc).__name__}: {exc}")
 
+    #: `main`'s recent commits, newest-first, so every verdict can name the
+    #: commit it graded and how far back that is.
+    #: ⚠️ A FAILURE HERE MUST NOT SUPPRESS A RED ROW. The point of this source
+    #: is the red; losing it because the denominator could not be read would be
+    #: strictly worse than the unprovenanced verdict this repairs. On failure
+    #: every placement degrades to `distance_unknown` and the reds still ship.
+    main_shas: list[str] = []
+    commits_note = ""
+    try:
+        commits = _gh(f"/repos/{REPO}/commits?sha=main&per_page=100", token)
+        main_shas = [c.get("sha", "") for c in commits if isinstance(c, dict)]
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        commits_note = (f"could not read `main`'s commit list "
+                        f"({type(exc).__name__}) — every distance below reads "
+                        f"`distance_unknown`")
+
     latest: dict[str, dict] = {}
     for run in data.get("workflow_runs", []):
         if run.get("status") != "completed":
@@ -825,16 +916,158 @@ def src_red_main_runs(
         name = run.get("name") or run.get("path", "?")
         if name not in latest:            # the API returns newest-first
             latest[name] = run
-    rows = []
-    for name, run in sorted(latest.items()):
-        if run.get("conclusion") not in _PUSH_RUN_NOT_A_FINDING:
-            rows.append(_row("red_main_runs", name, name,
-                             f"the latest push-to-main run of {name} concluded "
-                             f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
-                             f"red, and until 2026-09-13 nothing read this",
-                             loud=True, link=run.get("html_url", "")))
-    return SourceResult("red_main_runs", "read", rows)
 
+    rows = []
+    placements: dict[str, tuple[str, int | None]] = {}
+    for name, run in sorted(latest.items()):
+        sha = run.get("head_sha") or ""
+        placements[name] = grade_distance(main_shas, sha)
+        if run.get("conclusion") in _PUSH_RUN_NOT_A_FINDING:
+            continue
+        rows.append(_row("red_main_runs", name, name,
+                         f"the latest push-to-main run of {name} concluded "
+                         f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
+                         f"red, and until 2026-09-13 nothing read this. Graded "
+                         f"at {sha[:9] or '(no sha)'}, "
+                         f"{_placement_phrase(*placements[name])}",
+                         loud=True, link=run.get("html_url", "")))
+    return SourceResult("red_main_runs", "read", rows,
+                        note=_red_main_note(placements, len(rows), commits_note))
+
+
+
+def _declared_workflow_names(root: Path) -> tuple[dict[str, str], list[str], int]:
+    """Map `.github/workflows/<f>` -> the `name:` the FILE declares.
+
+    Returns (declared, unreadable, no_name_count).
+
+    ⚠️ THE `no_name` BUCKET IS THE WHOLE REASON THIS READS THE FILES AT ALL.
+    GitHub reports a workflow's `name` as its PATH in two completely different
+    situations: when the file declares no `name:` (correct, ordinary), and when
+    GitHub could not parse the file (the defect). Without the local declaration
+    there is no way to tell them apart, and a source that skipped this step
+    would raise a loud row for every name-less workflow in the repo.
+    """
+    declared: dict[str, str] = {}
+    unreadable: list[str] = []
+    no_name = 0
+    wf_dir = root / ".github" / "workflows"
+    if not wf_dir.is_dir():
+        return declared, unreadable, no_name
+    try:
+        import yaml
+    except ImportError:                 # handled by the caller; never silent
+        raise
+    for f in sorted(list(wf_dir.glob("*.yml")) + list(wf_dir.glob("*.yaml"))):
+        rel = f".github/workflows/{f.name}"
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8"))
+        except Exception:
+            unreadable.append(rel)
+            continue
+        if isinstance(doc, dict) and isinstance(doc.get("name"), str) and doc["name"].strip():
+            declared[rel] = doc["name"]
+        else:
+            no_name += 1
+    return declared, unreadable, no_name
+
+
+def src_unparseable_workflows(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    *,
+    token: str | None = None,
+) -> SourceResult:
+    """Workflows GitHub holds but has never been able to PARSE.
+
+    A workflow file that is valid YAML can still be invalid to Actions. When it
+    is, GitHub fails EVERY run of it at startup — zero jobs, zero duration — and
+    reports the workflow's `name` as its PATH, because it never read a `name:`
+    out of the file.
+
+    MEASURED 2026-09-17, which is why this exists:
+      * `.github/workflows/ranking-key-ab.yml` has **3,393 completed runs**; the
+        newest 100, spanning 2.6 hours, are 100/100 `failure`, 100/100 zero
+        duration, `total_jobs: 0`. ~38 failing runs an hour.
+      * GET /actions/workflows/ranking-key-ab.yml returns
+        `name: '.github/workflows/ranking-key-ab.yml'` with `state: active`,
+        while the file itself declares `name: ranking-key-ab` on its first line.
+      * NOTHING PAGED ON IT. `claude-run-failure-alert.yml` scopes to CRON'D
+        workflows and this one declares no `schedule:`, so it is correctly out
+        of that guard's reach — and that guard's premise ("on a relay someone is
+        waiting") does not hold for an ordinary push-triggered workflow.
+      * It was found only because `src_red_main_runs` happened to surface it.
+
+    ⚠️ THIS REPORTS THE CONDITION, NOT ITS CAUSE, and says so in the row. Three
+    hypotheses for `ranking-key-ab` are already refuted with positive controls
+    (the 10-input `workflow_dispatch` cap — `system-actions.yml` has 14 and
+    parses; input description length — `m20-exit-lever-sweep.yml` is longer and
+    parses; an empty concurrency group — the group is always populated). A
+    fourth guess dressed as a cause would be worse than the open question.
+    """
+    token = token if token is not None else os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="no GITHUB_TOKEN — cannot ask GitHub what it parsed")
+    try:
+        declared, unreadable, no_name = _declared_workflow_names(root)
+    except ImportError:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="PyYAML is absent, so the declared names could "
+                                 "not be read — and without them a path-named "
+                                 "workflow cannot be told from an unparseable one")
+    if not declared:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="no workflow file declares a name — that is a "
+                                 "missing denominator, not a clean repo")
+
+    #: ⚠️ PAGINATED DELIBERATELY. The repo carries ~143 workflow files against a
+    #: 100-per-page API, so a single page would silently grade two thirds of
+    #: them and report the rest as clean.
+    seen: dict[str, str] = {}
+    page = 1
+    while page <= 10:
+        try:
+            data = _gh(f"/repos/{REPO}/actions/workflows"
+                       f"?per_page=100&page={page}", token)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return SourceResult("unparseable_workflows", "could_not_read",
+                                note=f"page {page}: {type(exc).__name__}: {exc}")
+        batch = data.get("workflows", [])
+        if not batch:
+            break
+        for wf in batch:
+            p = wf.get("path") or ""
+            if p and p not in seen:
+                seen[p] = wf.get("name") or ""
+        if len(batch) < 100:
+            break
+        page += 1
+
+    rows = []
+    graded = 0
+    for path, declared_name in sorted(declared.items()):
+        github_name = seen.get(path)
+        if github_name is None:
+            continue                      # GitHub holds no record for it yet
+        graded += 1
+        if github_name == path:
+            rows.append(_row(
+                "unparseable_workflows", path, path,
+                f"GitHub reports this workflow's name as its PATH while the file "
+                f"declares `name: {declared_name}` — so GitHub has never parsed "
+                f"it, and EVERY run of it fails at startup with zero jobs. The "
+                f"CONDITION is the finding; the CAUSE is not established here and "
+                f"a guess would be worse than the open question",
+                loud=True,
+                link=f"https://github.com/{REPO}/actions/workflows/{path.split('/')[-1]}"))
+
+    note = (f"{len(seen)} workflow(s) known to GitHub · {len(declared)} local "
+            f"file(s) declare a name · {graded} gradeable (both sides present) · "
+            f"{no_name} skipped because the file declares NO name, where a "
+            f"path-valued name is CORRECT rather than a defect · "
+            f"{len(unreadable)} local file(s) unreadable as YAML")
+    return SourceResult("unparseable_workflows", "read", rows, note=note)
 
 def src_unlanded_automation(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
@@ -1641,7 +1874,8 @@ def src_manager_queue_watch(
 
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
-    src_red_crons, src_red_main_runs, src_unlanded_automation, src_error_feed,
+    src_red_crons, src_red_main_runs, src_unparseable_workflows,
+    src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
     src_settled_disposition_owed, src_spent_decision_edges,
     src_manager_queue_watch,
@@ -1694,7 +1928,8 @@ def collect(root: Path, today: date, *, token: str | None = None) -> list[Source
     out = []
     for fn in SOURCES:
         try:
-            if fn in (src_red_crons, src_red_main_runs, src_unlanded_automation):
+            if fn in (src_red_crons, src_red_main_runs, src_unlanded_automation,
+                      src_unparseable_workflows):
                 out.append(fn(root, today, token=token))
             else:
                 out.append(fn(root, today))
@@ -1809,6 +2044,10 @@ def _self_test() -> int:
     assert src_red_main_runs(Path("."), today, token="").state == "could_not_read"
     assert src_red_main_runs in SOURCES, \
         "src_red_main_runs is not registered in SOURCES — a source nothing calls"
+
+    assert src_unparseable_workflows(Path("."), today, token="").state == "could_not_read"
+    assert src_unparseable_workflows in SOURCES, \
+        "src_unparseable_workflows is not registered in SOURCES — a source nothing calls"
     assert src_unlanded_automation(Path("."), today, token="").state == "could_not_read"
 
     # ── PROBE FRESHNESS: the gap this renderer shipped with ────────────────

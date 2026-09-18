@@ -5,9 +5,25 @@ title: >-
   Unblock the prop account: it is starved at dispatch, and the unblock is a sequence
 stage: DEPLOYMENT
 lifecycle: in_flight
-owner: session_01QF6kgTnqd4yg32y2UYe9FQ
+owner: null
 opened_at: 2026-09-12
 closed_at: null
+orphan_flag: >-
+  FLAGGED 2026-09-18 by the engineering lane (session_019J5aUz21AWTzdYyBNgUP2D, unit MI-316),
+  built while constructing a general dead-owner detector for in_flight work objects. Its
+  previous owner (session_01QF6kgTnqd4yg32y2UYe9FQ, MI-282) is `SESSION_STATUS_BUCKET_COMPLETED`
+  / `SESSION_STATUS_ARCHIVED` per `get_session`, last updated 2026-09-12T12:57:01Z -- SIX DAYS
+  stale as of this flag, occupying an in_flight WIP slot with nobody working it. `owner` is
+  cleared to `null` so a fresh lane can claim it; `lifecycle` is DELIBERATELY LEFT `in_flight`
+  rather than reclassified, because this session did not verify whether the Tier-2 "step (0)"
+  projection fix the object's own `done_condition` requires FIRST has landed and been observed
+  dispatching -- that judgment belongs to the prop lane or the manager, not to a detector pass.
+  ⚠️ REAL MONEY, RAISED LOUDLY RATHER THAN SILENTLY RE-QUEUED: breakout_1 is a real-money prop
+  account that has been starved at dispatch since before 2026-09-11 per this object's own `why`,
+  and it has now sat with no active owner for six days on top of that. Needs re-dispatch to a
+  prop-lane session before any further judgment is made; `must_not` above (no allowlist widening
+  before the projection fix is deployed AND observed, no hand-placed ticket, no config edit from
+  a session) still applies unchanged.
 review_trigger: >-
   Re-read at the next cycle. A captured idea is PARKED, not queued — it becomes
   work only when it is given an owner and moved out of `dormant`.

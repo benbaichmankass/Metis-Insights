@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/register only: docs/claude/health-review-backlog.json (backlog_append.py-mediated closes), .claude/skills/doc-freshness/SKILL.md (a landing-table row), plus the automerge/merge-slot arming files under .github/. No src/, config/, deploy/, or order-path change."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 register write, manager scope. Adds MI-288 and MI-289 to docs/claude/work/MANAGER-CHECKLIST.json and advances its updated_at/as_of. It touches exactly ONE file and NO other shared register — deliberately, because that is the only diff shape measured to reach a merge today: on #12346 six consecutive refresh->CI->merge cycles were voided by concurrent sessions, while #12392 (no shared-register surface beyond its own new file) landed first time at 13:50Z. MI-288 records the operator's 2026-09-17 instruction ('serialize the merges, keep working the queue') with the arithmetic behind it, the eight PRs landed this session, the nine still owed a merge decision, and the three deliberately not touched. MI-289 records that the manager lease has read expired_unverified for ~17h because a heartbeat is itself a register append — the holder is THIS session and is not dead, which a successor must not misread. It is also the checklist the operator's live Workflow page serves (GET /api/bot/work/checklist reads the VM's working tree of main), which has been serving a 2026-09-13 snapshot while reading as current."
+}
