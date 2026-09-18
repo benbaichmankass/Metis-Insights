@@ -72,6 +72,44 @@ a state: with no capped arm there is no live-comparable distribution **and no po
 test is `m20_fleet_exit_sweep.harness_implements_flag`, which **reads the harness source** rather
 than a hardcoded list, so it cannot go stale the day a harness gains the flag.
 
+> ⚠️ **CORRECTED 2026-09-18 BY MI-312 — THE PARAGRAPH ABOVE IS PRESERVED AS THE RECORD OF WHAT
+> WAS TRUE WHEN IT WAS WRITTEN, AND ITS DIAGNOSIS IS NOW KNOWN TO BE HALF WRONG. Do not act on
+> "what is missing is one harness flag": adding `--tp-cap-pct` to those two harnesses does not
+> produce the missing arm, and a control run against the arm it does produce would pass
+> trivially.**
+>
+> **These 8 legs' live units apply NO VENUE CLAMP.** Measured at `25bad2e31`: `TP_VENUE_CAP_PCT`
+> is applied in exactly **four** unit modules (`trend_donchian`, `htf_pullback_trend_2h`,
+> `fade_breakout_4h`, `squeeze_breakout_4h`) and **nowhere downstream** — `ict_scalp.py:525` is
+> `tp = entry ± tp_at_r * risk`, `fvg_range_15m.py:376` is `tp = R`. This unit's own
+> `src/runtime/tp_venue_cap.py::CLAMPING_FAMILIES` already said so: `{donchian, pullback, fade,
+> squeeze}`. So for these legs the **DEFAULT** harness arm — which exits at the live unit's own
+> `tp` — is **already the live-comparable book**, which is precisely the state
+> `m20_fleet_exit_sweep.tp_geometry_for` calls `live_parity_uncapped` (*"no cap applied AND the
+> live unit does not clamp, so this IS parity for that unit"*), and `base_args` already refuses
+> to pass `--tp-cap-pct` outside `LIVE_TP_CAPPED_FAMILIES`.
+>
+> **The arm that was actually missing is the OPPOSITE one** — there was no way to switch the
+> target OFF, so the *target-setting* basis did not exist and `mfe_r` stayed truncated at the
+> live target. The conclusion above is right — no positive control was possible — for the
+> **inverse reason**, and the fix is a different flag (`--no-tp`, MI-312).
+>
+> ⚠️ **AND THE DISPATCHED FIX WOULD HAVE MANUFACTURED A PASS.** POPULATION: BTCUSDT 5m,
+> `2025-01-01..2025-04-01`, n=45, config-exact — a `--tp-cap-pct 0.099` run is **byte-identical**
+> to the default (`unit_tp_cap_inert` 45/45, identical outcomes, identical MFE), because a 1.5R
+> target on a 5m bar sits ~**0.95% of entry** from it against a **9.9%** clamp. Re-measured over
+> the FULL 2021–2026 populations (n=1,137–1,670 per leg) the clamp would bind on **0.18%–1.22%**
+> of trades — rare rather than never, and the honest number; the n=45 zero was true of that slice
+> only. Either way a "capped" arm differs from the live arm on under 1 trade in 80, so a control
+> against it is ~99% a book compared with itself.
+>
+> **The membership test is still right about what it measures** — `harness_implements_flag` does
+> read the harness source, and it now returns `True` for both. What was wrong is the inference
+> drawn from it: the question that matters is not *does the harness implement the flag* but *can
+> the harness reproduce this leg's live target, and can it also run the uncapped basis*.
+> `run_leg` is corrected accordingly and now returns `capped_arm_not_applicable` for a
+> non-clamping family. See `docs/research/scalp-family-target-arms-2026-09-18.md`.
+
 ⚠️ **This is the family where a target would matter most, which is why it is named loudly rather
 than dropped.** MI-278 U2 measured take-profit as the **only** exit lever with attributed mass on
 `ict_scalp` — 18 of 49 winners ended exactly at target — and `ict_scalp` is the one family that
