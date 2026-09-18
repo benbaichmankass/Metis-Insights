@@ -127,6 +127,47 @@ nice-to-have; delivery is not*. When NEITHER bot is confirmed polled there is no
 answerable destination at all, and then it does hold.
 
 ────────────────────────────────────────────────────────────────────────────
+THE 4096-CHAR CAP, AND WHAT MAY BE COMPACTED
+────────────────────────────────────────────────────────────────────────────
+
+Operator-raised 2026-09-18: *"Give me decisions as popups."* They did not
+arrive. Measured, not suspected
+(``WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S``):
+every part of the channel was healthy — the inbox, the write gate, the
+route, the poll registry — and every send still failed with
+``HTTP Error 400: Bad Request``, because ``render_decision_prompt`` had **no**
+cap handling at all (``grep -c 4096 src/runtime/telegram_decisions.py`` was
+``0``) while ``/status`` (``manager_status.py``) had already been given a
+compaction ladder for exactly this cap. The once-only prompted-marker is
+never set on a failed send, so an over-cap request retried every cadence
+forever, looking like silence rather than a repeated failure.
+
+⚠️ **The failing prompts were the BEST-SPECIFIED ones, not the verbose ones.**
+The QUESTION runs 370–441 chars against the 4096 cap; the other ~4100 is
+CONTEXT the renderer adds. So the richer the evidence behind a decision, the
+more certainly it never arrived.
+
+The ladder below follows ``must_not`` verbatim: the QUESTION is never
+shortened (editing what was asked to make a transport bug go away would
+corrupt the record), ``callback_data`` is never touched (see the 64-byte
+section above), and no OPTION is ever dropped — the keyboard is built
+separately by :func:`build_decision_keyboard` from the same ``options`` list
+and is never affected by anything below. Only two things are compactable,
+tried in this order, and a compacted prompt always SAYS it was compacted and
+names where the full text lives:
+
+1. the free-form ``context`` field (unbounded research prose — this alone
+   clears the cap on every request measured for the incident);
+2. each option's ``implication`` (what a choice costs — useful, not
+   load-bearing; the option's ``key``/``label`` survive in both the text and
+   the keyboard).
+
+A FLOOR exists for the case neither compaction reaches (not observed on any
+real request): it cuts the assembled TAIL — never the head, which is the
+title plus the question this module must never shorten — and states the cut,
+the same shape ``manager_status.render_expandable_message``'s own floor uses.
+
+────────────────────────────────────────────────────────────────────────────
 KNOBS
 ────────────────────────────────────────────────────────────────────────────
 
@@ -393,28 +434,86 @@ def build_decision_keyboard(request: dict[str, Any]) -> Optional[dict[str, Any]]
     return {"inline_keyboard": rows}
 
 
-def render_decision_prompt(request: dict[str, Any]) -> str:
-    """The prompt body. States the question, the options, and where truth lands."""
+#: Telegram's `sendMessage` body cap. Asserted, not assumed — same discipline
+#: as `TELEGRAM_CALLBACK_DATA_MAX_BYTES` above. `manager_status.py` carries the
+#: identical constant for `/status`; restated here (a fixed platform number,
+#: not a policy knob that could drift) rather than imported, so this module's
+#: degradation ladder does not depend on a lazy cross-module import succeeding.
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def _decision_head_lines(request: dict[str, Any]) -> list[str]:
+    """Title + question — MANDATORY. Never compacted, never cut, never shortened.
+
+    Per `WO-20260918-...`'s `must_not`: the question is 370-441 chars against
+    the 4096 cap on the requests that motivated this ladder, and it is never
+    the reason a prompt does not fit. Editing it to make a transport bug go
+    away would corrupt the record of what was asked.
+    """
     urgency = request.get("urgency")
     head = "🛑 DECISION NEEDED" if urgency == "blocking" else "❓ DECISION"
-    lines = [
+    return [
         f"{head} — {request.get('objectTitle') or request.get('objectId')}",
         "",
         str(request.get("question") or "(the request declares no question text)"),
     ]
-    context = request.get("context")
-    if context:
-        lines += ["", str(context)]
+
+
+def _context_omitted_note(object_id: str, request_id: str) -> str:
+    return (
+        "⚠️ Context omitted — it did not fit Telegram's "
+        f"{TELEGRAM_MESSAGE_LIMIT}-char cap. Full text: "
+        f"docs/claude/work/objects/{object_id}.yaml → "
+        f"decision_requests: {request_id} → context."
+    )
+
+
+_IMPLICATIONS_OMITTED_NOTE = (
+    "  (what each option costs is omitted — over the char cap; see the work "
+    "object above for the full implications)"
+)
+
+
+def _decision_tail_lines(
+    request: dict[str, Any], *, context: str = "full", implications: bool = True,
+) -> list[str]:
+    """Everything AFTER the head: context, the option list, and the footer.
+
+    ``context`` is ``"full"`` / ``"omitted"``; ``implications`` toggles the
+    per-option cost line. These are the ONLY two things this ladder may
+    compact — every option's ``key``/``label`` always survives (the request
+    stays fully enumerated in the text), and the KEYBOARD — built separately
+    by :func:`build_decision_keyboard` from this same ``options`` list — is
+    untouched by either flag, so a compacted prompt is never less tappable
+    than a full one.
+    """
+    object_id = str(request.get("objectId"))
+    request_id = str(request.get("id"))
+    lines: list[str] = []
+    ctx = request.get("context")
+    if ctx:
+        if context == "full":
+            lines += ["", str(ctx)]
+        else:
+            lines += ["", _context_omitted_note(object_id, request_id)]
     options = [
         o for o in (request.get("options") or [])
         if isinstance(o, dict) and isinstance(o.get("key"), str)
     ]
     if options:
         lines += ["", "Options:"]
+        any_implication = False
         for opt in options:
             label = opt.get("label") or opt["key"]
+            line = f"• {label}"
             implication = opt.get("implication")
-            lines.append(f"• {label}" + (f" — {implication}" if implication else ""))
+            if implication:
+                any_implication = True
+                if implications:
+                    line += f" — {implication}"
+            lines.append(line)
+        if not implications and any_implication:
+            lines.append(_IMPLICATIONS_OMITTED_NOTE)
         lines += ["", "Tap an option below. Tapping SUBMITS your answer; it is "
                        "not the decision until it is written into the repo."]
     else:
@@ -425,10 +524,57 @@ def render_decision_prompt(request: dict[str, Any]) -> str:
                        "or in the repo — it is shown here so it is not invisible."]
     lines += [
         "",
-        f"object:  {request.get('objectId')}",
-        f"request: {request.get('id')}",
+        f"object:  {object_id}",
+        f"request: {request_id}",
     ]
-    return "\n".join(lines)
+    return lines
+
+
+def render_decision_prompt(
+    request: dict[str, Any], *, limit: int = TELEGRAM_MESSAGE_LIMIT,
+) -> str:
+    """The prompt body. States the question, the options, and where truth lands.
+
+    Compacted under ``limit`` when the full render does not fit — see the
+    module docstring § "THE 4096-CHAR CAP, AND WHAT MAY BE COMPACTED". Three
+    rungs, tried in order, and every compacted rung SAYS what it dropped and
+    where the full text lives:
+
+    1. full render (unchanged from before this ladder existed);
+    2. ``context`` compacted to a pointer note — the whole point, on the
+       requests that motivated this: context is unbounded research prose and
+       this alone clears the cap every time it was measured to fail;
+    3. option ``implication``s also compacted — the option ``key``/``label``
+       (and therefore the keyboard) are unaffected.
+
+    A FLOOR below the ladder handles the case neither rung reaches (not
+    observed on any real request): it cuts the assembled TAIL, never the
+    HEAD — title + question — and states the cut.
+    """
+    head = _decision_head_lines(request)
+    head_text = "\n".join(head)
+    for context_mode, implications in (
+        ("full", True), ("omitted", True), ("omitted", False),
+    ):
+        tail = _decision_tail_lines(
+            request, context=context_mode, implications=implications)
+        text = "\n".join(head + tail)
+        if len(text) <= limit:
+            return text
+
+    # FLOOR — the head (title + the question this module must never shorten)
+    # plus the fully-compacted tail still does not fit. This needs the head
+    # PLUS every option label to already exceed 4096 with context and every
+    # implication gone, which nothing measured for WO-20260918 reached. An
+    # over-length string here means Telegram 400s the WHOLE reply and the
+    # operator gets NOTHING, so it is cut — in the TAIL only, never the head —
+    # and the cut is STATED, the same shape
+    # `manager_status.render_expandable_message`'s own floor uses.
+    marker = "\n…[CUT: over Telegram's cap even fully compacted — see the work object]"
+    tail_text = "\n".join(
+        _decision_tail_lines(request, context="omitted", implications=False))
+    keep = max(0, limit - len(head_text) - 1 - len(marker))
+    return head_text + "\n" + tail_text[:keep] + marker
 
 
 def render_callback_reply(
@@ -1670,6 +1816,7 @@ def build_on_demand_decisions(
 __all__ = [
     "CB_PREFIX",
     "TELEGRAM_CALLBACK_DATA_MAX_BYTES",
+    "TELEGRAM_MESSAGE_LIMIT",
     "CALLBACK_OUTCOMES",
     "AnswerableRoute",
     "Resolution",

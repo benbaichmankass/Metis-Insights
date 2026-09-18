@@ -170,6 +170,140 @@ def test_a_free_text_only_request_says_so_instead_of_pretending_to_be_tappable()
     assert "Tap an option" not in text
 
 
+# ── the compaction ladder (WO-20260918-...400S) ─────────────────────────────
+#
+# The channel was healthy end to end and every send still 400'd, because
+# render_decision_prompt had NO cap handling at all — a full render of a
+# request with real-world context routinely exceeded Telegram's 4096-char
+# `sendMessage` cap, forever (the once-only marker is never set on a failed
+# send). The three requests that motivated this rendered at 4738/4569/5463
+# chars; a fourth, under-cap request at 3815 was the positive control that
+# proved the send path itself worked. These tests pin the ladder's contract
+# rather than re-deriving those exact numbers, which live in the work object.
+
+
+def _big_request(*, context_len=0, n_options=2, implication_len=0, **over):
+    return _request(
+        context=("c" * context_len) if context_len else None,
+        options=[
+            {
+                "key": f"k{i}",
+                "label": f"Option {i}",
+                "implication": ("x" * implication_len) if implication_len else "",
+            }
+            for i in range(n_options)
+        ],
+        **over,
+    )
+
+
+def test_a_short_prompt_is_rendered_unchanged_by_the_ladder():
+    # The control: nothing to compact, so the ladder must not touch it.
+    req = _big_request(context_len=200, implication_len=50)
+    assert len(td.render_decision_prompt(req)) <= td.TELEGRAM_MESSAGE_LIMIT
+    unlimited = "\n".join(
+        td._decision_head_lines(req) + td._decision_tail_lines(req))
+    assert td.render_decision_prompt(req) == unlimited
+
+
+def test_an_over_cap_context_is_compacted_and_says_where_the_full_text_is():
+    req = _big_request(context_len=6000, implication_len=50)
+    text = td.render_decision_prompt(req)
+    assert len(text) <= td.TELEGRAM_MESSAGE_LIMIT
+    assert "c" * 6000 not in text
+    assert "Context omitted" in text
+    assert f"docs/claude/work/objects/{req['objectId']}.yaml" in text
+    assert req["id"] in text
+
+
+def test_compaction_never_shortens_the_question():
+    # must_not: "DO NOT shorten the QUESTIONS ... editing a decision's wording
+    # to make a transport bug go away would corrupt the record of what was
+    # asked."
+    question = "Is this exact wording preserved verbatim, cap or no cap?"
+    req = _big_request(context_len=6000, implication_len=800, n_options=6,
+                        question=question)
+    text = td.render_decision_prompt(req)
+    assert question in text
+
+
+def test_compaction_never_drops_an_option_or_touches_the_keyboard():
+    req = _big_request(context_len=6000, implication_len=800, n_options=6)
+    text = td.render_decision_prompt(req)
+    for i in range(6):
+        assert f"Option {i}" in text
+    kb = td.build_decision_keyboard(req)
+    assert [row[0]["text"] for row in kb["inline_keyboard"]] == [
+        f"Option {i}" for i in range(6)
+    ]
+    for row in kb["inline_keyboard"]:
+        assert len(row[0]["callback_data"].encode("utf-8")) \
+            <= td.TELEGRAM_CALLBACK_DATA_MAX_BYTES
+
+
+def test_implications_are_compacted_only_when_context_alone_is_not_enough():
+    # No context at all, but the implications alone exceed the cap: rung 2
+    # must fire even though rung 1 (context) had nothing to compact.
+    req = _big_request(context_len=0, implication_len=700, n_options=6)
+    text = td.render_decision_prompt(req)
+    assert len(text) <= td.TELEGRAM_MESSAGE_LIMIT
+    assert "x" * 700 not in text
+    assert td._IMPLICATIONS_OMITTED_NOTE.strip() in text
+    for i in range(6):
+        assert f"Option {i}" in text
+
+
+def test_the_real_world_requests_that_motivated_this_now_fit():
+    # The exact shape of the three requests WO-20260918 measured at
+    # 4738 / 5463 / 4569 chars, all over cap, all failing with HTTP 400.
+    four_leg = _big_request(
+        context_len=2181, n_options=5, implication_len=296,
+        question="P" * 370,
+    )
+    scalp_margin = _big_request(
+        context_len=3554, n_options=4, implication_len=224,
+        question="Q" * 441,
+    )
+    netting = _big_request(
+        context_len=2557, n_options=4, implication_len=240,
+        question="N" * 440,
+    )
+    for req in (four_leg, scalp_margin, netting):
+        text = td.render_decision_prompt(req)
+        assert len(text) <= td.TELEGRAM_MESSAGE_LIMIT, text
+        assert req["question"] in text
+        for opt in req["options"]:
+            assert opt["label"] in text
+
+
+def test_the_floor_cuts_the_tail_never_the_head_and_says_so():
+    # Pathological: even fully compacted (no context, no implications) the
+    # option labels alone exceed the cap. Not observed on any real request —
+    # this is the defensive floor, never the normal path.
+    question = "Does the floor still preserve this exact question?"
+    req = _big_request(
+        context_len=5000, implication_len=500, n_options=40,
+        question=question,
+    )
+    for opt in req["options"]:
+        opt["label"] = "L" * 200
+    text = td.render_decision_prompt(req)
+    assert len(text) <= td.TELEGRAM_MESSAGE_LIMIT
+    assert "DECISION" in text[:60]
+    assert question in text
+    assert "[CUT:" in text
+
+
+def test_render_decision_prompt_respects_an_explicit_limit():
+    # The default is TELEGRAM_MESSAGE_LIMIT, but the ladder itself is generic.
+    req = _big_request(context_len=500, implication_len=50)
+    full = td.render_decision_prompt(req, limit=10_000)
+    tight = td.render_decision_prompt(req, limit=200)
+    assert len(full) > 200
+    assert len(tight) <= 200
+    assert req["question"] in tight
+
+
 # ── the confirmation must NOT overstate the state ───────────────────────────
 
 _FORBIDDEN = ("committed", "decided.", "is now the decision", "answered!")
