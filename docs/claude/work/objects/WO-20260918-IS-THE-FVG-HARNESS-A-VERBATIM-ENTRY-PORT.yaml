@@ -50,8 +50,8 @@ outcome: >-
   250-bar tail the runtime actually fetches).
   (2) TARGET -- the dispatch is CORRECT. The harness default is `mid`; the live unit
   targets the opposite boundary (`far`). This corroborates MI-312's already-filed
-  BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-... from the opposite
-  direction, so no new row was filed for it.
+  BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-BECAUSE-THE-YAML-DECLARES-NO-EXIT-STYLE-AND-THE-HARNESS-DEFAULT-IS-THE-WRONG-TARGET
+  from the opposite direction, so no new row was filed for it.
   (3) NEW, anticipated by neither claim: the unit DECLARES 51 candles sufficient
   (`needed = max(range_lookback, atr_period, adx_period) + 3`) while its own ADX gate --
   a three-deep ewm(adjust=False) recursion -- has not converged there. At W=51 the chop
