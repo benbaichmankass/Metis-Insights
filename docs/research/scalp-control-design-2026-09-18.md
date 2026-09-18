@@ -19,7 +19,8 @@ design**: on this family the two arms share **99.00%–100.00% of their entries*
 n = 7,342 joined pairs over 8 legs), *at the largest perturbation a target change can possibly make* —
 deleting the target outright. Since every candidate target's exit time is provably sandwiched between
 the live arm's and the target-removed arm's, **the entry divergence any alternative target could
-produce is bounded by a divergence already measured at ≤ 1.00%.** So the obvious "stronger" design —
+produce is bounded by a divergence already measured at ≤ 1.00% (worst of 8 legs, n = 7,342 joined
+pairs).** So the obvious "stronger" design —
 predict the hit-rate at a target the live arm never ran, then run that arm — would be a **second
 near-tautology**, not an improvement. The weakness is a property of the family's exit mechanics, and
 a genuinely falsifiable control has to predict something the MFE distribution **underdetermines**.
@@ -77,10 +78,12 @@ config-exact per leg. `entry_overlap` is the live arm against the `no_tp` arm.**
 | verdict | `arm_vs_arm_cannot_be_independent` — 8 of 8 |
 
 **The two numbers are consistent, and that consistency is the check.** The ceiling (1.00%) must lie
-*above* the observed disagreement (0.29%) or one of them would be wrong; it does. The bound is not
-tight — 0.29% is roughly a third of it — because not every non-shared entry produces a disagreement.
+*above* the observed disagreement (21 of 7,338 joined trades = 0.29%) or one of them would be wrong;
+it does. The bound is not tight — that 0.29%, over the same 8 legs, is roughly a third of the 1.00%
+ceiling — because not every non-shared entry produces a disagreement.
 
-⚠️ **THE 0.29% IS CITED, NOT RECOMPUTED, AND THE INSTRUMENT SAYS SO IN ITS OWN OUTPUT.** It was
+⚠️ **THAT 0.29% (21 of 7,338 joined trades, MI-312's 8 legs) IS CITED, NOT RECOMPUTED, AND THE
+INSTRUMENT SAYS SO IN ITS OWN OUTPUT.** It was
 measured from MI-312's harness emits under `runtime_logs/mi312/`, which are **gitignored**. MI-312
 discloses this and gives the reproduce command, so it is not hidden — but *disclosed* is not
 *re-readable*, and it means the mechanical explanation behind the weak control rests on data no later
@@ -100,7 +103,8 @@ reported for completeness and must not be pooled with the scalp legs; MI-312 say
 
 **The obvious "stronger" control is refuted before it is built.** Predicting the hit-rate at a target
 the live arm never ran (say 2.5R) and then running that arm would produce two books sharing **at
-least** 99.00% of their entries, because that arm is sandwiched between the two already measured.
+least** 99.00% of their entries — the MINIMUM `entry_overlap` over the 8 legs, n = 7,342 joined
+pairs — because that arm is sandwiched between the two already measured.
 It would pass, tightly, and mean no more than MI-312's does. **Building it would spend a harness run
 to manufacture a second near-tautology** — which is exactly the shape `CY-20260906-TRADING-TRUTH`
 calls worse than no instrument, because it gets acted on.

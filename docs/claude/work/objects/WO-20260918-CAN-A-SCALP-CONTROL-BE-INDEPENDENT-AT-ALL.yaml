@@ -81,7 +81,8 @@ decision_requests:
       - key: commit_the_histogram_only
         label: >-
           Neither yet. Land only the cheap half of
-          BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED (a committed per-leg
+          BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED-SO-ITS-MECHANISM-CLAIM-CANNOT-BE-RE-READ
+          (a committed per-leg
           exit-reason histogram), which makes MI-312's mechanism claim re-readable and
           is the precondition for either control.
       - key: decline
