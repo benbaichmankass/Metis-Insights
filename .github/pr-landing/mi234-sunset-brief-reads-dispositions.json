@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ops-tooling render function (scripts/ops/sunset_pass.py::render_brief_lines) + its self-test + a pytest file; no src/, config/, deploy/ order path, risk cap, or strategy param touched. Does not write SUNSET-DISPOSITIONS.json content and proposes no strategy disposition -- MI-234, read-side only."
+}
