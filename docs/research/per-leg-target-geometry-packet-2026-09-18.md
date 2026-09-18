@@ -174,7 +174,7 @@ median of a varying quantity rather than a declared constant; and its two arms h
 curiosity, never pooled with the scalp legs. **It also carries a known defect that conditions its
 harness runs at all:** `base_args` emits no `--exit-style` for fvg, so the harness falls through to
 its own `mid` default while the live unit targets the **far** boundary
-(`BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN...`). MI-312's driver injects
+(`BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-BECAUSE-THE-YAML-DECLARES-NO-EXIT-STYLE-AND-THE-HARNESS-DEFAULT-IS-THE-WRONG-TARGET`). MI-312's driver injects
 `--exit-style far` for its own runs; every other caller is exposed.
 
 **What is proposed for these 8: NO VALUE.** A reach-rate is not a P&L claim — a target further out
