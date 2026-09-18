@@ -279,6 +279,15 @@ by **~2.5×** about crypto p90 MFE — backtest BTC **3.87%** (n=3,194) vs MI-14
 > 3. **the per-leg matched-timeframe comparison (§ 5.1)** — which MI-155 explicitly could **not**
 >    make, because `n_backtest = 0` on all 44 legs, and which only becomes possible because of the
 >    reference extension in § 7.3.
+>
+> ⚠️ **AND THIS UNIT IS NOT A CORRECTION OF MI-155 — IT IS THE UNIT OF WORK MI-155 ASKED FOR.**
+> Its § *"the blocker has moved"* names remedy 1 in terms: *"a timeframe-matched harness run —
+> `trend_donchian` at **1h and 4h** on the symbols the fleet actually trades, emitting per-trade
+> MFE in percent-of-entry … **it is what makes `n_backtest > 0` for a real leg**."* That is exactly
+> what § 3 ran. Framing it as a correction would take credit for the diagnosis and skip the part
+> that was actually owed. `docs/research/exit-location-fidelity-2026-09-07.md` now carries a
+> supersession note recording which two of its statements this retires — and both are retired
+> because the gap they described was **closed**, not because either was wrong.
 
 The memo states its own backtest population plainly: **`trend_donchian` 15m only**. Its live arm is
 **"mixed symbols and strategies"**. Two measurements, one new and one confirming:
