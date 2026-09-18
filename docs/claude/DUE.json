@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-18T12:21:56+00:00",
+  "generated_at": "2026-09-18T16:42:03+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=2.5h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=6.8h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 6,
+      "rows": 1,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
       "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 0 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -47,13 +47,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 67,
+      "rows": 66,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-18T12:21:52+00:00, age 0.0h"
+      "note": "digest 2026-09-18T16:41:59+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -78,7 +78,7 @@
     "spent_decision_edges": {
       "state": "read",
       "rows": 5,
-      "note": "189 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
+      "note": "205 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 199,
-    "loud": 160
+    "due": 193,
+    "loud": 154
   },
   "rows": [
     {
@@ -164,6 +164,15 @@
       "link": ""
     },
     {
+      "source": "manager_queue_watch",
+      "id": "manager-queue-watch-never-ran-overdue",
+      "title": "the Manager Queue Watch Routine has never written its receipt",
+      "why_due": "armed 386.8h ago, on the order of 386 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "age_days": 16,
+      "loud": true,
+      "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
+    },
+    {
       "source": "open_items",
       "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
       "title": "⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator ",
@@ -171,15 +180,6 @@
       "age_days": 15,
       "loud": true,
       "link": ""
-    },
-    {
-      "source": "manager_queue_watch",
-      "id": "manager-queue-watch-never-ran-overdue",
-      "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 382.4h ago, on the order of 382 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
-      "age_days": 15,
-      "loud": true,
-      "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
     },
     {
       "source": "open_items",
@@ -320,15 +320,6 @@
       "source": "open_items",
       "id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
       "title": "PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states, of which broker_canc",
-      "why_due": "monitoring row 7d since last observation (cadence 3d)",
-      "age_days": 7,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
-      "title": "[!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER",
       "why_due": "monitoring row 7d since last observation (cadence 3d)",
       "age_days": 7,
       "loud": true,
@@ -1361,15 +1352,6 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12529"
     },
     {
-      "source": "unlanded_automation",
-      "id": "#12540",
-      "title": "chore(m28): valuation snapshots (auto)",
-      "why_due": "producer output opened a PR that has not landed",
-      "age_days": 0,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12540"
-    },
-    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -1393,6 +1375,15 @@
       "title": "A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any ",
       "why_due": "probe FAILED — its declared observation did not hold",
       "age_days": null,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
+      "title": "[!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
       "link": ""
     },
@@ -1425,39 +1416,12 @@
     },
     {
       "source": "red_crons",
-      "id": "constraint-readout",
-      "title": "constraint-readout",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34592532948"
-    },
-    {
-      "source": "red_crons",
-      "id": "due-list",
-      "title": "due-list",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34587092798"
-    },
-    {
-      "source": "red_crons",
-      "id": "pr-queue-watch",
-      "title": "pr-queue-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34623771514"
-    },
-    {
-      "source": "red_crons",
       "id": "replay-pregate-nightly",
       "title": "replay-pregate-nightly",
       "why_due": "latest scheduled run concluded 'failure'",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34580398446"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35326495386"
     },
     {
       "source": "spent_decision_edges",
@@ -1512,24 +1476,6 @@
       "age_days": null,
       "loud": true,
       "link": "docs/claude/STUCK-BRANCHES.json"
-    },
-    {
-      "source": "red_crons",
-      "id": "trainer-capture-watch",
-      "title": "trainer-capture-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34623006745"
-    },
-    {
-      "source": "red_crons",
-      "id": "work-digest",
-      "title": "work-digest",
-      "why_due": "latest scheduled run concluded 'cancelled'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/34622246570"
     },
     {
       "source": "sunset",
@@ -1750,8 +1696,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-516a1b2a",
-      "title": "[error] x5 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-14T06:10:03 → 2026-09-18T09:10:50 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
+      "title": "[error] x6 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-14T06:10:03 → 2026-09-18T13:39:27 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog",
       "age_days": 4,
       "loud": false,
       "link": ""
@@ -1759,8 +1705,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-72e2ad1e",
-      "title": "[error] x59 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 59 rows 2026-09-14T10:02:36 → 2026-09-18T12:05:27 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x63 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 63 rows 2026-09-14T10:02:36 → 2026-09-18T16:08:33 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 4,
       "loud": false,
       "link": ""
@@ -1785,18 +1731,18 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-332d3159",
-      "title": "[error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-18T09:10:49 → 2026-09-18T09:10:49 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-0f2fb04a",
+      "title": "[error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_live/TLT: position N carries a resting stop for only N — N unprotected. The netted position is",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-18T15:23:12 → 2026-09-18T15:23:12 · accounts=alpaca_live — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-6555c6ee",
-      "title": "[error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: ETHUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n",
-      "why_due": "error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-18T09:09:40 → 2026-09-18T09:09:40 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog",
+      "id": "ERRFEED-c39a9322",
+      "title": "[error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_portfolio/SPY: position N carries a resting stop for only N — N unprotected. The netted positi",
+      "why_due": "error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-18T14:18:44 → 2026-09-18T14:18:44 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog",
       "age_days": 0,
       "loud": false,
       "link": ""
@@ -1804,8 +1750,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "84 cause groups over 1319 rows (58 error-level, 26 warn-level, 3 new since the last digest)",
-      "why_due": "48 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T06:07:13.224321+00:00`.",
+      "title": "87 cause groups over 1328 rows (60 error-level, 27 warn-level, 3 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T12:19:25.270849+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
