@@ -30,7 +30,7 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -59,9 +59,38 @@ _HEARTBEAT = runtime_logs_dir() / "heartbeat.txt"
 _STATUS_JSON = runtime_logs_dir() / "runtime_status.json"
 _IB_STATE_JSON = runtime_logs_dir() / "ib_state.json"
 
-_JOURNAL_TABLES: dict[str, str] = {
-    "order_packages": "datetime(updated_at)",
-    "trades": "id",
+class _JournalTable(NamedTuple):
+    """How one allowlisted journal table is ORDERED and PAGED.
+
+    ``order_expr`` — the chronological ordering expression (always DESC).
+
+    ``unique_col`` — a column unique within the table. It is BOTH the
+        deterministic tiebreaker appended to the ORDER BY (so a page boundary
+        can never fall inside a tie) and the column whose first/last values
+        are reported back as the range actually returned.
+
+    ``stable_key`` — True when ``unique_col`` IS the ordering key: the sort
+        key is then immutable and append-only, so OFFSET paging walks a fixed
+        sequence. False when the table is ordered by a MUTABLE column — the
+        tiebreaker still makes any SINGLE query a total order, but a row
+        updated between two page reads genuinely MOVES, so a multi-page walk
+        can skip or repeat it. That is a property of the data, not a defect to
+        paper over: it is REPORTED as ``page_stability`` rather than smoothed
+        away, because a caller paging ``order_packages`` to reconstruct a
+        population needs to know its walk is not snapshot-consistent. Shipping
+        ``offset`` without this distinction would have put a NEW silent
+        wrongness inside the fix for a silent wrongness.
+    """
+
+    order_expr: str
+    unique_col: str
+    stable_key: bool
+
+
+_JOURNAL_TABLES: dict[str, _JournalTable] = {
+    # updated_at is MUTABLE and non-unique — see _JournalTable.stable_key.
+    "order_packages": _JournalTable("datetime(updated_at)", "order_package_id", False),
+    "trades": _JournalTable("id", "id", True),
     # 2026-05-29 — M13 AI-analyst tables. Before this, the insights cache
     # had NO read path on the /api/diag/* relay: the cache files
     # (runtime_logs/insights/*.json) aren't in _LOG_FILES, the generator
@@ -72,9 +101,18 @@ _JOURNAL_TABLES: dict[str, str] = {
     # alive. Exposing these two tables (both keyed by autoincrement id) lets
     # a session read the analyst's history + spend via journal?table=...
     # and confirm the generator is writing. Read-only, no secrets.
-    "insights_history": "id",
-    "insights_usage": "id",
+    "insights_history": _JournalTable("id", "id", True),
+    "insights_usage": _JournalTable("id", "id", True),
 }
+
+# The EXACT set of query parameters /api/diag/journal understands. It is the
+# single source for both the signature and the refusal below, so a parameter
+# can never be added to one and silently dropped by the other — which is the
+# whole defect this set exists to end (MI-298 / MI-301, 2026-09-17/18):
+# FastAPI DISCARDS an undeclared query param without a word, so `offset=1000`
+# was accepted and ignored and the caller got a confident, specific, WRONG
+# population back.
+_JOURNAL_QUERY_PARAMS = frozenset({"table", "limit", "offset", "envelope"})
 
 _CANONICAL_UNITS: tuple[str, ...] = (
     # NB: the retired pre-rename trader unit "ict-bot.service" was removed here
@@ -1075,18 +1113,80 @@ def _audit_tail(limit: int) -> list[dict[str, Any]]:
     return out
 
 
-def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
+def _journal_select(
+    table: str,
+    limit: int,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Read one page of an allowlisted journal table, newest-first.
+
+    Returns ``(rows, meta)``. ``meta`` describes WHAT WAS ACTUALLY RETURNED —
+    the page key, the range of that key in the rows handed back, the table's
+    total row count, and whether more rows exist beyond this page — so a
+    caller can tell a COMPLETE population from a TRUNCATED one without
+    issuing a second call and without guessing.
+
+    Three never-collapsed states on ``total_rows_state``:
+
+      * ``counted``      — COUNT(*) ran; ``total_rows`` is that number.
+      * ``db_absent``    — the journal file does not exist yet (fresh
+                           install). ``total_rows`` is None.
+      * ``count_failed`` — the COUNT raised. ``total_rows`` is None.
+
+    ``total_rows`` is ``None``, never ``0``, whenever it was not measured:
+    zero is a REAL reading (an empty table) and must not be manufactured out
+    of a failed look. ``has_more`` is likewise ``None`` — not ``False`` —
+    when the total is unknown, because "there is nothing more" and "we could
+    not establish whether there is more" are opposite facts and the second one
+    is what silently amputated the pre-era research population.
+
+    A COUNT(*) failure deliberately does NOT fail the read: the rows are the
+    caller's answer and the count is provenance about them, so losing the
+    provenance must not also lose the data. Cost is bounded by the four-entry
+    allowlist (largest table ~150k rows, an indexed-free scan of ms).
+    """
     if table not in _JOURNAL_TABLES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "unknown_table", "allowed": sorted(_JOURNAL_TABLES.keys())},
         )
+    spec = _JOURNAL_TABLES[table]
+    # The deterministic tiebreaker is appended ONLY when it is not already the
+    # ordering key, so `trades` keeps the exact `ORDER BY id DESC` it has
+    # always had and `order_packages` gains the total order OFFSET paging
+    # needs. Both names come from the hardcoded allowlist above — never from
+    # user input — so the f-string carries no injection surface.
+    order_by = (
+        f"{spec.order_expr} DESC"
+        if spec.order_expr == spec.unique_col
+        else f"{spec.order_expr} DESC, {spec.unique_col} DESC"
+    )
+    meta: dict[str, Any] = {
+        "table": table,
+        "limit": limit,
+        "offset": offset,
+        "count": 0,
+        "order_by": order_by,
+        "page_key": spec.unique_col,
+        # `stable_key`  — the sort key is immutable, so paging walks a fixed
+        #                 sequence and a multi-page read reconstructs the
+        #                 table exactly.
+        # `mutable_key` — the sort key can CHANGE between page reads, so a
+        #                 row may move across a boundary and be skipped or
+        #                 repeated. The page is internally consistent; the
+        #                 WALK is not snapshot-consistent. Say so.
+        "page_stability": "stable_key" if spec.stable_key else "mutable_key",
+        "returned_range": None,
+        "total_rows": None,
+        "total_rows_state": "count_failed",
+        "has_more": None,
+    }
     if not _DB_PATH.exists():
         # Genuine "DB hasn't been created yet" — distinct from "DB
-        # reachable but broken". Keep the empty-list shape here so a
+        # reachable but broken". Keep the empty-rows shape here so a
         # fresh install doesn't 503 out of the gate.
-        return []
-    order_col = _JOURNAL_TABLES[table]
+        meta["total_rows_state"] = "db_absent"
+        return [], meta
     try:
         # mode=ro guarantees no mutation can happen here even if a future
         # change accidentally introduces an UPDATE/DELETE statement.
@@ -1094,10 +1194,29 @@ def _journal_select(table: str, limit: int) -> list[dict[str, Any]]:
         try:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
-                f"SELECT * FROM {table} ORDER BY {order_col} DESC LIMIT ?",
-                (limit,),
+                f"SELECT * FROM {table} ORDER BY {order_by} LIMIT ? OFFSET ?",
+                (limit, offset),
             )
-            return [dict(r) for r in cur.fetchall()]
+            rows = [dict(r) for r in cur.fetchall()]
+            meta["count"] = len(rows)
+            if rows:
+                meta["returned_range"] = {
+                    "column": spec.unique_col,
+                    "first": rows[0].get(spec.unique_col),
+                    "last": rows[-1].get(spec.unique_col),
+                }
+            try:
+                total = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            except (sqlite3.Error, TypeError, IndexError) as exc:  # allow-silent: the OPPOSITE of silent — the failure is NAMED in the response (`total_rows_state: count_failed`, `total_rows`/`has_more` None = "we could not look", never 0/False) and logged with its type. It must not re-raise: the rows are the caller's answer and the COUNT is provenance ABOUT them, so losing the provenance must not also lose the data. Narrowing past sqlite3.Error is not available — that IS the count's failure mode, plus TypeError/IndexError if fetchone() returns None.
+                logger.warning(
+                    "diag: _journal_select(table=%s) COUNT(*) failed: %s: %s",
+                    table, type(exc).__name__, exc,
+                )
+            else:
+                meta["total_rows"] = int(total)
+                meta["total_rows_state"] = "counted"
+                meta["has_more"] = (offset + len(rows)) < int(total)
+            return rows, meta
         finally:
             conn.close()
     except sqlite3.Error as exc:
@@ -1490,8 +1609,10 @@ def get_snapshot(request: Request, limit: int = _DEFAULT_LIMIT) -> dict[str, Any
         "heartbeat": _heartbeat_snapshot(),
         "status": _status_json_payload(),
         "audit_tail": _audit_tail(n),
-        "order_packages": _journal_select("order_packages", n),
-        "trades": _journal_select("trades", n),
+        # `/snapshot` keeps its historical bare-list shape for these two
+        # keys; the paging provenance is available on `/journal` itself.
+        "order_packages": _journal_select("order_packages", n)[0],
+        "trades": _journal_select("trades", n)[0],
         "vm_health": _vm_health(),
         "services": [{"unit": u, "state": states.get(u, "unknown")} for u in _CANONICAL_UNITS],
     }
@@ -1632,9 +1753,114 @@ def get_journal(
     request: Request,
     table: str,
     limit: int = _DEFAULT_LIMIT,
-) -> list[dict[str, Any]]:
+    offset: int = 0,
+    envelope: bool = False,
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Newest-first page of an allowlisted journal table.
+
+    Params — and this list is EXHAUSTIVE, enforced rather than described
+    (see ``_JOURNAL_QUERY_PARAMS``): anything else is a **400**, never a
+    silent no-op.
+
+      * ``table``    — one of ``_JOURNAL_TABLES``.
+      * ``limit``    — rows per page, clamped to ``_MAX_LIMIT`` (1000).
+      * ``offset``   — rows to skip. **This is how you reach history older
+                       than the newest page.**
+      * ``envelope`` — ``true`` wraps the rows in a dict that also states
+                       what was returned (range, total, has_more). Default
+                       ``false`` returns the historical bare array.
+
+    **Why this exists (MI-298 / MI-301, measured 2026-09-17 and 2026-09-18).**
+    This route took ``table`` + ``limit`` only. FastAPI DISCARDS an undeclared
+    query parameter in silence, so ``offset=1000`` was accepted and ignored
+    and the caller got a confident, specific, WRONG population — with nothing
+    in the response saying so. That is ``UNPROVENANCED DIAGNOSTIC OUTPUT``
+    sub-class B (implicit input selection) on the surface most sessions grade
+    populations from. Because ids are monotonic and the window is the newest
+    ``limit`` rows, the window's FLOOR RISES as the table grows, so the
+    reachable population lost its OLDEST rows a little more each day: the
+    ``trades`` floor moved 4653 (2026-09-10) → 4701 (09-12) → 4891 (09-18),
+    i.e. 238 ids of pre-era history walked out of reach in 8 days while every
+    before/after study depended on them.
+
+    **THE 1000-ROW CLAMP IS DELIBERATE AND STAYS.** It is not the bug. It is
+    a real bound on an unbounded read against the web-api that shares a
+    2-OCPU box with the live trader, and this repo has paid for unbounded
+    reads twice (the June 2026 wedges). Measured on the live VM: one
+    ``limit=1000`` page of ``order_packages`` is already **4.8 MB**, so a
+    5000-row page would be ~24 MB in a single response. The fix is therefore
+    PAGING WITHIN the clamp, which is exactly what ``/audit_query`` — in this
+    same file — already chose for the same problem: *"``limit`` (≤
+    ``_MAX_LIMIT``) + ``offset`` — page back through the full table."* This
+    route simply never got that treatment.
+
+    **There is deliberately no ``since``/``until`` here**, and that is a
+    refusal rather than an omission. These tables have no single unambiguous
+    time column — ``trades`` carries ``timestamp``, ``created_at`` AND
+    ``closed_at``; ``order_packages`` carries ``created_at`` AND
+    ``updated_at`` — so a date filter would have to PICK one implicitly, which
+    is the very sub-class B defect this change exists to remove. A caller who
+    passes them is TOLD, and pointed at ``/audit_query``, which filters
+    ``signals`` on a single declared column. Adding a date filter here needs
+    the column named in the request, and that is a separate decision.
+
+    ⚠️ ``page_stability`` is not decoration. ``order_packages`` is ordered by
+    the MUTABLE ``updated_at``, so a multi-page walk of it is not
+    snapshot-consistent — a row updated mid-walk moves and can be skipped or
+    repeated. Every other table is ordered by its immutable ``id`` and pages
+    exactly. Read it before treating a paged pull as a census.
+    """
     _require_diag_token(request)
-    return _journal_select(table, _clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT))
+    # Refuse an unsupported parameter rather than discarding it. Ordered
+    # AFTER the token check so an unauthenticated caller learns nothing about
+    # the vocabulary.
+    unsupported = sorted(set(request.query_params.keys()) - _JOURNAL_QUERY_PARAMS)
+    if unsupported:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "unsupported_parameter",
+                "unsupported": unsupported,
+                "supported": sorted(_JOURNAL_QUERY_PARAMS),
+                "hint": (
+                    "This route pages with limit+offset (newest-first). It has "
+                    "no date filter on purpose: these tables carry more than "
+                    "one timestamp column, so filtering would have to choose "
+                    "one implicitly. For a time-filtered read of the audit "
+                    "stream use /api/diag/audit_query, which declares the "
+                    "column it filters (signals.logged_at_utc)."
+                ),
+            },
+        )
+    effective_limit = _clamp(limit, _DEFAULT_LIMIT, _MAX_LIMIT)
+    # Three states, not a boolean: "you got what you asked for", "your ask
+    # exceeded the deliberate cap", and "your ask was invalid so the default
+    # was substituted" are different facts, and the last one is the quiet way
+    # a caller ends up reading a population it never requested.
+    if effective_limit == limit:
+        limit_state = "as_requested"
+    elif limit is not None and limit >= 1:
+        limit_state = "clamped_to_max"
+    else:
+        limit_state = "defaulted_invalid"
+    effective_offset = max(0, offset)
+    rows, meta = _journal_select(table, effective_limit, effective_offset)
+    if not envelope:
+        # Default stays a BARE ARRAY, byte-identical to the historical shape.
+        # ~15 in-repo consumers parse this response as a JSON array
+        # (scripts/ops/system_invariants.py, scripts/research/*, …), so
+        # flipping the default would trade one breakage for another. The
+        # envelope is opt-in and is named in the 400 above so it is
+        # discoverable from the surface itself.
+        return rows
+    return {
+        **meta,
+        "limit_requested": limit,
+        "limit_state": limit_state,
+        "limit_max": _MAX_LIMIT,
+        "offset_requested": offset,
+        "rows": rows,
+    }
 
 
 @router.get("/audit_query")
