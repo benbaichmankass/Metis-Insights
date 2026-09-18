@@ -428,7 +428,8 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                     # share this emit shape and all three had the same gap.
                     "symbol": symbol,
                     "exit_time": str(t.exit_time),
-                    "entry": t.entry, "sl": t.sl, "exit_reason": t.outcome,
+                    "entry": t.entry, "sl": t.sl, "risk": t.risk,
+                    "exit_reason": t.outcome,
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
                     # Additive fields for the capital-efficiency study

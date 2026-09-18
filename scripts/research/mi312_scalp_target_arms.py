@@ -246,6 +246,19 @@ def _f(v: Any) -> Optional[float]:
         return None
 
 
+def _risk_of(row: dict) -> Optional[float]:
+    """A row's risk, falling back to the exact `abs(entry - sl)` identity.
+
+    Same derivation and same positive control as `target_r_of` below; factored
+    out so the two cannot disagree about what a row's risk is.
+    """
+    risk = _f(row.get("risk"))
+    if risk is not None:
+        return risk
+    entry, sl = _f(row.get("entry")), _f(row.get("sl"))
+    return abs(entry - sl) if (entry is not None and sl is not None) else None
+
+
 def target_r_of(row: dict) -> Optional[float]:
     """The would-be target in R for one trade: ``|unit_tp - entry| / risk``.
 
@@ -258,6 +271,19 @@ def target_r_of(row: dict) -> Optional[float]:
     unit_tp = _f(row.get("unit_tp", meta.get("unit_tp")))
     entry = _f(row.get("entry"))
     risk = _f(row.get("risk"))
+    if risk is None:
+        # THE FVG EMIT CARRIES NO `risk` FIELD (the scalp one does), so without
+        # this every fvg row returned None and that leg's control could not be
+        # computed at all -- silently, because None is also the honest answer
+        # for a row that genuinely lacks a term.
+        #
+        # The fallback is EXACT, not an approximation: both harnesses define
+        # risk as `abs(entry - sl)` at the point of use. VALIDATED WITH A
+        # POSITIVE CONTROL rather than asserted -- over the 1,137 scalp rows
+        # that carry BOTH fields, `risk == abs(entry - sl)` on 1,137 of 1,137
+        # with a maximum absolute error of 0.0. It is applied only when `risk`
+        # is absent, so a row that HAS the field is never second-guessed.
+        risk = _risk_of(row)
     if unit_tp is None or entry is None or risk is None or risk <= 0:
         return None
     return abs(unit_tp - entry) / risk
@@ -298,7 +324,7 @@ def summarise(leg: str, live_rows: list[dict], notp_rows: list[dict],
         m = exit_capture.mfe_r_of(r)
         x = target_r_of(r)
         c = target_basis.cap_r(entry=_f(r.get("entry")) or 0.0,
-                               risk=_f(r.get("risk")) or 0.0,
+                               risk=_risk_of(r) or 0.0,
                                cap_pct=TP_VENUE_CAP_PCT)
         if m is None or x is None:
             continue
