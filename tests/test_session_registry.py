@@ -306,3 +306,61 @@ def test_clear_stamps_updated_at_the_way_declaring_does(tmp_path, monkeypatch):
     assert "blocked_on" not in after["sessions"][0]
     assert after["updated_at"] != "2020-01-01T00:00:00Z", (
         "discharging a blocker must stamp the register, as declaring one does")
+
+
+# --------------------------------------------------------------------------- #
+# `registry_confirmed` (MI-263/MI-264) — a lane declaring on its OWN pending
+# row, which by construction carries no session_id to match on yet. Without
+# the registry_key fallback below, the ordinary session_id lookup ALWAYS
+# refuses for exactly the condition this kind exists to watch.
+# --------------------------------------------------------------------------- #
+def test_a_pending_row_is_found_by_registry_key_when_session_id_cannot_match(
+        tmp_path, monkeypatch):
+    p = _reg(tmp_path, [{"session_id": None, "registry_key": "pending-X",
+                         "state": "spawn_pending", "title": "d"}])
+    rc = _blocked_on(monkeypatch, p, "session_01REAL", kind="registry_confirmed",
+                     ref="pending-X", clears_when="confirmed")
+    assert rc == 0, "the fallback must let a lane declare on its own pending row"
+    row = json.loads(p.read_text())["sessions"][0]
+    assert [b["kind"] for b in row["blocked_on"]] == ["registry_confirmed"]
+    assert row["session_id"] is None, (
+        "the fallback appends the edge only — it must never write session_id "
+        "itself, which is confirm()'s job and confirm()'s alone")
+
+
+def test_the_fallback_refuses_an_ambiguous_registry_key(tmp_path, monkeypatch):
+    """This repo has measured THREE rows sharing one `pending-` key at once
+    (`_mint_registry_key`'s own docstring). Guessing which is yours would bind
+    this lane's clear to somebody else's confirmation."""
+    p = _reg(tmp_path, [
+        {"session_id": None, "registry_key": "pending-DUP", "title": "d1"},
+        {"session_id": None, "registry_key": "pending-DUP", "title": "d2"}])
+    rc = _blocked_on(monkeypatch, p, "session_01REAL", kind="registry_confirmed",
+                     ref="pending-DUP", clears_when="confirmed")
+    assert rc != 0
+    after = json.loads(p.read_text())
+    assert all("blocked_on" not in r for r in after["sessions"])
+
+
+def test_the_fallback_never_matches_an_already_confirmed_row(tmp_path, monkeypatch):
+    """A row that already carries a session_id is not this kind's condition any
+    more — it is somebody's SETTLED row, not a lane's own still-pending one."""
+    p = _reg(tmp_path, [{"session_id": "session_01OTHER", "registry_key": "pending-Y",
+                         "state": "working", "title": "e"}])
+    rc = _blocked_on(monkeypatch, p, "session_01REAL", kind="registry_confirmed",
+                     ref="pending-Y", clears_when="confirmed")
+    assert rc != 0, "an already-confirmed row must not be silently adopted"
+    after = json.loads(p.read_text())
+    assert "blocked_on" not in after["sessions"][0]
+
+
+def test_the_fallback_is_scoped_to_registry_confirmed_only(tmp_path, monkeypatch):
+    """The fallback must not widen into a generic 'find me by any field' escape
+    hatch for every other kind — only the one kind whose whole point is an
+    unconfirmed row has no session_id to look up by."""
+    p = _reg(tmp_path, [{"session_id": None, "registry_key": "pending-Z", "title": "f"}])
+    rc = _blocked_on(monkeypatch, p, "session_01REAL", kind="pull_request",
+                     ref="pending-Z", clears_when="merged")
+    assert rc != 0
+    after = json.loads(p.read_text())
+    assert "blocked_on" not in after["sessions"][0]
