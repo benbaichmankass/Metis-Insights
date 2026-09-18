@@ -436,6 +436,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--all", action="store_true",
                     help="full sweep; REPORTS the pre-existing debt, does not fail on it")
     args = ap.parse_args(argv)
+    # The verdict below is about the COMMITTED tree. Say so when that is
+    # not the tree you edited. See
+    # BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY
+    import pathlib  # noqa: PLC0415 — local, so importing this module stays free
+    import sys as _sys  # noqa: PLC0415
+    _sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ci"))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
+
     repo = pathlib.Path(args.repo_root)
     filed, unreadable = filed_ids_with_state(repo)
 
