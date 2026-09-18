@@ -1,0 +1,103 @@
+{
+ "entry_overlap_max": 1.0,
+ "entry_overlap_mean": 0.9954624999999999,
+ "entry_overlap_min": 0.99,
+ "independence_floor": 0.95,
+ "independent_fraction_ceiling_max": 0.010000000000000009,
+ "legs": [
+  {
+   "control_delta_pp": 0.0,
+   "control_n_pairs": 45,
+   "entry_overlap": 1.0,
+   "independent_fraction_ceiling": 0.0,
+   "leg": "fvg_range_15m",
+   "n_live": 45,
+   "n_no_tp": 45,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.48,
+   "control_n_pairs": 1135,
+   "entry_overlap": 0.9982,
+   "independent_fraction_ceiling": 0.0018000000000000238,
+   "leg": "ict_scalp_5m",
+   "n_live": 1137,
+   "n_no_tp": 1135,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.44,
+   "control_n_pairs": 1664,
+   "entry_overlap": 0.9952,
+   "independent_fraction_ceiling": 0.0048000000000000265,
+   "leg": "ict_scalp_avax_5m",
+   "n_live": 1670,
+   "n_no_tp": 1664,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": 0.03,
+   "control_n_pairs": 597,
+   "entry_overlap": 0.99,
+   "independent_fraction_ceiling": 0.010000000000000009,
+   "leg": "ict_scalp_eth_15m",
+   "n_live": 601,
+   "n_no_tp": 597,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.71,
+   "control_n_pairs": 663,
+   "entry_overlap": 0.994,
+   "independent_fraction_ceiling": 0.006000000000000005,
+   "leg": "ict_scalp_sol_15m",
+   "n_live": 667,
+   "n_no_tp": 663,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.36,
+   "control_n_pairs": 1471,
+   "entry_overlap": 0.9993,
+   "independent_fraction_ceiling": 0.0007000000000000339,
+   "leg": "ict_scalp_sol_5m",
+   "n_live": 1472,
+   "n_no_tp": 1471,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.54,
+   "control_n_pairs": 557,
+   "entry_overlap": 0.9928,
+   "independent_fraction_ceiling": 0.007199999999999984,
+   "leg": "ict_scalp_xrp_15m",
+   "n_live": 557,
+   "n_no_tp": 557,
+   "state": "cannot_be_independent"
+  },
+  {
+   "control_delta_pp": -0.47,
+   "control_n_pairs": 1210,
+   "entry_overlap": 0.9942,
+   "independent_fraction_ceiling": 0.005800000000000027,
+   "leg": "ict_scalp_xrp_5m",
+   "n_live": 1217,
+   "n_no_tp": 1210,
+   "state": "cannot_be_independent"
+  }
+ ],
+ "mi312_measured_disagreement": {
+  "basis": "CITED from MI-312 \u00a7 2.1 \u2014 its emits are gitignored, so this cannot be recomputed here and is not presented as if it were",
+  "n": 21,
+  "of": 7338,
+  "rate": 0.0028618152085036794
+ },
+ "n_gradeable": 8,
+ "n_legs": 8,
+ "population": "all legs in MI-312's committed artifact; entry_overlap is live-arm vs no_tp-arm, i.e. the LARGEST perturbation a target change can make",
+ "source": "docs/research/mi312-scalp-target-arms-2026-09-18.json",
+ "source_generated_at": "2026-09-18T06:06:36.103670+00:00",
+ "total_joined_pairs": 7342,
+ "unit": "MI-318",
+ "verdict": "arm_vs_arm_cannot_be_independent"
+}
