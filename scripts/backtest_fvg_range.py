@@ -62,6 +62,9 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import target_basis  # noqa: E402  (the ONE take-profit-basis definition)
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -85,6 +88,11 @@ class Trade:
     r_multiple: float
     mfe_r: float
     confidence: float
+    # The arm's own provenance, per trade — never inferred by a reader
+    # from what it believes the caller passed.
+    tp_basis: str = target_basis.UNIT_TP
+    unit_tp: Optional[float] = None
+    cap_r: Optional[float] = None
 
 
 # --------------------------------------------------------------------------
@@ -170,6 +178,7 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                  symbol: str, min_confidence: float = 0.0,
                  stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
                  giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0,
+                 tp_cap_pct: float = 0.0, no_tp: bool = False,
                  emit_path: Optional[str] = None) -> Dict[str, Any]:
     if exit_style not in _EXIT_STYLES:
         raise ValueError(f"exit_style must be one of {_EXIT_STYLES}")
@@ -312,18 +321,38 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
 
         # Target.
         if exit_style == "mid":
-            target = (R + S) / 2.0
+            unit_target = (R + S) / 2.0
         elif exit_style == "far":
-            target = R if direction == "long" else S
+            unit_target = R if direction == "long" else S
         else:  # tp1r
-            target = entry + tp_r * risk if direction == "long" else entry - tp_r * risk
+            unit_target = (entry + tp_r * risk if direction == "long"
+                           else entry - tp_r * risk)
         # Degenerate-target guard.
-        if direction == "long" and target <= entry:
+        #
+        # ⚠️ DELIBERATELY EVALUATED ON `unit_target`, AND STILL EVALUATED UNDER
+        # `--no-tp`. This guard SKIPS a signal, so it decides which trades
+        # exist at all. Letting it lapse when the target is switched off would
+        # admit signals the default arm rejects, and the two arms would then
+        # differ in their ENTRY population for a reason that has nothing to do
+        # with the exit — destroying the comparison the target-setting arm is
+        # for. `--no-tp` must change how a trade ENDS, never whether it BEGINS.
+        if direction == "long" and unit_target <= entry:
             i += 1
             continue
-        if direction == "short" and target >= entry:
+        if direction == "short" and unit_target >= entry:
             i += 1
             continue
+        # WHICH TARGET THIS ARM PLACES — through the ONE owner, shared with
+        # backtest_ict_scalp.py. Both flags default off => byte-identical.
+        #
+        # ⚠️ fvg_range's live unit sets `tp = R` (the opposite boundary,
+        # src/units/strategies/fvg_range_15m.py:376) and applies NO venue
+        # clamp — `fvg` is absent from tp_venue_cap.CLAMPING_FAMILIES — so
+        # `--exit-style far` with no cap is the live-parity arm here, NOT this
+        # harness's own `mid` default.
+        target, tp_basis = target_basis.resolve_target(
+            entry=entry, direction=direction, unit_tp=unit_target,
+            cap_pct=tp_cap_pct, disabled=no_tp)
 
         # Walk forward: SL-first intrabar (conservative), then target, then
         # timeout (time-decay).
@@ -338,7 +367,7 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                 if bl <= sl:
                     exit_price, exit_idx, exit_reason = sl, j, "stop"
                     break
-                if bh >= target:
+                if target is not None and bh >= target:
                     exit_price, exit_idx, exit_reason = target, j, "target"
                     break
                 ext = max(ext, bh)
@@ -347,7 +376,7 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                 if bh >= sl:
                     exit_price, exit_idx, exit_reason = sl, j, "stop"
                     break
-                if bl <= target:
+                if target is not None and bl <= target:
                     exit_price, exit_idx, exit_reason = target, j, "target"
                     break
                 ext = min(ext, bl)
@@ -374,7 +403,11 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
             exit_time=ts.iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
-            confidence=confidence))
+            confidence=confidence, tp_basis=tp_basis,
+            unit_tp=unit_target,
+            cap_r=(target_basis.cap_r(entry=entry, risk=risk,
+                                      cap_pct=tp_cap_pct)
+                   if tp_cap_pct > 0.0 else None)))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
 
@@ -404,6 +437,8 @@ def run_backtest(df: pd.DataFrame, *, range_lookback: int, atr_period: int,
                     # uniformly across harnesses. No effect on existing consumers.
                     "hold_bars": int(t.exit_index - t.entry_index),
                     "mfe_r": t.mfe_r,
+                    "tp_basis": t.tp_basis, "unit_tp": t.unit_tp,
+                    "cap_r": t.cap_r,
                     "confidence": t.confidence}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"range_lookback": range_lookback, "adx_max": adx_max,
@@ -635,6 +670,20 @@ def main(argv: List[str]) -> int:
                    help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
     p.add_argument("--giveback-r", type=float, default=1.0,
                    help="Close at bar close once the trade gives back this many R from its peak.")
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="COUNTERFACTUAL venue clamp: place min(unit_target, "
+                        "entry*(1+pct)) long. 0 = off, byte-identical. "
+                        "** NOT LIVE PARITY ON THIS HARNESS. ** fvg_range's "
+                        "live unit sets tp = the opposite boundary and applies "
+                        "NO venue clamp (`fvg` is absent from "
+                        "src/runtime/tp_venue_cap.py::CLAMPING_FAMILIES), so "
+                        "live parity here is `--exit-style far` with NO cap, "
+                        "and this flag departs from it.")
+    p.add_argument("--no-tp", action="store_true",
+                   help="Disable the target entirely (run to stop or timeout) "
+                        "— the target-setting arm. The degenerate-target guard "
+                        "still runs on the unit target, so this changes how a "
+                        "trade ENDS and never which trades exist.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
@@ -661,6 +710,7 @@ def main(argv: List[str]) -> int:
         stale_exit_bars=args.stale_exit_bars,
         stale_exit_below_r=args.stale_exit_below_r,
         giveback_min_mfe_r=args.giveback_min_mfe_r,
+        tp_cap_pct=float(args.tp_cap_pct), no_tp=bool(args.no_tp),
         giveback_r=args.giveback_r,
         emit_path=args.emit_trades)
     print(_fmt(out))
