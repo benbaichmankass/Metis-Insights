@@ -39915,6 +39915,22 @@
         "scripts/research/mi312_scalp_target_arms.py"
       ],
       "resolution_criteria": "mi312_scalp_target_arms.py emits a per-leg exit-reason histogram PER ARM into its committed artifact (counts by exit reason, plus a hold-time summary), so the section 2.1 claim can be re-read from main -- VERIFIED by recomputing MI-312's stated 383->0 / 786->1082 / 69->150 figures from the committed JSON alone, with no runtime_logs/ present. [!] RE-RUNNING THE HARNESS AND QUOTING THE NUMBERS AGAIN DOES NOT RESOLVE THIS -- that reproduces the same un-re-readable state one cycle later. The fix is that the SUMMARY is committed. [!] AND DO NOT RESOLVE IT BY COMMITTING THE EMITS: they are large, per-run and correctly gitignored; a histogram is the artifact that belongs in git."
+    },
+    {
+      "id": "BL-20260918-LONG-BACKLOG-IDS-GET-TRUNCATED-WHEN-EMBEDDED-IN-PROSE-AND-A-SHORTENED-ID-IS-NOT-AN-ID",
+      "title": "Two separate units in one session truncated a 90+ character BL- id when citing it in a memo and a work object; the reference then resolves to nothing while READING as tracked",
+      "severity": "low",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-318",
+      "detail": "RECURRENCE, observed TWICE in one session, which is why it is filed as a class rather than fixed twice in silence. (1) MI-317's memo cited BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN... -- the abbreviated form MI-312's OWN memo uses for readability -- and check_backlog_refs caught it. (2) MI-318's work object then cited BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED, dropping the trailing -SO-ITS-MECHANISM-CLAIM-CANNOT-BE-RE-READ, and the same guard caught it again. THE MECHANISM IS THE ID LENGTH, NOT CARELESSNESS: these ids run 90-140 characters because the convention encodes the whole finding in the id, and a 140-character token inside a markdown sentence or a YAML block scalar visually demands shortening -- so the author shortens it, and a shortened id is not an id. It is worth noting that the SOURCE of the first truncation was another memo doing the same thing, i.e. the abbreviation propagates by copying. THE GUARD WORKS AND IS THE REASON THIS IS LOW SEVERITY: check_backlog_refs caught both, named the filed id that STARTS WITH the truncated one, and said in terms that 'an id shortened or line-wrapped for readability stops being an id'. Nothing reached main broken. What is unmeasured is how often it happens in files the guard does NOT watch, and whether any already-landed doc carries a truncated id from before the guard existed -- neither was checked here, and saying so is the honest state rather than implying the class is contained.",
+      "refs": [
+        "scripts/ops/check_backlog_refs.py",
+        "docs/research/per-leg-target-geometry-packet-2026-09-18.md",
+        "docs/claude/work/objects/WO-20260918-CAN-A-SCALP-CONTROL-BE-INDEPENDENT-AT-ALL.yaml"
+      ],
+      "resolution_criteria": "MEASURE FIRST, THEN DECIDE -- this row does not presuppose a fix. Sweep the tree for tokens matching BL-[0-9]{8}-[A-Z0-9-]+ that are a strict PREFIX of a filed id but not equal to one, across every path check_backlog_refs watches AND the paths it does not, and report the count with its denominator. If the count is ~0 outside this session, the guard already contains the class and the right disposition is to CLOSE this row saying so. If it is non-trivial, the candidate remedies are a prefix-resolving reference form or shortening the id convention itself -- both larger than this row. [!] DO NOT RESOLVE BY WIDENING THE GUARD'S WATCHED PATHS ALONE without the measurement: that changes how much is checked without establishing whether anything is wrong, and a guard that starts failing PRs on a class nobody sized is how a guard gets disabled instead of fixed."
     }
   ]
 }
