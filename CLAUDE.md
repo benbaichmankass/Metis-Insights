@@ -112,7 +112,7 @@ This block is rendered from `docs/claude/CYCLE-PRIORITY.json` + `docs/claude/CON
 - **186 other row(s) due** across the structured registers (§5, completeness `all_sources_read`).
 
 **🗑️ SUNSET (E3, 2026-09-14): 21 retirement candidate(s)** over 52 strategy legs (lifetime read `read`, 13 packet date(s)) · machinery probe `measured`, 93 findings carried.
-- Candidates: `avax_pullback_2h`, `fade_breakout_4h`, `fvg_range_15m`, `gdx_pullback_1d`, `gld_pullback_1d`, `htf_pullback_trend_2h`, `iaum_pullback_1d`, `ief_pullback_1d`, `iwm_trend_long_1d`, `mes_trend_long_1d`, `mhg_pullback_1d`, `qld_trend_long_1d` …. Retiring a leg is **Tier-3** — propose, never enact. Disposition them in `docs/claude/SUNSET-DISPOSITIONS.json`.
+- Candidates (9 of 21 already carry a recorded disposition): `avax_pullback_2h`, `fade_breakout_4h`, `fvg_range_15m`, `gdx_pullback_1d` [repair, 2026-09-04], `gld_pullback_1d` [repair, 2026-09-04], `htf_pullback_trend_2h`, `iaum_pullback_1d` [repair, 2026-09-04], `ief_pullback_1d`, `iwm_trend_long_1d`, `mes_trend_long_1d` [repair, 2026-09-04], `mhg_pullback_1d`, `qld_trend_long_1d` …. Retiring a leg is **Tier-3** — propose, never enact. Undispositioned ones go in `docs/claude/SUNSET-DISPOSITIONS.json`.
 
 **🧭 8 FILED ROW(S) CROSSED 24h UNROUTED — nobody has been given them, and this is the first time each is being said.** `MI-246`: filing is not routing. Route it, disposition it, or say why it stays unrouted — it will not be reported again.
 
