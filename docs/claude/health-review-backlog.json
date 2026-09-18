@@ -39819,6 +39819,23 @@
         "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
       ],
       "resolution_criteria": "EITHER detect_format is extended to reproduce OPEN-ITEMS.json (and backlog_append accepts it), OR a dedicated open_items_append helper exists that round-trips it byte-for-byte -- VERIFIED by appending a row and reading a diff with ZERO deletions beyond the one comma the previous last row gains. A green import proves nothing: the failure mode is a write that SUCCEEDS and reformats. [!] Re-serialising OPEN-ITEMS.json into a shape json.dumps can reproduce is a legitimate fix and is NOT free -- it is a one-time 1,800-line diff that re-attributes every row, so it needs to land alone, on its own PR, and never inside a content change."
+    },
+    {
+      "id": "BL-20260918-STALE-IN-FLIGHT-RATCHET-RACES-A-REGISTER-MAIN-MUTATES-FASTER-THAN-CI-RUNS-SO-A-PR-FAILS-FOR-ROWS-IT-NEVER-TOUCHED",
+      "title": "check_stale_in_flight compares base-vs-head on MANAGER-CHECKLIST.json and work/objects/, which main mutates every ~2.7 min during a burst against a ~5.3 min guards job -- so an open PR reports as ADDING in_flight rows that other PRs have since closed",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED on PR #12526, which touches NEITHER register. The guard's ratchet counts in_flight rows at base and at head and fails on a positive delta. When ANOTHER PR CLOSES an in_flight row on main, every open branch whose merge-base predates that close still carries the row as in_flight, so relative to the NEW base it reads as ADDING it -- attributing to the author rows they never wrote. Observed TWICE in ~15 minutes on one PR: #12521 closed WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE (verified lifecycle in_flight at 8460ff8b2 -> done at the next main), and while that merge was being pushed #12522 closed WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ. A third CI cycle then failed on the same guard after #12524 (two more closures) and #12525 (which FILLED `state` on 52 checklist items). THE RACE IS QUANTIFIED. POPULATION: commits on origin/main in a 3h window touching docs/claude/work/MANAGER-CHECKLIST.json or docs/claude/work/objects/ -- 6 commits, but CLUSTERED: 5 of them inside 12 minutes (07:31:57Z-07:43:00Z), inter-commit gaps min 0.6 / median 2.7 / max 91.0 minutes, 3 of 5 gaps under 6 minutes. The `guards` job on that PR ran 07:42:35Z-07:47:54Z = 5.3 minutes. So DURING A BURST the base mutates faster than the job validating against it can finish, and merging the base cannot reliably win the race: the merge restarts CI, and the base moves again inside that run. [!] STATE THE POPULATION HONESTLY: the rate is BURSTY, not uniform -- the 91-minute gap shows quiet periods where a merge settles it in one cycle, which is what happened on the fourth try. This is not a claim that the guard fails constantly. [!] THE GUARD'S FINDING IS CORRECT AND MUST NOT BE WEAKENED: those rows really are in_flight with dormant owners, and its own text is careful to say the EVIDENCE does not support the claim rather than that the work is abandoned. What is wrong is ATTRIBUTION -- it bills a shared-register race to whoever happens to have a PR open.",
+      "refs": [
+        "scripts/ci/check_stale_in_flight.py",
+        "docs/claude/work/MANAGER-CHECKLIST.json",
+        "docs/claude/work/objects/",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/12526"
+      ],
+      "resolution_criteria": "The ratchet stops counting rows the HEAD did not change -- e.g. it grades only in_flight rows whose defining file the DIFF touches, or it compares against the merge-base rather than live origin/main. VERIFIED by a PR that touches neither register passing while an unrelated PR closes an in_flight row mid-run: construct it by closing a row on main during the PR's CI cycle, which is exactly the condition measured here. [!] A PASS ON A QUIET HOUR PROVES NOTHING -- the 91-minute gap in this measurement means an unmodified guard passes most of the time, so 'it passed' is not evidence the race is closed. [!] AND DO NOT RESOLVE THIS BY RAISING THE RATCHET CEILING OR EXEMPTING THE REGISTERS: that would stop the guard reporting genuinely unsupported in_flight rows, which is its real and valuable finding."
     }
   ]
 }
