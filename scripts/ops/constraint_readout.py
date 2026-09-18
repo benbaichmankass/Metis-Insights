@@ -564,9 +564,11 @@ def _one_line(v: Any, limit: int = 160) -> str:
     `constraint-readout.yml` kept failing `artifact-validity-guard` on
     exactly this shape through run #15 (2026-09-16), one day AFTER #12378
     merged, on a title that survived render_due_list's clip at 200 but not
-    THIS module's own second clip at 180. See MI-270 /
-    BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-
-    DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED.
+    THIS module's own second clip at 180. See the MI-270 checklist row and
+    its tracked_by backlog id (health-review-backlog.json, filed 2026-09-11)
+    — spelled there rather than here so this docstring does not itself
+    become the next line-wrapped dangling reference `check_backlog_refs.py`
+    would refuse (SEARCH_DIRS covers `scripts/`; #12378 hit exactly this).
 
     Delegates the actual cut to `render_due_list._clip` (via `_due_lib()`,
     the one importer this file already uses for that sibling — a second copy
@@ -1814,26 +1816,40 @@ def _self_test() -> int:
     # (#12378), because `_one_line`'s SECOND, narrower clip at 180 chars cut
     # into an id the first clip (at 200) had already left whole. See the
     # module-level note on `_one_line` and MI-270.
+    #
+    # ⚠️ THE REAL FILED ID BELOW IS KEPT WHOLE ON ONE LINE, DELIBERATELY.
+    # `check_backlog_refs.py` scans `scripts/` per ADDED LINE
+    # (refs_in_added_lines), not per logical Python string value, so an id
+    # split across two source lines — even inside one Python string literal —
+    # reads as two dangling fragments. This is the exact trap #12378's own
+    # PR hit writing its docstring, and the reason this self-test never
+    # spells a TRUNCATED fragment as literal source text either (below).
     _live_summary = (
         "OPERATOR-RAISED 2026-09-12: a real-money ETHUSDT SHORT 0.05 on "
         "bybit_2 open at the venue with no stop and no take-profit, "
-        "invisible to every bot surface. Filed as BL-20260912-BYBIT2-"
-        "SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-"
-        "A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED "
-        "(severity critical, Tier-2)."
+        "invisible to every bot surface. Filed as "
+        "BL-20260912-BYBIT2-SETTLE-COIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-SO-A-REAL-MONEY-HEDGE-BOOK-IS-NEVER-FETCHED-AND-SITS-NAKED"
+        " (severity critical, Tier-2)."
     )
-    # POSITIVE CONTROL: prove the OLD naive slice really did manufacture the
-    # fragment, so the assertion below is measuring a real repair.
+    # POSITIVE CONTROL, WITHOUT SPELLING THE DANGLING FRAGMENT: the old naive
+    # `s[:limit-1]` cuts at a fixed character offset, so it lands INSIDE the
+    # tracking id above rather than at a word boundary — the char right after
+    # the cut continues the id instead of starting new prose. That is the
+    # shape the fix removes; no fragment needs to appear in this file's own
+    # source to prove it.
     _old_naive = _live_summary[:179] + "…"
-    check("POSITIVE CONTROL: the old naive s[:limit-1] manufactures the "
-          "dangling fragment this fix removes",
-          _old_naive.endswith("BL-20260912-BYBI…"), True)
+    check("POSITIVE CONTROL: the old naive cut lands INSIDE the tracking "
+          "id, not at a word boundary",
+          _live_summary[179] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-", True)
     _clipped = _one_line(_live_summary, 180)
-    check("_one_line(180) does NOT manufacture a dangling BL- fragment",
-          "BL-20260912-BYBI" in _clipped, False)
-    check("...it cuts BEFORE the id and keeps the prose",
-          _clipped.startswith("OPERATOR-RAISED 2026-09-12:")
-          and _clipped.endswith("Filed as…"), True)
+    check("_one_line(180) does NOT reproduce the old naive mid-id cut",
+          _clipped != _old_naive, True)
+    check("...it cuts BEFORE the tracking id entirely and keeps the prose",
+          _clipped == ("OPERATOR-RAISED 2026-09-12: a real-money ETHUSDT "
+                        "SHORT 0.05 on bybit_2 open at the venue with no "
+                        "stop and no take-profit, invisible to every bot "
+                        "surface. Filed as…"),
+          True)
     check("a short string under the limit is returned unchanged (no ellipsis)",
           _one_line("short text", 160), "short text")
     check("an id starting at offset 0, longer than the limit, is kept WHOLE "
