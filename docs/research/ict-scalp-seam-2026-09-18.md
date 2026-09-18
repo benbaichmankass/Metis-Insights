@@ -142,9 +142,13 @@ between guard runs. **"Fetch before running a guard" is therefore not a habit a
 session can hold; the remedy is the guard printing its RESOLVED BASE**, which is
 what `check_timestamp_comparisons` already does for its diff path.
 
-Filed at `BL-20260918-A-GUARD-RUN-AGAINST-A-STALE-BASELINE-FAILS-CONFIDENTLY-ABOUT-FILES-THE-PR-NEVER-TOUCHED-AND-PRINTS-A-PLAUSIBLE-WRONG-REMEDY`,
-which is on an unmerged branch — hence this note, so the third instance is not
-lost if that row lands before anyone reads it.
+The row that owns this class is filed on **PR #12561** (MI-320) and is **not on
+`main` yet**, so this memo deliberately does **not** name it by id — from this
+branch that id resolves to nothing, and `artifact-validity-guard` caught the
+attempt and was right to. A memo about a guard failing on a stale baseline must
+not itself carry a reference that reads as tracked while being tracked by
+nobody. **A PR number resolves; an unlanded backlog id does not.** Once #12561
+lands, this instance belongs in that row.
 
 ## 4 — What this does NOT establish
 
