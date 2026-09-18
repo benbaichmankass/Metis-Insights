@@ -41,6 +41,14 @@ WORLD = {
     "pr_states": {"o/r#4": "open", "o/r#5": "closed", "o/r#6": "merged"},
     "pr_states_repos": {"o/r"}, "pr_states_readable": True,
     "paths_readable": True,
+    "registry_rows_on_main": [
+        {"registry_key": "pending-confirmed", "session_id": "session_01X",
+         "confirmed_at": "2026-09-18T00:00:00Z"},
+        {"registry_key": "pending-still-waiting", "session_id": None},
+        {"registry_key": "pending-dup", "session_id": None},
+        {"registry_key": "pending-dup", "session_id": None},
+    ],
+    "registry_on_main_readable": True,
 }
 
 
@@ -134,6 +142,62 @@ def test_an_unanswered_decision_is_still_blocking_not_could_not_look():
                            "clears_when": "answered"}, WORLD,
                           object_reader=objs.get)["state"]
     assert got == B.BLOCKER_STILL_BLOCKING
+
+
+# ── registry_confirmed (MI-263/MI-264) ───────────────────────────────────────
+# The commonest measured blocker (2 of 5 recorded instances, a third a
+# duplicate of the same class): a lane spawned via the pending flow, blocked on
+# its OWN registry row landing on `origin/main` carrying `confirmed_at` and a
+# real `session_id`. Both directions are planted below: the row that MUST fire
+# `cleared`, and the sibling row that MUST NOT.
+def test_registry_confirmed_PLANTED_POSITIVE_fires_cleared():
+    """The planted control that MUST fire: the row exists on main, carries
+    `confirmed_at` AND a real `session_id`."""
+    got = grade(kind="registry_confirmed", ref="pending-confirmed",
+               clears_when="confirmed")
+    assert got == B.BLOCKER_CLEARED
+
+
+def test_registry_confirmed_PLANTED_NEGATIVE_does_not_fire():
+    """The planted control that MUST NOT fire: the row exists on main but is
+    still `session_id: None` — unconfirmed, so the lane is still waiting."""
+    got = grade(kind="registry_confirmed", ref="pending-still-waiting",
+               clears_when="confirmed")
+    assert got == B.BLOCKER_STILL_BLOCKING
+
+
+def test_registry_confirmed_absent_row_is_still_blocking_not_could_not_look():
+    """No row on main carries this key yet -- the ORDINARY waiting case, not a
+    resolver failure. The registry itself was read fine."""
+    got = grade(kind="registry_confirmed", ref="pending-never-landed",
+               clears_when="confirmed")
+    assert got == B.BLOCKER_STILL_BLOCKING
+
+
+def test_registry_confirmed_unreadable_registry_is_could_not_look():
+    w = dict(WORLD, registry_on_main_readable=False, registry_rows_on_main=[])
+    got = B.grade_blocker({"kind": "registry_confirmed", "ref": "pending-confirmed",
+                           "clears_when": "confirmed"}, w)["state"]
+    assert got == B.BLOCKER_COULD_NOT_LOOK
+
+
+def test_registry_confirmed_ambiguous_key_is_could_not_look_not_a_guess():
+    """This repo has measured THREE rows sharing one `pending-` key at once.
+    Guessing which is yours would bind this lane's clear to somebody else's
+    confirmation -- refuse, exactly like the write-time duplicate-session_id
+    refusal in `session_registry.py confirm`/`blocked-on`."""
+    got = grade(kind="registry_confirmed", ref="pending-dup", clears_when="confirmed")
+    assert got == B.BLOCKER_COULD_NOT_LOOK
+
+
+def test_registry_confirmed_is_exercised_end_to_end_through_assess():
+    """MI-264's own done_when: 'a lane declares it and a run grades it
+    cleared'. Exercise the whole sweep, not just the bare resolver."""
+    rows = [{"session_id": "session_01X", "state": "blocked", "blocked_on": [
+        {"kind": "registry_confirmed", "ref": "pending-confirmed",
+         "clears_when": "confirmed"}]}]
+    rep = B.assess(rows, WORLD)
+    assert [w["session_id"] for w in rep["wake_list"]] == ["session_01X"]
 
 
 def test_every_declared_state_is_reachable():

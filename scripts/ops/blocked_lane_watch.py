@@ -187,6 +187,14 @@ CLEARS_WHEN_BY_KIND: Dict[str, Tuple[str, ...]] = {
     "path_on_main": ("exists", "deleted"),
     "work_object": ("done_or_accepted",),
     "operator_decision": ("answered",),
+    # MI-264, added 2026-09-18. `ref` is the lane's OWN `registry_key` (e.g.
+    # `pending-20260911T060510Z`) -- the value `register()` mints for a row
+    # written BEFORE `create_session` returns a real id (MI-263: the manager
+    # registers locally and pushes later, so a cold lane can correctly measure
+    # its own pre-spawn row ABSENT). See `_grade_registry_confirmed` below for
+    # why "absent" and "present-but-unconfirmed" are the SAME still-waiting
+    # fact and neither is `could_not_look`.
+    "registry_confirmed": ("confirmed",),
 }
 
 # Why a resolver could not answer. A closed vocabulary so a receipt reader can
@@ -197,6 +205,7 @@ REASON_GIT_READ_FAILED = "git_read_failed"
 REASON_OBJECT_UNREADABLE = "work_object_unreadable"
 REASON_AMBIGUOUS_REF = "ambiguous_ref"
 REASON_MALFORMED = "malformed_declaration"
+REASON_REGISTRY_UNREADABLE = "registry_unreadable"
 
 # A row in one of these lifecycle states is not waiting on anything; its
 # declaration is history. Filtered OUT of the graded population rather than
@@ -274,6 +283,12 @@ def collect_world(*, this_repo: str, pr_state_path: Optional[Path] = None,
         # direction this module is not allowed to be sloppy about.
         "pr_states_repos": set(),
         "paths_readable": False,
+        # registry_confirmed (MI-264): the COMMITTED content of SESSIONS.json
+        # on origin/main, never the local working tree -- the whole point is
+        # whether a row has LANDED, and a lane's own clone can be arbitrarily
+        # behind the manager's push.
+        "registry_rows_on_main": [],
+        "registry_on_main_readable": False,
     }
     if git_ok:
         ok, out = _git("for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
@@ -293,6 +308,19 @@ def collect_world(*, this_repo: str, pr_state_path: Optional[Path] = None,
             world["merged_prs_readable"] = True
         ok, _ = _git("cat-file", "-e", "origin/main:docs/claude/work/SESSIONS.json")
         world["paths_readable"] = ok
+        ok, out = _git("show", "origin/main:docs/claude/work/SESSIONS.json")
+        rows_on_main = None
+        if ok:
+            try:
+                reg_doc = json.loads(out)
+            except Exception:
+                reg_doc = None
+            candidate = reg_doc.get("sessions") if isinstance(reg_doc, dict) else None
+            if isinstance(candidate, list):
+                rows_on_main = candidate
+        if rows_on_main is not None:
+            world["registry_rows_on_main"] = rows_on_main
+            world["registry_on_main_readable"] = True
 
     if pr_state_path is not None:
         try:
@@ -398,6 +426,8 @@ def grade_blocker(blocker: Any, world: Dict[str, Any],
         return {**base, **_grade_object(ref, object_reader)}
     if kind == "operator_decision":
         return {**base, **_grade_decision(ref, object_reader)}
+    if kind == "registry_confirmed":
+        return {**base, **_grade_registry_confirmed(ref, world)}
     # Unreachable while CLEARS_WHEN_BY_KIND and this dispatch agree -- asserted
     # by `--self-test`, so a kind added to the table without a resolver fails
     # loudly here rather than silently grading every such blocker `could_not_look`.
@@ -551,6 +581,56 @@ def _grade_decision(ref: str, object_reader) -> Dict[str, Any]:
                     "why": f"{req_id} is declared and unanswered"}
     return {"state": BLOCKER_COULD_NOT_LOOK, "reason": REASON_AMBIGUOUS_REF,
             "why": f"{obj_id} declares no request {req_id!r}"}
+
+
+def _grade_registry_confirmed(ref: str, world: Dict[str, Any]) -> Dict[str, Any]:
+    """`ref` is the lane's OWN `registry_key`, e.g. `pending-20260911T060510Z`.
+
+    MI-263/MI-264. `register()` mints this key for a row written BEFORE
+    `create_session` returns an id, and `confirm()` later fills in a real
+    `session_id` plus `confirmed_at` -- but only once the manager's PR
+    carrying both the mint and the confirm has been PUSHED AND MERGED. Two
+    measured lanes (~80 min, ~60 min; a third, ~57 min, was a duplicate of the
+    same class) sat blocked on exactly this and had no way to express it: the
+    existing kinds grade a PATH's existence or a PR's/branch's state, never a
+    FIELD inside a file the watcher already loads for other reasons.
+
+    ⚠️ "no row carries this key yet" and "a row carries it but is still
+    `spawn_pending`" are the SAME still-waiting fact, not two. Both mean the
+    confirming write has not landed on `main`; splitting them would invite
+    exactly the collapse this repo's own `collapsed states` rule forbids, by
+    grading "we have not looked hard enough" as different from "we looked and
+    it is not there yet" for a condition where they are indistinguishable to
+    the lane waiting on it. Neither is `could_not_look`: the registry file
+    itself was read FINE in both cases -- there is simply nothing settled
+    there yet. `could_not_look` is reserved for when the read of
+    `origin/main`'s SESSIONS.json itself fails, or when the key is ambiguous
+    (this repo has measured THREE rows sharing one `pending-` key at once;
+    guessing which one is yours would bind you to somebody else's answer).
+    """
+    if not world.get("registry_on_main_readable"):
+        return {"state": BLOCKER_COULD_NOT_LOOK, "reason": REASON_REGISTRY_UNREADABLE,
+                "why": "origin/main's SESSIONS.json could not be read"}
+    rows = world.get("registry_rows_on_main") or []
+    matches = [r for r in rows if isinstance(r, dict)
+               and str(r.get("registry_key") or "") == ref]
+    if len(matches) > 1:
+        return {"state": BLOCKER_COULD_NOT_LOOK, "reason": REASON_AMBIGUOUS_REF,
+                "why": (f"{len(matches)} rows on origin/main carry registry_key "
+                        f"{ref!r} -- guessing which is yours would bind this "
+                        f"lane's clear to someone else's confirmation")}
+    if not matches:
+        return {"state": BLOCKER_STILL_BLOCKING,
+                "why": f"no row on origin/main carries registry_key {ref!r} yet"}
+    row = matches[0]
+    confirmed_at = row.get("confirmed_at")
+    session_id = str(row.get("session_id") or "").strip()
+    if confirmed_at and session_id:
+        return {"state": BLOCKER_CLEARED,
+                "why": f"{ref} confirmed at {confirmed_at} as {session_id}"}
+    return {"state": BLOCKER_STILL_BLOCKING,
+            "why": (f"{ref} is on main but not yet confirmed "
+                    f"(confirmed_at={confirmed_at!r}, session_id={session_id!r})")}
 
 
 def grade_row(row: Dict[str, Any], world: Dict[str, Any], **kw) -> Dict[str, Any]:
@@ -758,7 +838,15 @@ def _self_test() -> int:
          "merged_prs": {"11579"}, "merged_prs_readable": True,
          "pr_states": {"o/r#4": "open", "o/r#5": "closed", "o/r#6": "merged"},
          "pr_states_repos": {"o/r"},
-         "pr_states_readable": True, "paths_readable": True}
+         "pr_states_readable": True, "paths_readable": True,
+         "registry_rows_on_main": [
+             {"registry_key": "pending-confirmed", "session_id": "session_01X",
+              "confirmed_at": "2026-09-18T00:00:00Z"},
+             {"registry_key": "pending-still-waiting", "session_id": None},
+             {"registry_key": "pending-dup", "session_id": None},
+             {"registry_key": "pending-dup", "session_id": None},
+         ],
+         "registry_on_main_readable": True}
     def g(b, w=W, **kw):
         return grade_blocker(b, w, **kw)["state"]
 
@@ -881,6 +969,27 @@ def _self_test() -> int:
     check("decision id absent -> could_not_look",
           g({"kind": "operator_decision", "ref": "WO-C::D9", "clears_when": "answered"},
             W, object_reader=rd), BLOCKER_COULD_NOT_LOOK)
+
+    # ── registry_confirmed (MI-263/MI-264) ──
+    # PLANTED POSITIVE — this ONE must fire `cleared`.
+    check("registry row confirmed with a real session_id -> cleared",
+          g({"kind": "registry_confirmed", "ref": "pending-confirmed",
+             "clears_when": "confirmed"}), BLOCKER_CLEARED)
+    # PLANTED NEGATIVE — the sibling row, still `session_id: None`, must NOT.
+    check("registry row present but unconfirmed -> still_blocking",
+          g({"kind": "registry_confirmed", "ref": "pending-still-waiting",
+             "clears_when": "confirmed"}), BLOCKER_STILL_BLOCKING)
+    check("registry row absent from main entirely -> still_blocking, not could_not_look",
+          g({"kind": "registry_confirmed", "ref": "pending-never-landed",
+             "clears_when": "confirmed"}), BLOCKER_STILL_BLOCKING)
+    check("ambiguous registry_key (measured: 3 rows once shared one) -> could_not_look",
+          g({"kind": "registry_confirmed", "ref": "pending-dup",
+             "clears_when": "confirmed"}), BLOCKER_COULD_NOT_LOOK)
+    check("unreadable origin/main registry -> could_not_look, never cleared",
+          g({"kind": "registry_confirmed", "ref": "pending-confirmed",
+             "clears_when": "confirmed"},
+            dict(W, registry_on_main_readable=False, registry_rows_on_main=[])),
+          BLOCKER_COULD_NOT_LOOK)
 
     # ── row roll-up ──
     check("row with no blocked_on -> undeclared",
