@@ -39753,6 +39753,38 @@
         "scripts/research/margin_ceiling_visibility.py",
         "docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md"
       ]
+    },
+    {
+      "id": "BL-20260918-SCRIPTS-ON-SYS-PATH-SHADOWS-THE-ML-PACKAGE",
+      "title": "m20_fleet_exit_sweep inserts <repo>/scripts at sys.path[0] on import, after which scripts/ml shadows the real top-level ml package and any later import of src.runtime.pipeline dies on 'No module named ml.datasets'",
+      "severity": "medium",
+      "tier": "1 (scripts/research path handling). PROPOSED, not applied -- MI-317 works around it with an eager import and a comment saying why.",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED this session while building scripts/research/mi317_target_geometry_packet.py. scripts/research/m20_fleet_exit_sweep.py lines 59-63 do sys.path.insert(0, REPO), sys.path.insert(0, REPO/'scripts') and sys.path.insert(0, REPO/'scripts'/'research'). Because scripts/ml/ exists, the second of those makes 'ml' resolve to scripts/ml for the rest of the process, so a subsequent 'from src.runtime.pipeline import monitor_unit_for' fails with ModuleNotFoundError: No module named 'ml.datasets' -- src.runtime.regime_shadow imports ml.datasets.volatility_estimators. POSITIVE CONTROL: importing ml.datasets in a fresh interpreter with only the repo root on sys.path succeeds; importing m20_fleet_exit_sweep first makes the identical import fail. The two modules are therefore usable in one process ONLY if the pipeline symbol is bound BEFORE the sweep module is touched, which is an ordering constraint no caller can see. This is not hypothetical for future units: any research script that wants both the leg->family resolver and the leg->unit resolver hits it.",
+      "refs": [
+        "scripts/research/m20_fleet_exit_sweep.py:59-63",
+        "scripts/research/mi317_target_geometry_packet.py",
+        "docs/research/per-leg-target-geometry-packet-2026-09-18.md"
+      ],
+      "resolution_criteria": "m20_fleet_exit_sweep no longer puts <repo>/scripts on sys.path, or scripts/ml is renamed so it cannot shadow the top-level package -- VERIFIED by importing m20_fleet_exit_sweep and then src.runtime.pipeline in that order in one interpreter and having it succeed. A test that imports them in the OPPOSITE order proves nothing: that order already works today, which is why the defect is invisible."
+    },
+    {
+      "id": "BL-20260918-A-SPAWN-PROMPT-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED-AND-THIS-IS-THE-SECOND-INSTANCE",
+      "title": "A research lane was dispatched to read a work object 'on main' whose done_condition and must_not were declared binding, and the object did not exist -- the second observed instance in two days",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MI-317's spawn prompt named docs/claude/work/objects/WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N.yaml on main, said READ IT FIRST, and said its done_condition and must_not are binding and 'not restated here in full'. The object did not exist. MEASURED with a positive control: git ls-tree on origin/main (d4ff439ce) returned exactly one docs/claude/work/objects/WO-20260918-* file, the sibling ATTRIBUTE-THE-2026-08-30-BREAK object, and a git grep for 'MI-317' across main returned nothing. SO THE LANE'S BINDING CONSTRAINTS WERE ONLY EVER IN THE PROMPT. THIS IS A RECURRENCE, WHICH IS THE FINDING: WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET records the IDENTICAL failure one day earlier in its own `why` field ('THIS OBJECT DID NOT EXIST WHEN THE LANE WAS SPAWNED'), and was likewise created by the lane it was meant to govern. Two lanes in two days both had to write their own charter. The prompt's own wording is what makes it costly rather than merely untidy -- a lane told the constraints are binding and elsewhere may reasonably assume must_not clauses it never sees. It is also the OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING class caught in the act, one level up: the specification existed, in a prompt, carried by nothing durable.",
+      "refs": [
+        "docs/claude/work/objects/WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N.yaml",
+        "docs/claude/work/objects/WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET.yaml",
+        "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING"
+      ],
+      "resolution_criteria": "EITHER the manager's spawn step writes and PUSHES the work object before the lane is registered -- verified by a lane finding its named object present at spawn time and saying so -- OR a check refuses to register a spawn whose named object is absent from origin/main. A THIRD LANE CREATING ITS OWN OBJECT DOES NOT CLEAR THIS; that is the failure repeating with the lane absorbing the cost, which is exactly what makes it invisible. Record WHICH lane observed its object already present."
     }
   ]
 }
