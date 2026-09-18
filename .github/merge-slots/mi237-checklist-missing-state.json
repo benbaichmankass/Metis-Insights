@@ -1,0 +1,6 @@
+{
+  "held_by": "session_019J5aUz21AWTzdYyBNgUP2D",
+  "branch": "claude/mi237-checklist-missing-state",
+  "claimed_at": "2026-09-18T07:17:54Z",
+  "purpose": "MI-237: fill 52 checklist items missing state, PR #12525"
+}
