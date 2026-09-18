@@ -1,0 +1,80 @@
+id: WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Operator-raised: decision pop-ups never arrive because every prompt over Telegram's
+  4096-char cap fails with HTTP 400, forever, on a 5-minute retry
+stage: decision
+lifecycle: in_flight
+owner: null
+opened_at: "2026-09-18"
+closed_at: null
+why: >-
+  OPERATOR-RAISED 2026-09-18: "Give me decisions as popups." They do not arrive, and the
+  cause is MEASURED rather than suspected.
+
+  THE CHANNEL IS HEALTHY AND THAT IS WHAT MAKES THIS INVISIBLE. GET /api/bot/work/decisions
+  returns HTTP 200 with 33 requests; writeGate.state is `open` (DASHBOARD_API_TOKEN is set --
+  note this CONTRADICTS OI-20260901-DECISION-ROUNDTRIP, which still records it as unset);
+  the sweep runs every 300s on ict-telegram-bot.service and resolves the RIGHT destination
+  (destination `claude`, token_from TELEGRAM_CLAUDE_BOT_SECRET, poll_state
+  `polled_with_handler`). Nothing is held: held_write_gate 0, held_route 0, held_not_polled 0.
+
+  EVERY SEND FAILS. Read from /api/diag/log_file?name=work_decision_sweep_receipt, four
+  consecutive runs 10:40 / 10:45 / 10:50 / 10:55Z are identical: candidates 3,
+  prompted_choice 0, prompted_free_text 0, failed 3. The journal names the cause verbatim on
+  each -- `telegram_decisions: send failed for <obj>::<req>: HTTP Error 400: Bad Request`.
+
+  WHICH 400, MEASURED WITH A POSITIVE CONTROL. Rendering each pending request through the
+  repo's OWN builder (telegram_decisions.render_decision_prompt) gives
+  DEC-20260913-FOUR-LEG-DISPOSITION 4738 chars, DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-
+  DROPPABLE 4569, DEC-20260917-SCALP-MARGIN-BOUND-SIZING 5463 -- all three over Telegram's
+  4096 cap, and all three are exactly the three the journal names. THE CONTROL: the fourth
+  pending request, DEC-20260917-SESSION-RECEIPT-CADENCE, renders at 3815 chars -- UNDER the
+  cap -- is NOT in the failing set, and the receipt's `suppressed_reached_preferred: 1` says
+  it was delivered and its once-only marker set. So the under-cap one got through and the
+  over-cap ones cannot.
+
+  THE RENDERER HAS NO CAP HANDLING AT ALL: `grep -c 4096 src/runtime/telegram_decisions.py`
+  is 0. CLAUDE.md records that /status was given a compaction ladder for exactly this cap;
+  the decision-prompt renderer never got one.
+
+  WHY IT IS WORSE THAN A MISSING FEATURE. The question is 370-441 chars; the OTHER ~4100 is
+  context the renderer adds. So the prompts that fail are not the verbose ones -- they are
+  the ones whose CONTEXT is richest, i.e. the best-specified decisions. And the sweep's
+  once-only marker is never set on a failure, so these retry every 5 minutes indefinitely:
+  the operator sees silence while the bot has attempted delivery hundreds of times. That is
+  precisely the "a channel that swallows answers is anti-enforcement" hazard
+  OI-20260901-DECISION-ROUNDTRIP was opened to watch, arriving through the SEND half rather
+  than the answer half.
+done_condition: >-
+  A real over-cap decision prompt is OBSERVED ARRIVING in the ClaudeBot chat with its inline
+  keyboard intact, and the receipt for that run reads prompted_choice >= 1 with failed 0 for
+  it. The three named requests above are the population to clear.
+
+  A GREEN TEST CLEARS NOTHING -- a harness cannot reach Telegram's 4096 cap, which is the
+  whole mechanism. Read the receipt and the journal, not the diff.
+
+  AND THE COMPACTION MUST NOT SILENTLY DROP THE ANSWER SURFACE: an over-cap prompt that
+  arrives WITHOUT its options (i.e. as text the operator cannot tap) is a REGRESSION wearing
+  a success, because it converts a failed send into a question that looks asked and cannot
+  be answered. The options and the callback_data are the load-bearing part; the CONTEXT is
+  what may be compacted, and a compacted prompt must say that it was compacted and where the
+  full text lives.
+must_not: >-
+  DO NOT shorten the QUESTIONS to fit. The questions are 370-441 chars against a 4096 cap --
+  they are not the problem, and editing a decision's wording to make a transport bug go away
+  would corrupt the record of what was asked.
+
+  DO NOT set the once-only marker on a failed send to stop the retry noise. The retry is the
+  only reason this was findable; silencing it without fixing the send would make the next
+  instance invisible.
+
+  DO NOT widen this into a rewrite of the decision channel. The inbox, the route, the write
+  gate, the poll registry and the 409 already work and are proven by this very measurement.
+
+  DO NOT change callback_data -- it is 26 bytes fixed and is not what 400s. Changing it would
+  break the key-digest guarantee that stops a reordered option recording the wrong answer.
+blocked_on: []
+blocked_on_basis: ASSESSED
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF

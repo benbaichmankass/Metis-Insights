@@ -1,0 +1,64 @@
+id: WO-20260918-RESEARCH-THE-SCALP-FAMILY-HAS-NO-CAPPED-ARM
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: give the ict_scalp family a capped arm, so the family where a take-profit matters MOST is
+  not the one family the MFE distribution cannot measure
+stage: BUILD
+lifecycle: done
+owner: research lane
+opened_at: 2026-09-18
+closed_at: "2026-09-18"
+why: >-
+  OPERATOR-DIRECTED 2026-09-17 (overnight): active trade management is the TOP priority and the lane keeps
+  pushing it. MI-307 (#12503, merged b0150bde4) delivered the offline MFE distribution at n=112-1,004 per leg
+  on 19 legs and named its own gap in terms: 8 legs grade `not_capped_capable` -- the 7 ict_scalp_* legs plus
+  fvg_range_15m. They are crypto and their candles WERE fetched; what is missing is ONE harness flag
+  (--tp-cap-pct), so no capped arm and therefore NO POSITIVE CONTROL exists for them.
+  THAT IS THE FAMILY WHERE A TARGET WOULD MATTER MOST: MI-278 U2 measured take-profit as the only exit lever
+  with attributed mass on ict_scalp. So the instrument currently answers the question everywhere except where
+  the answer would change a decision.
+  [!] THIS IS AN EXTENSION OF A VALIDATED METHOD, NOT A NEW ONE. MI-307's design already passed a positive
+  control it could have failed -- P(mfe_r >= min(cap_r, x)) evaluated at each leg's declared tp_r predicted
+  the OBSERVED take_profit exit share on 19 of 19 legs within 3.2pp. The same control must be produced for
+  these 8 legs, and if it FAILS on them that failure is the finding.
+done_condition: >-
+  EITHER the 8 legs have a capped arm and a stated-n MFE distribution WITH the same positive control reported
+  per leg (agreement between predicted and observed take_profit share), OR it is established and RECORDED why
+  they cannot have one -- a measured reason, not an abandoned attempt. Population stated in both cases.
+  A distribution WITHOUT its positive control does NOT satisfy this: an uncontrolled distribution on the one
+  family whose target actually binds is exactly the contaminated instrument CY-20260906-TRADING-TRUTH says is
+  worse than no instrument, because it would be acted on.
+must_not: >-
+  DO NOT PROPOSE A tp_r VALUE. Per-leg target geometry is TIER-3 and is the operator's; config/ stays untouched.
+  DO NOT COMMISSION ANOTHER PARAMETER SWEEP -- MI-307's memo section 6 and the e35 corpus (3,413 real-tp_r rows,
+  ~180 cells per leg, 12 of 19 legs with zero cells passing IS and OOS) already answer that question, and
+  re-measuring is the failure mode OI-20260906 exists to stop.
+  DO NOT REBUILD ML-2 (built and refuted; see OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE).
+  DO NOT report gate condition 1 as cleared -- 44 of 44 legs still grade insufficient_n and the remaining work
+  there is a SOAK.
+  REUSE rather than re-derive: mi307_offline_mfe.py, exit_capture.mfe_r_of, bracket_calibration.quantile,
+  tp_venue_cap.TP_VENUE_CAP_PCT, m20_fleet_exit_sweep.{classify,resolve_data,base_args,harness_implements_flag},
+  and src/runtime/provenance.py for every provenance claim.
+  `harness_implements_flag` reads the harness SOURCE, so membership of `not_capped_capable` cannot go stale --
+  keep it that way rather than hardcoding the 8 leg names.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE finding,
+  not the NOT_ASSESSED default: the harness, the candles, the corpus and the validated method are all on main
+  as of b0150bde4, and everything this unit needs is readable from its own container. It is a statement about
+  TODAY and about THIS object; a Tier-3 gate reached later is a real future blocker and must be written as a
+  typed edge WHEN IT BINDS, never pre-emptively.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+
+closed_observation: |
+  MERGED AND OBSERVED 2026-09-18. PR #12515 squashed to afc2525018a939bcaf508b52241f4e183d4d2d92
+  on main; CI was 5 of 5 green on head f271931ed with mergeable_state clean. Verified ON MAIN
+  rather than inferred from the merge result -- `git cat-file -e origin/main:` succeeds for both
+  docs/research/scalp-family-target-arms-2026-09-18.md and scripts/target_basis.py.
+  THE DISPATCH PREMISE WAS REFUTED BY THE LANE AND THAT IS THE FINDING: these legs' live units
+  apply NO venue clamp (tp_venue_cap.CLAMPING_FAMILIES is {donchian,pullback,fade,squeeze}),
+  so the harness DEFAULT arm was already the live-comparable book and the --tp-cap-pct flag I
+  asked for would have been a measured no-op on 45 of 45 trades -- a positive control comparing
+  a book to itself. The arm actually missing was the target DISABLE (--no-tp), which moves max
+  MFE 2.51R -> 4.85R. Successor work is WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N.

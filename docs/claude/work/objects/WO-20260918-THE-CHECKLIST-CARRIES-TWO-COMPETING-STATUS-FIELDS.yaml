@@ -1,0 +1,59 @@
+id: WO-20260918-THE-CHECKLIST-CARRIES-TWO-COMPETING-STATUS-FIELDS
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The manager checklist carries two competing status fields and 38 off-vocabulary values -- on the page the
+  operator reads (MI-257)
+stage: BUILD
+lifecycle: done
+owner: ops lane
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  MI-257, FILED 2026-09-10 AND UNROUTED FOR 167 HOURS -- the longest-standing row on the session brief's
+  unrouted list, and it is on docs/claude/work/MANAGER-CHECKLIST.json, which GET /api/bot/work/checklist
+  serves to the operator as the live Workflow page. Measured at filing: 12 items have `state` and `status`
+  DISAGREEING, and 38 carry values outside the declared vocabulary.
+  [!] THE OWNERSHIP RULE IS ALREADY DECIDED AND MUST NOT BE RE-LITIGATED. The state/status merge has ONE
+  owner, src/runtime/manager_status.py::effective_state, and `state` WINS a disagreement -- because `state`
+  is what every existing consumer reads (build_sections and scripts/ops/manager_view.py both key on it;
+  NOTHING in the repo reads `status` on this file). See OI-20260910-WORKFLOW-PAGE-SHIPPED... Your job is to
+  make the DATA agree with that owner, not to add a second owner or change which field wins.
+  [!] DO NOT COLLAPSE `done` AND `landed_unproven`. CLAUDE.md: `done` means MERGED AND OBSERVED;
+  `landed_unproven` means the code is in and its effect has NOT been seen on the fleet. A cleanup that
+  flattens the two is a regression wearing a tidy-up, and it is the failure this repo keeps paying for.
+done_condition: >-
+  MEASURE FIRST and state the population (how many items, how many carry each field, how many disagree, how
+  many are off-vocabulary) -- do not re-quote MI-257's 12/38 without re-deriving them, and do not re-quote
+  MI-237's 177/83, which was taken on a smaller file. Then EITHER reconcile the rows so `state` and `status`
+  agree and every value is in the declared vocabulary, OR -- if a disagreement encodes a real distinction the
+  vocabulary cannot express -- say so per row and propose the vocabulary change rather than forcing a value.
+  A guard that makes the drift unrepresentable is worth more than the one-off cleanup; add one if it is
+  Tier-1 and it can fire on a real off-vocabulary row (prove it fires by planting one, then remove the plant).
+  Report the before/after counts.
+source: >-
+  session brief unrouted list (MI-257, 167.1h); dispatched by the manager session_01GHpyXT2qssLJsrvXBQRkQF
+  under the operator's 2026-09-17 overnight direction, ops lane = triage and work the backlog
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). A POSITIVE finding, not the
+  NOT_ASSESSED default: the file, its reader and its guard are all in the container and all Tier-1. Nothing
+  blocks this at spawn. A statement about TODAY and about THIS object only -- if a vocabulary change turns
+  out to need an operator call, write that as a typed edge WHEN IT BINDS, never pre-emptively.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET. PR #12504 merged as 25bad2e31, and the data claim was RE-MEASURED
+  INDEPENDENTLY by the manager against origin/main rather than accepted from the lane's post_turn_summary:
+  over all 294 items on main, 8 carry BOTH `state` and `status` and ZERO of them disagree -- against the 12
+  disagreements MI-257 was filed on. The off-vocabulary values are gone on the same read.
+  A GUARD SHIPPED WITH IT, which is what makes this more than a data edit: scripts/ci/check_manager_checklist_vocabulary.py
+  is registered in run_guards.py, so the drift cannot silently return. Run against the MERGED checklist on
+  the manager branch (308 items, i.e. a population it had never seen) it reads
+  "every item's effective state is unambiguous and every declared value is in the file's own vocabulary".
+  [!] THE OWNERSHIP RULE WAS NOT RE-LITIGATED, as dispatched: manager_status.effective_state stays the one
+  owner and `state` wins a disagreement, because every existing consumer keys on `state`.
+  [!] WHAT IS NOT FIXED AND MUST NOT BE READ AS FIXED: 52 of the 294 rows carry NO `state` at all. That is
+  the status-only population MI-238 already documented as landing in no section of the /status readout, it
+  is PRE-EXISTING and was not in MI-257's scope, and this close does not touch it.
+  [!] COST: $13.27 on a FRESH Sonnet lane -- the model-to-task choice the operator directed on 2026-09-17,
+  and the cheapest delivered unit of the night.

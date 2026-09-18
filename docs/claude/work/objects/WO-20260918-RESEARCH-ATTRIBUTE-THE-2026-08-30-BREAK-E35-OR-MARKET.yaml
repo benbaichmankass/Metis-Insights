@@ -73,3 +73,31 @@ blocked_on_basis: >-
   is recorded here as a statement about a successor, never asserted as an edge on
   this object — a false blocker is worse than a missing one.
 captured_by: session_014ZKXKoPUbHgANGdDmRRjHz
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET on its EXPLICIT ALTERNATIVE CLAUSE -- 'if the data cannot support the
+  discrimination at usable n, that is a LEGITIMATE CLOSE and must be RECORDED as that finding with its
+  denominator'. PR #12491 (open at close; the finding is what closes this, not the merge).
+  THE VERDICT: the MARKET half stands; the e35-on-top half is `cannot_discriminate` with a `knife_edge` sign --
+  DiD +5.31pp on the declared-only basis, and ONE additional stop-out in the treated pre cell FLIPS IT. Do not
+  revert e35 on this evidence, and this is NOT exoneration either.
+  [!] THE MEASUREMENT HAD ALREADY BEEN RUN AND WAS STRANDED, which is a MANAGER failure and not a research
+  one: #12205 (MI-278 U41, 2026-09-13) ran it, verdicted `both_contribute`, and has sat OPEN and `dirty` for
+  four days on SIX SHARED REGISTERS and NO CODE. The lane flagged it to the manager rather than landing it
+  itself, correctly -- running the merge queue is a manager base duty.
+  [!] AND THE STRANDED VERDICT TURNS ON A HAND-TYPED SCALAR. m20_u41_break_attribution_verdict.verdict()
+  branches on `stop_rose = stop_did_pp > 0`, and `stop_did_pp` is NOT computed by that instrument -- it enters
+  as `--stop-did-pp 11.6` from a different unit. So the sign of an externally supplied number is the WHOLE
+  difference between `both_contribute` (e35 implicated, a Tier-3 revert on the table) and `market_regime`.
+  Nobody had tested that sign against SAMPLING; this lane did, and it does not survive.
+  [!] MY OWN HYPOTHESIS WAS REFUTED AND THE LANE RECORDED IT AS SUCH: zero FABRICATED rows in all four cells.
+  The 2026-07-30 anchoring fix and the 2026-08-24 reclassification removed the class. The real asymmetry is
+  measured-vs-ESTIMATED: e35 pre 12.5% coverage against control post 70.9%, a 5.7x spread.
+  [!] AND THE EVIDENCE IS DECAYING, WHICH IS THE ITEM THAT OUTLIVES THIS OBJECT: the e35 pre cell fell 18 -> 8
+  (-55.6%) across three pulls while post GREW 17 -> 20, because /api/diag/journal takes table+limit ONLY and a
+  rolling newest-1000 window strips the PRE era preferentially. Deciding the e35 term needs the pre-era
+  population BACK -- a READ-SURFACE problem, not a research one, and it gets harder every day. Carried
+  forward as its own unit.
+  [!] add/add UNION, 2026-09-18: the lane created this object because the manager's copy was not on main when
+  it started (MI-263). MAIN's copy is kept as the base and the manager's CLOSE applied on top; nothing from
+  either side was dropped. Fourth instance tonight of the same mechanism -- the manager's practice is now to
+  PUSH THE OBJECT BEFORE SPAWNING.

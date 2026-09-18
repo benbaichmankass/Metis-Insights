@@ -1,0 +1,82 @@
+id: WO-20260918-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-ITS-COMMONEST-BLOCKER
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The blocked-lane watcher cannot express the commonest blocker -- its own registry row (MI-264), then the
+  next well-specified Tier-1 structural rows
+stage: BUILD
+lifecycle: done
+owner: engineering lane
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  MI-264, filed 2026-09-11 and unrouted 147 hours. scripts/ops/blocked_lane_watch.py grades five blocked-on
+  kinds and REFUSES a kind it cannot grade -- correctly -- but the class accounting for 2 of the 5 recorded
+  instances is a lane blocked on its own REGISTRY ROW not being visible yet (MI-263: the manager registers
+  locally and pushes later, so a cold lane correctly measures its own pre-spawn row ABSENT). A watcher that
+  cannot express the commonest blocker reports the roster as healthy while lanes sit stuck, which is the
+  desensitised-alarm shape one level up.
+  [!] THE WATCHER'S INPUT IS EMPTY TODAY AND THAT IS THE CORRECT STATE, NOT A BUG -- measured 2026-09-11 over
+  all 209 SESSIONS.json rows, 159 of 159 non-terminal rows declared NO blocker. Adding a sixth kind does not
+  make it fire; it makes a real blocker EXPRESSIBLE. Do not manufacture rows to prove it works.
+  [!] THIS IS A CONTINUING LANE. MI-264 is small and well-specified; when it is delivered, keep going into the
+  next well-specified TIER-1 STRUCTURAL rows -- the class where a mechanism is built and cannot express the
+  state that matters (this repo's `collapsed states` family), or where a signal is written and no consumer
+  branches on it. Work them one at a time, each MEASURED with a stated population, each landed on its own
+  commit. The operator's 2026-09-17 overnight direction for this lane is structural fixes and code that is
+  not working.
+done_condition: >-
+  (1) blocked_lane_watch.py gains a sixth kind for the registry-confirmed class, with a REAL grading rule --
+  it must be able to say `cleared` and `still blocked` from evidence, never from a declaration, and it must
+  keep REFUSING a kind it cannot grade rather than widening into a catch-all. Prove the new kind by a planted
+  control that must fire AND a planted control that must NOT, and say which is which.
+  (2) Then at least one further Tier-1 structural row measured and fixed, with its population stated.
+  [!] A GREEN SELF-TEST CLEARS NOTHING ABOUT THE FLEET and must not be reported as if it did -- 33 tests
+  already pass in tests/test_blocked_lane_watch.py including 5 mutation checks, and a harness cannot reach a
+  blocked cloud session. Report what the harness established and what it cannot.
+  [!] AND DO NOT ADD A DECORATIVE BRANCH to satisfy collapsed-state-guard. A state no consumer genuinely acts
+  on is the defect that guard exists to prevent, not the fix.
+source: >-
+  session brief unrouted list (MI-264, 147.1h); dispatched by the manager session_01GHpyXT2qssLJsrvXBQRkQF
+  under the operator's 2026-09-17 overnight direction, engineering lane = structural fixes
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). A POSITIVE finding, not the
+  NOT_ASSESSED default: the watcher, its tests and the registry are all Tier-1 and all readable from the
+  container. Nothing blocks this at spawn. A statement about TODAY and about THIS object only.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET on BOTH clauses, and VERIFIED on origin/main rather than from the
+  lane's summaries.
+  CLAUSE (1) -- the sixth kind: PR #12505 merged as 29efedc09 (Tier-1, held for a human merge by pr-landing
+  R12 because it edits scripts/ops/session_registry.py, which is LANDING_MACHINERY; the lane had first
+  declared `landing: self`, the guard REFUSED, and it self-corrected to `landing: hold` /
+  changes_landing_machinery -- the guard working, recorded as such). `registry_confirmed` appears 12 times in
+  blocked_lane_watch.py on main. All 6 checks green. I READ THE DIFF BEFORE MERGING, as R12 exists to make
+  someone do: the write-side fallback is scoped to this ONE kind, requires a `--ref`, matches only when
+  EXACTLY ONE row carries that registry_key AND that row has no session_id, refuses on ambiguity (this repo
+  has measured three rows sharing one pending- key at once), and never writes session_id itself -- that stays
+  confirm()'s job. It also splits the refusal message so `not landed yet` stops reading as `never written`,
+  which is MI-263's collapsed state.
+  ⚠️ IT SOLVES A GAP THAT WOULD OTHERWISE HAVE MADE THE KIND UNDECLARABLE BY THE VERY LANES IT EXISTS FOR:
+  `blocked-on` finds "my own row" by session_id, which a pending row does not carry until confirm() runs --
+  exactly the condition this kind watches.
+  CLAUSE (2) -- further Tier-1 structural rows, three of them, not one: MI-242 #12506 (4662d07a6, widen
+  TIER1_SURFACE to scripts/backtest_*.py); MI-234 #12507 (bbe5cd67d, the sunset-brief renderer reads
+  dispositions instead of re-asking); MI-233 #12508 (94e16ba84, the operator's no-retirement policy written
+  into the register the sunset pass's own consumers read, after manager-scope R2 correctly refused the
+  manager writing it directly).
+  ⚠️ #12506 CARRIED AN OPERATOR APPROVAL AND I VERIFIED IT AT THE PRIMARY SOURCE, not from the PR body:
+  DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE on
+  WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS reads chosen: add_it / verdict: approved / answered_at
+  2026-09-10T07:52:00Z, with a `condition` that names BOTH constraints the PR had to satisfy -- declare
+  landing: hold, and widen `scripts/backtest_*.py` ONLY, "not a licence to widen scripts/*.py generally".
+  The PR does exactly that and ships a NEGATIVE planted control (scripts/check_something.py still fails R5)
+  proving the widening did not leak. Conditions met; that is why the merge was mine to make.
+  ⚠️ WHAT IS NOT ESTABLISHED, and the lane said so itself rather than letting a green harness stand in for it:
+  no lane has yet DECLARED `registry_confirmed` for real and no scheduled run has graded one `cleared`. 95
+  tests pass including planted positive and negative controls, and a harness cannot reach a blocked cloud
+  session -- which is the actual condition MI-264's done_when asks to observe. That observation is still owed
+  to the fleet and is carried by
+  OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT, not by this object.
+  COST: $33.76 on a FRESH Sonnet lane for four landed PRs.

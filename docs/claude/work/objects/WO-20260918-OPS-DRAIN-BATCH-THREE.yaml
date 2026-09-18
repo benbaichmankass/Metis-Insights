@@ -1,0 +1,54 @@
+id: WO-20260918-OPS-DRAIN-BATCH-THREE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Ops lane: third backlog drain batch — close another five Tier-1 rows against the 2026-09-17 triage (batches one and two closed ten)
+stage: BUILD
+lifecycle: done
+owner: null
+opened_at: 2026-09-18
+closed_at: null
+why: >-
+  OPERATOR-DIRECTED 2026-09-17 (overnight): work the backlog continuously. The first batch
+  closed exactly five rows each (MI-302 then MI-306, TEN in total, both verified independently by the manager)
+  and the manager verified them independently by diffing the register across the merge rather than reading the
+  lane's claim -- so the pattern works and this continues it.
+  [!] THE STANDING FINDING THAT MAKES THIS WORTH REPEATING: a canonical metric went 0 -> 85. CLAUDE-RULES-CANONICAL
+  records 'Tier-1 high/critical rows older than 14 days: ZERO' and calls it THE DIAGNOSIS; measured over the
+  health backlog ALONE -- a narrower population than that baseline's three -- it was 85 on 2026-09-17. Five
+  are now closed. Admission was fixed in 2026-08-13 and disposal was not.
+done_condition: >-
+  AT LEAST FIVE MORE rows CLOSED -- different rows from batches one and two -- with `status` moved off `open` through
+  scripts/ops/backlog_append.py::update_row, each recording what was OBSERVED and its population, against the
+  row's own resolution_criteria.
+  [!] FEWER IS ACCEPTABLE IF THE REASON IS RECORDED; inventing closes to reach five is the one disallowed
+  outcome. [!] FILING NEW ROWS DOES NOT COUNT -- filing already works, closing is what does not.
+  [!] AND IF THE FIVE 100%-TIER-1 CLASSES ARE EXHAUSTED, SAY SO WITH THE COUNT rather than drifting into the
+  122 operator-gated Tier-2/3 rows, which will stall.
+source: >-
+  Operator directive 2026-09-17 (overnight dispatch, ops = triage and work the backlog). Continues MI-302 and MI-306.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the triage names
+  its classes and full ids, MI-302 proved the path end to end tonight, and the remaining rows in those classes
+  are Tier-1 by the triage's own measurement.
+explicitly_not_in_scope: >-
+  Re-triaging; the 122 operator-gated Tier-2/3 rows; the ten rows MI-302 and MI-306 already closed; the full /system-review.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18. Merged as 37c111f6a (#12501). VERIFIED INDEPENDENTLY BY THE MANAGER RATHER THAN FROM THE
+  LANE'S COUNT -- the register was diffed across the merge (0c77c571e..37c111f6a, docs/claude/health-review-backlog.json,
+  items[]): rows 1637 -> 1639, unique ids 1637 -> 1639 (so no id collision), EXACTLY 5 transitions open ->
+  resolved and ZERO other status changes. The five: BL-20260908-CONSTRAINT-READOUT-CRON-HAS-FAILED-6-OF-6-SCHEDULED-RUNS-ON-A-MISSING-PYYAML,
+  BL-20260911-THE-CONSTRAINT-READOUT-CRON-NOW-CLEARS-ITS-SELF-TEST-AND-DIES-ON-SESSION-BRIEF-GUARD-REJECTING-THE-BRIEF-IT-JUST-RENDERED,
+  BL-20260911-A-SHARED-REGISTER-LOSES-ITS-TOP-LEVEL-KEYS-TO-A-LINE-LEVEL-MERGE-WHILE-ITS-ROWS-SURVIVE,
+  BL-20260912-THE-CHECKLIST-ROUTING-AGE-REGISTER-HAS-NEVER-ADVANCED-PAST-ITS-BIRTH-STATE-SO-THE-REPORT-ONCE-MECHANISM-HAS-REPORTED-NOTHING, and
+  BL-20260917-THE-PYTEST-RUN-COMMITTED-READER-SCANS-ARE-BLIND-TO-THE-OS-PATH-JOIN-SPELLING-SO-AN-UNCOVERED-READER-WAS-FOUND-BY-ACCIDENT. Two new rows filed.
+  That is the THIRD drain batch verified this way (MI-302 and MI-306 were each 5-and-verified), so 15 Tier-1
+  regression rows are closed across the three, each against a register diff rather than a self-report.
+  [!] THE LANE RAN ON SONNET, CHOSEN DELIBERATELY per the 2026-09-17 model-to-task canon, and cost $24.39
+  against the $50-80 an Opus lane has been costing for comparable drain work. The choice is recorded in the
+  SESSIONS.json row with its reason, which is what that canon asks for.
+  [!] NOT CLAIMED: 'resolved' here means the row's own resolution_criteria were met and recorded, NOT that a
+  detector now exists for each class -- the 2026-09-09 audit's finding that 509 of 741 resolved findings leave
+  no detector is untouched by this and is not discharged.
