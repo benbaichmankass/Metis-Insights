@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-18T19:56:50+00:00",
+  "generated_at": "2026-09-18T22:48:12+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 80,
+      "rows": 81,
       "note": ""
     },
     "soaks": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=10.1h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=12.9h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 1,
+      "rows": 2,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
-      "rows": 1,
-      "note": "7 workflow(s) graded, 1 red · 7 graded at `main`'s tip · none graded behind the tip · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "rows": 2,
+      "note": "8 workflow(s) graded, 2 red · 0 graded at `main`'s tip · none graded behind the tip · 8 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -53,7 +53,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-18T19:56:44+00:00, age 0.0h"
+      "note": "digest 2026-09-18T22:48:08+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -73,12 +73,12 @@
     "settled_disposition_owed": {
       "state": "read",
       "rows": 0,
-      "note": "settled record grades settled_graded (115 settled row(s))"
+      "note": "settled record grades settled_graded (116 settled row(s))"
     },
     "spent_decision_edges": {
       "state": "read",
       "rows": 5,
-      "note": "205 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
+      "note": "208 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 194,
-    "loud": 155
+    "due": 197,
+    "loud": 158
   },
   "rows": [
     {
@@ -167,7 +167,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 390.0h ago, on the order of 390 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 392.9h ago, on the order of 392 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 16,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -681,15 +681,6 @@
       "id": "OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE",
       "title": "MI-266 (Tier-1, PR #11783) added SECRET_JWT_SIGNING_KEY + SECRET_WEBAPP_PASSWORD_SHA256 to the SECRET_* map in .github/workflows/system-actions.yml, plus docs/runbooks/restore-webapp-auth.md. It fixes",
       "why_due": "loud row — must be reported on every session",
-      "age_days": 6,
-      "loud": true,
-      "link": ""
-    },
-    {
-      "source": "open_items",
-      "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
-      "title": "#11970 (1baff7a1f) carries the round geometry into apply_rounds so the dispatcher stops refusing every round, and grades `applied` through the dispatcher's own validator. VERIFIED RUNNING on the live ",
-      "why_due": "monitoring row 6d since last observation (cadence 2d)",
       "age_days": 6,
       "loud": true,
       "link": ""
@@ -1352,6 +1343,15 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12529"
     },
     {
+      "source": "red_main_runs",
+      "id": ".github/workflows/ranking-key-ab.yml",
+      "title": ".github/workflows/ranking-key-ab.yml",
+      "why_due": "the latest push-to-main run of .github/workflows/ranking-key-ab.yml concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this. Graded at a5aaf65a7, distance from the tip UNKNOWN — we could not look",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35006553362"
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -1407,6 +1407,24 @@
     },
     {
       "source": "open_items",
+      "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
+      "title": "#11970 (1baff7a1f) carries the round geometry into apply_rounds so the dispatcher stops refusing every round, and grades `applied` through the dispatcher's own validator. VERIFIED RUNNING on the live ",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
+      "id": "OI-20260918-THE-DECISION-CHANNEL-IS-REPAIRED-AND-NO-PROMPT-HAS-BEEN-OBSERVED-ARRIVING",
+      "title": "MI-303. THE CAUSE OF THE DEAD DECISION CHANNEL IS FOUND, MEASURED AND REPAIRED, AND NOT ONE PROMPT HAS BEEN OBSERVED ARRIVING SINCE -- those are different facts and only the first holds. Telegram caps",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": null,
+      "loud": true,
+      "link": ""
+    },
+    {
+      "source": "open_items",
       "id": "OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED",
       "title": "MI-317 (PR #12526) delivered the per-leg target-geometry decision packet over ALL 55 legs in config/strategies.yaml: docs/research/per-leg-target-geometry-packet-2026-09-18.md and docs/research/mi317-",
       "why_due": "loud row — must be reported on every session",
@@ -1418,10 +1436,19 @@
       "source": "red_main_runs",
       "id": "branch-protection-sync",
       "title": "branch-protection-sync",
-      "why_due": "the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this. Graded at 28873d73b, `main`'s tip",
+      "why_due": "the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this. Graded at a5aaf65a7, distance from the tip UNKNOWN — we could not look",
       "age_days": null,
       "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35380979959"
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35006554645"
+    },
+    {
+      "source": "red_crons",
+      "id": "pr-queue-watch",
+      "title": "pr-queue-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35395705021"
     },
     {
       "source": "red_crons",
@@ -1651,8 +1678,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x14 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 14 rows 2026-09-12T18:12:44 → 2026-09-18T07:01:02 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x15 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 15 rows 2026-09-12T18:12:44 → 2026-09-18T21:49:18 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -1660,8 +1687,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-fa77ad80",
-      "title": "[error] x23 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 23 rows 2026-09-12T18:12:44 → 2026-09-18T07:01:02 · symbols=MES — decide: fix now, or file to a backlog",
+      "title": "[error] x24 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 24 rows 2026-09-12T18:12:44 → 2026-09-18T21:49:18 · symbols=MES — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -1723,8 +1750,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-72e2ad1e",
-      "title": "[error] x66 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 66 rows 2026-09-14T10:02:36 → 2026-09-18T19:10:08 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
+      "title": "[error] x69 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 69 rows 2026-09-14T10:02:36 → 2026-09-18T22:13:21 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
       "age_days": 4,
       "loud": false,
       "link": ""
@@ -1759,8 +1786,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "88 cause groups over 1336 rows (60 error-level, 28 warn-level, 1 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T16:16:03.351213+00:00`.",
+      "title": "89 cause groups over 1343 rows (60 error-level, 29 warn-level, 1 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T19:35:27.968789+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
