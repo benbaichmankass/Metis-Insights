@@ -135,6 +135,11 @@
     "--be-arm-on-touch": {
       "state": "needs_column",
       "reason": "ict_scalp only. Its own help says it is 'only meaningful with --sim-breakeven', so it is arguably a SUB-KNOB of that lever rather than a column of its own -- recorded here as needs_column so the decision is made explicitly rather than by omission. Whoever adds the breakeven column should decide whether the arming rule is a second cell or a parameter of the first."
+    },
+    "--tp-at-r": {
+      "state": "mapped_to_column",
+      "column": "bracket_geometry",
+      "note": "added 2026-09-13 (MI-278 U30) with the flag itself. The scalp analogue of `--tp-r`, and the SAME column by the matrix's own legend_bracket_geometry, which defines it as the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — this flag IS its first term. Two flags rather than one because the config key differs by family: ict_scalp declares `tp_at_r` and fade/fvg_range declare `tp_r`, a split m20_fleet_exit_sweep already models. ⚠️ Unlike `--tp-r` it is NOT gated on `--tp-cap-pct`: ict_scalp applies no venue clamp at all (CLAMPING_FAMILIES is {donchian, pullback, fade, squeeze}; positive control trend_donchian.py:393 does clamp), so the target it sets is the one that binds."
     }
   },
   "summary_2026_09_12": {
