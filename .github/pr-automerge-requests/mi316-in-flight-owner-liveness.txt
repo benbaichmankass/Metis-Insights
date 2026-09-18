@@ -1,0 +1,1 @@
+MI-316: dead-owner detector + M20 close + prop flag, PR #12524
