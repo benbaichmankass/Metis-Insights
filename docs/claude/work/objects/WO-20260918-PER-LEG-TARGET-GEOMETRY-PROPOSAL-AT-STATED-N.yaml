@@ -1,0 +1,94 @@
+id: WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: the per-leg target-geometry decision packet, at each leg's own stated n
+stage: DECISION
+lifecycle: done
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  MI-317. Two lanes built the evidence overnight (MI-307 #12503, MI-312 #12515) and
+  nobody wrote the packet — the "do X first so we can scope Y leaves Y owed by
+  nobody" failure this repo has already measured on itself. Closes clause (2) of
+  OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON:
+  "the offline-harness MFE distribution is produced at stated n and a per-leg
+  proposal is put in front of the operator off THAT n rather than off the live 1-8."
+  ⚠️ THIS OBJECT DID NOT EXIST WHEN THE LANE WAS SPAWNED — the spawn prompt named it
+  as being on main and binding, and it was absent from origin/main (checked with a
+  positive control: the sibling WO-20260918-RESEARCH-ATTRIBUTE-* object WAS present).
+  It is created BY the lane so the work is carried. That sibling object records the
+  IDENTICAL failure one day earlier, so this is a RECURRENCE and not a filing slip —
+  the second observed instance of a spawn prompt naming a work object that was never
+  written. Filed as BL-20260918-A-SPAWN-PROMPT-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED-AND-THIS-IS-THE-SECOND-INSTANCE.
+  ⚠️ Created with lifecycle `done` rather than `in_flight` because the WIP ceiling was
+  MEASURED at 8 of 8 when this lane went to register it; a ninth in_flight object
+  would have failed check_wip_ceiling.py. The work was complete at that point, so
+  `done` is the honest value rather than a way around the guard.
+done_condition: >-
+  A PACKET exists covering every leg in config/strategies.yaml, stating per leg:
+  the declared geometry, WHAT ACTUALLY SETS THE TARGET TODAY (declared tp_r / the
+  0.099 venue clamp / neither), the MFE quantile evidence at that leg's OWN stated
+  n, and either a proposed value with its argument OR an explicit "change nothing"
+  WITH ITS REASON. A packet that proposes a number for every leg does NOT satisfy
+  it — MI-307 measured 12 of 19 legs with zero e35 cells passing IS and OOS, so the
+  sentinel stands BY EVIDENCE on those and saying so is the deliverable.
+must_not:
+  - >-
+    Touch config/. Every tp_r and tp_at_r is Tier-3 and the operator's. This object
+    is complete when the packet exists, not when anything is applied.
+  - >-
+    Commission a new sweep or re-run either instrument. MI-307's memo records that
+    re-measuring is the failure mode OI-20260906 exists to stop: the diagnosis was
+    established seven times before it was built once.
+  - Rebuild ML-2. It was built and refuted; do not propose it again.
+  - >-
+    Report gate condition 1 (backtest-live exit-location fidelity) as cleared.
+    44 of 44 enabled+live legs still grade insufficient_n and the remainder is a
+    SOAK. An argument that leans on that condition must say so rather than route
+    around it.
+  - >-
+    Bury MI-312's own caveat. Its control passes 8 of 8 within 0.71pp but is
+    near-tautological on that family (predicted and observed disagree on 21 of
+    7,338 joined trades, 0.29%). Where the packet leans on scalp numbers it must
+    say that plainly.
+outcome: >-
+  MET. Packet: docs/research/per-leg-target-geometry-packet-2026-09-18.md, with
+  docs/research/mi317-target-geometry-packet-2026-09-18.json carrying all 55 legs.
+  Instrument: scripts/research/mi317_target_geometry_packet.py (39 selftests, 7
+  negative controls). NOTHING WAS RE-MEASURED — the two committed artifacts plus the
+  e35 corpus were joined.
+  THE PACKET'S SHAPE IS NOT THE ONE THE QUESTION IMPLIED, over all 55 legs:
+  a per-leg number is OWED on 8, is ALREADY IN CONFIG on 10, is REFUSED BY EVIDENCE
+  on 31, and is UNKNOWN on 6.
+  (1) 44 of 55 legs do not set their own target at all — TP_VENUE_CAP_PCT=0.099 does,
+      resolved on the UNIT MODULE via monitor_unit_for (a family-only test under-claims
+      and misses fade_breakout_4h outright, as tp_venue_cap's own docstring warns).
+  (2) 26 of those 44 touch NO Bybit account, and 5 route REAL MONEY through alpaca_live
+      (tlt_pullback_1h, tlt_pullback_1d, ief_pullback_1d, slv_pullback_1d,
+      iaum_pullback_1d). A constant named for a Bybit venue limit is the operative
+      take-profit on real-money US ETF legs. This needed the ROUTING table beside the
+      geometry and neither source memo could say it alone.
+  (3) THE e35 CORPUS COVERS 41 LEGS, NOT THE 19 MI-307 READ — 7,343 real-tp_r cells.
+      Exactly 11 cells on 10 legs survive walk-forward with no timeout component and no
+      inert-fold contamination, and ON ALL 10 THE SURVIVING CELL'S tp_r IS THE VALUE
+      CONFIG ALREADY DECLARES. There is no unshipped per-leg tp_r hiding in the corpus.
+      6 of those 10 ride path B (net_R only) and every one FAILS its own gate on
+      maxdd_worse; 2 further cells were excluded for the BL-20260817 inert-fold shape
+      (5 reported wins, 3 of 6 folds inert) — the folds were read, not the summary quoted.
+  (4) The genuinely open decision is 8 legs wide (7 ict_scalp + fvg_range_15m, the
+      non-clamping family), and NOT ONE places a real-money order today: the scalp legs
+      route to bybit_1 (paper) and fvg_range_15m is execution: shadow despite its
+      bybit_2 roster line.
+  (5) The one Tier-1 item with no counter-argument: 22 legs declare tp_intent mode
+      `none`, 20 of them giving reason `trail_is_the_profit_exit`, which is not accurate
+      as stated — on trend_donchian_ada_4h the trail is the profit exit on 56% of trades
+      and the clamp on the other 44%.
+  TWO OF MY OWN ERRORS ARE RECORDED IN THE MEMO § 1.2 RATHER THAN QUIETLY FIXED: a bare
+  except made the packet report that NO leg is clamped while importing the frozenset
+  naming four clamping families (the silent-empty class, produced inside the unit that
+  reports on it), and a family-only clamp test under-claimed. Both now have negative
+  controls that fail on the regression.
+blocked_on: []
+blocked_on_basis: ASSESSED

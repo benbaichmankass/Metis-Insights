@@ -39755,6 +39755,38 @@
       ]
     },
     {
+      "id": "BL-20260918-SCRIPTS-ON-SYS-PATH-SHADOWS-THE-ML-PACKAGE",
+      "title": "m20_fleet_exit_sweep inserts <repo>/scripts at sys.path[0] on import, after which scripts/ml shadows the real top-level ml package and any later import of src.runtime.pipeline dies on 'No module named ml.datasets'",
+      "severity": "medium",
+      "tier": "1 (scripts/research path handling). PROPOSED, not applied -- MI-317 works around it with an eager import and a comment saying why.",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED this session while building scripts/research/mi317_target_geometry_packet.py. scripts/research/m20_fleet_exit_sweep.py lines 59-63 do sys.path.insert(0, REPO), sys.path.insert(0, REPO/'scripts') and sys.path.insert(0, REPO/'scripts'/'research'). Because scripts/ml/ exists, the second of those makes 'ml' resolve to scripts/ml for the rest of the process, so a subsequent 'from src.runtime.pipeline import monitor_unit_for' fails with ModuleNotFoundError: No module named 'ml.datasets' -- src.runtime.regime_shadow imports ml.datasets.volatility_estimators. POSITIVE CONTROL: importing ml.datasets in a fresh interpreter with only the repo root on sys.path succeeds; importing m20_fleet_exit_sweep first makes the identical import fail. The two modules are therefore usable in one process ONLY if the pipeline symbol is bound BEFORE the sweep module is touched, which is an ordering constraint no caller can see. This is not hypothetical for future units: any research script that wants both the leg->family resolver and the leg->unit resolver hits it.",
+      "refs": [
+        "scripts/research/m20_fleet_exit_sweep.py:59-63",
+        "scripts/research/mi317_target_geometry_packet.py",
+        "docs/research/per-leg-target-geometry-packet-2026-09-18.md"
+      ],
+      "resolution_criteria": "m20_fleet_exit_sweep no longer puts <repo>/scripts on sys.path, or scripts/ml is renamed so it cannot shadow the top-level package -- VERIFIED by importing m20_fleet_exit_sweep and then src.runtime.pipeline in that order in one interpreter and having it succeed. A test that imports them in the OPPOSITE order proves nothing: that order already works today, which is why the defect is invisible."
+    },
+    {
+      "id": "BL-20260918-A-SPAWN-PROMPT-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED-AND-THIS-IS-THE-SECOND-INSTANCE",
+      "title": "A research lane was dispatched to read a work object 'on main' whose done_condition and must_not were declared binding, and the object did not exist -- the second observed instance in two days",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MI-317's spawn prompt named docs/claude/work/objects/WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N.yaml on main, said READ IT FIRST, and said its done_condition and must_not are binding and 'not restated here in full'. The object did not exist. MEASURED with a positive control: git ls-tree on origin/main (d4ff439ce) returned exactly one docs/claude/work/objects/WO-20260918-* file, the sibling ATTRIBUTE-THE-2026-08-30-BREAK object, and a git grep for 'MI-317' across main returned nothing. SO THE LANE'S BINDING CONSTRAINTS WERE ONLY EVER IN THE PROMPT. THIS IS A RECURRENCE, WHICH IS THE FINDING: WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET records the IDENTICAL failure one day earlier in its own `why` field ('THIS OBJECT DID NOT EXIST WHEN THE LANE WAS SPAWNED'), and was likewise created by the lane it was meant to govern. Two lanes in two days both had to write their own charter. The prompt's own wording is what makes it costly rather than merely untidy -- a lane told the constraints are binding and elsewhere may reasonably assume must_not clauses it never sees. It is also the OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING class caught in the act, one level up: the specification existed, in a prompt, carried by nothing durable.",
+      "refs": [
+        "docs/claude/work/objects/WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N.yaml",
+        "docs/claude/work/objects/WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET.yaml",
+        "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING"
+      ],
+      "resolution_criteria": "EITHER the manager's spawn step writes and PUSHES the work object before the lane is registered -- verified by a lane finding its named object present at spawn time and saying so -- OR a check refuses to register a spawn whose named object is absent from origin/main. A THIRD LANE CREATING ITS OWN OBJECT DOES NOT CLEAR THIS; that is the failure repeating with the lane absorbing the cost, which is exactly what makes it invisible. Record WHICH lane observed its object already present."
+    },
+    {
       "id": "BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-BECAUSE-THE-YAML-DECLARES-NO-EXIT-STYLE-AND-THE-HARNESS-DEFAULT-IS-THE-WRONG-TARGET",
       "title": "base_args passes no --exit-style for fvg, so every fvg run through the canonical resolver measures the range MIDLINE while the live unit targets the opposite BOUNDARY",
       "severity": "medium",
@@ -39771,6 +39803,39 @@
         "config/strategies.yaml::fvg_range_15m",
         "MI-312 / docs/research/scalp-family-target-arms-2026-09-18.md"
       ]
+    },
+    {
+      "id": "BL-20260918-OPEN-ITEMS-JSON-HAS-NO-SAFE-APPENDER-THE-CANONICAL-DETECTOR-REFUSES-IT-AND-A-NAIVE-WRITE-REFORMATS-837-LINES",
+      "title": "backlog_append.detect_format raises FormatNotReproducible on docs/claude/OPEN-ITEMS.json, so the register CLAUDE.md tells every session to update at session end has no safe programmatic appender",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED this session while adding a required carrier row. TWO facts, and the second is what makes it bite. (1) A NAIVE read-append-write REFORMATS THE FILE: json.dumps(doc, indent=1, ensure_ascii=False) produced a diff of 831 insertions / 837 DELETIONS against a 1,867-line file -- i.e. it re-attributes essentially every pre-existing row to whoever touched it, which is exactly BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES one register over. The cause is that OPEN-ITEMS.json's list elements sit at a 2-space indent with 3-space fields, which no json.dumps indent setting reproduces. (2) THE CANONICAL GUARD AGAINST (1) DOES NOT COVER THIS FILE: scripts/ops/backlog_append.py::detect_format, which exists precisely to refuse rather than reformat, RAISES FormatNotReproducible on OPEN-ITEMS.json -- no candidate serialisation reproduces it byte-for-byte. So the protection correctly refuses and leaves the caller with nothing. CONSEQUENCE: CLAUDE.md instructs EVERY session to update OPEN-ITEMS.json at session end, and the documented safe-append tool cannot write it. A session that does the honest thing by hand either reformats 837 lines or, more likely, edits with a text tool and hopes. WORKED AROUND HERE, NOT FIXED: MI-317 spliced its row as TEXT at the file's own indentation, asserting after the write that the JSON still parses, that the row count rose by exactly one, and that every pre-existing item is byte-identical -- final diff 12 insertions, 0 deletions. That is a per-session workaround, not a mechanism.",
+      "refs": [
+        "docs/claude/OPEN-ITEMS.json",
+        "scripts/ops/backlog_append.py",
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
+      ],
+      "resolution_criteria": "EITHER detect_format is extended to reproduce OPEN-ITEMS.json (and backlog_append accepts it), OR a dedicated open_items_append helper exists that round-trips it byte-for-byte -- VERIFIED by appending a row and reading a diff with ZERO deletions beyond the one comma the previous last row gains. A green import proves nothing: the failure mode is a write that SUCCEEDS and reformats. [!] Re-serialising OPEN-ITEMS.json into a shape json.dumps can reproduce is a legitimate fix and is NOT free -- it is a one-time 1,800-line diff that re-attributes every row, so it needs to land alone, on its own PR, and never inside a content change."
+    },
+    {
+      "id": "BL-20260918-STALE-IN-FLIGHT-RATCHET-RACES-A-REGISTER-MAIN-MUTATES-FASTER-THAN-CI-RUNS-SO-A-PR-FAILS-FOR-ROWS-IT-NEVER-TOUCHED",
+      "title": "check_stale_in_flight compares base-vs-head on MANAGER-CHECKLIST.json and work/objects/, which main mutates every ~2.7 min during a burst against a ~5.3 min guards job -- so an open PR reports as ADDING in_flight rows that other PRs have since closed",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED on PR #12526, which touches NEITHER register. The guard's ratchet counts in_flight rows at base and at head and fails on a positive delta. When ANOTHER PR CLOSES an in_flight row on main, every open branch whose merge-base predates that close still carries the row as in_flight, so relative to the NEW base it reads as ADDING it -- attributing to the author rows they never wrote. Observed TWICE in ~15 minutes on one PR: #12521 closed WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE (verified lifecycle in_flight at 8460ff8b2 -> done at the next main), and while that merge was being pushed #12522 closed WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ. A third CI cycle then failed on the same guard after #12524 (two more closures) and #12525 (which FILLED `state` on 52 checklist items). THE RACE IS QUANTIFIED. POPULATION: commits on origin/main in a 3h window touching docs/claude/work/MANAGER-CHECKLIST.json or docs/claude/work/objects/ -- 6 commits, but CLUSTERED: 5 of them inside 12 minutes (07:31:57Z-07:43:00Z), inter-commit gaps min 0.6 / median 2.7 / max 91.0 minutes, 3 of 5 gaps under 6 minutes. The `guards` job on that PR ran 07:42:35Z-07:47:54Z = 5.3 minutes. So DURING A BURST the base mutates faster than the job validating against it can finish, and merging the base cannot reliably win the race: the merge restarts CI, and the base moves again inside that run. [!] STATE THE POPULATION HONESTLY: the rate is BURSTY, not uniform -- the 91-minute gap shows quiet periods where a merge settles it in one cycle, which is what happened on the fourth try. This is not a claim that the guard fails constantly. [!] THE GUARD'S FINDING IS CORRECT AND MUST NOT BE WEAKENED: those rows really are in_flight with dormant owners, and its own text is careful to say the EVIDENCE does not support the claim rather than that the work is abandoned. What is wrong is ATTRIBUTION -- it bills a shared-register race to whoever happens to have a PR open.",
+      "refs": [
+        "scripts/ci/check_stale_in_flight.py",
+        "docs/claude/work/MANAGER-CHECKLIST.json",
+        "docs/claude/work/objects/",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/12526"
+      ],
+      "resolution_criteria": "The ratchet stops counting rows the HEAD did not change -- e.g. it grades only in_flight rows whose defining file the DIFF touches, or it compares against the merge-base rather than live origin/main. VERIFIED by a PR that touches neither register passing while an unrelated PR closes an in_flight row mid-run: construct it by closing a row on main during the PR's CI cycle, which is exactly the condition measured here. [!] A PASS ON A QUIET HOUR PROVES NOTHING -- the 91-minute gap in this measurement means an unmodified guard passes most of the time, so 'it passed' is not evidence the race is closed. [!] AND DO NOT RESOLVE THIS BY RAISING THE RATCHET CEILING OR EXEMPTING THE REGISTERS: that would stop the guard reporting genuinely unsupported in_flight rows, which is its real and valuable finding."
     }
   ]
 }
