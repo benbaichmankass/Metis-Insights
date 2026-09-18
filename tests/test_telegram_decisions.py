@@ -1246,6 +1246,57 @@ def test_context_is_dropped_before_the_question_is_touched():
     assert "Wait" in body
 
 
+@pytest.mark.parametrize("budget", [1, 10, 50, 120, 300, 900, 4032])
+def test_a_question_is_never_shown_truncated_at_any_budget(budget):
+    """⚠️ OMITTED, NEVER TRUNCATED — the invariant MI-318 raised on #12490.
+
+    A clipped question renders as if it were the WHOLE question: the operator
+    cannot see that anything is missing, so they would answer a different
+    question than the one on record. The property asserted is therefore not
+    "the body says omitted" but the strictly stronger one: NO PROPER PREFIX of
+    the question ever reaches the body.
+
+    ⚠️ This is sharper than the ask, because `_clip` drops its " […]" marker
+    once the budget is shorter than the marker — so below ~4 characters the old
+    rung 4 truncated the question with NO marker at all.
+    """
+    q = ("SHOULD WE ARM THE READ GATE NOW OR WAIT FOR THE RETIREMENT "
+         + _long(6_000))
+    req = _request(question=q, context=_long(9_000),
+                   options=[{"key": f"k{i}", "label": _long(300),
+                             "implication": _long(2_000)} for i in range(30)])
+    body, fit = td.render_decision_prompt_fitted(req, budget=budget)
+
+    assert len(body) <= budget
+    assert fit == td.FIT_SHORTENED
+    # whole, or not at all — never a prefix
+    if q not in body:
+        for cut in (8, 20, 40, len(q) // 2, len(q) - 1):
+            assert q[:cut] not in body, (
+                f"a {cut}-char PREFIX of the question reached the body at "
+                f"budget={budget} — that reads as the whole question")
+
+
+def test_when_the_question_cannot_be_shown_the_body_says_so_and_names_the_file():
+    """The omission has to be RECOVERABLE, or it is just a different silence."""
+    req = _request(question=_long(9_000))
+    body, _ = td.render_decision_prompt_fitted(req)
+    assert "QUESTION OMITTED" in body
+    assert "docs/claude/work/objects/WO-20260901-PHASE-H.yaml" in body
+
+
+def test_a_question_that_fits_whole_is_still_preferred_over_the_notice():
+    """The notice is a FLOOR, not a shortcut — dropping a question that would
+    have fitted would lose the very thing the channel exists to carry."""
+    q = "Build the read gate now, or wait for the retirement?"
+    req = _request(question=q, options=[{"key": f"k{i}", "label": _long(600),
+                                         "implication": _long(600)}
+                                        for i in range(50)])
+    body, _ = td.render_decision_prompt_fitted(req)
+    assert q in body
+    assert "QUESTION OMITTED" not in body
+
+
 def test_the_footer_survives_even_when_the_options_alone_blow_the_budget():
     """The ids are how the operator finds the question at all, so they are the
     last thing to go — the last-resort branch keeps them."""

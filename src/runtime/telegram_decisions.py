@@ -557,6 +557,20 @@ def _source_hint(request: dict[str, Any]) -> str:
     return f"docs/claude/work/objects/{request.get('objectId')}.yaml"
 
 
+def _question_omitted_notice(request: dict[str, Any]) -> str:
+    """Stands in for a question that cannot be shown WHOLE.
+
+    ⚠️ The question is OMITTED rather than truncated, deliberately. A clipped
+    question renders as if it were the entire question — the operator cannot
+    see that anything is missing — so answering it would be answering a
+    different question than the one recorded. Naming the file is what makes
+    the omission recoverable.
+    """
+    return ("⚠️ QUESTION OMITTED — it is too long for Telegram, and this "
+            "channel never truncates a question (a clipped question reads as "
+            f"the whole one). Read it in full: {_source_hint(request)}")
+
+
 def render_decision_prompt(
     request: dict[str, Any],
     *,
@@ -596,7 +610,21 @@ def render_decision_prompt_fitted(
     2. ``context`` is truncated, then dropped entirely, FIRST — it is context,
        not the question;
     3. option ``implication`` text is truncated next;
-    4. the ``question`` is truncated LAST, and only if the rest cannot yield.
+    4. the ``question`` is OMITTED last, and only if the rest cannot yield —
+       ⚠️ **OMITTED, NEVER TRUNCATED.** A clipped question reads as the whole
+       question, so it corrupts the record of what was asked, which is the one
+       thing a control carrying a human decision must not do. When it cannot
+       be shown whole it is replaced by a line saying so and naming the file
+       that holds it. Raised on PR #12490 by the MI-318 lane, against a
+       separately-dispatched work object whose ``must_not`` reads "DO NOT
+       shorten the QUESTIONS ... editing a decision's wording to make a
+       transport bug go away would corrupt the record of what was asked".
+       The two designs agree on every request the corpus contains (question
+       and options survive intact on all 5 real over-cap requests, only
+       ``context`` dropped); they diverge only where the frame alone exhausts
+       the budget — and there ``_clip`` would have cut the question with NO
+       marker at all, since it drops its " […]" suffix once the budget is
+       shorter than the suffix.
 
     Shortening ALWAYS adds a line saying so and naming the source file. A
     silent truncation would be the unprovenanced-diagnostic class landing on
@@ -685,18 +713,16 @@ def render_decision_prompt_fitted(
         if len(body) <= budget:
             return body, FIT_SHORTENED
 
-    # ── 4. truncate the QUESTION, last ──────────────────────────────────────
+    # ── 4. OMIT the question, last — never truncate it ──────────────────
+    # ⚠️ The question is the RECORD OF WHAT WAS ASKED. A clipped question
+    # reads as the whole question, so it is worse than an absent one: the
+    # operator cannot tell that anything is missing. Replace it with a notice
+    # naming the file that holds it.
     bare_opts, _ = opt_lines(0)
-    # What the question may occupy = the budget minus everything that must
-    # survive. Computed by measuring the real frame rather than estimating it,
-    # so the arithmetic cannot drift from `assemble`.
-    frame = len(assemble("", "", bare_opts, note=True))
-    q_budget = budget - frame
-    if q_budget > 0:
-        clipped_q, _ = _clip(question, q_budget)
-        body = assemble(clipped_q, "", bare_opts, note=True)
-        if len(body) <= budget:
-            return body, FIT_SHORTENED
+    notice = _question_omitted_notice(request)
+    body = assemble(notice, "", bare_opts, note=True)
+    if len(body) <= budget:
+        return body, FIT_SHORTENED
 
     # ── 5. the frame ITSELF does not fit: an enormous option list ───────────
     # ⚠️ A LAST RESORT THAT IS STILL BOUNDED AND STILL HONEST. It keeps the
@@ -706,14 +732,22 @@ def render_decision_prompt_fitted(
     # separate, independently-bounded path (Telegram's own reply_markup limit
     # governs there), so the taps still work even when the LIST of them cannot
     # be printed in the body.
-    minimal = "\n".join([
-        header, "",
-        _clip(question, max(budget // 2, 0))[0], "",
-        f"({len(options)} option(s) — the labels are on the buttons below; "
-        f"they were too long to list here.)", "",
-        shortened_note, "",
-        footer,
-    ])
+    # ⚠️ The question is included ONLY if it survives whole; otherwise the
+    # notice stands in for it. The final `_clip` below therefore never cuts
+    # question text — by then every line is frame, not the question.
+    def _floor(q: str) -> str:
+        return "\n".join([
+            header, "",
+            q, "",
+            f"({len(options)} option(s) — the labels are on the buttons below; "
+            f"they were too long to list here.)", "",
+            shortened_note, "",
+            footer,
+        ])
+
+    minimal = _floor(question)
+    if len(minimal) > budget:
+        minimal = _floor(notice)
     return _clip(minimal, budget)[0], FIT_SHORTENED
 
 
