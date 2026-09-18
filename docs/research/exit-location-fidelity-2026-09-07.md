@@ -10,6 +10,43 @@ This is **condition 1 of MI-151's gate** — the one its § 5 says must clear be
 
 ---
 
+> ## ⚠️ SUPERSEDED IN PART, 2026-09-18 — THE REMEDY THIS MEMO ASKED FOR WAS RUN (MI-307)
+>
+> **Two statements below are now FALSE and must not be re-quoted.** They were
+> true when written; MI-307 (`docs/research/offline-mfe-distribution-2026-09-18.md`)
+> ran the exact unit of work § "the blocker has moved" named as remedy 1 — *"a
+> timeframe-matched harness run — `trend_donchian` at 1h and 4h on the symbols
+> the fleet actually trades ... it is what makes `n_backtest > 0` for a real leg."*
+>
+> 1. **§ Fact 1's *"no timeframe-matched live counterpart at all"* no longer holds.**
+>    `docs/research/data/backtest-mfe-reference-2026-09-07.json` went from **3 legs
+>    (all 15m)** to **18**, spanning 15m / 1h / 2h / 4h, at **n = 112–1,004 per leg**.
+>    MI-151's original 3 rows are preserved untouched — they are the only
+>    independently-sourced rows in the file and remain the cross-check.
+> 2. **§ "This is INFERRED, not MEASURED, and the check that would settle it does
+>    not exist" no longer holds.** It said a direct test needed *"either a live 15m
+>    donchian leg (there is none) or a 1h/4h backtest corpus (there is none)."*
+>    **The 1h/4h corpus now exists.** Re-running this module's own instrument with
+>    it, **13 legs moved** from `no_backtest_corpus_for_leg` to
+>    `live_n_below_abstain_floor` alone.
+>
+> **⚠️ WHAT THIS MEMO GOT RIGHT IS UNCHANGED AND IS CONFIRMED, NOT OVERTURNED.**
+> The horizon-composition reading of MI-151's ~2.5× stands, and MI-307 adds the
+> backtest-side half this memo could only measure within the live book: a
+> controlled ladder at identical params spans **4.2×** on the bar alone and
+> independently reproduces MI-151's own 15m figure (p90 **4.32%** vs its 3.87%).
+>
+> **⚠️ AND THE GATE IS STILL NOT CLEARED.** This memo's verdict —
+> **44 of 44 legs `insufficient_n`** — is unchanged. Only the REASON narrowed,
+> from "no corpus and no live depth" to **live depth alone** (max `n_live` 25 on
+> 2026-09-18, against this module's abstain floor of 30). ⚠️ The direct
+> comparison the new corpus permits reads **backtest higher than live on 12 of
+> 12 legs, median 2.8×** — which is the EXPECTED sign of `peak_r_is_lower_bound`
+> being true on every live row, not a fidelity verdict, and every one of those
+> legs sits at `n_live` 1–9. Read MI-307 § 5.1 before treating it as either.
+
+---
+
 ## The answer in four lines
 
 1. **All 44 enabled+live legs grade `insufficient_n`.** Not one is `fidelity_ok`; not one is `fidelity_failed`. **We could not look** — on any leg. (POPULATION: the 44 legs with `enabled: true` and `execution: live` in `config/strategies.yaml` at `main` e4fa09c7.)
