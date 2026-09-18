@@ -238,7 +238,7 @@
       "owner_session": "session_01PHax6vjumG6Aa1xh4GfKiF",
       "checklist_item": "MI-318",
       "tier": 2,
-      "draft": true,
+      "draft": false,
       "landing": "hold",
       "state": "open",
       "opened_at": "2026-09-18",
