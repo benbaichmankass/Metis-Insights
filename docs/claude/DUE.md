@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-18T16:42:03+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 18d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -18,10 +18,10 @@ _Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
   - Whether the half-built local LLM carries any weight is UNDECIDED — and it is undecided BY THE OPERATOR, not for want of evidence. ⚠️ THIS SUMMARY PREVIOUSLY ENDED '#10605 makes that arm dispatchable v
 - 🔔 **OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE** (open_items · 16d) — loud row — must be reported on every session
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
+- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 16d) — armed 386.8h ago, on the order of 386 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
+  - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 15d) — monitoring row 15d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
-- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 15d) — armed 382.4h ago, on the order of 382 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
-  - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 13d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
 - 🔔 **OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION** (open_items · 13d) — loud row — must be reported on every session
@@ -54,8 +54,6 @@ _Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
   - Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run again
 - 🔔 **OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED** (open_items · 7d) — monitoring row 7d since last observation (cadence 3d)
   - PR #10679 (DRAFT, Tier-2 order path, awaiting operator approval) adds classify_share_hold() so an Alpaca close that cannot free its shares says WHY -- four never-collapsed states, of which broker_canc
-- 🔔 **OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE** (open_items · 7d) — monitoring row 7d since last observation (cadence 3d)
-  - [!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER
 - 🔔 **OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED** (open_items · 7d) — monitoring row 7d since last observation (cadence 2d)
   - ⚠️ CORRECTED 2026-09-04 — THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS LINK IT BY NAME: THE CRON HAS FIRED. Measured over the workflow's COMPLETE scheduled
 - 🔔 **OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED** (open_items · 7d) — monitoring row 7d since last observation (cadence 3d)
@@ -284,26 +282,20 @@ _Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
   - chore(ops): reconcile OPEN-PRS.json after merge (auto)
 - 🔔 **#12529** (unlanded_automation · 0d) — producer output opened a PR that has not landed
   - chore(ml): replay pre-gate fleet report (auto)
-- 🔔 **#12540** (unlanded_automation · 0d) — producer output opened a PR that has not landed
-  - chore(m28): valuation snapshots (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
   - Reads all three committed research corpora and looks for any row stamped research_power_state=infeasible — the R4 grade this row's id says nothing has ever produced. The POSITIVE CONTROL is research_p
 - 🔔 **OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK** (probes) — probe FAILED — its declared observation did not hold
   - A bybit_coverage_soak row exists in which the SIDE-AWARE grade actually DISAGREED with the side-blind sum (verdicts_differ: true). That is the load-bearing half of this row's threshold: a soak of any 
+- 🔔 **OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE** (open_items · 0d) — loud row — must be reported on every session
+  - [!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER
 - 🔔 **OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED** (probes) — probe FAILED — its declared observation did not hold
   - Whether the decision push-back drain has recorded a run inside its window, graded over the committed receipt docs/claude/work/DECISION-DRAIN.json. Four states, never collapsed: fresh / stale (ran befo
 - 🔔 **OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL** (open_items) — loud row — must be reported on every session
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED** (open_items · 0d) — loud row — must be reported on every session
   - MI-317 (PR #12526) delivered the per-leg target-geometry decision packet over ALL 55 legs in config/strategies.yaml: docs/research/per-leg-target-geometry-packet-2026-09-18.md and docs/research/mi317-
-- 🔔 **constraint-readout** (red_crons) — latest scheduled run concluded 'failure'
-  - constraint-readout
-- 🔔 **due-list** (red_crons) — latest scheduled run concluded 'failure'
-  - due-list
-- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
-  - pr-queue-watch
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
   - replay-pregate-nightly
 - 🔔 **spent-edge-WO-20260901-PHASE-F** (spent_decision_edges) — Its `blocked_on` names DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which carries a readable answer (2026-09-09T09:30:00Z) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.
@@ -318,10 +310,6 @@ _Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
   - WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER is `waiting` on an UNRESOLVABLE edge
 - 🔔 **stuck-branches-changed** (stuck_branches) — automation/data-commit-35184094134-1, automation/data-commit-35185407037-1, automation/error-feed-digest-35190585909-1, automation/reconcile-open-prs-35240633088-1, automation/reconcile-open-prs-35241174254-1…. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.
   - 19 automation branch(es) newly stranded, 0 cleared
-- 🔔 **trainer-capture-watch** (red_crons) — latest scheduled run concluded 'failure'
-  - trainer-capture-watch
-- 🔔 **work-digest** (red_crons) — latest scheduled run concluded 'cancelled'
-  - work-digest
 - **strategy:avax_pullback_2h** (sunset · 17d) — sunset pass proposed RETIRE (persistently_silent) and no disposition is recorded — Tier-3, so propose, never enact
   - strategy_leg · avax_pullback_2h
 - **strategy:fade_breakout_4h** (sunset · 17d) — sunset pass proposed RETIRE (persistently_silent) and no disposition is recorded — Tier-3, so propose, never enact
@@ -370,20 +358,20 @@ _Generated 2026-09-18T12:21:56+00:00 · verdict **all_sources_read**_
   - MI-255 (Tier-2, operator-approved via the manager 2026-09-10, PR #11708) added a size-plausibility gate to the orphan-adopt attribution path: src/runtime/orphan_attribution.py (a pure decision, four n
 - **ERRFEED-ae533209** (error_feed · 5d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-13T14:15:14 → 2026-09-16T13:06:52 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog
   - [error] x6 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
-- **ERRFEED-516a1b2a** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-14T06:10:03 → 2026-09-18T09:10:50 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog
-  - [error] x5 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
-- **ERRFEED-72e2ad1e** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 59 rows 2026-09-14T10:02:36 → 2026-09-18T12:05:27 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
-  - [error] x59 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
+- **ERRFEED-516a1b2a** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-14T06:10:03 → 2026-09-18T13:39:27 · accounts=bybit_1 symbols=SOLUSDT — decide: fix now, or file to a backlog
+  - [error] x6 🔔 Broker close detected by reconciler Account: bybit_N Symbol: SOLUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
+- **ERRFEED-72e2ad1e** (error_feed · 4d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 63 rows 2026-09-14T10:02:36 → 2026-09-18T16:08:33 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog
+  - [error] x63 🧱 Position CLOSE wedged BROKER-SIDE — carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failur
 - **ERRFEED-22c7c0be** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 14 rows 2026-09-16T19:29:11 → 2026-09-16T19:56:10 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog
   - [error] x14 👁 Exchange-side orphan position — policy=detect_only Account: ib_paper Symbol: MES | Side: long | Size: N Entry (Bybit avgPrice): N Note: re
 - **ERRFEED-5402e495** (error_feed · 2d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 47 rows 2026-09-16T23:54:03 → 2026-09-17T01:25:29 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog
   - [error] x47 👁 Exchange-side orphan position — policy=detect_only Account: ib_paper Symbol: MES | Side: short | Size: N Entry (Bybit avgPrice): N Note: r
-- **ERRFEED-332d3159** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-18T09:10:49 → 2026-09-18T09:10:49 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🔔 Broker close detected by reconciler Account: bybit_N Symbol: ETHUSDT | Side: short DB trade id: N Package: pkg-<hex> Reason: reconciler Cl
-- **ERRFEED-6555c6ee** (error_feed · 0d) — error-level condition on `operator_alerts`, FIRST SEEN since the last digest — 1 rows 2026-09-18T09:09:40 → 2026-09-18T09:09:40 · accounts=bybit_1 symbols=ETHUSDT — decide: fix now, or file to a backlog
-  - [error] NEW x1 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: ETHUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: n
-- **ERROR-FEED-SUMMARY** (error_feed) — 48 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T06:07:13.224321+00:00`.
-  - 84 cause groups over 1319 rows (58 error-level, 26 warn-level, 3 new since the last digest)
+- **ERRFEED-0f2fb04a** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-18T15:23:12 → 2026-09-18T15:23:12 · accounts=alpaca_live — decide: fix now, or file to a backlog
+  - [error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_live/TLT: position N carries a resting stop for only N — N unprotected. The netted position is
+- **ERRFEED-c39a9322** (error_feed · 0d) — error-level condition on `bot_logs`, FIRST SEEN since the last digest — 1 rows 2026-09-18T14:18:44 → 2026-09-18T14:18:44 · accounts=alpaca_portfolio — decide: fix now, or file to a backlog
+  - [error] NEW x1 alpaca_partial_stop_coverage detected: alpaca_portfolio/SPY: position N carries a resting stop for only N — N unprotected. The netted positi
+- **ERROR-FEED-SUMMARY** (error_feed) — 50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T12:19:25.270849+00:00`.
+  - 87 cause groups over 1328 rows (60 error-level, 27 warn-level, 3 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
