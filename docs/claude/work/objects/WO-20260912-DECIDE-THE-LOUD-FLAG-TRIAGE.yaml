@@ -76,9 +76,17 @@ captured_by: session_013iSqp4LsU1eq8K326eUtgj (MI-279 OPS lane, backlog-drain U5
 decision_requests:
 - id: DEC-20260912-LOUD-FLAG-TRIAGE
   status: answered_with_a_redirect_not_an_option
+  # MI-308: the CLOSED-VOCABULARY spelling of the `status` line above, added so the grader can
+  # SEE the answer this row already records. `grade_answer_state()` reads exactly two shapes --
+  # a nested `answer` mapping and this top-level `verdict` -- so before this the row graded
+  # `not_submitted` ('Nobody has answered this through any channel') on the decisions inbox,
+  # four days after the operator answered it. NO VERDICT IS BEING RECORDED FOR THE OPERATOR:
+  # `reframed_not_answered` is NON-TERMINAL, it grades `engaged_not_settled`, and the question
+  # stays open and stays on the operator's list -- see work_decisions.NON_TERMINAL_VERDICTS.
+  verdict: reframed_not_answered
   answered_at: '2026-09-16'
   answered_by: operator (conversational popup, relayed by manager session_01HoFquGdTrD3TTGbMMRc43t)
-  operator_text: >-
+  text: >-
     Verbatim, 2026-09-16: "We need to understand why we have so many loud items unhandled when we
     resume".
   '⚠️_NONE_OF_THE_FOUR_OPTIONS_WAS_CHOSEN_AND_NO_ONE_MAY_RECORD_ONE': >-
