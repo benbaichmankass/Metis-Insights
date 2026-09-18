@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One register edit under docs/claude/work/MANAGER-CHECKLIST.json (docs/**). No src/, no config/, no scripts/, no workflows, no order path. Records a read-only measurement (GitHub Actions run history + a live PR search) made this session; changes no behaviour."
+}
