@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Repair the hedge-book flat read that closes live Bybit positions and books invented PnL
 stage: OBSERVATION
-lifecycle: in_flight
-owner: session_01ALe9gTsSEMVWYyR8X8TY79
+lifecycle: done
+owner: null
 opened_at: 2026-09-12
-closed_at: null
+closed_at: 2026-09-18
 review_trigger: >-
   If a netting_attribution_soak row on a hedge-armed symbol is ever seen again carrying
   exchange_qty 0.0 with exchange_read_source 'no_rows', or a netting_attributed close is
@@ -76,3 +76,58 @@ outcome: >-
   a different reader and was VERIFIED still live: account_open_positions still does `if sym in seen:
   return`, now instrumented but still dropping the second hedge book, and still emits no
   position_idx.
+
+verdict: >-
+  CLOSED 2026-09-18 by the engineering lane (session_019J5aUz21AWTzdYyBNgUP2D, unit MI-316),
+  RE-VERIFYING rather than re-doing the 2026-09-12 work above. The object had sat `in_flight`
+  for six days holding a WIP slot for no reason: its owning session
+  (session_01ALe9gTsSEMVWYyR8X8TY79) is long dead, its deliverable PR #11870 merged
+  2026-09-12T06:26:31Z, and the manager stood down 2026-09-13T0845Z without flipping the
+  lifecycle. That is a registry gap (MI-316's own dispatch names it as a manager-machinery
+  defect to fix next), not a sign the repair itself needed rework.
+  || CODE RE-CONFIRMED ON MAIN, TODAY: `src/runtime/bybit_position_book.py` (5 never-collapsed
+  states: selected/flat/no_rows/ambiguous_multi_book/size_unreadable) is present, and
+  `order_monitor._bybit_position_protection` calls `select_position_row`, returns the `_flat`
+  dict ONLY on state=='flat' (a genuine measurement), and returns `None` on every non-usable
+  state so both callers (the netting reconciler and the naked-protection sweep) skip rather
+  than attribute/re-arm on an unconfirmed read. `netting_attributed` is present in
+  `_recently_closed_adopted_orphan`'s exit_reason allowlist. `git log --oneline --
+  src/runtime/bybit_position_book.py` shows exactly one commit, 46e1efb1f (#11435,
+  2026-09-08T18:53Z) -- unchanged since deploy.
+  || TESTS RE-RUN, TODAY (pytest, not assumed green): `tests/test_bybit_position_book.py`
+  23/23 pass. Across the wider Bybit-position-protection test surface (position_book,
+  hedge_book_flat_read, netting_attribution, naked_rearm, leg_sides) 154/155 pass; the one
+  failure is `ModuleNotFoundError: No module named 'fastapi'` in this sandbox (a missing dev
+  dependency, not a code regression -- unrelated to this module).
+  || FLEET RE-OBSERVED THROUGH TODAY, EXTENDING THE 2026-09-12 EVIDENCE RATHER THAN REPLACING
+  IT. Read live via the direct diag path (https://ict-bot.duckdns.org, DIAG_READ_TOKEN),
+  never assumed. (a) `netting_attribution_soak` tail (1000 lines, 2026-08-29 -> 2026-09-18):
+  7 rows post-2026-09-12, ALL on `bybit_1` (demo, not real money), `exchange_read_source` in
+  {`flat`, `partial_sl_legs`} only -- ZERO `no_rows` rows, i.e. the review_trigger's first
+  clause has not fired since the repair. (b) journal (newest 1000 `trades`, ids 4900-5899):
+  6 `netting_attributed` closes post-2026-09-12 (5718, 5775, 5808, 5881, 5880, 5837, all
+  bybit_1), and for EACH, no `adopted_orphan` row exists on the same (account_id, symbol,
+  direction) within 1h afterward -- the review_trigger's second clause (the flap re-adopt
+  pattern) has also not recurred.
+  || WHAT THIS DOES NOT SETTLE, so a reader does not over-read it. The nine pre-2026-09-08
+  pre-deploy flat reads recorded as PERMANENTLY unadjudicable in the 2026-09-12 outcome above
+  (incl. real-money trade 5461 on bybit_2) are still unadjudicable -- nothing new can be
+  learned about them, and nothing was attempted here. `OI-20260908-A-HEDGE-BOOK-FLAT-READ-...`
+  in the CLAUDE.md session brief is a SEPARATE artifact (docs/claude/OPEN-ITEMS.json) that
+  this object does not own and was not touched -- its own text already says removal is
+  routed to the manager/operator as a decision, not taken on a session's say-so. Two
+  MANAGER-CHECKLIST.json items (MI-204-BYBIT-HEDGE-BOOK-FLAT-READ, owns a DIFFERENT object
+  WO-20260908-RECONCILE-THE-BYBIT-1-ETHUSDT-ORPHAN-TRADE; and MI-255-FIX-THE-BYBIT-WRONG-
+  BOOK-CLOSE-AND-THE-READOPT-FLAP) still read `landed_unproven` on the same underlying code
+  and were NOT updated here -- their resolution_criteria carry commitments beyond this
+  object's done_condition (e.g. MI-204/MI-255 reference trade 5569's reconcile_status, which
+  this session did not verify) and re-grading them is a separate unit, not folded into this
+  closure. Bybit row ORDERING on a live `get_positions` response is still not observable from
+  any repo surface, so the exact coin-flip the old `rows[0]` code lost on any given pre-fix
+  tick remains uncheckable -- unchanged from 2026-09-12.
+  || done_condition MET: the book selection replaces `rows[0]` and separates the two
+  collapses (verified in code, today); the fleet has been observed with a non-zero
+  `exchange_qty` on a hedge-armed symbol where the old code would have read `_flat` (observed
+  2026-09-12, trades 5663/5687); and no further `netting_attributed` -> same-size-adopt pair
+  has occurred (re-checked today, through 2026-09-18, zero). No production write was made by
+  this session; every read was a GET against a read-only diag surface or a local pytest run.

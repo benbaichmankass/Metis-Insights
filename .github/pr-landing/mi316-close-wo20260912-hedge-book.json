@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only re-verification and closure of one work-object YAML (lifecycle, closed_at, owner, verdict). No src/, config/ or deploy/ touched."
+}

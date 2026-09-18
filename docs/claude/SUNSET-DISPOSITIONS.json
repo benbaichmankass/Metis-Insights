@@ -9,6 +9,15 @@
     "repair": "The leg is BROKEN, not underperforming — the work owed is a DIAGNOSIS, not a parameter change. Requires `cause_hypothesis` and `review_by` (RULE 5), so it expires exactly like a `keep` and cannot become a backlog with a nicer name. ⚠️ NOT a soft `keep` and NOT a soft `retire_proposed`: it asserts a fault exists and names what would disprove it. Added 2026-09-04 when the ten retirement candidates were measured at lifetime_closed_trades 0 on paper-only routing — a population that qualifies for neither retirement nor demote-and-tune."
   },
   "_carry_escalation": "A `retire_candidate` that appears in CARRY_ESCALATION_PASSES consecutive sunset passes with NO row here fails CI. It starts green by construction (there is one pass in existence as this ships) and gains teeth as passes accrue — the `check_operator_owed.py` shape, where carrying an item forward unmoved is itself the measurement.",
+  "_standing_policy": {
+    "id": "POLICY-20260910-NO-RETIREMENT-THE-FLOOR-IS-PAPER",
+    "decided_by": "operator",
+    "decided_at": "2026-09-10",
+    "recorded_text": "Retirement is off the table until the sunsetting infra and processes are reliable enough; the LOWEST rank a strategy may hold is trading on PAPER; nothing is left that is not accruing data; underperformers are tweaked and re-tested because the experiments are how the system generates data and gets tested.",
+    "provenance": "MI-233. Copied VERBATIM from docs/claude/work/MANAGER-CHECKLIST.json::items[id=POLICY-20260910-NO-RETIREMENT-THE-FLOOR-IS-PAPER].note, the one place this decision was recorded when it shipped — this is the third time the operator affirmed it (2026-09-04 as DEC-20260904-DEMOTE-AND-TUNE-FLOW / operator_decision `refused` on turtle_soup; a re-affirmation logged as MI-203; again 2026-09-10). That checklist row already reads `state: done` on the strength of this text being written HERE — before this change it was not, so the row's own `done` claim was false against the field it names. `recorded_text` is the checklist's own words, not a re-quote of the operator's spoken ones; nobody here holds a more literal transcript.",
+    "effect": "While this stands, no NEW disposition on any row below may read `retired` or `retire_proposed` for an underperforming (as opposed to config-broken) leg — the floor is `keep`/`repair`/`demote`/`wire`, all of which keep the leg accruing data on at least paper. This does not retroactively touch an existing row: every disposition already recorded in `dispositions[]` already reads `repair`, never `retired`/`retire_proposed`, so the register was already policy-compliant in substance before this field gave the policy a place to live.",
+    "not_covered": "This does NOT disposition any candidate. The 2026-09-14 sunset pass (comms/sunset/2026-09-14/) names candidates beyond the ten already dispositioned here on 2026-09-04 — each still needs its OWN per-leg cause_hypothesis, the same diagnostic work behind every existing `repair` row, not a blanket copy of one. That is separate, undone work; writing this field does not manufacture it."
+  },
   "dispositions": [
     {
       "id": "strategy:turtle_soup",

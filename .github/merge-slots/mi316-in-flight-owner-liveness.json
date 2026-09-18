@@ -1,0 +1,6 @@
+{
+  "held_by": "session_019J5aUz21AWTzdYyBNgUP2D",
+  "branch": "claude/mi316-in-flight-owner-liveness",
+  "claimed_at": "2026-09-18T07:19:26Z",
+  "purpose": "MI-316: dead-owner detector, PR #12524"
+}

@@ -112,14 +112,34 @@ class TestTimeframeIsPartOfTheJoin:
         assert v["n_backtest"] == 3194
         assert v["verdict"] != "insufficient_n"
 
-    def test_committed_reference_is_15m_and_live_donchian_is_not(self):
+    def test_committed_reference_now_covers_the_LIVE_timeframes(self):
         """Reads the shipped artifact and the shipped config, so the claim in
-        the memo cannot drift from the files. If a 15m donchian leg is ever
-        added live, this test fails and the memo needs revisiting."""
+        the memo cannot drift from the files.
+
+        ⚠️ THIS TEST WAS INVERTED ON 2026-09-18 AND THE INVERSION IS THE POINT.
+        It used to assert ``{k[2] for k in ref} == {"15m"}`` — that the shipped
+        reference held 15m rows and nothing else — because that was true, and
+        because MI-155's whole finding rested on it: *"the backtest legs have
+        no timeframe-matched live counterpart at all"*
+        (``exit-location-fidelity-2026-09-07.md`` § Fact 1).
+
+        MI-155 also named the remedy, in § "the blocker has moved": *"a
+        timeframe-matched harness run — trend_donchian at 1h and 4h on the
+        symbols the fleet actually trades ... it is what makes n_backtest > 0
+        for a real leg."* **MI-307 ran it.** So the old assertion now fails
+        BECAUSE THE GAP IT DOCUMENTED WAS CLOSED, not because anything
+        regressed — and asserting `== {"15m"}` forever would have pinned the
+        repo to the absence it was written to make visible.
+
+        What is asserted instead is the property that still matters and is now
+        stronger: the reference must carry the timeframes the live donchian
+        legs actually run at, so the join in this module has something to join
+        TO. The refusal itself is unchanged and is covered by the two tests
+        above, which pin that a mismatched timeframe still finds no corpus.
+        """
         ref = load_backtest_reference(str(ROOT / "docs/research/data"
                                           / "backtest-mfe-reference-2026-09-07.json"))
         assert ref, "the backtest reference artifact must be readable"
-        assert {k[2] for k in ref} == {"15m"}
 
         yaml = pytest.importorskip("yaml")
         cfg = yaml.safe_load((ROOT / "config/strategies.yaml").read_text())
@@ -130,9 +150,25 @@ class TestTimeframeIsPartOfTheJoin:
             if isinstance(b, dict) and n.startswith("trend_donchian")
             and b.get("enabled") and str(b.get("execution", "live")) == "live"
         }
-        assert "15m" not in live_donchian_tfs, (
-            "a live 15m donchian leg now exists — the MI-155 memo's "
-            "'no timeframe-matched counterpart' finding must be re-derived"
+        ref_tfs = {k[2] for k in ref}
+
+        # MI-151's original 15m rows must SURVIVE. They are the only
+        # independent measurement in the file (transcribed from a trainer run
+        # MI-307 did not reproduce), so losing them would delete the
+        # cross-check, and `mi307_offline_mfe.py --write-reference` never
+        # overwrites an existing key precisely to prevent that.
+        assert "15m" in ref_tfs, (
+            "MI-151's 15m rows have gone missing from the reference — they are "
+            "the only independently-sourced rows in it and must not be replaced"
+        )
+
+        # The remedy MI-155 asked for: a timeframe-matched counterpart exists.
+        matched = live_donchian_tfs & ref_tfs
+        assert matched, (
+            f"no live donchian timeframe {sorted(live_donchian_tfs)} has a "
+            f"backtest counterpart in {sorted(ref_tfs)} — MI-155's "
+            "'no timeframe-matched counterpart' state has returned, and its "
+            "memo's § 'the blocker has moved' must be re-derived"
         )
 
 

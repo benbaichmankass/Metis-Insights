@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A CI guard (scripts/ci/check_decision_answers.py, a new R4 in the guard that already owns this question), one work-object data row in docs/claude/work/objects/, and two backlog rows. NO src/, NO config/, NO deploy/, NO .github/workflows/, and no SPA change — the dispatch expected a Tier-2 route diff and measurement established that none is needed: MI-254 (#11688) and MI-258 (#11752) already landed both the reader and the SPA halves. No order path, no strategy config, no risk caps, no live-VM file. The data row records NO new operator verdict: `reframed_not_answered` is NON-TERMINAL, it grades `engaged_not_settled`, and the question stays open and stays on the operator's list."
+}

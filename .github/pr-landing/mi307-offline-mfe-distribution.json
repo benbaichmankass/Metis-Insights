@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research measurement only: a new read-only instrument under scripts/research/, its committed JSON, a memo under docs/research/, one DOCUMENT-INDEX row, and an extension to an existing research reference file. No runtime, no order path, no config, no deploy, no workflow. Every tp_r and atr_stop_mult stays Tier-3 and is PROPOSED, never changed."
+}

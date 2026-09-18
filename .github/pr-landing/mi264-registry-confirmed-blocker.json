@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "edits scripts/ops/session_registry.py (the write-time registry_key fallback for the new registry_confirmed blocked-on kind), which is listed in LANDING_MACHINERY -- R12 holds any PR touching it for a human merge, whatever its tier. The change itself is Tier-1 ops tooling; only the landing route is affected by the hold.",
+  "why": "ops tooling + tests + docs only (scripts/ops/blocked_lane_watch.py, scripts/ops/session_registry.py, tests/, docs/claude/blocked-lane-watch.md); no src/, config/, deploy/ order path, risk cap, or strategy param touched. MI-264. Declared self-land in error on first push -- session_registry.py is LANDING_MACHINERY and R12 correctly refused it; corrected to hold."
+}

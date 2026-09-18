@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs + CI-tooling only: one work-object-store JSON normalization (mirroring status into state for 52 items, no behavior change -- effective_state already resolved these correctly) plus a new self-tested scripts/ops/ script. No src/, config/ or deploy/ touched."
+}

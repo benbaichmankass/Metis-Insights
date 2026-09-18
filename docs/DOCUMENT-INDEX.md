@@ -743,6 +743,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/mi295-active-management-focus-2026-09-17.md` | plan | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/mi298-winner-label-recovery-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/mi301-stop-term-robustness-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -772,6 +773,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/ml-strategies-deep-review-2026-06-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ml2-predictive-bracket-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/netting-partial-close-packet-2026-08-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/offline-mfe-distribution-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/per-leg-target-geometry-packet-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/offload-model-stage-correction-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/operating-model-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/options-level3-alpaca-research-BRIEF-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -815,6 +818,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/roadmap-redundancy-audit-2026-09-07.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roadmap-toolbox-assessment-2026-07-29.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roll-adjusted-continuous-futures-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/scalp-family-target-arms-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-afternoon.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-evening.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-night.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

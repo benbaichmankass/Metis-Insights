@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "adds a documentation/decision-record field to docs/claude/SUNSET-DISPOSITIONS.json (a docs path); no code, src/, config/, or deploy/ touched, and no existing disposition row is modified. MI-233."
+}

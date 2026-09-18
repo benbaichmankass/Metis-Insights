@@ -1,0 +1,1 @@
+armed by MI-315 for claude/mi315-close-bybit2-eth-phantom-close (PR #12521) — Tier-1, docs-only, closes a resolved work object

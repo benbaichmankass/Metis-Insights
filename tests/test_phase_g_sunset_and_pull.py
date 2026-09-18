@@ -67,6 +67,40 @@ def test_the_live_register_and_the_live_pass_agree():
     assert not fail, "the committed disposition register fails its own guard:\n" + "\n".join(fail)
 
 
+def test_MI234_the_live_brief_does_not_relist_an_already_dispositioned_candidate():
+    """REGRESSION. `render_brief_lines` used to list every `retire_candidate`
+    from the newest committed pass whatever the disposition register already
+    said, because it never read that file at all. Measured live 2026-09-18:
+    `gdx_pullback_1d` / `gld_pullback_1d` / `iaum_pullback_1d` /
+    `mes_trend_long_1d` were each dispositioned `repair` on 2026-09-04 and
+    were STILL rendered as open candidates in the 2026-09-14 brief.
+
+    This asserts it against the REPO'S OWN committed files, not a fixture —
+    a fixture could pass while the join never fires on real data, which is
+    exactly how the bug survived.
+    """
+    latest = sp.latest(REPO)
+    if latest is None:
+        pytest.skip("no committed sunset pass to check against")
+    rendered = "\n".join(sp.render_brief_lines(latest))
+    disp, readable = sp.read_dispositions(REPO / "docs" / "claude" / "SUNSET-DISPOSITIONS.json")
+    assert readable, "the live disposition register must be readable for this test to mean anything"
+    cand_rows = [r for r in latest.get("rows", []) if r.get("verdict") == "retire_candidate"]
+    # The rendered line truncates to the first 12 candidates (a pre-existing,
+    # unrelated line-length limit) — check only what is actually shown, in the
+    # SAME order render_brief_lines iterates.
+    shown = cand_rows[:12]
+    dispositioned = [r for r in shown if str(r.get("id")) in disp]
+    if not dispositioned:
+        pytest.skip("no SHOWN candidate in the newest pass is currently dispositioned")
+    for r in dispositioned:
+        d = disp[str(r["id"])]
+        expect = f"`{r['name']}` [{d.get('disposition', '?')}, {d.get('decided_at', '?')}]"
+        assert expect in rendered, (
+            f"{r['name']} is dispositioned `{d.get('disposition')}` but the rendered "
+            f"brief does not carry that answer — it would re-ask a settled question")
+
+
 def test_a_refusing_constraint_never_reads_as_an_all_clear():
     """The single most dangerous misreading available to E2.
 
