@@ -1,0 +1,73 @@
+id: WO-20260917-RESEARCH-CLOSE-THE-43-PERCENT-UNATTRIBUTABLE-WINNERS-HOLE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: close the 43% unattributable-or-contaminated-winners hole by recovering exit labels over a
+  wider window, and re-state every count that rests on it
+stage: BUILD
+lifecycle: done
+owner: session_017PQcFJne7qyuVHzH5RZtFC
+opened_at: 2026-09-17
+closed_at: 2026-09-17
+why: >-
+  THE LANE NAMED THIS UNIT ITSELF, which is why it was taken. Section 6 of
+  docs/research/mi295-active-management-focus-2026-09-17.md (landed ecf7b12a6, #12471) reads: "that is the
+  HIGHEST-VALUE RESEARCH LEFT and U23 says so too. It is NOT a sweep -- it needs the exit-label recovery
+  applied over a WIDER WINDOW, and it would change EVERY COUNT in section 1.2."
+  ⚠️ IT IS TAKEN BECAUSE THE LANE RECOMMENDED IT, NOT OVER ITS RECOMMENDATION. That same memo's finding is
+  that the M20 premise did not survive its own measurement -- 175 cells over 7 legs in 5 arms, nothing tested
+  makes a winner run longer AND survives the gate -- so commissioning another sweep on the same features is
+  the failure mode this repo has a rule about. This unit is the opposite move: repair the MEASUREMENT before
+  acting on what it says, which is verbatim what the cycle priority CY-20260906-TRADING-TRUTH asks for.
+  What rests on the hole: 43% of winners are unattributable or contaminated, so every count in section 1.2 is
+  computed over a population nobody can vouch for, and the two surviving cells (both NARROWING the trade, both
+  on ict_scalp_xrp_15m, which routes to bybit_1 = account_class paper, mutually exclusive) are the first
+  things a cleaner population could kill or confirm.
+done_condition: >-
+  THREE facts, and they are different -- the lane says WHICH it established. (1) The recovered-label
+  population is MEASURED with a stated recovery rule, a stated window and a POSITIVE CONTROL (the recovery is
+  shown to find a label on rows whose answer is already known, before it is trusted on rows whose answer is
+  not). (2) The section 1.2 counts are RECOMPUTED on that population, with the direction and size of any move
+  stated. (3) The two surviving cells are re-graded against it.
+  ⚠️ A RECOMPUTE THAT CHANGES NO CONCLUSION SATISFIES THIS. If the 43% shrinks and the verdict holds, that is
+  a real result and is worth as much as a reversal -- the object closes on the population being KNOWN, never
+  on the answer being different.
+  ⚠️ AND 'THE LABELS ARE NOT RECOVERABLE' CLOSES IT TOO, if it is established with its positive control and
+  its denominator: that would mean the 43% is permanent from every surface this lane can reach, which is a
+  harder fact than a number and forces a different decision. It must be RECORDED as that finding rather than
+  left looking like a measurement about to happen.
+source: >-
+  The lane's own section 6 recommendation, carried forward by the manager (session_01GHpyXT2qssLJsrvXBQRkQF)
+  under the operator's 2026-09-17 direction 'I want an update on active management so we can decide where to
+  focus next here'. Dispatched to session_017PQcFJne7qyuVHzH5RZtFC at 2026-09-17T21:24Z as MI-298.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: the journal and corpus this unit reads are reachable from the lane's
+  own container, and MI-295 already exercised that path end to end this session. ⚠️ It is a statement about
+  TODAY -- if the recovery turns out to need a surface the lane cannot reach, that is a real blocker and must
+  be written as a typed edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
+explicitly_not_in_scope: >-
+  The Tier-3 Proposal 1 vs 3 decision (the OPERATOR's, outstanding); landing #11933 and #12205 (a landing
+  pass, the manager's and engineering's); LOSING_STREAK_MIN_LOSS_USD's $500 fleet-wide floor (src/**,
+  Tier-2); U47's Tier-2 diag stamp. None of these is research work and none is discharged here.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-17, done_condition MET on all three clauses, by the ORIGINAL lane session
+  (session_017PQcFJne7qyuVHzH5RZtFC) -- NOT by the fresh session the manager briefly re-spawned and then
+  interrupted. docs/research/mi298-winner-label-recovery-2026-09-17.md landed on main and reuses the MI-278 U2
+  module rather than rebuilding it. (1) The population is MEASURED with a stated recovery rule and a PARTIAL
+  positive control, and the memo says PARTIAL rather than claiming a clean one -- the window SLID rather than
+  grew. (2) The 43% REPRODUCES at 2.06x the winners: 42.6% against 42.9%, so it is not a small-n artifact.
+  (3) The two surviving cells are NOT re-gradeable: the wider population buys ZERO power on them and
+  ict_scalp_xrp_15m is still n=10.
+  [!] THE VERDICT IS THE HARDER OF THE TWO CLOSES THIS OBJECT ALLOWED: 'the labels are not recoverable' from
+  the surfaces this lane can reach, established with its denominator, which the done_condition names
+  explicitly as a legitimate close. The memo routes it onward as a TIER-2 PROVENANCE REPAIR, not as a research
+  task -- so nothing here is discharged by another sweep, and a session reading this must not commission one.
+  [!] INCIDENTAL AND SEPARATELY OWED: the memo found /api/diag/journal silently returns the SAME 1000 rows for
+  limit=2000 and for offset=1000, i.e. the pagination parameters are accepted and ignored. That is a
+  collapsed-read defect on a surface many sessions grade populations from, and it is NOT discharged here.
+  [!] OWNER CORRECTED: this field read session_014nZ1PrTGyB54EkoM84tDjS, the redundant fresh session the
+  manager spawned at 21:37Z on a mistaken cost reading and interrupted ~11 minutes later. It never delivered
+  anything; attributing the memo to it would credit the wrong session and hide that the interrupt was an error.

@@ -41,7 +41,7 @@
     "Full design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml::lease_design"
   ],
   "schema_version": 1,
-  "updated_at": "2026-09-17T19:02:33Z",
+  "updated_at": "2026-09-18T11:05:16Z",
   "updated_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
   "sessions": [
     {
@@ -5131,6 +5131,334 @@
       "why": "9 of 14 substantive PRs conflicted, every probed conflict in a shared register and none in code. The manager hit 3 distinct landing defects on 4 trivial register changes today.",
       "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
       "confirmed_at": "2026-09-17T19:02:33Z"
+    },
+    {
+      "session_id": "session_014nZ1PrTGyB54EkoM84tDjS",
+      "title": "RESEARCH MI-298 — close the 43% unattributable-winners hole (exit-label recovery, wider window)",
+      "owns_object": "WO-20260917-RESEARCH-CLOSE-THE-43-PERCENT-UNATTRIBUTABLE-WINNERS-HOLE",
+      "checklist_item": "MI-298",
+      "spawned_at": "2026-09-17T21:42:50Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi298-exit-label-recovery"
+      ],
+      "why": "MI-295's own section 6 named it 'the highest-value research left', explicitly NOT a sweep: recover exit labels over a wider window and re-state every count that rests on the 43% hole. CY-20260906-TRADING-TRUTH verbatim — repair the measurement before acting on it.",
+      "note": "SPAWNED FRESH, not resumed, after the operator's 2026-09-17 spawn-economics correction. Its real dependency is PR #11933's BRANCH (the MI-278 sweep code), NOT the MI-295 session's context — MI-295 landed a memo, not machinery, so there was nothing in that 651k context this unit needs.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01N49kUMkqVaDLqUUqdYM78K",
+      "title": "ENGINEERING MI-299 — is the research/testing/ML infra fit for purpose?",
+      "owns_object": "WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS",
+      "checklist_item": "MI-299",
+      "spawned_at": "2026-09-17T21:43:02Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/eng-lane-20260917-infra-fitness-2"
+      ],
+      "why": "MI-296's done_condition has two halves and only the register/landing CHANGE (#12472) is delivered; neither the OBSERVATION of it nor the infra-fitness verdict exists, and the infra half is what the operator named at dispatch. Walk one real fleet question end to end — corpus, harness, gate, recorded verdict — and report where it stops.",
+      "note": "SPAWNED FRESH, not resumed, after the operator's 2026-09-17 spawn-economics correction. The clearest of the two cases: infra fitness is a different SUBJECT from the register-contention work session_01SzoZAiXJibakevDU9pbwxm had spent 630k tokens on, so none of that context helps. That resumed attempt was interrupted ~10 min in and those 10 min are discarded.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01LuKhJhxiK1K8h1ZVPYJjZ9",
+      "title": "CANON LANE MI-300 — canonize fresh-vs-resume spawning AND model-to-task selection",
+      "owns_object": "WO-20260917-CANONIZE-SPAWN-VS-RESUME-AND-MODEL-TO-TASK",
+      "checklist_item": "MI-300",
+      "spawned_at": "2026-09-17T21:51:23Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi300-canonize-spawn-economics"
+      ],
+      "note": "MODEL CHOSEN, NOT INHERITED: claude-sonnet-5, passed explicitly. REASON: well-specified doc work whose measured basis is already written into the work object, and a mistake is recoverable in review -- it does not need the manager's model. It is also the first application of the rule it is writing. Measured 2026-09-17: create_session defaults model to the CALLER's, and both earlier lanes read configured_model claude-opus-5 having been passed no model at all. FRESH, not resumed: nothing this unit needs exists in any running session's context.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_014ZKXKoPUbHgANGdDmRRjHz",
+      "title": "RESEARCH LANE MI-301 — attribute the 2026-08-30 directional break",
+      "owns_object": "WO-20260918-RESEARCH-ATTRIBUTE-THE-2026-08-30-BREAK-E35-OR-MARKET",
+      "checklist_item": "MI-301",
+      "spawned_at": "2026-09-17T23:12:30Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi301-attribute-the-0830-break"
+      ],
+      "note": "MODEL CHOSEN: claude-opus-5, passed explicitly. REASON: population-sensitive provenance work where a wrong verdict misdirects a Tier-3 decision on real money, and the lane must hold e35/non-e35/before/after and the provenance mix at once. FRESH, not resumed: MI-295 and MI-298 both landed MEMOS, so nothing this unit needs lives in a session's context -- it is on disk. Operator: research is the top priority overnight.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01DabHd36V6iqcd9diSrCFfP",
+      "title": "OPS LANE MI-302 — DRAIN backlog rows against the existing triage",
+      "owns_object": "WO-20260918-OPS-DRAIN-THE-BACKLOG-AGAINST-THE-TRIAGE-THAT-ALREADY-EXISTS",
+      "checklist_item": "MI-302",
+      "spawned_at": "2026-09-17T23:12:30Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi302-backlog-drain"
+      ],
+      "note": "MODEL CHOSEN: claude-sonnet-5, passed explicitly. REASON: the triage is already done and verified a complete partition, every row carries its own resolution_criteria, and each close is reviewable in a PR -- well-specified work where a mistake is recoverable in review, so it does not need the manager's model. FRESH: the triage is a landed doc, not context.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01CQ91T43zDR3AKC7y1PPxvY",
+      "title": "ENGINEERING LANE MI-303 — the decision channel reports healthy while sending nothing",
+      "owns_object": "WO-20260918-ENGINEERING-THE-DECISION-CHANNEL-REPORTS-HEALTHY-WHILE-SENDING-NOTHING",
+      "checklist_item": "MI-303",
+      "spawned_at": "2026-09-17T23:12:30Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi303-decision-channel-dead"
+      ],
+      "note": "MODEL CHOSEN: claude-opus-5, passed explicitly. REASON: a live channel defect whose fix turns on separating two states that currently render identically (collapsed-state reasoning), on the one channel the operator uses to decide. FRESH: no running session holds anything about this; the evidence is on the diag surface.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01FjbLYExbVP1tT2CAwNe2tZ",
+      "title": "LANDING LANE MI-304 — land the two stranded research PRs",
+      "owns_object": "WO-20260918-LAND-THE-TWO-STRANDED-RESEARCH-PRS",
+      "checklist_item": "MI-304",
+      "spawned_at": "2026-09-18T00:13:50Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi304-landing"
+      ],
+      "note": "MODEL CHOSEN: claude-sonnet-5, explicitly. REASON: mechanical and well-specified -- resolve six shared registers through the repo's own tooling and merge; every step is reviewable in a diff. FRESH. [!] THIS UNIT EXISTS BECAUSE THE MANAGER DID NOT RUN THE MERGE QUEUE: #12205 has been dirty for FOUR DAYS on six registers and NO code, and MI-301 then spent an Opus lane re-deriving context around its already-computed verdict.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XYu2vvg9Qgxoqf4jJQyd8i",
+      "title": "ENGINEERING LANE MI-305 — the journal read surface ignores limit and offset",
+      "owns_object": "WO-20260918-THE-JOURNAL-READ-SURFACE-IS-STRIP-MINING-THE-RESEARCH-POPULATION",
+      "checklist_item": "MI-305",
+      "spawned_at": "2026-09-18T00:13:50Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi305-journal-read-surface"
+      ],
+      "note": "MODEL CHOSEN: claude-opus-5, explicitly. REASON: it sits on the cycle priority (repair the measurement first) and carries a real trap -- the 1000-row clamp may be a DELIBERATE guard against an unbounded read on the live web-api, and the wrong fix trades a research problem for a wedge. Needs judgement, not just a patch. FRESH.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_019gSL92mxBDek6n8RVRWYmD",
+      "title": "OPS LANE MI-306 — second backlog drain batch",
+      "owns_object": "WO-20260918-OPS-DRAIN-BATCH-TWO",
+      "checklist_item": "MI-306",
+      "spawned_at": "2026-09-18T00:13:50Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi306-backlog-drain-2"
+      ],
+      "note": "MODEL CHOSEN: claude-sonnet-5, explicitly. REASON: same shape as MI-302, which delivered exactly five verified closes for $16.26 in ~41 minutes on this model -- the specification is written and each close is reviewable. FRESH.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01JHFDpaWxaGw4BaxMGgtF9A",
+      "title": "RESEARCH LANE MI-307 — offline-harness MFE distribution at stated n",
+      "owns_object": "WO-20260918-RESEARCH-THE-OFFLINE-MFE-DISTRIBUTION-AT-STATED-N",
+      "checklist_item": "MI-307",
+      "spawned_at": "2026-09-18T01:17:44Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi307-offline-mfe-distribution"
+      ],
+      "note": "MODEL CHOSEN: claude-opus-5, explicitly. REASON: per-leg quantile work over a population with its own hazards (crypto-only candles, a measured 2.5x backtest-vs-live disagreement on p90 MFE) where the failure mode is a bigger n reading as a better answer. FRESH. [!] CHOSEN BECAUSE THE OBVIOUS NEXT UNIT IS BLOCKED: MI-301's e35 thread needs the pre-era population back, which is MI-305/Tier-2 and held for the operator. This asks the same question OFFLINE, where the journal clamp cannot erode it.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_019B3Gjf2nQaVa9J9Xsx4TBC",
+      "title": "ENGINEERING LANE MI-308 — the decisions inbox grades on the wrong field",
+      "owns_object": "WO-20260918-THE-DECISIONS-INBOX-GRADES-ON-THE-WRONG-FIELD",
+      "checklist_item": "MI-308",
+      "spawned_at": "2026-09-18T01:17:44Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi308-decisions-inbox-read-half"
+      ],
+      "note": "MODEL CHOSEN: claude-opus-5, explicitly. REASON: the transit contract is easy to 'fix' in the WRONG direction -- grading an in_transit submission as answered would be worse than the bug. Needs judgement about a contract, not a patch. FRESH. [!] RE-ROUTES MI-254, which has read in_flight since 2026-09-10T11:25Z under a DEAD owner -- eight days holding a ceiling slot.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XMoeH1BMgXyXFPtxitZfdr",
+      "title": "OPS LANE MI-309 — third backlog drain batch",
+      "owns_object": "WO-20260918-OPS-DRAIN-BATCH-THREE",
+      "checklist_item": "MI-309",
+      "spawned_at": "2026-09-18T01:17:44Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "branches": [
+        "claude/mi309-backlog-drain-3"
+      ],
+      "note": "MODEL CHOSEN: claude-sonnet-5, explicitly. REASON: third instance of a pattern that has now delivered ten verified closes for ~$33 total on this model. Specification written, every close reviewable. FRESH.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01SGi8TxGBW48izaNyQUXXng",
+      "title": "OPS LANE MI-310 — the checklist's two competing status fields, on the page the operator reads",
+      "owns_object": "WO-20260918-THE-CHECKLIST-CARRIES-TWO-COMPETING-STATUS-FIELDS",
+      "checklist_item": "MI-310",
+      "spawned_at": "2026-09-18T02:24:33Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "note": "OPS lane, MI-257: two competing status fields + 38 off-vocabulary values on the file GET /api/bot/work/checklist serves the operator. MODEL CHOSEN: claude-sonnet-5. REASON: well-specified data reconciliation in a Tier-1 file against an already-decided ownership rule (manager_status.effective_state owns the merge, state wins), mistake recoverable in review -- and the three Sonnet drain lanes MI-302/306/309 delivered 15 verified row closures at about 24 USD each against 50-80 for comparable Opus work.\n\nDEAD ON ARRIVAL — DO NOT READ THIS ROW'S source_url AS EVIDENCE THE CONTAINER HAD THE REPO. create_session was called WITHOUT source_url, so this container came up with no checkout and BLOCKED within ~40s at 2026-09-18T02:23Z (status_bucket SESSION_STATUS_BUCKET_BLOCKED). It did NO work and produced NO commit. The source_url field above records what the manager typed into `register` (which ran a minute AFTER the spawn, at 02:24:33-34Z), never what create_session was given — filed as BL-20260918-THE-REGISTRYS-SOURCE-URL-RECORDS-WHAT-THE-MANAGER-TYPED-INTO-REGISTER-NOT-WHAT-CREATE-SESSION-WAS-GIVEN. Superseded by session_014KmudAoAJoVsatWrpnD9ah, which carries session_context.sources and owns MI-310. Kept on record rather than deleted: the manager failure is the evidence.",
+      "state": "working",
+      "status": "terminated_never_started",
+      "superseded_by": "session_014KmudAoAJoVsatWrpnD9ah"
+    },
+    {
+      "session_id": "session_01F5RhV5okTSrPK3vq8jbwTY",
+      "title": "ENGINEERING LANE MI-311 — the blocked-lane watcher's missing sixth kind, then the next Tier-1 structural rows",
+      "owns_object": "WO-20260918-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-ITS-COMMONEST-BLOCKER",
+      "checklist_item": "MI-311",
+      "spawned_at": "2026-09-18T02:24:34Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "note": "ENGINEERING lane, MI-264 anchor then continuing Tier-1 structural rows. MODEL CHOSEN: claude-sonnet-5. REASON: MI-264 is small and tightly specified (a sixth blocked-on kind with a real grading rule plus two planted controls); the continuing scope is one measured row at a time with a stated population, each reviewable independently, so a mistake is caught in review rather than compounding.\n\nDEAD ON ARRIVAL — DO NOT READ THIS ROW'S source_url AS EVIDENCE THE CONTAINER HAD THE REPO. create_session was called WITHOUT source_url, so this container came up with no checkout and BLOCKED within ~40s at 2026-09-18T02:23Z (status_bucket SESSION_STATUS_BUCKET_BLOCKED). It did NO work and produced NO commit. The source_url field above records what the manager typed into `register` (which ran a minute AFTER the spawn, at 02:24:33-34Z), never what create_session was given — filed as BL-20260918-THE-REGISTRYS-SOURCE-URL-RECORDS-WHAT-THE-MANAGER-TYPED-INTO-REGISTER-NOT-WHAT-CREATE-SESSION-WAS-GIVEN. Superseded by session_01B7kFi5rErkv5rAd42nEPJB, which carries session_context.sources and owns MI-311. Kept on record rather than deleted: the manager failure is the evidence.",
+      "state": "working",
+      "status": "terminated_never_started",
+      "superseded_by": "session_01B7kFi5rErkv5rAd42nEPJB"
+    },
+    {
+      "session_id": "session_014KmudAoAJoVsatWrpnD9ah",
+      "title": "OPS LANE MI-310 — the checklist's two competing status fields (RESPAWN)",
+      "owns_object": "WO-20260918-THE-CHECKLIST-CARRIES-TWO-COMPETING-STATUS-FIELDS",
+      "checklist_item": "MI-310",
+      "spawned_at": "2026-09-18T03:33:26Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-257, the longest-unrouted row on the session brief (167.1h), on the file GET /api/bot/work/checklist serves to the operator",
+      "note": "RESPAWN of session_01SGi8TxGBW48izaNyQUXXng, which BLOCKED within ~40s at 2026-09-18T02:23Z: I omitted source_url on create_session so the container had no checkout ('repo not found; need clone URL or working directory'), cost $0.11. Diagnosed by comparing session_context: the live MI-307 lane carries sources[].git_repository.url and both dead spawns carried no sources key at all. MODEL: claude-sonnet-5, chosen deliberately — well-specified data reconciliation in a Tier-1 file, mistake recoverable in review, and the drain lanes have delivered on Sonnet at ~1/3 the Opus cost. FRESH not resumed: the next unit needs the repo on disk, not any predecessor's accumulated context.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01B7kFi5rErkv5rAd42nEPJB",
+      "title": "ENGINEERING LANE MI-311 — the blocked-lane watcher's missing sixth kind (RESPAWN)",
+      "owns_object": "WO-20260918-THE-BLOCKED-LANE-WATCHER-CANNOT-EXPRESS-ITS-COMMONEST-BLOCKER",
+      "checklist_item": "MI-311",
+      "spawned_at": "2026-09-18T03:33:42Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-264, unrouted 147.1h — add the sixth blocked_on kind registry_confirmed, then continue on the next Tier-1 structural rows",
+      "note": "RESPAWN of session_01F5RhV5okTSrPK3vq8jbwTY, which BLOCKED within ~40s at 2026-09-18T02:23Z on the same omitted source_url ('repo not cloned; no WO-20260918 artifact found'), cost $0.13. The respawn prompt carries FRESH EVIDENCE for this lane's own subject: both dead lanes declared the block correctly to the PLATFORM (status_bucket BLOCKED plus a post_turn_summary.needs_action) and NEITHER wrote a blocked_on edge to SESSIONS.json, so blocked_lane_watch could not see either — the third and fourth measured instance of the pattern the work object describes. MODEL: claude-sonnet-5, chosen deliberately — small, well-specified, recoverable in review. FRESH not resumed: needs the repo on disk, not accumulated context.",
+      "state": "working"
+    },
+    {
+      "session_id": "session_01XHZLyD6muRE7t77JxtKrJ2",
+      "registry_key": "pending-20260918T042118Z",
+      "state": "working",
+      "title": "RESEARCH LANE MI-312 — give the ict_scalp family a capped arm",
+      "owns_object": "WO-20260918-RESEARCH-THE-SCALP-FAMILY-HAS-NO-CAPPED-ARM",
+      "checklist_item": "MI-312",
+      "spawned_at": "2026-09-18T04:21:18Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-307 named its own gap: 8 legs not_capped_capable for want of one harness flag, and that is the family where a take-profit actually binds",
+      "note": "FRESH, not resumed — MI-307's session is at 689k/1M context and $70.29 with 119M cache-reads, and the harness/memo/corpus it built are on disk at b0150bde4. MODEL: claude-opus-5, chosen deliberately — the interpretive half feeding a Tier-3 real-money proposal, where CY-20260906-TRADING-TRUTH says a verdict from a contaminated instrument is worse than none. Registered BEFORE the spawn (MI-263).",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T04:23:47Z"
+    },
+    {
+      "session_id": "session_011oA6WHnyj5cjgvZfMdK4uG",
+      "registry_key": "pending-20260918T042118Z-2",
+      "state": "working",
+      "title": "OPS LANE MI-313 — the PR queue is 65% bot noise and the stale sweep is not clearing it",
+      "owns_object": "WO-20260918-THE-PR-QUEUE-IS-65-PERCENT-BOT-NOISE",
+      "checklist_item": "MI-313",
+      "spawned_at": "2026-09-18T04:21:18Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "13 of 20 open PRs are never-landing reconcile bots, polluting the list the manager's merge-queue duty and pr-queue-watch both read",
+      "note": "FRESH. MODEL: claude-sonnet-5, chosen deliberately — bounded diagnosis plus Tier-1 tooling, recoverable in review; the two Sonnet lanes tonight delivered at $13.27 and $30.63 against $70.29 for the resumed Opus lane. Registered BEFORE the spawn (MI-263).",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T04:23:47Z"
+    },
+    {
+      "session_id": "session_01Ghn5jF15TUC6VUmWY64wp4",
+      "registry_key": "pending-20260918T051210Z",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-314 — establish whether MI-270 is still live, then continue",
+      "owns_object": "WO-20260918-ESTABLISH-WHETHER-MI-270-IS-STILL-LIVE-THEN-CONTINUE",
+      "checklist_item": "MI-314",
+      "spawned_at": "2026-09-18T05:12:10Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "MI-270 unrouted 139.7h, but constraint-readout run #16 concluded success on schedule — the premise may be stale and must be established before it is worked",
+      "note": "FRESH. MODEL: claude-sonnet-5, chosen deliberately — diagnosis from run logs plus Tier-1 structural fixes, recoverable in review; tonight's Sonnet lanes delivered at $13.18/$13.27/$33.76 against $70.29 for Opus. Registered via the PENDING flow before the spawn, so the observed source url can be confirmed after it (MI-207/MI-263).",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T05:12:53Z"
+    },
+    {
+      "session_id": "session_01MQggD8Bidctr1fRf8JH4aB",
+      "registry_key": "pending-20260918T065256Z",
+      "state": "working",
+      "title": "OPS LANE MI-315 — UNSTICK the real-money bybit_2 ETHUSDT position",
+      "owns_object": "WO-20260909-BYBIT2-ETH-PHANTOM-CLOSE-LEFT-A-REAL-MONEY-POSITION-UNPROTECTED-AND-INVISIBLE",
+      "checklist_item": "MI-315",
+      "spawned_at": "2026-09-18T06:52:56Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "REAL MONEY unprotected on the venue since 2026-09-09 while the journal says closed; the object sat in_flight with owner: None for nine days",
+      "note": "Dispatched on the operator's correction that lanes must never idle. MODEL: claude-sonnet-5 — the diagnosis is a read-and-compare against venue truth; any repair is Tier-2/3 and returns to the manager. Registered via the PENDING flow BEFORE the spawn.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T06:54:46Z"
+    },
+    {
+      "session_id": "session_019J5aUz21AWTzdYyBNgUP2D",
+      "registry_key": "pending-20260918T065256Z-2",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-316 — repair the hedge-book flat read",
+      "owns_object": "WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT",
+      "checklist_item": "MI-316",
+      "spawned_at": "2026-09-18T06:52:56Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Orphaned when its owning session died 2026-09-12; it is the code path behind the same real-money class ops is unsticking",
+      "note": "Dispatched on the operator's correction that lanes must never idle. MODEL: claude-sonnet-5 — well-specified, the done_condition names the exact shape. Registered via the PENDING flow BEFORE the spawn.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T06:54:46Z"
+    },
+    {
+      "session_id": "session_01Ex5Dx1TMYy46ncsp8eptpx",
+      "registry_key": "pending-20260918T065256Z-3",
+      "state": "working",
+      "title": "RESEARCH LANE MI-317 — the per-leg target-geometry proposal at stated n",
+      "owns_object": "WO-20260918-PER-LEG-TARGET-GEOMETRY-PROPOSAL-AT-STATED-N",
+      "checklist_item": "MI-317",
+      "spawned_at": "2026-09-18T06:52:56Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Two lanes built the evidence and nobody wrote the packet; OI-20260906 clause (2) asks for exactly this",
+      "note": "Dispatched on the operator's correction that lanes must never idle. MODEL: claude-opus-5 — the synthesis that goes in front of the operator for a real-money Tier-3 decision. Registered via the PENDING flow BEFORE the spawn.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T06:54:46Z"
+    },
+    {
+      "session_id": "session_01PHax6vjumG6Aa1xh4GfKiF",
+      "registry_key": "pending-20260918T110215Z",
+      "state": "working",
+      "title": "ENGINEERING LANE MI-318 — decision pop-ups 400 at the Telegram cap",
+      "owns_object": "WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S",
+      "checklist_item": "MI-318",
+      "spawned_at": "2026-09-18T11:02:15Z",
+      "spawned_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "why": "Operator asked for decisions as pop-ups. Measured: sweep healthy, route correct, write gate open, and every send 400s because the rendered prompt exceeds Telegram's 4096-char cap. Tier-2.",
+      "observed_source_url": "https://github.com/benbaichmankass/Metis-Insights",
+      "confirmed_at": "2026-09-18T11:05:16Z",
+      "model": "claude-sonnet-5",
+      "model_reason": "SONNET, chosen not inherited. The defect is already MEASURED end to end (4738/4569/5463 chars against a 4096 cap, with a 3815-char delivered control), the fix is bounded (a compaction ladder on one renderer, copying the one /status already has), and a mistake is caught in review before it can land -- the PR is Tier-2 landing:hold and cannot self-merge. The manager stays on Opus because it must hold the whole picture; this lane does not need to.",
+      "spawn_mode": "fresh",
+      "spawn_mode_reason": "FRESH, per the benefit test: no live lane had developed context this unit reuses. What it needs -- the work object, the receipt readings and telegram_decisions.py -- sits on disk regardless of which session reads it."
     }
   ],
   "⚠️_registry_completeness": "GRADED 2026-09-06T16:50Z against list_sessions(mine=true, limit=30). Population: 30 sessions returned, 16 carrying `manager-2026-09-06`. Before this commit 12 of 16 were present and 4 of 16 (25.0%) were ABSENT — MI-148, MI-150, MI-151 and MI-152, which are the FOUR MOST RECENT spawns of the day. That is the MI-15 recurrence reproducing its own stated mechanism: the moment a manager spawns is the moment it is least likely to stop and write a record. All four are added here RETROACTIVELY and each carries a flag saying so, with `confirmed_at` left null. ⚠️ 16 of 16 present NOW is not evidence the coupling works — it is evidence a manager went and looked. The registry is complete for this manager's own tagged spawns only; untagged sessions are not graded here.",
@@ -5139,5 +5467,8 @@
   "⚠️_LOST_UPDATE_2026_09_11": "MEASURED 2026-09-11T22:53Z. PR #11836 (manager 21:52Z tick, 9e33370a0) set updated_at to 21:53:01Z and superseded the handoff note. PR #11826 (bf92d258c, the MI-275 lane) then merged AFTER it carrying an older copy of this file's TOP-LEVEL block, and git's line-level merge took that side: updated_at rolled BACK to 21:28:49Z and the supersede was undone. The ROW-level additions from #11836 survived (3 rows still carry manager_observation_2026_09_11T2153Z), so this was a PARTIAL revert -- which is worse than a clean one, because the file looks updated while its own freshness claim is stale. Filed as BL-20260911-A-SHARED-REGISTER-LOSES-ITS-TOP-LEVEL-KEYS-TO-A-LINE-LEVEL-MERGE-WHILE-ITS-ROWS-SURVIVE. CONSEQUENCE, not hypothetical: manager-scope R6 reads updated_at, so the rolled-back value would have failed the NEXT heartbeat commit for a staleness nobody introduced on purpose.",
   "⚠️_MANAGER_ROW_ABSENT_2026_09_17": "session_01HoFquGdTrD3TTGbMMRc43t (the manager that wrote this reconcile) has NO row in this registry, measured 2026-09-17T15:55Z against the full 60-row list_sessions listing. That is MI-15's recurrence for the FOURTH recorded time (3-of-6 on 2026-09-01, 6-of-9 on 2026-09-02, 26-of-55 later that morning, and now the manager itself). ⚠️ IT IS DELIBERATELY NOT SELF-REGISTERED HERE, because session_registry.py's `register` puts a row on the path to a SPAWN PROMPT and a manager is not spawned — writing one by hand would be the 'remember to' non-fix the checklist rule already names, and would make the gap look closed while the mechanism stayed absent. Recorded as the finding instead. || ARMING NOTE, recorded because it happened AGAIN on this very PR: claude-pr-automerge.yml won the race to open it (between a list_pull_requests that returned [] and a create_pull_request seconds later), so the PR was born under GITHUB_TOKEN with NO required check runs — which renders identically to 'CI has not started' and to 'all green'. CLAUDE.md's documented prevention is to open the PR yourself FIRST so the workflow ADOPTS it; that is unavailable when the arming file is committed together with the content, because the push fires the workflow immediately. Twice in one session (this and #12412). The commit carrying this sentence IS the recovery: one ordinary push arms CI.",
   "⚠️_LANE_STATES_AS_OF_2026_09_17T14_58Z": "All four lanes polled with get_session in one pass rather than inferred from activity. Three are REVIEW_READY with unlanded work (MI-278 #12419, MI-279 claude/mi279-u3-symbol-binds-data, MI-280 claude/mi280-wrap-record + an armed 15:29Z self check-in); MI-287 is COMPLETED with nothing in flight. Four-lane lifetime cost $3,510.19, of which MI-280 is $1,788.08 (51%) and MI-278 $1,403.00 (40%) -- the two open-ended mandates -- against MI-279's $296.10 for comparable ops work and MI-287's $23.01 for the cycle's gating measurement. That 6x-to-77x spread is the evidence behind DEC-20260916-PACING-RULES clauses (1) and (2), and it is recorded here because the registry is what a cold successor reads.",
-  "⚠️_MANAGER_HANDOVER_2026_09_17T16_52Z": "SUPERVISION OBSERVATION by the incoming manager session_01GHpyXT2qssLJsrvXBQRkQF, made 2026-09-17T16:35-16:52Z. Predecessor session_01HoFquGdTrD3TTGbMMRc43t wrapped cleanly and left the lease un-reclaimed (MI-293, #12449); its heartbeat was 1284 min stale against the 90 min TTL. WHAT I OBSERVED ABOUT THE THREE CARRIED LANES, and it is a REGISTER read plus a LIVE GitHub read, NOT a list_sessions observation -- I did not call list_sessions, so their RUNTIME state is `we did not look`: all three (MI-278 research / session_01Wv1Bdf..., MI-279 ops / session_013iSqp4..., MI-280 engineering / session_01BjTp5R...) still read `review_ready` with last_observed_at 2026-09-17T14:58Z. Each owns an `in_flight` work object, and the WIP set is at its ceiling (8 of 8), so no new lane can start until these close out. WHY THEY ARE NOT CLOSING, MEASURED: their deliverables are OPEN PRs that cannot merge. 9 of the 14 substantive open PRs are merge-conflicted, and every conflict probed (7 of 9, in a throwaway worktree against current origin/main) is in a SHARED REGISTER -- docs/claude/health-review-backlog.json in 5 of 7, then CLAUDE.md, docs/DOCUMENT-INDEX.md, docs/claude/OPEN-ITEMS.json and one M20 work object. ZERO conflicts in src/, tests/, scripts/ or config/. The stranded work does not need redoing; it needs one serialised landing pass. ⚠️ MY FIRST MERGE PROBE WAS A FALSE CLEAN BILL AND IS RECORDED AS ONE: the clone was shallow, so every test-merge died on `refusing to merge unrelated histories` and reported NO conflicts. The positive control is what caught it. The numbers above are from the re-run after `git fetch --unshallow`. SEPARATELY: 53 of the 67 open PRs are orphaned automation/* receipt PRs dating to 2026-09-12. Their artifacts DO reach main by another route (ERROR-FEED-DIGEST.json, CONSTRAINT.json, PROBES.json and DUE.md all carry 2026-09-17 stamps on main), so this is queue noise, not lost data -- but it makes the open-PR list unreadable and it is the surface BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR predicts."
+  "⚠️_MANAGER_HANDOVER_2026_09_17T16_52Z": "SUPERVISION OBSERVATION by the incoming manager session_01GHpyXT2qssLJsrvXBQRkQF, made 2026-09-17T16:35-16:52Z. Predecessor session_01HoFquGdTrD3TTGbMMRc43t wrapped cleanly and left the lease un-reclaimed (MI-293, #12449); its heartbeat was 1284 min stale against the 90 min TTL. WHAT I OBSERVED ABOUT THE THREE CARRIED LANES, and it is a REGISTER read plus a LIVE GitHub read, NOT a list_sessions observation -- I did not call list_sessions, so their RUNTIME state is `we did not look`: all three (MI-278 research / session_01Wv1Bdf..., MI-279 ops / session_013iSqp4..., MI-280 engineering / session_01BjTp5R...) still read `review_ready` with last_observed_at 2026-09-17T14:58Z. Each owns an `in_flight` work object, and the WIP set is at its ceiling (8 of 8), so no new lane can start until these close out. WHY THEY ARE NOT CLOSING, MEASURED: their deliverables are OPEN PRs that cannot merge. 9 of the 14 substantive open PRs are merge-conflicted, and every conflict probed (7 of 9, in a throwaway worktree against current origin/main) is in a SHARED REGISTER -- docs/claude/health-review-backlog.json in 5 of 7, then CLAUDE.md, docs/DOCUMENT-INDEX.md, docs/claude/OPEN-ITEMS.json and one M20 work object. ZERO conflicts in src/, tests/, scripts/ or config/. The stranded work does not need redoing; it needs one serialised landing pass. ⚠️ MY FIRST MERGE PROBE WAS A FALSE CLEAN BILL AND IS RECORDED AS ONE: the clone was shallow, so every test-merge died on `refusing to merge unrelated histories` and reported NO conflicts. The positive control is what caught it. The numbers above are from the re-run after `git fetch --unshallow`. SEPARATELY: 53 of the 67 open PRs are orphaned automation/* receipt PRs dating to 2026-09-12. Their artifacts DO reach main by another route (ERROR-FEED-DIGEST.json, CONSTRAINT.json, PROBES.json and DUE.md all carry 2026-09-17 stamps on main), so this is queue noise, not lost data -- but it makes the open-PR list unreadable and it is the surface BL-20260909-COMMIT-TO-MAIN-CANNOT-OPEN-A-PR-WHEN-THE-SHARED-USER-API-QUOTA-IS-EXHAUSTED-SO-EVERY-RECEIPT-STRANDS-WITH-NO-PR predicts.",
+  "⚠️_LANE_OBSERVATION_2026_09_17T20_33Z": "SUPERVISION OBSERVATION by the manager session_01GHpyXT2qssLJsrvXBQRkQF, 2026-09-17T20:33Z. This is a LIVE read: get_session was called on each of the three lanes, and status_bucket was read rather than status (SESSION_STATUS_IDLE reads the same for a finished lane and a failed one; status_bucket separates them). ALL THREE ARE review_ready AND IDLE, ~90 minutes after being spawned at ~19:01Z. None is failed. ops MI-294 (session_0178pRo8ZxrnrREzDzDzb9Zk): branch claude/ops-lane-20260917-session-receipt, post_turn_summary '3 checks green, 3 running; draft status flagged', last updated 20:14:45Z. research MI-295 (session_017PQcFJne7qyuVHzH5RZtFC): branch claude/mi295-active-management-focus, PR #12471 'green/clean/draft; awaiting ready mark', last updated 20:24:56Z. engineering MI-296 (session_01SzoZAiXJibakevDU9pbwxm): branch claude/eng-lane-20260917-register-contention, PR #12472 'green, awaiting human merge', last updated 20:28:52Z. ⚠️ ALL THREE PRs ARE DRAFTS, and that is a CONFIGURATION fact rather than a lane choice: every lane carries the tag config:auto-create-pr:draft. A draft PR cannot auto-merge — claude-pr-automerge refuses to un-draft a PR it did not open, by design — so all three are parked awaiting an act only the manager can perform. Marking them ready and landing them is MANAGEMENT, not an item, and is mine. ⚠️ WHAT THIS OBSERVATION DOES NOT ESTABLISH, stated rather than implied: a lane reporting review_ready is the lane's own claim about its work, not a verification of it. Nothing here grades whether the ops lane actually built MI-290's four owed things, whether the research lane's recommendation rests on a stated population, or whether the engineering lane's register change was OBSERVED stopping a real conflict rather than passing a self-test. That reading is owed and has not been done. COST SO FAR, since it bears on how many lanes can run at once: ops $82.07, research $34.03, engineering $51.53 = ~$167.63 across ~90 minutes. Rate limit reads five_hour / allowed on all three; the seven_day allowed_warning seen at spawn is no longer the reported window.",
+  "⚠️_LANE_DISPATCH_2026_09_17T21_26Z": "MANAGER session_01GHpyXT2qssLJsrvXBQRkQF, 2026-09-17T21:26Z. SUPERVISION READ, then two dispatches. BOTH lanes were read IDLE via get_session at 21:19-21:20Z with their own context usage, not assumed: research session_017PQcFJne7qyuVHzH5RZtFC at 651,764 / 1,000,000 tokens, engineering session_01SzoZAiXJibakevDU9pbwxm at 630,177 / 1,000,000. Both report status_bucket COMPLETED and connection_status disconnected -- i.e. finished their turn, not stalled. DISPATCHED: MI-298 to the research lane (trig_01Q4fyjco1o3PTPBG2U4J6x6, fires 21:24Z) and MI-299 to the engineering lane (trig_01QENG3UaCUdGcU7HWdzZV1W, fires 21:25Z), both via create_trigger + persistent_session_id so the lane RESUMES with its context rather than starting cold. [!] THE FIRST MI-298 TRIGGER ATTEMPT FAILED AND IS RECORDED RATHER THAN QUIETLY RETRIED: run_once_at was set to 21:58Z from a stale clock reading and the API refused it as already past. A dispatch that silently did not fire would be indistinguishable from a lane that ignored its prompt, which is the class this registry exists to make visible. [!] THE TRIGGERS CARRY NO MCP CONNECTORS and the API warned so. That changes nothing here: both lanes' turn_handoff already lists tools Bash/Write/Edit/Read/Glob/Grep/Agent and NO mcp__* , so they have been operating without connector tools throughout and push over git. Do not read the warning as a new blocker. [!] OPS LANE session_0178pRo8ZxrnrREzDzDzb9Zk (MI-294) is NOT re-dispatched in this pass -- its PR #12473 is open with CI re-running after the lane's own fix push, and re-tasking a lane whose PR is mid-CI is how a branch gets a head pushed under a running check.",
+  "⚠️_SPAWN_ECONOMICS_CORRECTION_2026_09_17T21_37Z": "OPERATOR CORRECTION, 2026-09-17T21:32Z, ACTED ON IMMEDIATELY AND RECORDED BECAUSE THE MANAGER WAS WRONG. The operator asked whether the next unit needs to be the SAME session, and whether recycling sessions unnecessarily is why tokens were burning fast. It is, and the arithmetic was available and unread: a RESUMED session re-reads its whole accumulated context as cache_read EVERY turn. MEASURED on session_01SzoZAiXJibakevDU9pbwxm across ~10 min of the resumed MI-299: cache_read 78,988,432 -> 95,867,825 (+16.9M), cost_usd 53.38 -> 65.26 (+$11.88), context 630,177 -> 676,782 -- for a turn its own task_summary called 'File the operator-owed decision and run guards'. A fresh session starts near 40k, so the per-turn cache read is ~17x smaller for the same work. ACTION: both resumed lanes INTERRUPTED, both triggers DELETED (trig_01Q4fyjco1o3PTPBG2U4J6x6, trig_01QENG3UaCUdGcU7HWdzZV1W), both units RE-SPAWNED FRESH with self-contained prompts -- MI-298 to session_014nZ1PrTGyB54EkoM84tDjS (research) and MI-299 to session_01N49kUMkqVaDLqUUqdYM78K (engineering). [!] THE TEST IS NOT 'SAME LANE OR SAME SUBJECT', IT IS 'ARE THE NEXT UNIT'S INPUTS READABLE FROM THE REPO'. Both resumed units failed it and the manager had not checked: MI-299 is a different SUBJECT from the register-contention work its lane had done, and MI-298's real dependency is PR #11933's BRANCH (the MI-278 sweep code) rather than the MI-295 session's context at all -- MI-295 landed a MEMO, not machinery. [!] ~10 MINUTES OF ENGINEERING'S MI-299 TURN WERE DISCARDED BY THE INTERRUPT. That is a real cost and is recorded rather than netted out; it was taken because the burn rate dominates it. [!] RESUME IS NOT BANNED and must not be read that way -- it is correct when the context is genuinely unrepeatable (an investigation mid-flight, a measurement whose intermediate state was never landed). Filed as BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN; the canon edit it needs is a WORKER path (CLAUDE.md prose outside the generated SESSION-BRIEF) and is queued as MI-300, not taken by the manager.  || ⚠️ CORRECTED 2026-09-17T21:47Z BY THE SAME MANAGER, AND THE INTERRUPT WAS WRONG ON THE FACTS. The text above says ~10 minutes of engineering's turn were DISCARDED. THEY WERE NOT, and neither were research's. BOTH RESUMED SESSIONS HAD ALREADY DELIVERED AND LANDED THEIR UNITS, discovered only when a later `git merge origin/main` brought their artifacts in: docs/research/mi298-winner-label-recovery-2026-09-17.md (155 lines, research, a COMPLETE answer -- the 43% REPRODUCES at 2.06x the winners, 42.6% vs 42.9%, and label recovery CANNOT close it because 38 of 43 are unattributable for a PROVENANCE reason, making it a Tier-2 repair rather than research) and docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md (303 lines, engineering, carrying the infra-fitness verdict in its section 4 plus the conflict census, replay-pregate and probe_actions_log). So the +16.9M cache reads and +$11.88 I measured on engineering were not waste -- they were the price of a 303-line measured verdict, and I read a COST without reading the OUTPUT beside it. [!] THE OPERATOR'S RULE IS UNAFFECTED AND STILL RIGHT: a resumed session does re-read its whole context every turn, and reaching for resume by default is a real and expensive habit. What was wrong is MY APPLICATION -- the rule governs WHICH SESSION GETS THE NEXT UNIT, and I used it to kill two units already in flight. Those are different decisions and I conflated them. [!] THE MISSING SECOND LIMB, which is the durable lesson: the spawn-vs-resume test applies AT DISPATCH. Once a resumed session is RUNNING, the comparison is no longer cost-per-turn but cost-per-unit-DELIVERED, and an interrupt forfeits everything not yet landed. Before interrupting a running session, READ WHAT IT HAS ALREADY PRODUCED -- `git fetch` and look for its artifacts on main. I did not, and the evidence was one fetch away. [!] CONSEQUENCE: the two FRESH sessions I spawned (session_014nZ1PrTGyB54EkoM84tDjS research, session_01N49kUMkqVaDLqUUqdYM78K engineering) were REDUNDANT -- they would have redone work already on main -- and were interrupted at 21:47Z within ~11 minutes of spawn. Their cost is the real waste of this episode and it is mine, not the operator's correction's."
 }

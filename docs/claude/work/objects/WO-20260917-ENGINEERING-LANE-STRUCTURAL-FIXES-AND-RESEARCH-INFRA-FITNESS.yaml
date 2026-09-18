@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Engineering lane: the structural fixes, with the research/testing/ML infrastructure made fit for purpose
 stage: BUILD
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-17
-closed_at: null
+closed_at: 2026-09-17
 why: >-
   Operator-directed 2026-09-17: structural fixes are needed in many places, with EMPHASIS on making the
   research/testing/ML infrastructure fit for purpose and designed to be used correctly and efficiently.
@@ -56,3 +56,13 @@ blocked_on_basis: >-
   forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
   edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
 captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-17. docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md landed on main (303
+  lines) carrying both halves the object asked for: a conflict census over ALL 70 open PRs with both controls
+  stated and a self-caught false clean bill, and the infra-fitness verdict.
+  [!] THE VERDICT IS NARROWER THAN THE QUESTION AND THAT IS THE FINDING: 'the harnesses are fine. The last hop
+  to a durable artifact is what is not.' So a successor must not re-audit the harnesses -- replay-pregate is
+  dead in BOTH directions (S4.2) and probe_actions_log is blind 60 of 60 (S4.3), and those are the carried
+  items, not the backtest engines.
+  [!] MEMO ON MAIN, GRADED BY NOBODY BUT ITS AUTHOR. The lane's own review_ready was a claim about its work,
+  not a verification of it, and no session has read this memo against the fleet. That reading is owed.

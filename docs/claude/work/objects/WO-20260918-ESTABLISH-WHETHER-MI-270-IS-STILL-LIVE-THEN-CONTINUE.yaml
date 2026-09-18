@@ -1,0 +1,78 @@
+id: WO-20260918-ESTABLISH-WHETHER-MI-270-IS-STILL-LIVE-THEN-CONTINUE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Establish whether MI-270 is still live -- the constraint-readout cron may have started succeeding -- then
+  continue on the next Tier-1 structural rows
+stage: BUILD
+lifecycle: done
+owner: engineering lane
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  OPERATOR-DIRECTED 2026-09-17 (overnight): engineering = structural fixes and code that is not working, run
+  continuously. MI-270 has been unrouted 139.7h and is the obvious next pick -- but its premise may be STALE,
+  and dispatching a fix for a defect that has already resolved is worse than dispatching nothing.
+  WHAT I MEASURED 2026-09-18T05:2xZ (manager), over the COMPLETE run history of constraint-readout.yml
+  (actions_list, total_count 16, 12 returned): RUN #16 (id 35216109798, event=schedule) concluded SUCCESS at
+  2026-09-17T11:31:11Z. Runs #5 through #15 were failure or cancelled, which is the state MI-270 and
+  OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE were both filed on. So
+  SOMETHING CHANGED between 09-16 and 09-17 and nobody has established what.
+  THE COROLLARY THAT MAKES THIS WORTH A UNIT RATHER THAN A GLANCE: if the self-test gate that killed eleven
+  runs is genuinely fixed, MI-270 should be CLOSED rather than worked, and the fix should be identified so it
+  is not accidentally reverted. If it is NOT fixed -- if #16 succeeded for an incidental reason -- then MI-270
+  is live, the cadence is one-in-sixteen, and the readout feeding the CLAUDE.md session brief is stale by
+  default. Those are opposite conclusions and the run history alone does not separate them.
+done_condition: >-
+  (1) MI-270's status is ESTABLISHED either way, from the run LOGS of #15 (failure) and #16 (success) rather
+  than from the workflow file or the cron -- name what differed. Record it on the MI-270 checklist row, and
+  CLOSE that row if the defect is gone. A conclusion of "still live" is an equally good outcome and must not
+  be treated as a failed unit.
+  (2) THEN at least one further Tier-1 structural row measured and fixed, with its population stated --
+  continuing one row at a time the way MI-311 did (four landed PRs, $33.76).
+must_not: >-
+  DO NOT read the cron expression as evidence of anything. This repo has merged, enabled, correct schedules
+  that fire hours late, once instead of daily, or never; reading a cron as a firing is a recorded recurring
+  mistake here and is exactly what this unit exists to avoid repeating.
+  DO NOT re-clear OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE -- the manager
+  cleared it 2026-09-18 on run #16 plus the matching generated_at stamp, and re-doing that read proves nothing
+  new. That row and MI-270 are DIFFERENT questions: the row asks whether the cadence ever delivered, MI-270
+  asks why the self-test gate rejected the workflow's own output.
+  DO NOT report a green self-test as evidence about the fleet, and do not add a decorative branch to satisfy
+  collapsed-state-guard -- a state no consumer genuinely acts on is the defect that guard exists to prevent,
+  not a way to pass it.
+  Anything touching an order path, a deploy, a service or a risk cap STOPS and comes back to the manager.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). A POSITIVE finding, not the
+  NOT_ASSESSED default: the run logs are readable through the GitHub MCP from an interactive lane, the
+  workflow and its self-test are in the checkout, and nothing gates the diagnosis. A statement about TODAY and
+  about THIS object only; a Tier-2/3 gate reached later is a real blocker and must be written as a typed edge
+  WHEN IT BINDS.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, clause (1) MET and clause (2) met in substance. PR #12517 merged as b71ec810a,
+  VERIFIED on origin/main. The lane answered the question I dispatched rather than the one I assumed, and the
+  answer is BOTH halves at once: MI-270's NAMED defect (session-brief-guard failing its own output) was NOT
+  live -- but the workflow kept failing through run #15 anyway, via a DIFFERENT guard,
+  artifact-validity-guard / check_backlog_refs.py. So "is MI-270 live" had no clean yes/no and the honest
+  answer was to trace what was ACTUALLY failing.
+  THE REAL DEFECT, and it is a good one: render_due_list.py::_clip cuts a due-list title BEFORE a filed
+  BL-/MB-/FU- tracking id rather than into it, and #12378 had fixed exactly that -- but
+  constraint_readout.py::_one_line carried its OWN narrower second clip (140/180 chars) and applied it ON TOP
+  of the already-id-safe 200-char title, so a title that survived the first clip could be cut a second time
+  INSIDE the same id, manufacturing a dangling reference to a row that does exist. Measured live rather than
+  reasoned: PR #12331's diff carried "Filed as BL-20260912-BYBI...", a 16-char fragment of a real filed row.
+  Fixed by DELEGATING to the one _clip through the module's existing _due_lib() importer instead of keeping a
+  diverging second copy -- the right shape, since the bug WAS the second copy. Self-test gains a positive
+  control reproducing the live fragment; 11 new pytest cases cover the two-clip composition, the
+  whole-id-overrun branch, and a scan for any other bare slice in the module.
+  ⚠️ IT ALSO CAUGHT ITSELF: its own new docstrings tripped check_backlog_refs with the same class it was
+  fixing (a real id line-wrapped, plus two literal truncated fragments in scripts/, which that guard scans and
+  tests/ it does not). Fixed in a follow-up commit rather than excused.
+  CLAUSE (2), stated honestly rather than stretched: the further Tier-1 structural work IS this fix plus the
+  completed mechanism trace on BL-20260911 (whose earlier close admitted it had not traced which commit fixed
+  the failure) and the MI-270 checklist row closed with that trace. The lane then STOPPED at a clean
+  checkpoint rather than opening an unrelated investigation at 630k/1M context -- the right judgement, and I
+  am recording it as such rather than as an unmet clause.
+  COST: $23.25 on a FRESH Sonnet lane.

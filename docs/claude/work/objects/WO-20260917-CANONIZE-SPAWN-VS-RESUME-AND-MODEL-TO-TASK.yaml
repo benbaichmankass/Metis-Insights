@@ -1,0 +1,93 @@
+id: WO-20260917-CANONIZE-SPAWN-VS-RESUME-AND-MODEL-TO-TASK
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Canonize the two spawn-economics rules a manager must apply: FRESH-vs-RESUME, and MATCH THE MODEL TO THE TASK
+stage: BUILD
+lifecycle: done
+owner: session_01LuKhJhxiK1K8h1ZVPYJjZ9
+opened_at: 2026-09-17
+closed_at: 2026-09-17
+why: >-
+  OPERATOR-DIRECTED 2026-09-17, in two parts and in the operator's own words.
+  (1) FRESH vs RESUME: "The only reason to reuse the session is if the next unit benefits from the context
+  that the session developed while working on the previous task. But if it doesn't benefit, then we should
+  start fresh." And then, explicitly, that it must not stop at this session: "we need to make sure that this
+  is also canonized correctly for future manager sessions and not just left as a lesson that we learn here
+  and then forget and don't apply it going forward."
+  (2) MODEL TO TASK: "not every task requires Opus 5. Obviously the manager I want to be able to understand
+  what's going on ... but the other one, if anything can be wrong, say Sonnet or Haiku, that's also fine.
+  Let's just make sure we match the model to the task."
+  [!] THE SECOND COMPOUNDS THE FIRST AND THAT IS THE MEASURED FACT: create_session's `model` parameter
+  DEFAULTS TO THE CALLING SESSION'S MODEL, so a manager running on Opus spawns Opus lanes silently, without
+  ever deciding to. MEASURED 2026-09-17 on both live lanes via get_session: session_017PQcFJne7qyuVHzH5RZtFC
+  and session_01SzoZAiXJibakevDU9pbwxm both read configured_model 'claude-opus-5' and NEITHER was passed a
+  model by the manager. The model was inherited, not chosen.
+  [!] THE COST BASIS, so this does not read as a preference. Measured on those same two lanes at 2026-09-17
+  ~21:38Z: cache_read_tokens 91,107,145 ($55.82) and 102,412,896 ($69.23) -- 193.5M cache-read tokens and
+  $125.05 across two lanes, against 141,352 + 226,761 OUTPUT tokens. Essentially the entire spend is a
+  resumed session re-reading its own accumulated context every turn. A fresh session starts at roughly 40k.
+  [!] AND IT IS A CANON EDIT RATHER THAN A HABIT BECAUSE THE PROSE-ONLY ROUTE HAS ALREADY FAILED TWICE IN
+  THIS REPO on the manager's own duties -- MI-15 (register the spawn) was restated and re-measured worse, and
+  BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT is the same shape. A rule that lives only in one
+  session's context dies with that session, which is the argument CLAUDE.md already makes for the lease, the
+  registry and the checklist.
+done_condition: >-
+  BOTH rules are written where a manager reads them BEFORE it spawns -- CLAUDE.md's manager section and
+  docs/claude/work/README.md -- each carrying its MEASURED basis rather than an assertion, and each stating
+  the test to apply rather than a preference.
+  RULE 1 (fresh vs resume): the test is whether the NEXT unit benefits from the context the session built.
+  It must state the discriminator that made it non-obvious here: MI-295 landed a MEMO, not machinery, so its
+  successor MI-298 depended on a PR BRANCH (#11933's sweep code) and not on the session's context -- i.e.
+  'same subject area' is NOT the test.
+  RULE 2 (model to task): the default is INHERITANCE, so choosing is an ACT. State that create_session's
+  `model` defaults to the caller's, name the model ids, and give the shape of the choice the operator gave:
+  the manager wants a strong model because it must understand the whole picture; a well-specified lane where
+  a mistake is recoverable does not.
+  [!] AND ONE THING THE CANON MUST NOT CLAIM, because this manager got it wrong today: the fresh-vs-resume
+  test applies AT DISPATCH. Once a session is RUNNING the comparison is cost-per-unit-DELIVERED, not
+  cost-per-turn, and an interrupt forfeits everything not yet landed. This manager read a cost meter, killed
+  two RUNNING lanes without reading what they had produced, and both had landed complete deliverables in
+  exactly those minutes. The canon must say READ WHAT A SESSION HAS PRODUCED BEFORE INTERRUPTING IT.
+  [!] A RESTATEMENT IN CHAT DOES NOT SATISFY THIS. The artifact is the edit on main.
+source: >-
+  Operator directive, 2026-09-17, in conversation with the manager session_01GHpyXT2qssLJsrvXBQRkQF.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). The empty list is a POSITIVE
+  finding, not the NOT_ASSESSED default: both target files are in the repo, the basis is already measured and
+  written into this object, and nothing is waiting on an operator decision -- the operator has DECIDED, and
+  what remains is writing it down. [!] It is a statement about TODAY: if canonical-doc-coherence turns out to
+  require a matching edit in docs/CLAUDE-RULES-CANONICAL.md, that is ordinary scope, not a blocker.
+explicitly_not_in_scope: >-
+  Changing any lane's model retroactively; re-litigating the interrupt (it is recorded in SESSIONS.json and in
+  BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN); the manager's own model, which the operator has ruled should
+  stay strong; and any spawn-time ENFORCEMENT mechanism -- a check is a separate proposal and must not be
+  invented here, because CI cannot read a create_session call.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-17, done_condition MET, and VERIFIED BY THE MANAGER READING THE MERGED DIFF rather than accepted
+  on the lane's own claim -- which is the distinction the checklist rule exists for. PR #12485 merged as
+  5db8c47ad. CLAUDE.md gained ONE bullet in the manager section, placed between the lease bullet and the
+  registry bullet, and it carries every clause this object required: the operator's words for both rules; the
+  BENEFIT-not-subject-area test with the MI-295 (memo) / MI-298 (needed a PR BRANCH) discriminator spelled out;
+  the measured 91.1M + 102.4M cache-read tokens and $125.05 WITH its population stated as n=2 lanes, one
+  manager, one day, a reading of the default and not a fleet census; the at-dispatch clause with 'read what a
+  session has produced before interrupting it'; the four model ids and the fact that create_session's `model`
+  defaults to the CALLER's; and the requirement to record the choice AND ITS REASON in the SESSIONS.json row.
+  docs/claude/work/README.md gained 74 lines of the operational detail beside the spawn contract.
+  [!] THE explicitly_not_in_scope CLAUSE HELD: no enforcement mechanism was built, and the bullet states the
+  refusal and its reason (CI cannot read a create_session call) rather than leaving it as an omission a
+  successor would read as an oversight.
+  [!] THE LANE WAS THE FIRST APPLICATION OF THE RULE IT WROTE: fresh rather than resumed, and on
+  claude-sonnet-5 passed EXPLICITLY. Cost $12.43 / 46,984 output tokens, merged ~19 minutes after spawn,
+  against $55.82 and $69.23 on the two Opus lanes the same day. n=1 lane on a doc unit -- that is a data point
+  about THIS unit, not a general claim about the models.
+  [!] WHAT THIS DOES NOT ESTABLISH, and why MI-300 stays `landed_unproven` on the checklist while this object
+  closes: no manager has been OBSERVED reading either rule and acting on it before a spawn. The object's
+  criterion was the EDIT and that is met; adoption is a different fact and belongs to whoever sees it first.
+  [!] ONE INCIDENT WHILE MERGING, recorded rather than smoothed over: the lane and the manager filed the SAME
+  TWO backlog ids independently, because the spawn prompt cited them as references while the manager's copies
+  sat on an unmerged branch where backlog_append's duplicate probe could not see them. The register merged as a
+  single whole-file conflict. Resolved through update_row/append_row, never by picking a side, and filed as
+  BL-20260917-NAMING-A-BACKLOG-ID-IN-A-SPAWN-PROMPT-MAKES-THE-LANE-FILE-IT-SO-TWO-SESSIONS-LAND-THE-SAME-ID-WITH-DIFFERENT-BODIES.

@@ -1,0 +1,81 @@
+id: WO-20260918-THE-DECISIONS-INBOX-GRADES-ON-THE-WRONG-FIELD
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Engineering lane: the decisions inbox grades on `answer` alone, so an ANSWERED decision reads UNANSWERED —
+  the READ half of the round-trip whose SEND half MI-303 just fixed
+stage: BUILD
+lifecycle: done
+owner: null
+opened_at: 2026-09-18
+closed_at: null
+why: >-
+  MI-303 found and fixed why NOTHING WAS BEING ASKED -- Telegram's 4096-char body cap, with 0 of 5 over-cap
+  requests ever delivered against 20 of 20 under it. This is the other half: even once a prompt lands and the
+  operator taps, the inbox can still report the question as unanswered.
+  [!] THE TWO ARE DELIBERATELY SEPARATE AND MUST NOT BE MERGED -- one is the SEND failing and one is the READ
+  mis-grading, and fixing either alone leaves the round-trip broken. MI-303's PR says so in terms.
+  [!] AND THIS ITEM IS ALREADY STALLED, WHICH IS ITSELF THE REASON TO RE-ROUTE IT: MI-254 has read `in_flight`
+  since 2026-09-10T11:25Z owned by session_01MQ2EzPomkBsM6uxJMCrJbF -- EIGHT DAYS -- and that session is long
+  dead. An in_flight row with a dead owner is the shape BL-20260917-THE-WIP-CEILING-IS-FULL-AND-SIX-OF-SIX-GRADEABLE-IN-FLIGHT-OWNERS-ARE-DEAD-SESSIONS-SO-A-NEW-LANE-CANNOT-RECORD-ITSELF
+  measures, and it holds a ceiling slot while nothing moves.
+  [!] STANDING CONTEXT: OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP
+  has been open since 2026-09-01 and its criterion is ONE decision completing the FULL round-trip -- submitted
+  from the SPA, read back as `in_transit`, then a LATER read grading it `committed` with the answer visible in
+  the object YAML on main. Neither half alone clears it.
+done_condition: >-
+  An ANSWERED decision is graded ANSWERED by whatever the operator actually reads. Establish by MEASUREMENT
+  which field the grading reads and which field a committed answer writes -- name both -- and make the reader
+  agree with the writer, or say precisely why it cannot.
+  [!] THE TRANSIT CONTRACT IS LOAD-BEARING AND MUST SURVIVE: `in_transit` means SUBMITTED AND NOT YET
+  DECIDED, and the route returns it deliberately so a confirmation never reads as an answer. Do NOT 'fix' this
+  by grading an in_transit submission as answered -- that is the forward failure the contract exists to
+  refuse, and it would be worse than the bug.
+  [!] THREE STATES AT MINIMUM, never two: not_submitted / in_transit / committed. If the reader cannot
+  distinguish them, that is the defect restated rather than fixed, and it should be registered with
+  collapsed-state-guard.
+  [!] A GREEN TEST SUITE ESTABLISHES NOTHING about the deployed page -- a harness cannot render the SPA. Say
+  which you established.
+  [!] SPA work lives in benbaichmankass/ict-trader-dashboard; bot-side routes are Tier-2. PROPOSE the Tier-2
+  half with its exact diff and `landing: hold`; do not merge it.
+source: >-
+  Operator directive 2026-09-17 (overnight, engineering = structural fixes / code that is not working).
+  Re-routes MI-254, stalled in_flight for eight days under a dead owner.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the route source
+  (src/web/api/routers/work.py), the object YAMLs and the live surfaces are all reachable from the lane's
+  container. [!] The operator OK for any Tier-2 merge is a real future gate and is NOT a blocker on producing
+  the diagnosis and the proposal.
+explicitly_not_in_scope: >-
+  MI-303's send-side fix (#12490, separately held for the operator). Answering any actual decision in the
+  queue -- that is the operator's. Minting any credential.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, and the lane REFUTED ITS OWN DISPATCH PREMISE rather than building to it, which is the
+  finding. Merged as 7334920f1 (#12500). THE DISPATCH EXPECTED A Tier-2 src/ CHANGE AND AN SPA CHANGE; NEITHER
+  WAS NEEDED AND NEITHER WAS MADE -- measured, not assumed: MI-254 (#11688) and MI-258 (#11752) had already
+  landed both halves (the route publishes `settled` + `actionable`; Work.svelte reads `settled` three-state
+  instead of re-deriving `answerState != committed`). Verified independently by the manager: `git show --stat`
+  on the merge touches ZERO files under src/ and zero under the dashboard.
+  WHAT THE DEFECT ACTUALLY WAS: one HAND-RECORDED answer. Population stated -- all 188 files under
+  docs/claude/work/objects/, 0 parse failures, 33 gradeable decision_requests, grading committed 25 /
+  answered_in_conversation 3 / not_submitted 5, confirmed against the LIVE DEPLOYED route. Of the 4 hand-path
+  instances, 3 used `verdict` and 1 used keys nothing reads -- so DEC-20260912-LOUD-FLAG-TRIAGE carried
+  `answered_at`, `answered_by` and the operator's verbatim words while grading `not_submitted` ("Nobody has
+  answered this through any channel") four days after the operator answered it.
+  DELIVERED: (a) R4 in scripts/ci/check_decision_answers.py -- a request CLAIMING an answer
+  (`answered_at`/`answered_by`) while grading not_submitted now FAILS, proven against the real store BOTH ways
+  (fires pre-fix, passes post-fix), not only in a harness; (b) the one data row translated into the vocabulary
+  the reader owns.
+  [!] THE TRANSIT CONTRACT IS INTACT AND THE MANAGER CHECKED THIS RATHER THAN TAKING THE CLAIM: the object's own
+  must_not was "do NOT fix this by grading an in_transit submission as answered -- that is the forward failure
+  the contract exists to refuse". `reframed_not_answered` is NON-TERMINAL, grades `engaged_not_settled` (an
+  ALREADY-REGISTERED state in the work_decisions.answer_state contract), and the question STAYS OPEN in
+  AWAITING_OPERATOR_STATES. Nothing is marked decided. The `in_transit` branches in work.py and
+  telegram_decisions.py are untouched -- grepped on the merged tree.
+  [!] TWO NEW BACKLOG ROWS were filed rather than left to be discovered, including R4's OWN blind spot (an
+  answer recorded purely as prose, carrying neither answered_at nor answered_by). A guard that files its own
+  gap is the behaviour this repo wants.
+  NOT CLAIMED: the operator's question is still unanswered and still owed -- this made it VISIBLE as unanswered,
+  which is the opposite of closing it.
