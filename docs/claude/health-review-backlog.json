@@ -39803,6 +39803,22 @@
         "config/strategies.yaml::fvg_range_15m",
         "MI-312 / docs/research/scalp-family-target-arms-2026-09-18.md"
       ]
+    },
+    {
+      "id": "BL-20260918-OPEN-ITEMS-JSON-HAS-NO-SAFE-APPENDER-THE-CANONICAL-DETECTOR-REFUSES-IT-AND-A-NAIVE-WRITE-REFORMATS-837-LINES",
+      "title": "backlog_append.detect_format raises FormatNotReproducible on docs/claude/OPEN-ITEMS.json, so the register CLAUDE.md tells every session to update at session end has no safe programmatic appender",
+      "severity": "medium",
+      "tier": "1",
+      "status": "open",
+      "opened": "2026-09-18",
+      "source": "MI-317",
+      "detail": "MEASURED this session while adding a required carrier row. TWO facts, and the second is what makes it bite. (1) A NAIVE read-append-write REFORMATS THE FILE: json.dumps(doc, indent=1, ensure_ascii=False) produced a diff of 831 insertions / 837 DELETIONS against a 1,867-line file -- i.e. it re-attributes essentially every pre-existing row to whoever touched it, which is exactly BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES one register over. The cause is that OPEN-ITEMS.json's list elements sit at a 2-space indent with 3-space fields, which no json.dumps indent setting reproduces. (2) THE CANONICAL GUARD AGAINST (1) DOES NOT COVER THIS FILE: scripts/ops/backlog_append.py::detect_format, which exists precisely to refuse rather than reformat, RAISES FormatNotReproducible on OPEN-ITEMS.json -- no candidate serialisation reproduces it byte-for-byte. So the protection correctly refuses and leaves the caller with nothing. CONSEQUENCE: CLAUDE.md instructs EVERY session to update OPEN-ITEMS.json at session end, and the documented safe-append tool cannot write it. A session that does the honest thing by hand either reformats 837 lines or, more likely, edits with a text tool and hopes. WORKED AROUND HERE, NOT FIXED: MI-317 spliced its row as TEXT at the file's own indentation, asserting after the write that the JSON still parses, that the row count rose by exactly one, and that every pre-existing item is byte-identical -- final diff 12 insertions, 0 deletions. That is a per-session workaround, not a mechanism.",
+      "refs": [
+        "docs/claude/OPEN-ITEMS.json",
+        "scripts/ops/backlog_append.py",
+        "BL-20260820-BACKLOG-APPEND-REFORMATS-AND-REATTRIBUTES"
+      ],
+      "resolution_criteria": "EITHER detect_format is extended to reproduce OPEN-ITEMS.json (and backlog_append accepts it), OR a dedicated open_items_append helper exists that round-trips it byte-for-byte -- VERIFIED by appending a row and reading a diff with ZERO deletions beyond the one comma the previous last row gains. A green import proves nothing: the failure mode is a write that SUCCEEDS and reformats. [!] Re-serialising OPEN-ITEMS.json into a shape json.dumps can reproduce is a legitimate fix and is NOT free -- it is a one-time 1,800-line diff that re-attributes every row, so it needs to land alone, on its own PR, and never inside a content change."
     }
   ]
 }
