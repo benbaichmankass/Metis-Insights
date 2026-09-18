@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot ASSEMBLY answering "what sets each leg's target
+# today, and where is a per-leg decision genuinely owed?". It runs nothing on the
+# fleet, places no order and writes exactly one JSON under docs/research/. It is
+# deliberately not scheduled: its inputs are two committed evidence artifacts and a
+# sweep corpus that change only when a research unit lands, so a cron would re-emit
+# an identical packet daily and teach a reader that the file moving means something.
+# Re-run it when MI-307's or MI-312's artifact changes, or when a leg is added to
+# config/strategies.yaml.
 """MI-317 — assemble the per-leg target-geometry decision packet.
 
 This unit COMMISSIONS NOTHING. It joins evidence that already exists:
