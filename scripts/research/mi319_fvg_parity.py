@@ -296,10 +296,10 @@ def probe_structural(harness_path: Path = HARNESS_PATH,
                 "reason": "run_backtest or order_package not found",
                 "harness_found": h_fn is not None, "live_found": l_fn is not None}
     h = _rejection_predicates(h_fn, reject_types=(ast.Continue,))
-    l = _rejection_predicates(l_fn, reject_types=(ast.Raise,))
+    lv = _rejection_predicates(l_fn, reject_types=(ast.Raise,))
 
     hd = sorted(d for p in h for d in _disjuncts(p))
-    ld = sorted(d for p in l for d in _disjuncts(p))
+    ld = sorted(d for p in lv for d in _disjuncts(p))
     h_only = sorted(set(hd) - set(ld))
     l_only = sorted(set(ld) - set(hd))
 
@@ -316,20 +316,20 @@ def probe_structural(harness_path: Path = HARNESS_PATH,
         residuals[key].append(d)
 
     if not residuals["unclassified_divergence"]:
-        state = P1_IDENTICAL if h == l else P1_EQUIVALENT_REORDERED
+        state = P1_IDENTICAL if h == lv else P1_EQUIVALENT_REORDERED
     else:
         state = P1_DIVERGENT
     return {
         "state": state,
         "harness_predicates": h,
-        "live_predicates": l,
+        "live_predicates": lv,
         "harness_disjuncts": hd,
         "live_disjuncts": ld,
         "shared_disjunct_count": len(set(hd) & set(ld)),
         "harness_only_disjuncts": h_only,
         "live_only_disjuncts": l_only,
         "residual_classification": residuals,
-        "order_matches": h == l,
+        "order_matches": h == lv,
         "verdict_note": ("state is DERIVED from whether any residual disjunct is "
                          "UNCLASSIFIED. A residual that is the harness's own loop "
                          "bookkeeping or the live unit's argument validation is not "
@@ -715,7 +715,8 @@ def _selftest() -> int:
     import tempfile as _tf
     with _tf.TemporaryDirectory() as td:
         hp, lp = Path(td) / "h.py", Path(td) / "l.py"
-        hp.write_text(same_h); lp.write_text(same_l)
+        hp.write_text(same_h)
+        lp.write_text(same_l)
         r = probe_structural(hp, lp)
         ck("P1: matching predicates grade identical", r["state"] == P1_IDENTICAL)
         # NEG2 -- a real divergence must NOT grade identical
@@ -870,7 +871,8 @@ def _run(args) -> int:
     }
     behavioural: Dict[str, Any] = {}
     for arm, over in arms.items():
-        hp = dict(harness_params); hp.update(over)
+        hp = dict(harness_params)
+        hp.update(over)
         cfg = {"symbol": "BTCUSDT", "timeframe": "15m"}
         cfg.update({k: hp[k] for k in (
             "range_lookback", "atr_period", "adx_period", "adx_max",
