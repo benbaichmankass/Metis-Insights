@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The trader's error feed, grouped by digit-normalised cause and rendered for the `duty` pass. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `groups`: on `partial` at least one feed could not be read and this digest is a LOWER BOUND, not a statement that the rest is quiet.",
-  "generated_at": "2026-09-17T21:43:08+00:00",
-  "covers_since": "2026-09-17T17:32:26.306737+00:00",
-  "covers_since_note": "resuming from the prior digest's watermark 2026-09-17T17:32:26.306737+00:00",
+  "generated_at": "2026-09-18T00:45:44+00:00",
+  "covers_since": "2026-09-17T21:40:52.903025+00:00",
+  "covers_since_note": "resuming from the prior digest's watermark 2026-09-17T21:40:52.903025+00:00",
   "verdict": "all_feeds_read",
   "unreachable_feeds": [],
   "truncated_feeds": [
@@ -14,11 +14,11 @@
       "state": "read",
       "note": "",
       "population": {
-        "rows_returned": 584,
+        "rows_returned": 588,
         "limit_requested": 1000,
         "truncated": false,
         "oldest_ts": "2026-09-09T06:44:24.244346+00:00",
-        "newest_ts": "2026-09-17T21:14:45.236048+00:00",
+        "newest_ts": "2026-09-17T23:16:26.447304+00:00",
         "undateable_rows": 0,
         "undecodable_lines": 0
       }
@@ -30,24 +30,24 @@
         "rows_returned": 1000,
         "limit_requested": 1000,
         "truncated": true,
-        "oldest_ts": "2026-09-12T10:11:53.206531+00:00",
-        "newest_ts": "2026-09-17T21:40:52.903025+00:00",
+        "oldest_ts": "2026-09-12T10:12:26.603647+00:00",
+        "newest_ts": "2026-09-18T00:27:53.673953+00:00",
         "undateable_rows": 0
       }
     }
   },
   "coverage": {
     "operator_alerts": {
-      "rows_considered": 584,
-      "rows_after_watermark": 5,
+      "rows_considered": 588,
+      "rows_after_watermark": 4,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-17T17:32:26.306737+00:00"
+      "watermark_applied": "2026-09-17T21:40:52.903025+00:00"
     },
     "bot_logs": {
       "rows_considered": 1000,
-      "rows_after_watermark": 8,
+      "rows_after_watermark": 6,
       "undateable_dropped": 0,
-      "watermark_applied": "2026-09-17T17:32:26.306737+00:00"
+      "watermark_applied": "2026-09-17T21:40:52.903025+00:00"
     }
   },
   "account_roster": {
@@ -68,61 +68,23 @@
   },
   "counts": {
     "groups": 106,
-    "new_groups": 2,
+    "new_groups": 0,
     "error_groups": 78,
-    "rows_grouped": 1584
+    "rows_grouped": 1588
   },
   "watermark": {
-    "next_since": "2026-09-17T21:40:52.903025+00:00",
-    "note": "advanced to the newest row read (2026-09-17T21:40:52.903025+00:00)"
+    "next_since": "2026-09-18T00:27:53.673953+00:00",
+    "note": "advanced to the newest row read (2026-09-18T00:27:53.673953+00:00)"
   },
   "groups": [
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "alpaca_target_naked detected: alpaca_paper/QQQ: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
-      "count": 1,
-      "is_new": true,
-      "first_seen": "2026-09-17T19:55:03.485552+00:00",
-      "last_seen": "2026-09-17T19:55:03.485552+00:00",
-      "sample": "alpaca_target_naked detected: alpaca_paper/QQQ: position 8.0 has 0.0 of take-profit coverage against a declared TP of 639.19643 \u2014 the position can only stop out or run",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "alpaca_paper"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
-    {
-      "feed": "bot_logs",
-      "level": "error",
-      "cause": "alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
-      "count": 1,
-      "is_new": true,
-      "first_seen": "2026-09-17T19:55:04.633144+00:00",
-      "last_seen": "2026-09-17T19:55:04.633144+00:00",
-      "sample": "alpaca_target_naked detected: alpaca_portfolio/QQQ: position 82.0 has 0.0 of take-profit coverage against a declared TP of 639.19643 \u2014 the position can only stop out or run",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [
-        "alpaca_portfolio"
-      ],
-      "accounts_state": "matched",
-      "facets_found": [
-        "accounts"
-      ]
-    },
     {
       "feed": "operator_alerts",
       "level": "error",
       "cause": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: ca",
-      "count": 96,
+      "count": 98,
       "is_new": false,
       "first_seen": "2026-09-09T10:03:15.361800+00:00",
-      "last_seen": "2026-09-17T21:14:45.236048+00:00",
+      "last_seen": "2026-09-17T23:16:26.447304+00:00",
       "sample": "\ud83e\uddf1 Position CLOSE wedged BROKER-SIDE \u2014 carried in the digest\nAccount: alpaca_paper\nSymbol: GLD | Side: long | Qty: 39.0\nConsecutive close failures: 3\nshare_hold: cancel_accepted_ineffective\nCANCEL ACCEPTED AND NOT PERFORMED: we asked Alpaca to cancel these orders, it returned a SUCCESS code, and the orders are still resting with canceled_at null \u2014 not even moved to pending_cancel. Re-issuing the same cancel is exactly what has already failed, so no app-level retry and no cancel_orders=true liquidation will release these shares. This needs OPERATOR or VENUE action.\nStanding: carried in the diges",
       "symbols": [
         "GLD"
@@ -269,6 +231,21 @@
     {
       "feed": "operator_alerts",
       "level": "error",
+      "cause": "\ud83e\uddf9 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat",
+      "count": 9,
+      "is_new": false,
+      "first_seen": "2026-09-09T15:42:30.931533+00:00",
+      "last_seen": "2026-09-17T22:03:47.321319+00:00",
+      "sample": "\ud83e\uddf9 Stuck linked-package sweep fired\nForce-closed 1 order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gate would otherwise stay blocked).\nThis is the second-line self-heal \u2014 a non-zero count means a primary cascade path missed; worth a look.",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [],
+      "accounts_state": "matched",
+      "facets_found": []
+    },
+    {
+      "feed": "operator_alerts",
+      "level": "error",
       "cause": "\ud83d\udd14 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Classification: broker",
       "count": 8,
       "is_new": false,
@@ -331,21 +308,6 @@
         "accounts",
         "symbols"
       ]
-    },
-    {
-      "feed": "operator_alerts",
-      "level": "error",
-      "cause": "\ud83e\uddf9 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gat",
-      "count": 7,
-      "is_new": false,
-      "first_seen": "2026-09-09T15:42:30.931533+00:00",
-      "last_seen": "2026-09-16T07:13:55.385026+00:00",
-      "sample": "\ud83e\uddf9 Stuck linked-package sweep fired\nForce-closed 1 order package(s) whose linked trade was already terminal but the package stayed open (the strategy-monocle gate would otherwise stay blocked).\nThis is the second-line self-heal \u2014 a non-zero count means a primary cascade path missed; worth a look.",
-      "symbols": [],
-      "strategies": [],
-      "accounts": [],
-      "accounts_state": "matched",
-      "facets_found": []
     },
     {
       "feed": "operator_alerts",
@@ -1209,6 +1171,25 @@
     {
       "feed": "bot_logs",
       "level": "error",
+      "cause": "alpaca_target_naked detected: alpaca_paper/QQQ: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-17T19:55:03.485552+00:00",
+      "last_seen": "2026-09-17T19:55:03.485552+00:00",
+      "sample": "alpaca_target_naked detected: alpaca_paper/QQQ: position 8.0 has 0.0 of take-profit coverage against a declared TP of 639.19643 \u2014 the position can only stop out or run",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
       "cause": "alpaca_target_naked detected: alpaca_paper/SLV: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
       "count": 1,
       "is_new": false,
@@ -1238,6 +1219,25 @@
       "strategies": [],
       "accounts": [
         "alpaca_paper"
+      ],
+      "accounts_state": "matched",
+      "facets_found": [
+        "accounts"
+      ]
+    },
+    {
+      "feed": "bot_logs",
+      "level": "error",
+      "cause": "alpaca_target_naked detected: alpaca_portfolio/QQQ: position N has N of take-profit coverage against a declared TP of N \u2014 the position can only stop out or run",
+      "count": 1,
+      "is_new": false,
+      "first_seen": "2026-09-17T19:55:04.633144+00:00",
+      "last_seen": "2026-09-17T19:55:04.633144+00:00",
+      "sample": "alpaca_target_naked detected: alpaca_portfolio/QQQ: position 82.0 has 0.0 of take-profit coverage against a declared TP of 639.19643 \u2014 the position can only stop out or run",
+      "symbols": [],
+      "strategies": [],
+      "accounts": [
+        "alpaca_portfolio"
       ],
       "accounts_state": "matched",
       "facets_found": [
@@ -1763,10 +1763,10 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.",
-      "count": 264,
+      "count": 268,
       "is_new": false,
-      "first_seen": "2026-09-12T10:11:55.273984+00:00",
-      "last_seen": "2026-09-17T21:40:52.903025+00:00",
+      "first_seen": "2026-09-12T10:13:22.351638+00:00",
+      "last_seen": "2026-09-18T00:27:53.673953+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.",
       "symbols": [
         "MGC"
@@ -1787,8 +1787,8 @@
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection",
       "count": 167,
       "is_new": false,
-      "first_seen": "2026-09-12T10:11:56.234987+00:00",
-      "last_seen": "2026-09-17T14:59:52.258691+00:00",
+      "first_seen": "2026-09-12T10:13:23.392566+00:00",
+      "last_seen": "2026-09-17T23:35:45.387227+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_trend_1h: no candle data returned for symbol=MGC timeframe=1h. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
         "MGC"
@@ -1807,9 +1807,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect",
-      "count": 161,
+      "count": 160,
       "is_new": false,
-      "first_seen": "2026-09-12T10:11:55.755674+00:00",
+      "first_seen": "2026-09-12T10:13:22.923702+00:00",
       "last_seen": "2026-09-17T14:59:51.867533+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mgc_pullback_1d: no candle data returned for symbol=MGC timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1829,9 +1829,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect",
-      "count": 154,
+      "count": 153,
       "is_new": false,
-      "first_seen": "2026-09-12T10:11:59.042416+00:00",
+      "first_seen": "2026-09-12T10:13:26.404102+00:00",
       "last_seen": "2026-09-17T20:45:13.705180+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mhg_pullback_1d: no candle data returned for symbol=MHG timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1851,9 +1851,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne",
-      "count": 137,
+      "count": 136,
       "is_new": false,
-      "first_seen": "2026-09-12T10:11:53.206531+00:00",
+      "first_seen": "2026-09-12T10:13:20.166040+00:00",
       "last_seen": "2026-09-17T14:33:27.205720+00:00",
       "sample": "strategy_builder exception: transient_market_data_unavailable: mes_trend_long_1d: no candle data returned for symbol=MES timeframe=1d. Check that the IBKR connection is configured and the symbol is valid.",
       "symbols": [
@@ -1870,9 +1870,9 @@
       "feed": "bot_logs",
       "level": "warn",
       "cause": "position_read_state hedge_book_dropped",
-      "count": 94,
+      "count": 93,
       "is_new": false,
-      "first_seen": "2026-09-12T10:12:24.553899+00:00",
+      "first_seen": "2026-09-12T10:12:26.603647+00:00",
       "last_seen": "2026-09-12T11:05:29.593930+00:00",
       "sample": "position_read_state hedge_book_dropped",
       "symbols": [],

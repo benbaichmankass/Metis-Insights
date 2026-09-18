@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Backlog register updates (docs/claude/health-review-backlog.json) are self-landable Tier-1, but the diff also touches .gitattributes, which is outside pr-landing-guard's TIER1_SURFACE allowlist -- only .gitignore is listed there, not .gitattributes. Rather than widen that allowlist from inside the PR that benefits from it, this PR holds for a human merge click.",
+  "why": "backlog register updates + .gitattributes triage only; no runtime, order path, or config touched"
+}
