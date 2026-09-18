@@ -232,7 +232,9 @@ the decision.**
 ## 5. What this does not establish
 
 - **Not a P&L claim.** § 4.
-- **Not a strong validation.** § 2.1 — the control passes and is 99.71% tautological on this family.
+- **Not a strong validation.** § 2.1 — the control passes on 8 of 8 legs, and over the 7,338
+  trades whose entries join across the two arms it is 99.71% a quantity compared with itself
+  (21 disagreements).
   Its value is that it is now *possible* and *measured*, where MI-307 could not run it at all.
 - **Not a fidelity clearance.** Gate condition 1 (backtest↔live exit-location fidelity) is untouched
   and still unmet; MI-307 § 5.1 measured 44 of 44 legs `insufficient_n` and this unit changes none of
@@ -245,7 +247,7 @@ the decision.**
 
 ## 6. Filed, not fixed
 
-- **`BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-…`** — `base_args` emits no
+- **`BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-BECAUSE-THE-YAML-DECLARES-NO-EXIT-STYLE-AND-THE-HARNESS-DEFAULT-IS-THE-WRONG-TARGET`** — `base_args` emits no
   `--exit-style` for fvg (the YAML declares none), so the harness falls through to its own `mid`
   default while the live unit targets the **far** boundary. Measured by running `base_args` and
   reading its 16 emitted flags. It **conditions three `honest_negative` cells** on the matrix's
