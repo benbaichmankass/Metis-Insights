@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two manager registers under docs/claude/ and nothing else. (1) docs/claude/work/OPEN-PRS.json: prunes the row for #12072, which merged as c068b7448 and is deployed, into the file's own recently_merged_pruned_from_this_record trace -- the file's _doc states it goes stale the moment a PR merges, so a row naming a closed PR IS the staleness it warns about. The trace also records that the row's 'needs a content decision' claim was CHECKED against the merge base before merging and found no longer to hold, rather than deleted silently. (2) docs/claude/health-review-backlog.json: ONE row appended through scripts/ops/backlog_append.py::append_row, filing the measured coverage gap (56 of 67 open PRs unrecorded). It FIXES NOTHING -- no guard changed, no threshold moved, no register back-filled; filing is the manager's sanctioned act of NOT taking the item (CLAUDE.md: 'filing is the act of NOT taking the item, and it is permitted with no cap, deliberately'). No src/, no tests/, no scripts/, no workflows, no config/, no deploy/, no runtime, no order path, no strategy config, no risk caps, no live-VM file."
+}

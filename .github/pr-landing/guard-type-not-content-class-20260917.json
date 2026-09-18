@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One backlog row appended to docs/claude/health-review-backlog.json through scripts/ops/backlog_append.py::append_row. It FILES a class found three times in one session -- a guard that validates a field's TYPE and never its CONTENT passes on a dead input -- and FIXES NOTHING: no guard is changed, no threshold moved, no WORKER_PATHS widened. Instance (c) explicitly needs an operator decision rather than a patch. Filing is the manager's sanctioned act of NOT taking the item (CLAUDE.md: 'filing is the act of NOT taking the item, and it is permitted with no cap, deliberately'). No runtime, no order path, no strategy config, no risk caps, no live-VM file."
+}

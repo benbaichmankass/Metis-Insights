@@ -215,6 +215,17 @@ jobs:
           #     the exact failure the relay was built to fix. Removing those references
           #     is a DOCS-ONLY diff, so without this it would merge on a green tick
           #     from a run that executed nothing, re-opening the gap silently.
+          #   docs/sprint-logs/                            test_conflict_marker_scope —
+          #     level 4 of the instruction hierarchy, and the tree whose absence
+          #     decided the conflict-marker scope. That test asserts every sprint
+          #     log is inside the scanned corpus, so a sprint-log-only PR must run
+          #     the suite rather than short-circuit past the assertion.
+          #     NOTE the alternative has NO trailing slash, deliberately: the
+          #     coverage test keys this tree by its DIRECTORY name, so
+          #     `^docs/sprint-logs/` matches every real diff path and fails the
+          #     test's own `_matches("docs/sprint-logs")`. Dropping the slash
+          #     over-matches a hypothetical `docs/sprint-logs-*` sibling, which
+          #     only ever runs MORE tests — the safe direction.
           #   docs/claude/work/SESSIONS.json               test_register_field_loss —
           #     plants a FIELD revert into the REAL 231-row register and asserts the
           #     guard goes red while the union-by-id proof still reads CLEAN. A fixture
@@ -235,7 +246,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/CLAUDE-RULES-CANONICAL\.md$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/api-tier-policy\.md$|^docs/CLAUDE-RULES-CANONICAL\.md$|^docs/sprint-logs|^docs/claude/health-review-backlog\.json$|^docs/claude/OPEN-ITEMS\.json$|^docs/claude/work/MANAGER-CHECKLIST\.json$|^docs/claude/work/OPEN-PRS\.json$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

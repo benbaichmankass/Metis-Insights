@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "MI-278 U37, RESEARCH lane. Re-measures the open high row PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK a month after it was filed on n=2: a new manual-only audit module, its pytest surface, a research memo, two index registrations, one new backlog row, an update to that row, and the work-object progress entry. NO code is modified — src/units/accounts/risk.py, src/units/accounts/execute.py and src/utils/json_notes.py are READ ONLY and the diff contains no src/ path at all. Every path is inside TIER1_SURFACE: docs/**, tests/**, scripts/research/**, .github/**. NO config/, NO unit file, NO order path, NO parameter change, NO Tier-3 proposal. The three remedies the finding implies are all Tier-2 and are written out in the memo as a proposal rather than applied. The findings are that the claim reproduces at 15x its original n (32 of 208 recorded rows at ratio >= 0.999, 30 of them on one leg), that the row's exact-equality wording returns ZERO because sizes are quantised, and that its own criterion is unverifiable because notes.margin_basis is written only on the refusal path."
+}

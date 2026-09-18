@@ -87,14 +87,36 @@ BACKLOGS = (
     "docs/claude/health-review-backlog.json",
     "docs/claude/performance-review-backlog.json",
     "docs/claude/ml-review-backlog.json",
+    # ADDED 2026-09-17. This tuple was the THREE above from the day the criteria
+    # check landed, and `docs/claude/research-review-backlog.json` — split out
+    # of the performance backlog on 2026-08-30 — was graded by NOBODY: not by
+    # `_check_new_rows`, not by `_census`. `backlog_append.LIVE_BACKLOGS` names
+    # this exact class in its own comment ("splitting a backlog is not complete
+    # until the new file is named here") after the round-trip guard inherited
+    # the same gap silently.
+    #
+    # ⚠️ WIDENED ON A MEASUREMENT, NOT ON PRINCIPLE, and it is the same
+    # measurement `ALL_BACKLOGS` below recorded for the kept_open check:
+    # `_verdict` was run over all 19 rows in that file on 2026-09-17 and **0
+    # FAIL**. So this reds nothing today and removes a future blind spot.
+    # `_check_new_rows` grades only rows NEW in a diff regardless, so even a
+    # failing legacy row there could not red a PR.
+    #
+    # ⚠️ FOUND from the other side: `backlog_append.append_row` now refuses what
+    # this predicate refuses, on whatever file it is pointed at, which made the
+    # WRITER stricter than this GUARD for exactly this one backlog. An
+    # asymmetry that shows up only when someone builds the other half is the
+    # kind that survives for weeks.
+    "docs/claude/research-review-backlog.json",
 )
 
-#: The four review backlogs. ``BACKLOGS`` above is the THREE the criteria check
-#: has always covered; the kept_open check below spans all four because the
-#: class it enforces was measured across all four and the number must stay
-#: comparable. research-review-backlog.json held 0 kept_open rows when this
-#: landed, so widening the set changed no count — it removes a future blind spot.
-ALL_BACKLOGS = BACKLOGS + ("docs/claude/research-review-backlog.json",)
+#: Historical alias, kept because seven call sites read it. It named the four
+#: review backlogs while ``BACKLOGS`` named three; since 2026-09-17 the two sets
+#: are IDENTICAL, so the alias no longer distinguishes anything — it is retained
+#: only so this change does not put a rename diff between the reader and the
+#: one-line scope fix above. The kept_open check that motivated it spans the
+#: same four files it always did.
+ALL_BACKLOGS = BACKLOGS
 
 #: Every field name under which a backlog row states an EXIT CONDITION.
 #:
@@ -290,6 +312,23 @@ def _load_at_ref(ref: str, rel: str) -> tuple[str, list[dict[str, Any]]]:
         `work_digest.py` and `work_phase_ping.py` take BOTH `--base` and
         `--head` and compare two arbitrary refs over a WINDOW; they are not
         diff-scopers and a merge base would be meaningless to them.
+        `check_backlog_refs.py` -- classified 2026-09-17, the last of the five
+        tip-readers to be graded either way. Its base read is
+        `_refs_anywhere_at`, a FALLBACK that fires only for a path ABSENT at the
+        base, and it asks *"is this id cited anywhere in the tree I am merging
+        INTO?"* The tree being merged into is the TIP, so the tip is the
+        question's own subject rather than an approximation of it. MEASURED on
+        `origin/main` 2026-09-17: 1,856 ids cited at the tip, 86 of them
+        dangling -- and of the ids cited ONLY in the last 6 / 20 / 60 commits,
+        i.e. the whole population where tip and fork point can disagree, **0
+        are dangling at every window.** The choice has therefore changed no
+        finding. ⚠️ AND THE DIRECTION MATTERS MORE THAN THE COUNT: switching it
+        to the fork point would make a guard that runs on EVERY PR blame a diff
+        for a dangling id a CONCURRENT branch introduced -- false blame, the
+        direction this repo has just paid for. The reverse error, under-
+        enforcing when both branches cite the same dangling id, routes that id
+        to `BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS`, which this guard's own
+        docstring names as the declared home for pre-existing debt.
 
     ⚠️ The fallback is to the ref AS GIVEN when no merge base can be computed --
     i.e. today's behaviour -- so this can only ever remove a false failure.
@@ -444,6 +483,31 @@ def _verdict(row: dict[str, Any]) -> str | None:
                 f"reveals which"
             )
     return None
+
+
+#: PUBLIC ALIAS for :func:`_verdict`, so the MANDATED WRITER can refuse exactly
+#: what this GUARD refuses — `scripts/ops/backlog_append.py::append_row` imports
+#: this name.
+#:
+#: WHY AN ALIAS RATHER THAN A SECOND COPY OF THE RULE. A writer that restated
+#: "what makes a row workable" would drift from this one, and the drift is the
+#: defect being fixed: `BL-20260910-THE-MANDATED-BACKLOG-WRITER-ACCEPTS-A-ROW-THAT-CI-THEN-REJECTS`
+#: measured the writer accepting rows this guard then rejected, and its proposed
+#: fix says in terms to IMPORT this predicate rather than restate it — the same
+#: single-owner argument the repo makes for `src/runtime/provenance.py`.
+#:
+#: WHY AN ALIAS RATHER THAN A RENAME: `_verdict` has ten call sites in this file
+#: and appears in its self-test's expectations. Renaming to publish it would put
+#: a churn diff between the reader and the one-line change that matters.
+#:
+#: ⚠️ THE TWO CALLERS ARE NOT SCOPED THE SAME, and that is deliberate rather
+#: than an oversight. This guard grades only rows NEW IN A DIFF (pre-existing
+#: rows are grandfathered — 393 live health rows would fail it today, and a
+#: whole-tree gate would red every PR in the repo, which is how a guard gets
+#: switched off instead of satisfied). `append_row` only ever creates a row, so
+#: it is inside that same scope by construction: it can never reach a
+#: grandfathered one.
+workability_verdict = _verdict
 
 
 def _report(bad: list[tuple[str, str, str]], *, advisory: bool) -> int:

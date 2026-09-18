@@ -419,3 +419,212 @@ def test_the_caller_population_is_not_empty():
         f"file) or every producer stopped landing rows (a much larger finding). "
         f"Either way the tests above just passed over NOTHING."
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# A CALLER THAT LANDS A GENERATED ARTIFACT MUST BE ABLE TO RECOMPUTE IT
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def generated_paths_in_commit(committed: set, tools, registry) -> set:
+    """PURE. The subset of `committed` that this same job GENERATES in-job.
+
+    ⚠️ SEPARATE AND PURE FOR THE REASON `audit_write_outputs` ALREADY RECORDS:
+    a rule inlined in a test has no control on its own branches. This one can be
+    fed a planted job and asserted to refuse.
+
+    An UNREGISTERED tool contributes nothing here — deliberately, and it is not a
+    silent pass: `test_an_unregistered_write_tool_is_refused_rather_than_skipped`
+    already fails the build for it. Duplicating that refusal here would report one
+    omission twice and say nothing new.
+    """
+    out = set()
+    for tool in tools:
+        for produced in registry.get(tool, []):
+            for path in committed:
+                if path == produced or path.startswith(produced.rstrip("/") + "/"):
+                    out.add(path)
+    return out
+
+
+#: Tools whose `--write` lands on a path that is UNIQUE PER RUN, so two runs of
+#: the same caller write DISJOINT paths and cannot conflict with each other.
+#: Such a caller needs no recompute, and demanding one would be worse than
+#: useless: the only recompute available for `sunset_pass.py` is its degraded
+#: fallback (`--write` with no `--lifetime-json`, the job's own `else` arm), so
+#: wiring it would silently swap a real artifact for a lesser one on conflict.
+#:
+#: ⚠️ VERIFIED, NOT PRESENCE-ONLY. `test_the_self_disjoint_exemptions_are_real`
+#: fails on a name that is not a registered write tool, so the cheapest way past
+#: the invariant above is not to invent an entry. Same reasoning as
+#: `collapsed-state-guard`'s override: a guard cheaper to lie to than to satisfy
+#: is worse than no guard.
+#:
+#: ⚠️ THE RESIDUAL IS NAMED RATHER THAN HIDDEN: two runs on the SAME UTC date
+#: DO share a path and could conflict. `sunset-pass` is a weekly cron
+#: (`10 5 * * 1`), so that needs a same-day manual dispatch; if it ever happens
+#: the branch strands exactly as before and the remedy is to re-run the cron.
+SELF_DISJOINT_OUTPUTS = {
+    # MEASURED 2026-09-17: writes `comms/sunset/<UTC-date>/` (its own --write
+    # help text), and `comms/sunset/` on disk holds `2026-09-01`, `2026-09-14`.
+    "sunset_pass.py": "writes comms/sunset/<UTC-date>/ — a fresh directory per run",
+}
+
+
+def test_the_self_disjoint_exemptions_are_real():
+    """⚠️ The exemption above must name a tool that genuinely writes, and whose
+    output is genuinely a directory — a per-run-unique FILE would be a different
+    claim. An entry that is not a registered write tool is a typo or an
+    invention, and it silently switches the invariant off for that caller."""
+    for tool, why in SELF_DISJOINT_OUTPUTS.items():
+        assert tool in WRITE_OUTPUTS, (
+            f"{tool} is exempted from the recompute rule but is not a registered "
+            "write tool — nothing verifies what it writes"
+        )
+        assert why.strip(), f"{tool} is exempted with no stated reason"
+
+
+def _with_block(job):
+    """The `with:` mapping of this job's commit-to-main step."""
+    for s in job.get("steps") or []:
+        if str(s.get("uses", "")) == USES:
+            return s.get("with") or {}
+    return {}
+
+
+def test_every_caller_landing_a_generated_artifact_can_recompute_it():
+    """⚠️ A GENERATED ARTIFACT HAS NO SIDE TO TAKE, SO A CONFLICT ON ONE IS NOT
+    A DISAGREEMENT — IT IS A RENDERER RACING ITSELF, AND ABORTING STRANDS IT.
+
+    MEASURED 2026-09-17 against `origin/main` 19e59662, over the COMPLETE
+    population of 70 open PRs (both API pages), probed with
+    `git merge-tree --write-tree` on an unshallowed clone, with BOTH controls
+    passing (positive: a whole-file rewrite off an old commit -> conflicted,
+    rc=1; negative: main vs main -> clean):
+
+        56 of 70 open PRs (80.0%) merge-conflicted
+        44 of those were `automation/**` -- commit-to-main's OWN PRs
+        ZERO conflicts anywhere in src/, tests/, scripts/, config/
+
+    and the blocked paths were led by generated files: `DUE.json`/`DUE.md` in 28
+    PRs, `ERROR-FEED-DIGEST.json`/`.md` in 23. **23 `error-feed-digest` PRs had
+    stacked up since 2026-09-13** -- an hourly run whose every instance
+    conflicted with every earlier unmerged instance of ITSELF.
+
+    The action's `refresh-command` is the remedy and it was reachable only when
+    the merge SUCCEEDED; a merge that CONFLICTED aborted before it. It was also
+    barely used: MEASURED over all 27 call sites, **1** set `refresh-command`
+    while **27** set `verify-merged` -- the latter being the positive control
+    that this probe can see a real input at all.
+
+    ⚠️ THIS TEST IS THE FLOOR, NOT THE RULE. It asks only whether a recompute is
+    DECLARED. It cannot know whether the command actually reproduces the
+    artifact -- that is answered by running it, which is what
+    `docs/claude/work/REGISTER-CONTENTION-2026-09-17.md` records doing against
+    the 33 real stranded branches (30 CONFLICT -> CLEAN, 3 correctly refused).
+    """
+    missing = []
+    for wf, job_name, job in _caller_jobs():
+        w = _with_block(job)
+        committed = set((w.get("paths") or "").split())
+        tools = _write_tools(job)
+        gen = generated_paths_in_commit(committed, tools, WRITE_OUTPUTS)
+        if gen and tools <= set(SELF_DISJOINT_OUTPUTS):
+            continue  # cannot self-conflict — see SELF_DISJOINT_OUTPUTS
+        if gen and not str(w.get("refresh-command") or "").strip():
+            missing.append(f"{wf}:{job_name} lands {sorted(gen)} which it generates in-job")
+    assert not missing, (
+        "these callers land an artifact they GENERATE, with no `refresh-command`, "
+        "so a conflict on it aborts the stale-branch refresh and strands the "
+        "branch permanently instead of recomputing it: " + "; ".join(missing)
+    )
+
+
+def test_a_generated_path_is_detected():
+    """POSITIVE CONTROL — the finder sees a generated path."""
+    assert generated_paths_in_commit(
+        {"docs/claude/DUE.md", "docs/claude/other.md"},
+        {"render_due_list.py"},
+        WRITE_OUTPUTS,
+    ) == {"docs/claude/DUE.md"}
+
+
+def test_a_directory_output_covers_files_beneath_it():
+    """A registry entry naming a DIRECTORY covers paths under it (`sunset_pass.py`)."""
+    assert generated_paths_in_commit(
+        {"comms/sunset/2026-09-01/INDEX.json"}, {"sunset_pass.py"}, WRITE_OUTPUTS
+    ) == {"comms/sunset/2026-09-01/INDEX.json"}
+
+
+def test_a_hand_authored_path_is_not_treated_as_generated():
+    """NEGATIVE CONTROL — a path nothing generates must not demand a recompute."""
+    assert generated_paths_in_commit(
+        {"docs/claude/health-review-backlog.json"}, {"render_due_list.py"}, WRITE_OUTPUTS
+    ) == set()
+
+
+def test_the_recompute_invariant_actually_checks_callers():
+    """⚠️ NON-VACUITY OF THE RULE, WHICH IS NOT THE SAME AS NON-VACUITY OF THE
+    FINDER — and the difference was found by mutation, not by reasoning.
+
+    Widening `SELF_DISJOINT_OUTPUTS` to cover every caller left the whole suite
+    GREEN: the finder still matched, so the finder's own non-vacuity test passed,
+    while the invariant it feeds had been exempted into inertness. That is the
+    `a guard cheaper to lie to than to satisfy` shape this repo names, so the
+    count of callers ACTUALLY SUBJECT to the rule is asserted here.
+    """
+    checked = []
+    for wf, _jn, job in _caller_jobs():
+        w = _with_block(job)
+        tools = _write_tools(job)
+        gen = generated_paths_in_commit(set((w.get("paths") or "").split()), tools, WRITE_OUTPUTS)
+        if gen and not tools <= set(SELF_DISJOINT_OUTPUTS):
+            checked.append(wf)
+    assert len(checked) >= 3, (
+        "the recompute invariant is subject to almost no callers, so it is "
+        f"passing vacuously — check SELF_DISJOINT_OUTPUTS has not been widened "
+        f"into an off-switch (actually checked: {sorted(checked)})"
+    )
+
+
+def test_the_generated_path_finder_is_not_vacuous():
+    """⚠️ NON-VACUITY, because a finder that returns nothing makes the test above
+    pass over an empty population — the `green that checked nothing` shape."""
+    found = {
+        wf
+        for wf, _jn, job in _caller_jobs()
+        if generated_paths_in_commit(
+            set((_with_block(job).get("paths") or "").split()),
+            _write_tools(job),
+            WRITE_OUTPUTS,
+        )
+    }
+    assert len(found) >= 3, (
+        "the generated-path finder matched almost nothing across real callers, so "
+        f"the invariant above is passing vacuously (matched: {sorted(found)})"
+    )
+
+
+def test_the_action_recomputes_a_generated_conflict_rather_than_aborting():
+    """The action must carry the recompute branch, and its three outcomes must be
+    distinguishable. `refreshed_after_generated_conflict` (we recomputed),
+    `failed_conflict_rederive` (we tried and could not) and `failed_conflict` (we
+    refused, because a conflicted path was outside the caller's declared set) are
+    three different facts about the head about to be pushed, and collapsing any
+    two reintroduces the strand."""
+    s = _action_script()
+    for token in (
+        "refreshed_after_generated_conflict",
+        "failed_conflict_rederive",
+        "failed_conflict",
+    ):
+        assert token in s, f"the action no longer emits `{token}`"
+    # ⚠️ PIN THE EXACT LINE, NOT THE TOKEN. A bare `"--theirs" in s` PASSED a
+    # mutation that flipped the recompute to `--ours`, because the unrelated
+    # session-board block above it also contains `--theirs` — the assertion was
+    # satisfied by a different occurrence. `--ours` would keep the BRANCH's
+    # stale artifact and discard main's, which is the opposite of the merge.
+    assert "git checkout --theirs -- ${CONFLICTED}" in s, (
+        "the generated-conflict recompute must take MAIN's side (`--theirs`) for "
+        "the conflicted paths before re-deriving over them"
+    )

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "edits scripts/ci/check_pr_landing.py itself (widens TIER1_SURFACE to scripts/backtest_*.py, operator-approved DR-20260908-SHOULD-SCRIPTS-BACKTEST-STAR-BE-IN-THE-TIER1-SURFACE, 2026-09-10) -- R12 holds any PR that changes the landing route for a human merge regardless of the underlying approval.",
+  "why": "TIER1_SURFACE widening, operator-approved; the change itself is Tier-1 (a CI allowlist entry, no order path/config/deploy touched) but self-landing a change to the landing route it lives in would be R12's own violation."
+}

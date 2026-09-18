@@ -4,7 +4,7 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   M20 Active Trade Management: hold winners longer in the current regime, measured end to end
 stage: EVIDENCE
-lifecycle: in_flight
+lifecycle: waiting
 owner: session_01Wv1BdfEUnmCBZrhvUjeBzb
 opened_at: 2026-09-12
 closed_at: null
@@ -31,7 +31,21 @@ blocked_on_basis: >-
   queue is a real future blocker and must be written as a typed edge WHEN IT
   BINDS, never pre-emptively - a false blocker is worse than a missing one,
   and an anticipated one is a false one until the work arrives at it.
-
+  (+) REASSESSED 2026-09-17 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF), APPENDED and not
+  replacing the assessment(s) above — they are the record of what was true when made, and this object
+  is itself the one that names silently reverting another session's assessment as the defect to stop.
+  ⚠️ I nearly did exactly that here: my first edit REPLACED this field wholesale and was reverted
+  before it left the working tree. Recorded because the near-miss is the finding, not the fix.
+  MOVED in_flight -> waiting. `in_flight` means a session is actively working the object; session_01Wv1BdfEUnmCBZrhvUjeBzb
+  is STOPPED by DEC-20260917-LANES-AFTER-WRAP ('Stay stopped; hand off to a new manager'), so nothing
+  was moving this. The deliverables are OPEN, MERGE-CONFLICTED PRs (#12205, #12158, #12181, #11976, #12219, #11933, #12070).
+  MEASURED 2026-09-17: of the conflicts probed across these branches, every one is in a SHARED
+  REGISTER (health-review-backlog.json in 5 of 7, then CLAUDE.md, DOCUMENT-INDEX.md, OPEN-ITEMS.json,
+  one M20 work object) and ZERO are in src/, tests/, scripts/ or config/ — the work does not need
+  redoing, it needs a serialised landing pass.
+  ⚠️ NOT A DOWNGRADE OF THE WORK: this object is closer to done than most in_flight rows. Moving it to
+  `waiting` is what keeps the WIP ceiling HONEST rather than gamed — it frees a slot for a lane that
+  is genuinely being worked, instead of leaving three slots held by stopped sessions.
 captured_by: scripts/ops/capture_idea.py
 
 # ── Appended by the owning session (session_01Wv1BdfEUnmCBZrhvUjeBzb), 2026-09-12 ──
@@ -48,7 +62,376 @@ unit_breakdown: >-
   cleared U3, evidence attached, routed to the manager. U5 the MFE/MAE-in-ATR instrument
   (BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES).
 
+decision_requests:
+  - id: DEC-20260913-FOUR-LEG-DISPOSITION
+    question: >-
+      PB-20260821 asks for a kill / demote-to-shadow / hold decision on four legs.
+      The M7 gate cannot produce one (U34 proved the KILL/DEMOTE matrix is gated on
+      >=20 LIVE closes and both shadow legs grade structurally_ungradeable, so
+      waiting cannot grade them). What disposition do you want for each of
+      slv_trend_1h, htf_pullback_trend_2h, eth_pullback_2h and tlt_pullback_1h?
+    urgency: routine
+    asked_on: '2026-09-13'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-13 (MI-278 U42) off two live pulls, trader git_sha f2335be98.
+      Instrument scripts/research/kill_case_admissibility.py; memo
+      docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md.
+      THE ROW'S OWN JUSTIFICATION IS GONE: it names slv_trend_1h as "the only large
+      loser whose loss is well MEASURED (coverage 0.77)". That leg now reads coverage
+      0.00 at 30d and 0.26 at lifetime, and its 30d defensible PnL is +49.56 -- a GAIN
+      -- against a -735.11 headline carried by 2 unmeasured rows. Its LIFETIME loss
+      does survive (-4214.86 admissible over 12 rows), so the instinct was not wrong;
+      the stated reason was.
+      || WHERE EACH LEG STANDS. slv_trend_1h: shadow since 2026-08-24, 3 PAPER
+      accounts, never on real money, lifetime loss_survives. htf_pullback_trend_2h:
+      shadow since 2026-08-23, bybit_1 paper only; its lifetime real-money rows
+      predate its 2026-07-16 demote off bybit_2; PAPER LIFETIME GRADES loss_inverts --
+      headline -4459.45 against an ADMISSIBLE +2130.53, with 17 of 23 rows unmeasured.
+      eth_pullback_2h: LIVE on bybit_2 REAL MONEY, and on real money it is -$15.49
+      over 15 lifetime closes (-$0.33 over 4 at 30d) -- approximately flat, not a kill
+      case. tlt_pullback_1h: LIVE on alpaca_live REAL MONEY and has NEVER placed an
+      order there -- 19 of 19 alpaca_live journal rows are `rejected`, zero closed,
+      2026-08-18 to 2026-09-11 (U39's dry-booking finding from the other side).
+      || [!] THE LEG WITH THE WORST HEADLINE HAS THE BEST EVIDENCE. htf_pullback_trend_2h
+      is the one whose admissible record is a GAIN and the one U34 found carries
+      net_r_oos +2.7261 over n=79 at FAITHFUL fidelity, the highest standard the
+      builder emits. A kill argued from this row's premise would be arguing against
+      the only positive evidence in the set. This is NOT a promotion proposal.
+      || [!] TWO OF THE FOUR ARE ON REAL MONEY and the row was filed as a class of
+      PAPER losers -- it has never said so.
+      || [!] NOTHING HERE IS AN EDGE TEST. Admissibility grades PROVENANCE: whether a
+      loss survives restriction to rows anyone can stand behind. A leg whose loss
+      survives may still be worth keeping, and one whose loss inverts may still be
+      worth killing on other grounds.
+    options:
+      - key: hold_all_four_pending_evidence
+        label: Hold all four; record that the M7 gate cannot decide them and stop re-measuring
+        implication: >-
+          Nothing changes on the fleet. The two shadow legs stay parked on a stopped
+          accrual clock and the two live legs keep trading as they are. This is a
+          legitimate answer and it CLOSES PB-20260821 -- the row's criterion is a
+          decision per leg, and "hold, for this stated reason" is one. What it costs
+          is that htf's positive offline edge stays unharvested and tlt keeps a
+          nominal real-money route that places nothing.
+      - key: kill_the_two_shadow_legs
+        label: Retire slv_trend_1h and htf_pullback_trend_2h outright
+        implication: >-
+          Removes two legs that cannot be graded by waiting. [!] For htf this kills
+          the leg whose admissible record is +2130.53 and whose offline OOS edge is
+          the best of the four -- defensible only if the reason is "we will not carry
+          ungradeable legs", NOT "it lost money", because on the rows we can stand
+          behind it did not.
+      - key: repromote_htf_keep_slv_shadow
+        label: Return htf_pullback_trend_2h to live (paper bybit_1) on its offline edge; leave slv in shadow
+        implication: >-
+          Restarts the only accrual clock that could ever settle this row, on the leg
+          with the best evidence, at no real-money risk (bybit_1 is paper-class).
+          [!] Tier-3 and it reverses an operator-approved demote made 2026-08-23 on a
+          4-axis discharge, so it needs the reason for THAT demote to be re-read
+          first -- U42 did not re-read it and does not claim it was wrong.
+      - key: fix_tlt_route_first
+        label: Deal with tlt_pullback_1h's dead real-money route before dispositioning anything
+        implication: >-
+          tlt is declared live on real money and has placed nothing in 25 days. Until
+          that is resolved its record cannot inform any decision, and the declaration
+          is misleading on every surface that reads execution state. This defers the
+          other three rather than answering them.
+      - key: something_else
+        label: A different disposition, per leg
+        implication: >-
+          Say which leg gets which of kill / demote-to-shadow / hold and the reason;
+          it is recorded per leg against PB-20260821's criterion.
+    blocking: false
+    notes: >-
+      NOT BLOCKING. U42 continues to the next unit; nothing waits on this answer, and
+      no parameter, roster or execution value was changed by the unit that raised it.
+
+  - id: DEC-20260917-SCALP-MARGIN-BOUND-SIZING
+    question: >-
+      On roughly a quarter of ict_scalp orders the per-trade SIZE is set by available
+      margin rather than by the declared 1.5% risk policy -- provably so, at any
+      balance. The limiter is undeclared, moves with the book, and is recorded only on
+      refusal rows. Do you want it left as-is and RECORDED as the policy, swept offline
+      before any change, or made observable first? A stop floor is deliberately NOT
+      offered as a ready option -- see the context.
+    urgency: routine
+    asked_on: '2026-09-17'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-17 (MI-278 U45) off two live pulls -- /api/diag/journal
+      table=trades and table=order_packages, limit=1000 each, ids 4867-5866,
+      2026-08-21 -> 2026-09-17, rowset digests declared in the memo. Instrument
+      scripts/research/margin_bound_sizing_basis.py (50 self-test + 41 pytest controls;
+      8 planted defects, 8 caught). Memo
+      docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md.
+      || THE PROOF NEEDS NO NEW STAMP AND NO BALANCE. The risk sizer demands
+      equity x risk_pct x entry / risk_per_unit; the margin pre-flight cap allows
+      basis_usd x leverage x buffer; and because every basis the sizer may use is at
+      most equity, the equity term CANCELS. risk_pct x entry /
+      (risk_per_unit x leverage x buffer) >= 1 proves the cap binds at ANY balance --
+      equivalently, whenever the declared initial stop is closer than
+      10000 x risk_pct / (leverage x buffer) = 55.56 bp at bybit_1's declared 1.5% / 3x
+      / 0.9. On the pull: 43 of 274 gradeable sizer-output rows are provably bound,
+      provableCoverage 0.2445, and the control against each row's OWN stamped ceiling
+      is SOUND with ZERO false positives on 32 stamped rows.
+      || [!] IT IS A FAMILY PROPERTY, NOT AN AVAX ONE, WHICH IS NOT WHAT THE ROW SAYS.
+      42 of the 43 bound rows are ict_scalp_* orders; the other 16 legs on the account
+      contribute ONE between them, and not a single pullback or donchian leg is bound
+      at any ratio (their stops sit at 72-476 bp). ict_scalp_5m on BTC is
+      proportionally worse than the leg PB-20260822 names: 50.0% of its gradeable
+      orders bound, median ratio 1.003.
+      || [!] THE OBVIOUS REMEDY IS WITHDRAWN BY THIS UNIT'S OWN EVIDENCE. A minimum
+      stop distance WIDENS risk, which LOWERS the demanded quantity until the cap stops
+      binding -- i.e. it removes the size clamp from the cohort that, on the only
+      measurement available, is not the losing one. Pooled, the bound cohort is
+      +1,013.93 over 34 closes against -10,842.22 over 96; but that comparison does NOT
+      survive its own control -- ict_scalp_sol_15m has ZERO bound rows and contributes
+      47% of the unbound loss by itself. Per leg, on a MEASURED-only basis and over the
+      five legs where both arms reach n>=3, three lean toward the bound arm, one is
+      tied and one leans against, at 1-10 measured rows per arm. NOT ESTABLISHED IN
+      EITHER DIRECTION, on a PAPER account over 27 days.
+      || WHAT THE CLAMP IS DOING MEANWHILE: median realised risk_usd is 387 on the
+      bound cohort against 867 on the rest, while the declared per-trade budget at the
+      observed equity is ~2,000. So on that cohort the per-trade risk is set by
+      available margin, not by policy.
+      || WHERE IT COMES FROM, read at the field (src/units/strategies/ict_scalp.py:508-523):
+      sl = sweep extreme -/+ 0.20 x ATR, and the ONLY floor on risk is `risk <= 0`. No
+      min_stop_bps parameter exists on any ict_scalp leg. But the degenerate case is
+      rare -- risk/ATR is median 3.30 and only 1.8% of rows fall below 0.25 x ATR -- so
+      an ATR floor is the wrong instrument: 1.0 x ATR touches 5.1% of rows and only 14
+      of the 65 bound ones, while a bp floor at the binding distance touches 23.7% by
+      construction. AND any floor on risk also moves the TARGET, because
+      tp = entry +/- tp_at_r x risk three lines below; refusing the signal does not.
+      || [!] DO NOT WIDEN THE MARGIN CAP. PB-20260822 forbids it in terms, and on the
+      worst order in the pull (id 5653, ict_scalp_avax_5m, a 1.22 bp stop) the demand is
+      45.6x the ceiling -- it would need roughly 137x leverage to pass.
+      || NOTHING WAS CHANGED. config/strategies.yaml, config/accounts.yaml and every
+      src/ file were read only.
+    options:
+      - key: leave_and_record
+        label: Leave it as-is, and record that available margin is the limiter
+        implication: >-
+          Per-trade risk on the bound cohort continues to be set by the account's
+          available margin rather than by the 1.5% policy, and moves with the book.
+          Recorded as a decision rather than left looking like an oversight. No code,
+          config or roster change.
+      - key: sweep_first
+        label: Sweep a min_stop_bps floor offline, then decide (RECOMMENDED)
+        implication: >-
+          An M8 sweep over the ict_scalp family sets the floor from measurement rather
+          than from inference. Chosen because the live evidence points the OPPOSITE way
+          to the intuition and this repo does not set a bar from an inference. No live
+          change until the sweep reports.
+      - key: observable_first
+        label: Make the pre-clamp quantity readable (Tier-2, one line)
+        implication: >-
+          Add account_context_snapshots to diag.py::_JOURNAL_TABLES. The decision-time
+          equity is ALREADY recorded per (order_package_id, account_id); what is missing
+          is a read surface. This satisfies PB-20260822's first resolution_criteria
+          conjunct WITHOUT the risk.py stamp the row proposes, and is independent of the
+          other two options.
+      - key: something_else
+        label: A different instruction
+        implication: >-
+          Say what, and it is recorded against PB-20260822's criterion.
+    blocking: false
+    notes: >-
+      NOT BLOCKING. Nothing waits on this answer and no parameter, roster or execution
+      value was changed by the unit that raised it. [!] A STOP FLOOR IS DELIBERATELY NOT
+      IN THE OPTION LIST: it is the intuitive remedy, this unit drafted it, and this
+      unit's own within-leg control withdrew it. Offering it as a ready choice would put
+      an unevidenced Tier-3 change in front of the operator wearing a measurement's
+      clothes.
+  - id: DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE
+    question: >-
+      The two keys that record a netting quantity rewrite are stored unprotected in
+      `trades.notes`, so the 500-char cap sheds them -- measured, five live rows have
+      already lost theirs. The module they live in states the rule that would have
+      prevented it, and this is the FOURTH instance of the class its own comments
+      record. Do you want the one-line protection applied, a durable marker outside
+      `notes` instead, or the loss accepted and recorded?
+    urgency: routine
+    asked_on: '2026-09-17'
+    asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
+    context: >-
+      MEASURED 2026-09-17 (MI-278 U49) by RUNNING the reference implementation
+      scripts/research/netting_position_size_basis.py with --soak, on
+      /api/diag/journal?table=trades&limit=1000 (ids 4873-5872,
+      sha256:098092a13d8efff2...) and /api/diag/log_file?name=netting_attribution_soak
+      (1000-line tail, 2026-08-29T08:11:10Z -> 2026-09-16T07:12:15Z, of a 3,882,168-byte
+      file). No new instrument was written -- one already exists and a second would be
+      RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. Memo
+      docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md.
+      || WHAT IS BROKEN. `_netting_apply_close`'s partial branch rewrites
+      `position_size` and leaves the row OPEN, so it closes later under an ordinary exit
+      reason. The only trace is `netting_attribution_basis` + `netting_attributed_qty`
+      in `trades.notes`, written through `dump_capped(notes, 500)`, and NEITHER is in
+      `json_notes._DEFAULT_PROTECTED`. On 783 graded bybit rows: 44 carry a stamp, the
+      `exit_reason` filter sees 42, and the soak shows 5 MORE whose stamp was shed
+      entirely -- 7 invisible in total against the 2 a journal-only audit can see, a
+      3.5x under-count. A further 104 rows grade `evidence_may_be_shed`, which is *we
+      could not look*, not a clean negative.
+      || THE TWO KEYS FAIL IN TWO DIFFERENT WAYS, which matters for the remedy.
+      `netting_attribution_basis` is a SHORT STRING ('leg_gone' / 'fifo'), so
+      `_shrink_dict` trims it to a prefix matching neither vocabulary entry -- exactly
+      BL-20260826-EXIT-REASON-SOURCE-TRUNCATED-BY-THE-NOTES-CAP. `netting_attributed_qty`
+      is a FLOAT, which `_shrink_dict` can never trim (it only trims strings), so it can
+      only be DROPPED WHOLE by the shed loop. One line covers both.
+      || [!] THE ARGUMENT IS THE MODULE'S OWN, NOT THIS SESSION'S PREFERENCE.
+      `json_notes.py` states 'EVERY PROVENANCE MARKER BELONGS HERE ... a consumer
+      compares it for equality against a fixed vocabulary, so a trimmed value is not a
+      shorter answer -- it is an unreadable third state that matches nothing.'
+      `netting_attribution_basis` meets that criterion exactly: its vocabulary is
+      leg_gone / fifo (order_monitor.py:9366, documented again at diag.py:544) and
+      consumers compare against it. The tuple's own comments already record THREE prior
+      instances (exit_reason_source; closed_by_operator + pre_mark_exit_reason).
+      || [!] WHAT NO OPTION HERE BUYS: none of them recovers the five rows already shed,
+      and none of them makes any close false or true -- that needs the venue-side read
+      OI-20260908 specifies. This is about whether the NEXT ones are readable.
+    options:
+      - key: protect_the_keys
+        label: Add both keys to json_notes._DEFAULT_PROTECTED (Tier-2, one line) (RECOMMENDED)
+        implication: >-
+          The two keys stop being shed, so a future netting rewrite stays attributable
+          from the journal alone. Recommended because it is the remedy the module's own
+          comment already prescribes for this exact class, and three prior instances
+          were fixed this way. It does NOT recover the five rows already shed and must
+          not be reported as if it did.
+      - key: durable_marker_outside_notes
+        label: Give the partial branch a durable marker outside `notes` instead (Tier-2, larger)
+        implication: >-
+          A column or its own log, so the evidence is not competing with a 500-char cap
+          at all. Strictly better than protection and strictly more work; it also makes
+          the marker queryable rather than requiring a substring read of `notes`. Choose
+          this if the cap is expected to keep claiming keys.
+      - key: accept_and_record
+        label: Accept the loss and record it as a decision
+        implication: >-
+          Netting rewrites stay partly unattributable from the journal, and any analysis
+          scoping this contamination must read the soak as well -- which is itself a
+          tail, so the population stays a lower bound. Legitimate, and recorded as a
+          decision rather than left looking like an oversight.
+      - key: something_else
+        label: A different instruction
+        implication: >-
+          Say what, and it is recorded against this row's clause (2).
+    blocking: false
+    notes: >-
+      NOT BLOCKING. Nothing waits on this answer, and the unit that raised it applied no
+      runtime change -- clause (1) of the row was cleared by USE (the corrected scoping
+      rule applied to MI-278 U47's netting finding, which it CONFIRMED rather than
+      overturned: 4 of 33 on bybit_2, soak adds zero). [!] A THIRD OPTION THAT LOOKS
+      ATTRACTIVE IS DELIBERATELY ABSENT -- 'stop the partial branch rewriting
+      position_size at all' is a legitimate Tier-2 order-path decision and the row says
+      so, but it would leave the netted sibling holding its full size, which is the 451x
+      journal-vs-exchange divergence BL-20260801 exists to stop. It is not offered as a
+      ready choice without that consequence being measured.
+
 progress:
+  U48: >-
+    DELIVERED 2026-09-17 (PR #12419). Works
+    BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT.
+    Instrument scripts/research/tp_geometry_reachability.py (65 self-test + 27 pytest
+    controls; 7 planted defects, 7 caught). Memo
+    docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md.
+    !! THIS BEARS DIRECTLY ON THIS OBJECT'S done_condition, WHICH THAT ROW IS NAMED AS
+    BLOCKING. The row prescribes running both tp_geometry levels on one family. That arm
+    CANNOT BE BUILT on any family at any cap: tp_geometry is computed from family
+    membership in CLAMPING_FAMILIES by the same predicate that gates whether the cap
+    reaches the harness, so a clamping family attains {live_parity_capped,
+    NO_TAKE_PROFIT} and never live_parity_uncapped, while scalp is uncapped at every
+    cap. The row's resolution_criteria can never be met as written, so it cannot be
+    waited on -- it has to be rewritten or the object has to route around it.
+    !! Also established the row's own open caveat: 218 arms delivered their recorded
+    tp_cap_pct and 28 did not (the scalp arms), so a dose sweep is inert on a
+    non-clamping family. The only runnable axis is >=3 positive tp_cap_pct values inside
+    a clamping family.
+    !! AND THE ONE INSTRUMENT THAT CAN GRADE THE LEVER WITH ATTRIBUTED MASS IS BLOCKED ON
+    A MERGE CLICK: U2 established the take-profit is the only mechanism with attributed
+    mass (18 of 49 winners ended exactly at target); the scalp tp_at_r axis was built by
+    U30 in PR #12158, landing:hold / unvouchable_paths, open since 2026-09-13. It is not
+    waiting on an approval.
+  U49: >-
+    DELIVERED 2026-09-17. Works
+    BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT.
+    NO NEW INSTRUMENT -- the row names a reference implementation and it already grades
+    this, so a second would be RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. Memo
+    docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md.
+    Decision DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE filed above.
+    CLAUSE (1) CLEARED BY USE: the corrected scoping rule (notes stamp AND soak, never
+    exit_reason alone) was applied to U47's netting finding, and CONFIRMED it -- on
+    bybit_2 n=33 the stamp sees 4, the soak adds zero, so U47's `contributes` verdict
+    stands. A confirming result, reported as one.
+    FLEET: 783 bybit rows graded; exit_reason sees 42, the stamp census is 44, and the
+    soak reveals 5 more whose stamp was shed -- 7 invisible against the 2 a journal-only
+    audit sees, a 3.5x under-count, with 104 further rows ungradeable either way.
+    CLAUSE (2) IS TIER-2 AND WAS NOT APPLIED.
+  U45: >-
+    DELIVERED 2026-09-17. Works PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK.
+    Instrument scripts/research/margin_bound_sizing_basis.py (50 self-test + 41 pytest
+    controls; 8 planted defects, 8 caught). Memo
+    docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md.
+    Decision DEC-20260917-SCALP-MARGIN-BOUND-SIZING filed above.
+    !! THE ROW'S SENTENCE IS NOW READABLE PER ORDER WITHOUT THE TIER-2 STAMP IT ASKS
+    FOR. risk_pct x entry / (risk_per_unit x leverage x buffer) >= 1 proves the margin
+    cap binds at ANY balance, because every basis the sizer may use is at most equity so
+    the equity term cancels -- equivalently the cap binds below
+    10000 x risk_pct / (leverage x buffer) = 55.56 bp at bybit_1's declared terms.
+    MEASURED over ids 4867-5866 (2026-08-21 -> 2026-09-17): 43 of 274 gradeable
+    sizer-output rows provably bound, provableCoverage 0.2445, control SOUND with ZERO
+    false positives on the 32 stamped rows. SUFFICIENT, NOT NECESSARY -- the inequality
+    is slack by equity/basis_usd and missed 22 of the 30 rows observed at their own
+    stamped ceiling, so `not_provable` is WE DID NOT LOOK and the bound rate is a FLOOR.
+    !! IT IS A SCALP-FAMILY PROPERTY, NOT AN AVAX ONE: 42 of the 43 bound rows are
+    ict_scalp_*, the other 16 legs contribute ONE, and ict_scalp_5m on BTC is worse than
+    the leg the row names (50.0% bound, median ratio 1.003).
+    !! THE OBVIOUS REMEDY WAS DRAFTED BY THIS UNIT AND WITHDRAWN BY IT. A minimum stop
+    distance widens risk, lowers the demanded qty and REMOVES the clamp from the cohort
+    that is not the losing one. The pooled bound-vs-unbound comparison (+1,013.93 / 34
+    vs -10,842.22 / 96) does NOT survive its own control: ict_scalp_sol_15m has zero
+    bound rows and carries 47% of the unbound loss alone, and per leg on a MEASURED-only
+    basis three of five comparable legs lean toward the bound arm, one ties, one leans
+    against, at 1-10 measured rows per arm on a PAPER account over 27 days. NOT
+    ESTABLISHED IN EITHER DIRECTION. The recommendation is a sweep, not a floor.
+    !! TWO METHOD FINDINGS THAT OUTLIVE THIS UNIT. (a) order_packages.sl IS AMENDED TOO,
+    not just trades.stop_loss -- over 677 packages, 543 unamended / 123 trailed toward
+    entry / 11 trailed PAST entry onto the profit side (11 of 11, cross-checked by
+    direction), so |entry - sl| mis-measures one order in five; read risk_per_unit
+    through r_provenance.declared_initial_risk. (b) position_size IS NOT ALWAYS A SIZER
+    OUTPUT -- intent_reduce, adopted_orphan and the pairs sleeve (an isolated order path
+    that never calls RiskManager.position_size) were 320 of 707 bybit_1 rows.
+    !! WITHDRAWN: the 2026-09-13 note's equity-inversion positive control. Its 09-12
+    figure of 133,868 -- which "agreed to ~0.5%" with measured equity -- came from
+    pairs_sol_eth_a with a SENTINEL stop at 2x entry on an order path the sizer never
+    touched. The agreement was numerology. Its 09-11 p90 came from three adopted_orphan
+    re-adoptions of one trade. The 09-04 outlier of 8,531,596 needs no exclusion rule --
+    it does not exist once risk_per_unit replaces |entry - sl|. Do not re-derive it.
+    !! CAUGHT BY ARITHMETIC, NOT BY READING: this unit's own first per-strategy table
+    pooled 113 zero-size signal rows into the sized population and reported 62 bound
+    orders against a census of 43. The instrument now prints a reconciliation and three
+    pytest controls fail if the two populations diverge again.
+    !! THE ROW STAYS OPEN. Its three resolution_criteria conjuncts are unmet: the stamp
+    is Tier-2 (a cheaper alternative is proposed -- add account_context_snapshots to
+    diag.py::_JOURNAL_TABLES, since the equity term is ALREADY recorded and only lacks a
+    read surface), the operator decision is filed and unanswered, and no claim is made
+    about ceiling-sized placements. NOTHING IN src/ OR config/ WAS CHANGED.
+  PAUSE-RECORD-20260913: >-
+    CARRIED FORWARD VERBATIM IN SUBSTANCE from PR #12219, the paused-note branch, so the
+    record survives whether or not that draft is ever merged. After pushing the U45
+    resumption note on 2026-09-13 this lane did NOT stop, and the manager was right to
+    call it: two further pieces of work were taken, each locally justified and together
+    exactly the not-stopping the pause forbade. (1) DEFENSIBLE: pr-landing-guard was the
+    single failing guard on #12219 (R11, state=undeclared) because the landing
+    declaration was skipped while closing out; fixed on the same branch, reproduced at
+    RC=1 and verified RC=0 before pushing -- drive-to-green on its own PR. (2) NOT
+    DEFENSIBLE UNDER THE PAUSE, and a NEW UNIT rather than a close-out step: a backlog
+    row recording that .github/workflows/ranking-key-ab.yml concludes `failure` instantly
+    on every push read, main included. The finding is real and is already filed; it
+    should not have been taken under a pause.
+    !! #12219 IS SUPERSEDED BY THE U45 ENTRY ABOVE and two of its conclusions are
+    WITHDRAWN there (the equity-inversion route, and "the lever is a minimum stop
+    distance"). Merging it would land a superseded conclusion into this object.
   U1: >-
     DELIVERED, PR #11864. Inventory over 55 declared / 44 enabled+live legs; monitor-unit map
     IMPORTED from pipeline.monitor_unit_for; every call site ASSERTED against the unit source;
@@ -200,6 +583,27 @@ progress:
     src/web/ Tier-2 and is one of the three dashboard routes U12 named as untouchable. Instrument:
     scripts/research/r_sign_split_basis.py (23 self-test + 23 pytest controls; 7 planted defects,
     all caught). Memo: docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md
+  U37: >-
+    DELIVERED. Re-measured PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK a month after its n=2
+    and found three things. (1) THE CLAIM REPRODUCES AT 15x: over the 1000-row journal tail, 208
+    rows carry notes.margin_basis and 32 -- 15.4% of every recorded row -- sit at ratio >= 0.999
+    of max_qty_by_margin, THIRTY of them ict_scalp_avax_5m on bybit_1, the row's own leg.
+    clamp_did_not_bind is 0. (2) THE ROW'S EQUALITY TEST IS A TRAP: sizes are QUANTISED to the
+    venue step (33141.1000 against a cap of 33141.1001), so an exact `==` probe returns ZERO
+    across all 1000 rows -- my first probe did exactly that and I would have reported the effect as
+    stopped had I not run the ratio as a positive control. (3) THE ROW'S CRITERION IS UNVERIFIABLE:
+    notes.margin_basis has ONE writer, execute.log_rejection_to_journal, a refusal-only path, so a
+    PLACED order can never carry it -- POSITIVE CONTROL: 623 closed+open rows, ALL 623 carrying a
+    notes dict, ZERO carrying the stamp. The row's criterion is about orders that PLACE and its
+    why_it_matters is entirely about the refusal-to-fill transition, which is exactly where the
+    evidence disappears. !! A SECOND, INDEPENDENT HAZARD, not folded in: margin_basis is an
+    unprotected nested DICT in notes and dump_capped sheds exactly that, with 138 of the 623 placed
+    rows already _truncated -- so even a stamp on the placement path would be dropped on the fullest
+    rows. Same class as U33. Filed
+    BL-20260913-THE-MARGIN-CEILING-RECORD-IS-WRITTEN-ONLY-ON-REFUSED-ORDERS-SO-A-PLACED-ORDER-CAN-NEVER-SHOW-THAT-ITS-SIZE-WAS-A-CEILING.
+    !! NOTHING APPLIED: risk.py, execute.py and json_notes.py are Tier-2 and read only; per-leg
+    sizing is Tier-3. The row's next_action is upgraded from one stamp to three steps and all three
+    are PROPOSED. Memo: docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md
 
   U34: >-
     DELIVERED. Worked PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13's next_action, which THREE prior
@@ -396,3 +800,171 @@ progress:
     both re-run correctly and recorded rather than counted; 2 no-op plants fired zero). Nothing in
     src/, config/ or any unit file is touched. Memo:
     docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md
+  U42: >-
+    DELIVERED. Worked PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13, the oldest open `high` row in the
+    performance backlog bearing on trade management. BOTH OF ITS LOAD-BEARING CLAIMS ABOUT
+    slv_trend_1h ARE FALSE TODAY: '0 wins in 13' is 4 trades / 2 wins / 50.0% at 30d, and 'the only
+    large loser whose loss is well MEASURED (coverage 0.77)' is coverage 0.00 at 30d and 0.26 at
+    LIFETIME -- with the part of its 30d PnL anyone can stand behind reading +49.56, a GAIN, against
+    a -735.11 headline carried by 2 unmeasured rows. Its LIFETIME loss DOES survive (-4214.86
+    admissible over 12 rows), so the instinct was right and the stated reason is gone. !! THE ROW NOW
+    POINTS AWAY FROM THE EVIDENCE: htf_pullback_trend_2h grades loss_inverts on lifetime paper --
+    headline -4459.45 against an ADMISSIBLE +2130.53, 17 of 23 rows neither measured nor estimated --
+    and it is the same leg U34 found carries the best offline number of the four (net_r_oos +2.7261,
+    n=79, FAITHFUL). A kill argued on this row's premise would argue against the only positive
+    evidence in the set. NOT a promotion proposal; Tier-3. !! AND tlt_pullback_1h IS 'LIVE ON REAL
+    MONEY' IN NAME ONLY: 19 of 19 alpaca_live journal rows are `rejected`, zero closed, 2026-08-18 ->
+    2026-09-11 -- U39's dry-booking finding from the other side. eth_pullback_2h, the only leg
+    actually trading real money, is -$15.49 over 15 lifetime closes. NEW INSTRUMENT:
+    scripts/research/kill_case_admissibility.py grades whether a leg's HEADLINE loss survives
+    restriction to totalPnlMeasured's own basis (MEASURED+ESTIMATED, verified at performance.py:490,
+    not inferred from the name) -- 8 never-collapsed verdicts in which `no_admissible_rows` is *we
+    could not look* and is deliberately NOT folded into `loss_inverts`, and `absent_from_block` is 0
+    closes and never a 0.0 reading. 27 self-test + 14 pytest controls; 10 planted defects, 10 caught
+    by a named control. THE DECISION IS ASKED, not re-measured a fourth time:
+    DEC-20260913-FOUR-LEG-DISPOSITION on this object, non-blocking, with 'hold all four for this
+    stated reason' as an explicit CLOSING option -- because U34 already proved the M7 gate cannot
+    produce the badge the row's criterion asks for (KILL/DEMOTE gated on >=20 LIVE closes; both
+    shadow legs structurally_ungradeable). NOTHING CHANGED: no parameter, roster or execution value.
+    Memo: docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md
+  U41: >-
+    DELIVERED. OI-20260911's discriminating measurement is RUN and the break is ATTRIBUTED:
+    VERDICT both_contribute. POPULATION 214 package ids (closed, non-backtest, pnl NOT NULL,
+    non-pairs) of 1000 order_packages read, 0 unplaceable in time; event 2026-08-30T08:53:19Z;
+    15m candles; 24h window carries it. Cells pre/post: e35 59/52, control_same_family 44/40,
+    control_other 293/183. TERM 1 stop-out-rate DiD, declared-only, package unit: +11.6pp.
+    TERM 2 MFE:MAE excursion -- GEOMETRY-FREE by construction so e35 cannot move it -- at 24h:
+    e35 median 0.942->0.425, POOLED control (both non-e35 arms, n=65/74) d_med -1.4313, both
+    measured. Excursion fell in BOTH arms, which is a market move e35 cannot reach, AND the
+    stop-rate rose on top -- so neither candidate can be reverted away alone. !! DO NOT QUOTE
+    THE MEAN: MFE:MAE is unbounded above (MAE->0) and control_other's mean falls -23.72 against
+    a median of -1.3229, a ~16x overstatement. The sign survives and that is CHECKED, not
+    assumed -- the instrument grades every term on SIGN STABILITY (delta-of-means vs
+    delta-of-medians) and returns the new sign_unstable -> cannot_discriminate where they
+    disagree, so an unstable term can never be spent as evidence the control did NOT fall, which
+    would return e35_geometry and license a revert. THE GATE FIRED ON LIVE DATA at 4h (e35 mean
+    +1.017 while median -0.118). !! LIMIT: candles are Binance Vision, so GLD/MGC/QQQ/SLV/SPY/
+    TLT/USO returned 0 and the excursion half is CRYPTO-ONLY. !! THE ROW DOES NOT CLEAR -- its
+    separate final clause owes a sustained-losing-streak detector, which is BUILT (MI-276) and
+    has never fired (OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET).
+    !! AND ITS clears_when CLAIM THAT THIS 'also discharges' OI-20260830 IS FALSE against that
+    row's OWN criterion, which asks for deploy verification (config read-back + a trade OPENED
+    after 892c9a2c on a leg with cap_r > tp_r). OI-20260830 left OPEN and UNTOUCHED; filed as
+    BL-20260913-AN-OPEN-ITEMS-ROW-DECLARES-THAT-MEETING-IT-DISCHARGES-ANOTHER-ROW-WHOSE-OWN-CRITERION-ASKS-A-DIFFERENT-QUESTION.
+    NO PARAMETER CHANGE PROPOSED; geometry is Tier-3. Instrument:
+    scripts/research/m20_u41_break_attribution_verdict.py (44 self-test + 30 pytest controls).
+    Memo: docs/research/m20-u41-e35-break-attribution-verdict-2026-09-13.md
+  U46: >-
+    DELIVERED (memo on main). PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN clause 1 -- is an
+    implausible per-strategy expectancyR still produced now that MI-144's provenanced R is
+    binding? Instrument scripts/research/r_denominator_admissibility.py. Nothing proposed.
+    Memo: docs/research/m20-u46-*.md
+  U47: >-
+    DELIVERED (memo on main). BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY.
+    The winner/loser $/R separation REPRODUCES on the rolled window (winner max 2.975 < loser min
+    3.335, spread 3.3664x) -- and that is explicitly NOT a replication and must not be reported as
+    satisfying or refuting the row's criterion (b): n is 41 BOTH times, and the two windows overlap
+    heavily. THE ATTRIBUTION IS AN ENUMERATION, NOT A HUNT: risk_usd = balance x risk_pct exactly on
+    an unclamped row, bybit_2 declares ONE risk_pct (0.015), so the dispersion is a clamp or the
+    balance, and the clamps are a finite list. FOUR of nine candidates are `unreachable` on a config
+    or code read (a stronger verdict than any correlation -- the mechanism cannot run on this
+    account); four are `refuted`; one `contributes` on 4 of 33 rows. !! THE ONE THAT LOOKED LIKE AN
+    ANSWER AND WAS NOT: per-leg median risk orders PERFECTLY by lot count, 6 of 6 monotone -- and
+    floor(L)/L is 1.000 on all 33 rows, so flooring lost nothing. A session that stopped at the
+    table would have shipped a wrong cause with a beautiful exhibit behind it. Verdict
+    `attributed_in_part`; narrowing the field is NOT an attribution and the instrument's own verdict
+    string says so. THE MISSING INPUT IS NAMED: decision-time balance is recorded in
+    account_context_snapshots, which is NOT in diag.py::_JOURNAL_TABLES (HTTP 400 measured), so
+    U45's one-line Tier-2 proposal to add it is now load-bearing for a SECOND high-severity row.
+    Coverage 33/41 = 80.5% stated, not hidden. Memo:
+    docs/research/m20-u47-the-risk-dispersion-is-not-any-clamp-a-session-can-read-2026-09-17.md
+  U50: >-
+    DELIVERED, PR #12429 (open, guards green, pytest-run in flight at wrap; auto-merge armed).
+    BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY -- made the payment axis MEASURED and corrected the row's stale
+    pointer. Two of the three payments never touched the surface. Instrument
+    scripts/research/fanout_denominator_survey.py. !! A DEFECT I RE-INTRODUCED AND CI CAUGHT: an
+    inert parameter (`diagnostic-provenance` class D) -- the same class removed from
+    risk_dispersion_attribution.py one unit earlier. Removed; recorded rather than quietly fixed.
+    Memo: docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md
+  U51: >-
+    DELIVERED AND MERGED (0734454a6).
+    BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN. Its second exit -- "memos gain a
+    retained/hashed input SO THE NEXT SUCH DIFFERENCE IS ATTRIBUTABLE" -- was shipped by U26 and DID
+    NOT WORK, in two OPPOSITE ways: stanza-vs-live reported the ENTIRE population as `rows_added`,
+    while stanza-vs-stanza on the real U32/U38 re-stamp pair reported all three lists `[]` with
+    `rows_not_localisable: 0`. A module built to separate three causes was MIS-ASSIGNING between
+    them. 64 controls were green because all of them compared live dicts and the one stanza control
+    checked the identity case. Adoption measured: 5 of 357 memos declare, 0 of 5 attributable. Both
+    halves fixed (REFUSE first -- `None`, never `[]`, for a derived list -- then ENABLE via
+    row_digests in the stanza), 64 -> 80 self-test controls plus 19 new pytest controls including a
+    live positive control over the real corpus. Also corrected RESEARCH-CAPABILITY-INDEX.md in
+    place, whose row claimed content_changed arrives "with the changed rows NAMED". Memo:
+    docs/research/m20-u51-the-stanza-round-trips-as-text-and-not-as-evidence-2026-09-17.md
+  U52: >-
+    DELIVERED, PR #12439 (open, armed at wrap).
+    BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED.
+    Option (a) is REACHABLE at last (46e1efb1f is on main -- verified against the COMMIT OBJECT, not
+    against prose claiming it) and it returns `insufficient_n`: 4 graded post-fix winners against a
+    required 11. THE DELIVERABLE IS A DATE, not a verdict -- share arm ~2026-09-28, winner-R arm
+    ~2026-10-01, carried by OI-20260917-THE-NETTING-POST-FIX-REMEASURE-IS-RUNNABLE-AND-UNDER-POWERED
+    so the soak is not left to accrue unwatched. THREE FINDINGS THE ROW DOES NOT CONTAIN: (1) TWO
+    fixes landed in the window (#11435 09-08, #11903 09-12), so there are FOUR eras and only the
+    POOLED 3+4 arm reaches p<0.10 -- and a pooled arm ATTRIBUTES TO NEITHER FIX; five contrasts,
+    Bonferroni 0.0100, none survives. (2) THE SCOPING RULE DECIDES THE VERDICT: exit_reason alone
+    gives p=0.0375 (significant), U49's stamp-AND-soak union gives p=0.0681 (not) -- the cheap
+    filter misses 7 of 33 applied soak rows, UNEVENLY across eras (4/2/1). (3) The unsound scope is
+    BIASED TOWARD `estimated`: 2 of 39 rows are MEASURED and both arrive via notes_stamp. Boundary
+    invariance MEASURED: zero rows in either merge->git-sync window. !! MY OWN FALSE NEGATIVE,
+    RECORDED: the first draft read a trades.r column that DOES NOT EXIST (0 of 1000 rows) and graded
+    both arms `unmeasurable`. And planted defect P12 PASSED a 48-control suite because no fixture
+    row lacked a package; 6 controls added, then caught. THE ROW DOES NOT CLOSE. Memo:
+    docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md
+
+# ── WRAP, 2026-09-17, on the manager's directive (session_01HoFquGdTrD3TTGbMMRc43t) ──
+wrap_2026_09_17:
+  state: >-
+    THE OBJECT IS NOT DONE AND NOTHING HERE CLAIMS IT IS. Its done_condition asks for at least one
+    lever reaching a Tier-3 proposal with IS/OOS + walk-forward evidence behind it. U23 put a
+    proposal in front of the operator and it is UNANSWERED; U48 then established that the geometry
+    contrast the backlog prescribes is `unsatisfiable_by_construction`, so the walk-forward arm the
+    done_condition wants CANNOT be built as specified. That is a finding, not an excuse, and it
+    means the done_condition needs re-specifying by the operator or the manager rather than
+    grinding at it.
+  measured_at_wrap: >-
+    35 distinct m20-u* unit memos are on origin/main (37 files; `git ls-tree -r origin/main
+    docs/research/`), which is the MEASURED count of landed units -- the per-unit log above is
+    INCOMPLETE for earlier units and must not be read as the roster. Not on main at wrap: u3, u6,
+    u7, u8, u17, u20, u29, u30, u37, u41, u43, u44, u48, u50, u52. Some of those are process units
+    that shipped no memo; three are in flight (u48/#12419, u50/#12429, u52/#12439).
+  in_flight_at_wrap: >-
+    THREE PRs open, all Tier-1 `landing: self`, all armed, all green on `guards` with `pytest-run`
+    still running when this was written -- #12419 (U48), #12429 (U50), #12439 (U52). None is
+    half-landed: each is a complete unit whose PR is armed and waiting on CI. NOTHING is
+    half-written in the container; every branch is pushed.
+  unfinished_and_what_it_costs: >-
+    (1) THE QUEUE ITEM THAT WAS NEXT and was NOT started, on the wrap directive: U6 -- the next open
+    `high` row in docs/claude/performance-review-backlog.json. Cost to resume: one session, no
+    setup, the instrument pattern is established.
+    (2) PR #12158 (U30, the ict_scalp `tp_at_r` sweep axis) is `landing: hold` /
+    `unvouchable_paths` and has needed a HUMAN MERGE CLICK since 2026-09-13 -- four days. U2
+    established the take-profit is the ONLY lever with attributed mass (18 of 49 winners ended
+    exactly at target), so the one instrument that can grade the M20 subject is blocked on a click.
+    THIS IS THE HIGHEST-VALUE UNBLOCKING ACTION AVAILABLE TO A HUMAN and it is not a session's to
+    take.
+    (3) DEC-20260913-FOUR-LEG-DISPOSITION on this object is UNANSWERED.
+    (4) The account_context_snapshots diag gap (U45's one-line Tier-2 proposal) now blocks TWO
+    high-severity rows, U45's and U47's. It is Tier-2 and was not taken.
+  found_and_owned_by_nobody: >-
+    (a) MI-278 HAS NO ROW IN docs/claude/work/MANAGER-CHECKLIST.json. MEASURED at wrap over all 287
+    items with a positive control: 'MI-278' occurs 0 times, 'MI-279' 0, 'MI-280' 0, while 'MI-277'
+    occurs once and 'research' 38 times -- so the probe finds positives and this lane is genuinely
+    absent from the page the operator reads. A row was deliberately NOT inserted from here: the
+    manager was mid-wrap rewriting that file, and a 288th row from a worker risks conflicting with
+    the wrap it is meant to support. The manager should add it.
+    (b) `automation/**` is OUTSIDE pr-landing's TIER1_SURFACE, so a coordination-board relay result
+    file committed on a unit branch makes a Tier-1 research PR fail R5. Worked around this session
+    by moving board posts to a dedicated branch; filed rather than widening the guard.
+    (c) scripts/ci/guard_selftests.py plants `.claude/skills/_selftest_doc_values/SKILL.md` and an
+    INTERRUPTED run leaves it behind, where `git add -A` commits it -- and BOTH guards that then
+    fail print a remedy which would REGISTER A SELF-TEST FIXTURE AS A REAL SKILL. Filed to the
+    health backlog; establishing it was mine needed a positive control (clean on origin/main).

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "branch": "claude/merge-queue-is-dead-20260917",
+  "claimed_at": "2026-09-17T15:01:58Z",
+  "purpose": "record that the merge queue was dead for seven days and R8 passed throughout"
+}

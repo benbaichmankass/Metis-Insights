@@ -233,6 +233,20 @@ on:
       #    due-list raises a stale digest as a loud row, but only if a stale
       #    digest is what lands — a run that DIES lands nothing at all.
       - error-feed-digest
+      # ── added 2026-09-17 in the same PR that created it. `main-tree-watch`
+      #    is the ONLY cadence-driven grading of the DEFAULT BRANCH, and it
+      #    exists because the repo's post-merge check skips auto-merged PRs
+      #    entirely: measured on two disjoint populations, a merge under
+      #    GITHUB_TOKEN produces no push run (0 of 24 by credential, 0 of 31
+      #    by commit kind) while a user-credential push does (5 of 5, 9 of 9).
+      #    ⚠️ IT FAILS ON PURPOSE — exit 1 is a real finding on `main`, exit 2
+      #    is a probe that COULD NOT RUN — so a red run here is the mechanism
+      #    WORKING, the same reading `pr-queue-watch` carries. ⚠️ AND ITS OWN
+      #    SILENCE IS THE FAILURE IT WATCHES FOR: the coverage it replaces was
+      #    carried by chore(ops) pushes (95 of the last 100 push runs), which
+      #    stop exactly when the repo is unhealthy — so a watcher that dies
+      #    quietly restores a blind window measured at up to 442.6 minutes.
+      - main-tree-watch
     types: [completed]
 
 permissions:

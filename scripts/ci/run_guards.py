@@ -294,6 +294,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MI-257 — the checklist the operator reads (GET /api/bot/work/checklist,
+        # rendered as the live Workflow page) may not carry a state/status
+        # disagreement or a value outside its own declared vocabulary.
+        # UNGATED: a row can drift on a commit that only edits
+        # MANAGER-CHECKLIST.json, which this guard's `when` globs (none) would
+        # not otherwise catch. Costs ~0.05s: one JSON read, no network.
+        "name": "manager-checklist-vocabulary-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py"],
+        ],
+    },
+    {
         # E2 — Phase G. Capability build is PULLED by a held-up stage.
         # ⚠️ ADVISORY IN PRODUCTION TODAY, BY MEASUREMENT, NOT BY SOFTENING: the
         # constraint readout REFUSES (1.0% assessed coverage against a 50%
@@ -390,15 +405,24 @@ GUARDS: List[Dict[str, Any]] = [
     },
     {
         # The register EVERY session reads at start. This guard is what stops
-        # it becoming the 951-row backlog it exists to replace — see the
-        # script's docstring: the cap is the mechanism, not a limitation.
+        # it becoming the 951-row backlog it exists to replace.
+        # ⚠️ THIS COMMENT READ "the cap is the mechanism, not a limitation"
+        # until 2026-09-13 and it described a `MAX_ITEMS` the operator set to
+        # `None` on 2026-08-26. FIELD BEATS COMMENT: what bounds the register
+        # is that a `monitoring` row must be RE-OBSERVED on its own cadence.
+        # The script's own docstring was corrected on 2026-08-29 and this copy
+        # was missed — the same stale claim in a second place.
         # `when: None` so it runs on every diff: a register that is only
         # checked when someone happens to touch it is not a register.
+        # ⚠️ `--base` is what makes the observation-preservation rule a RULE
+        # rather than a census. WITHOUT it that half DOES NOT RUN and the
+        # script says so on its own summary line; it does not read as clean.
         "name": "open-items-guard",
         "when": None,
         "steps": [
             ["python3", "scripts/ci/check_open_items.py", "--self-test"],
-            ["python3", "scripts/ci/check_open_items.py"],
+            ["python3", "scripts/ci/check_open_items.py",
+             "--base", "origin/{base_ref}"],
         ],
     },
     {

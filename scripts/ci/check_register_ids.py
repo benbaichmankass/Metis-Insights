@@ -314,6 +314,115 @@ def _first_present(row: Dict[str, Any], fields: Sequence[str]) -> Optional[str]:
 #: ⚠️ This is ONE measured corpus, not a law. If a legitimate rewrite ever trips
 #: it, the row to change is this constant plus its measurement — not the guard's
 #: reach.
+# --------------------------------------------------------------------------- #
+# which headline a finding travels under
+# --------------------------------------------------------------------------- #
+#: A finding carries the RULE that produced it, so `main` can print a headline
+#: naming the cause that rule actually tested.
+R1, R2, R3 = "R1", "R2", "R3"
+
+COLLIDED_HEADLINE = (
+    "::error::A register id collided. Git cannot see this class: to git a "
+    "reused id is a changed value at the same key, so the merge silently "
+    "deletes the row that was already there.")
+
+UNDATED_HEADLINE = (
+    "::error::A NEW register row records no creation date. ⚠️ NOTHING "
+    "COLLIDED — this is R3, and its remedy is the OPPOSITE of the collision "
+    "rules': ADD the creation field to your new row. Do NOT mint a fresh id; "
+    "the id is fine. R3 exists because R2 can only compare rows that say when "
+    "they were created, so an undated row freezes R2's reach forever.")
+#
+# ⚠️ NO POSITIONAL WORD ("below", "above") IN EITHER HEADLINE, AND THAT IS A
+# CORRECTION OF MY OWN FIRST DRAFT rather than a style choice. It read "the
+# OPPOSITE of the collision one BELOW", which is wrong in both directions the
+# run can take: HEADLINE_ORDER prints the collision block FIRST, so on a run
+# that trips both it is above; and on an R3-only run — the whole case this
+# split exists for — there is no collision block at all. A pointer to a
+# neighbouring block that may not exist is the same sub-class A defect one hop
+# down, written while fixing it. Caught by READING THE FOUR ARMS' OUTPUT, not
+# by re-reading the string.
+
+#: ⚠️ R1 AND R2 SHARE ONE HEADLINE DELIBERATELY, AND R3 DOES NOT — this was
+#: MEASURED, not assumed. R2's own message ends *"That is the signature of a
+#: NEW item filed under an id that was already taken — merging it deletes the
+#: row that was there"*, so `collided` describes R2 exactly; the split that
+#: looked obvious (one headline per rule) would have been three headlines where
+#: the evidence supports two.
+#:
+#: ⚠️ WHY R3 HAD TO COME OUT. Until 2026-09-17 `main` printed the collision
+#: headline over EVERY entry, R3's included. Reproduced verbatim against
+#: `main` @`123f6c192` with two DISTINCT ids and nothing colliding:
+#:
+#:     …::items[id]: 2 rows, unique · R2a assessed 1/1 (100%) · R2b 1/1, 0 replaced
+#:     ::error::A register id collided. …the merge silently deletes the row…
+#:       - …: NEW row 'FIXTURE-BETA' records no creation date…
+#:
+#: ⚠️ THE FIXTURE IDS READ `FIXTURE-…`, NOT `BL-…`, AND THAT IS NOT COSMETIC.
+#: The quote above is this guard's real output, with the invented row renamed:
+#: `scripts/ops/check_backlog_refs.py` scans added lines for register ids and
+#: an INVENTED `BL-`-shaped id in a comment resolves to no filed row, so it is
+#: reported as "a doc saying 'tracked by BL-X' where BL-X was never filed".
+#: Caught on this very change (artifact-validity-guard, FAIL 1 of 85). A
+#: fixture id must not be shaped like a real one.
+#:
+#: UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a message naming a cause no
+#: code path tested. The harm is the REMEDY, not the wording: the headline says
+#: *mint a fresh id* and the R3 fix is *add `opened`*, so a reader who follows
+#: it mints an id nothing asked for.
+#:
+#: ⚠️ AND THE U108 FIX (#12398) MADE THIS WORSE RATHER THAN BETTER. Before it
+#: the census ALSO said `unique` whatever `check_uniqueness` returned, so a
+#: reader could dismiss both lines as one confused guard. The census is now
+#: DERIVED and correct — so the run states a true `unique` beside a false
+#: `collided`, and the honest line lends the dishonest one its credibility.
+#:
+#: ⚠️ THE ARGUMENT WAS ALREADY IN THIS FILE AND R3 WAS NEVER BROUGHT UNDER IT.
+#: `check()`'s docstring explains that `unparseable` is a separate return value
+#: rather than a third kind of `problems` entry, because filing a parse failure
+#: under the collision headline "would be UNPROVENANCED DIAGNOSTIC OUTPUT
+#: sub-class A … so the two causes travel separately and get their own
+#: headlines." That reasoning was written down, applied to one cause, and not
+#: applied to R3 sitting in the same list. Third instance of the class in this
+#: one file after `_rows`'s "0 rows, unique" and U108's literal verdict.
+HEADLINE_FOR_RULE: Dict[str, str] = {
+    R1: COLLIDED_HEADLINE,
+    R2: COLLIDED_HEADLINE,
+    R3: UNDATED_HEADLINE,
+}
+
+#: Print order. Fixed rather than dict-insertion order so the output of a run
+#: that trips both is stable and diffable.
+HEADLINE_ORDER: Tuple[str, ...] = (COLLIDED_HEADLINE, UNDATED_HEADLINE)
+
+
+def group_by_headline(
+    problems: Sequence[Tuple[str, str]],
+) -> List[Tuple[str, List[str]]]:
+    """`[(headline, [message, …]), …]` for the headlines that actually fired.
+
+    ⚠️ A RULE THAT FOUND NOTHING CONTRIBUTES NO HEADLINE. Printing an empty
+    "no creation date" block on a pure-collision run would be the mirror of the
+    defect this function exists to fix — a heading asserting a cause nothing
+    established.
+
+    ⚠️ AN UNKNOWN RULE TAG IS A HARD ERROR, NOT A SILENT FALLBACK. A new rule
+    whose findings quietly inherited the collision headline is exactly how R3
+    got there; failing loudly makes adding a rule cost one line here.
+    """
+    buckets: Dict[str, List[str]] = {}
+    for rule, message in problems:
+        try:
+            headline = HEADLINE_FOR_RULE[rule]
+        except KeyError:  # pragma: no cover - guarded by the self-test
+            raise KeyError(
+                f"rule {rule!r} has no headline in HEADLINE_FOR_RULE. Add one "
+                f"rather than letting its findings inherit another rule's "
+                f"cause — see this table's comment.") from None
+        buckets.setdefault(headline, []).append(message)
+    return [(h, buckets[h]) for h in HEADLINE_ORDER if h in buckets]
+
+
 REPLACEMENT_RETENTION = 0.25
 
 
@@ -456,19 +565,31 @@ def check_new_rows_dateable(reg: Register, base_rows: Sequence[Dict[str, Any]],
 # --------------------------------------------------------------------------- #
 def check(root: Path, base: Optional[str] = None,
           registers: Sequence[Register] = REGISTERS
-          ) -> Tuple[List[str], List[str], List[Tuple[str, str]]]:
+          ) -> Tuple[List[Tuple[str, str]], List[str], List[Tuple[str, str]]]:
     """Return (problems, report_lines, unparseable).
 
+    ⚠️ **EACH `problems` ENTRY IS `(rule, message)`, NOT A BARE MESSAGE.** The
+    rule that produced a finding is what lets `main` headline it with the cause
+    that rule tested — see `HEADLINE_FOR_RULE`. Until 2026-09-17 these were
+    bare strings under one collision headline, and R3 (a missing creation date,
+    where nothing collided) inherited it.
+
     ⚠️ **`unparseable` IS A THIRD RETURN VALUE RATHER THAN A THIRD KIND OF
-    `problems` ENTRY, ON PURPOSE.** `main` prints one `::error::` headline over
-    `problems` and every word of it is about an id COLLISION ("to git a reused
-    id is a changed value at the same key..."). Filing a parse failure under
-    that headline would be UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a
-    message naming a cause no code path tested — which this repo's remedy says
-    to fix by branching on the actual failure STAGE, not by rewording. So the
-    two causes travel separately and get their own headlines.
+    `problems` ENTRY, ON PURPOSE.** Filing a parse failure under the collision
+    headline would be UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A — a message
+    naming a cause no code path tested — which this repo's remedy says to fix
+    by branching on the actual failure STAGE, not by rewording. So the two
+    causes travel separately and get their own headlines.
+
+    ⚠️ **THAT REASONING NOW COVERS `problems` ITSELF, AND UNTIL 2026-09-17 IT
+    DID NOT.** This paragraph used to open *"`main` prints one `::error::`
+    headline over `problems` and every word of it is about an id COLLISION"* —
+    describing the pooling as settled background while arguing against exactly
+    that shape one clause later. R3 sat in that list the whole time. The
+    headline is now chosen per rule (`HEADLINE_FOR_RULE`), so the sentence is
+    no longer true and is corrected rather than left as the record.
     """
-    problems: List[str] = []
+    problems: List[Tuple[str, str]] = []
     report: List[str] = []
     unparseable: List[Tuple[str, str]] = []
 
@@ -509,36 +630,60 @@ def check(root: Path, base: Optional[str] = None,
             continue
         junk = f", {skipped} non-dict entr(y/ies) SKIPPED" if skipped else ""
 
-        problems += check_uniqueness(reg, head_rows)
+        # ⚠️ THE VERDICT IS DERIVED, NOT ASSERTED — this used to read
+        # `problems += check_uniqueness(...)` and then print the literal word
+        # "unique" on every line below, whatever that call returned. So a
+        # register carrying a COLLISION was censused as
+        #     docs/claude/health-review-backlog.json::items[id]: 1600 rows, unique
+        # in the same run whose error block named the two colliding rows. The
+        # census is the part a reader skims; it asserted the property the guard
+        # was simultaneously failing on.
+        #
+        # OBSERVED 2026-09-17, not constructed: that exact pair of lines came
+        # out of a real run against `main` while it carried a duplicate id
+        # (fixed by PR #12381). UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A —
+        # a label naming a quantity no code path established for that file.
+        #
+        # ⚠️ AND THIS FILE ALREADY FIXED THE SIBLING. `_rows`'s docstring
+        # records that an absent array once reported "0 rows, unique", and
+        # calls it the collapsed-state defect the repo keeps a guard for. That
+        # repair made the ROW COUNT honest and left the word "unique" a
+        # literal, so the same sentence kept lying about the other half.
+        dupe_problems = check_uniqueness(reg, head_rows)
+        problems += [(R1, p) for p in dupe_problems]
+        verdict = ("unique" if not dupe_problems
+                   else f"⚠️ {len(dupe_problems)} UNIQUENESS PROBLEM(S) "
+                        f"— see the error block below, NOT unique")
 
         if base is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} "
                           f"(R2/R3 skipped — no base given)")
             continue
 
         base_state, base_doc, base_detail = _load_at_base(reg.path, base)
         if base_state == UNPARSEABLE:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (the copy at {base} {base_detail}) — a "
                           f"CORRUPT base, not a missing one")
             continue
         if base_doc is None:
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (no readable base at {base})")
             continue
         base_rows, base_state, _ = _rows(base_doc, reg.array)
         if base_state != "present":
-            report.append(f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            report.append(f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
                           f"R2 UNKNOWN (array {base_state} on {base})")
             continue
 
         idp, cov = check_identity(reg, base_rows, head_rows)
-        problems += idp
-        problems += check_new_rows_dateable(reg, base_rows, head_rows)
+        problems += [(R2, p) for p in idp]
+        problems += [(R3, p)
+                     for p in check_new_rows_dateable(reg, base_rows, head_rows)]
 
         pct = (100.0 * cov["assessed"] / cov["shared"]) if cov["shared"] else 100.0
         report.append(
-            f"  {reg.label}: {len(head_rows)} rows, unique{junk} · "
+            f"  {reg.label}: {len(head_rows)} rows, {verdict}{junk} · "
             f"R2a (creation-fact) assessed {cov['assessed']}/{cov['shared']} "
             f"shared ids ({pct:.0f}%), {cov['unassessable']} unassessable · "
             f"R2b (replacement) {cov['shared']}/{cov['shared']} (100%), "
@@ -576,12 +721,10 @@ def main(argv: Optional[List[str]] = None) -> int:
               "scripts/ops/merge_json_register.py) and re-run.")
         for label, detail in unparseable:
             print(f"  - {label}: {detail}")
-    if problems:
-        print("::error::A register id collided. Git cannot see this class: to "
-              "git a reused id is a changed value at the same key, so the merge "
-              "silently deletes the row that was already there.")
-        for p in problems:
-            print(f"  - {p}")
+    for headline, messages in group_by_headline(problems):
+        print(headline)
+        for message in messages:
+            print(f"  - {message}")
     if problems or unparseable:
         return 1
     print("register-id-guard: OK")
@@ -768,6 +911,52 @@ def _self_test() -> int:
                       "ABSENT" in " ".join(check(root, None, only)[1])
                       and "DID NOT PARSE" not in " ".join(check(root, None, only)[1]),
                       True))
+
+    # --- headline routing ------------------------------------------------
+    # ⚠️ PURE, so these need no tmp tree and no git: `group_by_headline` is the
+    # single place that decides which cause a finding is filed under, which is
+    # exactly what was wrong before 2026-09-17. The end-to-end proof that a
+    # REAL R3 run prints this headline lives in
+    # tests/test_register_ids_census_is_derived.py, which builds a git base.
+    _r3_only = group_by_headline([(R3, "undated row")])
+    cases.append(("headline: an R3-ONLY run is NOT filed as a collision",
+                  any(h is COLLIDED_HEADLINE for h, _ in _r3_only), False))
+    cases.append(("...and it IS filed under the no-creation-date headline",
+                  [h for h, _ in _r3_only] == [UNDATED_HEADLINE], True))
+
+    # THE POSITIVE CONTROL. Without it, deleting COLLIDED_HEADLINE entirely
+    # would satisfy every assertion above while destroying the guard's ability
+    # to report the collision it exists for.
+    _r1_only = group_by_headline([(R1, "dupe")])
+    cases.append(("headline: an R1-ONLY run IS filed as a collision "
+                  "(the positive control)",
+                  [h for h, _ in _r1_only] == [COLLIDED_HEADLINE], True))
+    cases.append(("headline: R2 shares the collision headline (MEASURED — its "
+                  "own message says a taken id was reused)",
+                  [h for h, _ in group_by_headline([(R2, "replaced")])]
+                  == [COLLIDED_HEADLINE], True))
+
+    # A rule that found nothing must contribute NO headline — the mirror of
+    # the defect, a heading asserting a cause nothing established.
+    cases.append(("headline: no findings prints no headline at all",
+                  group_by_headline([]) == [], True))
+
+    _both = group_by_headline([(R3, "undated"), (R1, "dupe")])
+    cases.append(("headline: a run tripping both prints BOTH, collision first",
+                  [h for h, _ in _both] == [COLLIDED_HEADLINE, UNDATED_HEADLINE],
+                  True))
+    cases.append(("...and every message survives the grouping",
+                  sorted(m for _, ms in _both for m in ms) == ["dupe", "undated"],
+                  True))
+
+    try:
+        group_by_headline([("R4", "a rule added without a headline")])
+        _unknown_raised = False
+    except KeyError:
+        _unknown_raised = True
+    cases.append(("headline: an UNTAGGED rule is a hard error, never a silent "
+                  "fallback to the collision headline",
+                  _unknown_raised, True))
 
     for label, got, want in cases:
         status = "PASS" if got == want else "FAIL"

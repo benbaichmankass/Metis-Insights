@@ -33,10 +33,72 @@
 # (`register-id-guard`) is that half, and it runs on every PR.
 
 docs/claude/health-review-backlog.json      merge=jsonregister
+# The other three review backlogs are the SAME row-register shape and were NOT
+# bound — measured 2026-09-13, all four carry `items[]` with a unique `id`, which
+# is what ID_FIELDS keys on. Only `health` was listed, so a hand-resolved conflict
+# in the other three silently drops rows: on 2026-09-13 resolving
+# performance-review-backlog.json by hand dropped BL-20260912-A-1000-ROW-TAIL-PULL-…
+# and every guard passed on the result. Running merge_json_register.py over that
+# same conflict's three inputs returns the correct 140 items with nothing dropped.
+docs/claude/performance-review-backlog.json merge=jsonregister
+docs/claude/ml-review-backlog.json          merge=jsonregister
+docs/claude/research-review-backlog.json    merge=jsonregister
 docs/claude/OPEN-ITEMS.json                 merge=jsonregister
 docs/claude/work/MANAGER-CHECKLIST.json     merge=jsonregister
 docs/claude/work/SESSIONS.json              merge=jsonregister
 docs/claude/work/OPEN-PRS.json              merge=jsonregister
+
+# ── MI-306 triage, 2026-09-18, against BL-20260913-THREE-OF-THE-FOUR-REVIEW-
+# BACKLOGS-WERE-NEVER-BOUND-TO-THE-ROW-AWARE-MERGE-DRIVER's own "next_step":
+# triage the (then 20, measured 21 today) unmarked candidates
+# `check_register_reserialization.py` reports, bind the genuine id-keyed
+# multi-session row registers, and record why the rest are not, so the
+# residue is a decision rather than a backlog.
+#
+# BOUND HERE — each carries a top-level array of objects keyed on a field in
+# ID_FIELDS (id/session_id/pr/item_id/key) and is APPENDED TO across sessions
+# over time, the same shape as the registers above:
+docs/claude/operator-owed-register.json      merge=jsonregister
+docs/claude/SUNSET-DISPOSITIONS.json         merge=jsonregister
+docs/claude/strategy-refinement-queue.json   merge=jsonregister
+docs/claude/RECURRENCE-LEDGER.json           merge=jsonregister
+docs/claude/work/MERGE-QUEUE.json            merge=jsonregister
+#
+# NOT BOUND — examined and judged genuinely out of scope, not merely skipped:
+#   docs/claude/DUE.json, ERROR-FEED-DIGEST.json, PROBES.json,
+#   work/CHECKLIST-ROUTING-AGE.json, UNCARRIED-SPEC-BASELINE.json,
+#   work/MANAGER-WAKE.json, work/PR-QUEUE-WATCH.json,
+#   work/REAPER-OBSERVATIONS.json
+#     -- WHOLESALE-REGENERATED reports: one producer rewrites the entire file
+#        each run from a fresh computation. There is no "row a session filed"
+#        to lose on a conflict; the correct remedy for a conflict here is
+#        regenerate-against-the-new-base (several already do this via
+#        commit-to-main's stale-branch refresh), not a row-aware 3-way merge
+#        of two computed snapshots that were never meant to be unioned.
+#   docs/claude/health-reviews/2026-08-03.json,
+#   docs/claude/reviews/2026-06-10-{health,ml,performance}-review.json,
+#   docs/claude/work/AUTOMATION-PR-DISPOSITIONS-2026-09-10.json
+#     -- DATED, WRITE-ONCE SNAPSHOTS: one file per run, named by date, never
+#        edited again. A new review produces a NEW file; it does not append
+#        to an old one, so there is no ongoing register here to protect.
+#   docs/claude/board-pointer.json
+#     -- `previous_boards[]` is real row-shaped history, but it is written on
+#        board ROTATION only (measured: 1 entry in the file's whole life) --
+#        too rare to be a live conflict source. Left unbound rather than
+#        bound-for-symmetry; revisit if rotations become frequent.
+#   docs/claude/session-board.json
+#     -- Genuinely the most contended file in the repo (CLAUDE.md: 39 of the
+#        last 40 commits touching it moved `merge_slot.branch`), but its hot
+#        field is a SINGLE object (`merge_slot`), not a row array, and
+#        `active_sessions[].session` is not a recognised ID_FIELDS key --
+#        binding it here would silently do nothing for the field that
+#        actually conflicts. The real fix already shipped is the per-branch
+#        claim file under `.github/merge-slots/` (see check_pr_landing.py
+#        R13), which sidesteps the shared field instead of merging it.
+#   docs/claude/CYCLE-PRIORITY.json
+#     -- `history[].cycle_id` is row-shaped but `cycle_id` is not an
+#        ID_FIELDS key and the file has had exactly 2 history entries ever;
+#        a code change to recognise it is not justified by the contention.
 
 # ── docs/claude/pending-pings.jsonl — merge=union, NOT merge=jsonregister ──
 #

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/register only: docs/claude/health-review-backlog.json (backlog_append.py-mediated closes) plus two CI-only files (.github/workflows/pytest-run.yml's relevance filter, tests/test_pytest_run_filter.py's scan + planted control). No src/, config/, deploy/, or order-path change."
+}

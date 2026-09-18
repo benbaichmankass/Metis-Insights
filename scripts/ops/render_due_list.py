@@ -149,6 +149,105 @@ def _day(v: Any) -> date | None:
         return None
 
 
+#: The tracking-id prefixes `scripts/ops/check_backlog_refs.py::REF` matches.
+#:
+#: ⚠️ DELIBERATELY A COPY, NOT AN IMPORT, AND THE DRIFT IS CLOSED BY A TEST.
+#: `check_backlog_refs.py` is a CI guard with its own argv/exit contract, and
+#: importing it here to read one regex would put a guard's module-scope work on
+#: the hot path of the renderer that guard grades. `tests/test_due_list_id_safe_
+#: truncation.py` parses `REF` out of that file and asserts this set equals it,
+#: so the two cannot diverge silently — which is the only failure a copy has.
+_ID_PREFIXES = ("BL", "MB", "FU")
+
+#: A register id left DANGLING by a cut: the id shape, anchored to the end of
+#: the clipped string. The trailing `-?` matters — a cut can land on the hyphen
+#: itself, and a cut ending `…-BYBIT2-` is just as dangling as one ending
+#: `…-PAGE-R`. (The examples are written WITHOUT their date digits on
+#: purpose — see the note in `_clip`'s docstring.)
+_ID_TAIL = re.compile(
+    r"\b(?:" + "|".join(_ID_PREFIXES) + r")-\d{0,8}(?:-[A-Z0-9]+)*-?[A-Z0-9]*$"
+)
+
+
+def _clip(text: Any, limit: int) -> str:
+    """`text` truncated to `limit`, NEVER leaving a partial tracking id behind.
+
+    ⚠️ THIS IS NOT COSMETIC — A TRUNCATED ID IS A REFERENCE THAT RESOLVES TO
+    NOTHING, AND IT TOOK THE DUE-LIST OFF THE AIR FOR FOUR DAYS. A bare
+    ``[:200]`` over register-supplied prose cuts wherever 200 characters land.
+    On 2026-09-12 that happened to land inside a filed id, so from the next
+    render onward every ``DUE.json``/``DUE.md`` carried
+    a 37-character prefix of the real ``BL-<YYYYMMDD>-BYBIT2-SETTLE-COIN-PAGE-``
+    row — a reference that matches nothing. ``check_backlog_refs.py`` then
+    correctly refused the
+    commit, so **the producer generated output its own repo could never accept**
+    and `error-feed-digest.yml` landed 0 of 22 runs. A generated artifact that
+    CI must reject is a self-strangling loop, not a flake.
+
+    ⚠️ THE CLASS WAS KNOWN AND THE FIX DID NOT REACH THE PRODUCER. This file
+    already carried a comment (at the `src_probes` hand-off) saying an id is
+    kept on one line *because* wrapping truncates it; and
+    `check_backlog_refs.py::suggest_for` records measuring n=3 truncations on
+    2026-09-13 and concluding the failure mode is REFORMATTING. Both readings
+    were right and both looked only at **hand-written prose**. Neither asked
+    whether anything truncates ids *programmatically* — and something did,
+    hourly, into a committed artifact.
+
+    The rule is: **the whole id, or none of it.**
+
+    - Cut lands in ordinary text → plain truncation, unchanged behaviour.
+    - Cut lands inside an id → cut again *before* that id starts.
+    - …and that would leave nothing (the id begins at offset 0 and is itself
+      longer than `limit`) → keep the id WHOLE and overrun `limit`.
+
+    That last branch is the one worth defending: it is the only case where this
+    returns more than `limit` characters. Ids are bounded (~150 chars on the
+    live register), an over-long row is a readability cost, and the alternative
+    — emitting a fragment — is the defect. A row that reads as tracked while
+    being tracked by nobody is the exact crack the 2026-07-30 operator directive
+    names, and it is worse than a long line.
+
+    ⚠️ THE EXAMPLES ABOVE ARE DELIBERATELY WRITTEN WITHOUT THEIR DATE DIGITS,
+    AND RESTORING THEM RE-BREAKS THIS FILE. ``check_backlog_refs.py`` scans
+    ``scripts/`` as well as ``docs/``, and its ``REF`` needs ``\d{8}`` to
+    match — so spelling a truncated id literally here makes THIS docstring a
+    dangling reference and fails the guard. Writing the explanation re-created
+    the finding it explains; that is recorded rather than quietly worked
+    around, because it is the same shape as the bug.
+
+    ⚠️ IT NEVER REWRITES, ONLY CLIPS. Nothing here repairs a dangling id that
+    was already dangling in the register — that is the author's to fix, and
+    `check_backlog_refs.py` still says so. This only guarantees the renderer
+    does not MANUFACTURE one.
+    """
+    text = str(text if text is not None else "")
+    if limit <= 0 or len(text) <= limit:
+        return text
+
+    cut = text[:limit]
+    # Does the boundary fall INSIDE a token? If the next character cannot
+    # continue an id, nothing was split and the plain cut is correct.
+    nxt = text[limit]
+    if not (nxt.isalnum() or nxt == "-"):
+        return cut
+
+    m = _ID_TAIL.search(cut)
+    if m is None:
+        return cut
+
+    head = cut[:m.start()].rstrip()
+    if head:
+        return head
+
+    # The id starts at offset 0 and does not fit. Emit it whole rather than
+    # emit a fragment — see the docstring's third bullet.
+    whole = re.match(
+        r"\b(?:" + "|".join(_ID_PREFIXES) + r")-\d{8}-[A-Z0-9]+(?:-[A-Z0-9]+)*",
+        text,
+    )
+    return whole.group(0) if whole else cut
+
+
 # ── sources ────────────────────────────────────────────────────────────────
 
 def src_open_items(root: Path, today: date) -> SourceResult:
@@ -168,7 +267,7 @@ def src_open_items(root: Path, today: date) -> SourceResult:
     rows = []
     for it in items:
         ident = it.get("id", "(no id)")
-        title = (it.get("summary") or "")[:200]
+        title = _clip(it.get("summary"), 200)
         loud = bool(it.get("loud"))
         # Both spellings occur in the live register; neither is authoritative.
         last = _day(it.get("verified_at")) or _day(it.get("last_checked"))
@@ -281,7 +380,7 @@ def src_soaks(root: Path, today: date) -> SourceResult:
             # nobody can read is not a soak that has been checked, and silently
             # dropping it would make a typo look like a row with no soak.
             tally["unknown"] += 1
-            rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+            rows.append(_row("soaks", ident, _clip(it.get("summary"), 200),
                              "soak declaration is UNGRADEABLE — " + "; ".join(bad)))
             continue
 
@@ -301,7 +400,7 @@ def src_soaks(root: Path, today: date) -> SourceResult:
         if not v.surfaces:
             context.append(f"{ident}: {v.state}")
             continue
-        rows.append(_row("soaks", ident, (it.get("summary") or "")[:200],
+        rows.append(_row("soaks", ident, _clip(it.get("summary"), 200),
                          f"soak {v.state.upper()} — {v.why}",
                          age_days=v.days_since_declared, loud=v.escalates))
 
@@ -376,7 +475,7 @@ def src_operator_owed(root: Path, today: date) -> SourceResult:
                f"{sorted(open_statuses | terminal_statuses)} — ungradeable, "
                f"surfaced rather than dropped")
         rows.append(_row("operator_owed", it.get("id", "(no id)"),
-                         (it.get("title") or "")[:200],
+                         _clip(it.get("title"), 200),
                          why,
                          age_days=(today - opened).days if opened else None,
                          loud=True))
@@ -547,7 +646,7 @@ def src_probes(
             continue
         if state == "fail":
             rows.append(_row("probes", r.get("id", "(no id)"),
-                             (r.get("checks") or "")[:200],
+                             _clip(r.get("checks"), 200),
                              "probe FAILED — its declared observation did not hold" + stamp,
                              loud=True))
         elif state == "could_not_run" and r.get("reason") != "no_probe_declared":
@@ -600,7 +699,7 @@ def src_research_queue(
                 elif s.startswith("title:") and not title:
                     title = s.split(":", 1)[1].strip()
             if status == "queued":
-                rows.append(_row("research_queue", f.stem, title[:200],
+                rows.append(_row("research_queue", f.stem, _clip(title, 200),
                                  "research job still queued"))
     except OSError as exc:
         return SourceResult("research_queue", "could_not_read", note=f"OSError: {exc}")
@@ -670,6 +769,81 @@ def src_red_crons(
 _PUSH_RUN_NOT_A_FINDING = (None, "success", "cancelled", "skipped")
 
 
+#: Three never-collapsed answers to "how far behind `main`'s tip was the commit
+#: this verdict actually graded?". `distance_unknown` is *we could not look* and
+#: is NEVER folded into `at_tip` — the whole defect being repaired here is a
+#: verdict that read as a statement about the tip without having graded it.
+GRADE_AT_TIP = "at_tip"
+GRADE_BEHIND_TIP = "behind_tip"
+GRADE_DISTANCE_UNKNOWN = "distance_unknown"
+
+
+def grade_distance(main_shas: list[str],
+                   graded_sha: str | None) -> tuple[str, int | None]:
+    """How many commits on `main` are NEWER than the one a run graded.
+
+    `main_shas` is newest-first, as the commits API returns it, so the INDEX is
+    the distance: index 0 is the tip and therefore distance 0.
+
+    ⚠️ A sha that is not in the list returns `distance_unknown`, NEVER
+    `len(main_shas)`. The list is one page, so absence means *the commit is
+    older than the page* OR *it is not on `main` at all* — two different facts,
+    and inventing a number for either would put a fabricated denominator on a
+    verdict whose whole defect was having none.
+    """
+    if not graded_sha or not main_shas:
+        return GRADE_DISTANCE_UNKNOWN, None
+    try:
+        idx = main_shas.index(graded_sha)
+    except ValueError:
+        return GRADE_DISTANCE_UNKNOWN, None
+    return (GRADE_AT_TIP if idx == 0 else GRADE_BEHIND_TIP), idx
+
+
+def _placement_phrase(state: str, dist: int | None) -> str:
+    """Render one graded commit's placement for a human, denominator attached."""
+    if state == GRADE_AT_TIP:
+        return "`main`'s tip"
+    if state == GRADE_BEHIND_TIP:
+        return f"{dist} commit(s) behind `main`'s tip"
+    return "distance from the tip UNKNOWN — we could not look"
+
+
+def _red_main_note(placements: dict[str, tuple[str, int | None]],
+                   red_n: int, commits_note: str) -> str:
+    """State the population a `red_main_runs` verdict rests on.
+
+    ⚠️ THE ZERO-ROW CASE IS WHY THIS EXISTS. The source emits a row only on a
+    real failure, so a green run renders as no rows at all — which reads as
+    *the default branch is clean* while what was established is only *the most
+    recent commit anyone graded was clean*. MEASURED 2026-09-17: `main`'s tip
+    was `00045e5d3` while the newest COMPLETED push-to-main `guards` run had
+    graded `88de5e156`, **4 commits back, all 4 of them touching a register** —
+    the class that turned `main` red twice that day. `main` happened to be
+    clean; the point is that this source could not tell the two apart.
+    """
+    graded = len(placements)
+    behind = [d for (s, d) in placements.values()
+              if s == GRADE_BEHIND_TIP and d is not None]
+    unknown = sum(1 for (s, _d) in placements.values()
+                  if s == GRADE_DISTANCE_UNKNOWN)
+    at_tip = sum(1 for (s, _d) in placements.values() if s == GRADE_AT_TIP)
+    parts = [
+        f"{graded} workflow(s) graded, {red_n} red",
+        f"{at_tip} graded at `main`'s tip",
+        (f"worst distance {max(behind)} commit(s) behind"
+         if behind else "none graded behind the tip"),
+        f"{unknown} with distance_unknown",
+    ]
+    if commits_note:
+        parts.append(commits_note)
+    parts.append(
+        "⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict "
+        "is the latest COMPLETED push run, and an auto-merged PR produces no "
+        "push run at all, so the tip is routinely ungraded")
+    return " · ".join(parts)
+
+
 def src_red_main_runs(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
     today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
@@ -719,6 +893,22 @@ def src_red_main_runs(
         return SourceResult("red_main_runs", "could_not_read",
                             note=f"{type(exc).__name__}: {exc}")
 
+    #: `main`'s recent commits, newest-first, so every verdict can name the
+    #: commit it graded and how far back that is.
+    #: ⚠️ A FAILURE HERE MUST NOT SUPPRESS A RED ROW. The point of this source
+    #: is the red; losing it because the denominator could not be read would be
+    #: strictly worse than the unprovenanced verdict this repairs. On failure
+    #: every placement degrades to `distance_unknown` and the reds still ship.
+    main_shas: list[str] = []
+    commits_note = ""
+    try:
+        commits = _gh(f"/repos/{REPO}/commits?sha=main&per_page=100", token)
+        main_shas = [c.get("sha", "") for c in commits if isinstance(c, dict)]
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        commits_note = (f"could not read `main`'s commit list "
+                        f"({type(exc).__name__}) — every distance below reads "
+                        f"`distance_unknown`")
+
     latest: dict[str, dict] = {}
     for run in data.get("workflow_runs", []):
         if run.get("status") != "completed":
@@ -726,16 +916,158 @@ def src_red_main_runs(
         name = run.get("name") or run.get("path", "?")
         if name not in latest:            # the API returns newest-first
             latest[name] = run
-    rows = []
-    for name, run in sorted(latest.items()):
-        if run.get("conclusion") not in _PUSH_RUN_NOT_A_FINDING:
-            rows.append(_row("red_main_runs", name, name,
-                             f"the latest push-to-main run of {name} concluded "
-                             f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
-                             f"red, and until 2026-09-13 nothing read this",
-                             loud=True, link=run.get("html_url", "")))
-    return SourceResult("red_main_runs", "read", rows)
 
+    rows = []
+    placements: dict[str, tuple[str, int | None]] = {}
+    for name, run in sorted(latest.items()):
+        sha = run.get("head_sha") or ""
+        placements[name] = grade_distance(main_shas, sha)
+        if run.get("conclusion") in _PUSH_RUN_NOT_A_FINDING:
+            continue
+        rows.append(_row("red_main_runs", name, name,
+                         f"the latest push-to-main run of {name} concluded "
+                         f"{run.get('conclusion')!r} — the DEFAULT BRANCH is "
+                         f"red, and until 2026-09-13 nothing read this. Graded "
+                         f"at {sha[:9] or '(no sha)'}, "
+                         f"{_placement_phrase(*placements[name])}",
+                         loud=True, link=run.get("html_url", "")))
+    return SourceResult("red_main_runs", "read", rows,
+                        note=_red_main_note(placements, len(rows), commits_note))
+
+
+
+def _declared_workflow_names(root: Path) -> tuple[dict[str, str], list[str], int]:
+    """Map `.github/workflows/<f>` -> the `name:` the FILE declares.
+
+    Returns (declared, unreadable, no_name_count).
+
+    ⚠️ THE `no_name` BUCKET IS THE WHOLE REASON THIS READS THE FILES AT ALL.
+    GitHub reports a workflow's `name` as its PATH in two completely different
+    situations: when the file declares no `name:` (correct, ordinary), and when
+    GitHub could not parse the file (the defect). Without the local declaration
+    there is no way to tell them apart, and a source that skipped this step
+    would raise a loud row for every name-less workflow in the repo.
+    """
+    declared: dict[str, str] = {}
+    unreadable: list[str] = []
+    no_name = 0
+    wf_dir = root / ".github" / "workflows"
+    if not wf_dir.is_dir():
+        return declared, unreadable, no_name
+    try:
+        import yaml
+    except ImportError:                 # handled by the caller; never silent
+        raise
+    for f in sorted(list(wf_dir.glob("*.yml")) + list(wf_dir.glob("*.yaml"))):
+        rel = f".github/workflows/{f.name}"
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8"))
+        except Exception:
+            unreadable.append(rel)
+            continue
+        if isinstance(doc, dict) and isinstance(doc.get("name"), str) and doc["name"].strip():
+            declared[rel] = doc["name"]
+        else:
+            no_name += 1
+    return declared, unreadable, no_name
+
+
+def src_unparseable_workflows(
+    root: Path,
+    today: date,  # inert: today — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
+    *,
+    token: str | None = None,
+) -> SourceResult:
+    """Workflows GitHub holds but has never been able to PARSE.
+
+    A workflow file that is valid YAML can still be invalid to Actions. When it
+    is, GitHub fails EVERY run of it at startup — zero jobs, zero duration — and
+    reports the workflow's `name` as its PATH, because it never read a `name:`
+    out of the file.
+
+    MEASURED 2026-09-17, which is why this exists:
+      * `.github/workflows/ranking-key-ab.yml` has **3,393 completed runs**; the
+        newest 100, spanning 2.6 hours, are 100/100 `failure`, 100/100 zero
+        duration, `total_jobs: 0`. ~38 failing runs an hour.
+      * GET /actions/workflows/ranking-key-ab.yml returns
+        `name: '.github/workflows/ranking-key-ab.yml'` with `state: active`,
+        while the file itself declares `name: ranking-key-ab` on its first line.
+      * NOTHING PAGED ON IT. `claude-run-failure-alert.yml` scopes to CRON'D
+        workflows and this one declares no `schedule:`, so it is correctly out
+        of that guard's reach — and that guard's premise ("on a relay someone is
+        waiting") does not hold for an ordinary push-triggered workflow.
+      * It was found only because `src_red_main_runs` happened to surface it.
+
+    ⚠️ THIS REPORTS THE CONDITION, NOT ITS CAUSE, and says so in the row. Three
+    hypotheses for `ranking-key-ab` are already refuted with positive controls
+    (the 10-input `workflow_dispatch` cap — `system-actions.yml` has 14 and
+    parses; input description length — `m20-exit-lever-sweep.yml` is longer and
+    parses; an empty concurrency group — the group is always populated). A
+    fourth guess dressed as a cause would be worse than the open question.
+    """
+    token = token if token is not None else os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="no GITHUB_TOKEN — cannot ask GitHub what it parsed")
+    try:
+        declared, unreadable, no_name = _declared_workflow_names(root)
+    except ImportError:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="PyYAML is absent, so the declared names could "
+                                 "not be read — and without them a path-named "
+                                 "workflow cannot be told from an unparseable one")
+    if not declared:
+        return SourceResult("unparseable_workflows", "could_not_read",
+                            note="no workflow file declares a name — that is a "
+                                 "missing denominator, not a clean repo")
+
+    #: ⚠️ PAGINATED DELIBERATELY. The repo carries ~143 workflow files against a
+    #: 100-per-page API, so a single page would silently grade two thirds of
+    #: them and report the rest as clean.
+    seen: dict[str, str] = {}
+    page = 1
+    while page <= 10:
+        try:
+            data = _gh(f"/repos/{REPO}/actions/workflows"
+                       f"?per_page=100&page={page}", token)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return SourceResult("unparseable_workflows", "could_not_read",
+                                note=f"page {page}: {type(exc).__name__}: {exc}")
+        batch = data.get("workflows", [])
+        if not batch:
+            break
+        for wf in batch:
+            p = wf.get("path") or ""
+            if p and p not in seen:
+                seen[p] = wf.get("name") or ""
+        if len(batch) < 100:
+            break
+        page += 1
+
+    rows = []
+    graded = 0
+    for path, declared_name in sorted(declared.items()):
+        github_name = seen.get(path)
+        if github_name is None:
+            continue                      # GitHub holds no record for it yet
+        graded += 1
+        if github_name == path:
+            rows.append(_row(
+                "unparseable_workflows", path, path,
+                f"GitHub reports this workflow's name as its PATH while the file "
+                f"declares `name: {declared_name}` — so GitHub has never parsed "
+                f"it, and EVERY run of it fails at startup with zero jobs. The "
+                f"CONDITION is the finding; the CAUSE is not established here and "
+                f"a guess would be worse than the open question",
+                loud=True,
+                link=f"https://github.com/{REPO}/actions/workflows/{path.split('/')[-1]}"))
+
+    note = (f"{len(seen)} workflow(s) known to GitHub · {len(declared)} local "
+            f"file(s) declare a name · {graded} gradeable (both sides present) · "
+            f"{no_name} skipped because the file declares NO name, where a "
+            f"path-valued name is CORRECT rather than a defect · "
+            f"{len(unreadable)} local file(s) unreadable as YAML")
+    return SourceResult("unparseable_workflows", "read", rows, note=note)
 
 def src_unlanded_automation(
     root: Path,  # inert: root — every source shares ONE signature so `collect` dispatches them uniformly; this one has no use for it
@@ -760,7 +1092,7 @@ def src_unlanded_automation(
             continue
         opened = _day(pr.get("created_at"))
         rows.append(_row("unlanded_automation", f"#{pr.get('number')}",
-                         (pr.get("title") or "")[:200],
+                         _clip(pr.get("title"), 200),
                          "producer output opened a PR that has not landed",
                          age_days=(today - opened).days if opened else None,
                          loud=True, link=pr.get("html_url", "")))
@@ -862,7 +1194,7 @@ def src_error_feed(
             "ERRFEED-" + hashlib.sha1(
                 g.get("cause", "").encode("utf-8")).hexdigest()[:8],
             f"[{g.get('level')}] {'NEW ' if g.get('is_new') else ''}"
-            f"x{g.get('count')} {g.get('cause', '')[:140]}",
+            f"x{g.get('count')} {_clip(g.get('cause'), 140)}",
             f"error-level condition on `{g.get('feed')}`, "
             + ("FIRST SEEN since the last digest — " if g.get("is_new")
                else "STANDING (predates the last digest) — ")
@@ -1086,7 +1418,7 @@ def src_checklist_unrouted(root: Path, today: date) -> SourceResult:  # inert: t
     for r in reg.get("newly_stalled") or []:
         rows.append(_row(
             "checklist_unrouted", str(r.get("id", "(no id)")),
-            str(r.get("title") or "(no title)")[:140],
+            _clip(r.get("title") or "(no title)", 140),
             f"FILED AND NEVER ROUTED — {r.get('unrouted_hours', '?')}h with "
             f"owner `{r.get('owner', '?')}` and status `{r.get('status', '?')}`, past the "
             f"measured {thr}h threshold. Route it, disposition it, or record why it stays "
@@ -1408,7 +1740,7 @@ def src_spent_decision_edges(
             rows.append(_row(
                 "spent_decision_edges", f"stranded-edge-{obj}",
                 f"{obj} is `waiting` on an UNRESOLVABLE edge",
-                (f"Its `blocked_on` ref is {str(ref)[:120]!r}, graded "
+                (f"Its `blocked_on` ref is {_clip(ref, 120)!r}, graded "
                  f"{mod.EDGE_UNRESOLVABLE} — no decision request in the store "
                  f"declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE "
                  f"OPPOSITE: a spent edge is discharged by re-pointing or "
@@ -1439,7 +1771,7 @@ def src_spent_decision_edges(
         rows.append(_row(
             "spent_decision_edges", "spent-edge-objects-unparseable",
             f"{len(unparsed)} work object(s) did not parse",
-            (f"{'; '.join(unparsed)[:400]} — so every count below is over the "
+            (f"{_clip('; '.join(unparsed), 400)} — so every count below is over the "
              f"PARSED set only. A loader silently skipping a file understates "
              f"the spent set, which is the direction nobody re-checks."),
             loud=True, link=str(_WORK_OBJECTS)))
@@ -1542,7 +1874,8 @@ def src_manager_queue_watch(
 
 SOURCES: tuple[Callable, ...] = (
     src_open_items, src_soaks, src_operator_owed, src_research_queue, src_probes,
-    src_red_crons, src_red_main_runs, src_unlanded_automation, src_error_feed,
+    src_red_crons, src_red_main_runs, src_unparseable_workflows,
+    src_unlanded_automation, src_error_feed,
     src_sunset_dispositions, src_checklist_unrouted, src_stuck_branches,
     src_settled_disposition_owed, src_spent_decision_edges,
     src_manager_queue_watch,
@@ -1595,7 +1928,8 @@ def collect(root: Path, today: date, *, token: str | None = None) -> list[Source
     out = []
     for fn in SOURCES:
         try:
-            if fn in (src_red_crons, src_red_main_runs, src_unlanded_automation):
+            if fn in (src_red_crons, src_red_main_runs, src_unlanded_automation,
+                      src_unparseable_workflows):
                 out.append(fn(root, today, token=token))
             else:
                 out.append(fn(root, today))
@@ -1625,6 +1959,44 @@ def render_markdown(env: dict) -> str:
 
 
 # ── self-test: planted controls, so a vacuous pass is impossible ───────────
+
+def _state_and_cause(got: "SourceResult") -> str:
+    """The assertion message for a source that did not read — WITH its cause.
+
+    ⚠️ **THIS EXISTS BECAUSE A MESSAGE THAT NAMED NO CAUSE COST FOUR DAYS.**
+    The three `state == "read"` assertions below used to fail as bare
+    ``AssertionError: could_not_read``. That is UNPROVENANCED DIAGNOSTIC OUTPUT
+    sub-class A (`CLAUDE.md` § "Diagnostic provenance"): the label names the
+    grade and says nothing about the derivation, and a reader takes it as a
+    statement about the SOURCE LOGIC the assertion appears to be testing.
+
+    It was not the source logic. Measured over `due-list.yml`'s complete run
+    history, runs #104-#107 (2026-09-13 .. 2026-09-16, all `event=schedule`)
+    concluded `failure` **4 of 4**, each in seconds at this gate, on
+
+        scripts/ci/check_decision_answers.py: ModuleNotFoundError: No module named 'yaml'
+
+    — a dependency the runner does not install, nothing to do with the grading.
+    `SourceResult.note` already carried that string and the assertion dropped it
+    on the floor, so the run log showed only the grade.
+
+    ⚠️ **THIS DOES NOT WEAKEN THE GATE, AND MUST NOT BE MADE TO.** The
+    assertion still requires `read`; only what it PRINTS on the way out
+    changes. `constraint-readout.yml`'s note on the same failure class is
+    right — *"THE GATE WAS NOT THE BUG — IT WORKED"* — and a run that skipped
+    it would commit a due-list whose parked-edge source diagnosed nothing.
+
+    ⚠️ **THE NAME IS DELIBERATELY NOT `_why`.** `_self_test` rebinds `_why` as a
+    loop variable partway through its own body, which makes that name LOCAL for
+    the whole function — so a helper called `_why` resolves to the leftover
+    string at every assertion site and dies as `TypeError: 'str' object is not
+    callable`, replacing one uninformative message with a worse one. Caught by
+    running this file with `yaml` blocked; a run without the block never reaches
+    the line, so a green self-test would not have found it.
+    """
+    note = (getattr(got, "note", "") or "").strip()
+    return f"{got.state} — {note}" if note else f"{got.state} (no note recorded)"
+
 
 def _self_test() -> int:
     r_ok = SourceResult("a", "read", [_row("a", "1", "t", "w")])
@@ -1672,6 +2044,10 @@ def _self_test() -> int:
     assert src_red_main_runs(Path("."), today, token="").state == "could_not_read"
     assert src_red_main_runs in SOURCES, \
         "src_red_main_runs is not registered in SOURCES — a source nothing calls"
+
+    assert src_unparseable_workflows(Path("."), today, token="").state == "could_not_read"
+    assert src_unparseable_workflows in SOURCES, \
+        "src_unparseable_workflows is not registered in SOURCES — a source nothing calls"
     assert src_unlanded_automation(Path("."), today, token="").state == "could_not_read"
 
     # ── PROBE FRESHNESS: the gap this renderer shipped with ────────────────
@@ -1986,7 +2362,7 @@ def _self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         root = _opr_tree(td, _settled(pr=4242, terminal="closed_unmerged"))
         got = src_settled_disposition_owed(root, today)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         ids = {r["id"] for r in got.rows}
         assert ids == {"settled-prs-disposition-owed"}, ids
         row = got.rows[0]
@@ -2049,7 +2425,7 @@ def _self_test() -> int:
 
     with tempfile.TemporaryDirectory() as td:
         got = src_manager_queue_watch(_mqw_tree(td, None), today, now=_now)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         ids = {r["id"] for r in got.rows}
         assert ids == {"manager-queue-watch-never-ran-overdue"}, ids
         row = got.rows[0]
@@ -2173,7 +2549,7 @@ blocked_on:
 
     with tempfile.TemporaryDirectory() as td:
         got = src_spent_decision_edges(_sde_tree(td, {"WO-TEST-PARKED.yaml": _WAITING_SPENT}), today)
-        assert got.state == "read", got.state
+        assert got.state == "read", _state_and_cause(got)
         assert {r["id"] for r in got.rows} == {"spent-edge-WO-TEST-PARKED"}, got.rows
         assert got.rows[0]["loud"], "a parked object is loud, not a footnote"
         assert got.rows[0]["link"] == f"{_WORK_OBJECTS}/WO-TEST-PARKED.yaml", \

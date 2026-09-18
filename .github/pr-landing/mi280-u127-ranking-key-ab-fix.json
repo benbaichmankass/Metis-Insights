@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 — 'GitHub Actions workflow fixes' by the canonical doc's own list. One workflow's job header plus one `if:` expression in .github/workflows/ranking-key-ab.yml, and one appended update to an existing backlog row. No src/, no config/, no deploy/, no scripts, no tests. No path touched is on LANDING_MACHINERY (checked against the list, not assumed) — ranking-key-ab.yml is a research harness, not part of the landing route — so R12 does not apply. The change makes an INVALID workflow valid: it has never once reached a job, so there is no working behaviour to regress, and its effect is to STOP ~38 failing runs an hour. It arms nothing: the workflow's declared triggers are workflow_dispatch and a paths-filtered push, so nothing fires automatically as a result."
+}

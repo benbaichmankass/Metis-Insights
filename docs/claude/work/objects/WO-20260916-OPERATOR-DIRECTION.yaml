@@ -1,0 +1,243 @@
+id: WO-20260916-OPERATOR-DIRECTION
+type: commitment
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  The four operator answers of 2026-09-16 — the first-lane choice, the Tier-3
+  geometry ruling, the pacing rules, and the real-money hedge-book answer
+stage: DECIDED
+lifecycle: in_flight
+owner: session_01HoFquGdTrD3TTGbMMRc43t
+opened_at: '2026-09-16'
+closed_at: null
+
+why: >-
+  Four operator answers were given in one popup round on 2026-09-16, on the
+  session that resumed after the weekly credit exhaustion. They are recorded
+  HERE, in one file, because the previous round's answers were nearly lost to a
+  session that ran out of budget mid-turn — and because two of them are Tier-3
+  rulings a later session could otherwise reach the opposite way from the same
+  evidence. A decision held only in a session's context dies with that session.
+
+'⚠️_READ_THIS_BEFORE_ACTING_ON_ANY_ROW_BELOW': >-
+  NONE of these four is an approval to change a live order path, a strategy
+  param, or a risk cap. Two of them are explicit REFUSALS to change one. The
+  operator was asked directly and answered directly; do not re-ask, and do not
+  read a deferral as an invitation to propose the same change again with better
+  framing.
+
+decisions:
+
+  - id: DEC-20260916-FIRST-LANE-AFTER-THE-PAUSE
+    question: >-
+      Which single workstream is picked up first on resume, under the new
+      one-lane-at-a-time pacing?
+    options_offered:
+      - loud_flag_diagnosis
+      - fix_the_23_failing_harnesses
+      - both_sequentially
+      - trading_review_first
+    chosen: fix_the_23_failing_harnesses
+    answered_at: '2026-09-16'
+    answered_by: operator
+    tier: 1
+    '⚠️_THE_MANAGER_RECOMMENDED_THE_OTHER_ONE_AND_WAS_OVERRULED': >-
+      The manager recommended the loud-flag diagnosis on cost grounds (~6-8
+      units vs ~12-20). The operator chose the harnesses anyway. That is the
+      decision; the recommendation is recorded only so a later session does not
+      read the cheaper option as still live. The loud-flag diagnosis is NOT
+      cancelled — it is SECOND, and DEC-20260912-LOUD-FLAG-TRIAGE stays open and
+      unanswerable until it is done.
+    what_this_unblocks: >-
+      33 of 52 strategy legs carry NO offline edge evidence — 23 coverage_state
+      harness_failed, 10 no_harness, measured over all 52 files in
+      comms/strategy_evidence/ on 2026-09-16. That gap is the whole reason the
+      2026-09-16 strategy-review index proposes no_offline_evidence on 32 legs
+      and actionable 0. It is also, per DEC-20260916-E35-GEOMETRY below, what
+      now blocks the Tier-3 geometry question.
+
+  - id: DEC-20260916-E35-GEOMETRY
+    question: >-
+      The e35 bracket-geometry attribution came back both_contribute — the
+      market regime AND the tighter stop (atr_stop_mult 2.5 -> 2.0, shipped
+      2026-08-30 to 9 legs, 3 of them real money) each contributed to the 17-day
+      losing run. Reverting e35 alone was never the answer. Tier-3 — propose
+      only. What is the call?
+    options_offered:
+      - revert_to_2_5_on_the_3_real_money_legs_only
+      - revert_all_9_legs_to_2_5
+      - keep_2_0_decide_later
+      - do_not_touch_until_the_harnesses_are_fixed
+    chosen: do_not_touch_until_the_harnesses_are_fixed
+    answered_at: '2026-09-16'
+    answered_by: operator
+    tier: 3
+    ruling: >-
+      The per-leg target/stop geometry is NOT to be changed off the live n=1-8.
+      The basis for any future geometry proposal is the offline-harness MFE
+      distribution at stated n. No geometry change may be proposed until that
+      distribution exists.
+    '⚠️_BOTH_REVERT_OPTIONS_WERE_OFFERED_AND_BOTH_WERE_DECLINED': >-
+      This is the reading the attribution most invites and it is WRONG. The
+      popup offered reverting the 3 real-money legs, and reverting all 9, as
+      separate options. Neither was chosen. A later session that proposes
+      reverting e35 on the strength of the bleed attribution is re-opening a
+      question the operator answered on 2026-09-16 with the attribution in front
+      of them. atr_stop_mult STAYS AT 2.0 on all 9 legs.
+    '⚠️_THIS_IS_NOT_KEEP_2_0_DECIDE_LATER_EITHER': >-
+      That was option 3 and was also not chosen. The difference is load-bearing:
+      option 3 would have deferred on the clock, this defers on an EVIDENCE
+      PRECONDITION. The question re-opens when the harness MFE distribution
+      exists, and not before — so 'it has been a while, shall we revisit' is not
+      the trigger.
+    '⚠️_IT_DOES_NOT_CLEAR_THE_CALIBRATION_OPEN_ITEM': >-
+      OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON
+      stays OPEN. Its clause (1) wants an approval, a rejection, or a ruling
+      that the sentinel idiom stays — none of which this is. Its clause (2)
+      wants the MFE distribution PRODUCED and a per-leg proposal put off that n
+      — which this decision ROUTES to but does not meet. Routing a clause is not
+      meeting it.
+
+  - id: DEC-20260916-PACING-RULES
+    question: >-
+      Last week burned $5,896 across 40 sessions; two lanes were 41.5% of it
+      (MI-280 $1,309, MI-278 $1,138), both on open-ended drain-the-queue
+      mandates with no cap, while MI-279 did comparable ops work for $69. Which
+      pacing rules are in force?
+    options_offered:
+      - hard_unit_cap_per_lane_8_to_12
+      - no_open_ended_drain_the_backlog_mandates
+      - manager_ticks_every_2h_not_hourly
+      - one_lane_at_a_time_not_three
+    chosen:
+      - hard_unit_cap_per_lane_8_to_12
+      - no_open_ended_drain_the_backlog_mandates
+      - manager_ticks_every_2h_not_hourly
+    answered_at: '2026-09-16'
+    answered_by: operator
+    tier: 1
+    binding_on_every_manager_session_from_now: >-
+      (1) Every spawned lane carries an EXPLICIT unit cap of 8-12 and REPORTS
+      BACK when it reaches it rather than continuing. A lane that needs more
+      asks; it does not assume. (2) No spawn prompt may carry an open-ended
+      drain-the-queue or work-until-empty mandate — every spawn names a
+      specific, finishable deliverable. (3) The manager heartbeat cadence is
+      every 90 MINUTES. ⚠️ CLAUSE (3) READ "every 2 hours, not hourly" until
+      2026-09-17 and that is NO LONGER THE RULE — do not re-quote it. It is
+      superseded by DEC-20260917-MANAGER-TICK-CADENCE below, which the operator
+      answered on 2026-09-17 to resolve the R7 contradiction this same decision
+      flagged. The 09-16 wording is preserved in
+      '⚠️_CLAUSE_3_AS_ANSWERED_ON_2026_09_16' so the record of what was actually
+      chosen that day is not overwritten by its own correction. Clauses (1) and
+      (2) are UNTOUCHED and remain in force exactly as written.
+    '⚠️_ONE_LANE_AT_A_TIME_WAS_OFFERED_AND_NOT_SELECTED': >-
+      The fourth option — serialize to one lane — was NOT chosen. So concurrency
+      is still permitted; what is capped is each lane's spend and mandate. Do
+      not enforce a one-lane rule the operator declined, and do not report
+      running two lanes as a violation of this decision.
+    '⚠️_CLAUSE_3_AS_ANSWERED_ON_2026_09_16': >-
+      Verbatim, so the correction above cannot be mistaken for a rewrite of what
+      the operator chose: "(3) The manager heartbeat cadence is every 2 hours,
+      not hourly." That WAS the answer on 2026-09-16. It was superseded on
+      2026-09-17, not retracted — the option chosen that day
+      (manager_ticks_every_2h_not_hourly) is still the record of the 09-16
+      answer, and `chosen` is deliberately left unedited for that reason.
+    '⚠️_R7_CONTRADICTION_—_RESOLVED_2026_09_17_DO_NOT_RE_PROPOSE_WIDENING_R7': >-
+      THIS ROW FLAGGED THE CONTRADICTION AND IT IS NOW ANSWERED. As written on
+      2026-09-16: check_manager_scope.py R7 fails a heartbeat more than one lease
+      TTL (90 min) after the previous one, so a 2h cadence EXCEEDS it — either the
+      tick advances the lease inside 90 min while the manager reports every 2h, or
+      R7 is the thing that must change. ⚠️ THE OPERATOR CHOSE THE FIRST, ON
+      2026-09-17: TIGHTEN THE TICKS TO 90 MINUTES. R7 IS UNCHANGED AND STAYS AT
+      ONE LEASE TTL. ⚠️ THE MANAGER RECOMMENDED THE OTHER OPTION — widening R7 to
+      match a 2h cadence — AND WAS OVERRULED. That is recorded here, in the row a
+      successor reads, precisely so the losing recommendation is not re-proposed
+      as if it were a fresh idea: it has been put to the operator once and
+      declined. ⚠️ AND NOTE WHAT WAS **NOT** DECIDED: nothing here changes clauses
+      (1) or (2) — the 8-12 unit cap per lane and the ban on open-ended
+      drain-the-queue mandates are untouched — and nothing here revisits
+      one-lane-at-a-time, which was offered on 2026-09-16 and declined (see the
+      warning above it). A session reading only the tick change must not infer
+      that the spend controls moved with it.
+
+  - id: DEC-20260917-MANAGER-TICK-CADENCE
+    question: >-
+      DEC-20260916-PACING-RULES set the manager tick at 2h while
+      check_manager_scope.py R7 fails a heartbeat more than one lease TTL (90
+      min) after the previous one, so the two disagree by 30 minutes and a
+      compliant manager reds its own PR. Tighten the ticks to 90 min, or widen R7
+      to match the 2h cadence?
+    options_offered:
+      - tighten_ticks_back_to_90_min
+      - widen_r7_to_match_the_2h_cadence
+    chosen: tighten_ticks_back_to_90_min
+    operator_text: 'Tighten ticks back to 90 min'
+    answered_at: '2026-09-17'
+    answered_by: operator
+    tier: 1
+    supersedes_clause: >-
+      DEC-20260916-PACING-RULES clause (3) ONLY. Clauses (1) and (2) of that
+      decision are unaffected and remain binding.
+    binding_on_every_manager_session_from_now: >-
+      The manager heartbeat cadence is every 90 MINUTES, matching R7's one-lease-
+      TTL window exactly. A manager reporting to the operator on a longer rhythm
+      still advances the lease inside 90 min — the REPORT cadence and the
+      HEARTBEAT cadence are two different things and only the heartbeat is what
+      R7 grades. R7 is not to be widened.
+    '⚠️_WHAT_THIS_DOES_NOT_ESTABLISH': >-
+      That the cadence is being MET. This records the rule, not compliance with
+      it — and the manager session that recorded it was itself outside the window
+      at the time (its own lease read expired_unverified when this landed, left
+      deliberately claimable for a successor rather than heartbeated). A
+      successor must not read this row as evidence that 90-minute ticks are
+      happening; the observable for that is the git history of
+      docs/claude/work/MANAGER-LEASE.json, which is what R7 reads.
+
+  - id: DEC-20260916-BYBIT2-HEDGE-BOOK
+    question: >-
+      Is there an open position on the real-money bybit_2 account that the
+      hedge-book flat-read defect could be acting on?
+    chosen: no_open_position_on_real_money
+    operator_text: 'No open position on real money'
+    answered_at: '2026-09-16'
+    answered_by: operator
+    tier: 1
+    '⚠️_THIS_IS_A_POINT_IN_TIME_READING_NOT_A_STANDING_FACT': >-
+      It answers whether the defect had a live position to act on when asked on
+      2026-09-16. It is NOT a finding that bybit_2 never holds one, and it does
+      NOT retire
+      BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED
+      or WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT. The repair is still
+      owed; what this closes is the URGENCY, not the defect. A later session
+      must re-read the venue rather than quoting this line.
+
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-16. Nothing blocks this object — it is a RECORD of decisions
+  already taken, not work waiting on an input. The work each decision routes to
+  carries its own edges.
+
+refs:
+  - docs/claude/work/objects/WO-20260901-PHASE-F.yaml
+  - docs/claude/work/objects/WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE.yaml
+  - docs/claude/work/objects/WO-20260911-WHY-IS-THE-BOOK-BLEEDING-ATTRIBUTE-THE.yaml
+  - docs/claude/work/objects/WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT.yaml
+  - comms/strategy_reviews/2026-09-16/INDEX.json
+
+how_this_object_reached_main: >-
+  SPLIT OUT OF #12346 AND THAT IS WORTH KNOWING, because the reason is a measured
+  property of this repo rather than an accident. #12346 carried these answers
+  alongside edits to four shared registers, and SIX consecutive CI cycles on it were
+  voided: each time it reached green or near-green, concurrent sessions landed
+  register-touching PRs and GitHub regraded it dirty. A ~20-minute required CI cannot
+  outrun a repo merging register PRs every few minutes, so a PR whose diff touches a
+  shared register has no reliable path to a merge while other sessions are active.
+  THE ANSWERS THEREFORE MOVED TO A DIFF WITH NO CONFLICT SURFACE AT ALL - this new
+  file plus this branch's own landing declaration, arming file and PER-BRANCH merge-slot
+  claim. The shared docs/claude/session-board.json merge_slot field is deliberately NOT
+  touched: measured over the last 40 commits to it, 39 moved the field, so claiming it
+  buys a guaranteed conflict and - per R13's own docstring - no exclusion.
+  !! DO NOT READ THIS AS A COMPLAINT ABOUT THE GUARDS. Every refusal in that sequence
+  was CORRECT: a truncated backlog id, a severity outside the closed vocabulary, and a
+  hold_reason the diff did not support were all real defects the guards caught. What the
+  six cycles measure is the SERIALISATION cost of shared append-only registers, which is
+  already filed as BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE.

@@ -86,6 +86,41 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ⚠️ THIS STEP IS WHY THE CRON HAD STOPPED SUCCEEDING. Measured 2026-09-17
+      # over this workflow's run history: runs #104-#107 (2026-09-13 .. 09-16,
+      # every one `event=schedule`) concluded `failure` 4 OF 4, each in seconds
+      # at the self-test gate below, on
+      #
+      #   scripts/ci/check_decision_answers.py: ModuleNotFoundError: No module named 'yaml'
+      #
+      # Last success was #98 on 2026-09-12T09:36Z — BEFORE `src_spent_decision_edges`
+      # landed that evening. So the cron failed EVERY run from the moment the
+      # dependency became necessary, and `docs/claude/DUE.json` on main sat at
+      # `generated_at: 2026-09-13T05:20:13Z` for four days while the surface that
+      # answers "what is due right now?" answered with a stale list.
+      #
+      # ⚠️ AND THIS IS A RECURRENCE WHOSE PREVIOUS FIX'S OWN COMMENT PREVENTED
+      # ITS SPREAD. constraint-readout.yml diagnosed exactly this class on
+      # 2026-09-08 (6 of 6 scheduled runs dead at its own self-test gate, same
+      # missing module) and fixed ONE call site, noting "which is why
+      # due-list.yml needs no install step and succeeds". That was true when
+      # written and false four days later — `render_due_list.py` stopped being
+      # stdlib-only when it began exec'ing the decision-answers guard. FIELD
+      # BEATS COMMENT: that sentence is corrected in place, and
+      # tests/test_workflow_python_deps.py now derives the answer from the
+      # import graph so no future reader has to trust a prose claim about it.
+      #
+      # ⚠️ INSTALLING A DEPENDENCY FIXES THE FAILURE, NOT THE LATENESS, and
+      # neither is evidence the next slot fires. These runs started 10:18-10:59Z
+      # against a declared `50 5 * * *` — 4.5-5 HOURS late. Read the run
+      # history, never the cron expression.
+      #
+      # Only PyYAML: the renderer is otherwise stdlib-only and its ONE non-stdlib
+      # reach is the guard it execs. The pinned spelling matches the sibling
+      # workflows that already use it.
+      - name: Install PyYAML — the renderer execs a guard that imports it
+        run: python3 -m pip install --quiet --upgrade pip "pyyaml>=6.0"
+
       - name: Self-test the renderer before trusting its output
         run: python3 scripts/ops/render_due_list.py --self-test
 
@@ -116,6 +151,11 @@ jobs:
           pr-body: "Automated due-list refresh (W1). Generated artifact only; auto-merge."
           branch-prefix: automation/due-list
           verify-merged: "true"
+          # RECOMPUTE on conflict -- see error-feed-digest.yml for the measured
+          # rationale. Both declared paths are rendered wholesale by this one
+          # command, so a conflict between two due-list runs has no side to
+          # take; re-rendering over the merged registers IS the merge.
+          refresh-command: python3 scripts/ops/render_due_list.py --write
 
       - name: Comment + close issue (issue-driven path)
         if: github.event_name == 'issues'

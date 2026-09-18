@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 observability. One new due-list SOURCE plus one helper in scripts/ops/render_due_list.py, two assertions in that module's own self-test, and one new test file. It is a READER: it asks GitHub which workflows it has parsed and renders a due row where the answer disagrees with the file's own declared name. It changes no workflow, mutates nothing, and touches no register content. No src/, no config/, no deploy/, no order path. No path touched is on LANDING_MACHINERY (checked against the list, not assumed), so R12 does not apply."
+}

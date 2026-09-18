@@ -1,0 +1,7 @@
+{
+  "branch": "claude/mi280-wrap-record",
+  "landing": "self",
+  "tier": 1,
+  "why": "Registers only: docs/claude/OPEN-ITEMS.json and docs/claude/health-review-backlog.json. No src/, no config/, no deploy/, no workflow, no guard code. It records observations and files one backlog row; it changes no behaviour and arms nothing.",
+  "session": "session_01BjTp5RYwedmpFfkEtkQo1j"
+}

@@ -32,6 +32,20 @@ python3 scripts/ops/session_registry.py blocked-on \
 | `path_on_main` | `docs/claude/FOO.json` | `exists` · `deleted` |
 | `work_object` | `WO-20260911-…` | `done_or_accepted` |
 | `operator_decision` | `WO-20260911-…::DEC-…` | `answered` |
+| `registry_confirmed` | your own `registry_key`, e.g. `pending-20260911T060510Z` | `confirmed` |
+
+**`registry_confirmed` (MI-263/MI-264) is the commonest one measured so far —
+four instances in one morning, ~3.3 lane-hours.** It is for a lane spawned via
+the *pending* flow (`register()` was run before `create_session` returned an
+id, so the row carries a `registry_key` and `session_id: null` until the
+manager runs `confirm`). `ref` is that `registry_key`; it clears once the row
+on `origin/main` carries BOTH `confirmed_at` and a real `session_id`. ⚠️ **The
+usual `--session-id` row lookup cannot find "your own row" while this
+condition holds** — a pending row has no session id to match on, which is
+exactly the state this kind exists to watch — so `blocked-on` falls back to
+matching by `registry_key` for this one kind, and only when the match is
+unambiguous and still unconfirmed. Declaring it looks the same as any other
+kind; the fallback is invisible unless the ordinary lookup would have refused.
 
 Discharge them when you resume: `blocked-on --session-id <id> --clear`. **A stale
 edge is read as a live blocker**, and this repo already records that a false
@@ -49,7 +63,7 @@ findings with opposite remedies — a **resolver** gap versus an **author** gap 
 and `src/runtime/decision_subject.py` keeps `unknown` and `undeclared` apart for
 exactly the same reason.
 
-If your blocker genuinely is not one of the five kinds, say so in prose and tell
+If your blocker genuinely is not one of the six kinds, say so in prose and tell
 the manager. An *undeclared* blocker is an honest gap; a *declared-but-ungradeable*
 one is a lie the watcher repeats every few hours.
 

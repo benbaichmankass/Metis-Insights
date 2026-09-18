@@ -1,0 +1,1 @@
+armed for claude/mi300-canonize-spawn-economics (PR #12485) — Tier-1 docs-only, landing: self
