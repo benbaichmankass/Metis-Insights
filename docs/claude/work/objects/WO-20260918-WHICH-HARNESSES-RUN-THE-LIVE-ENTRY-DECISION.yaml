@@ -1,0 +1,130 @@
+id: WO-20260918-WHICH-HARNESSES-RUN-THE-LIVE-ENTRY-DECISION
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: which pre-live harnesses RUN the live entry decision, which REIMPLEMENT
+  it, and which only CLAIM to -- and how many live legs sit behind each answer?
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  MI-320, the research lane's item after MI-29. MI-319 adjudicated exactly ONE
+  harness/unit pair and found the ENTRY a verbatim port while the TARGET contract was
+  wrong -- so adjudication is not a formality, it changed the answer. The obvious next
+  question is how many other pairs are in that state, and it had never been asked. The
+  premise a reader would start from is also wrong in both directions: the load-bearing
+  port claim lives in the live UNIT rather than the harness and runs the opposite way
+  (the unit claims to port the harness), and not every harness reimplements anything --
+  two of them call the live order_package outright.
+done_condition: >-
+  A census with stated populations of (a) how each harness obtains an entry decision,
+  (b) which units ASSERT a port claim and at what scope, (c) how many legs and how many
+  execution:live legs sit behind each, and (d) what MI-319's probe returns when pointed
+  at each claimed pair -- INCLUDING its refusals, reported as refusals. A pair the probe
+  cannot read must be recorded as UNADJUDICATED, never as parity and never as divergence.
+must_not:
+  - >-
+    Edit any scripts/backtest_*.py. They are the SUBJECT and are read only, so no verdict
+    any other run produced can have been changed by this one.
+  - >-
+    Report an unadjudicated pair as evidence that its legs' backtest evidence is invalid.
+    `unadjudicated` is a third state and the entire point of keeping it apart from
+    `divergent` is that nobody has looked.
+  - >-
+    Promote a name overlap between two residual predicates to a classification. A shared
+    identifier stem is a HINT for a reader; folding it into `renamed_counterpart` would
+    launder exactly the differences this instrument exists to surface -- one such pair
+    differs by a `None` guard the other does not have.
+  - >-
+    Reimplement MI-319's structural probe. A second copy of "what counts as a rejection
+    predicate" is how the two would drift, which is the defect class this unit is about.
+  - >-
+    Propose a tp_r, exit_style or any strategy parameter. Target geometry is Tier-3 and is
+    carried by OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED.
+outcome: >-
+  MET. Evidence: docs/research/harness-provenance-2026-09-18.md, instrument
+  scripts/research/mi320_harness_provenance.py (41 selftests, 14 negative controls),
+  artifact docs/research/mi320-harness-provenance-2026-09-18.json.
+  POPULATIONS: 13 harnesses, 16 units, 55 legs of which 45 execution:live and 0
+  unresolved (resolved through pipeline.monitor_unit_for, the repo's own resolver).
+  (A) PROVENANCE: 2 harnesses RUN the live decision (backtest_ict_scalp statically,
+  backtest_system through importlib -- and a grep for the static form reports the second
+  as a reimplementation, which is why the classifier is AST-driven and asserted against
+  that inversion); 3 reimplement under a port claim; 3 correspond to a unit that claims
+  nothing; 5 have no corresponding unit.
+  (B) CLAIMS: exactly 3 of 16 units carry the formulaic claim -- trend_donchian
+  (entry/exit, 23 legs / 20 live), fade_breakout_4h (entry/exit, 1/0) and fvg_range_15m
+  (entry, VERBATIM, 1/0). The extractor's positive control was NEEDED: an earlier draft
+  required a backtick around the path and MISSED fvg_range_15m, i.e. missed the one pair
+  already adjudicated.
+  (C) EXPOSURE, and this is the headline: of the 45 execution:live legs, 8 are gated by a
+  harness that RAN the live decision, 20 by a claimed-but-never-adjudicated
+  reimplementation, and 17 by a correspondence that asserts nothing at all. THE ONE PAIR
+  EVER ADJUDICATED GATES ZERO LIVE LEGS.
+  (D) ADJUDICATION: fvg (control) equivalent_modulo_order, 0 unclassified.
+  fade_breakout_4h divergent -- but four of its five residuals dissolve on a SOURCE READ
+  reported as a read (NaN -> None -> rejected at fade_breakout_4h.py:237-238, equivalent
+  to the harness's pd.isna skip), and the fifth is the degenerate-target guard, genuinely
+  harness-only and explained by the TARGET CONTRACT differing (live uses a far sentinel at
+  tp_r*risk, structurally never through price; the harness targets the opposite boundary).
+  That is MI-319's finding recurring: TWO OF TWO adjudicated pairs port the entry and not
+  the target.
+  trend_donchian idiom_mismatch at gate ratio 0.4375 -- a REFUSAL, not a divergence, and
+  it must not be read as either. Its residuals decompose into 2 implemented_upstream (the
+  side filter lives in the builder; `side_filter` appears in ZERO unit files), 2
+  harness_only_lever (--adx-min/--adx-max default None, declared by 0 of 23 trend legs,
+  and the live unit implements no ADX band at all) and 11 unclassified.
+  INCIDENTAL, MEASURED WITH A CONTROL: htf_pullback_trend_2h's module docstring declares
+  itself "SCAFFOLD, not wired ... inert until the Tier-3 activation PR" while resolving 19
+  legs, 16 execution:live -- the three files it names carry 75/2/43 references to it
+  against 0/0/0 for three genuinely-unwired units.
+  WHAT IS LEFT is a DECISION about where to spend the next adjudication -- see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-WHERE-TO-SPEND-THE-NEXT-HARNESS-ADJUDICATION
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-WHERE-TO-SPEND-THE-NEXT-HARNESS-ADJUDICATION
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      37 of the fleet's 45 execution:live legs are gated by pre-live evidence produced by
+      a reimplementation nobody has adjudicated -- 20 behind a port CLAIM
+      (trend_donchian) and 17 behind no claim at all (htf_pullback_trend_2h 16,
+      squeeze_breakout_4h 1). MI-319 showed adjudication changes the answer. None of
+      these is adjudicable by the probe that exists: trend refuses at gate ratio 0.4375,
+      and pullback and squeeze were never claimed so there is no assertion to grade
+      structurally. Each option below is a unit of work, not an edit; all are Tier-1
+      (docs/** + scripts/research/**). Which?
+    options:
+      - key: behavioural_probe_for_trend
+        label: >-
+          Build the BEHAVIOURAL half for trend_donchian -- run harness and live unit over
+          the same candles and compare accepts bar by bar, as MI-319's P2 did for fvg.
+          Highest exposure (20 live legs) and it sidesteps the idiom problem entirely,
+          because behaviour does not care how a gate is written. Most expensive, and
+          MI-319 records that a population with zero accepts is `no_accepts_in_population`
+          and NOT agreement -- so it may buy a refusal.
+      - key: pullback_first_because_nothing_is_claimed
+        label: >-
+          Take htf_pullback_trend_2h (16 live legs) first, on the ground that an UNCLAIMED
+          correspondence is worse than an unadjudicated claim: there is not even a
+          sentence to hold the port to. Also repairs the stale "SCAFFOLD, not wired"
+          docstring finding, which is a live navigational hazard today.
+      - key: close_the_ict_scalp_seam
+        label: >-
+          Leave the reimplementations and measure the SEAM on the one harness that runs
+          the live decision: what per_bar_cfg backtest_ict_scalp builds and what window it
+          passes, against what the live builder does. 8 live legs, entry exact by
+          construction, and the two classes at issue (MI-312's base_args, MI-319's
+          declared candle minimum) are already established as real -- so this is the
+          cheapest path to a KNOWN class rather than a speculative one.
+      - key: decline
+        label: >-
+          Spend nothing more here. The census is the deliverable and the 37-leg figure is
+          now recorded; adjudicating further is not obviously the best use of a lane while
+          the trading-truth cycle has open measurement work. Legitimate, and must be
+          RECORDED as a decision rather than left looking like an adjudication about to
+          start -- otherwise this row reads as work about to begin, which is the failure
+          mode it exists to prevent.
