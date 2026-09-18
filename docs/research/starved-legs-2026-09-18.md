@@ -64,9 +64,10 @@ below is split on `fanout_schema` for that reason and no other.**
 > 6.5×** in the sole evidence base for the Tier-3 change. Do not re-merge the two.
 
 **The first pass of this measurement re-merged them.** It reported `trend_donchian` — an
-`execution: live` leg — "losing 64% of its contests", a figure that would have gone straight into an
-options packet. Every one of those 27 events was `no_winner`: the leg lost to **nobody**, its account
-simply elected no one. Three outcomes, kept apart from here on:
+`execution: live` leg — as losing **27 of its 42 candidate appearances in the schema-2 epoch (64.3%)**,
+and would have put that in an options packet. **Every one of those 27 was `no_winner`**: the leg lost
+to **nobody**, its account simply elected no one, so its true `lost_to_sibling` count over that same
+population of 42 is **0**. Three outcomes, kept apart from here on:
 
 | outcome | meaning |
 |---|---|
