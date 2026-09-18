@@ -1,0 +1,67 @@
+id: WO-20260918-THE-JOURNAL-READ-SURFACE-IS-STRIP-MINING-THE-RESEARCH-POPULATION
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Engineering lane: /api/diag/journal accepts limit and offset and IGNORES them, and the rolling newest-1000
+  window is destroying the pre-era research population
+stage: BUILD
+lifecycle: done
+owner: session_01XYu2vvg9Qgxoqf4jJQyd8i
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  TWO INDEPENDENT LANES MEASURED THIS ON DIFFERENT DAYS, which is why it is being taken rather than filed
+  again. MI-298 (2026-09-17): `limit=2000` and `offset=1000` BOTH silently return the SAME 1000 rows -- the
+  parameters are accepted and ignored. MI-301 (2026-09-18) measured what that COSTS: the route takes `table` +
+  `limit` only, with no offset and no date filter, and ids are monotonic, so rolling the newest-1000 window
+  forward STRIPS THE PRE ERA PREFERENTIALLY. The e35 pre cell fell 18 -> 8 (-55.6%) across three pulls while
+  the post cell GREW 17 -> 20.
+  [!] THIS IS THE CYCLE PRIORITY ITSELF. CY-20260906-TRADING-TRUTH says repair the MEASUREMENT before acting
+  on what it says, and here the instrument is not merely imprecise -- it is deleting the half of the
+  population that every before/after question depends on, a little more each day.
+  [!] AND IT IS THE STATED BLOCKER ON THE OPERATOR'S TOP PRIORITY. MI-301's verdict on the e35 term is
+  `cannot_discriminate` at `knife_edge` -- ONE additional stop-out in the treated pre cell flips the sign that
+  decides whether a Tier-3 revert is on the table -- and its own recommendation is that deciding it 'needs the
+  pre-era population back, which is a READ-SURFACE problem, not a research one, and it gets harder every day.'
+  [!] IT IS ALSO A COLLAPSED READ: a parameter that is accepted and ignored returns a confident, specific,
+  WRONG population with nothing in the response saying so. That is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B
+  (implicit input selection) as CLAUDE.md defines it, on the surface most sessions grade populations from.
+done_condition: >-
+  A caller can reach the pre-era rows, and a caller that asks for something the route will not do is TOLD.
+  Concretely: either the route honours `offset`/`since`/`until`, or it REFUSES an unsupported parameter with a
+  4xx naming it -- silently accepting and ignoring is the one outcome that must not survive. The response
+  should also state what it actually returned (the row-id range and whether the result was clamped), so a
+  reader can tell a complete population from a truncated one without a second call.
+  [!] THIS IS TIER-2 (src/web/api/routers/diag.py) -- PREPARE, VALIDATE AND PROPOSE IT WITH THE EXACT DIFF,
+  declare `landing: hold`, and DO NOT MERGE IT. The operator is asleep and Tier-2 needs one operator OK.
+  [!] MEASURE THE CURRENT BEHAVIOUR FIRST AND STATE THE POPULATION -- do not take MI-298's and MI-301's
+  readings on trust, reproduce them. A route that turns out to honour `offset` on some tables and not others
+  is a different and more useful finding than the one being reported.
+  [!] AND IF THE CLAMP IS DELIBERATE -- a guard against an unbounded read on the live web-api, which is a real
+  concern this repo has paid for twice -- then the answer is NOT to remove it. Say so, and propose the bounded
+  form that still lets a caller page: that is a better outcome than a change that trades a research problem
+  for a wedge.
+source: >-
+  Operator directive 2026-09-17 (overnight, engineering = structural fixes). Measured independently by MI-298
+  and MI-301.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the route source is
+  in-tree, the live surface is reachable from the lane's container (https://ict-bot.duckdns.org via
+  scripts/ops/diag_fetch.sh), and both prior measurements are in landed memos. [!] The operator OK for the
+  Tier-2 merge is a real future gate and is NOT a blocker on producing the proposal -- write it as a typed
+  edge only if something stops the WORK.
+explicitly_not_in_scope: >-
+  Merging it (Tier-2, operator's). Re-running MI-301's attribution. Any change to the journal's WRITE path or
+  to the trader. Widening the diag surface beyond this route.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET as a PROPOSAL, which is what it asked for. PR #12497, CI green, draft +
+  `landing: hold`, AWAITING A TIER-2 OPERATOR OK. Correctly not merged by the lane and NOT merged by the
+  manager either -- Tier-2 needs one operator OK and the operator is asleep.
+  [!] THIS IS THE SECOND ITEM WAITING ON THE OPERATOR IN THE MORNING, after #12490.
+  [!] WHAT IT UNBLOCKS: MI-301's e35 term is `cannot_discriminate` at knife_edge and its own recommendation is
+  that deciding it needs the pre-era population BACK -- a read-surface problem that gets harder every day,
+  measured at e35 pre 18 -> 8 (-55.6%) across three pulls while post GREW. So this is the cycle priority
+  (repair the measurement first) sitting directly under the operator's top priority.
+  Cost $18.16 on claude-opus-5 -- a short session, 25.3M cache reads against the research lane's 64.1M.

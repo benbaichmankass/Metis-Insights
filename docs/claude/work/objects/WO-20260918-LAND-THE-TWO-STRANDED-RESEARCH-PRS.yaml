@@ -1,0 +1,68 @@
+id: WO-20260918-LAND-THE-TWO-STRANDED-RESEARCH-PRS
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Landing lane: resolve the register conflicts on #12205 and #12491 and LAND them — four days stranded, no code
+stage: BUILD
+lifecycle: done
+owner: session_01FjbLYExbVP1tT2CAwNe2tZ
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  #12205 (MI-278 U41, opened 2026-09-13) RAN the discriminating measurement
+  OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED asks for, verdicted
+  `both_contribute`, and has sat OPEN and `dirty` for FOUR DAYS. Measured by MI-301 on the branch: the
+  conflicts are on SIX SHARED REGISTERS (CLAUDE.md, docs/DOCUMENT-INDEX.md, OPEN-ITEMS.json,
+  health-review-backlog.json, a WO object, RESEARCH-CAPABILITY-INDEX.md) and on NO CODE AT ALL -- its 559-line
+  instrument, its 224-line test file and its memo are clean additions.
+  [!] THIS IS A MANAGER FAILURE BEING REPAIRED, NOT A WORKER ONE, and it is worth saying plainly: CLAUDE.md
+  makes running the merge queue a manager BASE DUTY whose whole point is that it SCHEDULES merges rather than
+  resolving the conflicts that not scheduling them causes. Nobody scheduled these. MI-301 then spent an Opus
+  lane re-deriving context around a verdict that was already computed and unlanded.
+  [!] AND THE COST COMPOUNDS: because #12205 is unlanded, the pre-era population it measured keeps eroding.
+  MI-301 measured the e35 pre cell falling 18 -> 8 (-55.6%) across three pulls while post GREW 17 -> 20.
+  #12491 is the second one, opened tonight by MI-301 and already `dirty` against #12488, which landed while it
+  was being written. Same class, same file.
+done_condition: >-
+  BOTH PRs are on main, or a named one is explicitly rejected with the reason recorded. Resolve every register
+  conflict through the repo's OWN tooling -- scripts/ops/backlog_append.py (update_row / append_row) for the
+  backlogs, and re-RENDER rather than hand-merge anything generated (CLAUDE.md's SESSION BRIEF block is
+  produced by scripts/ops/render_session_brief.py; DOCUMENT-INDEX.md by scripts/ops/document_index.py).
+  [!] NEVER RESOLVE A REGISTER BY PICKING A SIDE. `git checkout --ours/--theirs` on a monolithic register
+  silently drops the other side's unique rows -- that is
+  BL-20260814-HAND-RESOLVED-BACKLOG-MERGE-SILENTLY-REVERTED-SIX-ITEMS-INCLUDING-A-RESOLUTION, and the manager hit the same trap twice
+  tonight. MEASURE BOTH SIDES FIRST: count rows and ids on each, name exactly which ids are unique to which,
+  and verify afterwards that the union survived (rows == unique ids, and every id you listed is present).
+  [!] `python3 scripts/ops/backlog_append.py --check-live` must report all four backlogs round-tripping
+  byte-for-byte before you push.
+  [!] DO NOT EDIT THE RESEARCH FINDINGS. You are landing someone else's verdicts, not revising them. If a
+  memo's claim looks wrong, say so in the PR comment and land it anyway -- a wrong memo on main is reviewable;
+  a right one stranded is not.
+source: >-
+  Operator directive 2026-09-17 (overnight). Flagged to the manager by the MI-301 research lane, which
+  correctly declined to land it itself.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: both branches are
+  fetchable, both are Tier-1 `landing: self` with no src/ or config/ in either diff, and the tooling that
+  resolves the registers is in-tree. Nothing waits on an operator decision.
+explicitly_not_in_scope: >-
+  #12490 (MI-303) -- it is TIER-2 and needs an operator OK plus a service restart; leave it for the morning.
+  Revising any research conclusion. Any Tier-2/3 path.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET. #12491 MERGED (c807d1c02). #12205 REBUILT CLEAN -- 1 commit, 1021
+  insertions, 0 deletions, 10 files, ZERO merge commits, replayed onto current main after five days and eight
+  accumulated merge commits -- guards green, auto-merge armed.
+  [!] THE LANE DID THE HARD PART RIGHT AND IT IS WORTH RECORDING: it resolved TWO registers to MAIN's side
+  DELIBERATELY, against its own branch. docs/claude/OPEN-ITEMS.json on main carries MI-301's FIFTH reading of
+  OI-20260911 (22,564 chars, written hours earlier) which the 09-13 branch edit would have DELETED; it dropped
+  its own edit and asserted in the rebuild that the fifth reading survives byte-for-byte. CLAUDE.md likewise --
+  its only change was a generated re-render, so it dropped that too. That is the BL-20260814 trap avoided in
+  the direction that costs the resolver something.
+  [!] AND IT CORRECTED THE HEADLINE RATHER THAN LANDING IT AS WRITTEN. #12205 went in saying
+  `both_contribute`; it now says the MARKET half stands and the e35-on-top half does not survive resampling,
+  carrying MI-301's knife-edge finding forward. A PR that sat five days and landed with its own conclusion
+  half-retracted is the correct outcome, not a failure.
+  [!] Cost $18.65 on claude-sonnet-5. The model choice held: the work was mechanical and every step was
+  reviewable in a diff.

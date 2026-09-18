@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Research lane: an update on active trade management, and a recommendation on where to focus next
 stage: BUILD
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-17
-closed_at: null
+closed_at: 2026-09-17
 why: >-
   Operator-directed 2026-09-17: 'I want an update on active management so we can decide where to focus next
   here, and this may also require reviewing some soaking items.' The deliverable is a FOCUS RECOMMENDATION,
@@ -31,3 +31,18 @@ blocked_on_basis: >-
   forecast — a Tier-2 or Tier-3 gate reached later is a real future blocker and must be written as a typed
   edge WHEN IT BINDS, never pre-emptively. A false blocker is worse than a missing one.
 captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-17, done_condition MET. docs/research/mi295-active-management-focus-2026-09-17.md landed as
+  ecf7b12a6 (#12471) carrying a recommendation WITH its population stated at every claim. Headline: the M20
+  premise did not survive its own measurement -- across 175 cells over 7 legs in 5 arms, NOTHING tested makes a
+  winner run longer AND survives the gate. The two survivors both NARROW the trade, are both on
+  ict_scalp_xrp_15m (routed to bybit_1, account_class paper, so NOT real money), and are mutually exclusive.
+  Real money 30d: TP 3/40 (7.5%), SL 16/40 (40%), mid-bracket 21/40 (52.5%).
+  [!] THE LANE'S OWN RECOMMENDATION IS NOT TO COMMISSION ANOTHER SWEEP, and that is honoured rather than
+  overridden: its section 6 names closing the 43% unattributable-or-contaminated-winners hole as "the highest
+  value research left", explicitly "NOT a sweep". That is carried forward as
+  WO-20260917-RESEARCH-CLOSE-THE-43-PERCENT-UNATTRIBUTABLE-WINNERS-HOLE (MI-298), dispatched to the same lane
+  session at 2026-09-17T21:24Z.
+  [!] WHAT THIS OBJECT DOES NOT DISCHARGE, so it is not lost with the close: the Tier-3 Proposal 1 vs 3
+  decision is the OPERATOR's and is outstanding; #11933 and #12205 are still unlanded on register-union
+  conflicts. Neither is research work and neither is claimed as done here.

@@ -74,6 +74,24 @@ decision_requests:
     asked_on: '2026-09-13'
     asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
     context: >-
+      MEASURED 2026-09-13 (MI-278 U42). Memo:
+      m20-u42-the-kill-case-does-not-rest-on-measured-rows. FULL TEXT: `context_full` below —
+      compacted 2026-09-18 so this prompt clears Telegram's 4096-char cap, which had 400'd every
+      send; nothing was dropped. || THE ROW'S OWN JUSTIFICATION IS GONE: it named slv_trend_1h
+      the only large loser whose loss is well MEASURED (coverage 0.77). That leg now reads
+      coverage 0.00 at 30d, and its 30d defensible PnL is +49.56 — a GAIN — against a -735.11
+      headline carried by 2 unmeasured rows. Its LIFETIME loss survives (-4214.86 over 12 rows),
+      so the instinct held; the stated reason did not. || WHERE EACH LEG STANDS: slv_trend_1h
+      shadow, paper only, lifetime loss survives. htf_pullback_trend_2h shadow, paper; lifetime
+      grades loss INVERTS — headline -4459.45 against an admissible +2130.53, 17 of 23 rows
+      unmeasured. eth_pullback_2h LIVE on bybit_2 REAL MONEY, -$15.49 over 15 closes — roughly
+      flat, not a kill case. tlt_pullback_1h LIVE on alpaca_live REAL MONEY and has NEVER placed
+      an order: 19 of 19 rows rejected, zero closed. || [!] THE WORST HEADLINE HAS THE BEST
+      EVIDENCE — htf's admissible record is a GAIN and U34 found net_r_oos +2.7261 at n=79,
+      FAITHFUL fidelity. Killing it argues against the only positive evidence in the set. Not a
+      promotion proposal. || [!] TWO OF THE FOUR ARE REAL MONEY; the row was filed as a class of
+      PAPER losers and has never said so. || [!] This grades PROVENANCE, not edge.
+    context_full: >-
       MEASURED 2026-09-13 (MI-278 U42) off two live pulls, trader git_sha f2335be98.
       Instrument scripts/research/kill_case_admissibility.py; memo
       docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md.
@@ -159,6 +177,28 @@ decision_requests:
     asked_on: '2026-09-17'
     asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
     context: >-
+      MEASURED 2026-09-17 (MI-278 U45) over ids 4867-5866, 2026-08-21 → 09-17. Memo:
+      docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md. FULL
+      TEXT: `context_full` below — compacted 2026-09-18 so this prompt clears Telegram's
+      4096-char cap, which had 400'd every send; nothing was dropped. || THE PROOF NEEDS NO
+      BALANCE: every basis the sizer may use is at most equity, so the equity term CANCELS and
+      the cap binds at ANY balance whenever the declared stop is closer than 55.56 bp (bybit_1's
+      1.5% / 3x / 0.9). On the pull, 43 of 274 gradeable rows are provably bound (coverage
+      0.2445), with ZERO false positives against each row's own stamped ceiling. || [!] IT IS A
+      FAMILY PROPERTY, NOT AN AVAX ONE, which is not what the row says: 42 of the 43 are
+      ict_scalp_*, the other 16 legs contribute ONE between them, and ict_scalp_5m on BTC is
+      proportionally worse than the leg PB-20260822 names (50.0% of its orders bound). || [!]
+      THE OBVIOUS REMEDY IS WITHDRAWN BY THIS UNIT'S OWN EVIDENCE: a minimum stop WIDENS risk,
+      which lowers the demanded quantity until the cap stops binding — removing the clamp from
+      the cohort that, on the only measurement available, is not the losing one. Pooled it reads
+      +1,013.93 vs -10,842.22, but that does NOT survive its own control: one leg with ZERO
+      bound rows carries 47% of the unbound loss. NOT ESTABLISHED IN EITHER DIRECTION, on a
+      PAPER account over 27 days. || MEANWHILE: median realised risk is 387 on the bound cohort
+      against 867 elsewhere, against a declared per-trade budget of ~2,000 — so on that cohort
+      risk is set by available margin, not by policy. || [!] DO NOT WIDEN THE MARGIN CAP:
+      PB-20260822 forbids it in terms, and the worst order in the pull would need ~137x leverage
+      to pass. Nothing was changed; config and src were read only.
+    context_full: >-
       MEASURED 2026-09-17 (MI-278 U45) off two live pulls -- /api/diag/journal
       table=trades and table=order_packages, limit=1000 each, ids 4867-5866,
       2026-08-21 -> 2026-09-17, rowset digests declared in the memo. Instrument
@@ -255,6 +295,26 @@ decision_requests:
     asked_on: '2026-09-17'
     asked_by: session_01Wv1BdfEUnmCBZrhvUjeBzb
     context: >-
+      MEASURED 2026-09-17 (MI-278 U49) by RUNNING the existing reference implementation over 783
+      graded bybit rows plus the soak tail. Memo:
+      docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md.
+      FULL TEXT: `context_full` below — compacted 2026-09-18 so this prompt clears Telegram's
+      4096-char cap, which had 400'd every send; nothing was dropped. || WHAT IS BROKEN: the
+      partial branch rewrites `position_size` and leaves the row OPEN, so it closes later under
+      an ordinary exit reason. The only trace is two keys in `trades.notes`, written through a
+      500-char cap, and NEITHER is in `json_notes._DEFAULT_PROTECTED`. 44 rows carry a stamp,
+      the exit_reason filter sees 42, and the soak shows 5 MORE shed entirely — 7 invisible
+      against the 2 a journal-only audit can see, a 3.5x under-count. A further 104 rows grade
+      `evidence_may_be_shed`, which is *we could not look*, not a clean negative. || THE TWO
+      KEYS FAIL IN TWO DIFFERENT WAYS, which matters for the remedy: the basis is a SHORT STRING
+      trimmed to a prefix matching neither vocabulary entry, while the qty is a FLOAT the
+      shrinker can never trim, so it is DROPPED WHOLE. One line covers both. || [!] THE ARGUMENT
+      IS THE MODULE'S OWN: json_notes.py states every provenance marker belongs in that tuple,
+      because a trimmed value is an unreadable third state matching nothing — and its comments
+      already record THREE prior instances. || [!] NO OPTION HERE recovers the five rows already
+      shed, and none makes any close true or false — that needs the venue-side read OI-20260908
+      specifies. This is about whether the NEXT ones are readable.
+    context_full: >-
       MEASURED 2026-09-17 (MI-278 U49) by RUNNING the reference implementation
       scripts/research/netting_position_size_basis.py with --soak, on
       /api/diag/journal?table=trades&limit=1000 (ids 4873-5872,

@@ -1,0 +1,50 @@
+id: WO-20260918-OPS-DRAIN-BATCH-TWO
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Ops lane: second backlog drain batch — close another five Tier-1 rows against the 2026-09-17 triage
+stage: BUILD
+lifecycle: done
+owner: session_019gSL92mxBDek6n8RVRWYmD
+opened_at: 2026-09-18
+closed_at: 2026-09-18
+why: >-
+  OPERATOR-DIRECTED 2026-09-17 (overnight): work the backlog continuously. The first batch
+  (WO-20260918-OPS-DRAIN-THE-BACKLOG-AGAINST-THE-TRIAGE-THAT-ALREADY-EXISTS, MI-302) closed EXACTLY FIVE rows
+  and the manager verified them independently by diffing the register across the merge rather than reading the
+  lane's claim -- so the pattern works and this continues it.
+  [!] THE STANDING FINDING THAT MAKES THIS WORTH REPEATING: a canonical metric went 0 -> 85. CLAUDE-RULES-CANONICAL
+  records 'Tier-1 high/critical rows older than 14 days: ZERO' and calls it THE DIAGNOSIS; measured over the
+  health backlog ALONE -- a narrower population than that baseline's three -- it was 85 on 2026-09-17. Five
+  are now closed. Admission was fixed in 2026-08-13 and disposal was not.
+done_condition: >-
+  AT LEAST FIVE MORE rows CLOSED -- different rows from batch one -- with `status` moved off `open` through
+  scripts/ops/backlog_append.py::update_row, each recording what was OBSERVED and its population, against the
+  row's own resolution_criteria.
+  [!] FEWER IS ACCEPTABLE IF THE REASON IS RECORDED; inventing closes to reach five is the one disallowed
+  outcome. [!] FILING NEW ROWS DOES NOT COUNT -- filing already works, closing is what does not.
+  [!] AND IF THE FIVE 100%-TIER-1 CLASSES ARE EXHAUSTED, SAY SO WITH THE COUNT rather than drifting into the
+  122 operator-gated Tier-2/3 rows, which will stall.
+source: >-
+  Operator directive 2026-09-17 (overnight dispatch, ops = triage and work the backlog). Continues MI-302.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). POSITIVE finding: the triage names
+  its classes and full ids, MI-302 proved the path end to end tonight, and the remaining rows in those classes
+  are Tier-1 by the triage's own measurement.
+explicitly_not_in_scope: >-
+  Re-triaging; the 122 operator-gated Tier-2/3 rows; the rows MI-302 already closed; the full /system-review.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+closed_observation: >-
+  DONE 2026-09-18, done_condition MET and VERIFIED INDEPENDENTLY by the manager diffing the register across
+  origin/main before merging: EXACTLY FIVE rows open -> resolved, ZERO new rows (no padding), none overlapping
+  MI-302's batch. Merged as 0c77c571e (#12494).
+  [!] THE LANE MADE THE RIGHT CALL ON ITS OWN LANDING: the diff touches .gitattributes, which is outside
+  pr-landing-guard's TIER1_SURFACE, and rather than WIDEN that allowlist from inside the PR that would benefit
+  from it, it declared `landing: hold` and left the merge to a manager. That is the guard working and a lane
+  declining to grade its own homework.
+  [!] SUBSTANTIVE BEYOND THE COUNT: it bound 5 genuinely id-keyed multi-session registers to the row-aware
+  merge driver and recorded an explicit reason for each of the 16 it did NOT bind -- so the residue is a
+  DECISION rather than a backlog. Given that register collisions cost this session four separate resolutions
+  tonight, that is the most directly useful thing anyone did about them.
+  Cost $17.11 on claude-sonnet-5. Ten rows now closed across the two batches.

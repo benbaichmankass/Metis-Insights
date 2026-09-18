@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   Ops lane: canonize the session-receipt format, then system review + audit, then triage the backlog into workable chunks
 stage: BUILD
-lifecycle: in_flight
+lifecycle: done
 owner: session_0178pRo8ZxrnrREzDzDzb9Zk
 opened_at: 2026-09-17
-closed_at: null
+closed_at: 2026-09-17
 
 merge_note: >-
   ⚠️ THIS FILE WAS AN add/add CONFLICT AND IS RESOLVED AS A UNION, NEVER BY TAKING A
@@ -175,3 +175,30 @@ decision_requests:
           Targets the case the format was designed for — a manager accounting for
           the lanes it spawned — and leaves worker lanes to the on-demand path.
           Section B (SESSIONS SPAWNED) is empty for a worker lane anyway.
+closed_observation: >-
+  DONE 2026-09-17. PR #12473 MERGED as d258e852c by the manager on the landing: hold / unvouchable_paths
+  decision the guard correctly refused to make -- diff READ first (197 insertions, 0 deletions, one additive
+  read-only route, no write surface, no order path, api-tier-policy row present), CI green including a
+  17-minute pytest-run. All three units delivered: the session-receipt skill + generator + GET
+  /api/bot/work/receipts; docs/claude/work/SYSTEM-REVIEW-2026-09-17.md; docs/claude/work/BACKLOG-TRIAGE-2026-09-17.md.
+  [!] WHAT IT DELIBERATELY DID NOT DO, so a successor does not read it as a full review: the system review
+  does NOT satisfy /system-review's ~15 mandatory coverage keys, grades no order packages A-F, and renders no
+  report under comms/reports/ -- its own coverage table says so. A full /system-review is its own session and
+  is still owed (MI-272).
+  [!] THE ROUTE IS MERGED AND HAS NEVER BEEN OBSERVED SERVING from the live API, which is why MI-294 is
+  landed_unproven on the checklist while this object closes.
+  [!] THE TRIAGE'S HEADLINE IS THE THING TO CARRY FORWARD: a canonical metric went 0 -> 85. CLAUDE-RULES-CANONICAL
+  records 'Tier-1 high/critical rows older than 14 days: ZERO' and calls it THE DIAGNOSIS; measured over the
+  health backlog alone it is 85. The 2026-08-13 rules fixed ADMISSION and did nothing about DISPOSAL.
+  [!] RESOLVED AS A UNION A SECOND TIME, 2026-09-18, and the record above is the LANE's union kept verbatim
+  with the manager's CLOSE applied on top -- not either side taken whole. The lane's merge_note, its `owner`
+  and its `decision_requests` all survive; so does the manager's structural record. Taking `--ours` would have
+  dropped the only open decision on this object.
+  [!] AND THE OPEN DECISION IS NOT DISCHARGED BY THIS CLOSE. The object's WORK is delivered and merged; a
+  decision_request on it is the OPERATOR's and outlives the object -- do not read `lifecycle: done` as an
+  answer to it.
+  [!] THE add/add COLLISION ITSELF IS THE THIRD INSTANCE TONIGHT of the same mechanism: the manager creates a
+  work object and registry row LOCALLY and pushes them later, so a lane starting in between correctly measures
+  its own records ABSENT and creates its own. That is MI-263 (registration is not atomic with the spawn)
+  reproducing, and it cost MI-301 and MI-303 the same detour. The manager's practice is corrected from this
+  point: PUSH THE OBJECT BEFORE SPAWNING THE LANE.

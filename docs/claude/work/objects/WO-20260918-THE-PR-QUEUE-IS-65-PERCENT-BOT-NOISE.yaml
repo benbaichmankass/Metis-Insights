@@ -1,0 +1,77 @@
+id: WO-20260918-THE-PR-QUEUE-IS-65-PERCENT-BOT-NOISE
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  13 of the 20 open PRs are reconcile-open-prs bots that never land, and the sweep that exists to clear them
+  is not clearing them
+stage: BUILD
+lifecycle: in_flight
+owner: ops lane
+opened_at: 2026-09-18
+closed_at: null
+why: >-
+  MEASURED 2026-09-18T04:2xZ by the manager. POPULATION: all 20 open PRs on benbaichmankass/Metis-Insights at
+  that moment. THIRTEEN carry head refs matching `automation/reconcile-open-prs-*`, opened between
+  2026-09-17T15:30:33Z (#12451) and 2026-09-18T01:46:15Z (#12502) -- roughly one every 40 minutes for ten
+  hours, and NOT ONE has landed. The remaining 7 are the real work.
+  WHY THIS IS NOT COSMETIC: running the merge queue is one of the manager's THREE BASE DUTIES, and the open-PR
+  list is what the manager and `pr-queue-watch.yml` both read to run it. A queue that is 65% noise is the
+  desensitised-alarm failure this repo calls its own worst mode, pointed at the very list the duty depends on.
+  `pr-queue-watch.yml` exits 1 DELIBERATELY to page when open PRs sit past a threshold -- so 13 never-landing
+  bot PRs also train the operator past that page.
+  AND THERE IS ALREADY A MECHANISM THAT SHOULD HAVE PREVENTED IT: `.github/workflows/stale-automation-sweep.yml`
+  exists and the pileup exists, so either it is not running, not matching these refs, or running and declining
+  to act. Which of those three it is has NOT been established and is the first thing to measure.
+done_condition: >-
+  BOTH, and they are different facts -- say WHICH you established.
+  (1) DIAGNOSED: it is MEASURED which of the three states `stale-automation-sweep.yml` is in (never fired /
+  fired and did not match / fired and declined), read from the workflow's OWN RUN HISTORY via actions_list,
+  NEVER from its cron expression -- this repo has documented schedules that are merged, enabled, correct and
+  fire late, erratically, or not at all. State the population of runs examined.
+  (2) DISPOSITIONED: the 13 open bot PRs are either closed, or landed, or it is RECORDED why they must stay
+  open -- and whatever produces them either stops producing un-landable PRs or its output is made to land.
+  A fix that closes today's 13 without addressing the producer clears (2) only if that is stated as the
+  limitation rather than presented as a fix.
+must_not: >-
+  DO NOT merge the 13 blindly to clear the number. Each rewrites docs/claude/work/OPEN-PRS.json, a SHARED
+  REGISTER -- merging them in sequence is how registers get clobbered, and `open_pr_record.py --strict` grades
+  that file in CI on every PR. If any is to land, land it through the same union discipline every shared
+  register gets: verify rows == unique ids, top-level keys preserved, and the file round-trips byte-identically.
+  DO NOT disable `pr-queue-watch.yml` or raise its threshold to silence the page -- the page is correct; its
+  INPUT is polluted. Silencing a working alarm because its input is noisy is the exact inversion this repo
+  files as a P1.
+  DO NOT touch the two Tier-2 PRs held for the operator (#12490, #12497) or any lane's PR.
+blocked_on: []
+blocked_on_basis: >-
+  ASSESSED 2026-09-18 by the manager (session_01GHpyXT2qssLJsrvXBQRkQF). A POSITIVE finding, not the
+  NOT_ASSESSED default: the workflow files are in the checkout, the run history is readable through the
+  GitHub MCP from an interactive lane, and nothing gates the diagnosis. Closing a bot PR is Tier-1 tooling.
+  A statement about TODAY and about THIS object only.
+captured_by: session_01GHpyXT2qssLJsrvXBQRkQF
+
+manager_correction_2026_09_18T0508Z: >-
+  ⚠️ THE `why` ABOVE UNDERSTATES THE POPULATION BY 4x AND THE ERROR IS THE MANAGER'S, NOT THE LANE'S.
+  I wrote "all 20 open PRs ... THIRTEEN carry automation/reconcile-open-prs-*" and called that a stated
+  population. It was PAGE ONE of a paginated result: I called list_pull_requests with perPage=20, took
+  what came back as the total, and never checked for a second page. RE-MEASURED 2026-09-18T05:08Z with
+  perPage=100: EIGHTY-TWO open PRs, of which SIXTY-FIVE are automation (79.3%) -- error-feed-digest 23,
+  reconcile-open-prs 14, replay-pregate 6, constraint-readout 5, probes 5, data-commit 4, work-digest 3,
+  session-reaper 2, econ-calendar 1, valuation-snapshots 1, strategy-reviews 1 -- against 17 real
+  `claude/*` branches. That is the UNSTATED-DENOMINATOR failure (diagnostic-provenance sub-class C: a
+  truncated result reading as a clean total), committed in the `why` of a work object about measurement
+  hygiene, on the one rule this repo promoted to top level. Recorded rather than quietly edited.
+  ⚠️ AND THE LANE FOUND A ROOT CAUSE I DID NOT DISPATCH IT FOR, WHICH SUPERSEDES MY FRAMING OF THE UNIT.
+  MI-313 / PR #12509 (585393a33, merged): `open_pr_record.py --strict` grades
+  docs/claude/work/OPEN-PRS.json AS A WHOLE FILE on every PR, not diff-scoped. PR #12346 was closed
+  unmerged on 2026-09-17 and its row was never moved out of `open_prs[]` nor given a terminal
+  disposition, so `session-registry-guard` REFUSED EVERY PR IN THE REPO from 2026-09-13 onward. The
+  reconcile-open-prs bots were never the disease; they are one of eleven automation families blocked
+  identically by a single undispositioned row. The lane transcribed the disposition from the PR's own
+  closing comment rather than inventing one, and verified the file round-trips byte-identically.
+  ⚠️ SO `stale-automation-sweep.yml` MAY BE ENTIRELY INNOCENT. The object's done_condition (1) still
+  stands and is still worth establishing from the RUN HISTORY -- but it must now be read as "was the
+  sweep also broken", not as "the sweep is why this happened", and a finding that it works correctly is
+  a legitimate and useful answer rather than a failure to find the bug.
+  ⚠️ WHAT IS NOT YET ESTABLISHED: whether the 65 blocked PRs actually DRAIN now that the guard passes.
+  A merged root-cause fix is not an observation of the queue recovering -- do not close this object on
+  #12509 alone.
