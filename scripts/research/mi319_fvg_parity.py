@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot ADJUDICATION of two contradictory claims about one
+# leg's harness. It grades a docstring against the code, which is a question asked once
+# per claim and answered in a committed memo; re-running it on a cadence would re-measure
+# a settled verdict, which is the failure mode OI-20260906 exists to stop. Re-run it when
+# either side of the comparison CHANGES — its own resolution criteria say so, and the
+# backlog row it files names the exact command.
 """MI-319 — grade the ``fvg_range_15m`` VERBATIM-PORT claim by measurement.
 
 THE CLAIM, AND WHY IT IS NOT SETTLED
