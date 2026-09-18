@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
+  "branch": "claude/mi318-close-out",
+  "claimed_at": "2026-09-18T11:23:49Z",
+  "purpose": "PR #12537 -- record PR #12535's closure in OPEN-PRS.json"
+}

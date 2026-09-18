@@ -40,7 +40,7 @@
     "can compare against `text`'. A narrowing, not a closure."
   ],
   "schema_version": 2,
-  "as_of": "2026-09-17",
+  "as_of": "2026-09-18",
   "maintained_by": "the manager session holding the lease",
   "source_of_truth_note": "GitHub is authoritative for state; this file is authoritative for ownership, intent and operator decisions.",
   "open_prs": [
@@ -284,6 +284,29 @@
   "⚠️_the_last_row_is_always_stale_and_that_is_STRUCTURAL": "A handoff can never reach open_prs=PASS at the exact moment of the final merge, and this is a PROPERTY of the design rather than a bug to chase. Every open PR must have a row; the PR that prunes the last stale row is itself an open PR and needs a row; merging it makes THAT row stale. The regress terminates only if the manager stops opening PRs. ⚠️ DO NOT 'fix' this by exempting the currently-merging PR from the completeness check — the exemption would be indistinguishable from the real failure it exists to catch (a PR nobody recorded), and a check that cannot tell those apart is worse than the transient row. The correct reading: at handoff, `open_prs` naming ONLY the PR being merged right now is materially ready; naming any OTHER pr is not. State which case you are in rather than quoting the verdict alone.",
   "⚠️_a_row_can_UNDER_claim_and_no_check_catches_it": "Found 2026-09-02 on this very row. `open_pr_record.py --strict` grades a verdict that DECLARES conditions and records none — the over-claiming direction, which is the dangerous one. It cannot catch the OPPOSITE: I typed #10758 `none_recorded` while a full operator decision, with its condition, sat in MANAGER-CHECKLIST.json under MI-34 the whole time. `none_recorded` is a valid verdict needing no condition, so the row passed every check while being simply wrong. ⚠️ The cost is real but is NOT symmetric with the over-claiming case: a successor reading `none_recorded` re-asks the operator — wasteful and SAFE — where one reading a bare 'approved' could merge a demo-only Tier-2 approval onto a real-money account. So this is worth KNOWING, not worth a new failing check: cross-checking every row against the checklist would fire on the many PRs that legitimately have no decision anywhere. The mitigation is the reviewer's, not the guard's — read MANAGER-CHECKLIST for the PR's item before typing `none_recorded`.",
   "settled_prs": [
+    {
+      "pr": 12535,
+      "title": "fix(decisions): compaction ladder for over-cap Telegram decision prompts",
+      "owner_session": "session_01PHax6vjumG6Aa1xh4GfKiF",
+      "checklist_item": "MI-318",
+      "tier": 2,
+      "draft": false,
+      "landing": "hold",
+      "state": "closed",
+      "opened_at": "2026-09-18",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "Never reached the operator. Closed by its own author on discovering the collision below, before any approval was sought."
+      },
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-18T11:35Z",
+      "disposition": "superseded",
+      "disposition_basis": "GENUINE DUPLICATE WORK, DISCOVERED VIA THE SCOPE-OVERLAP AUDIT COMMENT ON THIS PR, NOT SELF-REPORTED. WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S (dispatched by session_01GHpyXT2qssLJsrvXBQRkQF, the manager on branch claude/wonderful-bardeen-ofg7um) and WO-20260918-ENGINEERING-THE-DECISION-CHANNEL-REPORTS-HEALTHY-WHILE-SENDING-NOTHING (dispatched independently by a different manager, carried on claude/mi303-decision-channel-dead / PR #12490) name the IDENTICAL root defect -- render_decision_prompt had no compaction for Telegram's 4096-char cap -- citing the SAME three decision requests as evidence (DEC-20260913-FOUR-LEG-DISPOSITION 4738 chars, DEC-20260917-SCALP-MARGIN-BOUND-SIZING 5463, DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE 4569). Neither manager's dispatch mentioned the other's existing work; this is the recurrence of BL-20260918-A-LANE-IS-DISPATCHED-AGAINST-A-WORK-OBJECT-THAT-EXISTS-ONLY-ON-THE-MANAGERS-UNMERGED-BRANCH-SO-EVERY-LANE-CORRECTLY-MEASURES-IT-ABSENT-AND-CREATES-A-DUPLICATE, filed by #12490's own author for a THIRD sibling collision the same night (MI-301's WO-20260918-RESEARCH-ATTRIBUTE-...). #12490 was opened ~12h earlier (2026-09-17T23:36Z vs this PR's 2026-09-18T11:14Z), was already CI-green (7 checks) at the time of comparison, and is strictly more complete: it does the same load-bearing-first compaction ladder (context -> implications -> question) THIS PR built, plus the deeper systemic fix this PR's own must_not explicitly ruled out attempting (typed failure_kinds / sweep_outcome grading and a decision_channel_alert.py reader, because the sweep's durable receipt was reporting every health field good while delivering nothing). Closed rather than pushed further; see PR comment on #12535 and the follow-up comment left on #12490 (one real design divergence worth a human's attention: #12490's last-resort floor may truncate the question, where this PR's dispatch treated the question as never-touchable -- unreached on the real corpus either way, so flagged rather than blocking). Did NOT create a third work object file for the same defect on main; the canonical carrier is WO-20260918-ENGINEERING-THE-DECISION-CHANNEL-REPORTS-HEALTHY-WHILE-SENDING-NOTHING, which lands with #12490.",
+      "settled_at": "2026-09-18T11:36Z"
+    },
     {
       "pr": 10694,
       "title": "claude pings: one OWNER for pending_claude_pings, grace-gated failover",
@@ -2809,7 +2832,7 @@
   ],
   "last_reconciled_at": "2026-09-18T05:27:28Z",
   "last_reconciled_sha": "c63f2ea474b2811627826c03124f3a0a441b0ee0",
-  "updated_at": "2026-09-17T16:05Z",
-  "updated_by": "session_01HoFquGdTrD3TTGbMMRc43t",
+  "updated_at": "2026-09-18T11:36Z",
+  "updated_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant."
 }
