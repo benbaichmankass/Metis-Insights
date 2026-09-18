@@ -1,0 +1,592 @@
+{
+  "generated_at": "2026-09-18",
+  "p1_structural": {
+    "harness_disjuncts": [
+      "__PRICE__ <= S",
+      "__PRICE__ >= R",
+      "adx_i >= adx_max",
+      "confidence < min_confidence",
+      "direction == 'long' and __TARGET__ <= __PRICE__",
+      "direction == 'short' and __TARGET__ >= __PRICE__",
+      "fvg is None",
+      "i < next_idx",
+      "not (wicked_in and closed_out and bear_body)",
+      "not (wicked_in and closed_out and bull_body)",
+      "not atr > 0",
+      "np.isnan(R)",
+      "np.isnan(S)",
+      "np.isnan(adx_i)",
+      "risk <= 0",
+      "touches_R < min_touches",
+      "touches_S < min_touches",
+      "wfrac < min_width_pct",
+      "wfrac > max_width_pct"
+    ],
+    "harness_only_disjuncts": [
+      "i < next_idx"
+    ],
+    "harness_predicates": [
+      "i < next_idx",
+      "not atr > 0 or np.isnan(R) or np.isnan(S)",
+      "wfrac < min_width_pct or wfrac > max_width_pct",
+      "np.isnan(adx_i) or adx_i >= adx_max",
+      "__PRICE__ <= S or __PRICE__ >= R",
+      "touches_R < min_touches or touches_S < min_touches",
+      "fvg is None",
+      "risk <= 0",
+      "confidence < min_confidence",
+      "direction == 'long' and __TARGET__ <= __PRICE__",
+      "direction == 'short' and __TARGET__ >= __PRICE__",
+      "not (wicked_in and closed_out and bull_body)",
+      "not (wicked_in and closed_out and bear_body)"
+    ],
+    "live_disjuncts": [
+      "__PRICE__ <= S",
+      "__PRICE__ >= R",
+      "adx_i >= adx_max",
+      "confidence < min_confidence",
+      "direction == 'long' and __TARGET__ <= __PRICE__",
+      "direction == 'short' and __TARGET__ >= __PRICE__",
+      "fvg is None",
+      "len(candles_df) < needed",
+      "missing_cols",
+      "not (wicked_in and closed_out and bear_body)",
+      "not (wicked_in and closed_out and bull_body)",
+      "not atr > 0",
+      "np.isnan(R)",
+      "np.isnan(S)",
+      "np.isnan(adx_i)",
+      "risk <= 0",
+      "touches_R < min_touches",
+      "touches_S < min_touches",
+      "wfrac < min_width_pct",
+      "wfrac > max_width_pct"
+    ],
+    "live_only_disjuncts": [
+      "len(candles_df) < needed",
+      "missing_cols"
+    ],
+    "live_predicates": [
+      "missing_cols",
+      "len(candles_df) < needed",
+      "not atr > 0 or np.isnan(R) or np.isnan(S)",
+      "wfrac < min_width_pct or wfrac > max_width_pct",
+      "np.isnan(adx_i) or adx_i >= adx_max",
+      "__PRICE__ <= S or __PRICE__ >= R",
+      "touches_R < min_touches or touches_S < min_touches",
+      "fvg is None",
+      "risk <= 0",
+      "direction == 'long' and __TARGET__ <= __PRICE__ or (direction == 'short' and __TARGET__ >= __PRICE__)",
+      "confidence < min_confidence",
+      "not (wicked_in and closed_out and bull_body)",
+      "not (wicked_in and closed_out and bear_body)"
+    ],
+    "order_matches": false,
+    "residual_classification": {
+      "harness_loop_bookkeeping": [
+        "i < next_idx"
+      ],
+      "live_input_validation": [
+        "len(candles_df) < needed",
+        "missing_cols"
+      ],
+      "unclassified_divergence": []
+    },
+    "shared_disjunct_count": 18,
+    "state": "equivalent_modulo_order",
+    "verdict_note": "state is DERIVED from whether any residual disjunct is UNCLASSIFIED. A residual that is the harness's own loop bookkeeping or the live unit's argument validation is not an entry rule and is reported rather than counted."
+  },
+  "p2_behavioural": {
+    "relaxed_all": {
+      "full_prefix": {
+        "accept_denominator": 11,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [
+          {
+            "bar": 85,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 49.52465826454311,
+            "sl_abs": 1.4260876923799515e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 163,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 44.79579587417427,
+            "sl_abs": 2.86672729998827e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 234,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 30.007461321805497,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 320,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 57.00441573298164,
+            "sl_abs": 2.852175384759903e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 333,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 42.79145194904122,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 381,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 33.08262765640336,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 406,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 32.25898606475484,
+            "sl_abs": 2.86672729998827e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 438,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 26.088935551946904,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 514,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 26.97616243311007,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 612,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 27.760447802043448,
+            "sl_abs": 4.2782630771398544e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 636,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 38.07372792335692,
+            "sl_abs": 1.4260876923799515e-09,
+            "tp_abs": 0.0
+          }
+        ],
+        "harness_total_trades": 11,
+        "reject_gates": {
+          "no_boundary_edge": 73,
+          "no_fvg": 154,
+          "no_wick_rejection": 27,
+          "price_outside_range": 26
+        },
+        "state": "agree",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_accept": 11,
+          "both_reject": 280,
+          "harness_occupied": 331
+        },
+        "window": null
+      },
+      "live_250": {
+        "accept_denominator": 11,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [
+          {
+            "bar": 85,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 49.52465826454311,
+            "sl_abs": 1.4260876923799515e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 163,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 44.79579587417427,
+            "sl_abs": 2.86672729998827e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 234,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 30.007461321805497,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 320,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 57.00438206823257,
+            "sl_abs": 2.852175384759903e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 333,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 42.79145908212096,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 381,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 33.082640835969094,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 406,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 32.2589392728467,
+            "sl_abs": 2.86672729998827e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 438,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 26.088943500155715,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 514,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 26.976170092854144,
+            "sl_abs": 4.292814992368221e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 612,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 27.76045267849196,
+            "sl_abs": 4.2782630771398544e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 636,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 38.073727105103956,
+            "sl_abs": 1.4260876923799515e-09,
+            "tp_abs": 0.0
+          }
+        ],
+        "harness_total_trades": 11,
+        "reject_gates": {
+          "no_boundary_edge": 73,
+          "no_fvg": 154,
+          "no_wick_rejection": 27,
+          "price_outside_range": 26
+        },
+        "state": "agree",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_accept": 11,
+          "both_reject": 280,
+          "harness_occupied": 331
+        },
+        "window": 250
+      }
+    },
+    "relaxed_touches_width": {
+      "full_prefix": {
+        "accept_denominator": 3,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [
+          {
+            "bar": 187,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 19.89182153822164,
+            "sl_abs": 4.2782630771398544e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 199,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 19.916526312544256,
+            "sl_abs": 2.852175384759903e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 451,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 17.090498117341966,
+            "sl_abs": 0.0,
+            "tp_abs": 0.0
+          }
+        ],
+        "harness_total_trades": 3,
+        "reject_gates": {
+          "adx_regime": 470,
+          "no_boundary_edge": 65,
+          "no_fvg": 51,
+          "no_wick_rejection": 7,
+          "price_outside_range": 5
+        },
+        "state": "agree",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_accept": 3,
+          "both_reject": 598,
+          "harness_occupied": 21
+        },
+        "window": null
+      },
+      "live_250": {
+        "accept_denominator": 3,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [
+          {
+            "bar": 187,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 19.89182153822164,
+            "sl_abs": 4.2782630771398544e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 199,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 19.916526312544256,
+            "sl_abs": 2.852175384759903e-09,
+            "tp_abs": 0.0
+          },
+          {
+            "bar": 451,
+            "confidence_abs": 0.0,
+            "direction_match": true,
+            "entry_abs": 0.0,
+            "live_adx": 17.090509161616293,
+            "sl_abs": 0.0,
+            "tp_abs": 0.0
+          }
+        ],
+        "harness_total_trades": 3,
+        "reject_gates": {
+          "adx_regime": 470,
+          "no_boundary_edge": 65,
+          "no_fvg": 51,
+          "no_wick_rejection": 7,
+          "price_outside_range": 5
+        },
+        "state": "agree",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_accept": 3,
+          "both_reject": 598,
+          "harness_occupied": 21
+        },
+        "window": 250
+      }
+    },
+    "shipped": {
+      "full_prefix": {
+        "accept_denominator": 0,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [],
+        "harness_total_trades": 0,
+        "reject_gates": {
+          "adx_regime": 421,
+          "no_boundary_edge": 58,
+          "no_fvg": 5,
+          "price_outside_range": 8,
+          "touches": 66,
+          "width_bounds": 64
+        },
+        "state": "no_accepts_in_population",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_reject": 622
+        },
+        "window": null
+      },
+      "live_250": {
+        "accept_denominator": 0,
+        "bars_graded": 622,
+        "disagreements": [],
+        "exit_style": "far",
+        "field_deltas": [],
+        "harness_total_trades": 0,
+        "reject_gates": {
+          "adx_regime": 421,
+          "no_boundary_edge": 58,
+          "no_fvg": 5,
+          "price_outside_range": 8,
+          "touches": 66,
+          "width_bounds": 64
+        },
+        "state": "no_accepts_in_population",
+        "unknown_gate_bars": 0,
+        "verdicts": {
+          "both_reject": 622
+        },
+        "window": 250
+      }
+    }
+  },
+  "p3_input_seam": {
+    "adx_max": 20.0,
+    "adx_period": 14,
+    "deployed_window": 250,
+    "note": "`state` is the WORST across every window probed, including windows nothing actually passes. `state_at_deployed_window` is the one that describes the running system; quoting the first as if it were the second would report a converged seam as a broken one.",
+    "state": "diverges",
+    "state_at_deployed_window": "converged",
+    "windows": {
+      "51": {
+        "gate_flip_pct": 21.865,
+        "gate_flips": 136,
+        "graded": 622,
+        "max_abs_delta": 31.2529293219,
+        "mean_abs_delta": 6.2518110849,
+        "min_margin_to_gate": 0.027835,
+        "state": "diverges",
+        "tolerance": 0.01
+      },
+      "100": {
+        "gate_flip_pct": 1.5707,
+        "gate_flips": 9,
+        "graded": 573,
+        "max_abs_delta": 1.8283384007,
+        "mean_abs_delta": 0.2551266273,
+        "min_margin_to_gate": 0.027835,
+        "state": "diverges",
+        "tolerance": 0.01
+      },
+      "250": {
+        "gate_flip_pct": 0.0,
+        "gate_flips": 0,
+        "graded": 423,
+        "max_abs_delta": 5.19098e-05,
+        "mean_abs_delta": 7.3414e-06,
+        "min_margin_to_gate": 0.027835,
+        "state": "converged",
+        "tolerance": 0.01
+      }
+    }
+  },
+  "p4_target": {
+    "default_is_live_parity": false,
+    "harness_default": "mid",
+    "harness_styles": [
+      "mid",
+      "far",
+      "tp1r"
+    ],
+    "live_parity_style": "far",
+    "live_target": "opposite range boundary (tp = R long / tp = S short), unclamped",
+    "note": "the docstring's claim is scoped to the per-bar ENTRY block; the target is computed outside it, so this is graded separately and a verdict on one never carries to the other"
+  },
+  "p5_declared_minimum_class": {
+    "note": "a unit whose declared minimum sits far below what its builder fetches has an UNTESTED contract, not a live fault -- the live path passes the larger number. It becomes a fault the moment any other caller honours the declared minimum.",
+    "rows": [
+      {
+        "builder_limit": 200,
+        "builder_limit_state": "read",
+        "declared_minimum": 50,
+        "declared_minimum_state": "read",
+        "gap_state": "minimum_below_fetched",
+        "unit": "fade_breakout_4h"
+      },
+      {
+        "builder_limit": 250,
+        "builder_limit_state": "read",
+        "declared_minimum": 51,
+        "declared_minimum_state": "read",
+        "gap_state": "minimum_below_fetched",
+        "unit": "fvg_range_15m"
+      },
+      {
+        "builder_limit": null,
+        "builder_limit_state": "could_not_read",
+        "declared_minimum": 147,
+        "declared_minimum_state": "read",
+        "gap_state": "could_not_grade",
+        "unit": "hf_vwap_revert"
+      }
+    ],
+    "units_probed": 3
+  },
+  "population": {
+    "bars": 673,
+    "candles": "data/btc_1m_sample.csv",
+    "first": "2026-03-15 09:45:00",
+    "last": "2026-03-22 09:45:00",
+    "resampled_to": "15m",
+    "symbol_assumed": "BTCUSDT"
+  },
+  "runtime_candle_limit": {
+    "limit": 250,
+    "state": "read"
+  },
+  "unit": "MI-319"
+}
