@@ -1,0 +1,8 @@
+{
+  "branch": "claude/mi322-guard-baseline-third-entrypoint-20260918",
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1: amends ONE existing row in docs/claude/health-review-backlog.json and nothing else. No code, no config, no src/, no new document - so it touches neither index register. Filed through backlog_append.update_row (the sanctioned in-place path), not by hand.",
+  "session": "session_01Ex5Dx1TMYy46ncsp8eptpx",
+  "item": "MI-251 follow-up"
+}
