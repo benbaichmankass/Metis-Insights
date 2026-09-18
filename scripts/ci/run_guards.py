@@ -294,6 +294,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MI-257 — the checklist the operator reads (GET /api/bot/work/checklist,
+        # rendered as the live Workflow page) may not carry a state/status
+        # disagreement or a value outside its own declared vocabulary.
+        # UNGATED: a row can drift on a commit that only edits
+        # MANAGER-CHECKLIST.json, which this guard's `when` globs (none) would
+        # not otherwise catch. Costs ~0.05s: one JSON read, no network.
+        "name": "manager-checklist-vocabulary-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_manager_checklist_vocabulary.py"],
+        ],
+    },
+    {
         # E2 — Phase G. Capability build is PULLED by a held-up stage.
         # ⚠️ ADVISORY IN PRODUCTION TODAY, BY MEASUREMENT, NOT BY SOFTENING: the
         # constraint readout REFUSES (1.0% assessed coverage against a 50%

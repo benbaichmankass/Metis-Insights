@@ -48,7 +48,11 @@
     "blocked": "waiting on a named thing; see blocked_on",
     "queued": "scoped and agreed, nobody started it",
     "triage": "noticed, not yet scoped",
-    "dropped": "deliberately not doing; reason required"
+    "dropped": "deliberately not doing; reason required",
+    "ready": "scoped, unblocked, and next in line to dispatch (distinct from queued: prioritised, not merely agreed)",
+    "review_ready": "work landed to an open PR; needs review/merge, not a session (distinct from in_flight: nobody is actively working it, and from done: not yet merged)",
+    "deferred": "intentionally delayed for prioritisation reasons, not abandoned (distinct from dropped: the intent to do it later survives)",
+    "waiting": "known to depend on a named external event or session, but not yet expressed as a typed blocked_on edge (distinct from blocked: no formal edge exists yet)"
   },
   "items": [
     {
@@ -1765,7 +1769,7 @@
     {
       "id": "MI-135-OBSERVATION-SWEEP",
       "title": "Phase 1A — the observation sweep: 54 OPEN-ITEMS rows + 28 landed_unproven items have never been looked at on the fleet",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "session_01UaZ9boMDajiCZsjVkr4Fnz",
       "owns_object": "WO-20260906-THE-OBSERVATION-SWEEP-54-OPEN-ITEMS-ROWS",
       "priority": "P1_CYCLE",
@@ -1774,13 +1778,13 @@
       "spawned_at": "2026-09-06T08:50Z",
       "result_2026_09_06": "LANDED via #11101 (b84f490c on main) — VERIFIED by diffing the file, not by the session's claim. 26 of 54 OPEN-ITEMS rows dispositioned: 2 CLOSED on fleet evidence, 17 RE-AFFIRMED with a fresh observation, 7 recorded NOT OBSERVABLE with the reason. verified_at=never fell 17 -> 9. Patched surgically (52 insertions / 52 deletions, row order preserved). The session brief SHRANK by 54 lines because re-observed rows stopped being DUE. ⚠️ THE SESSION'S OWN SUMMARY SAID '#11103 merged' AND THAT WAS THE WRONG PR — #11103 is a 3-file board-relay filing; the sweep landed in #11101. Read the diff, not the summary. 56 of 82 items REMAIN undone and the session is idle at 487k/1M context — needs a fresh session, not a nudge, since it cannot be messaged. FINDINGS IT SURFACED, each needing an owner: alpaca_live's routed real-money leg CANNOT PLACE (both gates read live, every signal journals dry_run_no_order_placed); a 2393% same-book SL over-accumulation on bybit_1/SOLUSDT; one repeating exception is 47% of the entire operator ERROR+ feed (alarm-fatigue P1); per-account arbitration CLOSED on all three criteria; the 10 sunset candidates CLOSED.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-06T10:54Z"
+      "updated": "2026-09-06T10:54Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='landed_unproven' vs status='done' -> state='done'). PR #11101 confirmed MERGED on main (git log --grep '(#11101)'); the row's own note already read '#11101 merged'. state was stale at landed_unproven."
     },
     {
       "id": "MI-136-ZERO-FOR-THIRTEEN",
       "title": "Phase 1B — real money went 0-for-13 the week e35 shipped, and the R instrument contradicts the PnL",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_01XRYfPGr4jAHr4k1rmvTKFi",
       "owns_object": "WO-20260906-REAL-MONEY-WENT-0-FOR-13-THE",
       "priority": "P1_TRADING",
@@ -1792,8 +1796,8 @@
       "operator_decision_2026_09_06_e35": "Asked as a decision pop-up with the tradeoffs stated; operator chose 'Wait for 1B's attribution'. So the three real-money e35 legs KEEP the tighter atr_stop_mult 2.0 for now. ⚠️ THE MANAGER CORRECTED ITS OWN FRAMING WHEN ASKING: it had earlier told the operator that reverting would 'destroy the counterfactual', which was WRONG — the counterfactual replay runs on HISTORICAL trades and survives a revert. What waiting actually buys is FORWARD evidence to separate e35 from the BTC 81k->77k drawdown. The accepted cost is continued exposure at roughly -43 USD/week on a 265 USD book, and the operator was told n is small enough that waiting may not settle it either.",
       "deliverable_2_ATTRIBUTION_2026_09_06": "VERDICT: e35 IS NOT THE PRIMARY CAUSE, and the manager's own leading hypothesis is REFUTED. PR #11111, docs/research/real-money-0for13-attribution-2026-09-06.md. RECOMMENDATION: DO NOT REVERT e35 on this evidence. (1) COMPOSITION: of the 11 trades OPENED after the deploy only 2 are on an e35 leg -- 2 of 13 losses, -5.83 of -43.12 = 13.5% of the money. (2) TIMING: the losing run is 14 trades and STARTS 2026-08-28, two days BEFORE e35 deployed (892c9a2c, 08-30T08:53Z); three of its members were OPENED 08-21/08-22 under the OLD geometry and merely closed inside the window, two by an operator flatten. (3) The dominant loser, ict_scalp_5m, has NO config change at all. THE COUNTERFACTUAL LOOKED LIKE SUPPORT AND IS NOT: over the 9 rows price says actually reached their stop, 7 would NOT have reached a 1.25x wider stop, clustering just past 1.0. But a wider stop buys a DEFERRAL, not a win -- none of these trades was ever meaningfully in profit, so the loss would have been taken later and larger. WHAT ACTUALLY CHANGED -- THE MARKET STOPPED TRAVELLING. Max favourable excursion as a multiple of each trade's own stop distance (MFE/D), from Bybit candles: PRIOR 08-16..08-29 n=23 median 2.11, 14/23 reached >= +1R; POST 08-30..09-06 n=13 median 0.15, max 0.95, ZERO of 13 reached +1R. The single best trade of the losing week never matched the MEDIAN trade of the winning fortnight. In the prior window 14 trades reached +1R and there were exactly 14 wins -- the metric tracks the outcome. A stop is a floor under a loss and cannot create upside, so no stop setting wins a trade that never goes into profit. And e35 made stops NARROWER, which INFLATES MFE/D; the post window is 14x lower DESPITE that upward bias. INDEPENDENT CORROBORATION, measured without reference to any trade (Coinbase spot 15m): per-bar volatility essentially UNCHANGED (median |15m| move 0.093 -> 0.091) while directional efficiency fell 4-6x (BTC 0.098 -> 0.023, ETH 0.093 -> 0.014, XRP 0.060 -> 0.010). The market did not get quieter, it got DIRECTIONLESS -- which is why ict_scalp_5m lost on BOTH its longs and its shorts. !! IT CORRECTS A FACT THE MANAGER GAVE THE OPERATOR AND PUT IN THE DISPATCH: 'BTC fell 81k -> 77k in the window' is FALSE. BTC opened the post window at 78234 and closed at 79864, +2.08%, high 82283 low 76219. The competing explanation is real but it is LOSS OF DIRECTIONALITY, not a decline -- and a decline would not explain a book that lost on longs and shorts alike. IS 0-FOR-13 UNUSUAL? YES, and the session corrected its own first reading to establish it: it nearly reported two prior 13-14 trade streaks as precedent, then dated them -- the 14 IS THIS EVENT and the 13 was entirely orphan_adopt reconciler artifacts. The longest genuine prior losing streak on comparable legs is 6. So the run is ~2x anything this book had done, a real outlier, just not one whose timing or composition points at e35. HONEST LIMITS, stated by the session: it CANNOT clear e35 (n=2), so OI-20260830-E35-...-NOT-YET-LIVE-VERIFIED stays open on its own terms; and it CANNOT separate regime from a silent degradation in ENTRY quality, because MFE/D is a joint function of both -- the independent regime measurement is why confidence is MODERATE rather than low, and it says plainly that anyone claiming this week was purely regime is over-claiming. THE REAL ITEM IS ict_scalp_5m, NOT e35: 6 of 13 losses, 58.6% of the money, stop distances 0.15%-0.80% on BTC -- inside the noise of a directionless tape. Lifetime on bybit_2: 37 trades, 54.1% WINS, -12.65 USD. It wins more often than it loses AND STILL LOSES MONEY, which is a payoff-geometry problem, not a hit-rate one. The session explicitly refuses to author a gate from n=6.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-06T10:54Z"
+      "updated": "2026-09-06T10:54Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='in_flight' vs status='done' -> state='done'). PR #11111 confirmed MERGED on main ('Phase 1B: fix the R instrument ... (#11111)'); note already read '#11111 merged'. state was stale at in_flight."
     },
     {
       "id": "MI-137-THREE-LIVE-ALARMS",
@@ -1812,7 +1816,7 @@
     {
       "id": "MI-138-RELAND-1C",
       "title": "Re-land 1C's live-alarms disposition on a clean branch — #11105 is permanently red on manager-scope",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_01WaQaYCpGb3yZKkkRqk4JfU",
       "owns_object": "WO-20260906-RE-LAND-1C-S-LIVE-ALARMS-DISPOSITION",
       "priority": "P1_CYCLE",
@@ -1821,8 +1825,8 @@
       "note": "#11113 merged. #11105 is superseded and must be closed pointing at it.",
       "manager_error_caught_by_the_worker_2026_09_06": "THE SUB-SESSION OVERRODE THIS DISPATCH ON THREE POINTS AND WAS RIGHT ON ALL THREE. The manager verified each rather than taking them. (1) It refused to carry automation/jobs/1c-live-alarms-state-01.job onto the PR: main has NEVER held a .job (0 files, 0 commits over full history) because vm-driver.yml git-rm's the job after running it, and a resident job on main would RE-EXECUTE on the live money VM on the next claude/** branch that merges main and pushes. (2) The manager's Tier-2 hold could not have gated it anyway -- vm-driver fires on PUSH, not merge, so the job runs before any human reads the PR. The manager's model of the mechanism was wrong. (3) IT CAUGHT A MANAGER ERROR DIRECTLY: the dispatch told it the operator approval was 'recorded as a typed decision in docs/claude/work/OPEN-PRS.json'. It checked and it was NOT there -- the manager had written that record to its own unmerged branch, so main still read as_of 2026-09-05 with open_prs [10895, 10398]. It declined to bank an approval it could not verify, which is exactly the discipline the manager had applied to the author session's claim an hour earlier. CONSEQUENCE FOR THE OPERATOR'S APPROVAL: it was an approval to RUN the job, and running it means pushing to a claude/** branch -- which ALREADY HAPPENED on c8ccabdf at 09:46:38Z. That vm-driver run (34025596229) FAILED AFTER 21 SECONDS, which is why the job sits un-consumed and why alarms (a) and (b) STILL have no live reads. The approval is not spent and nothing is owed from the operator; what is owed is diagnosing that failed run.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-06T10:54Z"
+      "updated": "2026-09-06T10:54Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='in_flight' vs status='done' -> state='done'). PR #11113 confirmed MERGED on main ('1C re-land ... (#11113)'); note already read '#11113 merged'. state was stale at in_flight."
     },
     {
       "id": "MI-139-BYBIT-QTYSTEP",
@@ -1885,7 +1889,7 @@
     {
       "id": "MI-143-ICT-SCALP-5M-SHADOW",
       "title": "ict_scalp_5m -> shadow (operator-approved), then establish whether it should trade real money at all",
-      "state": "in_flight",
+      "state": "done",
       "owner": "session_01X3kyzCfUdFVimATxZFE8nd",
       "owns_object": "WO-20260906-ICT-SCALP-5M-TO-SHADOW-THEN-ESTABLISH",
       "priority": "P0_LIVE_MONEY",
@@ -1899,61 +1903,61 @@
         "text": "Decision pop-up with four options and the tradeoffs stated; operator chose 'Move it to shadow now'."
       },
       "added": "2026-09-06",
-      "status": "done",
       "note": "OPERATOR DECISION 11:00Z: NARROW lever - remove ict_scalp_5m from bybit_2's strategies list in accounts.yaml, NOT execution:shadow. Keeps both paper books trading it so bracket_geometry evidence keeps accruing. #11115 (execution:shadow) is SUPERSEDED and must be closed, its verdict doc carried across. Watch the tp_geometry ratchet. CLOSED 2026-09-07T17:35Z on merged output: the MI-143b post-deploy observation landed 2026-09-06T21:48:32Z. ⚠️ That commit's own words are 'merged, deployed, NOT yet ...' — so read it as landed-and-deployed, and do NOT read this close as meaning the effect was observed on the fleet. Session IDLE since 2026-09-06T21:56Z.",
-      "updated": "2026-09-07T17:35:00Z"
+      "updated": "2026-09-07T17:35:00Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='in_flight' vs status='done' -> state='done'). The applied fix (demote ict_scalp_5m off bybit_2) is PR #11121, confirmed MERGED on main. Row's own note says CLOSED 2026-09-07T17:35Z on the post-deploy observation. state was stale at in_flight."
     },
     {
       "id": "MI-144-THE-RECORD-DOES-NOT-SAY-WHAT-HAPPENED",
       "title": "TOP PRIORITY: the record of a trade does not say what happened — R sign-inverted, exit_reason frozen, read route silently empty",
-      "state": "queued",
+      "state": "done",
       "owner": "session_01L7dTAuGMdn3CTGeyYV5Mox",
       "owns_object": "WO-20260906-THE-RECORD-OF-A-TRADE-DOES-NOT",
       "priority": "P0_INSTRUMENT",
       "tier": "2-3 (journal writer) — propose",
       "note": "Spawned 10:53Z. OPERATOR TOP PRIORITY. Three defects: R sign-inverted, exit_reason frozen, /trades/closed silently empties. CLOSED 2026-09-07T17:35Z by the manager on MERGED OUTPUT, not on the owning session's say-so: 4 commits on main, the last (2026-09-06T17:08:22Z) reading 'the bracket instrument is fixed, deployed, and OBSERVED'. Session IDLE since 2026-09-06T17:09Z.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-07T17:35:00Z"
+      "updated": "2026-09-07T17:35:00Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='queued' vs status='done' -> state='done'). Row's own note: 'CLOSED 2026-09-07T17:35Z by the manager on MERGED OUTPUT ... 4 commits on main, the last reading the bracket instrument is fixed, deployed, and OBSERVED.' Same manager close-out batch as MI-146/MI-147, both independently confirmed merged below. state was stale at queued."
     },
     {
       "id": "MI-145-SWEEP-POSITIVE-CONTROL",
       "title": "Positive control on the exit sweep — 320 of 468 lever cells say honest_negative and nothing has shown the harness can detect a positive",
-      "state": "queued",
+      "state": "done",
       "owner": "session_01SKvbp9rm3fiyD9uHxpeFKM",
       "owns_object": "WO-20260906-POSITIVE-CONTROL-ON-THE-EXIT-SWEEP-320",
       "priority": "P1_CYCLE",
       "tier": "1",
       "note": "Spawned 12:07Z into the lane MI-146 freed. Escalated by MI-146: 320 honest_negative AND 39 SHIPPED cells all rest on one uncontrolled instrument. Second deliverable: MI-146's recommendation #1 (re-status the 33 mislabels, add a basis field, propose the CI check). CLOSED 2026-09-07T17:35Z on merged output: landed 2026-09-06T13:08:54Z — 'the exit sweep DETECTS a planted positive'. Session IDLE since 2026-09-06T13:10Z.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-07T17:35:00Z"
+      "updated": "2026-09-07T17:35:00Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='queued' vs status='done' -> state='done'). Row's own note: 'CLOSED 2026-09-07T17:35Z on merged output: landed 2026-09-06T13:08:54Z -- the exit sweep DETECTS a planted positive.' Same manager close-out batch as MI-144/MI-146/MI-147. state was stale at queued."
     },
     {
       "id": "MI-146-BRACKET-MECHANISMS-AUDIT",
       "title": "Are the bracket and active-management mechanisms in the roadmap properly, built out, and actually applied where we claim",
-      "state": "queued",
+      "state": "done",
       "owner": "session_014jrW67rFyJNnHr7y6dEhec",
       "owns_object": "WO-20260906-ARE-THE-BRACKET-AND-ACTIVE-MANAGEMENT-MECHANISMS",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
       "note": "#11124 MERGED. ROOT CAUSE: no strategy has ever extended a target, and 25 of 44 enabled live legs (56.8%) have NO REACHABLE take-profit - 15 carry a tp_r>=20 sentinel clamped by TP_VENUE_CAP_PCT 0.099 (Bybit's rejection boundary), 10 declare none. Realised closes n=120 directional 2026-08-27..09-06: bracket 29.2% (tp only 5.8%), active-mgmt 7.5%, plumbing 63.3%. CAVEAT: those shares read exit_reason, the field MI-144 says is frozen, so bracket is a LOWER bound and plumbing an UPPER bound. Q3: 46 of 46 shipped cells armed on the running trader, zero drift. 33 genuine mislabels found (cells graded tested for a lever with no consumer in that leg's unit).",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-06T12:08Z"
+      "updated": "2026-09-06T12:08Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='queued' vs status='done' -> state='done'). PR #11124 confirmed MERGED on main ('MI-146: exit-lever wiring audit -- roadmap, built, applied ... (#11124)'); note already read '#11124 MERGED'. state was stale at queued."
     },
     {
       "id": "MI-147-BACKTEST-SOAK-CHAIN-AUDIT",
       "title": "Is soaking only mechanically verifying what backtesting proved, or are we soaking things nothing tested",
-      "state": "queued",
+      "state": "done",
       "owner": "unassigned",
       "owns_object": "WO-20260906-IS-SOAKING-ONLY-MECHANICALLY-VERIFYING-WHAT-BACKTESTING",
       "priority": "P1_CYCLE",
       "tier": "1 (audit — propose only)",
       "note": "ANSWERED and merged (#11188, 6bc5dae5). The operator's premise does not hold and it fails at link one: over the 44 enabled+live legs, 0 had a backtest result read and dispositioned before the leg went live (median lag 56 days, max 88); 11 of 44 (25.0%) have no pre-live backtest at any level, ict_scalp_5m and trend_donchian among them. Soak was the FIRST measurement of these legs, not a mechanical confirmation of something already proven.",
       "added": "2026-09-06",
-      "status": "done",
-      "updated": "2026-09-07T08:42:00Z"
+      "updated": "2026-09-07T08:42:00Z",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='queued' vs status='done' -> state='done'). PR #11188 confirmed MERGED on main ('research(MI-147): backtesting is not gating what goes live ... (#11188)'); note already read 'ANSWERED and merged (#11188, 6bc5dae5)'. state was stale at queued."
     },
     {
       "id": "MI-149-REGISTER-WRITERS",
@@ -2124,14 +2128,15 @@
     },
     {
       "id": "MI-167-PHANTOM-MGC-LOTS",
-      "status": "superseded",
       "owner": "session_012Sc2fCUKAPXSVcSvKLRu5v",
       "opened": "2026-09-07T18:53:00Z",
       "updated": "2026-09-08T01:35:00Z",
       "blocked_on": null,
       "tier": "1 to measure/diagnose/file; 3 for any order-path, journal-write, reconciler or protective change",
       "title": "Pipeline lane pass 2 — root-cause the 43 phantom MGC lots the journal holds and the venue does not",
-      "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820). || 2026-09-08 MANAGER RECONCILE: the SESSION FAILED mid-turn (status_category=failed, 'the model's tool call could not be parsed', retry also failed) at 2026-09-07T19:09Z -- it did NOT finish and must not be read as done. Its substantive output had already landed, and the remaining work was re-dispatched to MI-171, which merged 86b5261e. Graded 'superseded' rather than 'done' deliberately: a session that died is a different fact from a session that finished, and collapsing the two is how a lost workstream reads as a completed one."
+      "note": "⚠️ PASS 1 INVERTED ITS OWN DISPATCH AND THAT IS THE ACTIONABLE PART. The manager dispatched it believing ib_paper/MGC was 491% over-covered with the defect in place_protective's pre-cancel scoping. It is not: every resting OCA group matches its journal row TO THE TICK — 5258/MHG 30, 5353/MGC 11, 5531/MGC 43 — so protection is downstream and FAITHFUL. THE JOURNAL SUMS TO 54 MGC LONG; THE VENUE REPORTS 11. place_protective correctly armed 43 lots for a fill the journal recorded and does not have. Trade 5531 is ict_scalp_mgc_15m, opened 2026-09-07T08:26Z. ⚠️ LIVE HAZARD, and it is worse than one group going naked: the oversized group carries the TIGHTER stop (t5531 at 4394.5 vs t5353 at 4210.7, venue avg entry 4423.02), so t5531 is the NEAREST stop and fires FIRST, attempting to sell 43 lots when 11 exist — which on IBKR does not stop at flat but flips to a ~32-lot NAKED SHORT with t5353's legs still resting. ib_paper is paper so no real capital is at risk today, but ict_scalp_mgc_15m and this code path are shared with real-money accounts. ⚠️ WHETHER THE SAME CLASS TOUCHES bybit_2 OR alpaca_live OUTRANKS THE MGC ROOT CAUSE IF THE ANSWER IS YES. Also required: whether any CLOSED-TRADE PnL was computed off a phantom quantity — that is the operator's actual question, since a phantom qty multiplies through every PnL, R and expectancy figure derived from the row. ⚠️ DETECT AND PROPOSE ONLY. Do not cancel a leg or edit a journal row: the one attempt to remediate this class cancelled the leg that MATCHED the journal (BL-20260820). || 2026-09-08 MANAGER RECONCILE: the SESSION FAILED mid-turn (status_category=failed, 'the model's tool call could not be parsed', retry also failed) at 2026-09-07T19:09Z -- it did NOT finish and must not be read as done. Its substantive output had already landed, and the remaining work was re-dispatched to MI-171, which merged 86b5261e. Graded 'superseded' rather than 'done' deliberately: a session that died is a different fact from a session that finished, and collapsing the two is how a lost workstream reads as a completed one.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='superseded' -> state='dropped'). 'superseded' means this row is retired in favour of a named successor (note already states which); dropped, reason recorded."
     },
     {
       "id": "MI-168-TRADE-SCOPED-CLOSE-CONFIRM",
@@ -2150,14 +2155,15 @@
     },
     {
       "id": "MI-170-ALPACA-CLOSE-LIQUIDATES-SIBLINGS",
-      "status": "unassigned",
       "owner": null,
       "opened": "2026-09-07T21:33:00Z",
       "updated": "2026-09-07T21:33:00Z",
       "blocked_on": null,
       "tier": "3",
       "title": "REAL MONEY: an alpaca_live close of ONE trade liquidates its SIBLINGS — the opposite-sign twin of MI-167, found by MI-168",
-      "note": "REPORTED BY MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd) at 20:33Z and filed by that session as BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. MI-167 found IB grading a SUCCEEDED close a FAILURE because the confirmation asks whether the SYMBOL is flat when the close is of a TRADE. MI-168 reports Alpaca has the same symbol-vs-trade confusion with the OPPOSITE sign: a false-SUCCESS, where closing one trade takes its siblings out with it. That is strictly worse — a false-failure leaves a row open, a false-success closes positions nobody asked to close — and unlike MI-167 it is on alpaca_live, a REAL-MONEY account. IT IS INERT ONLY BECAUSE THAT ACCOUNT CANNOT CURRENTLY PLACE AN ORDER: MI-140 measured all 44 of its journal rows in the window as `rejected` over a population of 2 signals, both shorts suppressed by the operator's side_filter: long. So MI-140 and this row are COUPLED IN THE DANGEROUS DIRECTION — clearing MI-140 arms this. NOT VERIFIED BY THE MANAGER: this is MI-168's report as read off the session listing, not something I measured. MI-168's #11279 is explicitly NOT sufficient alone. TWO OPERATOR DECISIONS ARE OWED before anything ships: (1) approve or reject re-scoping the confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict is what shipped; the alternative is confirm-on-reduction)."
+      "note": "REPORTED BY MI-168 (session_01BpU7rfqWKir4rQrowT4ZQd) at 20:33Z and filed by that session as BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS. MI-167 found IB grading a SUCCEEDED close a FAILURE because the confirmation asks whether the SYMBOL is flat when the close is of a TRADE. MI-168 reports Alpaca has the same symbol-vs-trade confusion with the OPPOSITE sign: a false-SUCCESS, where closing one trade takes its siblings out with it. That is strictly worse — a false-failure leaves a row open, a false-success closes positions nobody asked to close — and unlike MI-167 it is on alpaca_live, a REAL-MONEY account. IT IS INERT ONLY BECAUSE THAT ACCOUNT CANNOT CURRENTLY PLACE AN ORDER: MI-140 measured all 44 of its journal rows in the window as `rejected` over a population of 2 signals, both shorts suppressed by the operator's side_filter: long. So MI-140 and this row are COUPLED IN THE DANGEROUS DIRECTION — clearing MI-140 arms this. NOT VERIFIED BY THE MANAGER: this is MI-168's report as read off the session listing, not something I measured. MI-168's #11279 is explicitly NOT sufficient alone. TWO OPERATOR DECISIONS ARE OWED before anything ships: (1) approve or reject re-scoping the confirmation from symbol to trade; (2) name the IB_CLOSE_CONFIRM partial-fill default (strict is what shipped; the alternative is confirm-on-reduction).",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='unassigned' -> state='queued'). 'unassigned' is an owner-fact (owner field is already None), not a lifecycle state. The item is reported, scoped, nobody started it: queued."
     },
     {
       "id": "MI-171-ALPACA-OVER-CLOSE-POPULATION",
@@ -2187,7 +2193,6 @@
     },
     {
       "id": "MI-175-TWO-GUARDS-ARE-MUTUALLY-UNSATISFIABLE-AND-THE-ONLY-WORKING-PATH-BYPASSES-ONE",
-      "status": "unassigned",
       "owner": null,
       "opened": "2026-09-08T01:45:00Z",
       "updated": "2026-09-08T01:45:00Z",
@@ -2198,7 +2203,9 @@
       },
       "tier": "1 to fix; the RULING is the operator's",
       "title": "pr-landing R6 and the merge-slot guard cannot both be satisfied, and the path that works routes around one of them",
-      "note": "SELF-DISCLOSED by session_018ruZdgEkPZ1XceWzLwuYUU in #11309's body -- it benefited from the gap, did not intend to, and said so rather than letting it pass. That disclosure is the reason this row exists, and it must not stay buried in a merged PR body. THE THREE-WAY BIND, as it stands right now: (1) pr-landing-guard R6 REQUIRES a Tier-1 `landing: self` PR to arm .github/pr-automerge-requests/<slug>.txt -- 'a readiness declaration lands nothing on its own'; (2) the merge-slot guard FORBIDS arming auto-merge without a MERGE SLOT CLAIM comment on GitHub issue #6927; (3) #6927 is at GitHub's 2500-comment ceiling and refuses every write by every path. So the two guards are MUTUALLY UNSATISFIABLE, and the only route that completes is the one that does not pass the merge-slot check: pushing the R6 arm file makes claude-pr-automerge.yml open the PR and enable auto-merge SERVER-SIDE, through a door the session-level hook does not watch. The same session was refused by hand on #11306 thirty minutes earlier for exactly this. MANAGER POSITION, stated so it is arguable rather than assumed: I did not reverse #11309 and would not have. Its reasoning holds -- R6 is repo-level canon enforced in CI, the marker guard describes ITSELF as a session-level speed-bump, and the gated merge was a 21-line register deletion with no PR mid-merge. But 'the bypass was harmless this time' is not a policy, and a guard that is cheaper to route around than to satisfy is the failure shape CLAUDE.md already names for new-table-wiring-guard. WHAT IS OWED IS A RULING, NOT A PATCH: either the merge-slot guard is re-pointed at whatever succeeds #6927 (which couples this to MI-172, itself PARKED by the spawn gate), or it is explicitly suspended while the board is down, or R6 gains a path that satisfies both. Choosing one of those is the operator's; filing it is mine. DO NOT let a session pick silently -- the next one to hit this will have no disclosure to read."
+      "note": "SELF-DISCLOSED by session_018ruZdgEkPZ1XceWzLwuYUU in #11309's body -- it benefited from the gap, did not intend to, and said so rather than letting it pass. That disclosure is the reason this row exists, and it must not stay buried in a merged PR body. THE THREE-WAY BIND, as it stands right now: (1) pr-landing-guard R6 REQUIRES a Tier-1 `landing: self` PR to arm .github/pr-automerge-requests/<slug>.txt -- 'a readiness declaration lands nothing on its own'; (2) the merge-slot guard FORBIDS arming auto-merge without a MERGE SLOT CLAIM comment on GitHub issue #6927; (3) #6927 is at GitHub's 2500-comment ceiling and refuses every write by every path. So the two guards are MUTUALLY UNSATISFIABLE, and the only route that completes is the one that does not pass the merge-slot check: pushing the R6 arm file makes claude-pr-automerge.yml open the PR and enable auto-merge SERVER-SIDE, through a door the session-level hook does not watch. The same session was refused by hand on #11306 thirty minutes earlier for exactly this. MANAGER POSITION, stated so it is arguable rather than assumed: I did not reverse #11309 and would not have. Its reasoning holds -- R6 is repo-level canon enforced in CI, the marker guard describes ITSELF as a session-level speed-bump, and the gated merge was a 21-line register deletion with no PR mid-merge. But 'the bypass was harmless this time' is not a policy, and a guard that is cheaper to route around than to satisfy is the failure shape CLAUDE.md already names for new-table-wiring-guard. WHAT IS OWED IS A RULING, NOT A PATCH: either the merge-slot guard is re-pointed at whatever succeeds #6927 (which couples this to MI-172, itself PARKED by the spawn gate), or it is explicitly suspended while the board is down, or R6 gains a path that satisfies both. Choosing one of those is the operator's; filing it is mine. DO NOT let a session pick silently -- the next one to hit this will have no disclosure to read.",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='unassigned' -> state='queued'). 'unassigned' is an owner-fact, not a lifecycle state; owner field is already None. Maps to queued."
     },
     {
       "id": "MI-173-ALPACA-SIBLING-MECHANISM",
@@ -2225,14 +2232,15 @@
     },
     {
       "id": "MI-176-ALPACA-COVERAGE-QUANTITY",
-      "status": "operator_approved",
       "owner": "session_018iDJZVj11ugKyUwsHF7X3q",
       "opened": "2026-09-08T02:16:00Z",
       "updated": "2026-09-08T04:16:00Z",
       "blocked_on": null,
       "tier": "1 to measure; the DETECTION ship is Tier-2",
       "title": "Is REAL-MONEY alpaca_live carrying the same unmeasurable protective-coverage gap MI-173 found on paper?",
-      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold. || APPROVED 2026-09-08 (Tier-2) as DETECTION ONLY. The quantity grade must NOT bind the Alpaca re-arm path — same hold placed on BYBIT_GRADED_COVERAGE_MODE on 2026-09-02, same reason: arm only once a soak shows what binding would have CHANGED. The merge is permitted BECAUSE it binds nothing; arming must not be inferred from it. The CRITICAL alpaca_partial_stop_coverage page WILL fire on merge for the standing TLT condition — expected, not a regression. || #11315 CONFLICT RESOLVED 2026-09-08T04:43Z. GitHub called it unmergeable while a local merge came back clean — the difference is the register merge driver, which is armed in this clone and is CLIENT-SIDE ONLY, so GitHub was right and the clean local result was the driver rather than agreement. Verified the driver's output independently instead of trusting it: base 1282 rows, branch 1283, main 1284, merged 1285 = exactly the union, no id missing, none extra, no duplicates. Merged rather than rebased (not my branch). mergeable_state moved dirty -> blocked and the checks re-armed."
+      "note": "DIRECTLY DOWNSTREAM OF MI-173's STRONGEST FINDING. Measured on alpaca_portfolio/TLT at 2026-09-08T01:42:07Z with read_state 'orders_read' — a CONFIRMED CLEAN READ, so the absence is measured and not a failed look: of a 72-share short, only 16 shares carry any protective leg and FIFTY-SIX REST NAKED. It is invisible BY CONSTRUCTION — the Alpaca sweep grades SIDES, not quantity, and the code says so in a comment ('stop_qty=None,  # Alpaca grades sides, not qty'). Bybit grades covered_qty, IB grades stop_qty/target_qty; ALPACA GOT THE TWO-SIDED HALF OF BL-20260816-COVERAGE-IS-ONE-SIDED AND NEVER GOT THE QUANTITY HALF. ⚠️ MI-173 explicitly did NOT read alpaca_live, which is mode: live / real_money and shares this exact client code — so whether real money carries the same exposure is UNKNOWN AND NOBODY HAS LOOKED. That is this session's question. Scoped MEASUREMENT FIRST then DETECTION ONLY: no close, no cancel, no re-arm, and explicitly NO re-arm wired off the new grade (BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG). || 2026-09-08T03:20Z: session now IDLE/BLOCKED — it has FINISHED. Both owed decisions are the operator's and neither may be substituted. #11315 holds at tier:2/landing:hold. || APPROVED 2026-09-08 (Tier-2) as DETECTION ONLY. The quantity grade must NOT bind the Alpaca re-arm path — same hold placed on BYBIT_GRADED_COVERAGE_MODE on 2026-09-02, same reason: arm only once a soak shows what binding would have CHANGED. The merge is permitted BECAUSE it binds nothing; arming must not be inferred from it. The CRITICAL alpaca_partial_stop_coverage page WILL fire on merge for the standing TLT condition — expected, not a regression. || #11315 CONFLICT RESOLVED 2026-09-08T04:43Z. GitHub called it unmergeable while a local merge came back clean — the difference is the register merge driver, which is armed in this clone and is CLIENT-SIDE ONLY, so GitHub was right and the clean local result was the driver rather than agreement. Verified the driver's output independently instead of trusting it: base 1282 rows, branch 1283, main 1284, merged 1285 = exactly the union, no id missing, none extra, no duplicates. Merged rather than rebased (not my branch). mergeable_state moved dirty -> blocked and the checks re-armed.",
+      "state": "ready",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='operator_approved' -> state='ready'). 'operator_approved' describes a decision that was taken, not a lifecycle position; the item is now unblocked and next in line: ready (now a declared state)."
     },
     {
       "id": "MI-177-JOURNAL-VENUE-FLEET-AUDIT",
@@ -2304,14 +2312,15 @@
     },
     {
       "id": "MI-183-PR-LANDING-R6-VS-MERGE-SLOT",
-      "status": "superseded",
       "owner": "session_0173g82hw2Rf3HjnfydGcnyX",
       "opened": "2026-09-08T04:16:00Z",
       "updated": "2026-09-08T06:58:00Z",
       "blocked_on": null,
       "tier": "1 — CI guard machinery",
       "title": "pr-landing R6 and the merge-slot guard are mutually unsatisfiable",
-      "note": "SUPERSEDED by MI-183b. The container could not `git push` / `git merge` and burned ~201k tokens reaching a finished analysis it could not land. Re-dispatched into a fresh container that runs a throwaway-branch push probe FIRST. ⚠️ WHY two of six containers refuse is NOT established — both sessions gave paraphrases ('push denied by harness', 'permission classifier denied git merge') and neither produced the verbatim refusal, so no mechanism is on record. Do not restate a cause."
+      "note": "SUPERSEDED by MI-183b. The container could not `git push` / `git merge` and burned ~201k tokens reaching a finished analysis it could not land. Re-dispatched into a fresh container that runs a throwaway-branch push probe FIRST. ⚠️ WHY two of six containers refuse is NOT established — both sessions gave paraphrases ('push denied by harness', 'permission classifier denied git merge') and neither produced the verbatim refusal, so no mechanism is on record. Do not restate a cause.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='superseded' -> state='dropped'). Row's own note: 'SUPERSEDED by MI-183b.' dropped, reason recorded."
     },
     {
       "id": "MI-184-R2-BLOCKS-THE-MANAGER-FROM-RESOLVING-A-REGISTER-CONFLICT",
@@ -2341,14 +2350,15 @@
     },
     {
       "id": "MI-185-LAND-THE-TWO-BLOCKED-APPROVED-PRS",
-      "status": "superseded",
       "owner": "session_015iukpShDdwvP5CM79Qtt3B",
       "opened": "2026-09-08T05:12:00Z",
       "updated": "2026-09-08T06:58:00Z",
       "blocked_on": null,
       "tier": "1 — mechanical merge, routed off the manager",
       "title": "Land #11279 and #11312 — both operator-approved, both un-mergeable BY THE MANAGER",
-      "note": "SUPERSEDED by MI-185b, same push-refusal class as MI-183 (~160k tokens spent before discovering it could not land). MI-185b passed the push probe at 06:29:13Z and pushed a real merge at 06:34:26Z — six minutes against MI-185's whole budget, which is the evidence the probe is worth its cost."
+      "note": "SUPERSEDED by MI-185b, same push-refusal class as MI-183 (~160k tokens spent before discovering it could not land). MI-185b passed the push probe at 06:29:13Z and pushed a real merge at 06:34:26Z — six minutes against MI-185's whole budget, which is the evidence the probe is worth its cost.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='superseded' -> state='dropped'). Row's own note: 'SUPERSEDED by MI-185b ... MI-185b passed the push probe ... and pushed a real merge.' dropped, reason recorded."
     },
     {
       "id": "MI-187-A-SUBSESSION-CAN-BURN-ITS-BUDGET-ON-WORK-IT-CANNOT-LAND",
@@ -2386,25 +2396,27 @@
     },
     {
       "id": "MI-188-EXIT-MECHANICS-TRAILING-AND-BANKING",
-      "status": "superseded",
       "owner": "session_019rZTh1JFCXRNR4kYpueGPu",
       "opened": "2026-09-08T07:14:48Z",
       "updated": "2026-09-08T07:23:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Exit mechanics: the trailing and banking half (measurement only)",
-      "note": "SUPERSEDED by MI-188b. The original container cloned `the-lizardking/ict-trading-bot` — the historical pre-rename repo — because create_session was called without an explicit source_url. INTERRUPTED at 07:19Z. ⚠️ IT HAD ALREADY PRODUCED A PLAUSIBLE NUMBER ('zero trailing/partial found yet') FROM THE WRONG CODEBASE; that figure is void and must not be quoted. Re-spawned as session_019rZTh1JFCXRNR4kYpueGPu with source_url pinned and a `git remote -v` assertion ahead of the push probe."
+      "note": "SUPERSEDED by MI-188b. The original container cloned `the-lizardking/ict-trading-bot` — the historical pre-rename repo — because create_session was called without an explicit source_url. INTERRUPTED at 07:19Z. ⚠️ IT HAD ALREADY PRODUCED A PLAUSIBLE NUMBER ('zero trailing/partial found yet') FROM THE WRONG CODEBASE; that figure is void and must not be quoted. Re-spawned as session_019rZTh1JFCXRNR4kYpueGPu with source_url pinned and a `git remote -v` assertion ahead of the push probe.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='superseded' -> state='dropped'). Row's own note: 'SUPERSEDED by MI-188b.' dropped, reason recorded."
     },
     {
       "id": "MI-189-PIPELINE-LANE-PASS-5",
-      "status": "superseded",
       "owner": "session_01LRLUSvcGqQjPcMByAiggsg",
       "opened": "2026-09-08T07:15:19Z",
       "updated": "2026-09-08T07:23:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Pipeline lane pass 5: the accounts MI-177 could not read",
-      "note": "SUPERSEDED by MI-189b. The original container carried NO repository at all (session_context had no `sources` key) and stalled within 90 seconds asking whether to work on an 'ICT notebook' — unrelated operator-preference context, not this repo. Re-spawned as session_01LRLUSvcGqQjPcMByAiggsg with source_url pinned."
+      "note": "SUPERSEDED by MI-189b. The original container carried NO repository at all (session_context had no `sources` key) and stalled within 90 seconds asking whether to work on an 'ICT notebook' — unrelated operator-preference context, not this repo. Re-spawned as session_01LRLUSvcGqQjPcMByAiggsg with source_url pinned.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='superseded' -> state='dropped'). Row's own note: 'SUPERSEDED by MI-189b.' dropped, reason recorded."
     },
     {
       "id": "MI-188b-EXIT-MECHANICS-TRAILING-AND-BANKING",
@@ -2434,14 +2446,15 @@
     },
     {
       "id": "MI-190-SPAWN-WITHOUT-SOURCE-URL-ATTACHES-THE-WRONG-REPO",
-      "status": "filed",
       "owner": null,
       "opened": "2026-09-08T07:23:00Z",
       "updated": "2026-09-08T07:23:00Z",
       "blocked_on": null,
       "tier": "1",
       "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
-      "note": "FILED, NOT TAKEN — filing is the act of not taking the item. This is a RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, which is OPEN and which the manager that hit it had not read — the 'we file lessons and learn none' class. ⚠️ THE NEW HALF IS THE DANGEROUS ONE: no-repo fails LOUDLY in seconds; wrong-repo fails QUIETLY and produces quotable findings from the wrong codebase, which under CY-20260906-TRADING-TRUTH is exactly the contaminated instrument the cycle exists to prevent. Remedy wanted is a CHECK or a DEFAULT, not a fourth reminder: assert `git remote -v` in every spawn prompt beside the push probe, or ship a spawn helper that always passes source_url."
+      "note": "FILED, NOT TAKEN — filing is the act of not taking the item. This is a RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, which is OPEN and which the manager that hit it had not read — the 'we file lessons and learn none' class. ⚠️ THE NEW HALF IS THE DANGEROUS ONE: no-repo fails LOUDLY in seconds; wrong-repo fails QUIETLY and produces quotable findings from the wrong codebase, which under CY-20260906-TRADING-TRUTH is exactly the contaminated instrument the cycle exists to prevent. Remedy wanted is a CHECK or a DEFAULT, not a fourth reminder: assert `git remote -v` in every spawn prompt beside the push probe, or ship a spawn helper that always passes source_url.",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='filed' -> state='queued'). Row's own note: 'FILED, NOT TAKEN -- filing is the act of not taking the item.' Maps to queued."
     },
     {
       "id": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
@@ -2458,14 +2471,15 @@
     },
     {
       "id": "MI-192-LANE-1-OPS-SYSTEM-REVIEW",
-      "status": "failed",
       "owner": "session_01AWw28Sfk7hNZASfMrssFLq",
       "opened": "2026-09-08T08:20:00Z",
       "updated": "2026-09-08",
       "blocked_on": "MI-191-LANE-0-MAIN-IS-RED-AND-R13-R2-DEADLOCK",
       "tier": "1",
       "title": "LANE 1 (ops): /system-review, 38 days overdue",
-      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows.  ⚠️ SUPERSEDED BY OBSERVATION 2026-09-08T10:25Z: Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows. ⚠️ OBSERVED FAILED at 2026-09-08T10:25Z via list_sessions: session_01AWw28Sfk7hNZASfMrssFLq died 08:46Z with 'The model tool call could not be parsed (retry also failed)', 29 minutes in, producing NO PR and no committed artifact. Lane 1 was dead for 1h40m before a cadence tick caught it — post_turn_summary would have kept reading optimistically. Respawned as MI-192b."
+      "note": "Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows.  ⚠️ SUPERSEDED BY OBSERVATION 2026-09-08T10:25Z: Last weekly report 2026-08-01. Absorbs journal-vs-venue pipeline health per the operator re-allocation -- that is /health-review own mandate. Carries a starting finding: comms/reports/index.json newest entry is 2026-06-23, six weeks behind the artifacts, and that index is what --window=since-last resolves against. backlog_drive means DRAIN: 716 unresolved health rows. ⚠️ OBSERVED FAILED at 2026-09-08T10:25Z via list_sessions: session_01AWw28Sfk7hNZASfMrssFLq died 08:46Z with 'The model tool call could not be parsed (retry also failed)', 29 minutes in, producing NO PR and no committed artifact. Lane 1 was dead for 1h40m before a cadence tick caught it — post_turn_summary would have kept reading optimistically. Respawned as MI-192b.",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='failed' -> state='queued'). 'failed' (n=1, not a repeated pattern) described a lane that did not deliver; the row's own note shows work is still owed ('Last weekly report 2026-08-01 ... carries a starting finding'). Needs (re)dispatch: queued."
     },
     {
       "id": "MI-193-LANE-2-RESEARCH-ACTIVE-MANAGEMENT-MECHANICS",
@@ -2546,35 +2560,38 @@
       "id": "MI-197-MERGE-SLOT-CARVE-OUT-DEADLOCK-HIT-TWICE-IN-ONE-MORNING",
       "title": "The merge_slot carve-out is checked against EVERY parent, so an armed manager branch can never take main in — hit twice, cost two full re-lays",
       "owner": "unassigned",
-      "status": "filed_not_taken",
       "tier": "1 — CI guard change",
       "opened": "2026-09-08",
       "updated": "2026-09-08",
       "blocked_on": [],
-      "note": "FILED, DELIBERATELY NOT TAKEN — a guard change is scripts/ci/, a worker path, and the manager does not execute items. Row: BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH. MEASURED TWICE ON 2026-09-08. check_manager_scope's merge_slot_claim_only admits a manager commit touching docs/claude/session-board.json only when merge_slot is the sole top-level key changed, checked against EVERY parent — so on a merge commit whose two parents differ on ANY other key, or on merge_slot itself, no resolution can satisfy it. First hit: the parents differed on `updated_at`. Second hit: #11378 landed its own merge_slot change and `git merge-tree --write-tree` returned EXIT 1 on session-board.json. ⚠️ THE INTERACTION IS THE DEFECT, NOT EITHER RULE. pr-landing R13 REQUIRES an armed branch to hold merge_slot in that file; the carve-out then makes the file unmergeable. So the one file a manager register branch MUST touch is the one it can never resolve a conflict in. Force-push is prohibited and weakening the carve-out would re-open what #11357 closed, which leaves re-laying linearly off main as the ONLY honest route — and it must be re-done every time another branch lands a merge_slot change first, which under a working merge queue is often. ⚠️ DO NOT 'fix' this with a manager-scope-exception: that is the papering-over this repo has already ruled against."
+      "note": "FILED, DELIBERATELY NOT TAKEN — a guard change is scripts/ci/, a worker path, and the manager does not execute items. Row: BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH. MEASURED TWICE ON 2026-09-08. check_manager_scope's merge_slot_claim_only admits a manager commit touching docs/claude/session-board.json only when merge_slot is the sole top-level key changed, checked against EVERY parent — so on a merge commit whose two parents differ on ANY other key, or on merge_slot itself, no resolution can satisfy it. First hit: the parents differed on `updated_at`. Second hit: #11378 landed its own merge_slot change and `git merge-tree --write-tree` returned EXIT 1 on session-board.json. ⚠️ THE INTERACTION IS THE DEFECT, NOT EITHER RULE. pr-landing R13 REQUIRES an armed branch to hold merge_slot in that file; the carve-out then makes the file unmergeable. So the one file a manager register branch MUST touch is the one it can never resolve a conflict in. Force-push is prohibited and weakening the carve-out would re-open what #11357 closed, which leaves re-laying linearly off main as the ONLY honest route — and it must be re-done every time another branch lands a merge_slot change first, which under a working merge queue is often. ⚠️ DO NOT 'fix' this with a manager-scope-exception: that is the papering-over this repo has already ruled against.",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='filed_not_taken' -> state='queued'). Row's own note: 'FILED, NOT TAKEN -- a guard change is scripts/ci/, a worker path, and the manager does not execute items.' Maps to queued."
     },
     {
       "id": "MI-198-DUPLICATE-HELD-BY-KEY-PARSED-PAST-BY-EVERY-GUARD",
       "title": "#11378 left a duplicate `held_by` inside merge_slot and every guard read straight past it",
       "owner": "unassigned",
-      "status": "filed_not_taken",
       "tier": "1 — CI guard change",
       "opened": "2026-09-08",
       "updated": "2026-09-08",
       "blocked_on": [],
-      "note": "FILED, NOT TAKEN — same reason as MI-197. Row: BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST. THE LIVE FILE IS REPAIRED (free, in the same commit that re-claimed the slot, which rewrites merge_slot wholesale anyway — exactly the change the carve-out permits). THE DETECTOR IS NOT BUILT and that is what the row is for. ⚠️ It was harmless ONLY because the two values happened to be identical; json.loads takes the LAST occurrence silently, so a claim taken FROM a different holder would have read as clean while the prior claim was overwritten rather than released. check_board_coherence, merge_slot_claim_only and check_pr_landing all read this file through plain json.loads, which is duplicate-tolerant by specification — so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it, and the PR merged green."
+      "note": "FILED, NOT TAKEN — same reason as MI-197. Row: BL-20260908-A-SURGICAL-MERGE-SLOT-REPLACE-LEFT-A-DUPLICATE-HELD-BY-KEY-THAT-EVERY-GUARD-PARSED-PAST. THE LIVE FILE IS REPAIRED (free, in the same commit that re-claimed the slot, which rewrites merge_slot wholesale anyway — exactly the change the carve-out permits). THE DETECTOR IS NOT BUILT and that is what the row is for. ⚠️ It was harmless ONLY because the two values happened to be identical; json.loads takes the LAST occurrence silently, so a claim taken FROM a different holder would have read as clean while the prior claim was overwritten rather than released. check_board_coherence, merge_slot_claim_only and check_pr_landing all read this file through plain json.loads, which is duplicate-tolerant by specification — so a structurally malformed claim renders byte-identically to a well-formed one on every surface that grades it, and the PR merged green.",
+      "state": "queued",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='filed_not_taken' -> state='queued'). Row's own note: 'FILED, NOT TAKEN -- same reason as MI-197.' Maps to queued."
     },
     {
       "id": "MI-199-GLD-CLOSE-WEDGE",
       "title": "The GLD close wedge — stop retrying a close the system KNOWS cannot succeed, then clear it",
       "owner": "session_011PHmZzVy92M6zjNopAMy51",
-      "status": "operator_approved",
       "tier": "operator-directed",
       "opened": "2026-09-08",
       "updated": "2026-09-08",
       "blocked_on": null,
       "owns_object": "WO-20260908-THE-GLD-CLOSE-WEDGE-THE-SYSTEM-CLASSIFIES",
-      "note": "OPERATOR APPROVED 2026-09-08 (Tier-2, no conditions): suppress the futile close retry on the EVIDENCED `cancel_accepted_ineffective` state. Offered three options (suppress / show me the change first / leave the retries) and chose to suppress. Scope: an evidenced FIFTH state; must stay a CADENCE not a stop (re-probe so a changed venue state re-arms immediately); key on the evidenced determination, never on the failure merely repeating; states stay uncollapsed; rollback is one env flip, no redeploy. Explicitly NOT a re-scoping of the earlier suppression — UNCLEARABLE_HOLD_STATE is the single string `broker_cancel_wedged` and cannot reach these 63 pages. ROOT CAUSE, measured not inferred: Alpaca returns a success code for cancels it does not perform (14:12:54Z give-up line read `cancel: accepted=2 already_gone=0 refused=0`; six seconds later both orders still rested with canceled_at None, status new and held). Those are cancellable statuses, so classify_share_hold graded them `orders_still_resting` 181 times over seven days about orders that have not moved since 2026-08-27. This is the half #11406 explicitly did NOT fix, and its PR body said so before it merged. Delivered to session_011PHmZzVy92M6zjNopAMy51 at 18:04Z; the session had been sitting IDLE on this decision, which was stated to the operator when the question was put."
+      "note": "OPERATOR APPROVED 2026-09-08 (Tier-2, no conditions): suppress the futile close retry on the EVIDENCED `cancel_accepted_ineffective` state. Offered three options (suppress / show me the change first / leave the retries) and chose to suppress. Scope: an evidenced FIFTH state; must stay a CADENCE not a stop (re-probe so a changed venue state re-arms immediately); key on the evidenced determination, never on the failure merely repeating; states stay uncollapsed; rollback is one env flip, no redeploy. Explicitly NOT a re-scoping of the earlier suppression — UNCLEARABLE_HOLD_STATE is the single string `broker_cancel_wedged` and cannot reach these 63 pages. ROOT CAUSE, measured not inferred: Alpaca returns a success code for cancels it does not perform (14:12:54Z give-up line read `cancel: accepted=2 already_gone=0 refused=0`; six seconds later both orders still rested with canceled_at None, status new and held). Those are cancellable statuses, so classify_share_hold graded them `orders_still_resting` 181 times over seven days about orders that have not moved since 2026-08-27. This is the half #11406 explicitly did NOT fix, and its PR body said so before it merged. Delivered to session_011PHmZzVy92M6zjNopAMy51 at 18:04Z; the session had been sitting IDLE on this decision, which was stated to the operator when the question was put.",
+      "state": "ready",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='operator_approved' -> state='ready'). Row's own note: 'OPERATOR APPROVED 2026-09-08 (Tier-2, no conditions) ... suppress the futile close retry.' Approved and ready to dispatch: ready."
     },
     {
       "id": "MI-200-REAL-MONEY-LOSING-STREAK",
@@ -2695,13 +2712,14 @@
       "id": "MI-206-ALPACA-SCOPED-WRITE",
       "title": "Build the trade/qty-scoped Alpaca protective attach and scoped modify (Tier-2, approved)",
       "owner": "unassigned",
-      "status": "duplicate_of_MI-180",
       "tier": "2 — order-path change; the operator APPROVED it 2026-09-08 and it is RECORDED, not applied",
       "opened": "2026-09-08",
       "updated": "2026-09-08T23:26:51Z",
       "blocked_on": [],
       "owns_object": "WO-20260908-DECISION-ALPACA-SCOPED-WRITE-CAPABILITY",
-      "note": "⚠️ DO NOT SPAWN THIS. CORRECTED 2026-09-08T23:26Z — this row read 'ready / unassigned' as though the work needed a session, and it does not: it is ALREADY BUILT and in CI as #11337 under MI-180-ALPACA-CLOSE-TRADE-SCOPE, owned by session_01GYsNAhP6SpKe1vyn2tBc94 since 04:46Z — 22 commits, 1326 additions across 13 files, 18 tests. Spawning a session against this row would have duplicated all of it. || HOW THE DUPLICATE AROSE, because the mechanism matters more than the row: I opened MI-206 from the operator's DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write) answer, treating an approval as though it created new work. It did not — my own note on this row already said the decision 'RELEASES PR #11337', which is the correct reading and is incompatible with also listing it as unassigned work to dispatch. An approval that releases an existing PR is not a work item; conflating the two manufactures a second owner for one deliverable. || ⚠️ AND THE APPROVAL WAS PARTLY REDUNDANT: #11337's own landing declaration records that the operator had ALREADY approved the operation earlier on 2026-09-08 ('asked whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to trade-scope it'), and that what the hold was actually waiting on was the section-3(b) CONFIRMATION question — a different question from the one I put to them. OPEN-PRS.json shows 3(b) was also answered. Nothing is lost by the duplication, but a manager re-asking a question already answered is the cost, and it is recorded. || THE OPERATOR'S SEQUENCING IS UNAFFECTED: 'harness first, Alpaca next' governs what gets SPAWNED. #11337 needs no spawn — only the merge click tracked on MI-180."
+      "note": "⚠️ DO NOT SPAWN THIS. CORRECTED 2026-09-08T23:26Z — this row read 'ready / unassigned' as though the work needed a session, and it does not: it is ALREADY BUILT and in CI as #11337 under MI-180-ALPACA-CLOSE-TRADE-SCOPE, owned by session_01GYsNAhP6SpKe1vyn2tBc94 since 04:46Z — 22 commits, 1326 additions across 13 files, 18 tests. Spawning a session against this row would have duplicated all of it. || HOW THE DUPLICATE AROSE, because the mechanism matters more than the row: I opened MI-206 from the operator's DEC-20260908-ALPACA-SCOPED-WRITE (build_scoped_write) answer, treating an approval as though it created new work. It did not — my own note on this row already said the decision 'RELEASES PR #11337', which is the correct reading and is incompatible with also listing it as unassigned work to dispatch. An approval that releases an existing PR is not a work item; conflating the two manufactures a second owner for one deliverable. || ⚠️ AND THE APPROVAL WAS PARTLY REDUNDANT: #11337's own landing declaration records that the operator had ALREADY approved the operation earlier on 2026-09-08 ('asked whether to trade-scope the Alpaca close or rule whole-symbol close intended, and chose to trade-scope it'), and that what the hold was actually waiting on was the section-3(b) CONFIRMATION question — a different question from the one I put to them. OPEN-PRS.json shows 3(b) was also answered. Nothing is lost by the duplication, but a manager re-asking a question already answered is the cost, and it is recorded. || THE OPERATOR'S SEQUENCING IS UNAFFECTED: 'harness first, Alpaca next' governs what gets SPAWNED. #11337 needs no spawn — only the merge click tracked on MI-180.",
+      "state": "dropped",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (status='duplicate_of_MI-180' -> state='dropped'). 'duplicate_of_MI-180' is a foreign key in the status field, not a lifecycle value. Row's own note: 'DO NOT SPAWN THIS ... ALREADY BUILT and in CI as #11337 under MI-180'. This row is retired in favour of MI-180: dropped."
     },
     {
       "id": "MI-207-REGISTRY-MUST-REFUSE-A-SPAWN-WITH-NO-SOURCE-URL",
@@ -2888,7 +2906,7 @@
     },
     {
       "id": "MI-222-BUILD-THE-VENUE-TRUTH-POSITION-DETECTOR",
-      "state": "ready",
+      "state": "landed_unproven",
       "owner": "session_01WmFdLwfq4U5aLLjFRDDy6b",
       "title": "Build the venue-truth position detector — nothing can see a live position absent from BOTH the account-wide venue list and the journal's open rows (operator: \"building is the next action item\")",
       "opened": "2026-09-09",
@@ -2896,12 +2914,12 @@
       "blocked_on": [],
       "note": "Operator-directed 2026-09-09 after the bybit_2 ETHUSDT P1. THE CAPABILITY DOES NOT EXIST, and the near-miss is the point: scripts/ops/journal_venue_audit.py was built 2026-09-08 for this exact class, (a) nothing runs it (its own header says manual-only, deliberately not on a cadence) and (b) it reads the venue via _diag(\"exchange_positions\") = account_open_positions, THE LIST THIS POSITION IS MISSING FROM — so on an hourly cadence since it was written it would have reported bybit_2 clean on every run. Scheduling it buys a green light over an unread book. Reuse its JOURNAL side (the two silent read caps + the /api/diag/exposure uncapped-SUM cross-check) wholesale; replace the venue side with a roster-driven enumeration from config/accounts.yaml::symbols, which is complete BY CONSTRUCTION and contains ETHUSDT for bybit_2. One open parameter — whether a symbol-scoped bybit read sees it — is MI-221 clause (A); it gates the read choice, not the start. Detector routes into the EXISTING baseline repair chain and owns no order path of its own.\n\n⚠️ UPDATED 2026-09-09T14:28Z BY THE MANAGER — MY OWN STRUCTURAL CLAIM ABOVE IS PARTIALLY REFUTED BY THE LANE (#11550) AND I ACCEPT THE REFUTATION. 'Replace the venue side with a roster-driven enumeration from config/accounts.yaml::symbols' describes work that ALREADY EXISTS: account_open_positions' bybit branch already runs a roster sweep at src/units/accounts/clients.py:1410, iterating _bybit_configured_symbols(account) and issuing a per-symbol get_positions. Building it again would have been RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED. THE REAL GAP IS ONE THE LANE FOUND AND I DID NOT: the COLLAPSED READ at clients.py:1379-1381 — `size = _f(p.get('size')); if size <= 0: return` — with no counter, no log and no position_idx, so THREE venue answers become one silent value: genuinely flat / a zero-size row returned / no row returned at all. That return value feeds a live real-money close decision at order_monitor.py:4348, which makes the FIX Tier-2/3 and MINE to put to the operator — #11550 itself is Tier-1 (tests + evidence, no live-path change) and does not touch it. The 'one open parameter' sentence above is also SETTLED, not open: a symbol-scoped bybit read DOES see the symbol and returns both hedge books (MI-221 §12). Do not re-derive it.",
       "updated_at": "2026-09-10T10:00:00Z",
-      "status": "needs_redispatch_premise_is_wrong",
       "notes": [
         "2026-09-09T17:28Z — THE OPERATOR APPROVAL FOR THIS ITEM WAS RECORDED NOWHERE, AND THAT IS MY FAILURE, NOT THE BUILD LANE'S. The lane raised it on PR #11566 in as many words: 'I could not confirm the operator's approval from any repo surface ... a Tier-2 diff on the module gating a real-money close should not self-land on an approval its own repo cannot show.' They were RIGHT and they were right to refuse to self-land on it. MEASURED before writing this: this row on main carried status None, owner unassigned and ZERO notes, and the same row on my own unmerged #11547 carried the same — so the approval was not merely unmerged, it was never written down at all. I relayed it through a scheduled-trigger poke and no further. WHAT WAS APPROVED, stated so the scope is checkable rather than remembered: Tier-2, OBSERVABLE-FIRST. Make the collapsed position read at src/units/accounts/clients.py:1379-1381 COUNTABLE — the `if size <= 0: return` that discards a row with no counter, no log and no positionIdx, so that 'genuinely flat', 'a zero-size row came back' and 'no row came back at all' reach every caller as the same empty list. THE BINDING CONSTRAINT, and it is the whole basis of the approval: `account_open_positions`'s RETURN VALUE stays BYTE-IDENTICAL. That return feeds _exchange_position_set (order_monitor.py:2884) which gates the close decision at order_monitor.py:4348 on real money; if the returned set changed by one element this would be a TIER-3 change that was NOT approved. Repairing the dedupe itself is explicitly NOT in scope. PROVENANCE, stated honestly rather than dressed up: this is MY ATTESTATION of an approval the operator gave in conversation on 2026-09-09, written down after the fact. It is not a quotable operator message and no repo surface corroborates it. A future session weighing it should weigh it as that. THE PROCESS FAILURE IS THE TRANSFERABLE PART: an approval that lives only in a manager's context is, to every other session and to the manager's own successor, indistinguishable from no approval — and the cost is not abstract, it stalled a green Tier-2 PR and forced its author to publish a caveat questioning their own authority to ship. Operator feedback and operator approvals both become canon by being WRITTEN, at the moment they are relayed, not at the moment they are convenient.",
         "2026-09-09T19:43Z: #11579 (the MI-222 board-relay carrier) CLOSED by the manager on its author's own recorded disposition (needs_action: 'close PR #11579 and delete claude/mi-222-report-green branch'). Cause was pr-landing R13 - it armed auto-merge without holding merge_slot, and the slot is held for the lease heartbeat. What the close loses: 88 lines of automation/** relay inputs plus a receipt; commits and branch survive. What it does NOT lose: the board post, which board-post.yml would have failed the run over had it not succeeded. I did not independently re-read board comment 5606175880 and said so on the PR."
       ],
-      "manager_observation_20260910T1000Z": "THIS ROW READ state: ready / status: in_flight -- one of the 12 DISAGREE rows -- and BOTH halves were stale. Resolved to one truth from a live get_session read at 09:58Z: the session is SESSION_STATUS_IDLE / BUCKET_COMPLETED, so nothing is in flight; and the ITEM is not done, so it is not done either. *** THE SESSION WAS BLOCKED FOR ~3 HOURS AND NO REGISTER FIELD SHOWED IT: it sat SESSION_STATUS_REQUIRES_ACTION / BUCKET_BLOCKED from 06:55:58Z on a PENDING TOOL PERMISSION for a pull_request_read on #11579, which only that session can answer. Cost 350,930 tokens / $72.47 while stalled. *** MEASURED MECHANISM FINDING, previously UNPROVEN and now established: a create_trigger + fire_trigger POKE DOES REACH A PERMISSION-BLOCKED SESSION AND CLEARS IT. Poked 09:54Z; at 09:58Z the session read IDLE/COMPLETED with updated_at 09:57:34Z, tokens 350,930 -> 372,328 and cost $72.47 -> $77.65, i.e. it genuinely ran a turn rather than merely being re-labelled. Do not re-derive this. *** ITS REPORT, VERIFIED NOT INHERITED: it claims #11550 and #11566 merged, and both are on main (72be558d3, 985375d3f) -- checked with git rather than taken from post_turn_summary, which has been wrong in the reassuring direction twice this session. *** THE DROP THIS ROW NOW CARRIES: it reports the detector is UNSATISFIABLE AS SPECIFIED and needs a RE-DISPATCH with a corrected premise -- see the roster at src/units/accounts/clients.py:1410 and the control plant in MI-221 section 12. That is a rewrite of the brief, not a resumption, so the next session must NOT be handed the original spec."
+      "manager_observation_20260910T1000Z": "THIS ROW READ state: ready / status: in_flight -- one of the 12 DISAGREE rows -- and BOTH halves were stale. Resolved to one truth from a live get_session read at 09:58Z: the session is SESSION_STATUS_IDLE / BUCKET_COMPLETED, so nothing is in flight; and the ITEM is not done, so it is not done either. *** THE SESSION WAS BLOCKED FOR ~3 HOURS AND NO REGISTER FIELD SHOWED IT: it sat SESSION_STATUS_REQUIRES_ACTION / BUCKET_BLOCKED from 06:55:58Z on a PENDING TOOL PERMISSION for a pull_request_read on #11579, which only that session can answer. Cost 350,930 tokens / $72.47 while stalled. *** MEASURED MECHANISM FINDING, previously UNPROVEN and now established: a create_trigger + fire_trigger POKE DOES REACH A PERMISSION-BLOCKED SESSION AND CLEARS IT. Poked 09:54Z; at 09:58Z the session read IDLE/COMPLETED with updated_at 09:57:34Z, tokens 350,930 -> 372,328 and cost $72.47 -> $77.65, i.e. it genuinely ran a turn rather than merely being re-labelled. Do not re-derive this. *** ITS REPORT, VERIFIED NOT INHERITED: it claims #11550 and #11566 merged, and both are on main (72be558d3, 985375d3f) -- checked with git rather than taken from post_turn_summary, which has been wrong in the reassuring direction twice this session. *** THE DROP THIS ROW NOW CARRIES: it reports the detector is UNSATISFIABLE AS SPECIFIED and needs a RE-DISPATCH with a corrected premise -- see the roster at src/units/accounts/clients.py:1410 and the control plant in MI-221 section 12. That is a rewrite of the brief, not a resumption, so the next session must NOT be handed the original spec.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='ready' vs status='needs_redispatch_premise_is_wrong' -> state='landed_unproven'). The actual build is PR #11566 ('MI-222 Tier-2: make the collapsed position read countable -- return value byte-identical (#11566)'), confirmed MERGED on main -- distinct from PR #11579 (a board-report carrier, CLOSED not merged, which is what the stale status='needs_redispatch_premise_is_wrong' free-prose value actually referred to). No fleet observation of the new soak is on record: neither this row nor OPEN-ITEMS.json shows a soak row read back. Both state='ready' and the free-prose status were stale/wrong; resolved to landed_unproven (merged, effect not yet observed)."
     },
     {
       "id": "MI-223-PROMOTION-GATE-COUNTS-OBSERVATIONS-OF-MECHANICS-NOT-TIME-OR-TRADES",
@@ -3028,7 +3046,6 @@
       "notes": [
         "2026-09-09T23:07Z manager: SPAWNED. Registered before the spawn (pending-20260909T230624Z), confirmed after. Routed once WIP fell to 7 of 8 on #11603 merging. ⚠️ DELETING THE SECOND REGISTRY IS THE POINT — the operator was offered a parity test alone and chose the collapse over it, so a test-only delivery is not this item. ⚠️ Scoped OFF src/units/accounts/execute.py and scripts/ops/system_invariants.py, where MI-227 is live resolving a conflict."
       ],
-      "status": "in_flight",
       "manager_notes": [
         "[2026-09-09T23:45:00Z] session_01TM8XjkvVpvMxH4EcLtTsvP RUNNING at 23:41Z on claude/mi229-collapse-builder-registry, 'guards running, PR opening'. Building the COLLAPSE the operator chose, not the parity test they declined."
       ],
@@ -3039,7 +3056,8 @@
       "note": "CORRECT AS `in_flight` -- stated so a reader knows it was checked, not skipped. PR #11615 open at 2026-09-10T00:33Z: guards / pytest-collect / repo-inventory GREEN on head f606e4d4, pytest-run in flight. An earlier head failed pytest-run at 00:22:07Z and the LANE fixed it unaided. Tier-2 signal path, landing: hold -- pr-landing R4/R5 bar an src/** diff from landing itself whatever its approval state, so it waits on a MERGE CLICK and NOT on the approval, which is already recorded (chosen: collapse_to_one_registry). Do not re-ask.",
       "state_observed_at": "2026-09-10T00:33:00Z",
       "blocked_on": "",
-      "manager_note": "2026-09-10T02:48Z. Lane reports COMPLETED and is back on `main`; its PRs merged. ⚠️ `landed_unproven`, NOT `done`, and the difference is this item's whole substance: the collapse removes the DRIFT, it does not remove the BLINDNESS. 45/45 legs buildable is a claim about REGISTRATION that a harness can make; NOBODY HAS EVER RUN THE ROLLBACK, before or after. Carried by OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED (verified_at `never`). It clears on EITHER outcome — a tick observed under MULTI_STRATEGY_INTENT_LAYER=false (a Tier-2 act NOT covered by this build's approval and NOT proposed here), or a RECORDED operator decision to retire the rollback."
+      "manager_note": "2026-09-10T02:48Z. Lane reports COMPLETED and is back on `main`; its PRs merged. ⚠️ `landed_unproven`, NOT `done`, and the difference is this item's whole substance: the collapse removes the DRIFT, it does not remove the BLINDNESS. 45/45 legs buildable is a claim about REGISTRATION that a harness can make; NOBODY HAS EVER RUN THE ROLLBACK, before or after. Carried by OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED (verified_at `never`). It clears on EITHER outcome — a tick observed under MULTI_STRATEGY_INTENT_LAYER=false (a Tier-2 act NOT covered by this build's approval and NOT proposed here), or a RECORDED operator decision to retire the rollback.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='landed_unproven' vs status='in_flight' -> state='landed_unproven'). PR #11615 confirmed MERGED on main 2026-09-10T00:42:51Z (mcp__github__pull_request_read: merged=true). The row's own note ('CORRECT AS in_flight') was accurate only while the PR was open and is now stale. OPEN-ITEMS.json still carries OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED as an open row -- merged, not yet observed exercised on the fleet -- so landed_unproven, not done."
     },
     {
       "id": "MI-230-M20-EXIT-EVAL-NEAR-MISS-AND-RESTART-GAP",
@@ -4052,7 +4070,6 @@
       "id": "MI-275",
       "added": "2026-09-11",
       "lane": "research",
-      "status": "in_flight",
       "owner": "session_01WKwvhBuaYYCKbdkk7fHrpf",
       "title": "The stop-width counterfactual: would the pre-e35 2.5-ATR stop have survived the trades that stopped out",
       "owns_object": "WO-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-WOULD-THE-PRE",
@@ -4062,29 +4079,29 @@
       "manager_note_2026_09_11T2055Z": "PR #11826 OPEN, Tier-1 landing:self, armed. CI re-running on the 20:55:14Z push (3 checks in_progress). Lane session_01WKwvhBuaYYCKbdkk7fHrpf is RUNNING and connected at 515k/1M context, task_summary 'memo complete; verifying memo claims, writing index rows'. The memo's recommendation is DECLINE the e35 revert. NOT YET MERGED and not yet read by me -- it lands itself on green, and the recommendation is Tier-3 either way so the revert decision remains the operator's.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane RUNNING/connected at 696k/1M (515k an hour ago). PR #11826 open, guards + repo-inventory + pytest-collect GREEN, pytest-run in progress; no open-and-automerge run yet, so auto-merge may not be armed. PAST THE ~600k HANDOFF TRIGGER -- it should land #11826 and close out rather than open new work.",
       "manager_note_2026_09_11T2253Z": "22:53Z: RUNNING at 770k/1M on a NEW close-out branch (claude/mi275-close-out), PR #11838 open. #11826 MERGED. WELL past the handoff trigger -- closing out, correctly. NOTE: #11826 is the PR whose merge reverted SESSIONS.json's top-level keys; #11838 touches the same file, so watch for a repeat.",
-      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, PRs #11826 + #11838 + #11840 MERGED. VERDICT: the e35 revert is NOT needed -- $5.61 of risk, and the risk-reward ratio is invariant to stop width (0.02%). It also traced and corrected a contradiction in MI-271's own memo and repaired OPEN-ITEMS splice damage that #11838 had caused. This CLOSES the e35 question the operator raised."
+      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, PRs #11826 + #11838 + #11840 MERGED. VERDICT: the e35 revert is NOT needed -- $5.61 of risk, and the risk-reward ratio is invariant to stop width (0.02%). It also traced and corrected a contradiction in MI-271's own memo and repaired OPEN-ITEMS splice damage that #11838 had caused. This CLOSES the e35 question the operator raised.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='done' vs status='in_flight' -> state='done'). Manager's own latest note (00:53Z): 'lane IDLE/completed, PRs #11826 + #11838 + #11840 MERGED ... This CLOSES the e35 question the operator raised.' status='in_flight' was stale, left over from an earlier tick."
     },
     {
       "id": "MI-276",
       "added": "2026-09-11",
       "lane": "ops",
-      "status": "in_flight",
       "owner": "session_01MyUujGAQYs72UUgrfXXmFA",
       "title": "The two detectors that are owed: sustained-losing-streak, and a reader for starved_accounts",
       "owns_object": "WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED",
       "why": "Both 2026-09-11 investigations ended on the same sentence: the operator noticed before any monitor did. 16 losing days / -$36,997 unalarmed; the prop starved 12 days across four surfaces while the one correct instrument (arbitration_fanout_soak.starved_accounts) is read by nothing.",
       "manager_note": "The false-positive count IS the design evidence - MI-271 already measured N>=4 as firing exactly once per account with zero false positives, and N=3 misfiring on bybit_2 whose daily PnL is single dollars. A detector in src/runtime/** is Tier-2 and HOLDS; a reader is Tier-1 and self-lands. ARM NOTHING - building and arming are different decisions and only the first is the lane's.",
-      "state": "review_ready",
+      "state": "landed_unproven",
       "manager_note_2026_09_11T2055Z": "PR #11827 OPEN, Tier-2, landing:HOLD (hold_reason tier_2_3_needs_approval) -- THIS IS A NEW DECISION OWED TO THE OPERATOR, the fourth. Two new alert-only detectors (src/runtime/losing_streak_alert.py, src/runtime/starved_account_alert.py) called once per trader tick. NOTHING IS ARMED and nothing asks to be: both are cadence/threshold-knob only with no *_ENABLED gate, no env key set or proposed, no order path, no strategy config, no risk cap, no account mode. Tier-2 purely because the code executes inside the live trading process. 4/5 checks green at last read, pytest-run in progress. Lane is IDLE/disconnected at 541k/1M -- its deliverable is done and it is correctly parked waiting on the OK, not stalled.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 778k/1M, own check-in armed 22:42Z. PR #11827 4/4 GREEN, Tier-2 HOLD. PARKED ON THE OPERATOR'S OK, NOT STALLED -- there is nothing for the manager to unblock and nothing for the lane to do. This is the fourth decision owed to the operator.",
       "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11827 green, Tier-2 HOLD, parked on the operator.",
-      "manager_note_2026_09_12T0053Z": "00:53Z unchanged: #11827 green and HOLDING on the operator's Tier-2 OK. Lane armed its own next check at 01:28Z. Nothing for the manager to unblock."
+      "manager_note_2026_09_12T0053Z": "00:53Z unchanged: #11827 green and HOLDING on the operator's Tier-2 OK. Lane armed its own next check at 01:28Z. Nothing for the manager to unblock.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='review_ready' vs status='in_flight' -> state='landed_unproven'). PR #11827 confirmed MERGED on main 2026-09-12T05:42:30Z (mcp__github__pull_request_read: merged=true). OPEN-ITEMS.json still carries OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET as an open row -- both state='review_ready' (off-vocabulary) and status='in_flight' were stale/incomplete; resolved to landed_unproven."
     },
     {
       "id": "MI-236b",
       "added": "2026-09-11",
       "lane": "engineering",
-      "status": "in_flight",
       "owner": "session_014tHgKvnnLdpgAgGXbaHRUt",
       "title": "Decay stale in_flight work-object rows so the WIP ceiling reflects reality",
       "owns_object": "WO-20260911-DECAY-STALE-IN-FLIGHT-WORK-OBJECT-ROWS",
@@ -4094,13 +4111,13 @@
       "manager_note_2026_09_11T2055Z": "PR #11825 OPEN, Tier-1 landing:self, armed. guards + pytest-collect + repo-inventory GREEN, pytest-run in progress. Ratchet-safe by construction and measured (base=13 head=13 delta=+0). Lane session_014tHgKvnnLdpgAgGXbaHRUt is RUNNING at 562k/1M and has moved onto a THIRD branch, claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim, chasing an audit-bot false positive in manager scope-overlap. 562k is a session-handoff trigger: if mi236c does not close out inside this hour the lane should hand over rather than start a fourth thing.",
       "manager_note_2026_09_11T2153Z": "21:53Z: lane IDLE/disconnected at 708k/1M, own check-in armed 22:03Z. #11825 MERGED; #11829 (a third branch, mi236c) green with guards + pytest-collect + repo-inventory passing. The manager handed it a measured finding on #11829 -- parse_identity cannot read a session id that is present but not on line 0 -- with an explicit instruction to FILE it and not widen #11829. Past the handoff trigger.",
       "manager_note_2026_09_11T2253Z": "22:53Z unchanged: PR #11829 open and green.",
-      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, #11825 + #11829 MERGED. On the way out it flagged that claim_merge_slot.py has NO RELEASE MECHANISM -- a slot can be claimed and never handed back -- filed as BL-20260910. The next lane DISPLACES the claim rather than finding a free slot."
+      "manager_note_2026_09_12T0053Z": "00:53Z: lane IDLE/completed, #11825 + #11829 MERGED. On the way out it flagged that claim_merge_slot.py has NO RELEASE MECHANISM -- a slot can be claimed and never handed back -- filed as BL-20260910. The next lane DISPLACES the claim rather than finding a free slot.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='done' vs status='in_flight' -> state='done'). Manager's own latest note (00:53Z): 'lane IDLE/completed, #11825 + #11829 MERGED.' Detect-and-report Tier-1 change, no companion OPEN-ITEMS row found unresolved. status='in_flight' was stale."
     },
     {
       "id": "MI-277",
       "added": "2026-09-12",
       "lane": "research",
-      "status": "in_flight",
       "owner": "session_01Fm4wBus9JMSYenSFRjd71h",
       "title": "Decompose the winner-size collapse, and grade its provenance BEFORE any remedy",
       "owns_object": "WO-20260912-DECOMPOSE-THE-WINNER-SIZE-COLLAPSE-AND-GRADE",
@@ -4113,7 +4130,8 @@
       "register_recovery_2026_09_12T0112Z": "This item and its SESSIONS.json row were LOST for ~9 minutes. They were committed (49653310e) onto a branch whose PR had already armed auto-merge; #11846 squashed at the previous head and the commit never reached main. Re-applied here on a FRESH branch -- a merged PR is finished and cannot carry follow-up work. Filed as a backlog row: the hazard is documented in CLAUDE.md and was still walked into, which makes it a recurrence rather than a first offence.",
       "manager_note_2026_09_12T0152Z": "DELIVERED. PR #11848 (Tier-1, self-landing, armed): guards + pytest-collect + repo-inventory GREEN, pytest-run finishing. VERDICT: the winner-size collapse is an R COLLAPSE and every in-system mechanism tests NEGATIVE -- size REFUTED (median risk over the full book ROSE $303.60 -> $438.10; the winners-only halving is a selection effect the lane says it first misread), venue clamp REFUTED (cap_r unmoved, winners near the cap 16.7% -> 0.0%), exit levers REFUTED for this account/window, composition REFUTED (all 7 common legs fell, exact p=0.0156). Regime SUPPORTED on PRICE-FREE evidence: winner hold 5.17h -> 1.90h while LOSER hold rose, losers unchanged at ~1R, volatility +29%. !! MAGNITUDE NOT ESTABLISHED and the lane says so: -72.3% all-provenance vs -38.5% on broker-measured rows vs -81.4% standardised, n=15 pre-era measured winners, and the largest single share is netting_attributed which is 100% ESTIMATED over 39 rows -- OI-20260908's own population. It did NOT adjudicate those rows and did not advance that row's verified_at.",
       "owner_observed": "get_session 01:52Z: IDLE / review_ready, context 547623/1000000",
-      "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched."
+      "manager_note_2026_09_12T0252Z": "DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED. !! CARRIED FORWARD, because it is in the lane's closing summary and NOT in the merged memo: 'Losers-as-control show sizer & stops intact' and 'entry-side change required, outside this unit's scope'. The losers-as-control point is the strongest form of the regime finding -- the same sizer and the same stops produced unchanged ~1R losers while winners halved, so the machinery is intact and the market changed. The entry-side implication is Tier-3 and belongs to the operator; it is NOT dispatched.",
+      "mi257_resolved_2026_09_18": "Disagreement resolved (state='done' vs status='in_flight' -> state='done'). Manager's own latest note: 'DONE. #11848 merged 02:19:32Z. Lane observed COMPLETED.' status='in_flight' was stale, left over from an earlier tick."
     },
     {
       "id": "MI-288",
@@ -4158,18 +4176,19 @@
     {
       "id": "MI-289",
       "title": "The manager lease has been unrefreshable for ~17h and the cause is the same one",
-      "state": "filed",
+      "state": "queued",
       "owner": "manager",
       "opened": "2026-09-17",
       "measured": "manager_lease.py status at 2026-09-17T15:1xZ: state=expired_unverified, holder session_01HoFquGdTrD3TTGbMMRc43t, last heartbeat 1016 min ago (2026-09-16T19:10:21Z), main_ci=unknown because main's head reported ZERO check runs.",
       "⚠️_THE_HOLDER_IS_NOT_DEAD": "It is this session. The heartbeat is stale because a heartbeat commit is a register append and register appends have not been landing — not because supervision stopped. A successor reading `expired` must not infer the manager died.",
       "blocked_on": [],
-      "⚠️_THE_BACKLOG_ROW_FOR_THIS_IS_DESCRIBED_AND_NOT_NAMED_ON_PURPOSE": "A row for this class WAS filed — on the branch of #12346, which has not landed — so on `main` its id resolves to NOTHING and artifact-validity-guard correctly failed this PR for naming it (scripts/ops/check_backlog_refs.py --base origin/main, exit 1). Per CLAUDE.md a dangling id may only be DESCRIBED, never copied, because 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. THE ROW IS NOT RE-FILED HERE, deliberately: health-review-backlog.json is a second shared register, and adding it would destroy the one property that lets this commit land first time (see MI-288). WHAT IT SAYS, so a successor can find or re-file it: manager_lease.py grades `main` red off EVERY check run rather than the three REQUIRED contexts (pytest-collect, pytest-run, guards), so two non-required workflows that are routinely red make the lease read `expired_unverified` / `main_ci=unknown` permanently. Severity medium, tier 1. It lands with #12346, or is re-filed by whoever picks this up."
+      "⚠️_THE_BACKLOG_ROW_FOR_THIS_IS_DESCRIBED_AND_NOT_NAMED_ON_PURPOSE": "A row for this class WAS filed — on the branch of #12346, which has not landed — so on `main` its id resolves to NOTHING and artifact-validity-guard correctly failed this PR for naming it (scripts/ops/check_backlog_refs.py --base origin/main, exit 1). Per CLAUDE.md a dangling id may only be DESCRIBED, never copied, because 'tracked by BL-X' where BL-X was never filed reads as tracked while being tracked by nobody. THE ROW IS NOT RE-FILED HERE, deliberately: health-review-backlog.json is a second shared register, and adding it would destroy the one property that lets this commit land first time (see MI-288). WHAT IT SAYS, so a successor can find or re-file it: manager_lease.py grades `main` red off EVERY check run rather than the three REQUIRED contexts (pytest-collect, pytest-run, guards), so two non-required workflows that are routinely red make the lease read `expired_unverified` / `main_ci=unknown` permanently. Severity medium, tier 1. It lands with #12346, or is re-filed by whoever picks this up.",
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (state='filed' -> state='queued'). 'filed' is the scoping act; queued already covers 'scoped, nobody started'. No status field to reconcile."
     },
     {
       "id": "MI-290",
       "title": "CANONIZE the session-receipt format — one shape for every session, and render it on the Workflow page",
-      "state": "filed",
+      "state": "queued",
       "owner": "unassigned — needs a session; the operator asked for it to be QUEUED, not built now",
       "opened": "2026-09-17",
       "operator_directive": "2026-09-17: \"i want this format of summary cannonized so that this is what i get whenever i ask a session for a 'session receipt', and this is what should be presented on the web page (don't start now, just add it to the to-do list for the next sessions)\".",
@@ -4190,7 +4209,8 @@
         "4. A decision that is NOT pre-made here: whether the receipt is generated on demand or written at session end. On demand can measure a live session; at session end survives the session's death. Both were true of the 2026-09-17 delivery and it did not have to choose."
       ],
       "⚠️_DO_NOT_BUILD_THIS_WITHOUT_READING_THE_2026_09_17_DELIVERY": "The shape above is a summary of it, not a substitute. The delivered receipt is in this manager session's transcript and is the reference artifact.",
-      "blocked_on": []
+      "blocked_on": [],
+      "mi257_resolved_2026_09_18": "Off-vocabulary value mapped (state='filed' -> state='queued'). 'filed' is the scoping act; queued already covers 'scoped, nobody started'. No status field to reconcile."
     },
     {
       "id": "MI-291",
