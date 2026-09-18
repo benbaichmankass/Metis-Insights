@@ -110,6 +110,7 @@ import yaml  # noqa: E402
 from exit_capture import mfe_r_of  # noqa: E402  (the ONE MFE reader)
 from m20_fleet_exit_sweep import (  # noqa: E402  (the ONE leg->harness resolver)
     FAMILY_HARNESS,
+    LIVE_TP_CAPPED_FAMILIES,
     base_args,
     classify,
     harness_implements_flag,
@@ -319,6 +320,28 @@ def run_leg(leg: str, cfg: dict, *, capped: bool) -> dict[str, Any]:
         return {**base_rec, "state": "no_data",
                 "why": f"no candle file for {sym}/{tf} under data/"}
 
+    # ⚠️ ADDED 2026-09-18 BY MI-312, AND IT IS A CORRECTION TO THIS FUNCTION'S
+    # PREMISE, not a new feature. This function asked only whether the HARNESS
+    # implements `--tp-cap-pct`, and treated a yes as licence to build a
+    # "capped / live-comparable" arm. That is sound only where the leg's LIVE
+    # unit actually clamps. `scalp` and `fvg` are absent from
+    # `LIVE_TP_CAPPED_FAMILIES` — measured: `TP_VENUE_CAP_PCT` is applied in
+    # exactly four unit modules and nowhere downstream — so for those families
+    # a capped arm is a COUNTERFACTUAL and the DEFAULT arm is already parity
+    # (`m20_fleet_exit_sweep.tp_geometry_for` calls it `live_parity_uncapped`).
+    #
+    # Until MI-312 this was unreachable and therefore harmless: neither harness
+    # implemented the flag, so those legs stopped at `not_capped_capable` below.
+    # MI-312 added the flag to both, which would have made this function pass a
+    # cap to a scalp leg and label the result live-comparable — a provenance the
+    # run does not have. Gating on the family keeps the label honest.
+    if capped and fam not in LIVE_TP_CAPPED_FAMILIES:
+        return {**base_rec, "state": "capped_arm_not_applicable",
+                "why": f"family {fam!r} applies no venue clamp live, so a capped "
+                       "arm would be a counterfactual rather than the live book; "
+                       "the UNCAPPED arm is this family's live parity. The "
+                       "target-setting arm it does need is MI-312's --no-tp "
+                       "(scripts/research/mi312_scalp_target_arms.py)"}
     implements = harness_implements_flag(harness, "--tp-cap-pct")
     if implements is False:
         return {**base_rec, "state": "not_capped_capable",
@@ -490,9 +513,20 @@ def selftest() -> int:
 
     # 14 — the scalp family must NOT report `no_data` when its candles exist.
     # This is the state that would otherwise read as a feed limit it is not.
-    check("14 harness_implements_flag reads the SOURCE for --tp-cap-pct",
+    # ⚠️ RE-POINTED 2026-09-18 BY MI-312. This asserted
+    # `harness_implements_flag(scalp, "--tp-cap-pct") is False`, which was the
+    # live negative when written and which MI-312 made false by adding the flag
+    # to both scalp and fvg. The CHECK'S INTENT is unchanged and is what
+    # matters: the reader must return BOTH a True and a False from reading real
+    # harness source, so a mutation that hardcodes either answer is caught. The
+    # negative is now `--no-tp` on the donchian harness, which genuinely does
+    # not implement it (it needs none — `--tp-cap-pct 0` is its uncapped arm).
+    check("14 harness_implements_flag reads the SOURCE, returning both True and False",
           harness_implements_flag(FAMILY_HARNESS["donchian"], "--tp-cap-pct") is True
-          and harness_implements_flag(FAMILY_HARNESS["scalp"], "--tp-cap-pct") is False)
+          and harness_implements_flag(FAMILY_HARNESS["donchian"], "--no-tp") is False)
+    check("14b a non-clamping family gets no capped arm (MI-312)",
+          "scalp" not in LIVE_TP_CAPPED_FAMILIES
+          and "fvg" not in LIVE_TP_CAPPED_FAMILIES)
 
     print("SELFTEST PASS" if ok else "SELFTEST FAIL")
     return 0 if ok else 1

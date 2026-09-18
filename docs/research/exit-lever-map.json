@@ -1,6 +1,6 @@
 {
   "_doc": "THE RECORDED MAP from exit-relevant harness FLAG to M20 coverage-matrix LEVER COLUMN. It exists to satisfy BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED's first criterion -- 'every exit-relevant harness flag maps to a matrix column OR a recorded n/a with a reason' -- and it is checked, not merely written: scripts/ops/exit_lever_map.py re-enumerates the harnesses and FAILS on any candidate flag this file does not cover, so it cannot silently go stale as flags are added. ⚠️ THREE STATES, NEVER COLLAPSED. `mapped_to_column` is a lever the matrix already grades. `recorded_na` is a flag that is NOT an exit lever, with the reason stated -- the criterion's own escape hatch. `needs_column` is the finding: an exit lever the matrix CANNOT express, which is neither of the other two and must not be filed as either. Collapsing needs_column into recorded_na would make the gap disappear by wording.",
-  "updated_at": "2026-09-12",
+  "updated_at": "2026-09-18",
   "population": {
     "harnesses": {
       "donchian": "scripts/backtest_trend.py",
@@ -44,7 +44,7 @@
     "--tp-cap-pct": {
       "state": "mapped_to_column",
       "column": "bracket_geometry",
-      "note": "LIVE-PARITY take-profit -- min(entry*(1+pct), entry + tp_r*risk). Production uses 0.099."
+      "note": "LIVE-PARITY take-profit on a CLAMPING family -- min(entry*(1+pct), entry + tp_r*risk). Production uses 0.099. ⚠️ ITS MEANING IS FAMILY-DEPENDENT AND THE TWO ARE OPPOSITE (corrected 2026-09-18, MI-312). On trend/pullback/squeeze the harness has no other source of a target, so no flag means NO take-profit and the flag is live parity. On backtest_ict_scalp.py and backtest_fvg_range.py the target comes from the strategy, whose live unit applies NO clamp -- scalp and fvg are absent from tp_venue_cap.CLAMPING_FAMILIES -- so there the DEFAULT is live parity and this flag is a COUNTERFACTUAL that departs from it. Measured on BTCUSDT 5m (n=45): a 0.099 cap was inert on 45 of 45 scalp trades, because a 1.5R target sits at ~0.95% of entry against a 9.9% clamp."
     },
     "--stale-exit-bars": {
       "state": "mapped_to_column",
@@ -135,6 +135,10 @@
     "--be-arm-on-touch": {
       "state": "needs_column",
       "reason": "ict_scalp only. Its own help says it is 'only meaningful with --sim-breakeven', so it is arguably a SUB-KNOB of that lever rather than a column of its own -- recorded here as needs_column so the decision is made explicitly rather than by omission. Whoever adds the breakeven column should decide whether the arming rule is a second cell or a parameter of the first."
+    },
+    "--no-tp": {
+      "state": "recorded_na",
+      "reason": "A measurement-FIDELITY knob, not a lever -- the same class as --exit-grain. It DISABLES the strategy's own take-profit so the harness can observe an excursion the live target would have truncated, which is what makes a target-setting MFE distribution possible at all (MI-312). It changes what the HARNESS can see, never what production does: production always has its target, so there is no production state this flag corresponds to and a matrix column would assert one. Declared by backtest_ict_scalp.py and backtest_fvg_range.py only, because those two get their target from the strategy itself; the trend/pullback/squeeze harnesses need no such flag since --tp-cap-pct 0 already leaves them with no target."
     }
   },
   "summary_2026_09_12": {
