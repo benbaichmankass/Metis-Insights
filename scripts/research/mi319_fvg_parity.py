@@ -389,9 +389,18 @@ def live_decision(df, i: int, cfg: Dict[str, Any], *, window: Optional[int]):
 def probe_behavioural(mod, df, params: Dict[str, Any], cfg: Dict[str, Any], *,
                       exit_style: str, window: Optional[int],
                       max_bars: Optional[int] = None) -> Dict[str, Any]:
+    # ⚠️ NARROW, AND THAT IS THE POINT RATHER THAN A CONCESSION TO THE GUARD.
+    # These are the errors a harness run can legitimately produce on an input this
+    # instrument chose (a bad `exit_style`, a frame missing a column, a degenerate
+    # slice) and they genuinely mean *we could not run it*. ANYTHING ELSE MUST
+    # CRASH: a bug in this module graded `could_not_run` would read, to anyone
+    # looking at the artifact, exactly like a harness that declined — and
+    # `could_not_run` is one of the never-collapsed states this whole module is
+    # about. `silent-empty-guard` flagged the broad form and was right to.
     try:
         h = harness_entries(mod, df, params, exit_style=exit_style)
-    except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+    except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError,
+            ArithmeticError, OSError) as exc:
         return {"state": P2_COULD_NOT_RUN, "reason": f"harness: {type(exc).__name__}: {exc}"}
     needed = max(int(params["range_lookback"]), int(params["atr_period"]),
                  int(params["adx_period"])) + 3
@@ -472,10 +481,13 @@ def probe_input_seam(df, *, adx_period: int, adx_max: float,
     copy of the formula could drift from both of the ones being compared, which
     is the defect this whole unit is about, one level up.
     """
+    # Narrow for the same reason as `probe_behavioural` above: a missing OHLC
+    # column or a non-numeric frame is *we could not measure*; a defect in this
+    # module is not, and must not be able to wear that label.
     try:
         import numpy as np
         full = LIVE._adx(df, adx_period).shift(1).to_numpy(dtype=float)
-    except Exception as exc:  # noqa: BLE001
+    except (ValueError, KeyError, TypeError, IndexError, ArithmeticError) as exc:
         return {"state": P3_COULD_NOT_MEASURE, "reason": f"{type(exc).__name__}: {exc}"}
     out: Dict[str, Any] = {"adx_period": adx_period, "adx_max": adx_max, "windows": {}}
     worst_state = P3_CONVERGED
